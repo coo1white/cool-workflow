@@ -226,6 +226,13 @@ The archive file itself is one JSON document: `{ schemaVersion: 1, exportedAt, s
 
 Import throw messages (byte-pinned, src/run-export.ts:814-823): `Archive digest mismatch for <p>: expected <e>, got <a>`, `Archive size mismatch for <p>: expected <e>, got <a>`, `Archive file count mismatch: expected <e>, got <a>`, `Archive manifest digest mismatch: expected <e>, got <a>`, `Archive base64 invalid for <p>: <detail>`, `Archive verification failed: <name>`. Also: `Unsupported export schema version: <n>` (run-export.ts:161), `Invalid run export: missing run object` (166), `Run id escapes the runs directory: <json id>` (176), `Archive file escapes restore directory: <p>` (186), `Invalid archive relative path: <p>` (905), `Archive integrity block required but absent (CW_REQUIRE_ARCHIVE_INTEGRITY=1)` (832).
 
+`run restore` uses `restoreRunAtomically`: import into a same-disk staging
+tree, run file, chain, and run-state checks, put final paths into staged
+`state.json`, then rename the run directory into `.cw/runs/<id>`. A failed check returns
+`imported:null`; a write fault removes staging; an existing final run is
+refused. The registry refresh runs only after publish. Low-level `run import`
+keeps its report-only chain result.
+
 ### Report bundle verify
 
 `ReportBundleVerification` keys (src/run-export.ts:444-459,610-635): `schemaVersion` (1), `archivePath`, `runId`, `ok`, `archiveOk`, `telemetryVerified`, `trustAuditVerified`, `trustKeySource` (`"bundle"|"argument"|"environment"|"none"`), `signatureKeyProvided`, `signaturesChecked`, `signaturesReverified`, `signaturesFailed`, `trustLevel` (`"signed"|"unsigned"`), `reportFindingsVerified`, `reportExtractedTo?`, `failedChecks[]` (`{ name, code? }`). Extra failure codes: `restore` (with the throw message as code), `signatures`/`signature-key-required`, `signatures`/`signatures-required`, `extract-report`/`path-outside-working-directory`, `extract-report`/`report-md-unavailable`, `report-findings`/`result-missing:<taskId>`, `result-digest-mismatch:<taskId>`, `report-result-mismatch:<taskId>` (src/run-export.ts:542-608).

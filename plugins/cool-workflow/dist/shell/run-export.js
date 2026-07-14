@@ -44,6 +44,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.exportRun = exportRun;
 exports.importRun = importRun;
+exports.restoreRunAtomically = restoreRunAtomically;
 exports.verifyImportedRun = verifyImportedRun;
 exports.inspectArchive = inspectArchive;
 exports.importManifestPath = importManifestPath;
@@ -163,6 +164,66 @@ function importRun(exportPath, targetDir) {
         verifyCommand: `cw run verify-import ${run.id} --cwd ${targetDir} --json`,
         verification,
     };
+}
+/** Restore through a same-disk staging tree, then publish the checked run with
+ *  one rename. Low-level import keeps its old report-only chain behavior. */
+function restoreRunAtomically(exportPath, targetDir) {
+    const physicalTarget = path.resolve(targetDir);
+    fs.mkdirSync(physicalTarget, { recursive: true });
+    const stageRoot = fs.mkdtempSync(path.join(physicalTarget, ".cw-restore-"));
+    let publishedRunDir;
+    try {
+        const staged = importRun(exportPath, stageRoot);
+        const finalRunDir = path.join(targetDir, ".cw", "runs", staged.run.id);
+        const physicalFinalRunDir = path.resolve(finalRunDir);
+        const stagedVerification = rebaseVerificationPaths(staged.verification, staged.run.paths.runDir, finalRunDir);
+        if (!staged.verification.ok)
+            return { imported: null, verification: stagedVerification };
+        if (fs.existsSync(physicalFinalRunDir)) {
+            throw new Error(`Refusing to overwrite existing restored run: ${staged.run.id}`);
+        }
+        const finalPaths = (0, run_paths_1.createRunPaths)(finalRunDir);
+        const finalRun = rebaseRun(staged.run, {
+            oldRunDir: staged.run.paths.runDir,
+            newRunDir: finalRunDir,
+            oldCwd: stageRoot,
+            newCwd: targetDir,
+            paths: finalPaths,
+        });
+        (0, fs_atomic_1.writeJson)(staged.run.paths.state, finalRun, { durable: true });
+        const stateCheck = (0, run_store_1.checkRunStateFile)(staged.run.paths.state);
+        if (stateCheck.report.status === "unsupported") {
+            throw new Error(`Restore state validation failed: ${stateCheck.report.errors.join("; ") || "unsupported run state"}`);
+        }
+        fs.mkdirSync(path.dirname(physicalFinalRunDir), { recursive: true });
+        fs.renameSync(path.resolve(staged.run.paths.runDir), physicalFinalRunDir);
+        publishedRunDir = physicalFinalRunDir;
+        const verification = verifyImportedRun(finalRun);
+        if (!verification.ok) {
+            fs.rmSync(physicalFinalRunDir, { recursive: true, force: true });
+            publishedRunDir = undefined;
+            return { imported: null, verification };
+        }
+        return {
+            imported: {
+                run: finalRun,
+                runDir: finalRunDir,
+                statePath: finalPaths.state,
+                manifestPath: importManifestPath(finalRun),
+                verifyCommand: `cw run verify-import ${finalRun.id} --cwd ${targetDir} --json`,
+                verification,
+            },
+            verification,
+        };
+    }
+    catch (error) {
+        if (publishedRunDir)
+            fs.rmSync(publishedRunDir, { recursive: true, force: true });
+        throw error;
+    }
+    finally {
+        fs.rmSync(stageRoot, { recursive: true, force: true });
+    }
 }
 /** Verify an imported run against its restore manifest and telemetry
  *  chain. */
@@ -733,6 +794,16 @@ function rebaseRun(source, context) {
         }
         : cloned.audit;
     return cloned;
+}
+function rebaseVerificationPaths(result, oldRunDir, newRunDir) {
+    const replace = (value) => value === oldRunDir || value.startsWith(oldRunDir + path.sep)
+        ? newRunDir + value.slice(oldRunDir.length)
+        : value;
+    return {
+        ...result,
+        manifestPath: replace(result.manifestPath),
+        checks: result.checks.map((check) => ({ ...check, ...(check.path ? { path: replace(check.path) } : {}) })),
+    };
 }
 function deepRebase(value, context) {
     if (typeof value === "string")

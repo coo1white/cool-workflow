@@ -16,7 +16,7 @@ import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version";
 import { WorkflowRun } from "../core/state/types";
 import { assertSafeRunId, isContainedPath, readJson, writeJson } from "./fs-atomic";
 import { createRunPaths } from "../core/state/run-paths";
-import { ensureRunDirs, saveCheckpoint } from "./run-store";
+import { checkRunStateFile, ensureRunDirs, saveCheckpoint } from "./run-store";
 import { verifyTelemetryLedger } from "./telemetry-ledger-io";
 import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation";
 import { verifyTrustAudit } from "./trust-audit";
@@ -66,6 +66,11 @@ export interface ImportResult {
   statePath: string;
   manifestPath: string;
   verifyCommand: string;
+  verification: RestoreVerificationResult;
+}
+
+export interface AtomicRestoreResult {
+  imported: ImportResult | null;
   verification: RestoreVerificationResult;
 }
 
@@ -223,6 +228,65 @@ export function importRun(exportPath: string, targetDir: string): ImportResult {
     verifyCommand: `cw run verify-import ${run.id} --cwd ${targetDir} --json`,
     verification,
   };
+}
+
+/** Restore through a same-disk staging tree, then publish the checked run with
+ *  one rename. Low-level import keeps its old report-only chain behavior. */
+export function restoreRunAtomically(exportPath: string, targetDir: string): AtomicRestoreResult {
+  const physicalTarget = path.resolve(targetDir);
+  fs.mkdirSync(physicalTarget, { recursive: true });
+  const stageRoot = fs.mkdtempSync(path.join(physicalTarget, ".cw-restore-"));
+  let publishedRunDir: string | undefined;
+  try {
+    const staged = importRun(exportPath, stageRoot);
+    const finalRunDir = path.join(targetDir, ".cw", "runs", staged.run.id);
+    const physicalFinalRunDir = path.resolve(finalRunDir);
+    const stagedVerification = rebaseVerificationPaths(staged.verification, staged.run.paths.runDir, finalRunDir);
+    if (!staged.verification.ok) return { imported: null, verification: stagedVerification };
+    if (fs.existsSync(physicalFinalRunDir)) {
+      throw new Error(`Refusing to overwrite existing restored run: ${staged.run.id}`);
+    }
+
+    const finalPaths = createRunPaths(finalRunDir);
+    const finalRun = rebaseRun(staged.run, {
+      oldRunDir: staged.run.paths.runDir,
+      newRunDir: finalRunDir,
+      oldCwd: stageRoot,
+      newCwd: targetDir,
+      paths: finalPaths,
+    });
+    writeJson(staged.run.paths.state, finalRun, { durable: true });
+    const stateCheck = checkRunStateFile(staged.run.paths.state);
+    if (stateCheck.report.status === "unsupported") {
+      throw new Error(`Restore state validation failed: ${stateCheck.report.errors.join("; ") || "unsupported run state"}`);
+    }
+    fs.mkdirSync(path.dirname(physicalFinalRunDir), { recursive: true });
+    fs.renameSync(path.resolve(staged.run.paths.runDir), physicalFinalRunDir);
+    publishedRunDir = physicalFinalRunDir;
+
+    const verification = verifyImportedRun(finalRun);
+    if (!verification.ok) {
+      fs.rmSync(physicalFinalRunDir, { recursive: true, force: true });
+      publishedRunDir = undefined;
+      return { imported: null, verification };
+    }
+    return {
+      imported: {
+        run: finalRun,
+        runDir: finalRunDir,
+        statePath: finalPaths.state,
+        manifestPath: importManifestPath(finalRun),
+        verifyCommand: `cw run verify-import ${finalRun.id} --cwd ${targetDir} --json`,
+        verification,
+      },
+      verification,
+    };
+  } catch (error) {
+    if (publishedRunDir) fs.rmSync(publishedRunDir, { recursive: true, force: true });
+    throw error;
+  } finally {
+    fs.rmSync(stageRoot, { recursive: true, force: true });
+  }
 }
 
 /** Verify an imported run against its restore manifest and telemetry
@@ -810,6 +874,17 @@ function rebaseRun(
       }
     : cloned.audit;
   return cloned;
+}
+
+function rebaseVerificationPaths(result: RestoreVerificationResult, oldRunDir: string, newRunDir: string): RestoreVerificationResult {
+  const replace = (value: string): string => value === oldRunDir || value.startsWith(oldRunDir + path.sep)
+    ? newRunDir + value.slice(oldRunDir.length)
+    : value;
+  return {
+    ...result,
+    manifestPath: replace(result.manifestPath),
+    checks: result.checks.map((check) => ({ ...check, ...(check.path ? { path: replace(check.path) } : {}) })),
+  };
 }
 
 function deepRebase(value: unknown, context: { oldRunDir: string; newRunDir: string; oldCwd: string; newCwd: string; externalPathMap?: Map<string, string> }): unknown {

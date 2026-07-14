@@ -100,7 +100,10 @@ function runRestoreCli(archivePath, args) {
     if (!inspect.ok) {
         return { schemaVersion: 1, ok: false, target, inspect, imported: null, verify: null, registry: null };
     }
-    const imported = (0, run_export_1.importRun)(resolvedArchive, target);
+    const restored = (0, run_export_1.restoreRunAtomically)(resolvedArchive, target);
+    if (!restored.imported) {
+        return { schemaVersion: 1, ok: false, target, inspect, imported: null, verify: restored.verification, registry: null };
+    }
     const registry = new run_registry_io_1.RunRegistry(target).refresh({ scope: "repo" });
-    return { schemaVersion: 1, ok: imported.verification.ok, target, inspect, imported: imported.run, verify: imported.verification, registry };
+    return { schemaVersion: 1, ok: true, target, inspect, imported: restored.imported.run, verify: restored.verification, registry };
 }
