@@ -41,6 +41,7 @@ A registry keyword (`drive`, `search`, `list`, `show`, `resume`, `archive`, `rer
 - `CW_HOME` — home registry root for the doctor check; default `$HOME/.local/state/cool-workflow` (src/doctor.ts:134-136).
 - `CW_AGENT_ATTEST_PUBKEY` — default trust key for `run export` / bundle verify (src/capability-core.ts:291, src/run-export.ts:488-491).
 - `CW_REQUIRE_ARCHIVE_INTEGRITY` — `1|true|yes|on` (case-free) makes import refuse, and inspect fail, an archive with no `integrity` block (src/run-export.ts:361-363,831-833).
+- `CW_MAX_RUN_ARCHIVE_BYTES`, `CW_MAX_RUN_ARCHIVE_FILES`, `CW_MAX_RUN_ARCHIVE_CONTENT_BYTES` — optional positive safe integer archive intake limits for raw bytes, normalized rows, and decoded content bytes. Bad values and over-limit input fail before a restore write; unset keeps present behavior.
 - `CW_WORKBENCH_TOKEN` — when set, every Workbench HTTP request must carry it as `Authorization: Bearer` or `?token=`; checked with a timing-safe compare; 401 on a bad token (src/workbench-host.ts:110-122).
 
 ### Exported functions (module surface)
@@ -220,7 +221,7 @@ The archive file itself is one JSON document: `{ schemaVersion: 1, exportedAt, s
 
 `cw run verify-import` prints `{ runId, ok, manifestPath, checkedFiles, checks[] }`; each check is `{ name, pass, code?, path?, expected?, actual? }`. Check names and codes: `import-manifest` (`missing-import-manifest`, `invalid-import-manifest`, `run-id-mismatch`, `manifest-digest-mismatch`), `archive-file` (`path-escape`, `missing-file`, `digest-mismatch`), `archive-files` (`archive-files-invalid`), `telemetry-ledger` (`telemetry-ledger-invalid`), `trust-audit` (`trust-audit-invalid`) (src/run-export.ts:229-316).
 
-`cw run inspect-archive` prints `{ schemaVersion, archivePath, ok, schemaSupported, runId, fileCount, manifestSha256, archiveSha256, checks[] }`. Extra codes: `archive-unreadable`, `archive-invalid-json`, `unsupported-schema`, `archive-malformed`, `archive-bad-base64`, `size-mismatch`, `file-count-mismatch`, `archive-integrity-required` (src/run-export.ts:321-378,776-810).
+`cw run inspect-archive` prints `{ schemaVersion, archivePath, ok, schemaSupported, runId, fileCount, manifestSha256, archiveSha256, checks[] }`. Extra codes: `archive-unreadable`, `archive-invalid-json`, `unsupported-schema`, `archive-malformed`, `archive-bad-base64`, `size-mismatch`, `file-count-mismatch`, `archive-integrity-required`, `archive-limit-invalid`, `archive-limit-raw-bytes`, `archive-limit-file-count`, `archive-limit-content-bytes`.
 
 `cw run restore` prints `{ schemaVersion: 1, ok, target, inspect, imported|null, verify|null, registry|null }`; on a bad inspect nothing is imported and the three tail fields are `null` (src/capability-core.ts:329-387).
 

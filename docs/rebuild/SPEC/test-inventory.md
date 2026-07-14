@@ -284,7 +284,7 @@ Each line: what the file pins. The file itself is the evidence (header comment, 
 - `sched-policy-validation-smoke.js` — `cw sched policy set` fails closed on a non-numeric flag instead of silently taking the default.
 - `schedule-routine-daemon-smoke.js` — the scheduler: routines create/list/fire and the daemon tick over a temp `CW_HOME`.
 
-### export-bundle (portable runs, verify) — 12
+### export-bundle (portable runs, verify) — 13
 
 - `quickstart-bundle-smoke.js` — `cw quickstart ... --bundle`: one command seals a COMPLETE drive into a self-verified portable bundle.
 - `report-bundle-smoke.js` — `cw report bundle <run>` exports a sealed bundle, self-verifies it offline, and fails closed if the artifact would not verify.
@@ -295,6 +295,7 @@ Each line: what the file pins. The file itself is the evidence (header comment, 
 - `run-export-restore-resume-smoke.js` — a PARTIAL run: export, restore, digest-verify, then continue from the restored state.
 - `run-import-path-traversal-smoke.js` — a crafted archive run id cannot write outside the runs dir (zip-slip class refused).
 - `run-import-canonical-table-smoke.js` — archive file rows are checked and unique before inspect, import, or restore writes state.
+- `run-archive-intake-limits-smoke.js` — operator-set archive intake limits fail before import writes state; equal limits pass.
 - `run-import-tamper-failclosed-smoke.js` — a tampered archive: non-zero exit, one `cw:` stderr line, silent stdout, NOTHING written (checks run before any write).
 - `run-inspect-archive-smoke.js` — `run inspect-archive PATH` re-proves every digest/size, the manifest, the whole-file sha256, writes nothing, never throws.
 - `run-restore-failclosed-smoke.js` — `cw run restore <archive>` checks in staging, publishes with one rename, and leaves no final run on chain, collision, or write failure.
