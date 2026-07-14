@@ -133,6 +133,48 @@ Keep these items in `docs/BACKLOG.md` until new evidence changes their value:
 - A formatter, directory moves, a model SDK, or a runtime dependency.
 - `commitMessageTemplate`: it has no real reader.
 
+## Security Work Map
+
+This work starts from the threat model in `.github/SECURITY.md`. It keeps the
+same small control plane and does not add an auth server, model SDK, or runtime
+package.
+
+### 1. Canonical Archive File Table
+
+Status: complete in PR #513.
+
+Archive paths and rows are checked before a write. Paths have to be portable
+and unique. Unknown roles, unsafe sizes, bad sha256 values, and reserved run
+files fail closed. Clean archive bytes and success output stay the same.
+
+### 2. Atomic Restore Publish
+
+Status: planned.
+
+`run restore` will make and check state in a same-disk staging place. It will
+publish the run with one directory rename only after every check passes. A bad
+check or an existing final run will leave the final path as it was.
+
+### 3. Archive Intake Limits
+
+Status: planned.
+
+Three opt-in environment settings will give an operator a raw archive byte
+limit, a file count limit, and a decoded content byte limit. With no setting,
+present behavior stays the same.
+
+### 4. MCP Tool Authority Policy
+
+Status: planned.
+
+Two opt-in environment settings will give the MCP server an enabled tool list
+and a disabled tool list. The disabled list has the last word. With no setting,
+the present `tools/list` bytes and tool access stay the same.
+
+After these cycles, run the Track A, B, and C product proofs again. A proof
+failure becomes the next one-goal cycle. Do not start more inside-only security
+work without such evidence.
+
 ## Release Rules
 
 - Do not add a CLI command, MCP tool, flag, JSON field, or runtime dependency
