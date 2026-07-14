@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-07-14 by `npm run sync:projec
 - Source modules: `152`
 - Workflow apps: `8`
 - Docs: `58`
-- Smoke tests: `246`
+- Smoke tests: `247`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -395,6 +395,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [mcp-tool-call-coverage-smoke.js](../test/mcp-tool-call-coverage-smoke.js)
 - [mcp-tool-call-error-isresult-smoke.js](../test/mcp-tool-call-error-isresult-smoke.js)
 - [mcp-tool-process-lifecycle-smoke.js](../test/mcp-tool-process-lifecycle-smoke.js)
+- [mcp-tool-shutdown-containment-smoke.js](../test/mcp-tool-shutdown-containment-smoke.js)
 - [mcp-untrusted-content-advisory-smoke.js](../test/mcp-untrusted-content-advisory-smoke.js)
 - [metrics-summary-limit-smoke.js](../test/metrics-summary-limit-smoke.js)
 - [missing-artifact-gate-live-smoke.js](../test/missing-artifact-gate-live-smoke.js)

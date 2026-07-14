@@ -335,6 +335,22 @@ export function startServer(): void {
   process.stdin.setEncoding("utf8");
   const tools = new ToolProcessExecutor();
 
+  // EOF is a normal protocol close: keep the queue alive so a client which
+  // sent a batch and then closed stdin still gets its ordered replies. A
+  // process stop is different. Stop the child before giving the same signal
+  // back to the parent, so a child in a synchronous lock wait cannot wake up
+  // later and write state after its MCP parent is gone.
+  const stopForSignal = (signal: NodeJS.Signals): void => {
+    const stop = (): void => {
+      tools.close();
+      process.removeListener(signal, stop);
+      process.kill(process.pid, signal);
+    };
+    process.once(signal, stop);
+  };
+  stopForSignal("SIGINT");
+  stopForSignal("SIGTERM");
+
   let buffer = "";
   // True while the REST of an oversize line is still streaming in: emit one
   // -32700 for the whole line and skip everything up to its terminating

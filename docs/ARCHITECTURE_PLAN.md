@@ -178,6 +178,27 @@ After these cycles, run the Track A, B, and C product proofs again. A proof
 failure becomes the next one-goal cycle. Do not start more inside-only security
 work without such evidence.
 
+## Robustness Work Map
+
+### 1. MCP Tool Shutdown Containment
+
+Status: complete in the MCP tool shutdown containment cycle.
+
+The MCP parent already answers `ping` while a tool child waits on a file lock.
+On `SIGINT` or `SIGTERM`, it must also stop that child before the parent ends.
+The child must not wake later and write state. Normal stdin end keeps its old
+ordered queue drain rule.
+
+The held schedule-lock proof passed for both stop signals. No late schedule
+write was made after the lock was freed. A new MCP server then answered ping.
+
+### Stop Rule
+
+After this proof, stop robustness work. Keep `withFileLockAsync` parked unless
+a real product proof finds that a tool cannot stop, takes too long to stop, or
+leaves bad state. A later change must first name the exact lock and write path,
+and define sync and async re-entry before it changes a call chain.
+
 ## Release Rules
 
 - Do not add a CLI command, MCP tool, flag, JSON field, or runtime dependency

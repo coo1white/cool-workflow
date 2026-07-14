@@ -92,3 +92,17 @@ no state write.
 The main release check, CodeQL, gitleaks, and the four protected CI checks
 passed. The checked diff adds no runtime dependency and keeps the default MCP
 surface unchanged.
+
+## MCP Robustness Check
+
+Result: PASS.
+
+The MCP parent was given `SIGINT` and `SIGTERM` while its tool child waited on
+a held schedule lock. In both cases the parent ended by the same signal. When
+the lock was freed, the old child made no schedule write. A new server then
+answered ping.
+
+Codex CLI accepted the stdio MCP setup in a temporary config. Claude Code
+reported the same server as connected from a temporary config. The temporary
+configs were then removed. The normal MCP tool list and call proof stayed in
+the smoke set. No user or machine data is kept in this record.
