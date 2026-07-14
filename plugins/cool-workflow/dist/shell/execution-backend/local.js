@@ -31,6 +31,7 @@ function messageOf(error) {
 exports.CW_NEVER_FORWARD_ENV = new Set([
     "CW_RELEASE_VERDICT_PRIVKEY", // release verdict signing key — release-flow.js only
     "CW_WORKBENCH_TOKEN", // workbench HTTP bearer token — workbench-host.ts only
+    "CW_BENCH_TRACE_FILE", // benchmark trace path — parent drive only
 ]);
 function buildChildEnv(policy, baseEnv = process.env) {
     // deny must win regardless of inherit: a custom profile combining

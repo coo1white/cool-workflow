@@ -236,6 +236,22 @@ time, default cache use, agent count, phase order, output, or replay records.
 CI feedback work starts only after a measured cold-path change. It must keep
 the test set and protected checks the same.
 
+### 3. Cold Path Proof
+
+Status: complete; no safe next change meets the 630ms goal.
+
+The benchmark runner now has an opt-in trace report. It gives per-round time,
+self time, durable write count, and durable write bytes for dispatch, agent
+wait, settlement, report, and checkpoint work. Old calls keep their CSV stdout
+and JSON report bytes.
+
+Five clean Node 22 runs gave a 783ms median cold drive. Agent wait was 269ms,
+but it covers four batch children and does not prove that one safe change can
+save 200ms. The trace saw 34 durable writes (1.33MB); they hold state,
+telemetry, and audit facts. No single safe part has the needed room. Stop this
+line here. A later cycle needs a new proof, or a clear product decision to
+change the execution or durable-state contract.
+
 ## Release Rules
 
 - Do not add a CLI command, MCP tool, flag, JSON field, or runtime dependency

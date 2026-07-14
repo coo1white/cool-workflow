@@ -79,6 +79,7 @@ const reporter_1 = require("./reporter");
 const fs_atomic_1 = require("./fs-atomic");
 const observability_1 = require("./observability");
 const telemetry_attestation_1 = require("../core/trust/telemetry-attestation");
+const perf_trace_1 = require("./perf-trace");
 /** Total RECORDED tokens across the run's attested units, reading the
  *  agent-reported usage through normalizeReportedUsage so a hop that
  *  reported snake_case buckets (`input_tokens`/`output_tokens`, the shape
@@ -807,11 +808,11 @@ function driveConcurrentRound(ctx, limit) {
             .filter((task) => phaseTaskIds.has(task.id) && (task.status === "pending" || task.status === "running"))
             .slice(0, width)
             .map((task) => task.id);
-        const prepared = prepareConcurrentOutcomes(ctx, batch);
+        const prepared = (0, perf_trace_1.withPerfTraceGroup)("dispatch", () => prepareConcurrentOutcomes(ctx, batch));
         const steps = [];
         // Settlement is also local and synchronous. Flush the complete audit
         // group before the existing round checkpoint, never across it.
-        (0, trust_audit_1.withTrustAuditBatch)(loadRun(ctx), () => {
+        (0, perf_trace_1.withPerfTraceGroup)("settlement", () => (0, trust_audit_1.withTrustAuditBatch)(loadRun(ctx), () => {
             for (const taskId of batch) {
                 const failStep = prepared.failSteps.get(taskId);
                 if (failStep) {
@@ -827,12 +828,12 @@ function driveConcurrentRound(ctx, limit) {
                     continue;
                 steps.push(processSelectedTask(ctx, taskId, prepared.outcomes.get(taskId), true));
             }
-        });
+        }));
         if (steps.length > 0) {
             const settledRun = loadRun(ctx);
-            (0, commit_1.commitState)(settledRun, `concurrent-round:${batch.length}-tasks`);
-            (0, report_1.writeReport)(settledRun);
-            (0, run_store_1.saveCheckpoint)(settledRun);
+            (0, perf_trace_1.withPerfTraceGroup)("checkpoint", () => (0, commit_1.commitState)(settledRun, `concurrent-round:${batch.length}-tasks`));
+            (0, perf_trace_1.withPerfTraceGroup)("report", () => (0, report_1.writeReport)(settledRun));
+            (0, perf_trace_1.withPerfTraceGroup)("checkpoint", () => (0, run_store_1.saveCheckpoint)(settledRun));
         }
         return steps.length > 0 ? steps : [driveStep(ctx)];
     });
@@ -927,7 +928,7 @@ function driveOneRound(ctx, options, steps, emitPhaseProgress) {
     // re-read+re-parse state.json even though nothing on disk changed
     // between them — reads that only reflect the mutations THIS round's
     // own steps make, which the shared in-memory object already carries.
-    const roundSteps = withRoundCache(ctx, () => {
+    const roundSteps = (0, perf_trace_1.withPerfTraceGroup)("round", () => withRoundCache(ctx, () => {
         const width = (0, drive_decide_1.roundWidth)(loadRun(ctx), options.concurrency);
         // width>1 (an explicit --concurrency>1, or an auto-width parallel
         // phase) runs the whole round through driveConcurrentRound — one or
@@ -935,7 +936,7 @@ function driveOneRound(ctx, options, steps, emitPhaseProgress) {
         // end. `--once` still stops after this ONE round even though a round
         // can yield multiple steps.
         return width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
-    });
+    }));
     for (const stepResult of roundSteps)
         steps.push(stepResult);
     // Brew-style phase boundaries: after each round, announce a newly-active

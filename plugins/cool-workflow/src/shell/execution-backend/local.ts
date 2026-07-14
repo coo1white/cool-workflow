@@ -28,6 +28,7 @@ function messageOf(error: unknown): string {
 export const CW_NEVER_FORWARD_ENV: ReadonlySet<string> = new Set([
   "CW_RELEASE_VERDICT_PRIVKEY", // release verdict signing key — release-flow.js only
   "CW_WORKBENCH_TOKEN", // workbench HTTP bearer token — workbench-host.ts only
+  "CW_BENCH_TRACE_FILE", // benchmark trace path — parent drive only
 ]);
 
 export function buildChildEnv(policy: ResolvedSandboxPolicy, baseEnv: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {

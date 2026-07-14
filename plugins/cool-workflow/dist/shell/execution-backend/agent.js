@@ -75,6 +75,7 @@ const os = __importStar(require("node:os"));
 const node_child_process_1 = require("node:child_process");
 const local_1 = require("./local");
 const envelopes_1 = require("./envelopes");
+const perf_trace_1 = require("../perf-trace");
 function messageOf(error) {
     return error instanceof Error ? error.message : String(error);
 }
@@ -438,19 +439,21 @@ function reconcileBatchOutcomes(jobs, child) {
 function runAgentBatchOutcomes(jobs) {
     if (!jobs.length)
         return [];
-    const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
-    let child;
-    try {
-        child = (0, node_child_process_1.spawnSync)(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
-            input: JSON.stringify(jobs),
-            maxBuffer: 34 * 1024 * 1024 * jobs.length,
-            timeout: maxTimeout + 30000,
-        });
-    }
-    catch (error) {
-        child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
-    }
-    return reconcileBatchOutcomes(jobs, child);
+    return (0, perf_trace_1.withPerfTraceGroup)("agent-wait", () => {
+        const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
+        let child;
+        try {
+            child = (0, node_child_process_1.spawnSync)(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
+                input: JSON.stringify(jobs),
+                maxBuffer: 34 * 1024 * 1024 * jobs.length,
+                timeout: maxTimeout + 30000,
+            });
+        }
+        catch (error) {
+            child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
+        }
+        return reconcileBatchOutcomes(jobs, child);
+    });
 }
 // Same package-root depth fix as BATCH_DELEGATE_CHILD_SCRIPT above.
 const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-batch-delegate-child.js");
@@ -530,7 +533,7 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
             // of `built.forwarded` / the trust-audit forwarded list.
             const vendorPidFile = vendorPidFilePath();
             const childEnv = { ...built.env, CW_AGENT_VENDOR_PIDFILE: vendorPidFile };
-            const child = (0, node_child_process_1.spawnSync)(resolved.binary, realArgs, {
+            const child = (0, perf_trace_1.withPerfTraceGroup)("agent-wait", () => (0, node_child_process_1.spawnSync)(resolved.binary, realArgs, {
                 cwd: request.cwd,
                 env: childEnv,
                 encoding: "utf8",
@@ -544,7 +547,7 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
                 // anyway — so a hard kill loses nothing and cannot wedge cw.
                 killSignal: "SIGKILL",
                 stdio: ["ignore", "pipe", streamStderr ? "inherit" : "pipe"],
-            });
+            }));
             // A timeout surfaces as child.error with code ETIMEDOUT (status null,
             // signal set). Classify it FIRST: without this, the generic spawnError
             // branch below reported "agent process failed to spawn: ...ETIMEDOUT"
