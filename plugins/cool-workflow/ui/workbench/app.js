@@ -15,18 +15,38 @@ const PANEL_GROUPS = [
   { key: "collaboration", label: "Review & collaboration", panels: ["review", "comments"] }
 ];
 
+const NAV = globalThis.CWWorkbenchNavigation;
+if (!NAV) throw new Error("Workbench navigation helper is not available");
+
 // `indexSeq` is a request sequence number: the debounced filter input can
 // start a second /api/index fetch while an older one is still in flight, and
 // only the NEWEST request may render (an old slow response must not
 // overwrite a new fast one). `viewFetchedAt` is when the active run's view
 // was fetched, shown as "as of HH:MM:SS" in the detail header.
-const state = { activeRunId: null, activeTab: "graph", indexSeq: 0, viewFetchedAt: null };
+const state = {
+  activeRunId: null,
+  activeTab: NAV.DEFAULT_TAB,
+  currentView: null,
+  detailSeq: 0,
+  indexSeq: 0,
+  viewFetchedAt: null
+};
 
 // The host's auth token, read ONCE at startup from the page URL. When
 // CW_WORKBENCH_TOKEN is set on the host, every /api/* request must carry it;
 // the static UI files themselves are served without it, so the page loads
 // and can explain what to do instead of rendering broken.
 const TOKEN = new URLSearchParams(location.search).get("token") || "";
+
+function routeUrl(runId, tab) {
+  return `${location.pathname}${location.search}${NAV.formatFragment(runId, tab)}`;
+}
+
+function writeRoute(runId, tab, mode = "push") {
+  const fragment = NAV.formatFragment(runId, tab);
+  if (location.hash === fragment && mode === "push") return;
+  history[mode === "replace" ? "replaceState" : "pushState"](null, "", routeUrl(runId, tab));
+}
 
 // Build a request URL with URLSearchParams so the token composes with any
 // other query params (e.g. the index filter's ?text=).
@@ -83,14 +103,14 @@ async function loadIndex() {
   // A loading placeholder, not a bare wipe: the same pattern the detail
   // pane uses, so the sidebar never flashes empty while the fetch runs.
   list.innerHTML = "";
-  list.appendChild(el("li", { class: "muted", text: "loading runs…" }));
+  list.appendChild(el("li", { class: "muted", text: "loading runs…", role: "status" }));
   let view;
   try {
     view = await getJson(apiUrl("/api/index", { text: filter }));
   } catch (error) {
     if (seq !== state.indexSeq) return;
     list.innerHTML = "";
-    list.appendChild(el("li", { class: "err", text: `failed to load index: ${error.message}` }));
+    list.appendChild(el("li", { class: "err", text: `failed to load index: ${error.message}`, role: "alert" }));
     // Clear the stale "registry valid · scope …" line — leaving the last
     // successful freshness next to a load error is itself a stale badge on
     // the one panel whose whole point is freshness.
@@ -144,7 +164,7 @@ async function loadIndex() {
       })
     ]);
     btn.addEventListener("click", () => selectRun(record.runId));
-    list.appendChild(btn);
+    list.appendChild(el("li", { class: "run-entry" }, [btn]));
   }
 }
 
@@ -155,33 +175,40 @@ async function loadIndex() {
 function markActiveRow(runId) {
   const list = document.getElementById("run-list");
   for (const btn of list.querySelectorAll("button[data-runid]")) {
-    btn.classList.toggle("active", btn.getAttribute("data-runid") === runId);
+    const active = btn.getAttribute("data-runid") === runId;
+    btn.classList.toggle("active", active);
+    if (active) btn.setAttribute("aria-current", "true");
+    else btn.removeAttribute("aria-current");
   }
 }
 
-function selectRun(runId) {
+function selectRun(runId, options = {}) {
   state.activeRunId = runId;
+  if (!state.currentView || state.currentView.runId !== runId) state.currentView = null;
   markActiveRow(runId);
+  if (options.history !== false) writeRoute(runId, state.activeTab);
   return loadRunDetail(runId);
 }
 
 async function loadRunDetail(runId) {
+  const seq = ++state.detailSeq;
   const detail = document.getElementById("run-panel");
   detail.innerHTML = "";
-  detail.appendChild(el("p", { class: "muted", text: `loading ${runId}…` }));
+  detail.appendChild(el("p", { class: "muted", text: `loading ${runId}…`, role: "status" }));
   let view;
   try {
     view = await getJson(apiUrl(`/api/run/${encodeURIComponent(runId)}`));
   } catch (error) {
-    if (state.activeRunId !== runId) return;
+    if (state.activeRunId !== runId || seq !== state.detailSeq) return;
     detail.innerHTML = "";
-    detail.appendChild(el("p", { class: "err", text: `failed to load run: ${error.message}` }));
+    detail.appendChild(el("p", { class: "err", text: `failed to load run: ${error.message}`, role: "alert" }));
     return;
   }
   // The user may have clicked another run while this fetch was in flight;
   // a stale response must not overwrite the newer selection's render.
-  if (state.activeRunId !== runId) return;
+  if (state.activeRunId !== runId || seq !== state.detailSeq) return;
   state.viewFetchedAt = new Date();
+  state.currentView = view;
   renderRun(view);
 }
 
@@ -198,7 +225,13 @@ function formatClock(date) {
   return date ? date.toTimeString().slice(0, 8) : "";
 }
 
-function renderRun(view) {
+function selectTab(tab, options = {}) {
+  state.activeTab = NAV.TAB_KEYS.includes(tab) ? tab : NAV.DEFAULT_TAB;
+  if (options.history !== false && state.activeRunId) writeRoute(state.activeRunId, state.activeTab);
+  if (state.currentView) renderRun(state.currentView, { focusTab: options.focus === true });
+}
+
+function renderRun(view, options = {}) {
   const detail = document.getElementById("run-panel");
   detail.innerHTML = "";
   const header = el("div", { class: "kv" }, [
@@ -223,14 +256,22 @@ function renderRun(view) {
   for (const group of PANEL_GROUPS) {
     const active = state.activeTab === group.key;
     const btn = el("button", {
+      id: `workbench-tab-${group.key}`,
       class: `tab ${active ? "active" : ""}`,
       text: group.label,
       role: "tab",
-      "aria-selected": active ? "true" : "false"
+      "aria-controls": `workbench-panel-${group.key}`,
+      "aria-selected": active ? "true" : "false",
+      tabindex: active ? "0" : "-1"
     });
-    btn.addEventListener("click", () => {
-      state.activeTab = group.key;
-      renderRun(view);
+    btn.addEventListener("click", (event) => {
+      selectTab(group.key, { focus: event.detail === 0 });
+    });
+    btn.addEventListener("keydown", (event) => {
+      const next = NAV.moveTab(state.activeTab, event.key);
+      if (next === state.activeTab && !["Home", "End", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
+      event.preventDefault();
+      selectTab(next, { focus: true });
     });
     tabs.appendChild(btn);
   }
@@ -238,6 +279,11 @@ function renderRun(view) {
 
   const group = PANEL_GROUPS.find((g) => g.key === state.activeTab) || PANEL_GROUPS[0];
   const panels = (view.panels && view.panels[group.key]) || {};
+  const tabPanel = el("section", {
+    id: `workbench-panel-${group.key}`,
+    role: "tabpanel",
+    "aria-labelledby": `workbench-tab-${group.key}`
+  });
   // Some groups declare two panel names that map to the same capability on
   // the server (e.g. graph's compact/criticalPath both come from
   // summary.show), so they carry byte-identical payloads. Render such a pair
@@ -252,8 +298,10 @@ function renderRun(view) {
     else rendered.push({ names: [name], panel });
   }
   for (const entry of rendered) {
-    detail.appendChild(renderPanel(entry.names.join(" / "), entry.panel));
+    tabPanel.appendChild(renderPanel(entry.names.join(" / "), entry.panel));
   }
+  detail.appendChild(tabPanel);
+  if (options.focusTab) document.getElementById(`workbench-tab-${group.key}`).focus();
 }
 
 function renderPanel(name, panel) {
@@ -396,8 +444,40 @@ function renderEventGroups(data, confirmedEventKeys) {
   return wrap;
 }
 
+function showIndexOnly() {
+  ++state.detailSeq;
+  state.currentView = null;
+  const detail = document.getElementById("run-panel");
+  detail.innerHTML = "";
+  detail.appendChild(
+    el("p", {
+      class: "empty",
+      text: "Select a run to inspect its graph, blackboard, worker logs, candidate compare, and audit timeline."
+    })
+  );
+}
+
+function applyLocationRoute() {
+  const route = NAV.parseFragment(location.hash);
+  state.activeRunId = route.runId;
+  state.activeTab = route.tab;
+  if (route.replace) writeRoute(route.runId, route.tab, "replace");
+  markActiveRow(route.runId);
+  if (!route.runId) {
+    showIndexOnly();
+    return;
+  }
+  if (state.currentView && state.currentView.runId === route.runId) {
+    renderRun(state.currentView);
+    return;
+  }
+  state.currentView = null;
+  loadRunDetail(route.runId);
+}
+
 document.getElementById("refresh").addEventListener("click", refreshAll);
 document.getElementById("filter").addEventListener("input", debounce(loadIndex, 200));
+window.addEventListener("popstate", applyLocationRoute);
 
 function debounce(fn, ms) {
   let timer;
@@ -408,3 +488,4 @@ function debounce(fn, ms) {
 }
 
 loadIndex();
+applyLocationRoute();

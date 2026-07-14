@@ -252,6 +252,35 @@ telemetry, and audit facts. No single safe part has the needed room. Stop this
 line here. A later cycle needs a new proof, or a clear product decision to
 change the execution or durable-state contract.
 
+## Simple UI/UX Work Map
+
+The Workbench stays a small, read-only view. FreeBSD `style(9)` and `hier(7)`
+give the rules for clear errors, man-page agreement, and one place for each
+sort of state. Homebrew `brew(1)` and its External Commands guide give the
+rules for a short front door, clear help, and no new inside path. Codex Best
+practices and app commands give the rules for saved context, review, key
+movement, and Back/Forward movement. The source links and full mapping are in
+`plugins/cool-workflow/docs/web-desktop-workbench.7.md`.
+
+### 1. Predictable Workbench Navigation
+
+Status: complete in the predictable Workbench navigation cycle.
+
+The page fragment names one run and one panel. Run and panel changes use
+browser history, and reload, Back, and Forward keep the same view. A small
+pure navigation helper gives the fragment and key rules. A latest-request
+check stops an old run answer from taking the place of a new one. The run
+list and panel tabs have full keyboard and ARIA links.
+
+### 2. Action-First Inspection
+
+Status: planned after the navigation cycle.
+
+When a present capability payload has integrity, problem, missing-evidence,
+or next-action facts, the Workbench will put those source facts before the
+full record. It will not make a new rank, state, or action. The full payload
+will stay in the panel, and CLI, MCP, and HTTP bytes will stay the same.
+
 ## Release Rules
 
 - Do not add a CLI command, MCP tool, flag, JSON field, or runtime dependency
