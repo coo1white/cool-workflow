@@ -36,6 +36,12 @@ that call. CW does not run the call again, because it may have written part of
 a run. Read the saved run state before you try the call again. The next tool
 call starts a new child process.
 
+When stdin ends, CW keeps the ordered tool queue to its end and then stops the
+child. This lets a client send a last batch and close stdin without losing its
+replies. On `SIGINT` or `SIGTERM`, CW stops the child at once and then ends by
+the same signal. A tool waiting on a file lock cannot wake later and write
+state after its parent has ended.
+
 ## App Run Flow
 
 Use `cw_app_list`, `cw_app_show`, and `cw_app_validate` to look at app

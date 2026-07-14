@@ -3169,3 +3169,9 @@ HOTFIX: 0.1.88's headline `cw -q` is broken and live on npm (latest); the fix (#
 | cycle | goal | files | tests | gate | tagged |
 |-------|------|-------|-------|------|--------|
 | 1 | Track C: give the MCP server an opt-in exact tool allowlist and denylist. Deny has the last word. Empty or unknown names stop start. A filtered call gives the present `isError` result and does not start a handler. Unset policy keeps the full list and access. | MCP server code, built dist, authority policy smoke, MCP contract and test SPECs, architecture roadmap, project index, `ITERATION_LOG.md` | New smoke is red before the policy. It proves ordered allowlist output, dedupe, deny-over-allow, no state write from a blocked mutating tool, and bad startup settings. Full smoke 246/246, unit 169/169, and conformance 106/106 passed. | Build, release check, purity, language, parity, manifests, schema, index, and diff checks passed. | no (one security cycle; no release tag) |
+
+## Batch — MCP tool shutdown containment (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Track C: stop a blocked MCP tool child before its parent ends, so it cannot wake later and write state. Normal stdin end keeps its queue drain rule. | MCP server code, built dist, shutdown smoke, MCP man page, architecture roadmap, project index, `ITERATION_LOG.md` | New smoke holds a schedule lock, sends `SIGINT` and `SIGTERM` to the MCP parent, then proves there is no late schedule write after the lock is freed and a new server answers ping. It is red on the old code. Full smoke 247/247 and unit 169/169 passed. | Build, release check, onramp, parity, manifest load, index, and diff checks passed. | no (one robustness cycle; no release tag) |
