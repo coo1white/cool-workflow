@@ -35,8 +35,10 @@ const pluginRoot = path.resolve(__dirname, "..");
 // smoke still counts the SAME saveCheckpoint function the fix batches,
 // so its intent is unchanged.
 const stateModule = require(path.join(pluginRoot, "dist/shell/run-store.js"));
+const fsAtomic = require(path.join(pluginRoot, "dist/shell/fs-atomic.js"));
 const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
 const { drive } = require(path.join(pluginRoot, "dist/shell/drive.js"));
+const { verifyTrustAudit } = require(path.join(pluginRoot, "dist/shell/trust-audit.js"));
 const api = require(path.join(pluginRoot, "dist/core/workflow-apps/app-schema.js"));
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
@@ -96,17 +98,28 @@ function countSaveCheckpointsDuring(fn) {
 function driveNTasksAndCountCheckpoints(work, stub, n) {
   const run = planParallelApp(work, n);
   let result;
-  const checkpointCount = countSaveCheckpointsDuring(() => {
-    // v2 drive(runId, cwd, options) — no runner object (facade removed).
-    result = drive(run.id, run.cwd, {
-      now: FIXED_NOW,
-      concurrency: n,
-      agentConfig: { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag", timeoutMs: 10000 }
+  const originalAppend = fsAtomic.durableAppendFileSync;
+  let auditAppends = 0;
+  fsAtomic.durableAppendFileSync = (file, data) => {
+    if (path.basename(file) === "events.jsonl") auditAppends += 1;
+    return originalAppend(file, data);
+  };
+  let checkpointCount;
+  try {
+    checkpointCount = countSaveCheckpointsDuring(() => {
+      // v2 drive(runId, cwd, options) — no runner object (facade removed).
+      result = drive(run.id, run.cwd, {
+        now: FIXED_NOW,
+        concurrency: n,
+        agentConfig: { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag", timeoutMs: 10000 }
+      });
     });
-  });
+  } finally {
+    fsAtomic.durableAppendFileSync = originalAppend;
+  }
   assert.equal(result.status, "complete", `n=${n}: run completes`);
   assert.equal(result.completedWorkers, n, `n=${n}: every task fulfilled`);
-  return checkpointCount;
+  return { checkpointCount, auditAppends, run };
 }
 
 function main() {
@@ -116,8 +129,10 @@ function main() {
   const stub = writeStub(path.join(work, "stub.js"));
   process.chdir(work);
   try {
-    const checkpointsAt5 = driveNTasksAndCountCheckpoints(work, stub, 5);
-    const checkpointsAt15 = driveNTasksAndCountCheckpoints(work, stub, 15);
+    const at5 = driveNTasksAndCountCheckpoints(work, stub, 5);
+    const at15 = driveNTasksAndCountCheckpoints(work, stub, 15);
+    const checkpointsAt5 = at5.checkpointCount;
+    const checkpointsAt15 = at15.checkpointCount;
 
     console.log(`deferred-checkpoint-batching: saveCheckpoint calls at N=5: ${checkpointsAt5}, at N=15: ${checkpointsAt15}`);
 
@@ -127,6 +142,13 @@ function main() {
     // (15-5)*2=20 EXTRA calls; a small, N-independent constant delta proves the
     // round now flushes once regardless of task count.
     assert.ok(checkpointsAt15 - checkpointsAt5 <= 2, `saveCheckpoint count must stay flat across round sizes, not scale with N (5-task: ${checkpointsAt5}, 15-task: ${checkpointsAt15})`);
+    // A six-worker-style concurrent round has two short local audit groups:
+    // dispatch then settlement. Each group must be one durable append before
+    // its checkpoint, rather than one fsync for every recorded event.
+    assert.equal(at5.auditAppends, 2, `five-task round must use two audit appends, got ${at5.auditAppends}`);
+    assert.equal(at15.auditAppends, 2, `fifteen-task round must use two audit appends, got ${at15.auditAppends}`);
+    assert.equal(verifyTrustAudit(at5.run).verified, true, "batched five-task audit chain verifies");
+    assert.equal(verifyTrustAudit(at15.run).verified, true, "batched fifteen-task audit chain verifies");
     console.log("deferred-checkpoint-batching: saveCheckpoint count is O(1) per round, not O(N) ok");
   } finally {
     process.chdir(cwd0);

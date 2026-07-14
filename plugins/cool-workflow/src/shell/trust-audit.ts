@@ -185,6 +185,20 @@ interface AuditTailCache {
   lastHash: string;
 }
 
+/** A short, lock-held group of audit events. This is only for a known
+ *  synchronous mutation group: it never covers an agent, network, or other
+ *  waiting operation. Keeping the lock means event ids and hash links stay
+ *  the same as one-at-a-time appends while one durable write covers the group. */
+interface TrustAuditBatch {
+  audit: ReturnType<typeof ensureTrustAudit>;
+  currentBytes: number;
+  count: number;
+  lastHash: string;
+  lines: string[];
+}
+
+const ACTIVE_AUDIT_BATCHES = new Map<string, TrustAuditBatch>();
+
 function tailCachePathFor(eventLogPath: string): string {
   return path.join(path.dirname(eventLogPath), "tail-cache.json");
 }
@@ -599,28 +613,34 @@ export function recordTrustAuditEvent(run: WorkflowRun, input: RecordTrustAuditI
     parentEventIds: unique(input.parentEventIds || []).sort(),
     metadata: scrubMetadata(input.metadata || {}),
   }) as unknown as TrustAuditEvent;
+  const batch = ACTIVE_AUDIT_BATCHES.get(path.resolve(audit.eventLogPath));
+  if (batch) return appendTrustAuditEvent(run, input, event, batch);
   return withFileLock(audit.eventLogPath, () => {
+    const currentBytes = fs.existsSync(audit.eventLogPath) ? fs.statSync(audit.eventLogPath).size : 0;
+    const cached = readAuditTailCache(tailCachePathFor(audit.eventLogPath));
+    const prior = cached && cached.logBytes === currentBytes ? undefined : readEventsRaw(audit.eventLogPath);
+    const state: TrustAuditBatch = {
+      audit,
+      currentBytes,
+      count: cached && cached.logBytes === currentBytes ? cached.count : prior!.length,
+      lastHash: cached && cached.logBytes === currentBytes ? cached.lastHash : (prior!.length ? prior![prior!.length - 1].eventHash || computeEventHash(prior![prior!.length - 1]) : trustAuditGenesis(run.id)),
+      lines: [],
+    };
+    const result = appendTrustAuditEvent(run, input, event, state);
+    flushTrustAuditBatch(state);
+    return result;
+  });
+}
+
+function appendTrustAuditEvent(run: WorkflowRun, input: RecordTrustAuditInput, event: TrustAuditEvent, batch: TrustAuditBatch): TrustAuditEvent {
     // The prior event count and last-event hash are the ONLY two things
     // this append needs from the existing log. A tail cache (keyed on the
     // log's own byte size) serves both without a full parse when nothing
     // else has touched the log since it was written; any size mismatch
     // (a repair, a torn write, this being the very first append) falls
     // back to the full parse, same as before this cache existed.
-    const tailCachePath = tailCachePathFor(audit.eventLogPath);
-    const currentBytes = fs.existsSync(audit.eventLogPath) ? fs.statSync(audit.eventLogPath).size : 0;
-    const cached = readAuditTailCache(tailCachePath);
-    let count: number;
-    let prevHash: string;
-    if (cached && cached.logBytes === currentBytes) {
-      count = cached.count;
-      prevHash = cached.lastHash;
-    } else {
-      const prior = readEventsRaw(audit.eventLogPath);
-      count = prior.length;
-      prevHash = prior.length ? prior[prior.length - 1].eventHash || computeEventHash(prior[prior.length - 1]) : trustAuditGenesis(run.id);
-    }
-    event.id = createEventId(input.kind, count);
-    event.prevEventHash = prevHash;
+    event.id = createEventId(input.kind, batch.count);
+    event.prevEventHash = batch.lastHash;
     event.eventHash = computeEventHash(event);
     // Newline-boundary safety (fail-closed). `durableAppendFileSync` only ever
     // ADDS bytes at the end of file and never writes a separator of its own. A
@@ -636,11 +656,46 @@ export function recordTrustAuditEvent(run: WorkflowRun, input: RecordTrustAuditI
     // (Reads only the last byte, so the O(1) tail-cache path is preserved.)
     // An empty log (currentBytes === 0, e.g. the first append) has no tail to
     // merge with, so it never needs a leading newline.
-    const leadingNewline = currentBytes > 0 && !logEndsWithNewline(audit.eventLogPath, currentBytes) ? "\n" : "";
+    const leadingNewline = batch.currentBytes > 0 && batch.lines.length === 0 && !logEndsWithNewline(batch.audit.eventLogPath, batch.currentBytes) ? "\n" : "";
     const line = `${leadingNewline}${JSON.stringify(event)}\n`;
-    durableAppendFileSync(audit.eventLogPath, line);
-    writeAuditTailCache(tailCachePath, { schemaVersion: 1, logBytes: currentBytes + Buffer.byteLength(line, "utf8"), count: count + 1, lastHash: event.eventHash });
+    batch.lines.push(line);
+    batch.currentBytes += Buffer.byteLength(line, "utf8");
+    batch.count += 1;
+    batch.lastHash = event.eventHash;
     return event;
+}
+
+function flushTrustAuditBatch(batch: TrustAuditBatch): void {
+  if (!batch.lines.length) return;
+  durableAppendFileSync(batch.audit.eventLogPath, batch.lines.join(""));
+  writeAuditTailCache(tailCachePathFor(batch.audit.eventLogPath), { schemaVersion: 1, logBytes: batch.currentBytes, count: batch.count, lastHash: batch.lastHash });
+}
+
+/** Run a short, synchronous mutation group under one audit lock and append its
+ *  exact NDJSON lines with one durable write before the caller checkpoints. */
+export function withTrustAuditBatch<T>(run: WorkflowRun, fn: () => T): T {
+  const audit = ensureTrustAudit(run);
+  const key = path.resolve(audit.eventLogPath);
+  if (ACTIVE_AUDIT_BATCHES.has(key)) return fn();
+  return withFileLock(audit.eventLogPath, () => {
+    const currentBytes = fs.existsSync(audit.eventLogPath) ? fs.statSync(audit.eventLogPath).size : 0;
+    const cached = readAuditTailCache(tailCachePathFor(audit.eventLogPath));
+    const prior = cached && cached.logBytes === currentBytes ? undefined : readEventsRaw(audit.eventLogPath);
+    const batch: TrustAuditBatch = {
+      audit,
+      currentBytes,
+      count: cached && cached.logBytes === currentBytes ? cached.count : prior!.length,
+      lastHash: cached && cached.logBytes === currentBytes ? cached.lastHash : (prior!.length ? prior![prior!.length - 1].eventHash || computeEventHash(prior![prior!.length - 1]) : trustAuditGenesis(run.id)),
+      lines: [],
+    };
+    ACTIVE_AUDIT_BATCHES.set(key, batch);
+    try {
+      const result = fn();
+      flushTrustAuditBatch(batch);
+      return result;
+    } finally {
+      ACTIVE_AUDIT_BATCHES.delete(key);
+    }
   });
 }
 

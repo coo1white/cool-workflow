@@ -61,7 +61,7 @@ import { phaseProgressLine } from "./term";
 import { RunPhase, RunTask } from "../core/state/types";
 import { commitState } from "./commit";
 import { writeReport } from "./report";
-import { recordTrustAuditEvent, verifyTrustAudit } from "./trust-audit";
+import { recordTrustAuditEvent, verifyTrustAudit, withTrustAuditBatch } from "./trust-audit";
 import { resolveAgentConfig } from "./agent-config";
 import { AgentDelegationConfig, AgentChildOutcome } from "./execution-backend/types";
 import { runBackend } from "./execution-backend/registry";
@@ -759,6 +759,9 @@ function prepareConcurrentOutcomes(
   // the dispatch.
   let dispatchedThisRound = false;
 
+  // Dispatch is a short local mutation group. Keep its audit lock only until
+  // its events have one durable append; the agent work below stays outside it.
+  withTrustAuditBatch(loadRun(ctx), () => {
   for (const taskId of batch) {
     const run = loadRun(ctx);
     const task = run.tasks.find((candidate) => candidate.id === taskId);
@@ -838,6 +841,7 @@ function prepareConcurrentOutcomes(
       endpointTaskIds.push(taskId);
     }
   }
+  });
 
   const totalJobs = jobs.length + endpointJobs.length;
   if (totalJobs) {
@@ -895,20 +899,24 @@ function driveConcurrentRound(ctx: DriveContext, limit: number): DriveStep[] {
     const prepared = prepareConcurrentOutcomes(ctx, batch);
 
     const steps: DriveStep[] = [];
-    for (const taskId of batch) {
-      const failStep = prepared.failSteps.get(taskId);
-      if (failStep) {
-        steps.push(failStep);
-        continue;
+    // Settlement is also local and synchronous. Flush the complete audit
+    // group before the existing round checkpoint, never across it.
+    withTrustAuditBatch(loadRun(ctx), () => {
+      for (const taskId of batch) {
+        const failStep = prepared.failSteps.get(taskId);
+        if (failStep) {
+          steps.push(failStep);
+          continue;
+        }
+        // Re-read per task: a prior accept in this round mutated state (the
+        // SAME cached object via loadRun's round cache — no disk round-trip
+        // until the round-end flush below).
+        const freshRun = loadRun(ctx);
+        const fresh = freshRun.tasks.find((task) => task.id === taskId);
+        if (!fresh || (fresh.status !== "pending" && fresh.status !== "running")) continue;
+        steps.push(processSelectedTask(ctx, taskId, prepared.outcomes.get(taskId), true));
       }
-      // Re-read per task: a prior accept in this round mutated state (the
-      // SAME cached object via loadRun's round cache — no disk round-trip
-      // until the round-end flush below).
-      const freshRun = loadRun(ctx);
-      const fresh = freshRun.tasks.find((task) => task.id === taskId);
-      if (!fresh || (fresh.status !== "pending" && fresh.status !== "running")) continue;
-      steps.push(processSelectedTask(ctx, taskId, prepared.outcomes.get(taskId), true));
-    }
+    });
     if (steps.length > 0) {
       const settledRun = loadRun(ctx);
       commitState(settledRun, `concurrent-round:${batch.length}-tasks`);

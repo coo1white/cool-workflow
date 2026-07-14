@@ -62,6 +62,7 @@ exports.trustAuditHead = trustAuditHead;
 exports.verifyTrustAudit = verifyTrustAudit;
 exports.repairTrustAuditTornTail = repairTrustAuditTornTail;
 exports.recordTrustAuditEvent = recordTrustAuditEvent;
+exports.withTrustAuditBatch = withTrustAuditBatch;
 exports.recordSandboxPathDecision = recordSandboxPathDecision;
 exports.normalizeEvidence = normalizeEvidence;
 exports.writeTrustAuditIndexPlaceholder = writeTrustAuditIndexPlaceholder;
@@ -114,6 +115,7 @@ function computeEventHash(event) {
     void eventHash;
     return (0, hash_1.sha256)((0, hash_1.eventHashInput)(rest));
 }
+const ACTIVE_AUDIT_BATCHES = new Map();
 function tailCachePathFor(eventLogPath) {
     return path.join(path.dirname(eventLogPath), "tail-cache.json");
 }
@@ -474,49 +476,90 @@ function recordTrustAuditEvent(run, input) {
         parentEventIds: unique(input.parentEventIds || []).sort(),
         metadata: scrubMetadata(input.metadata || {}),
     });
+    const batch = ACTIVE_AUDIT_BATCHES.get(path.resolve(audit.eventLogPath));
+    if (batch)
+        return appendTrustAuditEvent(run, input, event, batch);
     return (0, fs_atomic_1.withFileLock)(audit.eventLogPath, () => {
-        // The prior event count and last-event hash are the ONLY two things
-        // this append needs from the existing log. A tail cache (keyed on the
-        // log's own byte size) serves both without a full parse when nothing
-        // else has touched the log since it was written; any size mismatch
-        // (a repair, a torn write, this being the very first append) falls
-        // back to the full parse, same as before this cache existed.
-        const tailCachePath = tailCachePathFor(audit.eventLogPath);
         const currentBytes = fs.existsSync(audit.eventLogPath) ? fs.statSync(audit.eventLogPath).size : 0;
-        const cached = readAuditTailCache(tailCachePath);
-        let count;
-        let prevHash;
-        if (cached && cached.logBytes === currentBytes) {
-            count = cached.count;
-            prevHash = cached.lastHash;
+        const cached = readAuditTailCache(tailCachePathFor(audit.eventLogPath));
+        const prior = cached && cached.logBytes === currentBytes ? undefined : readEventsRaw(audit.eventLogPath);
+        const state = {
+            audit,
+            currentBytes,
+            count: cached && cached.logBytes === currentBytes ? cached.count : prior.length,
+            lastHash: cached && cached.logBytes === currentBytes ? cached.lastHash : (prior.length ? prior[prior.length - 1].eventHash || computeEventHash(prior[prior.length - 1]) : trustAuditGenesis(run.id)),
+            lines: [],
+        };
+        const result = appendTrustAuditEvent(run, input, event, state);
+        flushTrustAuditBatch(state);
+        return result;
+    });
+}
+function appendTrustAuditEvent(run, input, event, batch) {
+    // The prior event count and last-event hash are the ONLY two things
+    // this append needs from the existing log. A tail cache (keyed on the
+    // log's own byte size) serves both without a full parse when nothing
+    // else has touched the log since it was written; any size mismatch
+    // (a repair, a torn write, this being the very first append) falls
+    // back to the full parse, same as before this cache existed.
+    event.id = createEventId(input.kind, batch.count);
+    event.prevEventHash = batch.lastHash;
+    event.eventHash = computeEventHash(event);
+    // Newline-boundary safety (fail-closed). `durableAppendFileSync` only ever
+    // ADDS bytes at the end of file and never writes a separator of its own. A
+    // completed append always leaves the log ending in "\n"; if the last byte
+    // is NOT "\n", the previous append was torn by a crash (its bytes were
+    // never a confirmed event — the append never returned). Writing this new,
+    // already-cross-linked event straight onto that partial byte-run would
+    // MERGE the two into one line that no longer parses — losing THIS event and
+    // poisoning the forward chain (the next append's prevEventHash would point
+    // into an unparseable blob), with no repair for that shape. So put the new
+    // event on its own clean line: prepend a "\n" when the log does not already
+    // end in one, confining any crash artifact to its own now-orphaned line.
+    // (Reads only the last byte, so the O(1) tail-cache path is preserved.)
+    // An empty log (currentBytes === 0, e.g. the first append) has no tail to
+    // merge with, so it never needs a leading newline.
+    const leadingNewline = batch.currentBytes > 0 && batch.lines.length === 0 && !(0, fs_atomic_1.logEndsWithNewline)(batch.audit.eventLogPath, batch.currentBytes) ? "\n" : "";
+    const line = `${leadingNewline}${JSON.stringify(event)}\n`;
+    batch.lines.push(line);
+    batch.currentBytes += Buffer.byteLength(line, "utf8");
+    batch.count += 1;
+    batch.lastHash = event.eventHash;
+    return event;
+}
+function flushTrustAuditBatch(batch) {
+    if (!batch.lines.length)
+        return;
+    (0, fs_atomic_1.durableAppendFileSync)(batch.audit.eventLogPath, batch.lines.join(""));
+    writeAuditTailCache(tailCachePathFor(batch.audit.eventLogPath), { schemaVersion: 1, logBytes: batch.currentBytes, count: batch.count, lastHash: batch.lastHash });
+}
+/** Run a short, synchronous mutation group under one audit lock and append its
+ *  exact NDJSON lines with one durable write before the caller checkpoints. */
+function withTrustAuditBatch(run, fn) {
+    const audit = ensureTrustAudit(run);
+    const key = path.resolve(audit.eventLogPath);
+    if (ACTIVE_AUDIT_BATCHES.has(key))
+        return fn();
+    return (0, fs_atomic_1.withFileLock)(audit.eventLogPath, () => {
+        const currentBytes = fs.existsSync(audit.eventLogPath) ? fs.statSync(audit.eventLogPath).size : 0;
+        const cached = readAuditTailCache(tailCachePathFor(audit.eventLogPath));
+        const prior = cached && cached.logBytes === currentBytes ? undefined : readEventsRaw(audit.eventLogPath);
+        const batch = {
+            audit,
+            currentBytes,
+            count: cached && cached.logBytes === currentBytes ? cached.count : prior.length,
+            lastHash: cached && cached.logBytes === currentBytes ? cached.lastHash : (prior.length ? prior[prior.length - 1].eventHash || computeEventHash(prior[prior.length - 1]) : trustAuditGenesis(run.id)),
+            lines: [],
+        };
+        ACTIVE_AUDIT_BATCHES.set(key, batch);
+        try {
+            const result = fn();
+            flushTrustAuditBatch(batch);
+            return result;
         }
-        else {
-            const prior = readEventsRaw(audit.eventLogPath);
-            count = prior.length;
-            prevHash = prior.length ? prior[prior.length - 1].eventHash || computeEventHash(prior[prior.length - 1]) : trustAuditGenesis(run.id);
+        finally {
+            ACTIVE_AUDIT_BATCHES.delete(key);
         }
-        event.id = createEventId(input.kind, count);
-        event.prevEventHash = prevHash;
-        event.eventHash = computeEventHash(event);
-        // Newline-boundary safety (fail-closed). `durableAppendFileSync` only ever
-        // ADDS bytes at the end of file and never writes a separator of its own. A
-        // completed append always leaves the log ending in "\n"; if the last byte
-        // is NOT "\n", the previous append was torn by a crash (its bytes were
-        // never a confirmed event — the append never returned). Writing this new,
-        // already-cross-linked event straight onto that partial byte-run would
-        // MERGE the two into one line that no longer parses — losing THIS event and
-        // poisoning the forward chain (the next append's prevEventHash would point
-        // into an unparseable blob), with no repair for that shape. So put the new
-        // event on its own clean line: prepend a "\n" when the log does not already
-        // end in one, confining any crash artifact to its own now-orphaned line.
-        // (Reads only the last byte, so the O(1) tail-cache path is preserved.)
-        // An empty log (currentBytes === 0, e.g. the first append) has no tail to
-        // merge with, so it never needs a leading newline.
-        const leadingNewline = currentBytes > 0 && !(0, fs_atomic_1.logEndsWithNewline)(audit.eventLogPath, currentBytes) ? "\n" : "";
-        const line = `${leadingNewline}${JSON.stringify(event)}\n`;
-        (0, fs_atomic_1.durableAppendFileSync)(audit.eventLogPath, line);
-        writeAuditTailCache(tailCachePath, { schemaVersion: 1, logBytes: currentBytes + Buffer.byteLength(line, "utf8"), count: count + 1, lastHash: event.eventHash });
-        return event;
     });
 }
 function recordSandboxPathDecision(run, input) {
