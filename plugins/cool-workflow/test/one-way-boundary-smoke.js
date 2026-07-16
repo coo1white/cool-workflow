@@ -76,7 +76,10 @@ function compile(name, source) {
   fs.writeFileSync(file, source, "utf8");
   const child = spawnSync(
     process.execPath,
-    [tscJs, "--noEmit", "--strict", "--target", "es2022", "--module", "commonjs", "--moduleResolution", "node", "--skipLibCheck", "--typeRoots", typesRoot, "--types", "node", file],
+    // TS 7: node10 resolution is gone (use nodenext, same as tsconfig.json),
+    // and --ignoreConfig is needed when files are given on the command line
+    // with a tsconfig.json present in the cwd (TS5112).
+    [tscJs, "--noEmit", "--strict", "--target", "es2022", "--module", "nodenext", "--moduleResolution", "nodenext", "--ignoreConfig", "--skipLibCheck", "--typeRoots", typesRoot, "--types", "node", file],
     { encoding: "utf8", timeout: 120000 }
   );
   return { status: child.status, out: `${child.stdout || ""}${child.stderr || ""}` };
