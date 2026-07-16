@@ -30,7 +30,10 @@ function main() {
   const ref = stringArg(args.ref) || "HEAD";
   const requestedProfileFile = stringArg(args.profileFile || args["profile-file"]);
   const defaultExternalProfile = !requestedProfile && !requestedProfileFile && repo !== repoRoot;
-  const profile = defaultExternalProfile ? "repo" : requestedProfile || "core";
+  // --profile-file alone (no --profile) resolves to that file's sole profile, so
+  // a foreign-repo profile need not also be named on the command line.
+  const profile = defaultExternalProfile ? "repo" : resolveProfileName(requestedProfile, requestedProfileFile);
+  const maxLines = stringArg(args.maxLines || args["max-lines"]);
   const cacheDir = path.resolve(stringArg(args.cacheDir || args["cache-dir"]) || path.join(repo, ".cw", "cache", "source-context"));
   const contextOut = path.resolve(stringArg(args.contextOut || args["context-out"]) || path.join(repo, ".cw", "context", `${profile}-source.jsonl`));
   const profileFile = defaultExternalProfile ? writeDefaultRepoProfile(repo, contextOut) : requestedProfileFile;
@@ -51,7 +54,8 @@ function main() {
     ref,
     profileFile,
     cacheDir,
-    changedFrom
+    changedFrom,
+    maxLines
   }));
   const contextText = contextExport.value;
   assertNonEmptySourceContext(contextText, profile, repo);
@@ -128,6 +132,7 @@ function exportSourceContext(options) {
   ];
   if (options.profileFile) argv.push("--profile-file", path.resolve(options.profileFile));
   if (options.changedFrom) argv.push("--changed-from", options.changedFrom);
+  if (options.maxLines) argv.push("--max-lines", options.maxLines);
   const result = spawnSync(node, argv, {
     cwd: repoRoot,
     encoding: "utf8",
@@ -135,6 +140,24 @@ function exportSourceContext(options) {
   });
   if (result.status !== 0) die(result.stderr || result.stdout || "source context export failed");
   return result.stdout;
+}
+
+// The effective --profile name: an explicit --profile wins; otherwise a custom
+// --profile-file resolves to its sole profile (fail closed with the choices if
+// it defines more than one); otherwise the bundled "core".
+function resolveProfileName(requestedProfile, requestedProfileFile) {
+  if (requestedProfile) return requestedProfile;
+  if (!requestedProfileFile) return "core";
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(path.resolve(requestedProfileFile), "utf8"));
+  } catch (error) {
+    die(`cannot read --profile-file ${requestedProfileFile}: ${error.message}`);
+  }
+  const ids = Object.keys((parsed && parsed.profiles) || {});
+  if (ids.length === 1) return ids[0];
+  if (ids.length === 0) die(`--profile-file ${requestedProfileFile} defines no profiles`);
+  die(`--profile-file ${requestedProfileFile} defines ${ids.length} profiles (${ids.join(", ")}); pass --profile <name> to choose one`);
 }
 
 function writeDefaultRepoProfile(repo, contextOut) {
@@ -400,7 +423,9 @@ function usage(code) {
     "  node scripts/architecture-review-fast.js --repo PATH --question TEXT [--agent-command CMD]",
     "",
     "options:",
-    "  --profile core --ref HEAD --profile-file PATH --cache-dir DIR --context-out PATH",
+    "  --profile ID --ref HEAD --profile-file PATH --cache-dir DIR --context-out PATH",
+    "  --max-lines N        (override the profile's line cap; needed for mid-size repos)",
+    "  (with a single-profile --profile-file, --profile may be omitted)",
     "  --changed-from REF   (incremental overlay: scope context to files changed since REF)",
     "  --fast-model MODEL --strong-model MODEL",
     "  --invariant TEXT --focus TEXT --preview --once",
