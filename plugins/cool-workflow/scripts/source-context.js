@@ -44,15 +44,26 @@ function main() {
     return;
   }
 
-  const profileId = valueArg("--profile") || "core";
+  // --profile-file alone (no --profile) uses that file's sole profile instead of
+  // falling back to "core" (which a hand-written external-repo profile rarely
+  // defines). A custom file with several profiles is ambiguous, so it fails
+  // closed with the choices. Only the bundled default file defaults to "core".
+  const explicitProfile = valueArg("--profile");
+  const usingCustomProfileFile = valueArg("--profile-file") !== "";
+  const profileId = explicitProfile || defaultProfileId(profiles, usingCustomProfileFile, profileFile);
   const profile = profiles.profiles[profileId];
   if (!profile) die(`unknown profile: ${profileId}`);
 
   const ref = resolveRef(valueArg("--ref") || "HEAD");
   const changedFrom = valueArg("--changed-from") ? resolveRef(valueArg("--changed-from")) : "";
   const changedPaths = changedFrom ? changedPathSet(changedFrom, ref) : null;
+  // Resolved once and folded into the cache key: --max-lines is an override that
+  // does not change the exported content, but a warm cache served before the
+  // maxLines guard runs would let a tighter cap be silently ignored. Keying on it
+  // makes a different effective cap miss the cache so the guard re-runs (fail closed).
+  const maxLines = resolveMaxLines(profile);
   const cacheDir = command === "export" ? valueArg("--cache-dir") : "";
-  const cachePath = cacheDir ? sourceContextCachePath(cacheDir, profileId, ref, profile, changedFrom) : "";
+  const cachePath = cacheDir ? sourceContextCachePath(cacheDir, profileId, ref, profile, changedFrom, maxLines) : "";
   if (cachePath && fs.existsSync(cachePath)) {
     process.stdout.write(readValidCache(cachePath, profileId, ref, changedFrom));
     return;
@@ -123,9 +134,8 @@ function main() {
     emit({ ...record, content: blob.toString("utf8") });
   }
 
-  const maxLines = Number(profile.maxLines) || 0;
   if (command === "export" && maxLines > 0 && exportedLines > maxLines) {
-    die(`profile ${profileId} exported ${exportedLines} lines, above maxLines ${maxLines}`);
+    die(`profile ${profileId} exported ${exportedLines} lines, above maxLines ${maxLines} (raise it with --max-lines N)`);
   }
   if (cachePath && buffered) {
     const text = buffered.map((line) => `${line}\n`).join("");
@@ -134,14 +144,43 @@ function main() {
   }
 }
 
+// The profile to use when --profile is omitted: "core" for the bundled default
+// file; for a custom --profile-file, its sole profile (fail closed with the
+// choices if it defines more than one).
+function defaultProfileId(profiles, usingCustomProfileFile, profileFile) {
+  if (!usingCustomProfileFile) return "core";
+  const ids = Object.keys(profiles.profiles || {});
+  if (ids.length === 1) return ids[0];
+  if (ids.length === 0) die(`--profile-file ${rel(profileFile)} defines no profiles`);
+  die(`--profile-file ${rel(profileFile)} defines ${ids.length} profiles (${ids.join(", ")}); pass --profile <name> to choose one`);
+}
+
+// --max-lines N overrides a profile's maxLines guard (0 = no cap). Without it,
+// the profile's own maxLines applies, exactly as before. The raw token must be
+// plain decimal digits, so a whitespace-only, hex (0x..), or exponent (1e..)
+// value is refused rather than silently coerced to 0 (= cap disabled) — a safety
+// flag must not fail open on a typo.
+function resolveMaxLines(profile) {
+  const arg = valueArg("--max-lines");
+  if (arg === "") return Number(profile.maxLines) || 0;
+  if (!/^\d+$/.test(arg.trim())) die(`--max-lines must be a non-negative integer, got: ${JSON.stringify(arg)}`);
+  const n = Number(arg.trim());
+  if (!Number.isSafeInteger(n)) die(`--max-lines is too large: ${arg}`);
+  return n;
+}
+
 function usage(code, message) {
   if (message) process.stderr.write(`source-context: ${message}\n`);
   process.stderr.write(
     [
       "usage:",
       "  node scripts/source-context.js profiles",
-      "  node scripts/source-context.js manifest [--profile core] [--ref HEAD] [--changed-from REF] [--repo-root DIR]",
-      "  node scripts/source-context.js export [--profile core] [--ref HEAD] [--changed-from REF] [--repo-root DIR] [--cache-dir DIR]"
+      "  node scripts/source-context.js manifest [--profile ID] [--profile-file PATH] [--ref HEAD] [--changed-from REF] [--repo-root DIR]",
+      "  node scripts/source-context.js export [--profile ID] [--profile-file PATH] [--max-lines N] [--ref HEAD] [--changed-from REF] [--repo-root DIR] [--cache-dir DIR]",
+      "",
+      "  --profile defaults to 'core' for the bundled profiles; with a custom",
+      "  --profile-file that defines a single profile, --profile may be omitted.",
+      "  --max-lines N overrides the selected profile's maxLines guard (0 = no cap)."
     ].join("\n") + "\n"
   );
   process.exitCode = code;
@@ -294,10 +333,10 @@ function profileDigest(profileId, profile) {
   return sha256(Buffer.from(stableStringify({ profileId, profile }), "utf8"));
 }
 
-function sourceContextCachePath(cacheDir, profileId, ref, profile, changedFrom) {
+function sourceContextCachePath(cacheDir, profileId, ref, profile, changedFrom, maxLines) {
   const safeProfile = String(profileId).replace(/[^A-Za-z0-9_.-]/g, "_");
   const diffPart = changedFrom ? `-changed-${changedFrom.slice(0, 12)}` : "";
-  const digest = sha256(Buffer.from(stableStringify({ profileId, profile, changedFrom: changedFrom || "" }), "utf8")).slice(0, 16);
+  const digest = sha256(Buffer.from(stableStringify({ profileId, profile, changedFrom: changedFrom || "", maxLines: Number(maxLines) || 0 }), "utf8")).slice(0, 16);
   return path.join(path.resolve(cacheDir), `${safeProfile}-${ref.slice(0, 12)}${diffPart}-${digest}.jsonl`);
 }
 

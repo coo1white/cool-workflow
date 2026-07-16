@@ -62,7 +62,15 @@ node scripts/source-context.js export --profile core --ref HEAD --repo-root /pat
 node scripts/source-context.js export --profile mcp --ref HEAD --repo-root /path/to/repo > mcp-source.jsonl
 node scripts/source-context.js export --profile mcp --changed-from origin/main --ref HEAD --repo-root /path/to/repo > mcp-changed.jsonl
 node scripts/source-context.js export --profile core --ref HEAD --repo-root /path/to/repo --cache-dir .cw/cache/source-context > core-source.jsonl
+node scripts/source-context.js export --profile-file /path/to/repo.json --max-lines 200000 --repo-root /path/to/repo > repo-source.jsonl
 ```
+
+`--profile` defaults to `core` for the bundled profiles. With a custom
+`--profile-file` that defines a single profile, `--profile` may be omitted — that
+sole profile is used; a file with several profiles and no `--profile` fails closed
+with the choices. `--max-lines N` overrides the selected profile's `maxLines`
+guard (`0` disables the cap), so a mid-size foreign repo does not need a
+hand-edited profile just to raise the line limit.
 
 `manifest` emits one JSON object per tracked file at the selected ref:
 
