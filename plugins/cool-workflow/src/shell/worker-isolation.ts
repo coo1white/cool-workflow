@@ -24,7 +24,7 @@ import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/
 import { validateWorkerScope as validateWorkerScopeShape } from "../core/state/validation";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract";
 import { normalizeResultEnvelope, isEmptyCapture, ResultEnvelope } from "../core/pipeline/result-normalize";
-import { isGroundedEvidence } from "../core/trust/evidence-grounding";
+import { isGroundedEvidence, evidenceFilePath } from "../core/trust/evidence-grounding";
 import { normalizeEvidence, recordSandboxPathDecision, recordTrustAuditEvent } from "./trust-audit";
 import {
   DEFAULT_SANDBOX_PROFILE_ID,
@@ -624,6 +624,44 @@ export function validateWorkerBoundary(run: WorkflowRun, workerId: string, optio
   return violation;
 }
 
+/** CW's OWN run-workspace subdirectories (runs/context/cache) — matched
+ *  specifically, not any `.cw/`, so a target repo that versions its own `.cw/`
+ *  (e.g. `.cw/config.json`, `.cw/profiles/`) as source is not mistaken for this
+ *  review's run state. Case-insensitive for case-insensitive filesystems. */
+function isCwRunWorkspace(pathPart: string): boolean {
+  return /(^|\/)\.cw\/(runs|context|cache)\//i.test(pathPart.replace(/\\/g, "/"));
+}
+
+/** The handed source-context bundle (`.cw/context/<profile>-source.jsonl`), which
+ *  a worker may legitimately cite as provenance — neutral, never off-target. */
+function isSourceBundleEvidence(pathPart: string): boolean {
+  return /(^|\/)\.cw\/context\/[^/]*source\.jsonl$/i.test(pathPart.replace(/\\/g, "/"));
+}
+
+/** A file-evidence locator's path if it RESOLVES on disk under the run cwd, else
+ *  null. Resolving on disk (the repo's default evidence standard, see
+ *  requireResolvableEvidence) means fabricated repo paths cannot pad the ratio. */
+function resolvedEvidenceFile(raw: unknown, cwd: string): string | null {
+  const p = evidenceFilePath(raw);
+  if (!p) return null;
+  return fs.existsSync(path.resolve(cwd, p)) ? p : null;
+}
+
+/** Returns the CW-workspace vs total counts when a worker's on-disk file evidence
+ *  is at least half inside CW's own run workspace — the signal that it reviewed
+ *  this review's own run state instead of the repository under review. The source
+ *  bundle is neutral (excluded from both sides); null when too little real file
+ *  evidence to judge, or when repository source dominates. */
+function offTargetEvidence(evidence: string[], cwd: string): { cwState: number; files: number } | null {
+  const files = (evidence || [])
+    .map((e) => resolvedEvidenceFile(e, cwd))
+    .filter((p): p is string => p !== null)
+    .filter((p) => !isSourceBundleEvidence(p));
+  if (files.length < 2) return null;
+  const cwState = files.filter(isCwRunWorkspace).length;
+  return cwState >= 2 && cwState >= files.length - cwState ? { cwState, files: files.length } : null;
+}
+
 export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPath: string, options: RecordWorkerOutputOptions = {}): Record<string, unknown> {
   const scope = requireWorkerScope(run, workerId);
   const task = requireWorkerTask(run, scope);
@@ -655,6 +693,23 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
     const message = `Task ${task.id} requires grounded cw:result evidence (a path-like locator, URL, or namespace:value token — not free text)`;
     recordWorkerFailure(run, workerId, message, { code: "missing-required-evidence", retryable: false });
     throw new Error(message);
+  }
+  // Off-target guard — opt-in per task via `reviewsRepo` (the repo-review apps
+  // set it; a workflow whose subject IS run/release state, e.g. a release
+  // preflight, does not). A worker reviewing a repository must cite the
+  // repository's own source, not CW's run workspace. When at least half of its
+  // on-disk file evidence resolves under CW's own run workspace (`.cw/runs`,
+  // `.cw/context`, `.cw/cache` — excluding the handed source-context bundle,
+  // legitimate provenance), the worker reviewed THIS review instead of the
+  // target — a silent subject swap. Fail closed with a flagged failure rather
+  // than accept bogus findings about CW's own pipeline.
+  if (task.reviewsRepo) {
+    const offTarget = offTargetEvidence(parsedResult.evidence, run.cwd);
+    if (offTarget) {
+      const message = `Task ${task.id} reviewed CW's own run workspace under .cw/ (${offTarget.cwState}/${offTarget.files} file evidence) instead of the repository under review`;
+      recordWorkerFailure(run, workerId, message, { code: "worker-off-target", retryable: false });
+      throw new Error(message);
+    }
   }
 
   // Step 2: attest delegation (the agent-hop provenance). Track 1: verify

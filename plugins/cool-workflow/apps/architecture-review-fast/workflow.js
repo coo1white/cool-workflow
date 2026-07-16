@@ -84,8 +84,9 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
         agent(
           "assess:runtime-speed",
           [
-            "Assess runtime speed and user-wait risk for {{question}}.",
-            "Look for serial agent work, repeated repository scanning, missing cache keys, oversized prompts, and long foreground jobs.",
+            "Assess {{repo}}'s OWN runtime and execution-speed risks for {{question}}:",
+            "hot paths, blocking or synchronous work, unbounded loops, repeated or N+1 I/O, and long-running operations in the code under review.",
+            subjectBoundary(),
             "Recommend mechanisms that preserve POLA, stdout/stderr discipline, and zero runtime dependencies."
           ].join(" "),
           fastOptions("Runtime speed assessor", { resultCache: sourceContextResultCache({ includeCompletedResults: "previous-phases" }) })
@@ -146,6 +147,9 @@ function taskOptions(label, model, extra) {
   return {
     label,
     sandboxProfileId: "readonly",
+    // Every fast-review worker reviews {{repo}}'s own source, so the off-target
+    // guard applies (a worker that reviews CW's own .cw/ run state is failed).
+    reviewsRepo: true,
     ...(model ? { model } : {}),
     ...(extra || {})
   };
@@ -160,8 +164,17 @@ function contextInstruction() {
   return [
     "If {{sourceContext}} is non-empty, read that JSONL source context first and treat {{sourceContextDigest}} as its cache/digest hint.",
     "If the supplied context is missing, unreadable, or obviously stale, say so explicitly instead of guessing.",
-    "If no source context is supplied, inspect {{repo}} directly."
+    "If no source context is supplied, inspect {{repo}} directly.",
+    subjectBoundary()
   ].join(" ");
+}
+
+// The subject under review is the target repository's own tracked source. This
+// review's own run workspace (the `.cw/` state, results, cache, and this
+// pipeline) is CW's machinery, not the subject — a worker that reviews it and
+// cites `.cw/` evidence is failed as off-target (see worker-isolation.ts).
+function subjectBoundary() {
+  return "The subject under review is {{repo}}'s own tracked source; this review's own run state under .cw/ (state, results, cache, this pipeline) is CW's workspace, not the subject — never review it or cite .cw/ files as evidence.";
 }
 
 function sourceContextResultCache(extra) {

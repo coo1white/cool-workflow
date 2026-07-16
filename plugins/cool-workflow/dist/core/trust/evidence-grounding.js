@@ -14,6 +14,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isGroundedEvidence = isGroundedEvidence;
 exports.hasGroundedEvidence = hasGroundedEvidence;
+exports.evidenceFilePath = evidenceFilePath;
 exports.requireResolvableEvidence = requireResolvableEvidence;
 exports.resolveEvidenceLocator = resolveEvidenceLocator;
 exports.unresolvedFileEvidence = unresolvedFileEvidence;
@@ -44,6 +45,12 @@ function isGroundedEvidence(raw) {
 /** An evidence array passes the gate if at least one entry is grounded. */
 function hasGroundedEvidence(evidence) {
     return Array.isArray(evidence) && evidence.some((entry) => isGroundedEvidence(entry));
+}
+/** The file path a locator points at (without any `:line` suffix), or null when
+ *  the locator is a URL, an opaque namespace token, or free text. */
+function evidenceFilePath(raw) {
+    const shape = classify(String(raw ?? ""));
+    return shape.kind === "file" && shape.pathPart ? shape.pathPart : null;
 }
 /** Whether opt-in strict resolution is requested via the environment.
  *  Enabled by DEFAULT: file-style evidence locators MUST exist on disk.

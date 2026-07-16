@@ -131,6 +131,18 @@ Boundary violations are rejected worker outputs. They are not taken into result
 state. Sandbox write denials use `sandbox-write-denied`; unknown and invalid
 profiles use `sandbox-profile-not-found` and `sandbox-profile-invalid`.
 
+A repo-review worker (a task that sets `reviewsRepo`) whose on-disk file evidence
+is at least half under CW's own run workspace — `.cw/runs`, `.cw/context`, or
+`.cw/cache`, excluding the handed source-context bundle
+`.cw/context/<profile>-source.jsonl` — is rejected with `worker-off-target`. Only
+locators that resolve on disk count (fabricated paths cannot pad the ratio), and
+the `.cw/(runs|context|cache)` match is specific so a target repo that versions
+its own `.cw/` as source is not mistaken for this review's run state. That signal
+means the worker reviewed this review's run state instead of the repository under
+review; the failure is recorded as durable feedback so the subject swap is
+flagged, never silently accepted. The guard is opt-in — a workflow whose subject
+IS run/release state (e.g. a release preflight) does not set `reviewsRepo`.
+
 Verifier failures stay verifier failures. Worker Isolation keeps the worker
 directory and records feedback so the operator can look at or fix the result.
 

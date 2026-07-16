@@ -113,6 +113,10 @@ function flattenTasks(app, inputs) {
                 // branch reads selected.subWorkflow). Without this the delegate task falls
                 // through to the normal agent path instead of spawning a child run.
                 ...(task.subWorkflow ? { subWorkflow: task.subWorkflow } : {}),
+                // Opt-in flag the repo-review apps set so recordWorkerOutput's off-target
+                // guard applies (a worker must cite the repo's own source, not CW's .cw/
+                // run state). Absent on workflows whose subject is run/release state.
+                ...(task.reviewsRepo ? { reviewsRepo: true } : {}),
             });
         }
     }

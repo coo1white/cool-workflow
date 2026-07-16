@@ -38,6 +38,13 @@ export function hasGroundedEvidence(evidence: unknown): boolean {
   return Array.isArray(evidence) && evidence.some((entry) => isGroundedEvidence(entry));
 }
 
+/** The file path a locator points at (without any `:line` suffix), or null when
+ *  the locator is a URL, an opaque namespace token, or free text. */
+export function evidenceFilePath(raw: unknown): string | null {
+  const shape = classify(String(raw ?? ""));
+  return shape.kind === "file" && shape.pathPart ? shape.pathPart : null;
+}
+
 /** Whether opt-in strict resolution is requested via the environment.
  *  Enabled by DEFAULT: file-style evidence locators MUST exist on disk.
  *  `CW_REQUIRE_RESOLVABLE_EVIDENCE=0` restores the prior shape-only
