@@ -58,8 +58,13 @@ function main() {
     return;
   }
 
-  const files = gitLines(["ls-tree", "-r", "--name-only", ref]).filter((file) => !changedPaths || changedPaths.has(file));
-  const blobs = gitBlobs(ref, files);
+  // Enumerate tree entries WITH mode/type/oid (not just names) so a git
+  // submodule (a gitlink) is recognised and recorded, not read as a blob; and
+  // read blob content BY OBJECT ID, never by "<ref>:<path>", so no filename —
+  // however odd — can break the cat-file request stream. `-z` also stops git
+  // quoting any path byte class (non-ASCII, backslash, quote, control chars).
+  const entries = treeEntries(ref).filter((entry) => !changedPaths || changedPaths.has(entry.path));
+  const blobs = gitBlobsByOid(entries.filter((entry) => entry.type === "blob").map((entry) => entry.oid));
   let exportedLines = 0;
   const buffered = cachePath ? [] : null;
   const emit = (value) => {
@@ -67,21 +72,44 @@ function main() {
     else writeJsonl(value);
   };
 
-  for (const file of files) {
+  for (const entry of entries) {
+    const file = entry.path;
     const classification = classify(file, profile);
-    const blob = blobs.get(file);
+
+    // A non-blob tree entry (a submodule gitlink is type "commit") has no text
+    // content in this repo. Record it as an omission, never a die.
+    if (entry.type !== "blob") {
+      const record = {
+        schemaVersion: profiles.schemaVersion, profile: profileId, ref, path: file,
+        bytes: null, lines: null, sha256: null,
+        included: false, reason: entry.type === "commit" ? "submodule" : `non-blob:${entry.type}`,
+        ...(changedFrom ? { changedFrom } : {})
+      };
+      if (command === "manifest") emit(record);
+      continue;
+    }
+
+    const blob = blobs.get(entry.oid);
     if (!blob) die(`cannot read ${file} at ${ref}`);
-    const binary = isBinary(blob);
+    // A blob can only join a UTF-8 text pack if it round-trips through UTF-8 and
+    // holds no NUL byte. A binary (NUL) or a non-UTF-8 text file (latin-1, GBK,
+    // Shift-JIS, a lone 0xFF) is recorded as an omission with its reason — bytes
+    // and sha256 of the raw blob kept — rather than aborting the run OR emitting
+    // lossy `toString("utf8")` content whose digest would not match the record
+    // (which also poisoned the export cache on re-read).
+    const packReason = packableReason(blob);
+    const includedInPack = classification.included && packReason === null;
+    const reason = classification.included && packReason !== null ? packReason : classification.reason;
     const record = {
       schemaVersion: profiles.schemaVersion,
       profile: profileId,
       ref,
       path: file,
       bytes: blob.length,
-      lines: binary ? null : countLines(blob),
+      lines: packReason === null ? countLines(blob) : null,
       sha256: sha256(blob),
-      included: classification.included,
-      reason: classification.reason,
+      included: includedInPack,
+      reason,
       ...(changedFrom ? { changedFrom } : {})
     };
 
@@ -90,8 +118,7 @@ function main() {
       continue;
     }
 
-    if (!classification.included) continue;
-    if (binary) die(`included file is binary: ${file}`);
+    if (!includedInPack) continue;
     exportedLines += record.lines || 0;
     emit({ ...record, content: blob.toString("utf8") });
   }
@@ -149,44 +176,71 @@ function resolveRef(ref) {
   return git(["rev-parse", "--verify", `${ref}^{commit}`]).trim();
 }
 
-function gitLines(argv) {
-  return git(argv).split(/\r?\n/).filter(Boolean);
-}
-
 function changedPathSet(base, ref) {
-  return new Set(gitLines(["diff", "--name-only", "--diff-filter=ACMRT", `${base}..${ref}`]));
+  // `-z` NUL-delimits and never quotes a path, so a changed file with any name
+  // (non-ASCII, backslash, quote, control char) is matched, not silently missed.
+  return new Set(git(["diff", "--name-only", "-z", "--diff-filter=ACMRT", `${base}..${ref}`]).split("\0").filter(Boolean));
 }
 
 function git(argv) {
-  const result = spawnSync("git", argv, { cwd: repoRoot, encoding: "utf8" });
+  // maxBuffer matches the cat-file reader: `ls-tree -r -z` (full mode/type/oid
+  // rows) is ~3x the old `--name-only` output, so the Node default 1 MiB would
+  // overflow on a mid-size repo and abort. result.error is checked so an
+  // overflow (ENOBUFS) or a spawn failure reports a real message, not an empty die.
+  const result = spawnSync("git", argv, { cwd: repoRoot, encoding: "utf8", maxBuffer: 1024 * 1024 * 256 });
+  if (result.error) die(`git ${argv.join(" ")}: ${result.error.message}`);
   if (result.status !== 0) die((result.stderr || result.stdout || `git ${argv.join(" ")} failed`).trim());
   return result.stdout;
 }
 
-function gitBlobs(ref, files) {
+function treeEntries(ref) {
+  // `ls-tree -r -z` emits one record per file: "<mode> <type> <oid>\t<path>\0".
+  // `-z` NUL-terminates and never quotes the path, so any filename byte class
+  // survives. Non-blob rows (a submodule is type "commit") are kept so the
+  // caller can record them rather than reading them as blobs.
+  const out = git(["ls-tree", "-r", "-z", ref]);
+  const entries = [];
+  for (const rec of out.split("\0")) {
+    if (!rec) continue;
+    const tab = rec.indexOf("\t");
+    if (tab < 0) die(`cannot parse tree entry: ${rec}`);
+    const meta = rec.slice(0, tab).split(" ");
+    if (meta.length !== 3) die(`cannot parse tree entry header: ${rec.slice(0, tab)}`);
+    entries.push({ mode: meta[0], type: meta[1], oid: meta[2], path: rec.slice(tab + 1) });
+  }
+  return entries;
+}
+
+function gitBlobsByOid(oids) {
   const blobs = new Map();
-  if (files.length === 0) return blobs;
-  const input = files.map((file) => `${ref}:${file}\n`).join("");
+  const unique = [...new Set(oids)];
+  if (unique.length === 0) return blobs;
+  // Request blobs by object id — a hex OID can never contain a newline or a
+  // special byte, so the cat-file request stream is safe for any repo.
+  const input = unique.map((oid) => `${oid}\n`).join("");
   const result = spawnSync("git", ["cat-file", "--batch"], {
     cwd: repoRoot,
     input: Buffer.from(input, "utf8"),
     maxBuffer: 1024 * 1024 * 256
   });
+  // result.error is checked so an over-cap repo (ENOBUFS) reports a real message
+  // rather than the empty/truncated dump the bare status check would produce.
+  if (result.error) die(`git cat-file --batch: ${result.error.message}`);
   if (result.status !== 0) die((result.stderr || result.stdout || `git cat-file --batch failed`).toString().trim());
 
   let offset = 0;
-  for (const file of files) {
+  for (const oid of unique) {
     const headerEnd = result.stdout.indexOf(10, offset);
-    if (headerEnd < 0) die(`cannot read ${file} at ${ref}: truncated batch header`);
+    if (headerEnd < 0) die(`cannot read ${oid}: truncated batch header`);
     const header = result.stdout.slice(offset, headerEnd).toString("utf8");
     offset = headerEnd + 1;
     const parts = header.split(" ");
-    if (parts.length !== 3 || parts[1] !== "blob") die(`cannot read ${file} at ${ref}: ${header}`);
+    if (parts.length !== 3 || parts[1] !== "blob") die(`cannot read ${oid}: ${header}`);
     const size = Number(parts[2]);
-    if (!Number.isSafeInteger(size) || size < 0) die(`cannot read ${file} at ${ref}: invalid blob size`);
+    if (!Number.isSafeInteger(size) || size < 0) die(`cannot read ${oid}: invalid blob size`);
     const end = offset + size;
-    if (end > result.stdout.length) die(`cannot read ${file} at ${ref}: truncated blob`);
-    blobs.set(file, result.stdout.slice(offset, end));
+    if (end > result.stdout.length) die(`cannot read ${oid}: truncated blob`);
+    blobs.set(oid, result.stdout.slice(offset, end));
     offset = end;
     if (result.stdout[offset] === 10) offset++;
   }
@@ -221,8 +275,15 @@ function countLines(buffer) {
   return buffer[buffer.length - 1] === 10 ? count : count + 1;
 }
 
-function isBinary(buffer) {
-  return buffer.includes(0);
+// Why a blob cannot join a UTF-8 text pack, or null if it can. A NUL byte marks
+// binary (images, UTF-16, compiled output). A blob that does not round-trip
+// through UTF-8 is non-UTF-8 text (latin-1, GBK, Shift-JIS, a lone 0xFF): its
+// lossy `toString("utf8")` would not hash back to the record's raw-blob sha256,
+// so it is recorded as an omission instead of corrupting the pack (and its cache).
+function packableReason(buffer) {
+  if (buffer.includes(0)) return "binary";
+  if (!Buffer.from(buffer.toString("utf8"), "utf8").equals(buffer)) return "non-utf8";
+  return null;
 }
 
 function sha256(buffer) {

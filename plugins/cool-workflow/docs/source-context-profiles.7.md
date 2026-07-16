@@ -73,6 +73,25 @@ node scripts/source-context.js export --profile core --ref HEAD --repo-root /pat
 `export` emits only included text files and adds `content`. Both commands use
 stdout for JSONL data only. Diagnostics and refusal messages go to stderr.
 
+A file that cannot join a UTF-8 text pack is a recorded omission — `included:false`
+with a `reason`, `bytes` and `sha256` of the raw blob kept and `lines:null` — in
+both `manifest` and `export`, rather than aborting the run:
+
+- `reason:"binary"` — the blob holds a NUL byte (images, UTF-16, compiled output).
+- `reason:"non-utf8"` — the blob has no NUL but is not valid UTF-8 (latin-1, GBK,
+  Shift-JIS, a lone `0xFF`). Its lossy `toString("utf8")` is never emitted, so an
+  exported record's content always hashes back to its `sha256` and the export
+  cache never poisons on re-read.
+- `reason:"submodule"` — the entry is a git submodule (a gitlink), which has no
+  blob in this repo.
+
+This keeps a real foreign repo — one whose docs carry images, whose fixtures hold
+non-UTF-8 or non-ASCII text, or which uses submodules — exportable while still
+documenting every dropped file. Enumeration uses `git ls-tree -r -z` and blobs are
+read by object id, so a filename of any byte class (non-ASCII such as `docs/中文.md`,
+or one holding a backslash, quote, or control char) is neither lost to git's path
+quoting nor able to break the request stream.
+
 `--changed-from REF` is opt-in diff-aware mode. It cuts `manifest` and
 `export` down to paths changed between the resolved base commit and `--ref`, then
 applies the selected profile include/exclude rules. Deleted files are left out
@@ -103,17 +122,22 @@ The smoke test checks that:
   and caches apart from full exports;
 - cached exports are byte-identical to uncached exports and broken cache hits
   fail closed;
-- the `core` profile stays under its `maxLines` guard.
+- the `core` profile stays under its `maxLines` guard;
+- a binary in the include set is a recorded omission (`reason:"binary"`, not a
+  die) and a non-ASCII filename exports as-is.
 
 Run:
 
 ```bash
 node test/source-context-profile-smoke.js
+node test/source-context-external-repo-smoke.js
 ```
 
 ## FreeBSD Discipline
 
 This feature is opt-in and does not change present CLI output. It is mechanism,
 not policy: profile selection lives in data, and vendor prompt/stream behavior
-stays in wrappers. It fails closed on bad profiles, unknown refs, binary
-included files, and line-count drift past the set guard.
+stays in wrappers. It fails closed on bad profiles, unknown refs, and line-count
+drift past the set guard. A file that cannot join a text pack (binary, non-UTF-8,
+or a submodule) is a recorded omission with its `reason`, not a fatal error — a
+documented drop, never a silent one.
