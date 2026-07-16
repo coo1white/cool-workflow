@@ -233,7 +233,11 @@ The wrapper works out the source-context digest and gives it to the fast app. Fo
 external repositories, the documented no-profile command makes a repo-local
 default `repo` profile over common tracked text surfaces. If the chosen profile
 exports zero records, the wrapper refuses rather than handing the app an empty
-context digest.
+context digest. Every run also writes the profile it actually used to
+`.cw/context/repo-source-profile.json` next to the exported context — the default
+profile in the no-profile case, or the single profile a `--profile-file` run
+selected — so that snapshot always matches this run's context and never carries a
+stale profile from an earlier run.
 The two Map workers opt in to result caching keyed by source-context digest plus
 prompt digest. The two Assess workers also opt in, but their cache key takes in
 the completed previous-phase result digests so stale Map outputs do not count as

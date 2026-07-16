@@ -61,6 +61,13 @@ function main() {
   assertNonEmptySourceContext(contextText, profile, repo);
   fs.mkdirSync(path.dirname(contextOut), { recursive: true });
   fs.writeFileSync(contextOut, contextText, "utf8");
+  // Record the profile ACTUALLY used next to the freshly-written context, so the
+  // snapshot always matches this run and never carries a stale profile from an
+  // earlier run. Only a custom --profile-file needs this — the default external
+  // path already wrote its snapshot via writeDefaultRepoProfile, and a bundled or
+  // internal-repo run (no --profile-file) writes no snapshot, exactly as before.
+  // Written AFTER the context so a failed/zero-record export leaves no orphan.
+  if (requestedProfileFile) snapshotUsedProfile(requestedProfileFile, profile, contextOut);
   const digest = `sha256:${crypto.createHash("sha256").update(contextText, "utf8").digest("hex")}`;
 
   const reviewArgs = [
@@ -158,6 +165,23 @@ function resolveProfileName(requestedProfile, requestedProfileFile) {
   if (ids.length === 1) return ids[0];
   if (ids.length === 0) die(`--profile-file ${requestedProfileFile} defines no profiles`);
   die(`--profile-file ${requestedProfileFile} defines ${ids.length} profiles (${ids.join(", ")}); pass --profile <name> to choose one`);
+}
+
+// Overwrite .cw/context/repo-source-profile.json with the single profile a
+// custom --profile-file run actually used, so the snapshot next to the exported
+// context is always truthful (never a stale profile from an earlier run).
+function snapshotUsedProfile(sourceProfileFile, profileId, contextOut) {
+  let parsed;
+  try {
+    parsed = JSON.parse(fs.readFileSync(path.resolve(sourceProfileFile), "utf8"));
+  } catch (error) {
+    die(`cannot read --profile-file ${sourceProfileFile}: ${error.message}`);
+  }
+  const used = parsed && parsed.profiles && parsed.profiles[profileId];
+  if (!used) die(`profile ${profileId} not found in ${sourceProfileFile}`);
+  const file = path.join(path.dirname(contextOut), "repo-source-profile.json");
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, `${JSON.stringify({ schemaVersion: parsed.schemaVersion || 1, profiles: { [profileId]: used } }, null, 2)}\n`, "utf8");
 }
 
 function writeDefaultRepoProfile(repo, contextOut) {
