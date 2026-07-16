@@ -81,6 +81,15 @@ hand-edited profile just to raise the line limit.
 `export` emits only included text files and adds `content`. Both commands use
 stdout for JSONL data only. Diagnostics and refusal messages go to stderr.
 
+Profile `include`/`exclude` patterns are matched against the full repo-relative
+path and are fully anchored (a pattern must describe the path from the repo root,
+not just a suffix). A single `*` matches within one path segment; `**` crosses
+directory separators; a leading or embedded `**/` also matches zero segments. So
+`**/*.test.ts` excludes a test file at any depth, `**/dist/**` drops everything
+under any `dist/`, `src/**` takes everything under `src/`, and `src/*.ts` matches
+only the direct `.ts` children of `src/`. A slash-less pattern such as `*.md` is
+anchored to the repo root; use `**/*.md` to match at any depth.
+
 A file that cannot join a UTF-8 text pack is a recorded omission — `included:false`
 with a `reason`, `bytes` and `sha256` of the raw blob kept and `lines:null` — in
 both `manifest` and `export`, rather than aborting the run:
