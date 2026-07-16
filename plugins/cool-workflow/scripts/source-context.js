@@ -295,16 +295,60 @@ function classify(file, profile) {
 }
 
 function matches(pattern, file) {
-  if (pattern.endsWith("/**")) {
+  // Fast path only for a WILDCARD-FREE prefix + trailing `/**` (e.g. `src/**`).
+  // A prefix that itself holds a wildcard (`**/dist/**`, `packages/*/dist/**`)
+  // must fall through to globToRegExp, or the literal prefix compare would
+  // silently match nothing and the exclude would be a no-op.
+  if (pattern.endsWith("/**") && !pattern.slice(0, -3).includes("*")) {
     const dir = pattern.slice(0, -3);
     return file === dir || file.startsWith(`${dir}/`);
   }
   if (!pattern.includes("*")) return file === pattern;
-  const escaped = pattern
-    .split("*")
-    .map((part) => part.replace(/[|\\{}()[\]^$+?.]/g, "\\$&"))
-    .join("[^/]*");
-  return new RegExp(`^${escaped}$`).test(file);
+  return globToRegExp(pattern).test(file);
+}
+
+// Translate a glob to an anchored RegExp: `**` crosses directory separators
+// while a single `*` matches within one segment. A `**/` at a boundary also
+// matches zero path segments, so `**/*.test.ts` matches `x.test.ts`,
+// `a/x.test.ts`, and `a/b/x.test.ts` alike. Runs of `**`/`**​/` are coalesced and
+// a bounded `(?:[^/]+/)*` is used (never `.*`), so stacked globstars such as
+// `src/**/**/*.ts` cannot cause catastrophic backtracking (ReDoS) — the matcher
+// runs once per pattern per file over the whole tree, on untrusted profiles.
+function globToRegExp(pattern) {
+  let re = "";
+  let i = 0;
+  const n = pattern.length;
+  while (i < n) {
+    const c = pattern[i];
+    if (c === "*") {
+      let stars = 0;
+      while (i < n && pattern[i] === "*") { stars += 1; i += 1; }
+      if (stars >= 2) {
+        // Globstar. Coalesce any immediately-following `/​**` runs so two
+        // unbounded groups are never emitted adjacently. Track whether a slash
+        // bounds it into whole segments.
+        let boundedBySlash = false;
+        while (i < n && pattern[i] === "/") {
+          let j = i + 1;
+          let following = 0;
+          while (j < n && pattern[j] === "*") { following += 1; j += 1; }
+          if (following >= 2) { i = j; boundedBySlash = true; continue; }
+          i += 1; boundedBySlash = true; break;
+        }
+        // `(?:[^/]+/)*` matches zero or more whole segments and, unlike `.*`,
+        // backtracks only per segment. A bare globstar (no bounding slash) still
+        // crosses separators via `.*`, but coalescing keeps it non-adjacent.
+        re += boundedBySlash ? "(?:[^/]+/)*" : ".*";
+      } else {
+        re += "[^/]*"; // a single `*` stays within one path segment
+      }
+    } else if (/[|\\{}()[\]^$+?.]/.test(c)) {
+      re += `\\${c}`; i += 1;
+    } else {
+      re += c; i += 1;
+    }
+  }
+  return new RegExp(`^${re}$`);
 }
 
 function countLines(buffer) {
