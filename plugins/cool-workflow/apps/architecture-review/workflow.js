@@ -101,14 +101,18 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
         agent(
           "verify:p0-p2-risks",
           "Re-open evidence for every candidate P0/P1/P2 risk found so far, judged against {{question}}. Confirm real risks, downgrade unsupported concerns, and list exact file paths, commands, logs, or unknowns. The cw:result evidence array must cite durable locators.",
-          { requiresEvidence: true, sandboxProfileId: "readonly" }
+          // includeCompletedResults injects the completed Map/Assess results into
+          // this worker's input so it verifies against real upstream findings.
+          { requiresEvidence: true, sandboxProfileId: "readonly", resultCache: { includeCompletedResults: "previous-phases" } }
         )
       ]),
       phase("Verdict", [
         artifact(
           "verdict:synthesis",
-          "Synthesize the architecture verdict for {{question}}: short answer, architecture map, ranked risks, non-issues, recommended changes, and evidence links. The cw:result evidence array must support the final verdict.",
-          { requiresEvidence: true, sandboxProfileId: "readonly" }
+          "Synthesize the architecture verdict for {{question}}: short answer, architecture map, ranked risks, non-issues, recommended changes, and evidence links. Reconcile against the Prior Findings: every P0/P1/P2 risk the Verify phase confirmed must appear in your ranked risks, either upheld or explicitly downgraded/dismissed with a one-line reason — never silently drop a confirmed finding. The cw:result evidence array must support the final verdict.",
+          // includeCompletedResults injects the completed Map/Assess/Verify
+          // results so the verdict reconciles instead of re-deriving a fresh list.
+          { requiresEvidence: true, sandboxProfileId: "readonly", resultCache: { includeCompletedResults: "previous-phases" } }
         )
       ])
     ]

@@ -117,6 +117,7 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
             "Synthesize a fast architecture verdict for {{question}}.",
             contextInstruction(),
             "Include a short answer, compact architecture map, ranked risks, speed recommendations, non-issues, and evidence links.",
+            "Reconcile against the Prior Findings: every P0/P1/P2 risk the Verify phase confirmed must appear in your ranked risks, either upheld or explicitly downgraded/dismissed with a one-line reason. Never silently drop a confirmed finding.",
             "State when the full architecture-review app should be scheduled as a background routine.",
             "The cw:result evidence array must support the final verdict."
           ].join(" "),

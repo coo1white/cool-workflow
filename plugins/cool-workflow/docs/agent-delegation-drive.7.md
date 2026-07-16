@@ -242,8 +242,13 @@ validation; a corrupt cached result parks/fails closed rather than spawning a
 quiet fallback.
 
 Verify and Verdict also get the source-context instruction so they do not have to
-start by scanning the repo again. They are not result-cached; they still have to
-cite evidence and make the final check from the accepted Map and Assess work.
+start by scanning the repo again. They still have to cite evidence and make the
+final check from the accepted Map and Assess work. Both opt in to
+`includeCompletedResults: "previous-phases"`, so their `input.md` carries a
+`## Prior Findings` section with the completed upstream result text. This is what
+lets Verdict reconcile against the Verify-confirmed risks: every confirmed P0/P1/P2
+must appear in the verdict, upheld or downgraded-with-a-reason, never silently
+dropped.
 
 `--metrics` is diagnostic and opt-in. It adds elapsed milliseconds, step counts,
 agent-spawn counts, `result-cache` hit counts, source-context bytes/digest, and

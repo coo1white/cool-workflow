@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — verdict reconciles verified findings (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Stop the review Verdict from silently dropping findings the Verify step confirmed. The `includeCompletedResults: "previous-phases"` cache field was declared by the review apps but read by no code, so the Verdict worker got no upstream results in its `input.md` and re-derived a fresh list. Now `writeWorkerInput` injects the completed earlier-phase result text as a `## Prior Findings` section for any task that opts in, and both review apps ask the Verdict to reconcile: every confirmed P0/P1/P2 must appear, upheld or downgraded-with-a-reason. Adversarial-review hardening: the section sits AFTER `## Boundary` and each body is fenced as quoted data (an untrusted repo body cannot shadow an engine section); reads are containment-checked and fail closed on an out-of-tree path, an unreadable file, or an incomplete upstream; bodies are size-capped; and when the task also caches, the upstream digest binds the cache key so a warm hit cannot serve a result computed against different upstream findings. Opt-in and byte-identical `input.md` when the field is absent. | `src/shell/worker-isolation.ts`, `src/shell/drive.ts`, `apps/architecture-review-fast/workflow.js`, `apps/architecture-review/workflow.js`, `docs/worker-isolation.7.md`, `docs/agent-delegation-drive.7.md`, `test/verdict-prior-findings-smoke.js`, `ITERATION_LOG.md` | `verdict-prior-findings-smoke.js` is red before the change and pins: the fenced section carries the confirmed finding when the field is set, Task->Boundary stays byte-contiguous without it, and injection is skipped while upstream is incomplete or the result path escapes the run tree. `defaultCacheKey` digest-sensitivity is covered by the existing cache-key unit test. The full architecture-review dogfood drive was checked end to end — the Verdict worker's `input.md` carried all 13 upstream results, after Boundary, fenced, plus the reconcile instruction. | Pending full gate. | no (fault fix; no release tag) |
+
 ## Batch — duplicate agent notes and static eval cleanup (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |

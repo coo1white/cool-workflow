@@ -100,6 +100,22 @@ Out-of-scope output is rejected and kept as:
 .cw/runs/<run-id>/report.md
 ```
 
+`input.md` holds the worker header, its `## Task` prompt, and its `## Boundary`
+read/write paths. When the task opts in with `resultCache.includeCompletedResults
+= "previous-phases"`, `input.md` also carries a `## Prior Findings` section: the
+completed result text of every earlier-phase task, in a stable order, so a verify
+or synthesis step reconciles against real upstream findings instead of re-deriving
+them. The section is placed AFTER `## Boundary` and each upstream body is quoted
+between `BEGIN/END PRIOR RESULT` markers framed as data, so a repo-derived
+upstream body cannot shadow an authoritative engine section. It is present only
+for opted-in tasks (byte-identical `input.md` otherwise); it is left out — fail
+closed — when any earlier phase is incomplete, when a result path escapes the
+run's own results/workers tree, or when a result file cannot be read. Each body
+is capped to keep one oversized result from crowding out the Boundary. When a
+task both injects and result-caches, the injected upstream digest also binds the
+cache key, so a warm hit cannot serve a result computed against different
+upstream findings.
+
 `worker.json` is the durable worker-scope state record. `manifest.json` is the
 worker-facing view that hosts and agents read before they write `result.md`.
 Keeping them apart stops a rebuilt manifest from writing over scope-only runtime

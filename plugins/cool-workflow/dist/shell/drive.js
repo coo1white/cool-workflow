@@ -185,7 +185,17 @@ function resultCachePath(run, task, promptDigest, incremental, delegationDigest)
         if (!policy || policy.mode !== "read-write" || !policy.keyInput)
             return undefined;
         const keyValue = String(run.inputs[policy.keyInput] || "").trim();
-        digest = (0, drive_decide_1.defaultCacheKey)(run.workflow.id, task.id, policy.keyInput, keyValue, promptDigest, "");
+        // When the task injects completed upstream results into its input (see
+        // worker-isolation.ts collectPreviousPhaseResults), the same results must
+        // bind the cache key — otherwise a warm hit keyed only on the source digest
+        // could serve a verdict computed against DIFFERENT upstream findings and
+        // re-drop a confirmed risk. previousPhaseResultsDigest returns undefined
+        // when any upstream is incomplete, so defaultCacheKey then declines to cache
+        // (fail closed), matching the injection's own fail-closed rule.
+        const completedResultsDigest = policy.includeCompletedResults === "previous-phases"
+            ? previousPhaseResultsDigest(run, task)
+            : "";
+        digest = (0, drive_decide_1.defaultCacheKey)(run.workflow.id, task.id, policy.keyInput, keyValue, promptDigest, completedResultsDigest);
     }
     if (!digest)
         return undefined;

@@ -212,7 +212,7 @@ function withRoundCache<T>(ctx: DriveContext, fn: () => T): T {
   }
 }
 
-function resultCachePath(run: WorkflowRun, task: { id: string; phase: string; prompt: string; resultCache?: { mode?: string; keyInput?: string } }, promptDigest: string, incremental: boolean, delegationDigest: string): string | undefined {
+function resultCachePath(run: WorkflowRun, task: { id: string; phase: string; prompt: string; resultCache?: { mode?: string; keyInput?: string; includeCompletedResults?: string } }, promptDigest: string, incremental: boolean, delegationDigest: string): string | undefined {
   let digest: string | undefined;
   if (incremental) {
     const upstream = previousPhaseResultsDigest(run, task);
@@ -221,7 +221,17 @@ function resultCachePath(run: WorkflowRun, task: { id: string; phase: string; pr
     const policy = task.resultCache;
     if (!policy || policy.mode !== "read-write" || !policy.keyInput) return undefined;
     const keyValue = String(run.inputs[policy.keyInput] || "").trim();
-    digest = defaultCacheKey(run.workflow.id, task.id, policy.keyInput, keyValue, promptDigest, "");
+    // When the task injects completed upstream results into its input (see
+    // worker-isolation.ts collectPreviousPhaseResults), the same results must
+    // bind the cache key — otherwise a warm hit keyed only on the source digest
+    // could serve a verdict computed against DIFFERENT upstream findings and
+    // re-drop a confirmed risk. previousPhaseResultsDigest returns undefined
+    // when any upstream is incomplete, so defaultCacheKey then declines to cache
+    // (fail closed), matching the injection's own fail-closed rule.
+    const completedResultsDigest = policy.includeCompletedResults === "previous-phases"
+      ? previousPhaseResultsDigest(run, task)
+      : "";
+    digest = defaultCacheKey(run.workflow.id, task.id, policy.keyInput, keyValue, promptDigest, completedResultsDigest);
   }
   if (!digest) return undefined;
   return path.join(run.cwd, ".cw", "cache", "worker-results", safeFileName(run.workflow.id), cacheFileName(task.id, digest));
