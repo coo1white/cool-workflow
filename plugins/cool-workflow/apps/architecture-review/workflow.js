@@ -37,64 +37,64 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
         agent(
           "map:server-api",
           "Map server/API entrypoints, request flows, service boundaries, auth surfaces, and owned state in {{repo}} for {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return inspected files, dependencies, invariants, and candidate risks.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "map:web-client",
           "Map web/client/UI boundaries, local state, backend dependencies, build/runtime assumptions, and candidate risks in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return exact files and commands that informed the map.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "map:db-security",
           "Map database, persistence, migrations, secrets, auth, permissions, and security-sensitive paths in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return candidate risks with file paths, config names, and uncertainty boundaries.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "map:deploy-config",
           "Map deployment, CI, package scripts, Docker or compose files, reverse proxies, environment config, supervision, and operational assumptions in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return concrete files and release or runtime risks.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "map:jobs-operators",
           "Map background jobs, admin/operator surfaces, queues, scheduled work, generated files, state transitions, and failure recovery paths in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Identify missing or non-applicable areas explicitly.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "map:transport-core",
           "Map protocol, daemon, transport, rendering, networking, worker isolation, or core engine boundaries when present in {{repo}}, as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. If absent, explain why with inspected evidence.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         )
       ]),
       parallel("Assess", [
         agent(
           "assess:security",
           "Assess mapper findings through a security lens as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Separate real, conditional, non-issue, and unknown risks with evidence, falsifiers, and exact files or config keys.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "assess:data-correctness",
           "Assess data correctness, schema drift, persistence invariants, concurrency, transactions, cache behavior, and state corruption risks as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Tie every important claim to inspected evidence.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "assess:failure-modes",
           "Assess startup, shutdown, retries, partial failure, dependency outage, backup/restore, release rollback, and recovery behavior as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Identify deterministic commands that could verify the claims.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "assess:scale-ops",
           "Assess scale, operational complexity, observability, configuration, packaging, deployment, and maintenance risks as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Include exact files, scripts, or missing controls.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "assess:maintainability",
           "Assess module boundaries, ownership clarity, coupling, extensibility, testability, and future change risk as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Distinguish architectural risks from style preferences.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "assess:domain",
           "Assess domain-specific risks implied by {{question}}, {{focus}}, and the invariants {{invariant}}. Include abuse, misuse, or compatibility concerns only when supported by repository evidence.",
-          { sandboxProfileId: "readonly" }
+          { sandboxProfileId: "readonly", reviewsRepo: true }
         )
       ]),
       phase("Verify", [
@@ -103,7 +103,7 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
           "Re-open evidence for every candidate P0/P1/P2 risk found so far, judged against {{question}}. Confirm real risks, downgrade unsupported concerns, and list exact file paths, commands, logs, or unknowns. The cw:result evidence array must cite durable locators.",
           // includeCompletedResults injects the completed Map/Assess results into
           // this worker's input so it verifies against real upstream findings.
-          { requiresEvidence: true, sandboxProfileId: "readonly", resultCache: { includeCompletedResults: "previous-phases" } }
+          { requiresEvidence: true, sandboxProfileId: "readonly", reviewsRepo: true, resultCache: { includeCompletedResults: "previous-phases" } }
         )
       ]),
       phase("Verdict", [
@@ -112,7 +112,7 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
           "Synthesize the architecture verdict for {{question}}: short answer, architecture map, ranked risks, non-issues, recommended changes, and evidence links. Reconcile against the Prior Findings: every P0/P1/P2 risk the Verify phase confirmed must appear in your ranked risks, either upheld or explicitly downgraded/dismissed with a one-line reason — never silently drop a confirmed finding. The cw:result evidence array must support the final verdict.",
           // includeCompletedResults injects the completed Map/Assess/Verify
           // results so the verdict reconciles instead of re-deriving a fresh list.
-          { requiresEvidence: true, sandboxProfileId: "readonly", resultCache: { includeCompletedResults: "previous-phases" } }
+          { requiresEvidence: true, sandboxProfileId: "readonly", reviewsRepo: true, resultCache: { includeCompletedResults: "previous-phases" } }
         )
       ])
     ]
