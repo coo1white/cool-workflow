@@ -554,11 +554,21 @@ class RunRegistry {
         }
         return records.sort(compareRecords);
     }
-    buildIndex(scope) {
+    /** `reuse`, when given, skips re-scanning ONE repo's run directory and
+     *  substitutes the caller's already-current records for it instead —
+     *  used by `refresh()` below so a repo-scope refresh's home-scope
+     *  cascade does not re-derive every run in the SAME repo it just
+     *  finished deriving milliseconds earlier. This is not the "trust a
+     *  persisted index" shortcut this file's header warns against (every
+     *  record here was itself freshly derived from source, just reused
+     *  within the same call rather than recomputed a second time). */
+    buildIndex(scope, reuse) {
         const repos = scope === "home" ? this.knownRepos() : [this.repoRoot];
+        const reuseRepo = reuse ? path.resolve(reuse.repo) : undefined;
         const records = [];
-        for (const repo of repos)
-            records.push(...this.scanRepo(repo));
+        for (const repo of repos) {
+            records.push(...(reuseRepo && path.resolve(repo) === reuseRepo ? reuse.records : this.scanRepo(repo)));
+        }
         records.sort(compareRecords);
         const queue = scope === "home" ? this.loadQueueEntries() : this.loadQueueEntries().filter((q) => path.resolve(q.repo) === this.repoRoot);
         const sourceFingerprint = (0, hash_1.fingerprintStrings)([
@@ -602,7 +612,11 @@ class RunRegistry {
         const index = this.buildIndex(scope);
         (0, fs_atomic_1.writeJson)(this.persistedIndexPath(scope), index);
         if (scope === "repo") {
-            const homeIndex = this.buildIndex("home");
+            // index.records is already exactly this repo's fresh records (scope
+            // "repo" only ever scans this.repoRoot) -- reuse them instead of
+            // scanning the same run directory a second time for the home index,
+            // which knownRepos() always includes this.repoRoot in.
+            const homeIndex = this.buildIndex("home", { repo: this.repoRoot, records: index.records });
             (0, fs_atomic_1.writeJson)(this.persistedIndexPath("home"), homeIndex);
         }
         return this.report(scope, index);
