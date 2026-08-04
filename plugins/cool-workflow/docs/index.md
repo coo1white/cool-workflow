@@ -41,6 +41,7 @@ advanced pages only when you need those parts.
 - [Web / Desktop Workbench](web-desktop-workbench.7.md) - read-only localhost console over existing run state.
 - [Observability + Cost Accounting](observability-cost-accounting.7.md) - derived durations, rates, token usage, and cost.
 - [Team Collaboration](team-collaboration.7.md) - append-only approvals, comments, handoffs, and review gates.
+- [Multi-Vendor Agent Standards](multi-vendor-agent-standards.7.md) - rules for any vendor agent calling CW as a client, and for vendor agents working together to build CW.
 - [Real Execution Backend Integrations](real-execution-backends.7.md) - real container/remote/ci execution under the sandbox contract.
 - [Node Snapshot / Diff / Replay](node-snapshot-diff-replay.7.md) - per-node snapshots, structural diff, and deterministic replay.
 - [Contract Migration Tooling](contract-migration-tooling.7.md) - declared migration registry and compatibility proofs.

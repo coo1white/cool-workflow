@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-07-17 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-08-04 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -8,7 +8,7 @@ Generated from the current repository code on 2026-07-17 by `npm run sync:projec
 - Version: `0.2.6`
 - Source modules: `153`
 - Workflow apps: `8`
-- Docs: `58`
+- Docs: `59`
 - Smoke tests: `255`
 - Repository: https://github.com/coo1white/cool-workflow
 
@@ -250,6 +250,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Multi-Agent Runtime Core](multi-agent-runtime-core.7.md)
 - [Multi-Agent Topologies](multi-agent-topologies.7.md)
 - [Multi-Agent Trust / Policy / Audit](multi-agent-trust-policy-audit.7.md)
+- [Multi-Vendor Agent Standards](multi-vendor-agent-standards.7.md)
 - [Node Snapshot / Diff / Replay](node-snapshot-diff-replay.7.md)
 - [Observability + Cost Accounting](observability-cost-accounting.7.md)
 - [Operator UX](operator-ux.7.md)
