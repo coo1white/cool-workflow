@@ -21,7 +21,6 @@
 # dedupe or reorder, so it must never guard a file where line order or
 # uniqueness carries meaning.
 ITERATION_LOG.md merge=union
-CHANGELOG.md merge=union
 
 # GitHub Linguist: keep the Languages bar to JS/TS. These files are needed
 # and cannot be JS (a Homebrew formula must be Ruby; the workbench UI serves

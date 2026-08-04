@@ -1,5 +1,11 @@
 # CW Iteration Log
 
+## Batch — remove CHANGELOG.md and RELEASE.md, inline into AGENTS.md (Unreleased)
+
+| cycle | goal | files | tests | gate | tagged |
+|-------|------|-------|-------|------|--------|
+| 1 | Remove CHANGELOG.md and RELEASE.md as separate files, per an operator decision to stop keeping a hand-written changelog (GitHub's `--generate-notes`, already used by `.github/workflows/github-release.yml`, is now the release-notes source) and fold RELEASE.md's real checklist content into AGENTS.md's "Shipping a release" section. Full-repo audit before touching anything found 4+ hard script dependencies per file (`version-sync-check.js`, `release-check.js`, `bump-version.js`'s content-surface gate, `dogfood-release.js`'s two audit tasks, `new-feature.js`'s CHANGELOG-writing step, `release-flow.js`'s cut preflight, `onramp.ts`'s doc-file classifier) plus 4 test files pinning that exact behavior — all updated in this same diff so nothing breaks silently. `release-flow.js`'s `changelogSection()` (reads historical CHANGELOG.md content via `git show <tag>:CHANGELOG.md` for old tags) is intentionally left working as-is, since git history still has the old file for any pre-existing tag. | `.gitattributes`, `AGENTS.md`, `README.md`, `plugins/cool-workflow/README.md`, `plugins/cool-workflow/commands/release.md`, `plugins/cool-workflow/docs/source-context-profiles.7.md`, `plugins/cool-workflow/manifest/source-context-profiles.json`, `plugins/cool-workflow/scripts/{bump-version,dogfood-release,new-feature,release-check,release-flow,release-oneclick,verdict-keygen,version-sync-check}.js`, `plugins/cool-workflow/src/shell/onramp.ts`, `plugins/cool-workflow/test/{bump-version-idempotent,release-flow,source-context-profile,verdict-signing-workflow}-smoke.js`, `CHANGELOG.md` (removed), `RELEASE.md` (removed) | `npm run build` (clean), `npm test` (35/35), the 4 directly-touched smoke tests run individually, full `npm run release:check` (all 16 checks pass after this ITERATION_LOG entry satisfies the onramp contract). | Full local gate green. | no (docs/tooling cleanup; no release tag) |
+
 ## Batch — pin a worker to the repository under review (Unreleased)
 
 | cycle | goal | files | tests | gate | tagged |

@@ -21,10 +21,11 @@ steps in order and stop at the first failure:
      in the same session after only cosmetic changes.
    - If APPROVED: proceed.
 
-4. Compute the next version from the previous tag, update CHANGELOG.md with
-   the four sections (Capability / Implementation / Tests / Risk), commit,
-   then create the annotated tag. The tag message is the one-sentence
-   capability line from the verdict file.
+4. Compute the next version from the previous tag, then create the
+   annotated tag. The tag message covers the four sections (Capability /
+   Implementation / Tests / Risk) — this is what `--generate-notes` turns
+   into the GitHub Release body. The one-sentence capability line comes
+   from the verdict file.
 
 5. Push the branch and the tag. Report: version, capability sentence,
    test summary, and a link-ready `git diff <prev>..<new> --stat`.

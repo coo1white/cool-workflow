@@ -916,18 +916,6 @@ function releaseFixtureNonAncestorPrevTag() {
     assert.doesNotMatch(r.out, /GATE_RAN/, "the tag check must fire BEFORE the gate (v0.2.3 died at the last step)");
   }
 
-  // ---- Case: CHANGELOG.md present but missing the section -> dies BEFORE the gate ----
-  {
-    const dir = fixture();
-    fs.writeFileSync(path.join(dir, "CHANGELOG.md"), "# Changelog\n\n## 0.0.1\n\nold notes\n");
-    run("git", ["add", "-A"], dir);
-    run("git", ["commit", "-q", "-m", "changelog"], dir);
-    const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, preflightEnv(dir));
-    assert.notEqual(r.code, 0, "a CHANGELOG without the release section must fail up front");
-    assert.match(r.err, /CHANGELOG\.md has no "## 9\.9\.9" section/, "should name the missing section");
-    assert.doesNotMatch(r.out, /GATE_RAN/, "the CHANGELOG check must fire BEFORE the gate");
-  }
-
   // ---- Case: dirty tracked tree -> dies BEFORE the gate; untracked strays are fine ----
   {
     const dir = fixture();

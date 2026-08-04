@@ -574,8 +574,6 @@ function isSurfaceFile(file: string): boolean {
 function isDocFile(file: string): boolean {
   return (
     file === "README.md" ||
-    file === "CHANGELOG.md" ||
-    file === "RELEASE.md" ||
     file.startsWith("docs/") ||
     file === "plugins/cool-workflow/README.md" ||
     file.startsWith("plugins/cool-workflow/docs/")

@@ -28,7 +28,6 @@ const expectedExclude = [
   "plugins/cool-workflow/docs/**",
   "docs/assets/**",
   ".cw-release/**",
-  "CHANGELOG.md",
   "ITERATION_LOG.md"
 ];
 
@@ -73,7 +72,6 @@ assert.equal(byPath.get("plugins/cool-workflow/dist/cli.js").included, false);
 assert.match(byPath.get("plugins/cool-workflow/dist/cli.js").reason, /^excluded:/);
 assert.equal(byPath.get("plugins/cool-workflow/test/run-all.js").included, false);
 assert.equal(byPath.get("plugins/cool-workflow/docs/index.md").included, false);
-assert.equal(byPath.get("CHANGELOG.md").included, false);
 assert.equal(byPath.get("ITERATION_LOG.md").included, false);
 
 for (const record of manifest) {

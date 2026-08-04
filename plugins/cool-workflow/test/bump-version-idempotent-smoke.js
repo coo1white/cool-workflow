@@ -42,28 +42,29 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
 // A same-version re-run with a MISSING content surface must FAIL (gate mode).
 // Fixture: a minimal <root>/plugins/cool-workflow layout (bump-version resolves
 // repoRoot from its own __dirname) whose package.json is already at the target
-// version but whose RELEASE.md lacks any mention of it. The pre-fix code
-// early-exited 0 here without ever looking at content surfaces.
+// version but whose trust-audit-anchor.7.md lacks any mention of it. The
+// pre-fix code early-exited 0 here without ever looking at content surfaces.
 {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "cw-bump-gate-"));
   const fixPlugin = path.join(root, "plugins", "cool-workflow");
   fs.mkdirSync(path.join(fixPlugin, "scripts"), { recursive: true });
   fs.mkdirSync(path.join(fixPlugin, "apps"), { recursive: true });
+  fs.mkdirSync(path.join(fixPlugin, "docs"), { recursive: true });
   fs.copyFileSync(bump, path.join(fixPlugin, "scripts", "bump-version.js"));
   fs.copyFileSync(
     path.join(pluginRoot, "scripts", "canonical-apps-list.js"),
     path.join(fixPlugin, "scripts", "canonical-apps-list.js")
   );
   fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify({ name: "x", version: "9.9.9", scripts: {} }, null, 2)}\n`);
-  fs.writeFileSync(path.join(root, "CHANGELOG.md"), "# Changelog\n\n## 9.9.9\n\nnotes\n");
-  fs.writeFileSync(path.join(root, "RELEASE.md"), "# Release\n\nno version mention here\n");
+  const surfacePath = path.join(fixPlugin, "docs", "trust-audit-anchor.7.md");
+  fs.writeFileSync(surfacePath, "# Trust Audit Anchor\n\nno version mention here\n");
 
   const gate = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.js"), "9.9.9"], {
     cwd: fixPlugin,
     encoding: "utf8"
   });
   assert.notEqual(gate.status, 0, "same-version re-run must still FAIL the content gate when a surface is missing (pre-fix: silent exit 0)");
-  assert.match(`${gate.stdout}${gate.stderr}`, /RELEASE\.md/, "the failure must name the missing surface");
+  assert.match(`${gate.stdout}${gate.stderr}`, /trust-audit-anchor\.7\.md/, "the failure must name the missing surface");
 
   // And --content on the same-version re-run must actually FILL the missing
   // surface — the exact v0.2.3 incident: `bump:version -- 0.2.3 --content`
@@ -79,7 +80,7 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
   });
   assert.equal(fill.status, 0, `same-version --content must fill and exit 0:\n${fill.stdout}${fill.stderr}`);
   assert.match(
-    fs.readFileSync(path.join(root, "RELEASE.md"), "utf8"),
+    fs.readFileSync(surfacePath, "utf8"),
     /9\.9\.9/,
     "--content on a same-version re-run must append the version to the missing surface (pre-fix: it never did)"
   );

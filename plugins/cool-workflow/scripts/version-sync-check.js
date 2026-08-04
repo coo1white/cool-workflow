@@ -205,8 +205,6 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/index.md", "trust-audit-anchor.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/trust-audit-anchor-smoke.js", "trust-audit-anchor-smoke", checks);
   checkIncludesOwnLine("plugins/cool-workflow/docs/release-and-migration.7.md", VERSION, checks);
-  checkIncludes("CHANGELOG.md", `## ${VERSION}`, checks);
-  checkIncludesOwnLine("RELEASE.md", VERSION, checks);
   // Homebrew formula (repo root): git-tag formula. Homebrew scans the version
   // from the tag, so the tag is the single version surface to gate (an explicit
   // `version` line would be redundant and brew audit rejects it). bump-version.js
