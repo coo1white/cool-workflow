@@ -115,14 +115,14 @@ Data, not code. `templates` maps vendor name → wrapper file in the same dir: `
 
 Exported functions (consumed by `cw doctor --onramp` and `scripts/onramp-check.js`):
 
-- `optionEnabled(value)` — false for `undefined`, `false`, and the strings `""`, `"0"`, `"false"`, `"no"` (case-folded); else true (src/onramp.ts:129-133).
-- `npmCommand(cwd, script)` / `nodeSmokeCommand(cwd, smoke)` — `npm run <script>` / `node test/<smoke>`, with a `cd <plugin-rel-dir> && ` front part when run from a source checkout root (src/onramp.ts:135-145).
-- `detectSourceCheckout(cwd)` — looks for a `package.json` with `"name": "cool-workflow"` at `cwd` or `cwd/plugins/cool-workflow` (src/onramp.ts:147-164).
-- `shellQuote(value)` — plain `[A-Za-z0-9_./:-]+` stays as is; else single-quoted with `'\\''` escapes (src/onramp.ts:166-169).
-- `buildDoctorOnramp({cwd, changedFrom, env})` — returns the `DoctorOnramp` object: `schemaVersion: 1`, a fixed `summary`, 5 fixed sections (`first-run`, `no-agent`, `change-loop`, `surface-guard`, `release-gate`) with fixed action ids/commands; with `changedFrom` set it also adds `changedFiles`, `contract`, `recommendedChecks` (src/onramp.ts:171-320).
-- `resolveChangedFiles({cwd, changedFrom, env})` — `{baseRef, files}`: union of `git diff --name-only <base> --` and `git ls-files --others --exclude-standard`, each path normalized, sorted (src/onramp.ts:322-330). Base ref order: `changedFrom` arg, else `CW_ONRAMP_BASE`, else merge-base of HEAD with `origin/<GITHUB_BASE_REF>` (or `origin/main`), else `HEAD` (src/onramp.ts:430-437). A ref starting with `-` → `Error("Invalid onramp base ref (must not start with '-'): <ref>")`; an unknown ref → `Error("Unknown onramp base ref: <ref>")` (src/onramp.ts:439-444).
-- `evaluateOnrampContract(files, {cwd})` — the fail-closed change contract, 4 issue codes (see Invariants) (src/onramp.ts:332-387).
-- `recommendSmokeTests(files, cwd)` — curated map first (src/onramp.ts:71-127), then for uncovered `src/` files: `<basename>-smoke.js` if it exists, plus every available smoke whose name contains a >=3-char token of the basename; sorted (src/onramp.ts:389-417).
+- `optionEnabled(value)` — false for `undefined`, `false`, and the strings `""`, `"0"`, `"false"`, `"no"` (case-folded); else true (src/onramp.ts:141-145).
+- `npmCommand(cwd, script)` / `nodeSmokeCommand(cwd, smoke)` — `npm run <script>` / `node test/<smoke>`, with a `cd <plugin-rel-dir> && ` front part when run from a source checkout root (src/onramp.ts:147-157).
+- `detectSourceCheckout(cwd)` — looks for a `package.json` with `"name": "cool-workflow"` at `cwd` or `cwd/plugins/cool-workflow` (src/onramp.ts:159-176).
+- `shellQuote(value)` — plain `[A-Za-z0-9_./:-]+` stays as is; else single-quoted with `'\\''` escapes (src/onramp.ts:178-181).
+- `buildDoctorOnramp({cwd, changedFrom, env})` — returns the `DoctorOnramp` object: `schemaVersion: 1`, a fixed `summary`, 5 fixed sections (`first-run`, `no-agent`, `change-loop`, `surface-guard`, `release-gate`) with fixed action ids/commands; with `changedFrom` set it also adds `changedFiles`, `contract`, `recommendedChecks` (src/onramp.ts:183-332).
+- `resolveChangedFiles({cwd, changedFrom, env})` — `{baseRef, files}`: union of `git diff --name-only <base> --` and `git ls-files --others --exclude-standard`, each path normalized, sorted (src/onramp.ts:334-342). Base ref order: `changedFrom` arg, else `CW_ONRAMP_BASE`, else merge-base of HEAD with `origin/<GITHUB_BASE_REF>` (or `origin/main`), else `HEAD` (src/onramp.ts:449-475). A ref starting with `-` → `Error("Invalid onramp base ref (must not start with '-'): <ref>")`; an unknown ref → `Error("Unknown onramp base ref: <ref>")` (src/onramp.ts:477-482).
+- `evaluateOnrampContract(files, {cwd})` — the fail-closed change contract, 4 issue codes (see Invariants) (src/onramp.ts:344-406).
+- `recommendSmokeTests(files, cwd)` — curated map first (src/onramp.ts:83-139), then for uncovered `src/` files: `<basename>-smoke.js` if it exists, plus every available smoke whose name contains a >=3-char token of the basename; sorted (src/onramp.ts:408-436).
 
 ### 13. Release/gate script inventory (one line each — a rebuild keeps these working against the new dist)
 
@@ -312,7 +312,7 @@ onramp contract failed:
     files: <a, b, c>
 ```
 
-and `process.exitCode = 1` (scripts/onramp-check.js:32-40). Issue codes and exact `detail` strings (src/onramp.ts:346-377):
+and `process.exitCode = 1` (scripts/onramp-check.js:32-40). Issue codes and exact `detail` strings (src/onramp.ts:369-397):
 
 - `runtime-smoke-required` — `Runtime or app changes must include at least one smoke test change.`
 - `types-without-runtime` — `Type-only source changes are not a valid cycle.`
@@ -366,7 +366,7 @@ Per settled job, one line: `{"i":<index>,"exitCode":<n|null>,"stdout":"..."}` or
 - persistStderr is advisory only: it never throws, never changes the exit code or recorded evidence (scripts/agents/agent-adapter-core.js:469-471).
 - Attestation honesty: no key or no usage → UNSIGNED pass-through (CW records `unattested`); the wrap never blocks the hop and never forges a signature; CW holds only the public key (scripts/agents/cw-attest-wrap.js:26-28,113-145; cw-attest-keygen.js:4-8).
 - Atomic-ish writes: the source-context cache goes through tmp-file + rename (scripts/source-context.js:285-294). The batch child streams a job's NDJSON line the instant it settles so earlier outcomes survive a later overflow kill (scripts/children/batch-delegate-child.js:11-18).
-- Onramp contract fails closed: runtime/app change without a smoke change, type-only change, or surface change without docs → `ok:false` and (via `onramp-check --check`) exit 1 (src/onramp.ts:348-397; scripts/onramp-check.js:32-40).
+- Onramp contract fails closed: runtime/app change without a smoke change, type-only change, or surface change without docs → `ok:false` and (via `onramp-check --check`) exit 1 (src/onramp.ts:344-406; scripts/onramp-check.js:32-40).
 - source-context cache validation re-checks EVERY record (profile, ref, changedFrom, `included===true`, sha256/bytes/lines re-derived from `content`) and dies on any mismatch — a broken cache never falls back silently (scripts/source-context.js:243-283).
 - `codex exec` effort/sandbox overrides are per-run (`-c model_reasoning_effort=...`), never touching the user's `~/.codex/config.toml` (scripts/agents/codex-agent.js:19-24).
 - Review-mode ordering: explicit `CW_CODEX_REASONING_EFFORT` / `CW_CODEX_SANDBOX` ALWAYS win over the `CW_RELEASE_REVIEW=1` signal (scripts/agents/codex-agent.js:96-108).
@@ -385,8 +385,8 @@ Per settled job, one line: `{"i":<index>,"exitCode":<n|null>,"stdout":"..."}` or
 - `gitBlobs` reads all blobs in ONE `git cat-file --batch` call (256MB maxBuffer) and walks the byte stream by header size — truncated header/blob or a non-`blob` type dies with `cannot read <file> at <ref>: ...` (scripts/source-context.js:166-194).
 - Glob match rules: `dir/**` matches the dir itself and everything under it; a pattern with `*` becomes a regex where `*` = `[^/]*`; no `*` = exact match (scripts/source-context.js:204-215).
 - Line count rule: count `\n` bytes; a file not ending in `\n` counts one more line; empty file = 0 (scripts/source-context.js:217-222). Binary = contains a NUL byte (scripts/source-context.js:224-226).
-- Onramp path normalize: a changed path starting `src/|apps/|scripts/|test/|docs/|dist/|manifest/|ui/|workflows/` gets the `plugins/cool-workflow/` prefix added; backslashes → `/`; leading `./` stripped (src/onramp.ts:470-476).
-- Onramp with no git: `gitLines` returns `[]` on any git failure, so `resolveChangedFiles` degrades to empty instead of throwing (src/onramp.ts:450-454).
+- Onramp path normalize: a changed path starting `src/|apps/|scripts/|test/|docs/|dist/|manifest/|ui/|workflows/` gets the `plugins/cool-workflow/` prefix added; backslashes → `/`; leading `./` stripped (src/onramp.ts:534-540).
+- Onramp with no git: `gitLinesOrThrow` throws instead of degrading to empty — `resolveChangedFiles` fails closed rather than silently reporting zero changed files (a 2026-07-12 security-audit fix; a broken git call must not read as "no changes") (src/onramp.ts:503-518). `gitLines`/`gitOne` still degrade to empty on failure, but only for the soft, best-effort callers (merge-base probing in `resolveBaseRef`, `gitRoot`) (src/onramp.ts:497-501,520-522).
 - attest-wrap report parse: whole stdout as JSON first, else the LAST line that starts `{` and ends `}` — mirrors CW's own `parseAgentReport` (scripts/agents/cw-attest-wrap.js:62-82). When a report exists but is not signed, it is re-emitted as ONE clean JSON object so CW's parse is never ambiguous (scripts/agents/cw-attest-wrap.js:137-141).
 - resultDigest back-compat: the wrap signs WITHOUT `resultDigest` when `result.md` is absent/unreadable — a 4-field signature CW still verifies (scripts/agents/cw-attest-wrap.js:126-135).
 - batch child stdin over 32MB is silently cut at the cap (append stops) — the JSON parse of a cut buffer then yields the `invalid stdin JSON` element (scripts/children/batch-delegate-child.js:27-29).
@@ -407,7 +407,7 @@ Every claim above carries its pointer inline. Prime anchors:
 - scripts/agents/builtin-templates.json:4-11; src/agent-config.ts:141-182 (registry + expansion)
 - scripts/agents/cw-attest-keygen.js:27-55; scripts/agents/cw-attest-wrap.js:42-149
 - scripts/children/batch-delegate-child.js:26-85; scripts/children/http-delegate-child.js:17-40
-- src/onramp.ts:71-127 (curated map), 129-169 (helpers), 171-320 (buildDoctorOnramp), 322-387 (changed files + contract), 389-417 (recommend), 430-444 (base ref), 446-508 (git/normalize/classifiers)
+- src/onramp.ts:83-139 (curated map), 141-181 (helpers), 183-332 (buildDoctorOnramp), 334-406 (changed files + contract), 408-436 (recommend), 449-482 (base ref), 484-570 (git/normalize/classifiers)
 - scripts/onramp-check.js:20-41; scripts/release-gate.js:1-184; scripts/release-flow.js:1-45; scripts/release-check.js:10-11; scripts/parity-check.js:4-19; scripts/gen-manifests.js:4-21; scripts/dist-drift-check.js:4-21; scripts/bump-version.js:4-21; scripts/version-sync-check.js:12-41; scripts/vendor-preflight.js:4-31; scripts/coverage-gate.js:4-27; scripts/golden-path.js:10-36
 - docs/agent-delegation-drive.7.md (the seam + red line); docs/source-context-profiles.7.md (profiles contract)
 
