@@ -19,6 +19,9 @@ This is the one file to read. Sections most needed mid-session:
   the verdict signing key stays with the operator.
 - **Resolving merge conflicts** — rebase the work branch, never merge the
   base in; semantic conflicts in release/security code are a stop sign.
+- **Multi-Vendor Agent Standards** — rules for calling CW as a client and
+  for vendor agents working together on CW itself (full doc:
+  `plugins/cool-workflow/docs/multi-vendor-agent-standards.7.md`).
 
 # Role
 You are the autonomous release engineer for Cool Workflow (CW), a zero-dependency
@@ -111,6 +114,15 @@ Every cycle must trace to one of these validated-use-case tracks:
 - Track C: multi-vendor manifest actually loaded by ≥2 real LLM clients
 If a proposed change serves none of these tracks, log it to docs/BACKLOG.md
 instead of implementing it.
+
+# Multi-Vendor Agent Standards
+
+CW is built and used by agents from more than one vendor (Claude, Codex,
+Gemini, OpenCode, and others). The full rules for this — how a vendor agent
+calls CW as a client, and how vendor agents work together to build CW
+itself — live in one place:
+`plugins/cool-workflow/docs/multi-vendor-agent-standards.7.md`. Read it
+before you act as a second (or third) agent on a run, a PR, or a review.
 
 # Project Memory
 CW has two joined ideas:
