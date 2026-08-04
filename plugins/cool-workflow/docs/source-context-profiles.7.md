@@ -27,7 +27,6 @@ Excluded from exported content:
 - `plugins/cool-workflow/docs/**`
 - `docs/assets/**`
 - `.cw-release/**`
-- `ITERATION_LOG.md`
 
 Leaving a file out does not delete it and does not change release behavior. `dist/`
 stays a committed release artifact till the release contract is clearly

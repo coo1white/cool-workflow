@@ -40,10 +40,8 @@ Execute every check. Do not stop at the first failure — report all findings.
       "adds support for X" where X is a type name) → REJECT.
 - [ ] `git diff <prev-tag> --stat` shows nonzero test changes
 - [ ] Branch name describes a capability, not a version number
-- [ ] CHANGELOG entry has all four sections: Capability / Implementation /
-      Tests / Risk
-- [ ] At least 4 logged cycles in ITERATION_LOG.md since the previous tag,
-      OR ≥24h elapsed — otherwise this is cadence-driven tagging → REJECT.
+- [ ] Tag message and PR description cover all four sections: Capability /
+      Implementation / Tests / Risk
 
 ## Gate 4 — Direction
 - [ ] The PR description names which North Star track (A/B/C, see AGENTS.md)

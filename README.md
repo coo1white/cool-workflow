@@ -337,7 +337,6 @@ they are for a reason.
 | `.github/` | CI workflows: build/test matrix, conformance, CodeQL, gitleaks, release gate, npm publish |
 | `.claude-plugin/`, `.agents/plugins/` | Plugin/marketplace manifests so LLM clients can discover CW |
 | [`AGENTS.md`](AGENTS.md) | The binding rules for coding agents working ON this repo; the one source of truth (also carries product direction/moat, long-term build memory, and the release runbook merged in from the former `DIRECTION.md`, `CLAUDE.md`, `PROJECT_MEMORY.md`, and `RELEASE.md`) |
-| [`ITERATION_LOG.md`](ITERATION_LOG.md) | Append-only development cycle log; the release gate reads it for the cadence check |
 
 ## Docs & Wiki
 

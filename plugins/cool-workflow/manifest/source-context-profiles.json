@@ -18,8 +18,7 @@
         "plugins/cool-workflow/test/**",
         "plugins/cool-workflow/docs/**",
         "docs/assets/**",
-        ".cw-release/**",
-        "ITERATION_LOG.md"
+        ".cw-release/**"
       ]
     },
     "runtime": {
@@ -37,8 +36,7 @@
         "plugins/cool-workflow/apps/**",
         "plugins/cool-workflow/scripts/**",
         "docs/assets/**",
-        ".cw-release/**",
-        "ITERATION_LOG.md"
+        ".cw-release/**"
       ]
     },
     "mcp": {
@@ -60,8 +58,7 @@
         "plugins/cool-workflow/test/**",
         "plugins/cool-workflow/docs/**",
         "docs/assets/**",
-        ".cw-release/**",
-        "ITERATION_LOG.md"
+        ".cw-release/**"
       ]
     },
     "workflow-apps": {
@@ -81,8 +78,7 @@
         "plugins/cool-workflow/test/**",
         "plugins/cool-workflow/docs/**",
         "docs/assets/**",
-        ".cw-release/**",
-        "ITERATION_LOG.md"
+        ".cw-release/**"
       ]
     },
     "release": {
@@ -105,8 +101,7 @@
         "plugins/cool-workflow/dist/**",
         "plugins/cool-workflow/test/**",
         "docs/assets/**",
-        ".cw-release/**",
-        "ITERATION_LOG.md"
+        ".cw-release/**"
       ]
     },
     "agent-wrappers": {
@@ -125,8 +120,7 @@
         "plugins/cool-workflow/dist/**",
         "plugins/cool-workflow/test/**",
         "docs/assets/**",
-        ".cw-release/**",
-        "ITERATION_LOG.md"
+        ".cw-release/**"
       ]
     }
   }

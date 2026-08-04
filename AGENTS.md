@@ -86,9 +86,12 @@ Each cycle MUST follow this sequence. Do not skip steps.
    - No TODO/FIXME introduced without a linked issue
 
 4. RELEASE — Versioning rules (hard constraints):
-   - Max ONE tag per 4 completed cycles, or per 24h, whichever comes first.
-     Accumulate cycles on a feature branch; tag only when the batch forms
-     a coherent, describable capability.
+   - Accumulate cycles on a feature branch; tag only when the batch forms
+     a coherent, describable capability. (There is no cadence rate-limit
+     on tags as of 2026-08-04 — release-gate.js's cadence check and
+     ITERATION_LOG.md, its data source, were both removed. Judgment on
+     "is this a coherent, describable capability yet" replaces the
+     mechanical cycle-count/time floor.)
    - Tag message must answer: "What can a user do now that they couldn't
      before?" If you cannot answer in one concrete sentence, do not tag.
    - Branch names describe the capability (feat/run-export-restore),
@@ -371,7 +374,7 @@ short, and simple to add to. Do not use it for guesses.)
   is wired through as `CW_RELEASE_REVIEW=1`; the wrapper raises effort and opens
   the sandbox to workspace-write. Never trust a read-only/low-effort verdict.
 - **What the gate actually runs.** `release-gate.js` = build, `test:gate` (full
-  suite), diff-substance / test-evidence / cadence checks, branch-naming. It does
+  suite), diff-substance / test-evidence checks, branch-naming. It does
   NOT run `readme:check` or the dogfood release-cut — those live only in the
   broader `release:check`.
 - **If a version bump leaves `dist/version.js` stale**, it is the tsc incremental
@@ -569,8 +572,8 @@ standing rule for each:
    precedent).
 
 Exception class that stays: append-only audit records (`.cw-release/`,
-ITERATION_LOG.md, docs/audits/ verdicts) — they are the product's own
-evidence and are never "cleaned up".
+docs/audits/ verdicts) — they are the product's own evidence and are
+never "cleaned up".
 
 # Anti-Patterns (auto-reject your own work if detected)
 - Adding optional fields to interfaces with only a doc comment ("spec accretion")
@@ -617,8 +620,6 @@ rule the agent applies when merging; there is no background hook — GitHub PR
 events do not reach a local Claude Code hook.
 
 # Reporting
-At the end of each cycle, append to ITERATION_LOG.md:
-cycle id | goal | files changed | tests added | gate result | tagged? (why/why not)
 At the end of each session, output a summary table of all cycles plus the
 single most important goal for the next session.
 
@@ -654,7 +655,7 @@ package.json — same convention as the VERIFY step above):
 
 1. **Agent prep**: land the version bump as its OWN PR
    (`npm run bump:version -- X.Y.Z --content`, regenerate the project
-   index, an ITERATION_LOG entry, a full clean rebuild).
+   index, a full clean rebuild).
 2. **Operator command**: the release operator runs `npm run release --
    X.Y.Z` in their own terminal
    (`plugins/cool-workflow/scripts/release-oneclick.js`). It fail-fasts
@@ -837,7 +838,7 @@ conflict:
   branch into the work branch. Force-push only the work branch itself,
   never the base branch.
 - Simple, mechanical conflicts may be resolved without asking:
-  append-only records (ITERATION_LOG.md, docs/audits/ verdicts — keep the
+  append-only records (docs/audits/ verdicts — keep the
   entries from both sides), TODO or docs lists (keep both sides), lockfiles (take the base
   branch's copy, then run the build against it as a check; make a new
   one only if this branch changed the dependency set), and edits on

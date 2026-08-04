@@ -27,8 +27,7 @@ const expectedExclude = [
   "plugins/cool-workflow/test/**",
   "plugins/cool-workflow/docs/**",
   "docs/assets/**",
-  ".cw-release/**",
-  "ITERATION_LOG.md"
+  ".cw-release/**"
 ];
 
 const profileFile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
@@ -72,7 +71,6 @@ assert.equal(byPath.get("plugins/cool-workflow/dist/cli.js").included, false);
 assert.match(byPath.get("plugins/cool-workflow/dist/cli.js").reason, /^excluded:/);
 assert.equal(byPath.get("plugins/cool-workflow/test/run-all.js").included, false);
 assert.equal(byPath.get("plugins/cool-workflow/docs/index.md").included, false);
-assert.equal(byPath.get("ITERATION_LOG.md").included, false);
 
 for (const record of manifest) {
   assert.match(record.sha256, /^[0-9a-f]{64}$/, `record has sha256: ${record.path}`);
