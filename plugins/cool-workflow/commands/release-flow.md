@@ -30,15 +30,28 @@ Steps:
    `.cw-release/review-<HEAD>.verdict`. The flow fails closed unless the verdict
    begins with `APPROVED`.
 
-3. To actually cut a tag once review is green:
+Report the JSON summary from step 2 (`verdict`, `capability`) and stop at
+the first failure. Do not write the verdict file yourself — the delegated
+reviewer is the only writer, and `release-gate.yml` re-checks it in CI.
 
-   ```bash
-   node plugins/cool-workflow/scripts/release-flow.js --cut --version <x.y.z> [--push]
-   ```
+Stop here. Do NOT run `release-flow.js --cut` yourself, on this host or
+any other — cutting a tag needs `CW_RELEASE_VERDICT_PRIVKEY`, the ed25519
+signing key that stays with the release operator and must never be read
+or held by an agent (see AGENTS.md's "Shipping a release" section and
+`RELEASE.md`). Once review is green, tell the user the candidate is
+ready and that the operator cuts it themselves:
 
-Report the JSON summary (`verdict`, `capability`, `tagged`) and stop at the
-first failure. Do not write the verdict file yourself — the delegated reviewer
-is the only writer, and `release-gate.yml` re-checks it in CI.
+```bash
+npm run release -- <x.y.z>
+```
+
+(`plugins/cool-workflow/scripts/release-oneclick.js`, the normal path) or,
+for manual control on a non-npm host, the lower-level command run by the
+operator in their own shell:
+
+```bash
+node plugins/cool-workflow/scripts/release-flow.js --cut --version <x.y.z> --push
+```
 
 See `docs/release-tooling.7.md` for the per-platform `CW_AGENT_COMMAND` presets
 (Codex / Gemini / OpenCode / DeepSeek).
