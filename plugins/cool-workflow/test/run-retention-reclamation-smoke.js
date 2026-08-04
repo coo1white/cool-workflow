@@ -31,6 +31,7 @@ const { listTrustAuditEvents } = require("../dist/shell/trust-audit");
 const {
   runReclamation,
   planReclamation,
+  buildTombstone,
   extractSkeleton,
   validateSkeleton,
   validateSkeletonAgainstRun,
@@ -595,6 +596,66 @@ function fileManifest(root) {
   const plan2 = planReclamation(run2, { keepCommits: true });
   assert.equal(plan2.freeable.filter((f) => f.kind === "commit-snapshot").length, 0, "--keep-commits frees zero commit snapshots");
   assert.ok(fs.existsSync(keptFirst.snapshotPath), "the superseded commit's file is untouched under keepCommits");
+}
+
+// ===========================================================================
+// K — Corrupted reclaimed.json fails CLOSED, not open (self-audit P2:
+// self-audit-cool-workflow-v0.2.6.md). loadReclamationLog/loadReclaimedFromDir
+// used to treat "file exists but is corrupt" the same as "file absent" (empty
+// tombstones), so a corrupted reclaimed.json let reclaimEligibility's
+// "already-reclaimed" gate be silently bypassed and commitTombstone durably
+// overwrite the corrupted file with a fresh genesis tombstone — destroying
+// whatever reclamation history the corruption hid.
+// ===========================================================================
+{
+  const repo = makeRepo();
+  makeAcceptedRun(repo, "corrupt-reclaim");
+  const reg = new RunRegistry(repo);
+  reg.archive("corrupt-reclaim", { scope: "repo", reason: "test" });
+
+  const runDir = path.join(repo, ".cw", "runs", "corrupt-reclaim");
+  const logPath = path.join(runDir, "reclaimed.json");
+  fs.writeFileSync(logPath, "{ not valid json", "utf8"); // corrupted, NOT absent
+  const before = fs.readFileSync(logPath, "utf8");
+
+  const res = gcRun(reg, { scope: "repo", runId: "corrupt-reclaim" });
+  assert.equal(res.reclaimed.length, 0, "corrupted log: nothing reclaimed");
+  assert.deepEqual(
+    res.refused,
+    [{ runId: "corrupt-reclaim", code: "reclamation-log-corrupted" }],
+    "corrupted log: refused with the dedicated code, not silently treated as never-reclaimed"
+  );
+  assert.equal(
+    fs.readFileSync(logPath, "utf8"),
+    before,
+    "the corrupted file is left exactly as-is -- never durably overwritten with a fresh genesis tombstone"
+  );
+
+  const plan = gcPlan(reg, { scope: "repo", runId: "corrupt-reclaim" });
+  const entry = plan.entries.find((e) => e.runId === "corrupt-reclaim");
+  assert.ok(entry && !entry.eligible && entry.reason === "reclamation-log-corrupted", "gc plan also lists it ineligible with the corruption code");
+
+  // Defense in depth: buildTombstone itself refuses against a corrupted log,
+  // not just reclaimEligibility -- any caller that reached it directly would
+  // still be stopped before a single byte is freed.
+  const loadedRun = require("../dist/shell/run-store").loadRunFromCwd("corrupt-reclaim", repo);
+  const skeleton = extractSkeleton(loadedRun);
+  const directPlan = planReclamation(loadedRun, {});
+  assert.throws(
+    () => buildTombstone(loadedRun, skeleton, directPlan),
+    (err) => err instanceof ReclamationError && err.code === "reclamation-log-corrupted",
+    "buildTombstone refuses directly, independent of reclaimEligibility"
+  );
+  assert.equal(fs.readFileSync(logPath, "utf8"), before, "buildTombstone's refusal also left the corrupted file untouched");
+
+  // gc verify honestly reports "corrupted", not the same "not-reclaimed" it
+  // would report for a run that was genuinely never reclaimed.
+  const verify = gcVerify(reg, "corrupt-reclaim", { scope: "repo" });
+  assert.equal(verify.verified, false, "verify against a corrupted log is not verified");
+  assert.ok(
+    verify.checks.some((c) => c.code === "reclamation-log-corrupted"),
+    "verify's checks name the corruption specifically, distinct from a genuine not-reclaimed"
+  );
 }
 
 process.stdout.write("run-retention-reclamation-smoke: ok\n");

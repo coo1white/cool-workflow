@@ -161,6 +161,12 @@ export interface ReclaimedOverlay {
   schemaVersion: 1;
   runId: string;
   tombstones: ReclamationTombstone[];
+  /** true when reclaimed.json EXISTS but failed to parse/validate — distinct
+   *  from a genuinely absent file (no tombstones is the correct, fail-open
+   *  reading for "never reclaimed"). A corrupted log must fail CLOSED: never
+   *  read as empty and never durably overwritten with a fresh genesis
+   *  tombstone. See buildTombstone, reclaimEligibility, verifyReclamation. */
+  corrupted?: boolean;
 }
 
 export type ReclaimRefusalCode =
@@ -170,10 +176,12 @@ export type ReclaimRefusalCode =
   | "open-feedback"
   | "unreadable"
   | "already-reclaimed"
+  | "reclamation-log-corrupted"
   | "skeleton-incomplete";
 
 export type ReclaimVerifyCode =
   | "not-reclaimed"
+  | "reclamation-log-corrupted"
   | "skeleton-incomplete"
   | "tombstone-digest-mismatch"
   | "tombstone-chain-broken"
@@ -312,11 +320,11 @@ export function loadReclamationLog(run: WorkflowRun): ReclaimedOverlay {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
     if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== 1 || !Array.isArray(parsed.tombstones)) {
-      return { schemaVersion: 1, runId: run.id, tombstones: [] };
+      return { schemaVersion: 1, runId: run.id, tombstones: [], corrupted: true };
     }
     return { schemaVersion: 1, runId: run.id, tombstones: parsed.tombstones as ReclamationTombstone[] };
   } catch {
-    return { schemaVersion: 1, runId: run.id, tombstones: [] };
+    return { schemaVersion: 1, runId: run.id, tombstones: [], corrupted: true };
   }
 }
 
@@ -708,7 +716,22 @@ export interface BuildTombstoneOptions {
  *  nothing on disk. */
 export function buildTombstone(run: WorkflowRun, skeleton: ReclamationSkeleton, plan: ReclamationPlan, options: BuildTombstoneOptions = {}): ReclamationTombstone {
   const now = options.now || new Date().toISOString();
-  const prior = loadReclamationLog(run).tombstones;
+  const priorLog = loadReclamationLog(run);
+  // Fail closed, not open: a CORRUPTED log must never be read as "no prior
+  // tombstones" — that reading is only correct for a genuinely absent file.
+  // Minting a fresh genesis tombstone over a corrupted log would durably
+  // overwrite it (commitTombstone), destroying whatever history the
+  // corruption hid. This is defense in depth on top of reclaimEligibility's
+  // own "reclamation-log-corrupted" refusal — direct callers of
+  // buildTombstone are stopped here too.
+  if (priorLog.corrupted) {
+    throw new ReclamationError(
+      "reclamation-log-corrupted",
+      `Refusing to build a tombstone: ${reclaimedLogPath(run)} exists but failed to parse/validate. Restore or manually inspect it before reclaiming this run.`,
+      { runId: run.id }
+    );
+  }
+  const prior = priorLog.tombstones;
   const prevTombstoneHash = prior.length ? prior[prior.length - 1].tombstoneHash : genesisPrevHash(skeleton);
   const freed: FreedManifestEntry[] = plan.freeable.map((entry) => ({
     path: entry.path,
@@ -985,6 +1008,19 @@ export function verifyReclamation(run: WorkflowRun): { reclaimed: boolean; verif
   const log = loadReclamationLog(run);
   const tombstones = log.tombstones;
   const checks: VerifyCheck[] = [];
+  if (log.corrupted) {
+    // Distinct from "not-reclaimed": a corrupted log means the run's
+    // reclamation status genuinely cannot be read, not that it was never
+    // reclaimed. Reporting "not-reclaimed" here would look identical to the
+    // honest empty-log case and hide the corruption from an operator running
+    // `cw gc verify` directly.
+    return {
+      reclaimed: false,
+      verified: false,
+      checks: [{ name: "reclaimed", pass: false, code: "reclamation-log-corrupted", detail: `${reclaimedLogPath(run)} exists but failed to parse/validate` }],
+      tombstones,
+    };
+  }
   if (!tombstones.length) {
     return { reclaimed: false, verified: false, checks: [{ name: "reclaimed", pass: false, code: "not-reclaimed" }], tombstones };
   }
@@ -1052,9 +1088,17 @@ export function reclamationPolicy(overrides: Partial<RunRegistryPolicy> = {}): R
 }
 
 /** Fail-closed eligibility, checked IN ORDER (SPEC "Rebuild risks" #6):
- *  already-reclaimed -> non-terminal -> open-feedback -> not-archived ->
- *  within-retention. `null` means eligible. */
+ *  reclamation-log-corrupted -> already-reclaimed -> non-terminal ->
+ *  open-feedback -> not-archived -> within-retention. `null` means eligible.
+ *
+ *  reclamation-log-corrupted is checked FIRST, ahead of even
+ *  already-reclaimed: record.tier is derived from the same corrupted
+ *  reclaimed.json (loadReclaimedFromDir), so a corrupted log makes `tier`
+ *  itself unreliable — it reads "live", not "reclaimed", exactly the
+ *  reading that would let a run past the already-reclaimed gate and into a
+ *  destructive re-reclaim (self-audit-cool-workflow-v0.2.6.md P2). */
 export function reclaimEligibility(record: RunRecord, policy: RunRegistryPolicy, nowMs: number): ReclaimRefusalCode | null {
+  if (record.reclamationLogCorrupted) return "reclamation-log-corrupted";
   if (record.tier === "reclaimed") return "already-reclaimed";
   const terminalStates = policy.reclaimStates && policy.reclaimStates.length ? policy.reclaimStates : ["completed", "failed"];
   if (record.derivedLifecycle !== "completed" && record.derivedLifecycle !== "failed") return "non-terminal";
