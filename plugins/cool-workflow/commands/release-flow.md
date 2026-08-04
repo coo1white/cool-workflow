@@ -37,9 +37,9 @@ reviewer is the only writer, and `release-gate.yml` re-checks it in CI.
 Stop here. Do NOT run `release-flow.js --cut` yourself, on this host or
 any other — cutting a tag needs `CW_RELEASE_VERDICT_PRIVKEY`, the ed25519
 signing key that stays with the release operator and must never be read
-or held by an agent (see AGENTS.md's "Shipping a release" section and
-`RELEASE.md`). Once review is green, tell the user the candidate is
-ready and that the operator cuts it themselves:
+or held by an agent (see AGENTS.md's "Shipping a release" section). Once
+review is green, tell the user the candidate is ready and that the
+operator cuts it themselves:
 
 ```bash
 npm run release -- <x.y.z>
