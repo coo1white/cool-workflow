@@ -13,8 +13,8 @@ const cp = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const repoRoot = path.resolve(__dirname, "..", "..", "..");
-const script = path.join(repoRoot, "scripts", "bench", "run.js");
+const pluginRoot = path.resolve(__dirname, "..");
+const script = path.join(pluginRoot, "scripts", "bench", "run.js");
 
 // 1. The script parses (guards against a broken commit of an operator tool
 //    that nothing else in the suite loads).

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 const cp=require("node:child_process"),crypto=require("node:crypto"),fs=require("node:fs"),http=require("node:http"),os=require("node:os"),path=require("node:path");
-const root=path.resolve(__dirname,"..",".."),plugin=path.join(root,"plugins","cool-workflow"),cli=path.join(plugin,"dist","cli.js"),script=path.join(__dirname,"workbench-k6-deep.js");
+const plugin=path.resolve(__dirname,"..",".."),cli=path.join(plugin,"dist","cli.js"),script=path.join(__dirname,"workbench-k6-deep.js");
 const i=process.argv.indexOf("--report"),reportPath=i>=0?process.argv[i+1]:""; if(!reportPath) die("usage: node scripts/bench/workbench-load.js --report <path>");
 function die(s){process.stderr.write(`workbench-load: ${s}\n`);process.exit(1)}
 function digest(root){const h=crypto.createHash("sha256");(function walk(d){for(const n of fs.readdirSync(d).sort()){const f=path.join(d,n),s=fs.lstatSync(f);h.update(`${path.relative(root,f)}\0${s.size}\0`);if(s.isDirectory())walk(f);else if(s.isFile())h.update(fs.readFileSync(f))}})(root);return h.digest("hex")}

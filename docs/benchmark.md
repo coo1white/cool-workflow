@@ -7,6 +7,10 @@
 
 ## Methodology
 
+All `node scripts/bench/...` commands on this page are run with cwd
+`plugins/cool-workflow/` — the same convention as every other `npm run`/`node
+scripts/...` command in this project.
+
 ### Agent Stub
 
 A configurable stub agent (`scripts/bench/agent-stub.js`) that simulates LLM latency:

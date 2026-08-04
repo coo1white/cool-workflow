@@ -76,7 +76,7 @@
     "eval:replay": "tsc -p tsconfig.json && node test/multi-agent-eval-replay-harness-smoke.js",
     "ci": "npm run build && npm run check && npm run test && npm run release:check",
     "validate:schema": "node scripts/validate-run-state-schema.js",
-    "bench:workbench:deep": "node ../../scripts/bench/workbench-load.js"
+    "bench:workbench:deep": "node scripts/bench/workbench-load.js"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",
