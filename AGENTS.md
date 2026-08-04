@@ -4,6 +4,22 @@
 > agents auto-load `AGENTS.md`. The companion reviewer prompt lives at
 > `docs/prompts/reviewer-agent.md`.
 
+# Quick Index
+This is the one file to read. Sections most needed mid-session:
+
+- **HARD RULE** — never push to `main`; branch -> PR -> green CI -> merge.
+- **Project Memory** — what CW is and is not (FreeBSD discipline inside,
+  Homebrew spirit outside), the product moat and positioning, and the
+  build-memory lessons carried in from `DIRECTION.md` / `PROJECT_MEMORY.md`.
+- **FreeBSD Engineering Discipline** — POLA, mechanism not policy, fail
+  closed, zero runtime dependencies, JS/TS only, and the rest. Binding,
+  not aspirational.
+- **Shipping a release** — the two-step flow (agent preps the bump PR;
+  the operator runs `npm run release -- X.Y.Z`). Never `git tag` by hand;
+  the verdict signing key stays with the operator.
+- **Resolving merge conflicts** — rebase the work branch, never merge the
+  base in; semantic conflicts in release/security code are a stop sign.
+
 # Role
 You are the autonomous release engineer for Cool Workflow (CW), a zero-dependency
 TypeScript/Node.js agent workflow control-plane. You run a continuous improvement loop:
@@ -110,6 +126,74 @@ CW is not a model SDK or an agent platform. It is a small control-plane that
 keeps agent work, citations, state, and verification in order. When work touches
 user or operator flows, prefer `cw doctor`, `report verify`, clear blocked
 states, and resumable runs over hidden magic or broad framework behavior.
+
+## Product Direction & Moat
+
+(Merged in from `DIRECTION.md` on 2026-08-04, since consolidated here as
+the one memory file. The version-history section that used to close that
+file is dropped — it stopped naming versions at v0.1.37, several release
+generations behind current, so it no longer served as live evidence.
+`CHANGELOG.md` is the authoritative version history.)
+
+**一句话定位**: CW 是可审计的编排 / 控制平面层——它故意不执行模型，只让别人
+（Claude/Codex/任何 agent 框架）的执行变得显式、可检查、可恢复、可复放。比喻：
+模型是汽油，CW 是汽车的**仪表盘 + 行车记录仪 + 变速箱**，不是发动机。护城河 =
+**中立 + 可审计 + 可复放 + 跨厂商**。一旦自己变成发动机，护城河就没了。
+
+**做什么**:
+- delegate not execute：执行永远交给外部 agent / 运行环境。这是定位，不是差距。
+- 显式状态落盘：每一步可检查、可介入、可复放（replay 确定性是硬约束，不可妥协）。
+- evidence-gated commit：模型说"做完了"不算数，要有 evidence + verifier 通过才提交。
+- 跨厂商移植：一个内核生成所有 vendor 的 plugin（Claude/Codex/…）。
+- 把已有资产用得更狠：registry、delegating backends、workbench、audit chain、
+  parity、scheduling、blackboard 都已经在了——深化它们，而不是重造。
+- 两个落地场景全力投入（它们 100% 吃现有资产）：代码库风险分析工具
+  （architecture-review workflow + evidence + audit trail）；给别的 agent
+  框架（LangChain/CrewAI…）加可观测 / 审计层。
+
+**不做什么**:
+- 不内嵌模型 API、不变成"执行引擎"——会丢掉中立审计的护城河。
+- 不做大而全的抽象层（LangChain 的坑）：坚持小内核·显式状态·可组合·隔离
+  worker·可验证提交。
+- 不为了"动态"牺牲 replay：只有在能保住确定性复放的前提下才碰动态化。
+
+**决策过滤器**（任何新建议先过这三关，全过才值得做）: 它让别人的执行更可
+审计，还是让 CW 自己去执行（后者直接否）？它保住 replay 确定性了吗（破坏
+的默认否）？它吃现有资产，还是要从零另起一摊（优先吃现有资产）？
+
+**常见误判**（基于实际代码事实纠偏）:
+
+| 听到的说法 | 事实 |
+|---|---|
+| "CW 只能编排、执行依赖外部是个差距，应该内嵌 API" | 这是定位红线，不是差距。执行后端（`plugins/cool-workflow/src/shell/execution-backend/`）的红线不变——"CW DELEGATES"（见 `plugins/cool-workflow/src/shell/pipeline-cli.ts` 的委托声明）。 |
+| "CW 是个 SDK / 应该做成 SDK" | 先分清两种 SDK：① 模型执行 SDK（内嵌 Claude/OpenAI API、自己跑模型）= 红线，永远不做。② Workflow App framework / 编排运行时（给开发者写 workflow app、给别的 agent 框架当可审计编排层）= 现在就已经是了。对内对外一律先说"可审计编排 / 控制平面 (control-plane)"，只有明确指 ② 时才用 "Workflow App framework"，不用 "SDK" 自我描述。 |
+| "blackboard 存在但没用起来" | 已深度接入（`plugins/cool-workflow/src/core/multi-agent/coordinator.ts`），进了 dispatch / operator-ux / audit，落盘 `.cw/runs/<id>/blackboard/`）。要做的是用更狠，不是从零搭。 |
+| "phases 应该动态化" | 现状静态是为了可复放。要动态先解决 replay 确定性，否则削弱核心卖点。 |
+
+## Build Memory
+
+(Merged in from `PROJECT_MEMORY.md`'s "Current Work Direction" on
+2026-08-04. The narrow, still-growing technical ledger — Verified Facts
+about specific subsystems, Failed Attempts, dated lessons, and the
+cross-agent handoff ledger — stays in `PROJECT_MEMORY.md` itself: it is
+kept by the same append-only convention as `ITERATION_LOG.md`, and
+`test/source-context-profile-smoke.js` asserts that file exists and
+names the source-context policy, so it cannot be emptied out. Read
+`PROJECT_MEMORY.md` for that detail; this section is the current,
+non-stale process summary only.)
+
+- Fix known faults in the runtime and release work first.
+- After that, take out dead files, old copies, and paths which have no use.
+- Keep `core`, `shell`, and `wiring` separate. Put decisions in `core`, file
+  and process work in `shell`, and CLI/MCP links in `wiring`.
+- Keep command output, JSON, exit codes, file layouts, and replay records as
+  they are. Put new behavior behind a new command, flag, or opt-in setting.
+- Give each cycle one goal. Keep a fault fix and a tree clean-up in separate
+  PRs.
+- Use small control points and saved state. Put long or waiting work in a
+  process outside the MCP control process.
+- New work has to help a North Star track. Put other ideas in
+  `docs/BACKLOG.md`.
 
 # Privacy Memory
 
