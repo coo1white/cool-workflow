@@ -17,4 +17,4 @@ longer resolve against the current tree.
 The publishing workflow for audits like these is documented in
 [`docs/publishing-audits.md`](../publishing-audits.md). Newer live-run
 provenance notes land under
-[`plugins/cool-workflow/docs/dogfood/`](../../plugins/cool-workflow/docs/dogfood/).
+[`plugins/cool-workflow/docs/dogfood/`](../../../docs/dogfood/).

@@ -3,7 +3,7 @@
 //
 // MILESTONE 4. Byte-exact port of the old build's
 // src/state-explosion/helpers.ts. `fingerprintStrings`/`fingerprintRecords`
-// live in core/hash.ts (the one hash module, per docs/rebuild/PLAN.md's byte-compat
+// live in core/hash.ts (the one hash module, per plugins/cool-workflow/project/docs/rebuild/PLAN.md's byte-compat
 // item 2) and are re-exported here so every importer of this file keeps
 // the same surface the old build had.
 //
@@ -12,7 +12,7 @@
 // a later milestone's topology/candidate/host-decide code has its OWN
 // separate `unique` (dedup-only, unsorted) that must NEVER be merged with
 // this one; collapsing them changes persisted record order and eval
-// parity (docs/rebuild/PLAN.md byte-compat item 3, Open risk 2). See
+// parity (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 3, Open risk 2). See
 // core/state/state-node.ts's own local `unique` for the sibling that must
 // stay separate.
 //
@@ -24,7 +24,7 @@ import { stableCompare } from "../../util/collate";
 export { fingerprintRecords, fingerprintStrings };
 
 /** True for `failed`, `blocked`, `rejected`, `conflicting` — the never-
- *  collapse status set (docs/rebuild/PLAN.md byte-compat item 9). */
+ *  collapse status set (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9). */
 export function isProtectedStatus(status: string): boolean {
   return ["failed", "blocked", "rejected", "conflicting"].includes(status);
 }

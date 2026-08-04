@@ -8,8 +8,8 @@
 // Proves:
 //   1. `sync-readme --check` PASSES against the committed npm README (in sync now).
 //   2. the npm README carries NO repo-relative image/link refs — npm cannot resolve
-//      a repo's relative `docs/assets/...` / `](LICENSE)` paths, so every one is an
-//      absolute URL; the generated-file marker is present.
+//      a repo's relative `plugins/cool-workflow/project/docs/assets/...` / `](LICENSE)`
+//      paths, so every one is an absolute URL; the generated-file marker is present.
 //   3. TEETH: a drifted npm README (edited, not re-synced) makes --check FAIL closed
 //      (exit 1) — the gate can't rot into a no-op.
 //   4. sync is idempotent (writing twice to a temp target yields identical bytes).
@@ -63,7 +63,7 @@ try {
       /\]\((?!https?:|#|mailto:)[^)]+\)/,
       "npm README has NO relative ](link) (npm can't resolve repo-relative links)"
     );
-    assert.match(text, /raw\.githubusercontent\.com\/[^/]+\/[^/]+\/main\/docs\/assets\//, "images are absolute raw URLs");
+    assert.match(text, /raw\.githubusercontent\.com\/[^/]+\/[^/]+\/main\/plugins\/cool-workflow\/project\/docs\/assets\//, "images are absolute raw URLs");
     assert.match(text, /github\.com\/[^/]+\/[^/]+\/blob\/main\/LICENSE/, "the LICENSE link is an absolute blob URL");
   }
 

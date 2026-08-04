@@ -6,15 +6,15 @@ that CLI, MCP, and vendor manifests are all generated from — so CLI/MCP parity
 compiler fact, not a hand-maintained gate.
 
 This file is a from-scratch proposal, written against the extracted spec at
-`docs/rebuild/SPEC/*.md` (166 old `src/` files, ~46,620 lines). It does not modify the old
+`plugins/cool-workflow/project/docs/rebuild/SPEC/*.md` (166 old `src/` files, ~46,620 lines). It does not modify the old
 build, and it is one independent take alongside whatever else exists under `v2/`
-(there is already a `docs/rebuild/PLAN.md` from a prior pass and a black-box conformance
+(there is already a `plugins/cool-workflow/project/docs/rebuild/PLAN.md` from a prior pass and a black-box conformance
 suite under `v2/conformance/` — this proposal targets that same conformance
 suite as its judge, but proposes a different internal shape to get there).
 
 ## 1. Goals recap
 
-Non-negotiables carried over unchanged from the old build (`AGENTS.md`, `docs/rebuild/PLAN.md`):
+Non-negotiables carried over unchanged from the old build (`AGENTS.md`, `plugins/cool-workflow/project/docs/rebuild/PLAN.md`):
 
 - **POLA.** Never change the byte content of an existing output, file format, exit
   code, or flag.
@@ -50,11 +50,11 @@ to drift from the first, because neither surface is written by hand per-command.
 
 The old build already has the right instinct — `CAPABILITY_REGISTRY` in
 `src/capability-registry.ts` is a single array of 209 `CapabilityDescriptor` rows
-that both `declaredCliTokens()` and `declaredMcpTools()` read (`docs/rebuild/SPEC/mcp.md`
+that both `declaredCliTokens()` and `declaredMcpTools()` read (`plugins/cool-workflow/project/docs/rebuild/SPEC/mcp.md`
 lines 27-38). What it does NOT do is make the registry the actual dispatch
 mechanism. `src/cli/command-surface.ts` still hand-writes a 330-line `switch`
-(`docs/rebuild/SPEC/cli-surface.md` lines 43-88), `src/mcp/tool-call.ts` still hand-writes a
-196-arm `switch` (`docs/rebuild/SPEC/mcp.md` line 26), and the registry is checked against
+(`plugins/cool-workflow/project/docs/rebuild/SPEC/cli-surface.md` lines 43-88), `src/mcp/tool-call.ts` still hand-writes a
+196-arm `switch` (`plugins/cool-workflow/project/docs/rebuild/SPEC/mcp.md` line 26), and the registry is checked against
 both by a *separate* smoke test and a *separate* CI gate (`parity-check.js`).
 Three artifacts, one truth, kept in sync by vigilance and tests.
 
@@ -118,7 +118,7 @@ doesn't handle.
 `manifest/plugin.manifest.json` today is a hand-edited "meta-registry" (identity,
 descriptions, per-vendor path templates) that `gen-manifests.js` expands into 12
 files. That part is *not* duplicated logic — it is genuinely vendor-specific
-templating (`docs/rebuild/SPEC/mcp.md` lines 354-385) and stays exactly as-is: one hand-kept
+templating (`plugins/cool-workflow/project/docs/rebuild/SPEC/mcp.md` lines 354-385) and stays exactly as-is: one hand-kept
 JSON manifest, one generator script, `--check` mode in CI. This is not something
 codegen should "improve away" — the vendor path differences (`${CLAUDE_PLUGIN_ROOT}`
 vs `./`) are real, small, and already minimal. The only change from today: the
@@ -388,7 +388,7 @@ aggressive in two specific ways a conservative split would not do:
 2. **One hash module, not scattered reimplementations.** `types-util.md` documents
    that `run-registry.ts`, `observability.ts`, and `evidence-reasoning.ts` each
    keep a private copy of `fingerprintStrings`'s exact algorithm, despite a
-   comment claiming they were already deduplicated (`docs/rebuild/SPEC/types-util.md` line
+   comment claiming they were already deduplicated (`plugins/cool-workflow/project/docs/rebuild/SPEC/types-util.md` line
    25). A conservative split would likely reproduce this drift risk one-for-one
    (each module still owns its own copy, just now under `core/`). This design
    makes `core/hash.ts` the only place `sha256`/`fingerprintStrings`/`stableHash`/
@@ -406,11 +406,11 @@ byte a user or another program can observe must stay the same. Four kinds of
 
 These are copied as **literal string templates**, not re-derived from "cleaner"
 logic. `core/registry/help.ts` reproduces `formatHelp()`'s exact structure
-(`docs/rebuild/SPEC/cli-surface.md` lines 234-270): the "Cool Workflow" banner, the fixed
+(`plugins/cool-workflow/project/docs/rebuild/SPEC/cli-surface.md` lines 234-270): the "Cool Workflow" banner, the fixed
 Flags block, the "More commands" line built by joining `declaredCliTokens()`
 output and wrapping at 76 columns with a 2-space indent, and the 4-space-indented
 final note line that intentionally falls outside the parity help-token parser's
-2-space rule. Every literal string in `docs/rebuild/SPEC/*.md`'s "Exact outputs" sections —
+2-space rule. Every literal string in `plugins/cool-workflow/project/docs/rebuild/SPEC/*.md`'s "Exact outputs" sections —
 usage strings (the 30+ `Usage: cw.js ...` templates), error message templates
 (`Missing <label>.\n  Tip: ...`), the ledger bad-JSON refusal objects, the
 `report.md` section headers and fallback lines — gets copied verbatim into the
@@ -433,7 +433,7 @@ stays right:
 
 These five rows are pinned as a table-driven golden test
 (`test/core/hash.spec.ts`) with the EXACT worked examples already given in
-`docs/rebuild/SPEC/types-util.md` lines 96-103 (`fingerprintStrings(["a","b"]) ===
+`plugins/cool-workflow/project/docs/rebuild/SPEC/types-util.md` lines 96-103 (`fingerprintStrings(["a","b"]) ===
 "sha256:0473ef2dc0d324ab659d3580c1134e9d"`, etc.) as literal assertions — not
 "assert it round-trips," but "assert it equals this exact string," so a refactor
 that accidentally changes sort order or hex width fails loudly on day one, not
@@ -451,18 +451,18 @@ it structurally impossible to reintroduce.
 ### 4.3 State file JSON shapes
 
 Every `.cw/` JSON file is `JSON.stringify(value, null, 2) + "\n"`
-(`docs/rebuild/SPEC/state-core.md` line 138) — `shell/fs-atomic.ts`'s `writeJson` is the
+(`plugins/cool-workflow/project/docs/rebuild/SPEC/state-core.md` line 138) — `shell/fs-atomic.ts`'s `writeJson` is the
 ONLY function in the whole tree allowed to call `fs.writeFileSync`/`renameSync`
 for a JSON value, and it hard-codes this exact serialization. No other module
 reimplements "write JSON to disk." The field lists (`REQUIRED_TOP_LEVEL_KEYS`,
 the 13-field node projection, the 16-key `RunPaths`) are copied verbatim from
-`docs/rebuild/SPEC/state-core.md` as literal arrays, and a build-time check (ported from
+`plugins/cool-workflow/project/docs/rebuild/SPEC/state-core.md` as literal arrays, and a build-time check (ported from
 the old `validate-run-state-schema.js`) diffs them against the actual
 `WorkflowRun`/`StateNode`/`RunPaths` TypeScript types so the list can't silently
 drift from the type it claims to describe.
 
 Golden-fixture tests replay the exact `state.json` skeletons documented in
-`docs/rebuild/SPEC/orchestrator.md` (the `plan()` output shape) and `docs/rebuild/SPEC/state-core.md`
+`plugins/cool-workflow/project/docs/rebuild/SPEC/orchestrator.md` (the `plan()` output shape) and `plugins/cool-workflow/project/docs/rebuild/SPEC/state-core.md`
 (the post-normalization example) as byte-exact assertions, plus the old build's
 own `test/fixtures/runs/` corpus (mentioned in `run-fixture-compat-smoke.js`) is
 carried forward unmodified as a migration-compat fixture set — old runs must
@@ -475,7 +475,7 @@ already correctly separate mechanism (wrapper contract: read `input.md`, spawn
 one vendor CLI, emit one `{model, usage, result}` JSON line) from policy (which
 vendor, which flags). The old build's own scope note says it best: parsing
 vendor NDJSON streams lives in the wrapper, core only reads the wrapper's one
-report line (`docs/rebuild/SPEC/scripts-runtime.md` "Rebuild risks" #1). Copying them
+report line (`plugins/cool-workflow/project/docs/rebuild/SPEC/scripts-runtime.md` "Rebuild risks" #1). Copying them
 byte-identical (not just behavior-identical) sidesteps an entire category of
 byte-compat risk — the em-dash-vs-hyphen inconsistency between `claude-p-agent.js`
 and the other three wrappers, the exact renderer escape-sequence timing, the
@@ -488,7 +488,7 @@ point the new kernel needs is: resolve `builtin:<name>` to
 
 ### 4.5 Exit codes
 
-The ~25 fail-closed exit-1 sites cataloged in `docs/rebuild/SPEC/cli-surface.md` (lines
+The ~25 fail-closed exit-1 sites cataloged in `plugins/cool-workflow/project/docs/rebuild/SPEC/cli-surface.md` (lines
 439-469) are ported as a literal table: `{ capability: "audit.verify", exitWhen:
 (result) => !result.verified }`, one row per site, attached to each
 `Capability` descriptor as `cli.exitWhen?: (result) => boolean`. This makes the
@@ -659,7 +659,7 @@ every time, not just the new one.
 - All of `scripts/agents/*`, `scripts/children/*`, `scripts/source-context.js`
   (section 4.4) — already minimal, already correctly mechanism/policy split.
 - `manifest/plugin.manifest.json`'s hand-kept vendor identity/template data.
-- Every literal string documented in `docs/rebuild/SPEC/*.md` "Exact outputs" sections.
+- Every literal string documented in `plugins/cool-workflow/project/docs/rebuild/SPEC/*.md` "Exact outputs" sections.
 - The `test/fixtures/runs/` back-compat corpus.
 - `v2/conformance/` itself (the judge, untouched by this proposal).
 
@@ -673,7 +673,7 @@ every time, not just the new one.
   `declaredCliTokens()` over `REGISTRY`, same as today's intent, but now the
   ONLY listing (no separate `KNOWN_COMMANDS` set to keep in sync — the old
   build's own spec flags that `KNOWN_COMMANDS` does NOT include `ledger` even
-  though the dispatcher handles it, `docs/rebuild/SPEC/cli-surface.md` line 511; this
+  though the dispatcher handles it, `plugins/cool-workflow/project/docs/rebuild/SPEC/cli-surface.md` line 511; this
   class of bug is structurally impossible once there is one list).
 - Vendor manifest `mcp.json` tool-adjacent sections in `gen-manifests.js`'s
   output (the identity/path sections stay templated from the hand-kept

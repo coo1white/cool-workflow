@@ -106,8 +106,8 @@ run in CI, twice for flakiness.
 
 ### Phase 5 — Ship
 Cut `v0.2.0` through the existing gated `release-flow --cut` (never tag directly).
-Move `docs/rebuild/SPEC`, `docs/rebuild/PLAN.md`, `docs/rebuild/DESIGN_MINIMAL_KERNEL.md`, and this file under
-`plugins/cool-workflow/docs/` (or an `docs/rebuild/`) as the rebuild's provenance;
+Move `plugins/cool-workflow/project/docs/rebuild/SPEC`, `plugins/cool-workflow/project/docs/rebuild/PLAN.md`, `plugins/cool-workflow/project/docs/rebuild/DESIGN_MINIMAL_KERNEL.md`, and this file under
+`plugins/cool-workflow/docs/` (or an `plugins/cool-workflow/project/docs/rebuild/`) as the rebuild's provenance;
 keep `v2/conformance/` as a permanent black-box regression suite in CI.
 
 ## Verification (standing, every phase)

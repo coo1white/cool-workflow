@@ -1,7 +1,7 @@
 // cli/parseargv.ts — parseArgv, KNOWN_COMMANDS, suggestCommand.
 //
 // Pure. Byte-exact port of src/orchestrator.ts:789-887 in the old build.
-// See docs/rebuild/PLAN.md byte-compat item 15 and SPEC/cli-surface.md "Argument
+// See plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 15 and SPEC/cli-surface.md "Argument
 // parsing (parseArgv)" / SPEC/orchestrator.md "Module-level exports".
 //
 // Rules (do not "clean up" — every one of these is pinned by a conformance
@@ -114,7 +114,7 @@ export function parseArgv(argv: string[]): ParsedArgv {
 /** src/orchestrator.ts:842-851 — every top-level command name, used for
  *  "did you mean". NOTE: this deliberately does NOT include "ledger" even
  *  though the dispatcher handles it and formatHelp lists it — a known,
- *  intentionally-preserved wart (see docs/rebuild/PLAN.md "Kept byte-for-byte").
+ *  intentionally-preserved wart (see plugins/cool-workflow/project/docs/rebuild/PLAN.md "Kept byte-for-byte").
  *  NOTE: "update" is gone from the old capture's list on purpose: no code
  *  was behind the verb in this build, so having it here made `cw update`
  *  say "Did you mean: update?" — a hint that points at itself. */

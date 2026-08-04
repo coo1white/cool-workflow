@@ -6,7 +6,7 @@
 // score, blackboard-snapshot, agent-role) are ever collapsed into a
 // synthetic bucket — "task", "dispatch", "candidate", "selection",
 // "commit", "feedback" nodes are NEVER collapsed, regardless of how many
-// share a bucket key (docs/rebuild/PLAN.md byte-compat item 9: "decisions,
+// share a bucket key (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9: "decisions,
 // artifacts, fanins, candidates, selections, commits, feedback are never
 // collapsed"; "task"/"dispatch" fall out of the same allowlist rule).
 // Driven WITHOUT `-q`/drive() via a hand-written `state.json` (`tasks` +

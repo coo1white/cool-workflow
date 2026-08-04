@@ -26,7 +26,7 @@ const expectedExclude = [
   "plugins/cool-workflow/dist/**",
   "plugins/cool-workflow/test/**",
   "plugins/cool-workflow/docs/**",
-  "docs/assets/**",
+  "plugins/cool-workflow/project/docs/assets/**",
   ".cw-release/**"
 ];
 

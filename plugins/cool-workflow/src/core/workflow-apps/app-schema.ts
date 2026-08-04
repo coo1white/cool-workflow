@@ -3,7 +3,7 @@
 // `agent`, `artifact`, `subWorkflow`, `input`), and full manifest
 // validation (`validateWorkflowApp`).
 //
-// MILESTONE 12 (docs/rebuild/PLAN.md build order; workflow-apps.md). Milestone 6+7
+// MILESTONE 12 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order; workflow-apps.md). Milestone 6+7
 // built the minimal real subset needed to load ONE app and drive it
 // end to end (see git history / the old header note this replaces).
 // This milestone adds, on top of that, WITHOUT changing any existing

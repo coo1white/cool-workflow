@@ -1,5 +1,5 @@
 "use strict";
-// verify-audit-cites-smoke — first regression net for docs/scripts/verify-audit-cites.js
+// verify-audit-cites-smoke — first regression net for project/docs/scripts/verify-audit-cites.js
 // (the audit cite checker had NO tests as a shell script; the Node port gets one).
 // Pins the full exit-code contract: 0 = all cites resolve and are in range,
 // 1 = at least one failed, 2 = bad usage / missing root / no locators.
@@ -11,7 +11,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
-const script = path.join(repoRoot, "docs", "scripts", "verify-audit-cites.js");
+const script = path.join(repoRoot, "plugins", "cool-workflow", "project", "docs", "scripts", "verify-audit-cites.js");
 
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "cw-verify-audit-cites-"));
 const root = path.join(sandbox, "src");
@@ -68,7 +68,7 @@ assert.match(res.stderr, /no file:line locators found/);
 // 6. Missing audit argument / nonexistent audit file -> exit 2 usage.
 res = run([]);
 assert.equal(res.status, 2, "missing args must exit 2");
-assert.match(res.stderr, /usage: node docs\/scripts\/verify-audit-cites\.js/);
+assert.match(res.stderr, /usage: node plugins\/cool-workflow\/project\/docs\/scripts\/verify-audit-cites\.js/);
 res = run([path.join(sandbox, "does-not-exist.md"), "src"]);
 assert.equal(res.status, 2, "nonexistent audit must exit 2");
 

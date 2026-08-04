@@ -2,7 +2,7 @@
 "use strict";
 
 // State-explosion thresholds + collapse rules, driven WITHOUT `-q`/drive()
-// (docs/rebuild/PLAN.md milestone 4's own note: prefer a setup path that avoids the
+// (plugins/cool-workflow/project/docs/rebuild/PLAN.md milestone 4's own note: prefer a setup path that avoids the
 // live agent-driven pipeline so this milestone stays independently
 // gatable). A `state.json` with a hand-written `workers` array is written
 // directly to disk (same technique as state-normalize-defaults.case.js

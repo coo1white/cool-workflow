@@ -5,7 +5,7 @@
 // `writeJson` here, so the write bytes stay exactly one place.
 //
 // Evidence: SPEC/state-core.md "Write ordering and atomic rules", "Lock
-// protocol"; docs/rebuild/PLAN.md byte-compat items 1 and 6.
+// protocol"; plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat items 1 and 6.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

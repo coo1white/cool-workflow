@@ -2,7 +2,7 @@
 // lease-plan mechanism over the run-registry-io.ts queue store, plus the
 // policy file IO.
 //
-// MILESTONE 10 (docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
+// MILESTONE 10 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
 // old build's src/scheduling.ts + the sched-specific slice of
 // src/capability-core.ts. `sched` is a DIFFERENT system from `schedule`
 // (see scheduler-io.ts's file header) — this operates on

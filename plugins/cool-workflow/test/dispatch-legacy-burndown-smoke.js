@@ -17,7 +17,7 @@
 //      `hiddenFromHelp: true` as "byte-unchanged," but that was itself a
 //      regression this move introduced, not a preserved old-build
 //      behavior — fixed along with the source). The row's wording is
-//      NOT byte-matched to the old v0.1.98 capture (docs/rebuild/SPEC/
+//      NOT byte-matched to the old v0.1.98 capture (plugins/cool-workflow/project/docs/rebuild/SPEC/
 //      cli-help/search.txt says "title, description, id" — a stale
 //      field name; the real filter uses `summary`, not `description` —
 //      see basics.ts's search capability for why the current wording
@@ -66,7 +66,7 @@ function run(args) {
   assert.ok(row, "search must resolve to a real capability-table row");
   assert.equal(row.surface, "cli-only");
   // The old v0.1.98 CLI DID have its own `cw help search` row
-  // (docs/rebuild/SPEC/cli-help/search.txt); `hiddenFromHelp: true` was a
+  // (plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/search.txt); `hiddenFromHelp: true` was a
   // rebuild regression this smoke had baked in as "exactly as before the
   // move" — it was not. Fixed to match the true old-build ground truth.
   assert.notEqual(row.cli.hiddenFromHelp, true, "search must appear in the per-verb help listing, matching the old build's cw help search row");

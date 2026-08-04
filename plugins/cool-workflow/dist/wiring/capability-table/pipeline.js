@@ -8,7 +8,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
 const cli_args_1 = require("../../core/util/cli-args");
 const cli_args_2 = require("../../core/util/cli-args");
-// MILESTONE 6+7 (combined; see docs/rebuild/PLAN.md Open risk 10) CLI bindings:
+// MILESTONE 6+7 (combined; see plugins/cool-workflow/project/docs/rebuild/PLAN.md Open risk 10) CLI bindings:
 // plan, quickstart, run --drive, run drive (preview), dispatch, result,
 // commit. Handler BODIES live in shell/pipeline-cli.ts (impure — they
 // plan/drive/dispatch/commit real run state on disk); this table only

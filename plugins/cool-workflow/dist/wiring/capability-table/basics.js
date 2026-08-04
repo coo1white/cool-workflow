@@ -12,7 +12,7 @@ const registry_core_1 = require("./registry-core");
 // dispatchable command row); `list`/`status`/`sandbox.list` reuse the mcp
 // row's capability id and get a cli binding layered on top. Every handler
 // below returns a `CliHandlerResult`; core/ never touches process.stdout
-// or process.exitCode directly (see docs/rebuild/PLAN.md's core/shell split) —
+// or process.exitCode directly (see plugins/cool-workflow/project/docs/rebuild/PLAN.md's core/shell split) —
 // cli/dispatch.ts's generic executor performs the actual write.
 // ---------------------------------------------------------------------
 const version_1 = require("../../core/version");
@@ -48,7 +48,7 @@ function loadWorkflowAppLoader() {
  *  shows, by id/title/summary (byte-behavior port of cli/dispatch.ts's
  *  milestone-1 carry-over `search` arm, moved here so the dispatchLegacy
  *  switch shrinks per its file header's rule). The old v0.1.98 CLI DID
- *  have its own `cw help search` row (`docs/rebuild/SPEC/cli-help/
+ *  have its own `cw help search` row (`plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/
  *  search.txt`: "cw search  Search workflow apps by keyword (title,
  *  description, id)."); `hiddenFromHelp` here was a rebuild regression
  *  that hid it, not a preserved old-build quirk — removed so the row

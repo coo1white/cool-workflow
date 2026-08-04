@@ -112,8 +112,8 @@ Every cycle must trace to one of these validated-use-case tracks:
 - Track B: failure-recovery story (partial commit, stage timeout, run export
   → restore on another machine) proven by an integration test
 - Track C: multi-vendor manifest actually loaded by ≥2 real LLM clients
-If a proposed change serves none of these tracks, log it to docs/BACKLOG.md
-instead of implementing it.
+If a proposed change serves none of these tracks, log it to
+plugins/cool-workflow/project/docs/BACKLOG.md instead of implementing it.
 
 # Multi-Vendor Agent Standards
 
@@ -208,7 +208,7 @@ short, and simple to add to. Do not use it for guesses.)
 - Use small control points and saved state. Put long or waiting work in a
   process outside the MCP control process.
 - New work has to help a North Star track. Put other ideas in
-  `docs/BACKLOG.md`.
+  `plugins/cool-workflow/project/docs/BACKLOG.md`.
 
 ### Verified Facts
 
@@ -225,7 +225,7 @@ short, and simple to add to. Do not use it for guesses.)
   - `plugins/cool-workflow/dist/**`
   - `plugins/cool-workflow/test/**`
   - `plugins/cool-workflow/docs/**`
-  - `docs/assets/**`
+  - `plugins/cool-workflow/project/docs/assets/**`
   - `.cw-release/**`
 - Keeping `dist/` out of the context pack is let through; deleting committed `dist/`
   is a separate release-contract decision.
@@ -438,8 +438,24 @@ short, and simple to add to. Do not use it for guesses.)
   smoke runs the moment it lands, but it bumps the smoke count in
   `plugins/cool-workflow/docs/project-index.md`, so run `npm run sync:project-index`
   or `index:check` fails.
-- **Two docs trees, different gate scope.** `sync-project-index.js` indexes
-  `plugins/cool-workflow/docs/` only; repo-root `docs/` is outside that scan.
+- **Two docs trees, different gate scope AND different distribution scope.**
+  `plugins/cool-workflow/docs/` is the shipped man-page tree: `sync-project-index.js`
+  indexes it (non-recursively — one directory level only), and it is in
+  `package.json`'s npm `files` allowlist, so it ships to every `npm`/`brew` install.
+  `plugins/cool-workflow/project/docs/` (moved from repo-root `docs/` in the root
+  consolidation, 2026-08-04) is repo-internal engineering material — audits, the v2
+  rebuild SPEC, the wiki mirror, benchmark notes — outside the `files` allowlist (so
+  it never ships) and outside the project-index scan (so it never inflates the doc
+  count). Do not move a file between these trees without checking both consequences.
+- **`v2/` stays at the repo root, deliberately, not by oversight.** Every other
+  movable root directory was folded into `plugins/cool-workflow/` in the 2026-08-04
+  root consolidation, but `v2/conformance/` (the black-box CLI conformance suite CI
+  runs on every PR) was kept as a sibling of the package it judges. Its own README
+  states the suite must "never share code with the thing it judges" — nesting it
+  inside the package would leave only `package.json`'s `files` allowlist standing
+  between it and being shipped, and would blur an arm's-length relationship that is
+  currently structural (a directory boundary), not just a convention. Do not move it
+  without re-litigating this tradeoff.
 - **Man-page sync is binding.** A shipped behavior change must update the matching
   `docs/*.7.md` in the same diff, or the reviewer rejects it.
 - **A reference grep does not find every pin.** A file can be pinned by CONTENT
@@ -485,7 +501,7 @@ short, and simple to add to. Do not use it for guesses.)
 ### Next Run
 
 - The structure roadmap and all three North Star proofs are complete. See
-  `docs/audits/north-star-proof-2026-07-14.md`.
+  `plugins/cool-workflow/project/docs/audits/north-star-proof-2026-07-14.md`.
 - Keep inside-only work stopped. A later product proof has to give a real
   blocker before another structure cycle starts.
 - The chime scope item in "In-flight relay" is operator work. It is separate
@@ -584,8 +600,8 @@ standing rule for each:
    precedent).
 
 Exception class that stays: append-only audit records (`.cw-release/`,
-docs/audits/ verdicts) — they are the product's own evidence and are
-never "cleaned up".
+plugins/cool-workflow/project/docs/audits/ verdicts) — they are the product's own
+evidence and are never "cleaned up".
 
 # Anti-Patterns (auto-reject your own work if detected)
 - Adding optional fields to interfaces with only a doc comment ("spec accretion")
@@ -850,7 +866,7 @@ conflict:
   branch into the work branch. Force-push only the work branch itself,
   never the base branch.
 - Simple, mechanical conflicts may be resolved without asking:
-  append-only records (docs/audits/ verdicts — keep the
+  append-only records (plugins/cool-workflow/project/docs/audits/ verdicts — keep the
   entries from both sides), TODO or docs lists (keep both sides), lockfiles (take the base
   branch's copy, then run the build against it as a check; make a new
   one only if this branch changed the dependency set), and edits on

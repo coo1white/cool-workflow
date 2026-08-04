@@ -7,7 +7,7 @@
 
 > **Historical snapshot — citations no longer resolve.** This audit is pinned to commit
 > `46fdd55` (package v0.1.42), before the core/shell `src/` split. Running
-> `docs/scripts/verify-audit-cites.js` against this file and the current tree fails every
+> `project/docs/scripts/verify-audit-cites.js` against this file and the current tree fails every
 > citation (`MISSING FILE`) — the bare filenames below (e.g. `collaboration.ts:144`) moved
 > under `core/`/`shell/` subdirectories. Read this for the *format* a published audit
 > should follow (Scope / Short Answer / per-finding locators / Verification Log); do not
@@ -36,7 +36,7 @@
 - **Subject:** CW's own control-plane architecture — is it sound against its stated
   positioning (an *auditable control plane that delegates execution and never executes
   models*; see AGENTS.md's
-  [Product Direction & Moat](../../AGENTS.md#product-direction--moat))?
+  [Product Direction & Moat](../../../../../AGENTS.md#product-direction--moat))?
 - **Stated invariants under test:** durable/auditable state; evidence-gated commit;
   fail-closed delegation; deterministic replay; "CW enforces write acceptance, the host
   enforces OS isolation"; "CW is not an auth server, the trust boundary is the OS user".
@@ -167,7 +167,7 @@ These were P1/P2 in `docs/audits/architecture-review-verdict.md` / `-v0.1.39.md`
 ## Non-issues (correctly classed within the local-first, OS-user model)
 
 - **Unauthenticated MCP/CLI** — by design; the trust boundary is the OS user
-  (AGENTS.md's [Product Direction & Moat](../../AGENTS.md#product-direction--moat)). CW is
+  (AGENTS.md's [Product Direction & Moat](../../../../../AGENTS.md#product-direction--moat)). CW is
   not an auth server.
 - **No model SDK / no API key in the control plane** — the red line. The `agent` backend
   spawns an external child argv-style (`shell:false`) and imports no model SDK.
@@ -234,8 +234,10 @@ must not over-trust the "attest" column.
 # 1. Pin to the audited commit.
 git -C /path/to/cool-workflow checkout 46fdd55
 
-# 2. Re-verify every cite resolves (see docs/publishing-audits.md for the full script).
-node docs/scripts/verify-audit-cites.js examples/audits/self-audit-cool-workflow-v0.1.42.md
+# 2. Re-verify every cite resolves, from the repo root (see project/docs/publishing-audits.md
+#    for the full script). Default search root is plugins/cool-workflow/src.
+node plugins/cool-workflow/project/docs/scripts/verify-audit-cites.js \
+  plugins/cool-workflow/project/examples/audits/self-audit-cool-workflow-v0.1.42.md
 
 # 3. Run the suite that regression-tests the resolved findings.
 cd plugins/cool-workflow && npm test

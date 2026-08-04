@@ -4,7 +4,7 @@
 // src/orchestrator.ts:899-1007 in the old build (formatHelp,
 // formatCommandHelp) plus the color helpers `bold`/`dim` keyed off stdout.
 //
-// LOAD-BEARING LAYOUT (docs/rebuild/PLAN.md byte-compat item 14 — do not "clean up"):
+// LOAD-BEARING LAYOUT (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 14 — do not "clean up"):
 //   - The command-line rows under "Cool Workflow" and the `cw <path...>`
 //     rows in formatCommandHelp use a 2-space indent. The CLI/MCP parity
 //     help-token checker parses ONLY 2-space lines as command tokens.
@@ -20,7 +20,7 @@
 // milestone 5) are dropped from the literal table below and read from the
 // capability table instead, via `cliCommandHelpRows()`; every other verb
 // stays literal here until its own milestone lands. This satisfies
-// docs/rebuild/PLAN.md milestone 2's own "done when": a CLI `--help` walk and an MCP
+// plugins/cool-workflow/project/docs/rebuild/PLAN.md milestone 2's own "done when": a CLI `--help` walk and an MCP
 // `tools/list` round-trip read the SAME table rows for any capability
 // wired into both.
 
@@ -148,7 +148,7 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
     // "Odd things a rebuild must copy or fix on purpose" item 5 names
     // `sched policy` as one of the show/set pairs a rebuild's help
     // printer must keep doubled; this single merged row was a regression
-    // that lost the doubling (docs/rebuild/SPEC/cli-help/sched.txt has
+    // that lost the doubling (plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/sched.txt has
     // both), restored here with the old ground truth's exact wording.
     { command: "cw sched policy", summary: "Show the scheduling policy (file or default)." },
     { command: "cw sched policy", summary: "Set scheduling policy fields (concurrency/attempts/backoff/TTL)." },
