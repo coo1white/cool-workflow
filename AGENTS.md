@@ -47,19 +47,23 @@ Each cycle MUST follow this sequence. Do not skip steps.
 1. SELECT — Pick exactly ONE goal for this cycle, in priority order:
    a. A failing test, open bug, or regression
    b. An interface/type that exists but has NO runtime implementation
-      (spec debt — search src/core/types/ and the state/contract type
-      modules for fields never read by any module)
+      (spec debt — search plugins/cool-workflow/src/core/types/ and the
+      state/contract type modules for fields never read by any module)
    c. A gap blocking the current target use case (see # North Star)
    Never select "add a new type/interface" as a standalone goal.
 
 2. IMPLEMENT — Write the runtime logic. A cycle's diff MUST include:
-   - At least one file outside src/types/ and dist/
+   - At least one file outside plugins/cool-workflow/src/core/types/ and
+     plugins/cool-workflow/dist/
    - At least one new or modified test that fails before the change
      and passes after it
    If you only changed type declarations, the cycle is INVALID:
    either implement the behavior now or revert the type change.
 
-3. VERIFY — Run the full gate before any commit to main:
+3. VERIFY — Run the full gate before any commit to main. There is no
+   root package.json — run every `npm run ...` command below with cwd
+   `plugins/cool-workflow/` (see `defaults.run.working-directory` in
+   `.github/workflows/ci.yml` for the same convention CI uses):
    - npm run build (clean, no errors)
    - npm test (all green; paste the summary into the PR body)
    - gen:manifests up to date
@@ -130,11 +134,11 @@ regardless of the capability it ships. The long form lives in
    byte content of an existing output, file layout, exit code, or flag. New
    behavior arrives behind a new flag/verb or an env opt-in/opt-out, with the
    old behavior byte-identical by default.
-2. Mechanism, not policy. The kernel (src/) provides mechanisms; policy lives
-   in userland — apps, configs, wrappers, env. Vendor-specific logic
-   (claude/codex/gemini rendering, prompt formats) belongs in wrappers under
-   scripts/agents/, never in core. Core may FORWARD vendor streams; it never
-   parses them.
+2. Mechanism, not policy. The kernel (plugins/cool-workflow/src/) provides
+   mechanisms; policy lives in userland — apps, configs, wrappers, env.
+   Vendor-specific logic (claude/codex/gemini rendering, prompt formats)
+   belongs in wrappers under plugins/cool-workflow/scripts/agents/, never
+   in core. Core may FORWARD vendor streams; it never parses them.
 3. Rule of Silence. stdout is data, stderr is diagnostics. Non-interactive
    (piped / CI) invocations are silent on success; human niceties are
    TTY-gated and opt-out-able. A `--json` surface is stable, scriptable, and
@@ -145,9 +149,10 @@ regardless of the capability it ships. The long form lives in
 5. Tools, not frameworks. Zero runtime dependencies is a red line. Each verb
    does one thing; composition happens through files and pipes (.cw/ state),
    not through hidden in-process coupling.
-6. Man pages are the contract. Every shipped capability has a docs/*.7.md
-   section kept in sync the same cycle (doc-drift guards enforce this where
-   they exist). Undocumented behavior is unfinished behavior.
+6. Man pages are the contract. Every shipped capability has a
+   plugins/cool-workflow/docs/*.7.md section kept in sync the same cycle
+   (doc-drift guards enforce this where they exist). Undocumented behavior
+   is unfinished behavior.
 7. style(9) spirit. One consistent code style per layer; match the
    surrounding file exactly. No gratuitous reformatting in a feature diff.
 8. Release engineering. A release is gated, independently reviewed, and
@@ -159,10 +164,11 @@ regardless of the capability it ships. The long form lives in
    needed file that genuinely cannot be JS/TS (a Homebrew formula, a
    Dockerfile, the workbench's disk-served html/css) is a scoped, one-off,
    reasoned EXCEPTION, never a new pattern — add it to the `EXCEPT_PATHS` in
-   `scripts/lang-policy-check.js` (`npm run lang:check`, wired into
-   `release:check`) with a one-line reason, at its exact path, never a whole
-   directory. Docs/data/config files (md, json, yaml, txt, etc.) are outside
-   this rule's scope; it is about what the project's LOGIC is written in.
+   `plugins/cool-workflow/scripts/lang-policy-check.js` (`npm run
+   lang:check`, wired into `release:check`) with a one-line reason, at its
+   exact path, never a whole directory. Docs/data/config files (md, json,
+   yaml, txt, etc.) are outside this rule's scope; it is about what the
+   project's LOGIC is written in.
 
 # File Lifecycle (keep the tree slim — rules from the 2026-07-13 sweep)
 Every tracked file must earn its place. The four ways files rot, and the
@@ -197,7 +203,7 @@ product's own evidence and are never "cleaned up".
   kernel, chatter on stdout, silent fallback, new runtime dependency,
   undocumented shipped behavior)
 - A new non-JS/TS source file without a scoped, reasoned exception in
-  `scripts/lang-policy-check.js` (`npm run lang:check`)
+  `plugins/cool-workflow/scripts/lang-policy-check.js` (`npm run lang:check`)
 - A new file that breaks a File Lifecycle rule above (orphan tool, committed
   draft, stale version snapshot, stub/copy of another file)
 
@@ -241,7 +247,8 @@ single most important goal for the next session.
 Pause and ask the human if:
 - The same test fails 3 cycles in a row
 - A change would break the public API (the CLI/MCP observable surface, or
-  anything exported from the entry modules src/cli.ts / src/mcp-server.ts)
+  anything exported from the entry modules
+  plugins/cool-workflow/src/cli.ts / plugins/cool-workflow/src/mcp-server.ts)
 - You're tempted to tag without test evidence
 - The reviewer agent rejects the same PR twice
 
@@ -257,15 +264,18 @@ imports no model SDK. Never write the verdict file yourself. Presets:
 
 ## Shipping a release (two steps, as of v0.2.3+)
 
-A release is TWO steps — see `RELEASE.md` for the full checklist:
+A release is TWO steps — see `RELEASE.md` for the full checklist. Both
+`npm run` commands below run with cwd `plugins/cool-workflow/` (no root
+package.json — same convention as the VERIFY step above):
 
 1. **Agent prep**: write the `## X.Y.Z` CHANGELOG.md entry (short — its
    text goes into the GitHub Release as-is), then land the version bump
    as its OWN PR (`npm run bump:version -- X.Y.Z --content`, regenerate
    the project index, an ITERATION_LOG entry, a full clean rebuild).
 2. **Operator command**: the release operator runs `npm run release --
-   X.Y.Z` in their own terminal (`scripts/release-oneclick.js`). It
-   fail-fasts on every known precondition BEFORE the gate/vendor/
+   X.Y.Z` in their own terminal
+   (`plugins/cool-workflow/scripts/release-oneclick.js`). It fail-fasts
+   on every known precondition BEFORE the gate/vendor/
    reviewer spend anything, runs the gated cut, pushes ONLY the tag
    (`refs/tags/vX.Y.Z` — the verdict commit is a one-hop leaf on the
    reviewed commit; no branch push, so branch protection never blocks
