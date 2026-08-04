@@ -1,29 +1,21 @@
 # Project Memory
 
+**`AGENTS.md` is the one file to read first — see its "Build Memory"
+section.** This file holds the narrow, still-growing technical ledger
+(Verified Facts about specific subsystems, Failed Attempts, dated Lessons,
+the cross-agent handoff ledger) that AGENTS.md links to rather than
+duplicates. The process-level "Current Work Direction" list that used to
+open this file moved into AGENTS.md's Build Memory section on 2026-08-04
+and is not repeated here.
+
 This is the repo-local memory for Cool Workflow agent runs. Keep it true to fact,
 short, and simple to add to. Do not use it for guesses.
 
-Since 2026-07-13 this is the ONE memory file: it took in the old
-`docs/LESSONS.md` (durable lessons) and `docs/HANDOFF_TODO.md` (in-flight
-relay) — see the "Lessons" and "In-flight relay" sections. `docs/BACKLOG.md`
-stays separate: it parks ideas that serve no North Star track.
-
-## Current Work Direction
-
-- Fix known faults in the runtime and release work first.
-- After that, take out dead files, old copies, and paths which have no use.
-- Keep `core`, `shell`, and `wiring` separate. Put decisions in `core`, file
-  and process work in `shell`, and CLI/MCP links in `wiring`.
-- Keep command output, JSON, exit codes, file layouts, and replay records as
-  they are. Put new behavior behind a new command, flag, or opt-in setting.
-- Give each cycle one goal. Keep a fault fix and a tree clean-up in separate
-  PRs.
-- Use small control points and saved state. Put long or waiting work in a
-  process outside the MCP control process.
-- New work has to help a North Star track. Put other ideas in
-  `docs/BACKLOG.md`.
-- `DIRECTION.md` is the source for product direction. This section gives the
-  present work order.
+Since 2026-07-13 this is the ONE memory file for the content below: it took
+in the old `docs/LESSONS.md` (durable lessons) and `docs/HANDOFF_TODO.md`
+(in-flight relay) — see the "Lessons" and "In-flight relay" sections.
+`docs/BACKLOG.md` stays separate: it parks ideas that serve no North Star
+track.
 
 ## Verified Facts
 
@@ -125,7 +117,9 @@ stays separate: it parks ideas that serve no North Star track.
 - **Scope chime's environment into the shared handoff repo (operator, web
   UI).** `coo1white/handoff` (Private) is created, guarded, and verified; the
   cool-workflow (Mac) side is proven end-to-end. `cw ledger` has been on npm
-  since v0.1.98 (v0.2.4 is out now). The remaining step is a web-UI action —
+  since v0.1.98 — see `CHANGELOG.md` for the current published version
+  rather than a number pinned here, which goes stale on every release. The
+  remaining step is a web-UI action —
   add the `chime` environment's repository scope + a git token that can
   read/write it. A cool-workflow-scoped session cannot do this itself
   (`create_repository`/cross-repo calls return 403). Then on the chime side:
