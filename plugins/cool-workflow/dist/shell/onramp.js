@@ -477,7 +477,12 @@ function availableSmokeTests(cwd) {
 }
 function normalizeChangedPath(file) {
     const normalized = file.replace(/\\/g, "/").replace(/^\.\//, "");
-    if (/^(src|apps|scripts|test|docs|dist|manifest|ui|workflows)\//.test(normalized)) {
+    // "docs" is deliberately absent from this list: the last real repo-root docs/
+    // directory moved to plugins/cool-workflow/project/docs/ in the 2026-08-04 root
+    // consolidation, so no git-diff path starts with bare "docs/" anymore. Rewriting
+    // one to plugins/cool-workflow/docs/ (the separate, still-in-place man-page tree)
+    // would silently mislabel it.
+    if (/^(src|apps|scripts|test|dist|manifest|ui|workflows)\//.test(normalized)) {
         return `plugins/cool-workflow/${normalized}`;
     }
     return normalized;
@@ -499,8 +504,14 @@ function isSurfaceFile(file) {
         pluginPath === "scripts/parity-check.js");
 }
 function isDocFile(file) {
+    // "surface-docs-required" means the SHIPPED surface (README.md, the man-page tree
+    // under plugins/cool-workflow/docs/) — see its fix message below. Repo-internal
+    // engineering docs (plugins/cool-workflow/project/docs/) never satisfy it; they are
+    // not public docs. A bare "docs/" branch used to sit here, but normalizeChangedPath
+    // rewrites any bare top-level "docs/..." path before this function ever sees it, so
+    // it was already dead code even before the 2026-08-04 root consolidation removed the
+    // last real repo-root docs/ directory it could have matched.
     return (file === "README.md" ||
-        file.startsWith("docs/") ||
         file === "plugins/cool-workflow/README.md" ||
         file.startsWith("plugins/cool-workflow/docs/"));
 }

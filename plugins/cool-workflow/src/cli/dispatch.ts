@@ -1,6 +1,6 @@
 // cli/dispatch.ts — the generic CLI executor over core/capability-table.ts.
 //
-// MILESTONE 2 (docs/rebuild/PLAN.md build order, step 2; see the Revision note there
+// MILESTONE 2 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 2; see the Revision note there
 // for why this lands here, right after CLI parsing, instead of late).
 //
 // `dispatch(args)` first tries the CAPABILITY TABLE: it looks up the row
@@ -15,7 +15,7 @@
 // cli-argv-parsing.case.js and cli-exit-codes.case.js probe but that do
 // not yet have a real subsystem behind them (see each case's own
 // PLACEHOLDER comment for which future milestone owns it). Per the
-// Revision note in docs/rebuild/PLAN.md, THIS file is never hand-extended again —
+// Revision note in plugins/cool-workflow/project/docs/rebuild/PLAN.md, THIS file is never hand-extended again —
 // `dispatchLegacy`'s arms shrink to nothing as later milestones move each
 // one into a real capability-table row; nothing new is ever added here.
 

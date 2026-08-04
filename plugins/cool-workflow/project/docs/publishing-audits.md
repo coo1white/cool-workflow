@@ -3,7 +3,7 @@
 How to point Cool Workflow at a repository, make an evidence-grounded
 architecture-risk report, and put it out — **with care**. CW's chief use is
 "auditable code-risk analysis" (see AGENTS.md's
-[Product Direction & Moat](../AGENTS.md#product-direction--moat)). This guide is the
+[Product Direction & Moat](../../../../AGENTS.md#product-direction--moat)). This guide is the
 discipline that keeps a put-out CW audit one to be trusted: every claim comes back to a true
 `file:line`, the enforcement boundary is given straight, and **true other-party security
 findings are worked out in private, never let out as public 0-days.**

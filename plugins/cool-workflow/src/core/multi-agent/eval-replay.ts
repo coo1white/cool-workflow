@@ -16,7 +16,7 @@
 // `failures`/`evidenceAdoption` from the multi-agent/topology/blackboard/
 // trust state actually built in this milestone (runtime.ts/topology.ts/
 // coordinator.ts/candidate-scoring.ts), NOT from the full operator-ux
-// module (out of this milestone's scope per docs/rebuild/PLAN.md's build-order
+// module (out of this milestone's scope per plugins/cool-workflow/project/docs/rebuild/PLAN.md's build-order
 // list). The 9 optional v0.1.25/v0.1.26 sections (summaryFreshness
 // through reasoningUnexplained) default to `[]`, which SPEC/multi-
 // agent.md's own edge-case list says is valid for snapshots that predate

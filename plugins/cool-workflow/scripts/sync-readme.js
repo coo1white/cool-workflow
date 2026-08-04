@@ -6,9 +6,11 @@
 // The repo-root README.md is the SINGLE SOURCE OF TRUTH. This generates the npm
 // page (plugins/cool-workflow/README.md) from it, changing ONLY what npm needs to
 // render: relative URLs become absolute, because npm cannot resolve a repo's
-// relative `docs/assets/...` image paths or `](LICENSE)` links the way GitHub can.
+// relative `plugins/cool-workflow/project/docs/assets/...` image paths or
+// `](LICENSE)` links the way GitHub can.
 //
-//   <img src="docs/assets/x.svg">  ->  raw.githubusercontent.com/<owner>/<repo>/main/docs/assets/x.svg
+//   <img src="plugins/cool-workflow/project/docs/assets/x.svg">
+//     ->  raw.githubusercontent.com/<owner>/<repo>/main/plugins/cool-workflow/project/docs/assets/x.svg
 //   ](LICENSE) / ](plugins/...)     ->  github.com/<owner>/<repo>/blob/main/...
 //
 // The text content is otherwise identical, so the two pages can never drift.
@@ -52,7 +54,7 @@ function render() {
   // NOTE: a relative path must be free of a literal "(", ")", or '"' — the [^)]+ / [^"]+
   // captures below stop at those. The repo README has none; readme:check catches any drift.
   const absolutized = source
-    // HTML image sources: <img src="docs/assets/x.svg"> -> raw URL (skip already-absolute / anchors)
+    // HTML image sources: <img src="plugins/cool-workflow/project/docs/assets/x.svg"> -> raw URL (skip already-absolute / anchors)
     .replace(/\bsrc="(?!https?:|#|data:)([^"]+)"/g, (_m, rel) => `src="${RAW_BASE}/${rel}"`)
     // Markdown links: ](LICENSE) / ](plugins/...) -> blob URL (skip absolute / in-page anchors / mailto)
     .replace(/\]\((?!https?:|#|mailto:)([^)]+)\)/g, (_m, rel) => `](${BLOB_BASE}/${rel})`);

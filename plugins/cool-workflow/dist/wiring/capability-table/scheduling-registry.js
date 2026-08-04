@@ -390,7 +390,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("gc.run").reason =
 // `hiddenFromHelp` keeps `cw help gc`'s rows coming from the single
 // literal COMMAND_HELP_ROWS.gc entries, same as `gc.run` below — without
 // it these rows double-print alongside those literal rows (a rebuild
-// regression the old build's `docs/rebuild/SPEC/cli-help/gc.txt` ground
+// regression the old build's `plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/gc.txt` ground
 // truth does not show; fixed here to match `gc.run`'s existing pattern).
 (0, registry_core_1.attachCliBinding)("gc.plan", {
     path: ["gc", "plan"],

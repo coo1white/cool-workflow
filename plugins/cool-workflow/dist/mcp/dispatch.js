@@ -2,7 +2,7 @@
 // mcp/dispatch.ts — the generic MCP tool-call reader over
 // core/capability-table.ts.
 //
-// MILESTONE 2 (docs/rebuild/PLAN.md build order, step 2). Replaces the old build's
+// MILESTONE 2 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 2). Replaces the old build's
 // 196-arm `callTool` switch (src/mcp/tool-call.ts) with a data-driven
 // lookup: resolve the row by tool name, check its declared required-arg
 // groups (SPEC/mcp.md's `McpBinding.requiredArgs`), re-base `cwd` if

@@ -8,7 +8,7 @@ import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "
 import { required } from "../../core/util/cli-args";
 import { optionalArg } from "../../core/util/cli-args";
 
-// MILESTONE 6+7 (combined; see docs/rebuild/PLAN.md Open risk 10) CLI bindings:
+// MILESTONE 6+7 (combined; see plugins/cool-workflow/project/docs/rebuild/PLAN.md Open risk 10) CLI bindings:
 // plan, quickstart, run --drive, run drive (preview), dispatch, result,
 // commit. Handler BODIES live in shell/pipeline-cli.ts (impure — they
 // plan/drive/dispatch/commit real run state on disk); this table only

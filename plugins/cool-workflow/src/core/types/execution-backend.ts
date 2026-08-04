@@ -1,6 +1,6 @@
 // core/types/execution-backend.ts — plain data shapes for the driver layer.
 //
-// MILESTONE 5 (docs/rebuild/PLAN.md build order, step 5). Byte-exact port of the shapes
+// MILESTONE 5 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of the shapes
 // in the old build's src/types/execution-backend.ts and the sandbox slice of
 // src/types/sandbox.ts that this subsystem needs. Types only — no logic —
 // so this file lives in core/ (moved here from shell/execution-backend/

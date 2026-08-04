@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/cw-hero.png" alt="Cool Workflow hero image: the CW name over a line reading ask, plan, dispatch, verify, report — the stages of a saved, cited run." width="100%">
+<img src="plugins/cool-workflow/project/docs/assets/cw-hero.png" alt="Cool Workflow hero image: the CW name over a line reading ask, plan, dispatch, verify, report — the stages of a saved, cited run." width="100%">
 
 <br><br>
 
@@ -15,7 +15,7 @@
 
 <br>
 
-<img src="docs/assets/demo.gif" alt="cw demo tamper — builds a signed ledger, forges it three ways, catches all three" width="100%">
+<img src="plugins/cool-workflow/project/docs/assets/demo.gif" alt="cw demo tamper — builds a signed ledger, forges it three ways, catches all three" width="100%">
 
 </div>
 
@@ -159,7 +159,7 @@ writing everything to disk as files you can open and read. It never imports a
 model SDK or stores an API key.
 
 <div align="center">
-<img src="docs/assets/cw-pipeline.png" alt="The CW pipeline: ask, plan, dispatch (delegated to your agent), verify (evidence gate, fails closed), commit verified state, and a saved, cited, signed report — every step recorded as durable .cw/ JSON." width="100%">
+<img src="plugins/cool-workflow/project/docs/assets/cw-pipeline.png" alt="The CW pipeline: ask, plan, dispatch (delegated to your agent), verify (evidence gate, fails closed), commit verified state, and a saved, cited, signed report — every step recorded as durable .cw/ JSON." width="100%">
 </div>
 
 ```text
@@ -191,7 +191,7 @@ condition or a token budget says stop), and re-run fast — `cw run <app>
 --drive --incremental` reuses every step whose inputs did not change.
 
 <div align="center">
-<img src="docs/assets/topologies.svg" alt="Built-in multi-agent topologies: map-reduce (fan out, fold in), debate (argue then draw a verdict), and judge-panel (N independent judges score one candidate)." width="92%">
+<img src="plugins/cool-workflow/project/docs/assets/topologies.svg" alt="Built-in multi-agent topologies: map-reduce (fan out, fold in), debate (argue then draw a verdict), and judge-panel (N independent judges score one candidate)." width="92%">
 </div>
 
 ## Can You Trust the Report?
@@ -328,10 +328,10 @@ they are for a reason.
 | Place | What it is |
 |---|---|
 | [`plugins/cool-workflow/`](plugins/cool-workflow/) | The product itself: TypeScript source (`src/`), committed build (`dist/`), tests, scripts, man-page docs, manifests |
-| [`docs/`](docs/) | Repo-level docs: wiki source, audits, benchmark notes, the v2 rebuild SPEC, architecture plans |
-| [`v2/conformance/`](v2/conformance/) | Black-box conformance suite — pins the shipping CLI's observable behavior byte for byte; CI runs it on every PR |
-| [`examples/`](examples/) | Worked examples, e.g. a real published self-audit with line-cited findings |
-| [`plugins/cool-workflow/scripts/bench/`](plugins/cool-workflow/scripts/bench/) | The benchmark runner (see [docs/benchmark.md](docs/benchmark.md)) |
+| [`plugins/cool-workflow/project/docs/`](plugins/cool-workflow/project/docs/) | Repo-level docs: wiki source, audits, benchmark notes, the v2 rebuild SPEC, architecture plans. Outside the npm `files` allowlist and the man-page index — never shipped |
+| [`v2/conformance/`](v2/conformance/) | Black-box conformance suite — pins the shipping CLI's observable behavior byte for byte; CI runs it on every PR. Stays at the repo root deliberately: an arm's-length judge of `plugins/cool-workflow/`, not a part of it |
+| [`plugins/cool-workflow/project/examples/`](plugins/cool-workflow/project/examples/) | Worked examples, e.g. a real published self-audit with line-cited findings |
+| [`plugins/cool-workflow/scripts/bench/`](plugins/cool-workflow/scripts/bench/) | The benchmark runner (see [docs/benchmark.md](plugins/cool-workflow/project/docs/benchmark.md)) |
 | [`Formula/`](Formula/) | Homebrew formula — `brew` only finds it at this exact path |
 | `.cw-release/` | Append-only release trust records: gate markers, signed reviewer verdicts. Never edit or delete by hand |
 | `.github/` | CI workflows: build/test matrix, conformance, CodeQL, gitleaks, release gate, npm publish |

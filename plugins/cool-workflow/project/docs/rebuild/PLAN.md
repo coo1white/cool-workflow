@@ -15,7 +15,7 @@ This plan's first pass compared three independent proposals; one (the "minimal k
 generated surfaces" lens) failed a schema-validated tool call 5 times in a row and was silently
 dropped by the judge panel, so only two proposals were actually compared and synthesized. It was
 re-run standalone (writing straight to a file instead of a large JSON field, which fixed the
-failure) and is kept in full at `docs/rebuild/DESIGN_MINIMAL_KERNEL.md`. Its central idea — most of which
+failure) and is kept in full at `plugins/cool-workflow/project/docs/rebuild/DESIGN_MINIMAL_KERNEL.md`. Its central idea — most of which
 the surviving "kernel-first-thin-shells" proposal already converged on independently — is folded
 in below. Its one genuinely new, concrete improvement over the first synthesis: **build the
 capability registry and its two generic CLI/MCP dispatchers in milestone 2, immediately after
@@ -657,7 +657,7 @@ are kept as literal ports at their current size, because they are complex FOR A 
 
 ## How this plan is used
 
-A build loop reads this file plus `docs/rebuild/SPEC/*.md`, then implements one build-order milestone at
+A build loop reads this file plus `plugins/cool-workflow/project/docs/rebuild/SPEC/*.md`, then implements one build-order milestone at
 a time under `v2/src/`, following the module layout and byte-compat rules above. After each
 milestone it runs `node v2/conformance/run.js --bin <path to the v2 build> --filter <that
 milestone's pattern>` and does not start the next milestone until that filter is 100% green —

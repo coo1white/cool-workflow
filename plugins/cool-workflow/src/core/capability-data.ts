@@ -9,13 +9,13 @@
 // capability-table.ts imports everything below and re-exports the types
 // external files already import from it.
 //
-// MILESTONE 2 (docs/rebuild/PLAN.md build order, step 2). Replaces the old build's
+// MILESTONE 2 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 2). Replaces the old build's
 // `capability-registry.ts` (940 lines) + 40 CLI handler files + the
 // 196-arm MCP switch + the 1000-line tool-definitions array with ONE data
 // table plus two generic front-door readers (`cli/dispatch.ts`,
 // `mcp/dispatch.ts`).
 //
-// Byte-compat item 5 (docs/rebuild/PLAN.md): 12 capabilities have CLI and MCP call
+// Byte-compat item 5 (plugins/cool-workflow/project/docs/rebuild/PLAN.md): 12 capabilities have CLI and MCP call
 // DIFFERENT functions with DIFFERENT payloads. So a row carries a SEPARATE
 // `cli.handler` and `mcp.handler`, never one shared "handler" — even
 // though every row landed so far happens to share one function, the type
@@ -80,7 +80,7 @@ export interface McpToolDefinition {
 
 /** What a `cli.handler` gives back to cli/dispatch.ts. Handlers stay pure
  *  (core/ never calls `process.stdout.write` or sets `process.exitCode`
- *  directly — see docs/rebuild/PLAN.md's core/shell split); the generic executor in
+ *  directly — see plugins/cool-workflow/project/docs/rebuild/PLAN.md's core/shell split); the generic executor in
  *  cli/dispatch.ts is the one place that turns this into real output.
  *   - `text` — human-readable stdout body (dispatch.ts appends "\n" only
  *     if the string doesn't already end in one, matching the old

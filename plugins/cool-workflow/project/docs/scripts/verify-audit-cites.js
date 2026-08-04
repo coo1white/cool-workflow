@@ -8,13 +8,13 @@
 //   2. the cited line number(s) are IN RANGE (<= the file's line count).
 //
 // It does NOT prove claim-correctness — that is the human reviewer's job (see
-// docs/publishing-audits.md, "Cite-verification methodology"). This catches stale
-// and fabricated locators before they reach a published report.
+// project/docs/publishing-audits.md, "Cite-verification methodology"). This catches
+// stale and fabricated locators before they reach a published report.
 //
 // Portable: node only (no rg, no grep), matching CW's CI portability rule.
 //
-// Usage:
-//   node docs/scripts/verify-audit-cites.js <audit.md> [search-root]
+// Usage (from the repo root — the default search root is repo-root-relative):
+//   node plugins/cool-workflow/project/docs/scripts/verify-audit-cites.js <audit.md> [search-root]
 // Exit: 0 = all cites resolve and are in range; 1 = one or more failed; 2 = bad usage.
 
 const fs = require("node:fs");
@@ -39,7 +39,7 @@ function isDir(p) {
 }
 
 if (!audit || !isFile(audit)) {
-  console.error("usage: node docs/scripts/verify-audit-cites.js <audit.md> [search-root]");
+  console.error("usage: node plugins/cool-workflow/project/docs/scripts/verify-audit-cites.js <audit.md> [search-root]");
   process.exit(2);
 }
 if (!isDir(root)) {
