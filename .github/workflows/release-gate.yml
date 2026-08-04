@@ -11,9 +11,17 @@ on:
 permissions:
   contents: read
 
+# Queue, never cancel: this gate's result is what npm-publish.yml trusts to
+# decide whether to publish. Cancelling a run mid-check for a later trigger
+# must never happen — queue behind it instead.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
