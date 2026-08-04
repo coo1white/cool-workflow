@@ -336,8 +336,7 @@ they are for a reason.
 | `.cw-release/` | Append-only release trust records: gate markers, signed reviewer verdicts. Never edit or delete by hand |
 | `.github/` | CI workflows: build/test matrix, conformance, CodeQL, gitleaks, release gate, npm publish |
 | `.claude-plugin/`, `.agents/plugins/` | Plugin/marketplace manifests so LLM clients can discover CW |
-| [`AGENTS.md`](AGENTS.md) | The binding rules for coding agents working ON this repo; the one source of truth (also carries product direction/moat and build-memory content merged in from the former `DIRECTION.md` and `CLAUDE.md`) |
-| [`PROJECT_MEMORY.md`](PROJECT_MEMORY.md) | Long-term project memory: lessons that must outlive any one session |
+| [`AGENTS.md`](AGENTS.md) | The binding rules for coding agents working ON this repo; the one source of truth (also carries product direction/moat and long-term build memory merged in from the former `DIRECTION.md`, `CLAUDE.md`, and `PROJECT_MEMORY.md`) |
 | [`ITERATION_LOG.md`](ITERATION_LOG.md) | Append-only development cycle log; the release gate reads it for the cadence check |
 | [`CHANGELOG.md`](CHANGELOG.md) / [`RELEASE.md`](RELEASE.md) | Release notes (each entry goes into the GitHub Release as-is) / the release runbook |
 
