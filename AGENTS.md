@@ -2,7 +2,7 @@
 
 > Place this file at the repository root. Claude Code / Codex and most coding
 > agents auto-load `AGENTS.md`. The companion reviewer prompt lives at
-> `docs/prompts/reviewer-agent.md`.
+> `plugins/cool-workflow/agents/release-reviewer.md`.
 
 # Quick Index
 This is the one file to read. Sections most needed mid-session:
@@ -103,7 +103,7 @@ Each cycle MUST follow this sequence. Do not skip steps.
      Tests / Risk — this is what `--generate-notes` turns into the GitHub
      Release body, so it is the record now, not a hand-written CHANGELOG.
    - Every release PR must be approved by the reviewer agent
-     (docs/prompts/reviewer-agent.md) before tagging.
+     (plugins/cool-workflow/agents/release-reviewer.md) before tagging.
 
 # North Star
 Every cycle must trace to one of these validated-use-case tracks:
