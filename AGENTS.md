@@ -93,7 +93,9 @@ Each cycle MUST follow this sequence. Do not skip steps.
      before?" If you cannot answer in one concrete sentence, do not tag.
    - Branch names describe the capability (feat/run-export-restore),
      never the version number (feat/v073 is forbidden).
-   - CHANGELOG entry per tag: Capability / Implementation / Tests / Risk.
+   - Tag message and PR description cover: Capability / Implementation /
+     Tests / Risk — this is what `--generate-notes` turns into the GitHub
+     Release body, so it is the record now, not a hand-written CHANGELOG.
    - Every release PR must be approved by the reviewer agent
      (docs/prompts/reviewer-agent.md) before tagging.
 
@@ -132,8 +134,9 @@ states, and resumable runs over hidden magic or broad framework behavior.
 (Merged in from `DIRECTION.md` on 2026-08-04, since consolidated here as
 the one memory file. The version-history section that used to close that
 file is dropped — it stopped naming versions at v0.1.37, several release
-generations behind current, so it no longer served as live evidence.
-`CHANGELOG.md` is the authoritative version history.)
+generations behind current, so it no longer served as live evidence. This
+project's version history now lives only in git tags and GitHub Releases
+— see `npm view cool-workflow version` for the current published version.)
 
 **一句话定位**: CW 是可审计的编排 / 控制平面层——它故意不执行模型，只让别人
 （Claude/Codex/任何 agent 框架）的执行变得显式、可检查、可恢复、可复放。比喻：
@@ -290,8 +293,9 @@ short, and simple to add to. Do not use it for guesses.)
 - **Scope chime's environment into the shared handoff repo (operator, web
   UI).** `coo1white/handoff` (Private) is created, guarded, and verified; the
   cool-workflow (Mac) side is proven end-to-end. `cw ledger` has been on npm
-  since v0.1.98 — see `CHANGELOG.md` for the current published version
-  rather than a number pinned here, which goes stale on every release. The
+  since v0.1.98 — see `npm view cool-workflow version` for the current
+  published version rather than a number pinned here, which goes stale on
+  every release. The
   remaining step is a web-UI action — add the `chime` environment's
   repository scope + a git token that can read/write it. A
   cool-workflow-scoped session cannot do this itself
@@ -356,11 +360,11 @@ short, and simple to add to. Do not use it for guesses.)
   fires on a `push` of a `v*` tag. No tag ⇒ nothing new in Actions and npm stays
   on the old version.
 - **Cut a release with the gated flow, never by hand.** As of v0.2.3+ the flow
-  is two steps: the agent preps the CHANGELOG + version-bump PR, then the
-  OPERATOR runs `npm run release -- X.Y.Z` in their own terminal (fail-fast
-  preflight, gated cut, tag-only push, CI wait; a re-run resumes). Never
-  hand-write a verdict file; never `git tag` by hand. Full rules: `RELEASE.md`
-  and this file's "Shipping a release" section.
+  is two steps: the agent preps the version-bump PR, then the OPERATOR runs
+  `npm run release -- X.Y.Z` in their own terminal (fail-fast preflight,
+  gated cut, tag-only push, CI wait; a re-run resumes). Never hand-write a
+  verdict file; never `git tag` by hand. Full rules: this file's "Shipping a
+  release" section.
 - **The independent reviewer must run EXECUTE-capable.** A read-only / low-effort
   reviewer cannot re-run the gate it is judging and fabricates a REJECTED verdict
   (the v0.1.97 codex case: two REJECTs in <65 s vs a ~12-min gate). Review intent
@@ -375,8 +379,8 @@ short, and simple to add to. Do not use it for guesses.)
   otherwise `mcp-app-surface-smoke` fails on a version mismatch.
 - **`bump:version` has two modes.** Gate-mode stamps structured surfaces but skips
   docs; `--content` also stamps docs/man-pages. If gate-mode ran first, `--content`
-  reports "already at X" — revert the structured files (keep `CHANGELOG.md`) and
-  re-run `--content` from the clean prior version.
+  reports "already at X" — revert the structured files and re-run `--content`
+  from the clean prior version.
 
 #### The sandbox `127.0.0.1` git-URL-rewrite artifact
 
@@ -565,8 +569,8 @@ standing rule for each:
    precedent).
 
 Exception class that stays: append-only audit records (`.cw-release/`,
-ITERATION_LOG.md, CHANGELOG.md, docs/audits/ verdicts) — they are the
-product's own evidence and are never "cleaned up".
+ITERATION_LOG.md, docs/audits/ verdicts) — they are the product's own
+evidence and are never "cleaned up".
 
 # Anti-Patterns (auto-reject your own work if detected)
 - Adding optional fields to interfaces with only a doc comment ("spec accretion")
@@ -639,14 +643,18 @@ imports no model SDK. Never write the verdict file yourself. Presets:
 
 ## Shipping a release (two steps, as of v0.2.3+)
 
-A release is TWO steps — see `RELEASE.md` for the full checklist. Both
-`npm run` commands below run with cwd `plugins/cool-workflow/` (no root
+(This section absorbs `RELEASE.md`'s full checklist as of 2026-08-04 — that
+file is removed, along with `CHANGELOG.md`. This project no longer keeps a
+separate, hand-written changelog file; `--generate-notes` (GitHub's
+auto-generated notes from commits) is the release-notes source now, the
+same fallback `.github/workflows/github-release.yml` already used.)
+
+Both `npm run` commands below run with cwd `plugins/cool-workflow/` (no root
 package.json — same convention as the VERIFY step above):
 
-1. **Agent prep**: write the `## X.Y.Z` CHANGELOG.md entry (short — its
-   text goes into the GitHub Release as-is), then land the version bump
-   as its OWN PR (`npm run bump:version -- X.Y.Z --content`, regenerate
-   the project index, an ITERATION_LOG entry, a full clean rebuild).
+1. **Agent prep**: land the version bump as its OWN PR
+   (`npm run bump:version -- X.Y.Z --content`, regenerate the project
+   index, an ITERATION_LOG entry, a full clean rebuild).
 2. **Operator command**: the release operator runs `npm run release --
    X.Y.Z` in their own terminal
    (`plugins/cool-workflow/scripts/release-oneclick.js`). It fail-fasts
@@ -669,6 +677,157 @@ Hard rules the tooling enforces (do not work around them by hand):
   a merge commit — recut instead (`release-oneclick` handles this).
 - Never `git tag` directly; never bypass `release-flow.js`.
 
+### Dry-run gate
+
+Start from a fresh checkout:
+
+```bash
+cd plugins/cool-workflow
+npm install
+npm run release:check
+npm run dogfood:release
+```
+
+`npm run release:check` does no harm. It does not tag, push, publish, or
+rewrite fixture files. It checks docs presence, build, type check, default
+tests, canonical apps, golden path, fixture compatibility, dogfood smoke, and
+version synchronization.
+
+`npm run dogfood:release` also does no harm by default. It runs the
+canonical `release-cut` workflow against the real repository and writes
+`.cw/runs/<run-id>/dogfood-summary.json` with the run id, report path, audit
+paths, candidate id, score id, selection id, commit/checkpoint id, command
+logs, and release verdict.
+
+### Required manual review
+
+1. Make sure `plugins/cool-workflow/docs/release-and-migration.7.md` gives
+   an account of migration compatibility and cases that are not supported.
+2. Make sure `node scripts/cw.js state check <run-id>` reports the
+   looked-for migration status for any release-candidate run state worth
+   keeping.
+3. Make sure `npm run version:sync` passes after `npm run build`. This also
+   gates `Formula/cool-workflow.rb` (the Homebrew formula):
+   `bump-version.js` auto-moves its `tag:`/`version` to the target, so no
+   manual edit or checksum step is needed — it is a git-tag formula with no
+   sha256.
+4. Make sure generated `plugins/cool-workflow/dist/` output is committed.
+5. Make sure topology docs and smoke coverage are present:
+   `docs/multi-agent-topologies.7.md` and
+   `test/multi-agent-topologies-{map-reduce,debate,judge-panel}-smoke.js`.
+6. Make sure Multi-Agent CLI + MCP Surface docs and smoke coverage are
+   present: `docs/multi-agent-cli-mcp-surface.7.md` and
+   `test/multi-agent-cli-mcp-surface-smoke.js`.
+7. Make sure Multi-Agent Operator UX docs and smoke coverage are present:
+   `docs/multi-agent-operator-ux.7.md` and
+   `test/multi-agent-operator-ux-smoke.js`.
+8. Make sure Multi-Agent Trust / Policy / Audit docs and smoke coverage are
+   present: `docs/multi-agent-trust-policy-audit.7.md` and
+   `test/multi-agent-trust-policy-audit-smoke.js`.
+9. Make sure Multi-Agent Eval & Replay Harness docs and smoke coverage are
+   present: `docs/multi-agent-eval-replay-harness.7.md` and
+   `test/multi-agent-eval-replay-smoke.js`.
+10. Make sure `npm run eval:replay` passes and have a look at
+    `.cw/evals/<suite-id>/` artifacts: `snapshot.json`, `replay-run.json`,
+    `comparison.json`, `score.json`, `findings.json`, `gate.json`, and
+    `report.md`.
+11. Make sure `npm run dogfood:release` reports `ready-dry-run` and have a
+    look at the run with `status`, `graph`, `report --show`, `candidate
+    summary`, `commit summary`, `multi-agent dependencies`, `multi-agent
+    failures`, `multi-agent evidence`, `audit summary`, `audit provenance`,
+    `audit multi-agent`, `audit policy`, `audit blackboard`, and `audit
+    judge`.
+12. Make sure the reviewer verdict is committed:
+    `.cw-release/review-<FULLSHA>.verdict` must exist in the tag's commit
+    history and its first line must be `APPROVED <FULLSHA>`. Run `node
+    scripts/release-flow.js --cut --version x.y.z` to auto-create it and
+    commit it, then `git push`. The `release-gate` CI workflow will verify
+    this file is present at the tag commit.
+
+### Version surfaces
+
+The version synchronization check takes in:
+
+- `plugins/cool-workflow/package.json`
+- `plugins/cool-workflow/.codex-plugin/plugin.json`
+- `plugins/cool-workflow/src/core/version.ts`
+- framework and MCP server version use
+- canonical workflow app manifests
+- golden path and MCP smoke expectations
+- dogfood release smoke expectations
+- README and man-page docs
+- generated `dist/` output
+
+### Migration discipline
+
+Run state that keeps lives at `.cw/runs/<run-id>/state.json`. Loading goes
+like this:
+
+```text
+read JSON -> detect schema -> migrate -> normalize -> validate -> report
+```
+
+Dry-run migration checks:
+
+```bash
+node scripts/cw.js state check <run-id>
+node scripts/cw.js state check <run-id> --state /path/to/state.json
+```
+
+Only use `--write` when you have a mind to normalize a state file in place.
+
+### Verdict signing (optional)
+
+`grep -q '^APPROVED'` alone can't tell a real reviewer verdict from a
+hand-written one. Set up ed25519 signing once to close that gap:
+
+```bash
+node scripts/verdict-keygen.js --out-dir ~/.cw-keys
+# .cw-release/ lives at the REPO ROOT, not under plugins/cool-workflow (where
+# this checklist's cwd has been since the top) — anchor on the real root so
+# the public key lands where release-gate.yml/npm-publish.yml/
+# block-unapproved-tag.js actually look for it, not silently under
+# plugins/cool-workflow/.cw-release/ where no verifier will ever find it.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cp ~/.cw-keys/verdict-signing.pub "$REPO_ROOT/.cw-release/verdict-signing.pub"
+git -C "$REPO_ROOT" add .cw-release/verdict-signing.pub
+git -C "$REPO_ROOT" commit -m "chore: add release-verdict signing public key"
+export CW_RELEASE_VERDICT_PRIVKEY=~/.cw-keys/verdict-signing.key   # keep this OFF the repo
+```
+
+Once `.cw-release/verdict-signing.pub` is committed, `release-flow.js`
+signs every verdict it writes (a `.sig` sidecar next to the `.verdict`
+file, included in the cut's verdict commit), and `release-gate.yml`,
+`npm-publish.yml`, and the local `block-unapproved-tag.js` hook all start
+REQUIRING a valid signature on top of the existing `APPROVED` text check.
+Until that public key is committed, every check stays exactly as before
+(grep-only) — this is opt-in, not a breaking change.
+
+### Cutting efficiently (wall-clock)
+
+The full test suite can run up to five times across one cut (`release-flow`'s
+own gate, the independent reviewer's gate pass, a local `release:check`, the
+tag's `release-gate` CI, and the PR's CI). To keep a cut to ~15-20 minutes
+in place of an hour:
+
+- **Cut on a quiet machine.** The suite is parallel-friendly but ~3x slower
+  under CPU contention; do not run a cut while a number of
+  workflows/agents are in a fight for cores.
+- **Two gate passes is the top.** `release-flow` runs the gate once, then
+  the independent reviewer runs it one more time (zero-trust). The reviewer
+  has orders to run it EXACTLY ONCE (`agents/release-reviewer.md` step 2) —
+  a deterministic gate cannot make a different verdict on a re-run, so a
+  third pass is pure waste.
+- **You can let the separate local `release:check` go before pushing.**
+  The cut's gate + the reviewer's independent gate + the tag's
+  `release-gate` CI already take care of it; pushing and letting CI gate is
+  quicker (a tag/branch is cheap to redo if CI reds). Keep the local check
+  only when you cannot get to CI.
+- **Put related changes together into fewer PRs.** Each PR is a full CI
+  cycle; a stack of tiny fix-PRs makes CI time much greater. Group a clear
+  change set into one PR but for when independent review/revert
+  granularity is truly needed.
+
 ## Resolving merge conflicts
 
 When the base branch has moved on and a rebase or merge hits a
@@ -678,8 +837,8 @@ conflict:
   branch into the work branch. Force-push only the work branch itself,
   never the base branch.
 - Simple, mechanical conflicts may be resolved without asking:
-  changelog files (append-only — keep the entries from both sides),
-  TODO or docs lists (keep both sides), lockfiles (take the base
+  append-only records (ITERATION_LOG.md, docs/audits/ verdicts — keep the
+  entries from both sides), TODO or docs lists (keep both sides), lockfiles (take the base
   branch's copy, then run the build against it as a check; make a new
   one only if this branch changed the dependency set), and edits on
   near-by lines in unrelated code.

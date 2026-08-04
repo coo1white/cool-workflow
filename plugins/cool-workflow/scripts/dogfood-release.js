@@ -269,7 +269,7 @@ function commandsForTask(taskId, context) {
               "-e",
               [
                 releaseSourceReaderSnippet(),
-                "for (const f of ['plugins/cool-workflow/package.json','plugins/cool-workflow/src/core/version.ts','CHANGELOG.md','RELEASE.md']) {",
+                "for (const f of ['plugins/cool-workflow/package.json','plugins/cool-workflow/src/core/version.ts']) {",
                 " const t=readSurface(f);",
                 ` if (t===null) throw new Error(f+' missing from release commit');`,
                 ` if (!t.includes('${TARGET_VERSION}')) throw new Error(f+' missing ${TARGET_VERSION}');`,
@@ -291,11 +291,8 @@ function commandsForTask(taskId, context) {
               "-e",
               [
                 releaseSourceReaderSnippet(),
-                "const files=['plugins/cool-workflow/docs/dogfood-one-real-repo.7.md','README.md','plugins/cool-workflow/README.md','CHANGELOG.md','RELEASE.md'];",
+                "const files=['plugins/cool-workflow/docs/dogfood-one-real-repo.7.md','README.md','plugins/cool-workflow/README.md'];",
                 "for (const f of files) { if (!surfaceExists(f)) throw new Error('missing '+f); }",
-                "const changelog=readSurface('CHANGELOG.md');",
-                "if (changelog===null) throw new Error('CHANGELOG.md missing from release commit');",
-                `if (!changelog.includes('## ${TARGET_VERSION}')) throw new Error('changelog missing target');`,
                 "console.log('dogfood release docs present (from release commit)');"
               ].join("")
             ]

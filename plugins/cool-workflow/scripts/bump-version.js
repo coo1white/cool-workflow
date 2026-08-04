@@ -251,18 +251,8 @@ function contentSurfaceFiles(next) {
   ];
 }
 
-function contentSurfaceFilesRoot(next) {
-  return [
-    { path: "CHANGELOG.md", needle: `## ${next}`, desc: "CHANGELOG section header" },
-    { path: "RELEASE.md",   needle: next,          desc: "RELEASE version reference" },
-  ];
-}
-
 function handleContentSurfaces(current, next) {
-  const allFiles = [
-    ...contentSurfaceFiles(next),
-    ...contentSurfaceFilesRoot(next)
-  ];
+  const allFiles = contentSurfaceFiles(next);
 
   const missing = [];
   for (const { path: rel, needle } of allFiles) {

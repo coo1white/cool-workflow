@@ -19,7 +19,6 @@
         "plugins/cool-workflow/docs/**",
         "docs/assets/**",
         ".cw-release/**",
-        "CHANGELOG.md",
         "ITERATION_LOG.md"
       ]
     },
@@ -39,7 +38,6 @@
         "plugins/cool-workflow/scripts/**",
         "docs/assets/**",
         ".cw-release/**",
-        "CHANGELOG.md",
         "ITERATION_LOG.md"
       ]
     },
@@ -63,7 +61,6 @@
         "plugins/cool-workflow/docs/**",
         "docs/assets/**",
         ".cw-release/**",
-        "CHANGELOG.md",
         "ITERATION_LOG.md"
       ]
     },
@@ -85,7 +82,6 @@
         "plugins/cool-workflow/docs/**",
         "docs/assets/**",
         ".cw-release/**",
-        "CHANGELOG.md",
         "ITERATION_LOG.md"
       ]
     },
@@ -110,7 +106,6 @@
         "plugins/cool-workflow/test/**",
         "docs/assets/**",
         ".cw-release/**",
-        "CHANGELOG.md",
         "ITERATION_LOG.md"
       ]
     },
@@ -131,7 +126,6 @@
         "plugins/cool-workflow/test/**",
         "docs/assets/**",
         ".cw-release/**",
-        "CHANGELOG.md",
         "ITERATION_LOG.md"
       ]
     }

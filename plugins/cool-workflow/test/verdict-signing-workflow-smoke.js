@@ -188,8 +188,8 @@ function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = fa
     spawnSync("npm", ["install", "--package-lock-only", "--silent"], { cwd: path.join(dir, "plugins", "cool-workflow"), encoding: "utf8" });
   }
   fs.mkdirSync(path.join(dir, ".cw-release"), { recursive: true });
-  // The pubkey is committed ONCE, well before any given release (RELEASE.md's
-  // documented setup step) — by the time a real release happens it already
+  // The pubkey is committed ONCE, well before any given release (AGENTS.md's
+  // documented "Verdict Signing" setup step) — by the time a real release happens it already
   // sits in the approved commit's ANCESTRY, not newly added alongside that
   // release's own verdict. Commit it here, as part of R, matching that: a
   // scratch worktree checked out AT R (verify-bump-reproduction.js's

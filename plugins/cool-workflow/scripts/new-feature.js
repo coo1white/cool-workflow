@@ -7,8 +7,8 @@
 //   node scripts/new-feature.js <slug> "<Title>" ["one-line summary"]
 //   npm run new:feature -- team-x "Team X" "what it does"
 //
-// Generates the man-page doc, the smoke-test skeleton, and a CHANGELOG entry,
-// then PRINTS the exact gate-file edits to make by hand (capability registry,
+// Generates the man-page doc and the smoke-test skeleton, then PRINTS the
+// exact gate-file edits to make by hand (capability registry,
 // version:sync assertions, release-check docs-presence, npm test chain) — those
 // are intentionally not auto-edited so a scaffold can never break a gate file.
 
@@ -87,23 +87,11 @@ function main() {
 main();
 `);
 
-  // 3. CHANGELOG.md — ensure a section for this version, add a bullet.
-  const changelogPath = path.join(pluginRoot, "..", "..", "CHANGELOG.md");
-  let changelog = fs.readFileSync(changelogPath, "utf8");
-  const bullet = `- Added ${title}: ${summary}\n`;
-  if (changelog.includes(`## ${version}`)) {
-    changelog = changelog.replace(`## ${version}\n`, `## ${version}\n\n${bullet}`);
-  } else {
-    changelog = changelog.replace(/^# Changelog\n/, `# Changelog\n\n## ${version}\n\n${bullet}`);
-  }
-  fs.writeFileSync(changelogPath, changelog);
-
   process.stdout.write(`new:feature "${title}" (v${version})\n`);
   process.stdout.write(`  created  ${docRel}\n`);
-  process.stdout.write(`  created  ${testRel}\n`);
-  process.stdout.write(`  updated  CHANGELOG.md\n\n`);
+  process.stdout.write(`  created  ${testRel}\n\n`);
 
-  // 4. Gate-file edits to make by hand (printed, never auto-applied).
+  // 3. Gate-file edits to make by hand (printed, never auto-applied).
   process.stdout.write(`Remaining wiring (edit by hand — kept manual so a scaffold can't break a gate):\n\n`);
   process.stdout.write(`  docs/index.md\n    add:  N. [${title}](${slug}.7.md) - ${summary}\n\n`);
   process.stdout.write(`  package.json  "test" chain\n    add:  && node ${testRel}\n\n`);

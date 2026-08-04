@@ -731,20 +731,12 @@ function preflightCut() {
     die(`tag v${cutVersion} already exists locally — delete it first (git tag -d v${cutVersion}) or pick the next version`);
   }
 
-  // (d) CHANGELOG must already carry the release section — release notes get
-  // pasted verbatim into the GitHub Release, and bump:version's content gate
-  // would only catch this inside cut(), after the reviewer.
-  const changelogPath = path.join(repoRoot, "CHANGELOG.md");
-  if (fs.existsSync(changelogPath) && !fs.readFileSync(changelogPath, "utf8").includes(`## ${cutVersion}`)) {
-    die(`CHANGELOG.md has no "## ${cutVersion}" section — write the release notes first`);
-  }
-
-  // (e) clean tree (tracked files only — cut()'s `git add -u` can never sweep
+  // (d) clean tree (tracked files only — cut()'s `git add -u` can never sweep
   // an untracked stray in, so untracked files are not a cut hazard).
   const dirty = git(["status", "--porcelain", "-uno"]).out;
   if (dirty) die("working tree has tracked modifications — commit or stash them before a cut", dirty);
 
-  // (f) network-dependent checks, only when this cut will actually push and
+  // (e) network-dependent checks, only when this cut will actually push and
   // only when an `origin` remote exists (smoke fixtures have none):
   if (PUSH && git(["remote"]).out.split("\n").includes("origin")) {
     // remote tag must not exist (someone/some run already published this version)
