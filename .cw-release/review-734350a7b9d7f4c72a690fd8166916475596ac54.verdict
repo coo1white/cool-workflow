@@ -1,0 +1,2 @@
+APPROVED 734350a7b9d7f4c72a690fd8166916475596ac54
+An MCP operator can now restrict exposed/allowed tools via `CW_MCP_ENABLED_TOOLS`/`CW_MCP_DISABLED_TOOLS` and keep the server answering keep-alive pings while a tool blocks (tools run in a durable serial child), while `cw run import` enforces operator-set archive intake limits before any write.

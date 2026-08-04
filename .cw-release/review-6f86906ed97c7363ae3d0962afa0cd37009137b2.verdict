@@ -1,0 +1,2 @@
+REJECTED
+1. The deterministic release gate rejected the candidate because its required test step failed (`plugins/cool-workflow/scripts/release-gate.js:86`).
