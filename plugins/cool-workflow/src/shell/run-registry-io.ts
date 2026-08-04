@@ -76,6 +76,12 @@ export interface RunRecord {
   freshness: RunRecordFreshness;
   provenance?: RunProvenance;
   tier?: RunTier;
+  /** true when reclaimed.json exists but failed to parse/validate. `tier`
+   *  alone cannot carry this: a corrupted log derives the same "live"/
+   *  "archived" tier as a genuinely never-reclaimed run (loadReclaimedFromDir
+   *  fails open on read), so reclaimEligibility checks this field FIRST,
+   *  ahead of tier, to refuse before a destructive re-reclaim can occur. */
+  reclamationLogCorrupted?: boolean;
   capability?: RunCapability;
   capabilityReason?: RunCapabilityReason;
   reclaimedAt?: string;
@@ -290,6 +296,10 @@ export interface ReclaimedOverlayLite {
     capability: RunCapability;
     capabilityReason: RunCapabilityReason;
   }>;
+  /** true when reclaimed.json EXISTS but failed to parse/validate — see
+   *  reclamation-io.ts's ReclaimedOverlay.corrupted (same fail-closed
+   *  contract, this is the lite/registry-scan copy of the same read). */
+  corrupted?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -442,11 +452,11 @@ export function loadReclaimedFromDir(runDir: string): ReclaimedOverlayLite {
   try {
     const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
     if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== 1 || !Array.isArray(parsed.tombstones)) {
-      return { schemaVersion: 1, runId: "", tombstones: [] };
+      return { schemaVersion: 1, runId: "", tombstones: [], corrupted: true };
     }
     return { schemaVersion: 1, runId: String(parsed.runId || ""), tombstones: parsed.tombstones };
   } catch {
-    return { schemaVersion: 1, runId: "", tombstones: [] };
+    return { schemaVersion: 1, runId: "", tombstones: [], corrupted: true };
   }
 }
 
@@ -786,6 +796,7 @@ export class RunRegistry {
       archivedAt: archive?.archivedAt,
       archiveReason: archive?.reason,
       tier,
+      reclamationLogCorrupted: reclaim.corrupted,
       capability,
       capabilityReason,
       reclaimedAt: lastTombstone?.reclaimedAt,

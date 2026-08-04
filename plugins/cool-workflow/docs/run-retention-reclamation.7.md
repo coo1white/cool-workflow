@@ -168,9 +168,18 @@ Eligibility is explicit and fail-closed: a run can be reclaimed exactly when its
 open feedback AND it is past `reclaimAfterArchiveDays`.** `running` / `blocked` /
 `queued` runs are NEVER reclaimable; the check reads live source state and fails
 closed (`non-terminal` | `not-archived` | `within-retention` | `open-feedback` |
-`unreadable` | `already-reclaimed`). **CW never reclaims by default** — every
-reclamation knob defaults to reclaim nothing, and `gc run` is an explicit operator
-action, never a daemon.
+`unreadable` | `already-reclaimed` | `reclamation-log-corrupted`). **CW never
+reclaims by default** — every reclamation knob defaults to reclaim nothing, and
+`gc run` is an explicit operator action, never a daemon.
+
+`reclamation-log-corrupted` fires when a run's `reclaimed.json` exists but
+fails to parse or validate — checked FIRST, ahead of `already-reclaimed`,
+since a corrupted log cannot be trusted to say whether the run was already
+reclaimed. It fails closed the same way on the write side: `buildTombstone`
+refuses to mint a fresh genesis tombstone over a corrupted log, so
+reclamation history a corruption happens to hide is never silently
+overwritten. `gc verify` reports the same code, distinct from
+`not-reclaimed`, for a run whose log cannot be read.
 
 ## MCP
 

@@ -242,12 +242,12 @@ function loadReclaimedFromDir(runDir) {
     try {
         const parsed = JSON.parse(fs.readFileSync(file, "utf8"));
         if (!parsed || typeof parsed !== "object" || parsed.schemaVersion !== 1 || !Array.isArray(parsed.tombstones)) {
-            return { schemaVersion: 1, runId: "", tombstones: [] };
+            return { schemaVersion: 1, runId: "", tombstones: [], corrupted: true };
         }
         return { schemaVersion: 1, runId: String(parsed.runId || ""), tombstones: parsed.tombstones };
     }
     catch {
-        return { schemaVersion: 1, runId: "", tombstones: [] };
+        return { schemaVersion: 1, runId: "", tombstones: [], corrupted: true };
     }
 }
 function fingerprintRun(run) {
@@ -523,6 +523,7 @@ class RunRegistry {
             archivedAt: archive?.archivedAt,
             archiveReason: archive?.reason,
             tier,
+            reclamationLogCorrupted: reclaim.corrupted,
             capability,
             capabilityReason,
             reclaimedAt: lastTombstone?.reclaimedAt,
