@@ -18,8 +18,7 @@ const { spawn, spawnSync } = require("node:child_process");
 const { setTimeout: sleep } = require("node:timers/promises");
 
 const SCRIPT_DIR = __dirname;
-const REPO_ROOT = path.resolve(SCRIPT_DIR, "..", "..");
-const PLUGIN_DIR = path.join(REPO_ROOT, "plugins", "cool-workflow");
+const PLUGIN_DIR = path.resolve(SCRIPT_DIR, "..", "..");
 const STUB = path.join(SCRIPT_DIR, "agent-stub.js");
 const K6_SCRIPT = path.join(SCRIPT_DIR, "bench-k6.js");
 const BENCH_WORK = path.join("/tmp", `cw-bench-work-${process.pid}`);

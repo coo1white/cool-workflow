@@ -331,7 +331,7 @@ they are for a reason.
 | [`docs/`](docs/) | Repo-level docs: wiki source, audits, benchmark notes, the v2 rebuild SPEC, architecture plans |
 | [`v2/conformance/`](v2/conformance/) | Black-box conformance suite — pins the shipping CLI's observable behavior byte for byte; CI runs it on every PR |
 | [`examples/`](examples/) | Worked examples, e.g. a real published self-audit with line-cited findings |
-| [`scripts/bench/`](scripts/bench/) | The benchmark runner (see [docs/benchmark.md](docs/benchmark.md)) |
+| [`plugins/cool-workflow/scripts/bench/`](plugins/cool-workflow/scripts/bench/) | The benchmark runner (see [docs/benchmark.md](docs/benchmark.md)) |
 | [`Formula/`](Formula/) | Homebrew formula — `brew` only finds it at this exact path |
 | `.cw-release/` | Append-only release trust records: gate markers, signed reviewer verdicts. Never edit or delete by hand |
 | `.github/` | CI workflows: build/test matrix, conformance, CodeQL, gitleaks, release gate, npm publish |
