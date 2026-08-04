@@ -127,7 +127,7 @@ Exported functions (consumed by `cw doctor --onramp` and `scripts/onramp-check.j
 ### 13. Release/gate script inventory (one line each — a rebuild keeps these working against the new dist)
 
 - `scripts/release-flow.js` — vendor-neutral release orchestrator; modes `--check` (gate + delegated review, no mutation), `--cut --version x.y.z [--push] [--no-release]`, `--release --version x.y.z [--soft]`; verdict file `.cw-release/review-<FULLSHA>.verdict` first line `APPROVED <FULLSHA>`; test seams `CW_RELEASE_FLOW_GATE_CMD`, `CW_RELEASE_FLOW_GH_CMD` (scripts/release-flow.js:1-45).
-- `scripts/release-gate.js` — deterministic gate: build, `test:gate`, substance/test-evidence/cadence checks over `<prev-tag>..HEAD` (cadence bypass only via a recorded `HOTFIX:` line in `ITERATION_LOG.md`), branch-name check; pass writes UTC time to `.cw-release/gate-<HEAD-sha>.ok`; prints `RELEASE GATE: PASSED (<sha>) — next step: release-reviewer agent must record APPROVED` or `RELEASE GATE: REJECTED (<sha>)` + exit 1 (scripts/release-gate.js:1-184).
+- `scripts/release-gate.js` — deterministic gate: build, `test:gate`, substance/test-evidence checks over `<prev-tag>..HEAD`, branch-name check; pass writes UTC time to `.cw-release/gate-<HEAD-sha>.ok`; prints `RELEASE GATE: PASSED (<sha>) — next step: release-reviewer agent must record APPROVED` or `RELEASE GATE: REJECTED (<sha>)` + exit 1 (scripts/release-gate.js:1-184).
 - `scripts/release-check.js` — pre-release dry run: docs presence + build + suite; `--skip-tests` or `CW_RELEASE_CHECK_SKIP_TESTS=1` skips the suite (scripts/release-check.js:10-11).
 - `scripts/onramp-check.js` — CLI over `dist/onramp.js`: prints the contract report JSON (`{schemaVersion:1, baseRef, ok, changedFiles, recommendedSmokeTests, recommendedCommands, issues}`, 2-space indent + newline) to stdout; with `--check` and `ok:false` prints `onramp contract failed:` + per-issue lines to stderr and exits 1; `--changed-from` picks the base (scripts/onramp-check.js:20-41).
 - `scripts/parity-check.js` — CLI↔MCP parity gate against the live capability table, dispatcher, `cw help`, and MCP server; plain run prints the JSON report, `--check` exits 1 on any drift (dispatcher/help/tool reachability + `payloadIdentical` payload parity) (scripts/parity-check.js:4-19,58-118).
@@ -317,7 +317,6 @@ and `process.exitCode = 1` (scripts/onramp-check.js:32-40). Issue codes and exac
 - `runtime-smoke-required` — `Runtime or app changes must include at least one smoke test change.`
 - `types-without-runtime` — `Type-only source changes are not a valid cycle.`
 - `surface-docs-required` — `CLI, MCP, or capability surface changes must update public docs.`
-- `iteration-log-required` — `Source, app, or script changes must be recorded in ITERATION_LOG.md.`
 
 ### batch-delegate-child stdout
 
@@ -367,7 +366,7 @@ Per settled job, one line: `{"i":<index>,"exitCode":<n|null>,"stdout":"..."}` or
 - persistStderr is advisory only: it never throws, never changes the exit code or recorded evidence (scripts/agents/agent-adapter-core.js:469-471).
 - Attestation honesty: no key or no usage → UNSIGNED pass-through (CW records `unattested`); the wrap never blocks the hop and never forges a signature; CW holds only the public key (scripts/agents/cw-attest-wrap.js:26-28,113-145; cw-attest-keygen.js:4-8).
 - Atomic-ish writes: the source-context cache goes through tmp-file + rename (scripts/source-context.js:285-294). The batch child streams a job's NDJSON line the instant it settles so earlier outcomes survive a later overflow kill (scripts/children/batch-delegate-child.js:11-18).
-- Onramp contract fails closed: runtime/app change without a smoke change, type-only change, surface change without docs, or any source/app/script change without an `ITERATION_LOG.md` row → `ok:false` and (via `onramp-check --check`) exit 1 (src/onramp.ts:346-377; scripts/onramp-check.js:32-40).
+- Onramp contract fails closed: runtime/app change without a smoke change, type-only change, or surface change without docs → `ok:false` and (via `onramp-check --check`) exit 1 (src/onramp.ts:348-397; scripts/onramp-check.js:32-40).
 - source-context cache validation re-checks EVERY record (profile, ref, changedFrom, `included===true`, sha256/bytes/lines re-derived from `content`) and dies on any mismatch — a broken cache never falls back silently (scripts/source-context.js:243-283).
 - `codex exec` effort/sandbox overrides are per-run (`-c model_reasoning_effort=...`), never touching the user's `~/.codex/config.toml` (scripts/agents/codex-agent.js:19-24).
 - Review-mode ordering: explicit `CW_CODEX_REASONING_EFFORT` / `CW_CODEX_SANDBOX` ALWAYS win over the `CW_RELEASE_REVIEW=1` signal (scripts/agents/codex-agent.js:96-108).

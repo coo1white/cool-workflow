@@ -7,8 +7,7 @@
 // cannot resolve it. This mirrors PR #446, which closed the same vacuous-pass
 // class one layer below in gitLinesOrThrow: an empty change set has no issues,
 // so evaluateOnrampContract([]) reports ok:true -- a real, committed change
-// could slip past the gate with no test and no ITERATION_LOG.md row (finding
-// #11).
+// could slip past the gate with no test at all (finding #11).
 //
 // It also proves the two guardrails the fix must keep:
 //   * the LEGITIMATE local "show my own changes" use (no base ref requested or

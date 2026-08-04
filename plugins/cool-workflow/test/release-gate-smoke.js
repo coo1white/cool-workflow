@@ -5,7 +5,7 @@
 // fixtures. The gate's heavy steps (build, test) are satisfied by a fixture
 // package.json whose build/test scripts are `true`, so the real script runs
 // unmodified with NO recursion back into this suite. We assert the diff-driven
-// gates (substance, test-evidence, cadence, branch naming) AND the previous-tag
+// gates (substance, test-evidence, branch naming) AND the previous-tag
 // resolution that the tag-push CI depends on.
 //
 // Each assertion would FAIL if the corresponding gate logic were reverted:
@@ -61,15 +61,13 @@ function runGate(dir, extraEnv) {
   return { code: r.status, out: r.stdout || "", err: r.stderr || "" };
 }
 
-// A "good" release: a non-types src change, a test change, and >=4 logged cycles.
+// A "good" release: a non-types src change and a test change.
 function seedReleaseWork(dir) {
   write(dir, "plugins/cool-workflow/src/feature.ts", "export const x = 1;\n");
   write(dir, "plugins/cool-workflow/test/feature-smoke.js", "// asserts feature\n");
-  write(dir, "ITERATION_LOG.md",
-    "| cycle | goal |\n| 1 | a |\n| 2 | b |\n| 3 | c |\n| 4 | d |\n");
 }
 
-// ---- Case 1: no previous tag -> substance/evidence/cadence skipped, PASS ----
+// ---- Case 1: no previous tag -> substance/evidence skipped, PASS ----
 {
   const dir = freshRepo();
   write(dir, "README.md", "init\n");
@@ -132,13 +130,17 @@ function seedReleaseWork(dir) {
 // Release tags live on non-ancestor leaves (the tag-only-push design), so
 // `git describe --tags` (ancestry) picks the nearest ANCESTOR tag and skips the
 // true, highest-version previous release. Build that topology: v0.0.1 is an OLD
-// ancestor of HEAD; v0.0.9 is a RECENT non-ancestor leaf. The fixed gate must
-// compare against v0.0.9 (recent + <4 cycles => cadence REJECT); the old
-// ancestry walk compared against the old v0.0.1 and PASSED.
+// ancestor of HEAD; v0.0.9 is a RECENT non-ancestor leaf that also added a
+// non-types file (sibling.ts). HEAD adds ONLY a types-only file, no test file.
+// Diffed against the correct v0.0.9, sibling.ts's removal supplies substance
+// (so the gate reaches, and REJECTS on, "zero test changes since v0.0.9"); the
+// old ancestry-walk bug would instead diff against v0.0.1, where HEAD's own
+// change is types-only and the gate would REJECT on a different message
+// ("spec accretion since v0.0.1") — so the fail message alone proves which tag
+// was actually used.
 {
   const dir = freshRepo();
   write(dir, "README.md", "init\n");
-  write(dir, "ITERATION_LOG.md", "| base |\n");
   git(dir, ["add", "-A"]);
   // A: an OLD commit so its tag v0.0.1 is >24h old (what the ancestry walk picks).
   const OLD = "2020-01-01T00:00:00";
@@ -151,16 +153,17 @@ function seedReleaseWork(dir) {
   write(dir, "sibling.ts", "export const s = 1;\n");
   commitAll(dir, "sibling release");
   git(dir, ["tag", "v0.0.9"]);
-  // C = HEAD: real work off A (recent), with substance + tests but only 2 cycles.
+  // C = HEAD: off A, types-only, no test file — a spec-accretion diff against
+  // v0.0.1, but merely test-evidence-less (sibling.ts's removal already
+  // supplies substance) against the correct v0.0.9.
   git(dir, ["checkout", "-q", "work"]);
-  write(dir, "plugins/cool-workflow/src/feature.ts", "export const x = 1;\n");
-  write(dir, "plugins/cool-workflow/test/feature-smoke.js", "// asserts feature\n");
-  write(dir, "ITERATION_LOG.md", "| base |\n| 1 |\n| 2 |\n");
-  commitAll(dir, "real work, too few cycles");
+  write(dir, "plugins/cool-workflow/src/types/foo.ts", "export type Foo = { a?: number };\n");
+  commitAll(dir, "types-only work off the old ancestor");
   const r = runGate(dir);
-  assert.equal(r.code, 1, `must compare against the recent semver-prev v0.0.9, so <4 cycles REJECTS:\n${r.out}`);
-  assert.match(r.out, /v0\.0\.9/, "the gate must resolve PREV_TAG to the highest-version tag (v0.0.9), not the ancestor v0.0.1");
-  assert.doesNotMatch(r.out, /since v0\.0\.1/, "must NOT compare against the older ancestor tag v0.0.1 (the ancestry-walk bug)");
+  assert.equal(r.code, 1, `must REJECT either way:\n${r.out}`);
+  assert.match(r.out, /zero test changes since v0\.0\.9/,
+    "the gate must resolve PREV_TAG to the highest-version tag (v0.0.9) and reject on test evidence, not the ancestor v0.0.1");
+  assert.doesNotMatch(r.out, /v0\.0\.1/, "must NOT compare against the older ancestor tag v0.0.1 (the ancestry-walk bug)");
 }
 
 // ---- Case 3: substance — a NON-src, non-types/dist diff still counts -------
@@ -173,7 +176,6 @@ function seedReleaseWork(dir) {
   git(dir, ["tag", "v0.0.1"]);
   write(dir, "docs/release.md", "tooling\n");                 // substance: outside src/types & dist
   write(dir, "plugins/cool-workflow/test/x-smoke.js", "//\n"); // test evidence
-  write(dir, "ITERATION_LOG.md", "| 1 |\n| 2 |\n| 3 |\n| 4 |\n");
   commitAll(dir, "tooling-only but real");
   const r = runGate(dir);
   assert.equal(r.code, 0, `tooling diff outside src/types & dist should PASS substance:\n${r.out}`);
@@ -200,44 +202,10 @@ function seedReleaseWork(dir) {
   commitAll(dir, "init");
   git(dir, ["tag", "v0.0.1"]);
   write(dir, "plugins/cool-workflow/src/feature.ts", "export const y = 2;\n");
-  write(dir, "ITERATION_LOG.md", "| 1 |\n| 2 |\n| 3 |\n| 4 |\n");
   commitAll(dir, "src but no tests");
   const r = runGate(dir);
   assert.equal(r.code, 1, `zero test changes must be REJECTED:\n${r.out}`);
   assert.match(r.out, /zero test changes/, "should name the test-evidence failure");
-}
-
-// ---- Case 6: cadence — <4 cycles and <24h -> REJECT ----
-{
-  const dir = freshRepo();
-  write(dir, "README.md", "init\n");
-  commitAll(dir, "init");
-  git(dir, ["tag", "v0.0.1"]); // tag timestamp is "now" => <24h
-  write(dir, "plugins/cool-workflow/src/feature.ts", "export const z = 3;\n");
-  write(dir, "plugins/cool-workflow/test/z-smoke.js", "//\n");
-  write(dir, "ITERATION_LOG.md", "| 1 |\n| 2 |\n"); // only 2 cycles
-  commitAll(dir, "too few cycles");
-  const r = runGate(dir);
-  assert.equal(r.code, 1, `<4 cycles within 24h must be REJECTED:\n${r.out}`);
-  assert.match(r.out, /cadence/, "should name the cadence failure");
-}
-
-// ---- Case 6b: cadence bypass via a recorded HOTFIX line -> PASS ----
-// An urgent fix may ship inside the cadence window ONLY with an explicit, committed
-// "HOTFIX:" reason. Same <4-cycles / <24h setup as Case 6, but the bypass is recorded.
-{
-  const dir = freshRepo();
-  write(dir, "README.md", "init\n");
-  commitAll(dir, "init");
-  git(dir, ["tag", "v0.0.1"]); // tag timestamp is "now" => <24h
-  write(dir, "plugins/cool-workflow/src/feature.ts", "export const h = 4;\n");
-  write(dir, "plugins/cool-workflow/test/h-smoke.js", "//\n");
-  write(dir, "ITERATION_LOG.md",
-    "| 1 |\n| 2 |\nHOTFIX: live headline command broken on npm; ship inside 24h to stop user breakage\n");
-  commitAll(dir, "urgent hotfix");
-  const r = runGate(dir);
-  assert.equal(r.code, 0, `a recorded HOTFIX must bypass cadence within the window:\n${r.out}`);
-  assert.match(r.out, /cadence bypassed by recorded HOTFIX/, "must echo the bypass + reason (auditable, never silent)");
 }
 
 // ---- Case 7: version-number branch name -> REJECT ----
@@ -258,7 +226,7 @@ function seedReleaseWork(dir) {
 // A shallow clone (or a clone with no tags) makes `git describe` fail the
 // same way a true first release does, so PREV_TAG ends up empty in both
 // cases. Before the fix, this mix-up let the gate skip
-// substance/test-evidence/cadence and PASS on a shallow clone, even when an
+// substance/test-evidence and PASS on a shallow clone, even when an
 // older tag was there, just outside the short history it can see. This
 // case checks that it now FAILS.
 // We build a REAL git repo with a tag, then make a REAL shallow clone of it
@@ -288,7 +256,7 @@ function seedReleaseWork(dir) {
 // --no-tags` of a long-tagged repo is NOT shallow (is-shallow-repository =
 // false) yet has 0 local tags, so PREV_TAG is empty exactly like a true first
 // release. Before this half of the fix it slipped past the shallow check and
-// silently skipped substance/test-evidence/cadence. It must now be REJECTED
+// silently skipped substance/test-evidence. It must now be REJECTED
 // unless a first release is explicitly declared.
 {
   const srcDir = freshRepo();

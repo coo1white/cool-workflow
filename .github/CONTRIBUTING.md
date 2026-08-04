@@ -44,7 +44,6 @@ node ../../v2/conformance/run.js --bin dist/cli.js   # byte-exact CLI conformanc
 npm run release:check -- --skip-tests   # every other gate (parity, manifests, index, lang policy, ...)
 ```
 
-A source or script change also needs an `ITERATION_LOG.md` cycle row (the
-onramp gate fails closed without it). The binding rules for all work in this
-repo live in `AGENTS.md` — read it first; PRs that break its hard rules are
-rejected in review regardless of content.
+The binding rules for all work in this repo live in `AGENTS.md` — read it
+first; PRs that break its hard rules are rejected in review regardless of
+content.

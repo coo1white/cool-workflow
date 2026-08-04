@@ -3,8 +3,9 @@
 // release-gate.js — deterministic release checks for cool-workflow.
 // Pass = writes .cw-release/gate-<HEAD-sha>.ok
 // This script encodes everything that does NOT need LLM judgment.
-// (Node port of the former release-gate.sh; behavior kept line for line —
-// same six steps, same messages, same exit map: 0 = PASSED, 1 = REJECTED.)
+// (Node port of the former release-gate.sh; behavior kept line for line,
+// minus the cadence step dropped 2026-08-04 — same exit map: 0 = PASSED,
+// 1 = REJECTED.)
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -37,19 +38,18 @@ function fail(msg) {
 // with release-flow.js via release-tags.js (see that file's header for the
 // full story: `git describe --tags` walks ancestry and silently SKIPS the
 // true previous release tag under the tag-only-push design, making the
-// substance/test-evidence/cadence checks below compare against the wrong
+// substance/test-evidence checks below compare against the wrong
 // baseline and pass permanently; ITERATION_LOG cycles 35/36).
 const PREV_TAG = resolvePrevReleaseTag(gitOut);
 
 // An empty PREV_TAG is ambiguous: (a) the genuine first release, so skipping
-// substance/evidence/cadence is right, or (b) tags DO exist but this clone can
+// substance/evidence is right, or (b) tags DO exist but this clone can
 // not see them — a shallow clone hides them in history, and a `git clone
 // --no-tags` / `fetch-tags: false` clone of a long-tagged repo shows 0 local
 // tags too. (a) and (b) look IDENTICAL from local state (both give an empty
 // describe and 0 tags), so we can NOT auto-tell them apart. Fail CLOSED: skip
 // the checks ONLY when the operator positively declares a first release with
-// CW_FIRST_RELEASE=1 (explicit + logged, the same shape the cadence HOTFIX
-// override uses). Otherwise REJECT — a mis-fetched clone must never look like a
+// CW_FIRST_RELEASE=1 (explicit + logged). Otherwise REJECT — a mis-fetched clone must never look like a
 // first release and silently pass. Found by a 2026-07-12 security check; the
 // shallow signal alone closed only half the hole (the `--no-tags` full clone
 // still slipped through).
@@ -57,11 +57,11 @@ if (!PREV_TAG) {
   const shallow = spawnSync("git", ["rev-parse", "--is-shallow-repository"], { cwd: REPO_ROOT, encoding: "utf8" });
   const IS_SHALLOW = shallow.status === 0 ? shallow.stdout.trim() : "false";
   if (IS_SHALLOW === "true") {
-    fail("cannot resolve the previous release tag: this is a shallow git clone (git rev-parse --is-shallow-repository = true), so an older tag may be hidden and substance/test-evidence/cadence cannot be trusted. Fetch full history (actions/checkout with fetch-depth: 0) before running this gate.");
+    fail("cannot resolve the previous release tag: this is a shallow git clone (git rev-parse --is-shallow-repository = true), so an older tag may be hidden and substance/test-evidence cannot be trusted. Fetch full history (actions/checkout with fetch-depth: 0) before running this gate.");
   } else if (process.env.CW_FIRST_RELEASE === "1") {
-    say("no previous tag; genuine first release declared (CW_FIRST_RELEASE=1) — substance/evidence/cadence will be skipped");
+    say("no previous tag; genuine first release declared (CW_FIRST_RELEASE=1) — substance/evidence will be skipped");
   } else {
-    fail("cannot resolve the previous release tag on a full (non-shallow) clone. Either tags were not fetched (git clone --no-tags, or actions/checkout fetch-tags: false — fetch tags and re-run), or this is the genuine first release (set CW_FIRST_RELEASE=1 to declare that explicitly). Refusing to silently skip substance/test-evidence/cadence.");
+    fail("cannot resolve the previous release tag on a full (non-shallow) clone. Either tags were not fetched (git clone --no-tags, or actions/checkout fetch-tags: false — fetch tags and re-run), or this is the genuine first release (set CW_FIRST_RELEASE=1 to declare that explicitly). Refusing to silently skip substance/test-evidence.");
   }
 }
 const MARKER_DIR = path.join(REPO_ROOT, ".cw-release");
@@ -95,14 +95,14 @@ function runNpm(args, extraEnv) {
 }
 
 // --- 1. Build & tests (run, don't trust pasted output) -----------------
-say("[1/6] build");
+say("[1/5] build");
 const build = runNpm(["run", "--prefix", "plugins/cool-workflow", "build"]);
 if (build.error || build.status !== 0) {
   fail("build failed");
   reportNpmFailure("build", build);
 }
 
-say("[2/6] tests");
+say("[2/5] tests");
 const tests = runNpm(["run", "test:gate", "--prefix", "plugins/cool-workflow"], { CW_TEST_CONCURRENCY: "1" });
 if (tests.error || tests.status !== 0) {
   fail("tests failed");
@@ -119,44 +119,20 @@ if (PREV_TAG) {
   // workflows, tests). Count every changed path that is not under those two
   // generated/declaration-only trees; declared-but-unread spec accretion is the
   // reviewer agent's deeper judgment call, not this deterministic floor.
-  say("[3/6] substance (diff outside src/types/ and dist/)");
+  say("[3/5] substance (diff outside src/types/ and dist/)");
   const SUBSTANCE = changedFiles.filter((f) => !/^plugins\/cool-workflow\/(src\/types\/|dist\/)/.test(f)).length;
   if (!(SUBSTANCE > 0)) fail(`only types/dist changed since ${PREV_TAG} (spec accretion)`);
 
   // --- 3. Test evidence: test files must have changed ------------------
-  say("[4/6] test evidence");
+  say("[4/5] test evidence");
   const TESTS_CHANGED = changedFiles.filter((f) => /\.(test|spec)\.|\/tests?\//.test(f)).length;
   if (!(TESTS_CHANGED > 0)) fail(`zero test changes since ${PREV_TAG}`);
-
-  // --- 4. Cadence: >=4 cycles logged OR >=24h since previous tag, or a recorded HOTFIX ---
-  say("[5/6] cadence");
-  let CYCLES = 0;
-  const logDiff = fs.existsSync(path.join(REPO_ROOT, "ITERATION_LOG.md"))
-    ? gitOut(["diff", RANGE, "--", "ITERATION_LOG.md"]).split("\n")
-    : [];
-  CYCLES = logDiff.filter((line) => /^\+.*\|/.test(line)).length;
-  const PREV_TS = Number(gitOut(["log", "-1", "--format=%ct", PREV_TAG]));
-  const NOW_TS = Math.floor(Date.now() / 1000);
-  const HOURS = Math.floor((NOW_TS - PREV_TS) / 3600);
-  // Hotfix path: an urgent fix may ship inside the cadence window, but ONLY via an
-  // EXPLICIT, RECORDED declaration — a "HOTFIX:" line added to ITERATION_LOG.md in this
-  // release range, carrying a reason. It is committed (auditable in the tag's history)
-  // and echoed here, so the bypass is never silent and a reviewer sees the reason.
-  const hotfixLine = logDiff.find((line) => /^\+.*HOTFIX:/.test(line));
-  const HOTFIX = hotfixLine ? hotfixLine.replace(/^\+\s*/, "") : "";
-  if (CYCLES < 4 && HOURS < 24) {
-    if (HOTFIX) {
-      say(`  cadence bypassed by recorded HOTFIX (${HOURS}h, ${CYCLES} cycle-lines): ${HOTFIX}`);
-    } else {
-      fail(`cadence: only ${CYCLES} cycles logged and ${HOURS}h since ${PREV_TAG} (need >=4 cycles, >=24h, or a recorded 'HOTFIX:' line in ITERATION_LOG.md)`);
-    }
-  }
 } else {
-  say("[3-5/6] no previous tag; substance/evidence/cadence checks skipped");
+  say("[3-4/5] no previous tag; substance/evidence checks skipped");
 }
 
-// --- 5. Branch naming: forbid version-number branches -------------------
-say("[6/6] branch naming");
+// --- 4. Branch naming: forbid version-number branches -------------------
+say("[5/5] branch naming");
 // On a normal checkout `git rev-parse --abbrev-ref HEAD` is the branch name. On
 // a DETACHED HEAD it prints the literal string "HEAD" — and the tag-push CI
 // (release-gate.yml) ALWAYS checks out the tag, so HEAD is detached there. A

@@ -75,8 +75,6 @@ function runGate(dir, extraEnv) {
 function seedReleaseWork(dir) {
   write(dir, "plugins/cool-workflow/src/feature.ts", "export const x = 1;\n");
   write(dir, "plugins/cool-workflow/test/feature-smoke.js", "// asserts feature\n");
-  write(dir, "ITERATION_LOG.md",
-    "| cycle | goal |\n| 1 | a |\n| 2 | b |\n| 3 | c |\n| 4 | d |\n");
 }
 
 // ---- Case A: detached HEAD, a feat/v999 branch points at it -> REJECT -------

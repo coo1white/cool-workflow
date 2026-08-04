@@ -365,8 +365,6 @@ export function evaluateOnrampContract(files: string[], options: { cwd?: string 
   // touched) is a real, complete cycle too.
   const conformanceCaseFiles = normalized.filter((file) => /^v2\/conformance\/cases\/.+\.case\.js$/.test(file));
   const docFiles = normalized.filter(isDocFile);
-  const iterationFiles = normalized.filter((file) => file === "ITERATION_LOG.md");
-  const sourceAppOrScript = runtimeFiles.length > 0 || typeFiles.length > 0 || appFiles.length > 0 || scriptFiles.length > 0;
 
   if (
     (runtimeFiles.length > 0 || appFiles.length > 0) &&
@@ -397,15 +395,6 @@ export function evaluateOnrampContract(files: string[], options: { cwd?: string 
       files: surfaceFiles
     });
   }
-  if (sourceAppOrScript && iterationFiles.length === 0) {
-    issues.push({
-      code: "iteration-log-required",
-      detail: "Source, app, or script changes must be recorded in ITERATION_LOG.md.",
-      fix: "Append one cycle row with goal, files, tests, gate, and tag decision.",
-      files: [...runtimeFiles, ...typeFiles, ...appFiles, ...scriptFiles]
-    });
-  }
-
   const recommendedSmokeTests = recommendSmokeTests(normalized, cwd);
   return {
     ok: issues.length === 0,

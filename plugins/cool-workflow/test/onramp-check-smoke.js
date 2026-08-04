@@ -2,8 +2,7 @@
 "use strict";
 
 // onramp-check-smoke — the change-contract gate must make the development path
-// explicit: behavior changes need smoke coverage, surface changes need docs, and
-// source/app/script changes need an iteration-log row.
+// explicit: behavior changes need smoke coverage, surface changes need docs.
 //
 // CUTOVER AUDIT (v2) — REAL-GAP. This smoke require()s ../dist/onramp.js
 // (exports evaluateOnrampContract + recommendSmokeTests) and drives
@@ -46,8 +45,7 @@ function contract(files) {
 // Runtime behavior without a smoke fails closed.
 {
   const report = contract([
-    "plugins/cool-workflow/src/doctor.ts",
-    "ITERATION_LOG.md"
+    "plugins/cool-workflow/src/doctor.ts"
   ]);
   assert.equal(report.ok, false);
   assert.ok(codes(report).includes("runtime-smoke-required"));
@@ -59,8 +57,7 @@ function contract(files) {
 {
   const report = contract([
     "plugins/cool-workflow/src/core/util/collate.ts",
-    "plugins/cool-workflow/test/collate-stablecompare.test.js",
-    "ITERATION_LOG.md"
+    "plugins/cool-workflow/test/collate-stablecompare.test.js"
   ]);
   assert.ok(!codes(report).includes("runtime-smoke-required"), codes(report).join(", "));
 }
@@ -72,18 +69,16 @@ function contract(files) {
 {
   const report = contract([
     "plugins/cool-workflow/src/shell/drive.ts",
-    "v2/conformance/cases/locale-independent-ordering.case.js",
-    "ITERATION_LOG.md"
+    "v2/conformance/cases/locale-independent-ordering.case.js"
   ]);
   assert.ok(!codes(report).includes("runtime-smoke-required"), codes(report).join(", "));
 }
 
-// Type-only source changes are invalid even if a smoke and log row exist.
+// Type-only source changes are invalid even if a smoke exists.
 {
   const report = contract([
     "plugins/cool-workflow/src/types/run.ts",
-    "plugins/cool-workflow/test/onramp-check-smoke.js",
-    "ITERATION_LOG.md"
+    "plugins/cool-workflow/test/onramp-check-smoke.js"
   ]);
   assert.equal(report.ok, false);
   assert.ok(codes(report).includes("types-without-runtime"));
@@ -93,14 +88,13 @@ function contract(files) {
 {
   const report = contract([
     "plugins/cool-workflow/src/capability-registry.ts",
-    "plugins/cool-workflow/test/cli-mcp-parity-smoke.js",
-    "ITERATION_LOG.md"
+    "plugins/cool-workflow/test/cli-mcp-parity-smoke.js"
   ]);
   assert.equal(report.ok, false);
   assert.ok(codes(report).includes("surface-docs-required"));
 }
 
-// The intended onramp-risk batch shape passes: runtime + script + smoke + docs + log.
+// The intended onramp-risk batch shape passes: runtime + script + smoke + docs.
 {
   const report = contract([
     "plugins/cool-workflow/src/doctor.ts",
@@ -111,8 +105,7 @@ function contract(files) {
     "plugins/cool-workflow/test/onramp-check-smoke.js",
     "plugins/cool-workflow/docs/getting-started.md",
     "plugins/cool-workflow/README.md",
-    "README.md",
-    "ITERATION_LOG.md"
+    "README.md"
   ]);
   assert.equal(report.ok, true, codes(report).join(", "));
 }
@@ -128,8 +121,7 @@ function contract(files) {
   const report = contract([
     "plugins/cool-workflow/src/capability-registry.ts",
     "plugins/cool-workflow/test/cli-mcp-parity-smoke.js",
-    "plugins/cool-workflow/docs/cli-mcp-parity.7.md",
-    "ITERATION_LOG.md"
+    "plugins/cool-workflow/docs/cli-mcp-parity.7.md"
   ]);
   assert.ok(report.recommendedCommands.some((command) => command.includes("npm run test:fast")));
   assert.ok(report.recommendedCommands.some((command) => command.includes("npm run parity:check")));
