@@ -414,9 +414,15 @@ function loadOrCompareForTarget(target) {
     const suiteDir = resolveSuiteDir(target);
     const comparisonPath = path.join(suiteDir, "comparison.json");
     const replayPath = resolveReplayPath(target);
-    if (fs.existsSync(comparisonPath)) {
+    if (fs.existsSync(comparisonPath) && fs.existsSync(replayPath)) {
         const comparison = (0, fs_atomic_1.readJson)(comparisonPath);
-        if (comparison.paths.replayPath === replayPath)
+        // Path equality alone is vacuously true here — replayPath is a fixed,
+        // deterministic path per suite, so a rerun of `eval replay` that
+        // overwrote it with genuinely different content would still match. The
+        // content fingerprint is what actually proves this cache entry is
+        // still fresh.
+        const currentFingerprint = ev.replayContentFingerprint(loadReplay(target).replay);
+        if (comparison.paths.replayPath === replayPath && comparison.replayFingerprint === currentFingerprint)
             return comparison;
     }
     return compareMultiAgentReplay(path.join(suiteDir, "snapshot.json"), replayPath);
@@ -433,11 +439,14 @@ function scoreMultiAgentReplay(target) {
 }
 function loadScoreForTarget(target, scorePath) {
     const replayPath = resolveReplayPath(target);
-    if (fs.existsSync(scorePath)) {
+    if (fs.existsSync(scorePath) && fs.existsSync(replayPath)) {
         const score = (0, fs_atomic_1.readJson)(scorePath);
         if (fs.existsSync(score.paths.comparisonPath)) {
             const comparison = (0, fs_atomic_1.readJson)(score.paths.comparisonPath);
-            if (comparison.replayId === score.replayId && comparison.paths.replayPath === replayPath)
+            // See loadOrCompareForTarget: path/id equality cannot detect a
+            // content-only rerun of `eval replay` at the same path.
+            const currentFingerprint = ev.replayContentFingerprint(loadReplay(target).replay);
+            if (comparison.replayId === score.replayId && comparison.paths.replayPath === replayPath && comparison.replayFingerprint === currentFingerprint)
                 return score;
         }
     }
@@ -455,7 +464,12 @@ function gateMultiAgentEval(target) {
     const comparison = (0, fs_atomic_1.readJson)(comparisonPath);
     const score = (0, fs_atomic_1.readJson)(scorePath);
     const report = reportMultiAgentEval(comparison.paths.replayPath);
-    const gate = ev.buildGate(suiteDir, snapshotPath, replayRunPath, comparisonPath, scorePath, report.reportPath, comparison, score, now(), path.basename(suiteDir));
+    // Re-check freshness against whatever file the comparison was actually
+    // BUILT from (comparison.paths.replayPath) — not the suite's canonical
+    // replayRunPath, which `eval compare <snapshot> <alternate-replay-path>`
+    // can legitimately diverge from.
+    const currentReplayFingerprint = ev.replayContentFingerprint(loadReplay(comparison.paths.replayPath).replay);
+    const gate = ev.buildGate(suiteDir, snapshotPath, replayRunPath, comparisonPath, scorePath, report.reportPath, comparison, score, now(), path.basename(suiteDir), currentReplayFingerprint);
     (0, fs_atomic_1.writeJson)(path.join(suiteDir, "gate.json"), gate);
     return gate;
 }

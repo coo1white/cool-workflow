@@ -32,6 +32,8 @@
 // src/multi-agent-eval/normalize.ts (byte-exact source for the ported
 // pieces).
 
+import { fingerprintStrings } from "../hash";
+
 export type EvalMetricStatus = "pass" | "fail" | "warning" | "improved" | "changed";
 export type RegressionSeverity = "error" | "warning" | "info";
 
@@ -122,6 +124,18 @@ export interface MultiAgentEvalNormalized {
   reasoningUnexplained?: string[];
 }
 
+/** Content fingerprint of a replay's normalized projection — NOT its path
+ *  or replay id, both of which stay fixed across reruns of `eval replay`
+ *  on the same suite. Two replays of the same underlying baseline content
+ *  fingerprint identically; a replay that reflects a genuine drift (the
+ *  baseline changed since the last replay) fingerprints differently. This
+ *  is what a cached comparison/score must be checked against before being
+ *  trusted — see shell/eval-io.ts's loadOrCompareForTarget/
+ *  loadScoreForTarget and buildGate below. */
+export function replayContentFingerprint(replay: MultiAgentEvalNormalized): string {
+  return fingerprintStrings([replayStableStringify(replay)]);
+}
+
 export interface MultiAgentReplaySnapshot {
   schemaVersion: 1;
   kind: "multi-agent-replay-snapshot";
@@ -190,6 +204,11 @@ export interface MultiAgentEvalComparison {
   comparedAt: string;
   status: "pass" | "fail";
   paths: { suiteDir: string; baselinePath: string; replayPath: string; comparisonPath: string; findingsPath: string };
+  /** Content fingerprint of the replay this comparison was built from (see
+   *  replayContentFingerprint) — replayPath alone is a fixed, deterministic
+   *  path per suite, so path equality can never detect that replay-run.json
+   *  was overwritten with different content since this comparison ran. */
+  replayFingerprint: string;
   sections: Record<string, MultiAgentComparisonSection>;
   findings: MultiAgentRegressionFinding[];
 }
@@ -208,6 +227,9 @@ export interface MultiAgentEvalMetric {
 export interface MultiAgentEvalScore {
   schemaVersion: 1;
   replayId: string;
+  /** Mirrored from the comparison this score was built from — see
+   *  MultiAgentEvalComparison.replayFingerprint. */
+  replayFingerprint: string;
   scoredAt: string;
   status: "pass" | "fail";
   score: number;
@@ -344,6 +366,7 @@ export function compareNormalized(baselineId: string, baselinePath: string, base
     comparedAt: now,
     status: findings.some((entry) => entry.severity === "error") ? "fail" : "pass",
     paths: { suiteDir, baselinePath, replayPath: replay.paths.replayRunPath, comparisonPath, findingsPath },
+    replayFingerprint: replayContentFingerprint(replay.replay),
     sections,
     findings,
   };
@@ -367,6 +390,7 @@ export function scoreComparison(comparison: MultiAgentEvalComparison, now: strin
   return {
     schemaVersion: 1,
     replayId: comparison.replayId,
+    replayFingerprint: comparison.replayFingerprint,
     scoredAt: now,
     status: metrics.every((entry) => entry.status !== "fail") ? "pass" : "fail",
     score: metrics.reduce((total, entry) => total + entry.score, 0),
@@ -377,12 +401,20 @@ export function scoreComparison(comparison: MultiAgentEvalComparison, now: strin
   };
 }
 
-export function buildGate(suiteDir: string, snapshotPath: string, replayRunPath: string, comparisonPath: string, scorePath: string, reportPath: string, comparison: MultiAgentEvalComparison, score: MultiAgentEvalScore, now: string, suiteId: string): MultiAgentEvalGate {
+export function buildGate(suiteDir: string, snapshotPath: string, replayRunPath: string, comparisonPath: string, scorePath: string, reportPath: string, comparison: MultiAgentEvalComparison, score: MultiAgentEvalScore, now: string, suiteId: string, currentReplayFingerprint: string): MultiAgentEvalGate {
   if (comparison.paths.baselinePath !== snapshotPath) {
     throw new Error(`Eval gate found stale comparison artifact for ${comparison.paths.baselinePath}; rerun eval compare ${snapshotPath} ${comparison.paths.replayPath}`);
   }
   if (score.replayId !== comparison.replayId || score.paths.comparisonPath !== comparisonPath) {
     throw new Error(`Eval gate found stale score artifact for ${score.replayId}; rerun eval score ${comparison.paths.replayPath}`);
+  }
+  // Path/id equality alone (the two checks above) cannot catch a rerun of
+  // `eval replay` that overwrote replay-run.json with genuinely different
+  // content at the SAME path — see replayContentFingerprint's doc comment.
+  // This is the P1 "eval-replay staleness check is vacuously-true path-
+  // equality" finding from examples/audits/self-audit-cool-workflow-v0.2.6.md.
+  if (comparison.replayFingerprint !== currentReplayFingerprint) {
+    throw new Error(`Eval gate found stale comparison artifact for ${comparison.paths.replayPath}: its content changed since the comparison was built; rerun eval compare ${snapshotPath} ${comparison.paths.replayPath}`);
   }
   const failed = score.findings.filter((entry) => entry.severity === "error");
   return {
