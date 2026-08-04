@@ -270,8 +270,10 @@ standing rule for each:
    a shipped version. Rule: when the version ships, the snapshot is deleted
    or its file updated to the truth; a stale "blocking" claim is a bug.
 4. Stub/copy files — a file whose content lives elsewhere. Rule: one source
-   of truth plus a LINK; never a second copy or a stub file (CLAUDE.md and
-   the old AI_MEMORY family are the precedent).
+   of truth plus a LINK; never a second copy or a stub file (the old
+   AI_MEMORY family, and CLAUDE.md/DIRECTION.md before their content and
+   the files themselves were fully folded into this one file, are the
+   precedent).
 
 Exception class that stays: append-only audit records (`.cw-release/`,
 ITERATION_LOG.md, CHANGELOG.md, docs/audits/ verdicts) — they are the
