@@ -2,9 +2,10 @@
 
 ## Purpose
 
-This is the current architecture work map for Cool Workflow. `DIRECTION.md`
-is the source for product direction. `PROJECT_MEMORY.md` keeps facts and work
-order. This file gives the small set of architecture changes still planned.
+This is the current architecture work map for Cool Workflow. `AGENTS.md`
+carries product direction (its "Product Direction & Moat" section) and
+build-memory facts/work order (its "Build Memory" section). This file gives
+the small set of architecture changes still planned.
 
 Keep this order true:
 

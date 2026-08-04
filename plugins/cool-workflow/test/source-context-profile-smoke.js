@@ -230,8 +230,8 @@ assert.equal(changedCached.status, 0, `changed diff repo export failed\nSTDERR:\
 assert.notEqual(changedCached.stdout, fullCached.stdout, "changed export cache is distinct from full export cache");
 assert.equal(fs.readdirSync(diffCache).filter((file) => file.endsWith(".jsonl")).length, 2, "cache-dir stores separate full and changed exports");
 
-const memoryText = fs.readFileSync(path.join(repoRoot, "PROJECT_MEMORY.md"), "utf8");
-assert.ok(memoryText.includes("source-context") || memoryText.includes("core"), "PROJECT_MEMORY.md records the context policy");
+const memoryText = fs.readFileSync(path.join(repoRoot, "AGENTS.md"), "utf8");
+assert.ok(memoryText.includes("source-context") || memoryText.includes("core"), "AGENTS.md records the context policy");
 
 assert.equal(fs.existsSync(path.join(repoRoot, "Codex.md")), false, "Codex.md must not copy the agent contract");
 assert.equal(fs.existsSync(path.join(repoRoot, "eval")), false, "eval must not copy packaged workflow skills");
