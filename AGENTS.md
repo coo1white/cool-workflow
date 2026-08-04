@@ -24,13 +24,22 @@ when checks pass, or `gh pr merge --merge` after manually confirming CI
 is green. Never use `--admin` to bypass CI checks. Never merge with a
 red or pending CI run.
 
-`main` has branch protection turned on (as of 2026-07-07): the four
-CI checks (`cool-workflow` on `ubuntu-latest`/`ubuntu-24.04-arm`, each
-on Node 18 and 22) must be green before a merge, with `enforce_admins`
-on so there is no bypass, even for the repo owner. Force-pushes and
-branch deletion on `main` are also blocked. No required-review rule is
-set, since this repo has one lone collaborator and GitHub review gates
-cannot be met by a PR's own author.
+`main` has branch protection turned on: the two CI checks
+(`cool-workflow` on `ubuntu-latest`, Node 18 and 22) must be green
+before a merge, with `enforce_admins` on so there is no bypass, even
+for the repo owner. Force-pushes and branch deletion on `main` are
+also blocked. No required-review rule is set, since this repo has one
+lone collaborator and GitHub review gates cannot be met by a PR's own
+author.
+
+(Previously the matrix also ran an `ubuntu-24.04-arm` leg per Node
+version, for four required checks total. It was dropped: the package
+ships zero runtime dependencies and no native modules, so cross-arch
+divergence for pure JS/TS is very unlikely, and ~30 sampled runs
+showed the ARM leg never producing a result that differed from its
+x64 counterpart. Node 18 vs 22 stayed, since `engines: >=18` in
+package.json is a real, documented support range worth testing both
+ends of.)
 
 # Iteration Loop
 Each cycle MUST follow this sequence. Do not skip steps.
