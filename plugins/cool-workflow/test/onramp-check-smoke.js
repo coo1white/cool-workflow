@@ -4,22 +4,15 @@
 // onramp-check-smoke — the change-contract gate must make the development path
 // explicit: behavior changes need smoke coverage, surface changes need docs.
 //
-// CUTOVER AUDIT (v2) — REAL-GAP. This smoke require()s ../dist/onramp.js
-// (exports evaluateOnrampContract + recommendSmokeTests) and drives
-// `cw doctor --onramp --json`. The whole onramp change-contract subsystem is
-// MISSING from v2: there is no onramp module and no equivalent export anywhere
-// under dist/ (grep for evaluateOnrampContract / recommendSmokeTests / the
-// issue codes runtime-smoke-required, types-without-runtime,
-// surface-docs-required returns nothing in src/ or dist/). The old build had a
-// full src/onramp.ts (added in #198, 300+ lines: evaluateOnrampContract,
-// recommendSmokeTests, resolveChangedFiles, buildDoctorOnramp). v2 dropped it
-// on purpose for now — src/shell/doctor.ts:6-10 states the --onramp section
-// (buildDoctorOnramp) is "intentionally NOT wired here" as later-milestone
-// work, so `cw doctor --onramp --json` silently ignores the flag and emits no
-// `onramp` key. The require below cannot be repointed (no target exists), so
-// the smoke fails at import time on genuine missing functionality, not a moved
-// path. Assertions are left UNCHANGED — this must go green only once v2 grows
-// the onramp gate back (Phase B). Do not weaken to force green.
+// This smoke require()s dist/shell/onramp.js (exports evaluateOnrampContract +
+// recommendSmokeTests) and drives `cw doctor --onramp --json`. The onramp
+// change-contract subsystem was restored in v2 (shell/onramp.ts's own header:
+// "this restores it and shell/doctor.ts wires --onramp back to it") — this
+// note used to say the module was missing and the smoke could only go green
+// once v2 grew it back; that milestone shipped and the note was never
+// updated. It is wired live: `buildDoctorOnramp` is imported and called from
+// shell/doctor.ts, and `cw doctor --onramp --json` returns a real `onramp`
+// key today.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -87,11 +80,50 @@ function contract(files) {
 // Surface changes need public docs.
 {
   const report = contract([
-    "plugins/cool-workflow/src/capability-registry.ts",
+    "plugins/cool-workflow/src/wiring/capability-table/basics.ts",
     "plugins/cool-workflow/test/cli-mcp-parity-smoke.js"
   ]);
   assert.equal(report.ok, false);
   assert.ok(codes(report).includes("surface-docs-required"));
+}
+
+// Every real, current capability/MCP surface location must be recognized --
+// not just the one exercised above. The pre-rebuild-era literals
+// (capability-registry.ts, mcp-surface.ts, orchestrator.ts) no longer exist
+// anywhere in the tree, so relying on them silently loses "surface-docs-
+// required" coverage for exactly the files real capability/MCP changes
+// touch today (self-audit-cool-workflow-v0.2.6.md P2).
+{
+  const report = contract([
+    "plugins/cool-workflow/src/core/capability-table.ts",
+    "plugins/cool-workflow/test/cli-mcp-parity-smoke.js"
+  ]);
+  assert.equal(report.ok, false, "core/capability-table.ts");
+  assert.ok(codes(report).includes("surface-docs-required"), codes(report).join(", "));
+}
+{
+  const report = contract([
+    "plugins/cool-workflow/src/core/capability-data.ts",
+    "plugins/cool-workflow/test/cli-mcp-parity-smoke.js"
+  ]);
+  assert.equal(report.ok, false, "core/capability-data.ts");
+  assert.ok(codes(report).includes("surface-docs-required"), codes(report).join(", "));
+}
+{
+  const report = contract([
+    "plugins/cool-workflow/src/mcp/dispatch.ts",
+    "plugins/cool-workflow/test/cli-mcp-parity-smoke.js"
+  ]);
+  assert.equal(report.ok, false, "mcp/dispatch.ts");
+  assert.ok(codes(report).includes("surface-docs-required"), codes(report).join(", "));
+}
+{
+  const report = contract([
+    "plugins/cool-workflow/src/shell/orchestrator.ts",
+    "plugins/cool-workflow/test/cli-mcp-parity-smoke.js"
+  ]);
+  assert.equal(report.ok, false, "shell/orchestrator.ts");
+  assert.ok(codes(report).includes("surface-docs-required"), codes(report).join(", "));
 }
 
 // The intended onramp-risk batch shape passes: runtime + script + smoke + docs.
@@ -99,7 +131,7 @@ function contract(files) {
   const report = contract([
     "plugins/cool-workflow/src/doctor.ts",
     "plugins/cool-workflow/src/onramp.ts",
-    "plugins/cool-workflow/src/orchestrator.ts",
+    "plugins/cool-workflow/src/shell/orchestrator.ts",
     "plugins/cool-workflow/scripts/onramp-check.js",
     "plugins/cool-workflow/test/doctor-smoke.js",
     "plugins/cool-workflow/test/onramp-check-smoke.js",
@@ -114,12 +146,12 @@ function contract(files) {
 {
   const smokes = recommendSmokeTests([
     "plugins/cool-workflow/src/doctor.ts",
-    "plugins/cool-workflow/src/capability-registry.ts"
+    "plugins/cool-workflow/src/core/capability-table.ts"
   ], pluginRoot);
   assert.ok(smokes.includes("doctor-smoke.js"), "doctor smoke is recommended");
   assert.ok(smokes.includes("cli-mcp-parity-smoke.js"), "CLI/MCP parity smoke is recommended");
   const report = contract([
-    "plugins/cool-workflow/src/capability-registry.ts",
+    "plugins/cool-workflow/src/core/capability-table.ts",
     "plugins/cool-workflow/test/cli-mcp-parity-smoke.js",
     "plugins/cool-workflow/docs/cli-mcp-parity.7.md"
   ]);
@@ -132,7 +164,7 @@ function contract(files) {
 {
   const smokes = recommendSmokeTests([
     "plugins/cool-workflow/src/onramp.ts",
-    "plugins/cool-workflow/src/orchestrator.ts"
+    "plugins/cool-workflow/src/shell/orchestrator.ts"
   ], pluginRoot);
   assert.ok(smokes.includes("doctor-smoke.js"), "onramp work keeps the doctor smoke");
   assert.ok(smokes.includes("onramp-check-smoke.js"), "onramp work keeps the contract smoke");
