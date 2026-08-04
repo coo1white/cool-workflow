@@ -37,11 +37,13 @@ exports.ALL_METRIC_SECTIONS = exports.METRIC_SECTIONS = void 0;
 exports.normalizeValue = normalizeValue;
 exports.replayStableStringify = replayStableStringify;
 exports.lines = lines;
+exports.replayContentFingerprint = replayContentFingerprint;
 exports.assertNormalizedShape = assertNormalizedShape;
 exports.compareNormalized = compareNormalized;
 exports.scoreComparison = scoreComparison;
 exports.buildGate = buildGate;
 exports.buildReportLines = buildReportLines;
+const hash_1 = require("../hash");
 // ---------------------------------------------------------------------------
 // normalizeValue / replayStableStringify — byte-exact port
 // ---------------------------------------------------------------------------
@@ -89,6 +91,17 @@ function lines(value) {
     if (Array.isArray(normalized))
         return normalized.map((entry) => replayStableStringify(entry)).sort();
     return [replayStableStringify(normalized)].sort();
+}
+/** Content fingerprint of a replay's normalized projection — NOT its path
+ *  or replay id, both of which stay fixed across reruns of `eval replay`
+ *  on the same suite. Two replays of the same underlying baseline content
+ *  fingerprint identically; a replay that reflects a genuine drift (the
+ *  baseline changed since the last replay) fingerprints differently. This
+ *  is what a cached comparison/score must be checked against before being
+ *  trusted — see shell/eval-io.ts's loadOrCompareForTarget/
+ *  loadScoreForTarget and buildGate below. */
+function replayContentFingerprint(replay) {
+    return (0, hash_1.fingerprintStrings)([replayStableStringify(replay)]);
 }
 exports.METRIC_SECTIONS = [
     { metric: "replay_completed", section: "workflow", title: "Replay completed" },
@@ -179,6 +192,7 @@ function compareNormalized(baselineId, baselinePath, baseline, replay, now, comp
         comparedAt: now,
         status: findings.some((entry) => entry.severity === "error") ? "fail" : "pass",
         paths: { suiteDir, baselinePath, replayPath: replay.paths.replayRunPath, comparisonPath, findingsPath },
+        replayFingerprint: replayContentFingerprint(replay.replay),
         sections,
         findings,
     };
@@ -201,6 +215,7 @@ function scoreComparison(comparison, now, scorePath) {
     return {
         schemaVersion: 1,
         replayId: comparison.replayId,
+        replayFingerprint: comparison.replayFingerprint,
         scoredAt: now,
         status: metrics.every((entry) => entry.status !== "fail") ? "pass" : "fail",
         score: metrics.reduce((total, entry) => total + entry.score, 0),
@@ -210,12 +225,20 @@ function scoreComparison(comparison, now, scorePath) {
         paths: { suiteDir: comparison.paths.suiteDir, comparisonPath: comparison.paths.comparisonPath, scorePath },
     };
 }
-function buildGate(suiteDir, snapshotPath, replayRunPath, comparisonPath, scorePath, reportPath, comparison, score, now, suiteId) {
+function buildGate(suiteDir, snapshotPath, replayRunPath, comparisonPath, scorePath, reportPath, comparison, score, now, suiteId, currentReplayFingerprint) {
     if (comparison.paths.baselinePath !== snapshotPath) {
         throw new Error(`Eval gate found stale comparison artifact for ${comparison.paths.baselinePath}; rerun eval compare ${snapshotPath} ${comparison.paths.replayPath}`);
     }
     if (score.replayId !== comparison.replayId || score.paths.comparisonPath !== comparisonPath) {
         throw new Error(`Eval gate found stale score artifact for ${score.replayId}; rerun eval score ${comparison.paths.replayPath}`);
+    }
+    // Path/id equality alone (the two checks above) cannot catch a rerun of
+    // `eval replay` that overwrote replay-run.json with genuinely different
+    // content at the SAME path — see replayContentFingerprint's doc comment.
+    // This is the P1 "eval-replay staleness check is vacuously-true path-
+    // equality" finding from examples/audits/self-audit-cool-workflow-v0.2.6.md.
+    if (comparison.replayFingerprint !== currentReplayFingerprint) {
+        throw new Error(`Eval gate found stale comparison artifact for ${comparison.paths.replayPath}: its content changed since the comparison was built; rerun eval compare ${snapshotPath} ${comparison.paths.replayPath}`);
     }
     const failed = score.findings.filter((entry) => entry.severity === "error");
     return {
