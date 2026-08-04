@@ -9,12 +9,13 @@ discipline that keeps a put-out CW audit one to be trusted: every claim comes ba
 findings are worked out in private, never let out as public 0-days.**
 
 A committed worked example is at
-[`examples/audits/self-audit-cool-workflow-v0.1.42.md`](../examples/audits/self-audit-cool-workflow-v0.1.42.md)
-— a historical, line-cited self-audit of this repo at v0.1.42. Its citations predate the
-core/shell `src/` split and no longer resolve against the current tree (re-running
-`docs/scripts/verify-audit-cites.js` against it now fails all of them) — read it for the
-*format* a published audit should follow, not as a currently-verifiable example. For a
-citation-free structure template that cannot go stale, see
+[`examples/audits/self-audit-cool-workflow-v0.2.6.md`](../examples/audits/self-audit-cool-workflow-v0.2.6.md)
+— a true, line-cited self-audit of this repo, currently verifiable: every citation resolves
+against the tree (re-run `docs/scripts/verify-audit-cites.js` against it yourself). Read it
+together with this guide; it is the template every put-out audit is to keep to. An earlier
+snapshot, [`self-audit-cool-workflow-v0.1.42.md`](../examples/audits/self-audit-cool-workflow-v0.1.42.md),
+is kept for history — its citations predate the core/shell `src/` split and no longer resolve.
+For a citation-free structure template that cannot go stale, see
 [`examples/sample-architecture-review.md`](../examples/sample-architecture-review.md).
 
 ---
@@ -148,12 +149,18 @@ presence-only-evidence P1 are both resolved). That is the normal way of things, 
   since the audit before so a reader cross-referencing the old report does not flag them again
   (the example's "Resolved since prior verdicts" section).
 
+The v0.1.42 example itself went stale the same way by v0.2.6 (the core/shell `src/` split moved
+every file it cited) — the current `self-audit-cool-workflow-v0.2.6.md` is the re-audit: every
+v0.1.42 finding was independently re-checked (open / fixed / changed) against the new tree
+before any new finding was added, so a reader cross-referencing the old report is told plainly
+which of its claims still hold.
+
 ---
 
 ## Template for a future audit
 
 Use again the structure of
-[`examples/audits/self-audit-cool-workflow-v0.1.42.md`](../examples/audits/self-audit-cool-workflow-v0.1.42.md):
+[`examples/audits/self-audit-cool-workflow-v0.2.6.md`](../examples/audits/self-audit-cool-workflow-v0.2.6.md):
 
 ```
 <!-- header: what produced it, repo @ <commit>, package version, agent-reported model -->
