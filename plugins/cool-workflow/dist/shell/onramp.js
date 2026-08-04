@@ -8,8 +8,12 @@
 // this restores it and shell/doctor.ts wires --onramp back to it.
 //
 // The classification in evaluateOnrampContract works on path STRINGS only
-// (it never stats files), so the old flat paths the smoke passes still
-// classify correctly even though the real files moved under src/shell etc.
+// (it never stats files) — which cuts both ways: it never breaks on a
+// missing file, but it also never notices when a literal it matches
+// against has moved. isSurfaceFile and CURATED_SMOKE_MAP both drifted this
+// way after the v2 core/shell/wiring split (self-audit-cool-workflow-
+// v0.2.6.md P2, fixed) — keep every literal here in sync with the real
+// current path, don't assume the old flat names still resolve to anything.
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -40,15 +44,22 @@ const CURATED_SMOKE_MAP = [
         smokes: ["cli-command-surface-smoke.js", "cli-jsonmode-parity-smoke.js", "cli-mcp-parity-smoke.js"]
     },
     {
-        patterns: ["src/orchestrator.ts"],
+        // Pre-rebuild this was the single flat src/orchestrator.ts; the real
+        // current file is shell/orchestrator.ts (self-audit-cool-workflow-v0.2.6.md P2).
+        patterns: ["src/shell/orchestrator.ts"],
         smokes: ["cli-mcp-parity-smoke.js"]
     },
     {
-        patterns: ["src/capability-registry.ts", "scripts/parity-check.js"],
+        // Pre-rebuild this was the single flat src/capability-registry.ts; it was
+        // split into core/capability-data.ts plus wiring/capability-table/*.ts at
+        // the v2 rebuild (PR #368) — same finding as above.
+        patterns: ["src/core/capability-table.ts", "src/core/capability-data.ts", "src/wiring/capability-table/", "scripts/parity-check.js"],
         smokes: ["cli-mcp-parity-smoke.js", "cli-jsonmode-parity-smoke.js", "parity-doc-sync-smoke.js"]
     },
     {
-        patterns: ["src/mcp-server.ts", "src/mcp-surface.ts"],
+        // Pre-rebuild this was the single flat src/mcp-surface.ts, which did not
+        // survive the v2 cutover; the real current MCP surface is src/mcp/*.ts.
+        patterns: ["src/mcp-server.ts", "src/mcp/"],
         smokes: ["mcp-surface-registry-smoke.js", "mcp-app-surface-smoke.js", "cli-mcp-parity-smoke.js"]
     },
     {
@@ -493,14 +504,25 @@ function stripPluginPrefix(file) {
 function isRuntimeSource(file) {
     return file.startsWith("plugins/cool-workflow/src/") && file.endsWith(".ts") && !file.startsWith("plugins/cool-workflow/src/types/");
 }
+// Pre-rebuild flat literals here (src/capability-registry.ts, src/mcp-surface.ts,
+// src/orchestrator.ts) named files that no longer exist anywhere in the
+// tree after the v2 core/shell/wiring split — capability-registry.ts
+// became core/capability-table.ts + core/capability-data.ts +
+// wiring/capability-table/*.ts (PR #368), mcp-surface.ts became mcp/*.ts,
+// and orchestrator.ts moved to shell/orchestrator.ts. Real, current
+// capability/MCP surface changes were silently invisible to this check,
+// so they skipped both "surface-docs-required" and the parity:check/
+// gen:manifests hint below (self-audit-cool-workflow-v0.2.6.md P2).
 function isSurfaceFile(file) {
     const pluginPath = stripPluginPrefix(file);
     return (pluginPath === "src/cli.ts" ||
         pluginPath.startsWith("src/cli/") ||
-        pluginPath === "src/capability-registry.ts" ||
         pluginPath === "src/mcp-server.ts" ||
-        pluginPath === "src/mcp-surface.ts" ||
-        pluginPath === "src/orchestrator.ts" ||
+        pluginPath.startsWith("src/mcp/") ||
+        pluginPath === "src/core/capability-table.ts" ||
+        pluginPath === "src/core/capability-data.ts" ||
+        pluginPath.startsWith("src/wiring/capability-table/") ||
+        pluginPath === "src/shell/orchestrator.ts" ||
         pluginPath === "scripts/parity-check.js");
 }
 function isDocFile(file) {
