@@ -13,9 +13,17 @@ on:
 permissions:
   contents: write
 
+# Queue, never cancel: a duplicate/overlapping trigger must not interrupt an
+# in-flight `gh release create` call. The idempotent existence check below
+# already handles a clean re-run; this just prevents two runs racing at once.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:

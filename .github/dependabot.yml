@@ -10,7 +10,18 @@ updates:
   # Keep the pinned-by-SHA actions in .github/workflows/ current. Dependabot
   # opens a PR for review — it does not auto-merge — so this does not weaken
   # the "actions pinned by commit SHA" property in npm-publish.yml.
+  #
+  # groups: without this, Dependabot opens one PR per action reference. That
+  # split #543/#545 codeql-action/init and codeql-action/analyze into two
+  # separate PRs even though codeql.yml requires them to be on the same
+  # version — merging either alone broke CI (fixed together in #547). One
+  # group for the whole ecosystem means every bump lands in a single PR, so
+  # a must-match-version pair can never be split again.
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -35,6 +35,14 @@ permissions:
   contents: read
   id-token: write # required for npm Trusted Publishing / provenance
 
+# Queue, never cancel: keyed on the same ref/sha expression used below to
+# resolve the checkout (workflow_run has no github.ref for this trigger). A
+# duplicate trigger for the same tag must queue behind an in-flight publish,
+# never cancel it mid-`npm publish`.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.ref || github.event.workflow_run.head_sha }}
+  cancel-in-progress: false
+
 jobs:
   publish:
     # Gate as a job-level condition (NOT a pre-checkout run-step): on workflow_run
@@ -45,6 +53,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: plugins/cool-workflow
