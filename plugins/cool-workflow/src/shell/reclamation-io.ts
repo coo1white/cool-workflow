@@ -285,9 +285,15 @@ export const SKELETON_REQUIRED_KEYS = [
   "stateDigest",
 ] as const;
 
+/** Same lock every other state.json writer holds (saveCheckpoint,
+ *  withRunStateLock — shell/run-store.ts) across its write, so a GC pass's
+ *  persist can never land invisibly inside another writer's critical
+ *  section. */
 function persistRunDurable(run: WorkflowRun): void {
-  run.updatedAt = new Date().toISOString();
-  writeJson(run.paths.state, run, { durable: true });
+  withFileLock(run.paths.state, () => {
+    run.updatedAt = new Date().toISOString();
+    writeJson(run.paths.state, run, { durable: true });
+  });
 }
 
 function withRunLock<T>(run: WorkflowRun, fn: () => T): T {
