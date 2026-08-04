@@ -1,2 +1,0 @@
-APPROVED 76dc5b568743b727c9a0f548b702da61ed35d970
-A user can restore a moved run archive atomically — `cw run restore` stages the import then publishes with a single rename, refusing malformed, duplicate-path, reserved-path, or over-limit archives with structured `archive-limit-*`/`archive-malformed` codes and leaving no partial `.cw/runs` state on refusal.
