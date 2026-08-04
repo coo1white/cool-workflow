@@ -1,8 +1,8 @@
 # Mental Model
 
 > If you read one page to see *why* Cool Workflow is shaped the way it is,
-> read this one. The design test every feature must pass lives in
-> [`DIRECTION.md`](https://github.com/coo1white/cool-workflow/blob/main/DIRECTION.md):
+> read this one. The design test every feature must pass lives in AGENTS.md's
+> [Product Direction & Moat](https://github.com/coo1white/cool-workflow/blob/main/AGENTS.md#product-direction--moat):
 > **the model is fuel; CW is the dashboard, the black-box recorder, and the gearbox — never the engine.**
 
 ## The problem is not a dumb model

@@ -2,15 +2,20 @@
 
 How to point Cool Workflow at a repository, make an evidence-grounded
 architecture-risk report, and put it out — **with care**. CW's chief use is
-"auditable code-risk analysis" ([`DIRECTION.md`](../DIRECTION.md)). This guide is the
+"auditable code-risk analysis" (see AGENTS.md's
+[Product Direction & Moat](../AGENTS.md#product-direction--moat)). This guide is the
 discipline that keeps a put-out CW audit one to be trusted: every claim comes back to a true
 `file:line`, the enforcement boundary is given straight, and **true other-party security
 findings are worked out in private, never let out as public 0-days.**
 
 A committed worked example is at
 [`examples/audits/self-audit-cool-workflow-v0.1.42.md`](../examples/audits/self-audit-cool-workflow-v0.1.42.md)
-— a true, line-cited self-audit of this repo. Read it together with this guide; it is the
-template every put-out audit is to keep to.
+— a historical, line-cited self-audit of this repo at v0.1.42. Its citations predate the
+core/shell `src/` split and no longer resolve against the current tree (re-running
+`docs/scripts/verify-audit-cites.js` against it now fails all of them) — read it for the
+*format* a published audit should follow, not as a currently-verifiable example. For a
+citation-free structure template that cannot go stale, see
+[`examples/sample-architecture-review.md`](../examples/sample-architecture-review.md).
 
 ---
 

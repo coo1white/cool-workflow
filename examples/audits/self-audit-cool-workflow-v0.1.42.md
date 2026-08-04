@@ -5,6 +5,16 @@
 
 # Self-Audit — Cool Workflow Architecture (v0.1.42)
 
+> **Historical snapshot — citations no longer resolve.** This audit is pinned to commit
+> `46fdd55` (package v0.1.42), before the core/shell `src/` split. Running
+> `docs/scripts/verify-audit-cites.js` against this file and the current tree fails every
+> citation (`MISSING FILE`) — the bare filenames below (e.g. `collaboration.ts:144`) moved
+> under `core/`/`shell/` subdirectories. Read this for the *format* a published audit
+> should follow (Scope / Short Answer / per-finding locators / Verification Log); do not
+> treat any individual `file:line` claim below as current. For a citation-free structure
+> template that cannot go stale, see
+> [`examples/sample-architecture-review.md`](../sample-architecture-review.md).
+
 > **What this is.** A real, line-cited architecture-risk report of *this* repository,
 > curated from CW's prior architecture-review verdicts (`docs/audits/architecture-review-verdict.md`
 > @ v0.1.38, `docs/audits/architecture-review-verdict-v0.1.39.md`) and **re-verified, finding by
@@ -25,7 +35,8 @@
 - **Repository:** `cool-workflow` (this repo), `plugins/cool-workflow/src/` is the kernel.
 - **Subject:** CW's own control-plane architecture — is it sound against its stated
   positioning (an *auditable control plane that delegates execution and never executes
-  models*; see [`DIRECTION.md`](../../DIRECTION.md))?
+  models*; see AGENTS.md's
+  [Product Direction & Moat](../../AGENTS.md#product-direction--moat))?
 - **Stated invariants under test:** durable/auditable state; evidence-gated commit;
   fail-closed delegation; deterministic replay; "CW enforces write acceptance, the host
   enforces OS isolation"; "CW is not an auth server, the trust boundary is the OS user".
@@ -156,7 +167,8 @@ These were P1/P2 in `docs/audits/architecture-review-verdict.md` / `-v0.1.39.md`
 ## Non-issues (correctly classed within the local-first, OS-user model)
 
 - **Unauthenticated MCP/CLI** — by design; the trust boundary is the OS user
-  ([`DIRECTION.md`](../../DIRECTION.md)). CW is not an auth server.
+  (AGENTS.md's [Product Direction & Moat](../../AGENTS.md#product-direction--moat)). CW is
+  not an auth server.
 - **No model SDK / no API key in the control plane** — the red line. The `agent` backend
   spawns an external child argv-style (`shell:false`) and imports no model SDK.
 - **Symlink escape past the lexical boundary** — now mitigated by realpath resolution
