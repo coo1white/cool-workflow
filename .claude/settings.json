@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Agent|Workflow",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); tool=$(printf '%s' \"$input\" | jq -r '.tool_name'); hit=\"\"; if [ \"$tool\" = \"Agent\" ]; then model=$(printf '%s' \"$input\" | jq -r '.tool_input.model // empty'); if printf '%s' \"$model\" | grep -qi 'fable'; then hit=\"Agent 工具的 model 参数为「$model」\"; fi; elif [ \"$tool\" = \"Workflow\" ]; then script=$(printf '%s' \"$input\" | jq -r '.tool_input.script // empty'); if printf '%s' \"$script\" | grep -qi 'fable'; then hit=\"Workflow 脚本里出现了 fable 字样,可能给某个 agent() 用了 fable 模型\"; fi; fi; if [ -n \"$hit\" ]; then jq -n --arg reason \"用户规定:没有本次对话里用户给出的明确指令,不准用 fable5/fable 模型做开发任务。发现:$hit。请先在聊天里问过用户,得到明确同意后再继续。\" '{hookSpecificOutput:{hookEventName:\"PreToolUse\",permissionDecision:\"ask\",permissionDecisionReason:$reason}}'; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
