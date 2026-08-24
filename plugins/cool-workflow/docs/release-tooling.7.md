@@ -18,7 +18,7 @@ npm run bump:version -- 0.1.33
 ```
 
 One command rewrites every STRUCTURED version surface from a single source
-(`package.json`): `package.json`, `package-lock.json`, `src/version.ts`,
+(`package.json`): `package.json`, `package-lock.json`, `src/core/version.ts`,
 `manifest/plugin.manifest.json` (then `gen:manifests` sends it on to the vendor
 manifests), every `apps/*/app.json` (top-level `version` only, never
 `compatibility.minVersion`), and the scripts/tests that fix the current
@@ -36,8 +36,8 @@ checker can never get out of step with the bump source.
 node scripts/new-feature.js <slug> "<Title>" ["summary"]
 ```
 
-Builds the per-tag boilerplate frame: the `docs/<slug>.7.md` skeleton, a runnable
-`test/<slug>-smoke.js` stub, and a `CHANGELOG` entry, then PRINTS the exact
+Builds the per-tag boilerplate frame: the `docs/<slug>.7.md` skeleton and a
+runnable `test/<slug>-smoke.js` stub, then PRINTS the exact
 gate-file edits (capability registry, `version:sync` assertions, the `docs presence`
 list, the `npm test` chain). Gate files are printed, never changed on their own, so a
 new frame can never quietly break a release gate.
@@ -196,8 +196,8 @@ where each of these fired only AFTER the gate/vendor/reviewer had already
 spent real time and tokens): the version flag, the signing key (present AND
 matching the committed `verdict-signing.pub` — once that pubkey is in the
 repo, an unsigned cut is refused up front instead of failing later in CI),
-no pre-existing `vX.Y.Z` tag (local or on origin), a `## X.Y.Z` CHANGELOG
-section, a clean tracked tree, and — for `--push` — HEAD equal to the
+no pre-existing `vX.Y.Z` tag (local or on origin), a clean tracked tree,
+and — for `--push` — HEAD equal to the
 `origin/main` tip (`--allow-stale-head` skips that one check for a
 deliberate re-cut). The push at the end moves ONLY `refs/tags/vX.Y.Z`: the
 verdict commit is a one-hop leaf on the reviewed commit, reachable through
@@ -232,10 +232,13 @@ also get generated MCP manifests (`.gemini-plugin/`, `.opencode-plugin/`) so the
 
 A `--cut --push` ends by creating the **GitHub Release** for the tag, and
 `--release --version x.y.z` creates-or-skips one for an already-pushed tag
-(backfill). The notes body is put together from the `## x.y.z` CHANGELOG section as
-shipped at the tag, the independent reviewer's one-line capability, and a
-"Provenance & audit" footer linking the reviewed commit, the **committed** reviewer
-verdict, the full diff, and the provenance-attested npm version.
+(backfill). The notes body is put together from the independent reviewer's
+one-line capability and a "Provenance & audit" footer linking the reviewed
+commit, the **committed** reviewer verdict, the full diff, and the
+provenance-attested npm version. There is no CHANGELOG.md in the tree now, so
+new tags get no CHANGELOG body. Only for an old tag, cut when that file was
+still in the tree, is the `## x.y.z` CHANGELOG section, as it was at that tag,
+put into the notes as well.
 
 This step is **distribution upside, not a correctness gate**: the load-bearing
 artifacts (the tag and the provenance-attested npm publish) are there already when it

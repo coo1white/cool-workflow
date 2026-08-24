@@ -1,5 +1,12 @@
 # v2 cutover plan — make the rebuild the shipping product
 
+> **Note (2026-08-24): the work in this plan is done.** The rebuild is now
+> the `src/` tree of the shipping package `plugins/cool-workflow`, and `v2/`
+> keeps only the conformance suite as the test net for every new build. The
+> case number named in this page (101) was true at the time of writing; the
+> suite now has 106 cases. This page is kept as a record of how the cutover
+> was done.
+
 ## Context
 
 `v2/` is a from-scratch rebuild that passes the 101-case `v2/conformance/` suite

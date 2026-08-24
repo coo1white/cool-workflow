@@ -389,7 +389,7 @@ short, and simple to add to. Do not use it for guesses.)
   suite), diff-substance / test-evidence checks, branch-naming. It does
   NOT run `readme:check` or the dogfood release-cut — those live only in the
   broader `release:check`.
-- **If a version bump leaves `dist/version.js` stale**, it is the tsc incremental
+- **If a version bump leaves `dist/core/version.js` stale**, it is the tsc incremental
   cache. `rm -f .cache/tsconfig.tsbuildinfo && npm run build` regenerates it;
   otherwise `mcp-app-surface-smoke` fails on a version mismatch.
 - **`bump:version` has two modes.** Gate-mode stamps structured surfaces but skips

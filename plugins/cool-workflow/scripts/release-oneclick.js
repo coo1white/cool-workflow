@@ -11,8 +11,8 @@
 // logic of its own, only sequencing, resumability, and fail-fast checks.
 //
 // The two-step release model this implements:
-//   1. Ask the agent to "prepare release X.Y.Z" — it drafts the CHANGELOG
-//      entry and opens/merges the version-bump PR. This step never touches
+//   1. Ask the agent to "prepare release X.Y.Z" — it opens/merges the
+//      version-bump PR. This step never touches
 //      CW_RELEASE_VERDICT_PRIVKEY.
 //   2. The OPERATOR runs this script, in a shell where
 //      CW_RELEASE_VERDICT_PRIVKEY is set. Nothing in this file reads that

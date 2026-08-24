@@ -73,7 +73,7 @@ fingerprint.
 
 `migration.list`/`check`/`prove` are declared `surface: "both"`, so
 `cw migration <verb> --json` and the `cw_migration_*` MCP tools draw from one
-core (`src/contract-migration.ts`). It only adds: the run-state and workflow-app
+core (`src/core/state/contract-migration.ts`). It only adds: the run-state and workflow-app
 schema versions and `migrateRunState` are unchanged; the registry declares and
 proves over the existing transform. Pre-0.1.36 runs and apps load unchanged.
 

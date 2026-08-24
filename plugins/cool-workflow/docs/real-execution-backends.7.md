@@ -1,7 +1,7 @@
 # Real Execution Backend Integrations
 
 CW v0.1.34 makes the delegating execution backends REAL. v0.1.29 gave us the
-driver layer (`src/execution-backend.ts`), with `node`/`bun`/`shell` really
+driver layer (`src/shell/execution-backend/`), with `node`/`bun`/`shell` really
 executing and `container`/`remote`/`ci` as contract-conformant stubs: `delegate()`
 made a handle and gave back `status: "completed"` with `delegated:`/`handle:`
 evidence, but ran nothing. v0.1.34 takes the place of that no-op, so the three

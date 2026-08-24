@@ -570,6 +570,10 @@ function escapeRegExp(value) {
 
 // Extract the `## <version>` section body from the CHANGELOG AS SHIPPED AT THE
 // TAG (git show), so the notes reflect what that tag actually carried.
+// CHANGELOG.md is no longer in the tree (see AGENTS.md) — new tags have no
+// such file, so this gives back "" for them and the notes go on without a
+// CHANGELOG body. It is kept only so old tags, cut when the file was still
+// in the tree, get their section back on a backfill.
 function changelogSection(version) {
   const show = git(["show", `v${version}:CHANGELOG.md`]);
   if (show.code !== 0 || !show.out) return "";
@@ -685,8 +689,8 @@ function releaseGitHub(version, { required = false } = {}) {
 // them are answerable in under a second, so answer them FIRST.
 //
 // Fixture safety: each check is gated on the thing it checks being present
-// (a committed signing pubkey, a CHANGELOG.md, an `origin` remote), so the
-// smoke fixtures — bare repos with none of those — pass through untouched.
+// (a committed signing pubkey, an `origin` remote), so the smoke fixtures —
+// bare repos with none of those — pass through untouched.
 function preflightCut() {
   say("[0/3] cut preflight");
   // (a) version — cheap and load-bearing for every later step. Checking it

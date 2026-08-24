@@ -302,7 +302,7 @@ and next action) and full machine output under `--json` or `--format json`.
 ## MCP parity
 
 Every command above is declared once in the v0.1.28 capability registry
-(`src/capability-registry.ts`) and shown on both surfaces, so `cw <cmd>
+(`src/core/capability-data.ts`) and shown on both surfaces, so `cw <cmd>
 --json` is schema-identical to the matching `cw_<tool>` result and the pair
 passes `npm run parity:check`:
 
@@ -339,7 +339,7 @@ source at any time.
 ## CLI ↔ MCP Parity (v0.1.28)
 
 Every command and tool named above is declared in the capability registry
-(`src/capability-registry.ts`) and checked by `npm run parity:check`, so
+(`src/core/capability-data.ts`) and checked by `npm run parity:check`, so
 `cw <cmd> --json` and the matching `cw_<tool>` result show one data source.
 See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
 

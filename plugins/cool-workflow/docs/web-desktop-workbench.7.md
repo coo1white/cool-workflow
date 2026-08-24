@@ -57,7 +57,7 @@ keeps that word by holding ZERO authoritative state:
 - it keeps nothing — there is no Workbench store, cache, or schema
 - every response is made again, when asked, from disk; refresh re-reads `.cw/`
 - delete the host process and nothing is lost — the data IS the files
-- it forks no run/state schema; the view models in `src/types.ts`
+- it forks no run/state schema; the view models in `src/shell/workbench.ts`
   (`WorkbenchRunView`, `WorkbenchPanel`, `WorkbenchServeDescriptor`) are DERIVED
   projections that hold payloads that already exist, never copies of them
 
@@ -172,7 +172,7 @@ the localhost host (like `schedule daemon`). The MCP tools `cw_workbench_view` a
 `cw_workbench_serve` match these: `cw_workbench_view` gives back the same view as the
 CLI `--json`, and `cw_workbench_serve` gives back the descriptor only — an MCP stdio
 host cannot start a server that blocks. That one side-effect difference is the
-declared, documented payload divergence written down in `src/capability-registry.ts`;
+declared, documented payload divergence written down in `src/wiring/capability-table/reporting.ts`;
 the descriptor payload itself is the same across surfaces.
 
 The read-only HTTP routes the host serves:

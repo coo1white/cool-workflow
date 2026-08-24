@@ -7,9 +7,9 @@
 ## Description
 
 CW keeps two layers here. The **capability registry**
-(`src/capability-registry.ts`) is the one declared source of truth for every
+(`src/core/capability-data.ts`) is the one declared source of truth for every
 capability CW exposes; it is read at build/check time, not written to at
-runtime. The **topology registry** (`src/topology.ts`) is an open runtime
+runtime. The **topology registry** (`src/core/multi-agent/topology.ts`) is an open runtime
 registry: new topologies put themselves in it with `registerTopology()` and
 then come up by themselves in `topology list`, `topology validate`, and
 `topology apply`.
@@ -29,7 +29,7 @@ BSD way: keep **mechanism** (the registry / the open Map) apart from **policy**
 
 ## Capability Registry
 
-The capability registry, `src/capability-registry.ts`, is the SINGLE declared
+The capability registry, `src/core/capability-data.ts`, is the SINGLE declared
 source of truth for every capability CW exposes — and the contract both front
 doors (CLI and MCP) are checked against. It is a static, read-only array of
 descriptors, `CAPABILITY_REGISTRY`. There is no runtime "register a handler"
@@ -183,9 +183,9 @@ expansion. Now it reads `role.count` on each role spec:
 
 ## See Also
 
-- `capability-registry.ts` — the one declared source for all capabilities
+- `src/core/capability-data.ts` — the one declared source for all capabilities
 - `capability-core.ts` — the shared core entries both surfaces route through
 - `topology.ts` — topology definitions and the registry
-- `types/topology.ts` — topology type definitions
+- `src/core/multi-agent/topology.ts` — topology type definitions
 - `docs/cli-mcp-parity.7.md` — CLI <-> MCP parity gate
 - `docs/multi-agent-topologies.7.md` — official topology recipes

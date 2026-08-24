@@ -117,7 +117,7 @@ makes the mechanism hold.
 
 ## One source, every surface
 
-Each collaboration verb is declared once in `src/capability-registry.ts`, so
+Each collaboration verb is declared once in `src/core/capability-data.ts`, so
 `cw <cmd> --json` is schema-identical to `cw_<cmd>` and passes the parity gate. The
 read-only `review status` and `comment list` are byte-for-byte the same across CLI
 and MCP (the payload-identity probe takes out only ISO timestamps; the only
