@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-08-04 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-08-24 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-08-04 by `npm run sync:projec
 - Source modules: `153`
 - Workflow apps: `8`
 - Docs: `59`
-- Smoke tests: `257`
+- Smoke tests: `258`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -309,6 +309,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [bump-version-idempotent-smoke.js](../test/bump-version-idempotent-smoke.js)
 - [candidate-scoring-smoke.js](../test/candidate-scoring-smoke.js)
 - [canonical-workflow-apps-smoke.js](../test/canonical-workflow-apps-smoke.js)
+- [citation-check-smoke.js](../test/citation-check-smoke.js)
 - [claude-p-agent-wrapper-smoke.js](../test/claude-p-agent-wrapper-smoke.js)
 - [cli-arg-parsing-smoke.js](../test/cli-arg-parsing-smoke.js)
 - [cli-command-surface-smoke.js](../test/cli-command-surface-smoke.js)
