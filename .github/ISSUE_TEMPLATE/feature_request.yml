@@ -1,0 +1,27 @@
+name: Feature request
+description: Something you need CW to do that it does not do today.
+title: "feat: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: What you need to do
+      description: The task in your words — not the design of the feature.
+      placeholder: |
+        I need to ... and today I have to ... by hand.
+    validations:
+      required: true
+  - type: textarea
+    id: today
+    attributes:
+      label: What you do today in its place
+      description: The work-around, if you have one, and where it hurts.
+  - type: textarea
+    id: shape
+    attributes:
+      label: What a good answer might look like (not required)
+      description: |
+        A command, a flag, an MCP tool — only if you have a clear picture.
+        Note: CW never runs a model itself and takes on no runtime
+        dependency; a request that needs one of those will not go in.

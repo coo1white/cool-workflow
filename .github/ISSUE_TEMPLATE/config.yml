@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Security report
+    url: https://github.com/coo1white/cool-workflow/blob/main/.github/SECURITY.md
+    about: Please do not put a security hole in a public issue — see the security policy for the private way.
