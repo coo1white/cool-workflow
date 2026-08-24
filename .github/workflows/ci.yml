@@ -18,7 +18,7 @@ jobs:
   cool-workflow:
     strategy:
       matrix:
-        node-version: ["18", "22"]
+        node-version: ["18", "22", "24"]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -64,3 +64,26 @@ jobs:
       # skips this by name, so it does not run twice.
       - run: npm run test:unit
       - run: npm run release:check -- --skip-tests
+
+  # macOS leg: the package ships a Homebrew formula, and the runtime does
+  # file locking and TMPDIR work whose semantics are OS-specific. This job
+  # runs the platform-sensitive core (build, conformance, full smoke suite,
+  # unit tests) on one Node version. The platform-free gates (audit, dist
+  # drift, release:check) stay on the ubuntu legs only. Not a required
+  # check for merge; the two ubuntu legs (18, 22) keep that role.
+  cool-workflow-macos:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: plugins/cool-workflow
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - run: npm install --no-package-lock --ignore-scripts
+      - run: npm run build
+      - run: node ../../v2/conformance/run.js --bin dist/cli.js
+      - run: npm run test:gate
+      - run: npm run test:unit

@@ -60,6 +60,11 @@ x64 counterpart. Node 18 vs 22 stayed, since `engines: >=18` in
 package.json is a real, documented support range worth testing both
 ends of.)
 
+(2026-08-24: a Node 24 ubuntu leg and one macOS leg were added as
+NON-required checks — the package ships a Homebrew formula and the
+runtime does OS-specific file locking and TMPDIR work. The required
+checks for merge are still the two ubuntu legs, Node 18 and 22.)
+
 # Iteration Loop
 Each cycle MUST follow this sequence. Do not skip steps.
 
