@@ -1,0 +1,41 @@
+name: Bench
+
+# Observation, not a gate: scripts/bench existed with no workflow running
+# it, so timing drift was invisible. This runs the portable bench (node
+# only, stub agent, no k6, no network) on a schedule and on demand, and
+# prints the JSON report into the job log — no artifact store, no new
+# action dependency. Timing on shared runners moves for reasons that are
+# not code, so this job never fails on a number; it fails only when the
+# bench itself cannot complete.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 5 * * 1" # weekly, Monday 05:17 UTC
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: plugins/cool-workflow
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+      - run: npm install --no-package-lock --ignore-scripts
+      - run: npm run build
+      # Stub agent, zero think-delay: what is left is CW's own plan/drive
+      # overhead — the number this job exists to watch.
+      - run: node scripts/bench/run.js --arch ci-x64 --agent claude --delay-ms 0 --runs 5 --skip-workbench --json-report bench-report.json
+      - name: Print report
+        run: cat bench-report.json
