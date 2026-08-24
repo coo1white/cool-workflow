@@ -398,8 +398,22 @@ class RunRegistry {
         const file = this.queueFilePath();
         if (!fs.existsSync(file))
             return [];
+        // queue.json is durable state and fails CLOSED (the conformance rule in
+        // sched-corrupt-fail-closed.case.js). Before this check, a file with
+        // good JSON but a bad shape (entries not an array) read as an empty
+        // queue — and the next queueAdd would then write a fresh file over the
+        // broken one, losing what it held. Same class of fault as the
+        // reclaimed.json fix (feeb1b15): never write over bytes we could not
+        // read.
         const parsed = (0, fs_atomic_1.readJson)(file);
-        return Array.isArray(parsed.entries) ? parsed.entries : [];
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+            throw new Error(`Corrupt queue ${file}: expected a JSON object, got ${Array.isArray(parsed) ? "array" : parsed === null ? "null" : typeof parsed}`);
+        }
+        const queue = parsed;
+        if (!Array.isArray(queue.entries)) {
+            throw new Error(`Corrupt queue ${file}: expected "entries" to be an array, got ${queue.entries === null ? "null" : typeof queue.entries}`);
+        }
+        return queue.entries;
     }
     saveQueueEntries(entries) {
         (0, fs_atomic_1.writeJson)(this.queueFilePath(), { schemaVersion: 1, entries }, { durable: true });
