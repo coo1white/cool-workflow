@@ -1,0 +1,57 @@
+name: Bug report
+description: Something did not work the way the docs say it will.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for the report. CW keeps every run as plain JSON under
+        `.cw/` on your disk — that record is the best evidence you can give
+        us. Please take out any private text before you paste.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you do, and what went wrong?
+      placeholder: |
+        I ran `cw ...` and got ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you were waiting for
+      description: What did the docs or the help text say would happen?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      description: The exact commands, in order, from a clean start if you can.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `cw version` and `cw doctor`
+      description: These two commands say what CW sees on your machine.
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: os-node
+    attributes:
+      label: OS and Node version
+      placeholder: "macOS 15.6 / Node 22.11"
+    validations:
+      required: true
+  - type: textarea
+    id: run-record
+    attributes:
+      label: Run record (if a run is part of the bug)
+      description: |
+        The run's id, and any part of its `.cw/` JSON that shows the wrong
+        state. Take out private text first.
