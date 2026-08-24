@@ -55,6 +55,7 @@
     "index:check": "node scripts/sync-project-index.js --check",
     "sync:readme": "node scripts/sync-readme.js",
     "readme:check": "node scripts/sync-readme.js --check",
+    "citation:check": "node scripts/citation-check.js",
     "bump:version": "node scripts/bump-version.js",
     "new:feature": "node scripts/new-feature.js",
     "forward-ref": "node scripts/forward-ref-docs.js",

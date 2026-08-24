@@ -85,7 +85,11 @@ const checks = [
   // Fail closed if the npm README (plugins/cool-workflow/README.md) has drifted
   // from the GitHub README.md it is generated from. Keeps the two pages identical
   // by construction; teeth live in test/readme-sync-smoke.js (run by `npm test`).
-  { name: "readme sync", command: ["npm", "run", "readme:check"] }
+  { name: "readme sync", command: ["npm", "run", "readme:check"] },
+  // Fail closed if a live doc (docs/*.7.md and friends, AGENTS.md, READMEs)
+  // names a source file that is not in the tree. Teeth live in
+  // test/citation-check-smoke.js (run by `npm test`).
+  { name: "doc citation freshness", command: ["npm", "run", "citation:check"] }
 ];
 
 function main() {
