@@ -35,6 +35,11 @@ export function telemetryVerifyCli(runId: string, args: Record<string, unknown>)
   const keyChecks = trustPublicKeyInput && !trustPublicKey ? [{ name: "signature-key", pass: false, code: "telemetry-pubkey-unreadable" }] : [];
   const sig = verifyTelemetrySignatures(v.records, trustPublicKey);
   const failedChecks = [...v.checks.filter((c) => !c.pass), ...keyChecks, ...sig.checks.filter((c) => !c.pass)];
+  // Model-identity tally over the run's workers. The label comes only from
+  // the worker's usage record; a worker without one is "absent" — the model
+  // id is agent-self-reported, never checked by CW.
+  const workers = (run.workers as Array<{ usage?: Record<string, unknown> }> | undefined) || [];
+  const modelSelfReported = workers.filter((w) => w.usage && w.usage.modelProvenance === "agent-self-reported").length;
   return {
     schemaVersion: 1,
     runId: run.id,
@@ -44,6 +49,8 @@ export function telemetryVerifyCli(runId: string, args: Record<string, unknown>)
     attested: v.attested,
     unattested: v.unattested,
     absent: v.absent,
+    modelSelfReported,
+    modelAbsent: workers.length - modelSelfReported,
     signatureKeyProvided: sig.keyProvided,
     signaturesChecked: sig.checked,
     signaturesReverified: sig.reverified,

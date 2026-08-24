@@ -515,6 +515,7 @@ function allocateWorkerScope(run, task, options = {}) {
                 enforced: backendAttestation.enforced,
                 attested: backendAttestation.attested,
                 unenforceable: backendAttestation.unenforceable,
+                guarantees: backendAttestation.guarantees,
                 dispatchId: scope.dispatchId,
             },
         });
@@ -719,6 +720,10 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
             backendId: "agent",
             handle: delegation.handle,
             model: delegation.model,
+            // Where the model id comes from: "agent-self-reported" when the
+            // agent named a model itself; "absent" when it did not (the pinned
+            // "unreported" value). CW never checks the claim, only labels it.
+            modelProvenance: (delegation.model && delegation.model !== "unreported" ? "agent-self-reported" : "absent"),
             promptDigest: delegation.promptDigest,
             resultDigest: (0, hash_1.sha256)(rawResult),
             command: delegation.command,
@@ -870,6 +875,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
             schemaVersion: 1,
             source: "host-attested",
             ...(reportedModel ? { model: reportedModel } : {}),
+            modelProvenance: (reportedModel ? "agent-self-reported" : "absent"),
             ...(0, telemetry_attestation_1.normalizeReportedUsage)(agentDelegationMeta.reportedUsage),
             attestedAt: new Date().toISOString(),
             ...(telemetry ? { attestation: telemetry.status, ...(telemetry.reason ? { attestationReason: telemetry.reason } : {}) } : {}),

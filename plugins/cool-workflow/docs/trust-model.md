@@ -99,6 +99,29 @@ stored raw usage for every `attested` record. There is no telemetry service to
 trust or break into — the record proves its own integrity, and a third-party auditor
 can re-run both checks on their own machine.
 
+### 3. Enforce vs attest — the sandbox guarantee labels
+
+The sandbox attestation on every worker now names, per dimension, exactly
+which sort of guarantee you are holding. The three labels, and what each is
+worth:
+
+| Label | What it proves |
+|---|---|
+| `enforced` | CW itself makes the limit true. On the default drive path this is **only `write`**: worker-output acceptance keeps writes inside the accepted paths. |
+| `attested` | The backend/host *says* the limit holds. CW records the claim; it does not make it true. Worth exactly as much as your trust in that host. |
+| `absent` | No guarantee at all: the profile puts no limit on that dimension, or the backend has no support for it. |
+
+So on the default path the honest reading is: `write` enforced, everything
+else attested or absent. A backend that truly boxes a dimension in (the
+`container` backend's network namespace, for example) may label more
+dimensions `enforced` — the label follows the mechanism, never the wish.
+
+The same honesty covers the **model identity**: the recorded model id is
+labeled `agent-self-reported` (the agent named it itself) or `absent` (it
+named none). CW never verifies the model claim — it holds no key to the
+agent's process and calls no model. A model id in a CW record is attribution
+of a claim, not a measurement.
+
 ---
 
 ## What this DOES prove

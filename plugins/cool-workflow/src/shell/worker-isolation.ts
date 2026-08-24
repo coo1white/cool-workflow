@@ -32,7 +32,7 @@ import {
   sandboxPolicyForWorker,
   validateSandboxWrite,
 } from "./sandbox-profile";
-import { ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types";
+import { ModelProvenanceLabel, ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types";
 import { attestSandbox, getBackendDescriptor, resolveBackendSelection } from "./execution-backend/registry";
 import { recordFeedback } from "./error-feedback-io";
 import { saveCheckpoint } from "./run-store";
@@ -559,6 +559,7 @@ export function allocateWorkerScope(run: WorkflowRun, task: RunTask, options: Al
         enforced: backendAttestation.enforced,
         attested: backendAttestation.attested,
         unenforceable: backendAttestation.unenforceable,
+        guarantees: backendAttestation.guarantees,
         dispatchId: scope.dispatchId,
       },
     });
@@ -766,6 +767,10 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
         backendId: "agent" as const,
         handle: delegation.handle,
         model: delegation.model,
+        // Where the model id comes from: "agent-self-reported" when the
+        // agent named a model itself; "absent" when it did not (the pinned
+        // "unreported" value). CW never checks the claim, only labels it.
+        modelProvenance: (delegation.model && delegation.model !== "unreported" ? "agent-self-reported" : "absent") as ModelProvenanceLabel,
         promptDigest: delegation.promptDigest,
         resultDigest: sha256(rawResult),
         command: delegation.command,
@@ -935,6 +940,7 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
         schemaVersion: 1,
         source: "host-attested",
         ...(reportedModel ? { model: reportedModel } : {}),
+        modelProvenance: (reportedModel ? "agent-self-reported" : "absent") as ModelProvenanceLabel,
         ...normalizeReportedUsage(agentDelegationMeta.reportedUsage),
         attestedAt: new Date().toISOString(),
         ...(telemetry ? { attestation: telemetry.status, ...(telemetry.reason ? { attestationReason: telemetry.reason } : {}) } : {}),

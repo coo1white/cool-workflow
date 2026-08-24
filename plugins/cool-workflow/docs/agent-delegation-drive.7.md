@@ -84,6 +84,20 @@ the agent reports no model, CW writes down `unreported` — it never fills in fr
 `CW_AGENT_MODEL`. A configured `CW_AGENT_MODEL` that is not the same as the
 agent's reported model does not overwrite the host-reported model id.
 
+The record now says this out loud with a `modelProvenance` label on the
+accepted worker's usage record (and on the `agentDelegation` result-node
+metadata):
+
+- `agent-self-reported` — the agent named a model itself in its output.
+- `absent` — the agent named no model (the pinned `unreported` value), so
+  there is no model identity on record.
+
+CW never checks the model claim — it can not, by design (the red line: no
+model SDK, no API key). The label makes the source of every recorded model
+id plain on the user surfaces: report.md's Workers/Trust Audit sections and
+`cw telemetry verify` (the `model:` line; `modelSelfReported`/`modelAbsent`
+in `--json`).
+
 ## Two layers, never conflated
 
 1. **Backend evidence triple.** `runAgentProcess` keeps a record of the agent
