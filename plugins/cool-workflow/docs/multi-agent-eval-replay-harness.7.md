@@ -187,7 +187,7 @@ verifier-gated commit readiness still holds.
 ## CLI ↔ MCP Parity (v0.1.27)
 
 Every command and tool named above is declared in the v0.1.27 capability
-registry (`src/capability-registry.ts`) and checked by `npm run parity:check`,
+registry (`src/core/capability-data.ts`) and checked by `npm run parity:check`,
 so `cw <cmd> --json` and the matching `cw_<tool>` result show one data source.
 See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
 

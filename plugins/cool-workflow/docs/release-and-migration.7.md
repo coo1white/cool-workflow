@@ -19,7 +19,7 @@ the normalized/migrated state back to disk.
 ## State Policy
 
 The current durable run-state schema is `1`, set by
-`CURRENT_RUN_STATE_SCHEMA_VERSION` in `src/version.ts`.
+`CURRENT_RUN_STATE_SCHEMA_VERSION` in `src/core/version.ts`.
 
 Loading state goes in this order:
 

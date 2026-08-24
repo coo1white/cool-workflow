@@ -262,7 +262,7 @@ unchanged.
 
 `{{manifest}}`, `{{input}}`, `{{result}}`, `{{workerDir}}`, `{{model}}`, and
 `{{prompt}}` are put into DISCRETE argv elements (never a shell-interpreted
-string). Each verb is declared once in `capability-registry.ts`, so `cw <cmd>
+string). Each verb is declared once in `src/core/capability-data.ts`, so `cw <cmd>
 --json` is byte-identical to the matching `cw_<tool>` MCP tool for the read-only
 preview/config-show verbs.
 

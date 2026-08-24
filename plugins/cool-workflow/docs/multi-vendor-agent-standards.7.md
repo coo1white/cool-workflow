@@ -16,7 +16,7 @@ Ledger](cross-agent-ledger.7.md).
 A vendor agent that calls CW as a client (CLI or MCP) MUST:
 
 1. Call only documented commands. The full command list comes from one
-   capability registry (`src/capability-registry.ts`), the same source that
+   capability registry (`src/core/capability-data.ts`), the same source that
    makes both the CLI help and the MCP tool list — see [CLI <-> MCP
    Parity](cli-mcp-parity.7.md).
 2. Read `--json` output (CLI) or the JSON-RPC result (MCP) for anything it

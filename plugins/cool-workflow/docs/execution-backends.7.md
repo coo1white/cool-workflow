@@ -125,7 +125,7 @@ Selection is kept in run state (dispatch manifest, worker scope, worker
 manifest, the RunDispatch) and shown in the v0.1.28 run registry as the
 record's `backends` field. A per-task `backendId` takes the place of the run default.
 `backend list|show|probe` and the `--backend` flag are set out once in
-`src/capability-registry.ts`, so `cw <cmd> --json` and `cw_<cmd>` use one
+`src/core/capability-data.ts`, so `cw <cmd> --json` and `cw_<cmd>` use one
 data source and get past the v0.1.27 parity gate.
 
 ## EVIDENCE PARITY

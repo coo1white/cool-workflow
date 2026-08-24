@@ -97,8 +97,8 @@ not a live price feed); pass `--pricing <path>` to use your own, or
 
 ## One source, every surface
 
-The metrics verbs are declared once in `src/capability-registry.ts`, so the CLI
-and MCP surfaces are two views of one core (`src/observability.ts`) and pass
+The metrics verbs are declared once in `src/core/capability-data.ts`, so the CLI
+and MCP surfaces are two views of one core (`src/shell/observability.ts`) and pass
 the v0.1.27 parity gate — `cw <cmd> --json` is byte-identical to `cw_<tool>`
 (durations are integers from recorded timestamps; only the ISO `generatedAt` is
 now-derived and made neutral by the parity probe). The v0.1.30 Workbench renders a

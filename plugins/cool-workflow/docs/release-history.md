@@ -319,27 +319,21 @@ The orchestration vision came in one release, all reviewer-gated:
 
 `cw demo tamper` — a hermetic, one-command proof that a recorded telemetry verdict cannot be faked without being caught: it builds a real ed25519-signed ledger, fakes it at the ledger layer (verdict flip + recomputed local hash → the chain still breaks) and the signature layer (inflated tokens, reused signature → ed25519 rejects), all checked offline with only the public key. `cw telemetry verify <run>` (`cw_telemetry_verify` on MCP) is the operator-facing re-proof: by default it recomputes the hash chain on disk so any later edit to a recorded verdict or usage digest is caught; add `--pubkey <pem-or-path>` to re-run each `attested` hop's ed25519 signature check against the stored raw usage too. What this does and does **not** prove — taking in the single-keyholder ceiling — is set down in a true way in [Trust Model & Limitations](trust-model.md); read it before you put trust in a green verdict.
 
-## Opt-in live agent output during a drive (on main, ships next)
+## Opt-in live agent output during a drive (v0.1.80)
 
 Set `CW_AGENT_STREAM=1` to see each worker's live agent trace. The bundled claude wrapper (`builtin:claude` / `scripts/agents/claude-p-agent.js`) keeps the legacy `--output-format json` path by default; only the opt-in path runs claude in `--output-format stream-json` and renders a short human trace (tool uses, assistant text, per-turn summaries) to **stderr**. CW core sends that stderr on to the operator's terminal only when `CW_AGENT_STREAM=1`, CW's own stderr is a TTY, and `CW_NO_STREAM` is not set; piped/CI runs stay quiet (Rule of Silence). Core only sends the stream on, never reads it — vendor-specific rendering is the wrapper's business (policy), not the kernel's (mechanism).
 
-## Builtin Codex agent wrapper (on main, ships next)
+## Builtin Codex agent wrapper (v0.1.87)
 
 `--agent-command builtin:codex` points to a bundled read-only Codex wrapper. It
 runs `codex exec --json --output-last-message`, sends the worker prompt on stdin,
 writes the final answer to `result.md`, and writes one `{model, usage, result}`
 JSON object to stdout for CW provenance. With `CW_AGENT_STREAM=1`, it renders a
-short stderr trace from Codex JSONL events. Gemini, OpenCode, DeepSeek, and GLM
-stay outside CW until their wrapper stream shape is proven by a local smoke; CW
-still imports no model SDK.
-
-v0.1.79
+short stderr trace from Codex JSONL events. CW still imports no model SDK.
 
 ## Fast Architecture Review (v0.1.80)
 
 Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, Map and Assess results you can use again, wrapper metrics you can measure, a background full-review handoff you can act on, and userland model policy flags for routing fast/strong workers without changing the full review contract.
-
-_This documentation tracks Cool Workflow v0.1.85. See [CHANGELOG](../../CHANGELOG.md) for the release notes._
 
 ## Hardening and Onboarding (v0.1.83)
 
@@ -348,5 +342,3 @@ Loaders fail closed on corrupt state; store writes are made safe under more than
 ## Privacy Release (v0.1.84)
 
 This release removes local user path text from saved release review input and adds a scan that keeps those words out of tracked files.
-
-v0.1.85

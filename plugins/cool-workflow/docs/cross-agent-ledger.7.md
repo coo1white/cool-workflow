@@ -39,7 +39,7 @@ from the verb.
 
 ## Mechanism vs policy
 
-The MECHANISM is small and lives in the kernel (`src/ledger.ts`): build a
+The MECHANISM is small and lives in the kernel (`src/core/trust/ledger.ts`): build a
 proposal or a review entry, seal it with a sha256 digest over its canonical
 content, and verify that digest fail-closed. No run state, no network, no new
 runtime dependency. The POLICY — which repos, who may propose, whether a verdict

@@ -10,7 +10,7 @@ readiness selection, a hard concurrency ceiling, leases, retry with worked-out
 backoff, and a fail-closed park state. The verbs use their own `sched` namespace,
 apart from the unrelated wall-clock `schedule` (loop/cron) scheduler.
 
-The core (`src/scheduling.ts`) is pure and deterministic — every function is given an
+The core (`src/shell/scheduling-io.ts`) is pure and deterministic — every function is given an
 injected `now`; "CW writes down readiness/order/leases, the host still runs the
 workers."
 

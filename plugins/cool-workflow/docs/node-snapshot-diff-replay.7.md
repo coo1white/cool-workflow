@@ -75,7 +75,7 @@ replayRef` shape.
 
 `node.snapshot`/`node.diff`/`node.replay`/`node.replay.verify` are declared in the
 capability registry as `surface: "both"`, so `cw node <verb> --json` and the
-`cw_node_*` MCP tools render one core (`src/node-snapshot.ts`). Additive: no change
+`cw_node_*` MCP tools render one core (`src/core/state/node-snapshot.ts`). Additive: no change
 to `StateNode`, `STATE_NODE_SCHEMA_VERSION`, the run-state schema, the pipeline
 contract, or existing eval-suite artifacts; pre-0.1.35 runs and snapshots can still
 be loaded. Making the once-private eval-harness helpers

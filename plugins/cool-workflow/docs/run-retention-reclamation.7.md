@@ -134,7 +134,7 @@ interrupted before it ever wrote a first `state.json` (the window between
 `ensureRunDirs` and the first `saveCheckpoint`). Such a directory never becomes a
 `RunRecord` at all, so `gc plan`/`gc run` can never see it, let alone reclaim it —
 `reclaimEligibility` requires a record to classify in the first place. `cw orphans
-list`/`cw orphans gc` (`src/run-registry/orphans.ts`) reclaim exactly this case,
+list`/`cw orphans gc` (`src/shell/reclamation-io.ts`) reclaim exactly this case,
 age-gated by default. Unlike everything else on this page, an orphan sweep
 produces **no skeleton and no tombstone** — there is no durable state to seal, so
 there is nothing to prove. It is a plain, un-audited delete of a directory the

@@ -23,14 +23,14 @@ policy:
 
 ## Mechanism vs Policy
 
-The mechanism is the capability registry at `src/capability-registry.ts`
-(compiled to `dist/capability-registry.js`). It is the one true source. Every
+The mechanism is the capability registry at `src/core/capability-table.ts`
+(compiled to `dist/core/capability-table.js`). It is the one true source. Every
 capability names one shared core `entry` — the mechanism both surfaces go
 through — plus its CLI command, its MCP tool, the surface it is on, and whether
 its payload is the same across surfaces.
 
 No business logic is left on its own in `cli.ts` or `mcp-server.ts`. Composite
-capabilities are in `src/capability-core.ts` (`planSummary`, `appRun`,
+capabilities are in `src/shell/pipeline-cli.ts` and `src/shell/app-run-cli.ts` (`planSummary`, `appRun`,
 `sandboxChoose`, `commitEnvelope`), so both surfaces call the same core entry
 and are different only in how they render its result. The CLI renders for a
 human; the MCP tool renders for a machine; neither one owns the logic.
@@ -475,7 +475,7 @@ together from the slices under `src/wiring/capability-table/`) and runs that
 row's `cli.handler` — a new capability is a new table row, never a new `case`.
 The shared arg helpers (`required`, `optionalArg`, `wantsJson`) live in
 `src/core/util/cli-args.ts`, a pure module used by the CLI and MCP sides of
-every wiring slice; they were moved out of `cli/io.ts` because the purity
+every wiring slice; they were moved out of `src/cli/io.ts` because the purity
 gate's layer rule says `wiring/` may not take imports from `cli/`. The parity
 gate does not use a token list made from the registry as proof of that same
 registry. It runs real `cw help`, checks every declared CLI path through the

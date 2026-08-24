@@ -2,7 +2,7 @@
 "use strict";
 
 // One-shot version bump across every STRUCTURED surface, then gate or auto-fix
-// the CONTENT surfaces (docs, CHANGELOG, RELEASE, README) that must mention the
+// the CONTENT surfaces (the docs/*.7.md man pages) that must mention the
 // new version for version-sync-check and dogfood-release to pass.
 //
 //   node scripts/bump-version.js <new-version>           # gate (fail if content missing)

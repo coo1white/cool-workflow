@@ -49,7 +49,7 @@ makes the following traceable and machine-readable, per gate:
 
 ## Derived record model
 
-The records live in `src/types.ts` and reuse existing provenance / trust /
+The records live in `src/shell/evidence-reasoning.ts` and reuse existing provenance / trust /
 rationale types by reference:
 
 - `EvidenceReasoningStep` - one gate's reasoning: `gate`, `decision`, `basis`,
@@ -151,11 +151,11 @@ worker result / blackboard / coordinator decision
 ```
 
 No daemon, no hidden dashboard, no LLM call. The chain is derived from recorded
-state by `src/evidence-reasoning.ts` and rendered when asked for.
+state by `src/shell/evidence-reasoning.ts` and rendered when asked for.
 ## CLI ↔ MCP Parity (v0.1.27)
 
 Every command and tool named above is declared in the v0.1.27 capability
-registry (`src/capability-registry.ts`) and checked by `npm run parity:check`,
+registry (`src/core/capability-data.ts`) and checked by `npm run parity:check`,
 so `cw <cmd> --json` and the matching `cw_<tool>` result render one data source.
 See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
 
