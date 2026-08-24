@@ -78,6 +78,30 @@ A delegated run NEVER makes up a completion. It returns `status: "refused"`
 A container command that truly runs and exits non-zero is `failed` (a real
 result), not the same as `refused` (never ran).
 
+## Guarantee Labels (`guarantees`)
+
+Every new `SandboxAttestation` carries a `guarantees` map: one label for each
+of the five sandbox dimensions (`read`, `write`, `command`, `network`, `env`):
+
+- `enforced` — CW itself makes this limit true.
+- `attested` — the backend/host only says the limit holds; CW records the
+  claim, it does not make it true.
+- `absent` — not covered at all: the profile puts no limit on that dimension
+  (mode `any`), or the backend has no support for it.
+
+Be clear about the default path: a normal `--drive` run is a `delegate-host`
+execution, and there only `write` is CW-enforced — CW's worker-output
+acceptance keeps writes inside the accepted paths. Every other dimension is
+at best `attested`. Readers get the labels ONLY through
+`sandboxGuaranteeLabels()` (`src/shell/execution-backend/registry.ts`): a new
+record hands back its own map; an old record without the map gets labels
+worked out from its stored `enforced[]`/`attested[]` arrays; no attestation
+at all reads as all-`absent`. Fail closed — no surface may make up
+"enforced" on its own. The field is additive: the existing
+`enforced`/`attested`/`unenforceable` arrays, the `status: "refused"`
+fail-closed path, and the `ResolvedSandboxPolicy.enforcement` contract are
+all byte-unchanged.
+
 ## Compatibility
 
 The default backend stays `node`; the dispatch path stays a `delegate-host`

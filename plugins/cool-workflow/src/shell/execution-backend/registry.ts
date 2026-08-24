@@ -28,6 +28,7 @@ import {
   BackendSelection,
   ExecutionRequest,
   ExecutionResultEnvelope,
+  GuaranteeLabel,
   ResolvedSandboxPolicy,
   SandboxAttestation,
   SandboxDimension,
@@ -328,6 +329,16 @@ export function attestSandbox(
   const enforced: SandboxDimension[] = [];
   const attested: SandboxDimension[] = [];
   const unenforceable: SandboxDimension[] = [];
+  // Per-dimension labels over ALL five dimensions. A dimension the profile
+  // does not limit at all (mode "any" — not in `required`) is "absent";
+  // the loop below overwrites the label for every required dimension.
+  const guarantees: Record<SandboxDimension, GuaranteeLabel> = {
+    read: "absent",
+    write: "absent",
+    command: "absent",
+    network: "absent",
+    env: "absent",
+  };
 
   for (const dimension of required) {
     const declared = supportByDimension.get(dimension) || "unsupported";
@@ -335,9 +346,16 @@ export function attestSandbox(
     if (options.mode === "delegate-host" && declared !== "unsupported") {
       effective = dimension === "write" ? "enforce" : "attest";
     }
-    if (effective === "enforce") enforced.push(dimension);
-    else if (effective === "attest") attested.push(dimension);
-    else unenforceable.push(dimension);
+    if (effective === "enforce") {
+      enforced.push(dimension);
+      guarantees[dimension] = "enforced";
+    } else if (effective === "attest") {
+      attested.push(dimension);
+      guarantees[dimension] = "attested";
+    } else {
+      unenforceable.push(dimension);
+      guarantees[dimension] = "absent";
+    }
   }
 
   const refusedForReadiness = options.ready === false;
@@ -355,12 +373,33 @@ export function attestSandbox(
     attested,
     unenforceable,
     status,
+    guarantees,
     enforcedByCW: policy.enforcement.enforcedByCW,
     hostRequired: policy.enforcement.hostRequired,
     recordedAt: options.recordedAt || new Date().toISOString(),
     handle: options.handle,
     notes: options.notes,
   };
+}
+
+/** The ONE reader for per-dimension guarantee labels. Every render surface
+ *  must go through this — no surface may make up "enforced" on its own.
+ *  New records carry `guarantees`; for old records the labels are derived
+ *  from the stored enforced[]/attested[] arrays; no attestation at all
+ *  gives all-"absent" (fail closed, never fail open). */
+export function sandboxGuaranteeLabels(attestation?: SandboxAttestation): Record<SandboxDimension, GuaranteeLabel> {
+  const labels: Record<SandboxDimension, GuaranteeLabel> = {
+    read: "absent",
+    write: "absent",
+    command: "absent",
+    network: "absent",
+    env: "absent",
+  };
+  if (!attestation) return labels;
+  if (attestation.guarantees) return { ...labels, ...attestation.guarantees };
+  for (const dimension of attestation.enforced || []) labels[dimension] = "enforced";
+  for (const dimension of attestation.attested || []) labels[dimension] = "attested";
+  return labels;
 }
 
 // ---------------------------------------------------------------------------

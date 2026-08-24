@@ -51,6 +51,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.writeReport = writeReport;
 const fs = __importStar(require("node:fs"));
 const dispatch_1 = require("../core/pipeline/dispatch");
+const registry_1 = require("./execution-backend/registry");
 const state_explosion_cli_1 = require("./state-explosion-cli");
 const state_explosion_text_1 = require("../core/format/state-explosion-text");
 const candidate_scoring_io_1 = require("./candidate-scoring-io");
@@ -113,6 +114,13 @@ function renderSandboxProfiles(run) {
 function renderTrustAudit(run) {
     const summary = (0, trust_audit_1.summarizeTrustAudit)(run);
     const integrity = summary.integrity;
+    // Model-identity tally over the run's workers — only when workers exist,
+    // so an empty run's report stays byte-identical.
+    const workers = run.workers || [];
+    const selfReported = workers.filter((w) => workerModelProvenance(w) === "agent-self-reported").length;
+    const modelLines = workers.length
+        ? [`- Model provenance: ${selfReported} agent-self-reported · ${workers.length - selfReported} absent (agent-self-reported, never CW-verified)`]
+        : [];
     return [
         `- Events: ${summary.eventCount}`,
         `- Chain integrity: ${integrity ? (integrity.verified ? "verified" : "FAILED") : "n/a"}` +
@@ -126,6 +134,7 @@ function renderTrustAudit(run) {
         `- Event log: ${summary.eventLogPath}`,
         `- Summary: ${summary.summaryPath}`,
         `- Index: ${summary.indexPath}`,
+        ...modelLines,
         ...renderTelemetryAttestation(run),
     ];
 }
@@ -270,11 +279,27 @@ function renderFeedback(run) {
         `- By classification: ${formatCounts(countBy(records, (r) => r.classification))}`,
     ];
 }
+/** The worker's model-identity label. Comes only from the usage record the
+ *  agent self-reported into — an old record or no record at all reads as
+ *  "absent" (fail closed, never made up). */
+function workerModelProvenance(worker) {
+    const usage = worker.usage;
+    return usage && usage.modelProvenance === "agent-self-reported" ? "agent-self-reported" : "absent";
+}
 function renderWorkers(run) {
     const workers = run.workers || [];
     if (!workers.length)
         return ["No worker scopes yet."];
     const lines = [`- Total: ${workers.length}`, `- By status: ${formatCounts(countBy(workers, (w) => w.status))}`];
+    // Per-worker guarantee labels — rendered only for a worker that carries
+    // an attestation or a usage record, so a run with neither keeps a
+    // byte-identical report. Labels come ONLY from sandboxGuaranteeLabels.
+    for (const w of workers) {
+        if (!w.backendAttestation && !w.usage)
+            continue;
+        const g = (0, registry_1.sandboxGuaranteeLabels)(w.backendAttestation);
+        lines.push(`- ${w.id}: backend=${w.backendId || "none"} guarantees write=${g.write} read=${g.read} command=${g.command} network=${g.network} env=${g.env} model=${workerModelProvenance(w)}`);
+    }
     const failed = workers.filter((w) => w.status === "failed" || w.status === "rejected");
     if (failed.length) {
         lines.push("", "Failed or rejected:");

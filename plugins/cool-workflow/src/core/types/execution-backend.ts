@@ -176,6 +176,17 @@ export interface BackendSelection {
 
 export type SandboxAttestationStatus = "enforced" | "attested" | "refused";
 
+/** Per-dimension guarantee label. "enforced" = CW itself makes it true;
+ *  "attested" = only said to be true by the host/agent; "absent" = not
+ *  covered at all (the profile does not limit it, or the backend has no
+ *  support for it). */
+export type GuaranteeLabel = "enforced" | "attested" | "absent";
+
+/** Where the recorded model identity comes from. "agent-self-reported" =
+ *  the agent said so itself; "absent" = no model was reported. CW never
+ *  checks the model id — it only records the claim. */
+export type ModelProvenanceLabel = "agent-self-reported" | "absent";
+
 export interface BackendExecutionHandle {
   kind: "container" | "remote" | "ci" | "process";
   ref: string;
@@ -197,6 +208,11 @@ export interface SandboxAttestation {
   attested: SandboxDimension[];
   unenforceable: SandboxDimension[];
   status: SandboxAttestationStatus;
+  /** Per-dimension guarantee labels over ALL five dimensions. Additive:
+   *  old records do not have it; readers must go through
+   *  sandboxGuaranteeLabels(), which derives labels for old records and
+   *  gives all-"absent" when there is no attestation at all. */
+  guarantees?: Record<SandboxDimension, GuaranteeLabel>;
   enforcedByCW: string[];
   hostRequired: string[];
   recordedAt: string;

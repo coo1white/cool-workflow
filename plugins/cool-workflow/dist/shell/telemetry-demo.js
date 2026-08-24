@@ -70,6 +70,7 @@ function formatTelemetryVerify(r) {
             ? `✗ VERIFICATION REFUSED — supplied public key was unreadable`
             : `✗ TAMPERING DETECTED — ${r.failedChecks.length} check(s) failed`;
     const tally = `   attested ${r.attested} · unattested ${r.unattested} · absent ${r.absent}`;
+    const model = `\n   model: agent-self-reported ${r.modelSelfReported} · absent ${r.modelAbsent}`;
     const sig = keyUnreadable
         ? `\n   signatures: public key unreadable; ed25519 re-check refused`
         : r.signatureKeyProvided
@@ -78,7 +79,7 @@ function formatTelemetryVerify(r) {
                 ? `\n   signatures: ${r.signaturesChecked} attested record(s) — chain-proven only; pass --pubkey to re-verify ed25519 offline`
                 : "";
     const fails = r.failedChecks.length ? "\n" + r.failedChecks.map((c) => `   ✗ ${c.name}  ${c.code || ""}`).join("\n") : "";
-    return `telemetry verify ${r.runId}\n${head}\n${tally}${sig}${fails}`;
+    return `telemetry verify ${r.runId}\n${head}\n${tally}${model}${sig}${fails}`;
 }
 /** Human-facing render of `demo tamper`. */
 function formatTamperDemo(r) {
