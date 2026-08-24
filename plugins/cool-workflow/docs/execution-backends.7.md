@@ -90,8 +90,13 @@ unsandboxed execution.
   in provenance. Enforces command + env; attests read/write/network.
 
 `shell`
-: Runs a command/worker through the system shell (`/bin/sh -c`) under the sandbox
-  contract. Enforces command + env; attests read/write/network.
+: Takes a shell-STYLE command line under the sandbox contract, but no shell
+  process ever runs: the guard refuses every control character, quote mark,
+  and backslash, then the line is split on white space and spawned as plain
+  argv with `shell:false`. Same child and argv as the old `/bin/sh -c` path
+  for every line the guard accepts; a character the guard might miss would
+  go to the child as plain bytes, never to a shell. Enforces command + env;
+  attests read/write/network.
 
 `container`
 : Delegates to a container runtime (docker/podman) and keeps the

@@ -62,10 +62,17 @@ function buildChildEnv(policy, baseEnv = process.env) {
 /** Shell injection guard (SPEC/execution-backend.md "Local execution"): for
  *  the `shell` driver, the joined string (with `{{token}}` placeholders
  *  taken out first) must not match the control-character set. Throws a
- *  plain Error with the byte-exact message on a hit. */
+ *  plain Error with the byte-exact message on a hit.
+ *
+ *  Quote marks and the backslash are in the set as well (2026-08-24, audit
+ *  recommendation 7): with them out, every line this guard lets through is
+ *  split by white space only — the same way a POSIX shell would split it —
+ *  so the line can be run with NO shell process at all (see executeLocal).
+ *  The guard is then a filter, not the safety: even a character that got
+ *  past it would go to the child as plain argv bytes, never to a shell. */
 function checkShellGuard(command, args) {
     const shellArg = [command, ...args].join(" ").replace(/\{\{[a-zA-Z0-9_.-]+\}\}/g, "");
-    if (/[;&|`$(){}<>!\n\r#*?~]/.test(shellArg)) {
+    if (/[;&|`$(){}<>!\n\r#*?~'"\\]/.test(shellArg)) {
         throw new Error(`Shell backend refused: args contain shell control characters. ` +
             `Use the node, bun, or agent backend instead for untrusted inputs.`);
     }
@@ -117,8 +124,18 @@ function executeLocal(descriptor, request, label, attestation, spawnStyle) {
     if (isTTY)
         process.stderr.write(`● Running ${shortLabel}...\n`);
     const startedAt = process.hrtime.bigint();
+    // The "shell" style takes a command LINE, but no shell process ever runs
+    // (audit recommendation 7). The guard above has already refused every
+    // control character, quote, and escape, so POSIX word-splitting of the
+    // line is white-space splitting — done here, then spawned as plain argv
+    // with shell:false. Same child, same argv bytes as the old /bin/sh path
+    // for every line the guard accepts; structurally safe for every line it
+    // might ever miss.
+    const shellTokens = spawnStyle === "shell"
+        ? [command, ...args].join(" ").split(/\s+/).filter(Boolean)
+        : [];
     const result = spawnStyle === "shell"
-        ? (0, node_child_process_1.spawnSync)([command, ...args].join(" "), { ...options, shell: true })
+        ? (0, node_child_process_1.spawnSync)(shellTokens[0], shellTokens.slice(1), { ...options, shell: false })
         : (0, node_child_process_1.spawnSync)(command, args, { ...options, shell: false });
     const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
     if (isTTY)
