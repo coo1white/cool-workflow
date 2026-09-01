@@ -314,7 +314,7 @@ function renderPendingTasks(run) {
         return ["No pending tasks."];
     return pending.map((t) => `- ${t.id} (${t.phase}, ${t.status}): ${t.taskPath}`);
 }
-/** WS1 "run <-> PR linkage": one line per link annotation. Called only
+/** "run <-> PR linkage": one line per link annotation. Called only
  *  when `run.links` is non-empty (see writeReport below) — a run with no
  *  links never gains a "## Links" header, so an empty run's report.md
  *  stays byte-identical to before this field existed. */
@@ -424,7 +424,7 @@ function writeReport(run) {
         "## Results",
         "",
         ...renderResults(run),
-        // WS1 "run <-> PR linkage": the ONLY section that is fully absent (no
+        // "run <-> PR linkage": the ONLY section that is fully absent (no
         // header at all) when it has nothing to show — every section above
         // keeps its header plus a "none yet" fallback line, but a "## Links"
         // header on a run with no links would be new, unwanted noise on

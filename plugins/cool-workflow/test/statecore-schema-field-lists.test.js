@@ -39,7 +39,7 @@ const {
 }
 
 // OPTIONAL_TOP_LEVEL_KEYS: exact 14-key list (13 from SPEC + "links",
-// added by WS1's run <-> PR linkage, the same way "collaboration" was
+// added by the run <-> PR linkage work, the same way "collaboration" was
 // added on top of the original SPEC count).
 {
   assert.deepEqual(

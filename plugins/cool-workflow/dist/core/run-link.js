@@ -1,5 +1,5 @@
 "use strict";
-// core/run-link.ts — pure logic for WS1's "run <-> PR linkage": check a
+// core/run-link.ts — pure logic for "run <-> PR linkage": check a
 // link url, build one link annotation, and add it to a run's link list
 // with no repeat.
 //
@@ -8,8 +8,7 @@
 // the run back to disk. `now` always comes in as a plain string from the
 // caller — this file never calls `new Date()` itself.
 //
-// Evidence: the run-link-annotations binding design, WS1 ("run <-> PR
-// linkage — Linkage as the minimum bar").
+// Evidence: docs/run-registry-control-plane.7.md "Link".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.parseRunLinkUrl = parseRunLinkUrl;
 exports.normalizeRunLinkKind = normalizeRunLinkKind;

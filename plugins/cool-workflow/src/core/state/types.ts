@@ -415,7 +415,7 @@ export interface RunAuditPaths {
   indexPath?: string;
 }
 
-/** WS1 "run <-> PR linkage": the kind of thing a run link points at. Free
+/** "run <-> PR linkage": the kind of thing a run link points at. Free
  *  text defaults to "pr" when not given. */
 export type RunLinkKind = "pr" | "issue" | "ticket";
 

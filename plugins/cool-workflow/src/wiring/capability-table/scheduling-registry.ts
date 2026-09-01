@@ -657,7 +657,7 @@ attachCliBinding("run.rerun", {
 REGISTRY_BY_CAPABILITY.get("run.rerun")!.mcp!.handler = (args) => loadRegistryCli().runRerunCli(required(optionalArg(args.runId), "run id"), args);
 
 // `run link <run-id> --url <url> [--kind pr|issue|ticket] [--note TEXT]`
-// (WS1, run <-> PR linkage): records one append-only link annotation on
+// (run <-> PR linkage): records one append-only link annotation on
 // the run record. No network call — it only writes a link, it never
 // calls out to a forge. `hiddenFromHelp` keeps the byte-pinned `cw help
 // run` fixture unchanged (same reason run.export/import/... hide, per

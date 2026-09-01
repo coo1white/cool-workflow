@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// run-link-smoke (WS1, run <-> PR linkage) — proves `cw run link`:
+// run-link-smoke (run <-> PR linkage) — proves `cw run link`:
 //   1. Adding a link records it on the run record; `--kind` defaults to
 //      "pr"; the actor falls back to "cw" when not given.
 //   2. `run show` and `report.md` render a "## Links" section only when a

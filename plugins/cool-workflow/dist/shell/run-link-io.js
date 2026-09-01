@@ -7,8 +7,7 @@
 // No network call anywhere in this file — it only records a link; it
 // never calls out to a forge (GitHub, Gitea, ...).
 //
-// Evidence: the run-link-annotations binding design, WS1 ("run <-> PR
-// linkage — Linkage as the minimum bar").
+// Evidence: docs/run-registry-control-plane.7.md "Link".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.recordRunLink = recordRunLink;
 const run_link_1 = require("../core/run-link");

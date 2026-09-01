@@ -87,7 +87,7 @@ export interface RunRecord {
   reclaimedAt?: string;
   reclaimedBytes?: number;
   tombstoneHash?: string;
-  /** WS1 "run <-> PR linkage": append-only link annotations from `cw run
+  /** "run <-> PR linkage": append-only link annotations from `cw run
    *  link`. Absent (not an empty array) when the run has none, so a run
    *  show/search payload with no links stays exactly as it was before
    *  this field existed. */
