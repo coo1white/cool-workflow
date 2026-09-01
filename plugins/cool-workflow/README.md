@@ -65,8 +65,8 @@ Upgrade later with `brew update && brew upgrade cool-workflow`.
 </details>
 
 **You need:** Node.js v18 or newer, and one agent CLI on your machine —
-`claude`, `codex`, `gemini`, or `opencode`. CW finds them by itself. No agent
-yet? Step 1 below still works — **CW never runs a model itself.**
+`claude`, `codex`, `gemini`, `opencode`, or `muse`. CW finds them by itself.
+No agent yet? Step 1 below still works — **CW never runs a model itself.**
 
 Not sure what you have? `cw doctor` checks your setup and `cw fix` prints the
 commands that put it right.
@@ -95,12 +95,12 @@ cw -q "How does auth work end-to-end here?"
 Any question works — "how does X work", "is it safe to change Y", "what would
 break if Z rotated". CW uses the current repo and the first agent it finds on
 your `PATH`. Want a specific agent? Add a flag (`-claude`, `-codex`, `-gemini`,
-`-opencode`, `-deepseek`). Note: the `-gemini` and `-deepseek` flags reach
-their models through `opencode`, so those two need `opencode` installed and
-its provider signed in. DeepSeek also has no auto-detect, so `-deepseek` is
-the only way to get it. (A native `gemini` CLI found on your `PATH` is used
-directly.) You can point CW at any folder, or at a **repo on the web by
-URL** — CW clones it and reviews the copy:
+`-opencode`, `-deepseek`, `-muse`). Note: the `-gemini` and `-deepseek` flags
+reach their models through `opencode`, so those two need `opencode` installed
+and its provider signed in. DeepSeek also has no auto-detect, so `-deepseek`
+is the only way to get it. (A native `gemini` CLI, or `muse`, found on your
+`PATH` is used directly.) You can point CW at any folder, or at a **repo on
+the web by URL** — CW clones it and reviews the copy:
 
 ```bash
 cw -q "What are the security risks?" -dir /path/to/project

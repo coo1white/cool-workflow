@@ -71,6 +71,8 @@ async function runCli(argv = process.argv.slice(2)) {
         args.options["agent-command"] = "builtin:opencode";
     if (args.options.deepseek)
         args.options["agent-command"] = "builtin:deepseek";
+    if (args.options.muse)
+        args.options["agent-command"] = "builtin:muse";
     // -dir / --dir / -d is a second name for --repo; an explicit --repo wins
     // (src/cli/command-surface.ts:65).
     if (!args.options.repo && args.options.dir)

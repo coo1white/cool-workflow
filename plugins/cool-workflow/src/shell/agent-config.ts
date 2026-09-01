@@ -134,7 +134,7 @@ function agentConfigFromArgs(args: Record<string, unknown>): AgentDelegationConf
  *  undefined. Skipped when CW_NO_AUTO_AGENT=1. */
 function detectAgentFromPath(env: NodeJS.ProcessEnv = process.env): string | undefined {
   if (env.CW_NO_AUTO_AGENT === "1") return undefined;
-  const known = ["claude", "codex", "gemini", "opencode"];
+  const known = ["claude", "codex", "gemini", "opencode", "muse"];
   const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
   const exts = process.platform === "win32" ? (env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
   const templates = builtinAgentTemplates();

@@ -12,12 +12,12 @@ const { formatHelp } = require("../dist/core/format/help");
 // Exact full-text golden value, sourced from SPEC/cli-surface.md's own
 // "formatHelp() (stdout)" block (line-for-line, including the wrapped
 // "More commands" block from the SPEC's own token list), plus the rows
-// added after that capture (--json, --quiet, --resume, -opencode).
+// added after that capture (--json, --quiet, --resume, -opencode, -muse).
 {
   const expected = [
     "Cool Workflow",
     "",
-    '  -q "question" [-claude|-codex|-gemini|-deepseek]  Ask a question, get a report',
+    '  -q "question" [-claude|-codex|-gemini|-deepseek|-muse]  Ask, get a report',
     '  -q "question" --link <url>                 Review a remote repo by URL',
     "  version                                   Show version",
     "  doctor                                    Check setup",
@@ -32,6 +32,7 @@ const { formatHelp } = require("../dist/core/format/help");
     "  -gemini                Use Gemini (via opencode)",
     "  -opencode              Use OpenCode agent",
     "  -deepseek              Use DeepSeek (via opencode)",
+    "  -muse                  Use Muse Code agent",
     "  --verbose              Show full agent narration live (default: compact)",
     "  --full                 Verbose, plus the report printed inline at the end",
     "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",

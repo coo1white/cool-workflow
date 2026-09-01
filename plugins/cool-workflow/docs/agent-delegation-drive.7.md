@@ -30,13 +30,13 @@ neutral-audit moat and is the red line.
 ## Architecture — the boundary (core ↔ agent backend ↔ wrappers)
 
 The core gives only an INTERFACE: the `agent` execution backend plus a small
-text/process contract. The four vendors (claude / codex / gemini / deepseek)
-live OUTSIDE the core as out-of-process wrapper scripts in `scripts/agents/` —
-pure config, never imported by `src/`, behind the same seam.
+text/process contract. The five vendors (claude / codex / gemini / deepseek /
+muse) live OUTSIDE the core as out-of-process wrapper scripts in
+`scripts/agents/` — pure config, never imported by `src/`, behind the same seam.
 
 ```text
                        user
-                       │  cw -q "…" -codex   (headline shortcut; also -claude/-gemini/-deepseek)
+                       │  cw -q "…" -codex   (headline shortcut; also -claude/-gemini/-deepseek/-muse)
                        ▼
 ┌──────────── CW core  (src/ — zero runtime deps, imports NO model SDK, holds NO key) ───────────┐
 │                                                                                                │
@@ -52,14 +52,14 @@ pure config, never imported by `src/`, behind the same seam.
                                          │
    ── red line ──  core never reads a key; each wrapper resolves its OWN key from inherited env
                                          │
-┌──────── external wrappers  (scripts/agents/*.js — "CONFIG, not a CW runtime dependency") ───────┐
-│   claude-p-agent.js     codex-agent.js      gemini-opencode-agent.js    deepseek-agent.js       │
-│        │                     │                        └──────────┬──────────────┘              │
-│        ▼                     ▼                                   ▼  (3-line shims)              │
-│   claude -p            codex exec                          opencode-agent.js                    │
-│   (Anthropic CLI)      (-c effort, sandbox)               opencode run --model …                │
-│                                                           (deepseek + gemini keys live here)    │
-└─────────────────────────────────────────────────────────────────────────────────────────────────┘
+┌─── external wrappers  (scripts/agents/*.js — "CONFIG, not a CW runtime dependency") ───────────────────────────────────────┐
+│   claude-p-agent.js        codex-agent.js        muse-agent.js              gemini-opencode-agent.js  deepseek-agent.js    │
+│           │                       │                    │                                 └──────┬──────┘                   │
+│           ▼                       ▼                    ▼                                       ▼  (3-line shims)           │
+│   claude -p                codex exec            muse exec                  opencode-agent.js                              │
+│   (Anthropic CLI)          (-c effort, sandbox)  (--json, --prompt-file)    opencode run --model …                         │
+│                                                                             (deepseek + gemini keys live here)             │
+└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
    Add a vendor = drop a wrapper script + one line in builtin-templates.json — NO core edit.
 ```
 
@@ -327,14 +327,15 @@ The built-in templates are:
 --agent-command builtin:gemini-cli   # native gemini CLI (needs GEMINI_API_KEY)
 --agent-command builtin:opencode     # opencode (its configured default model)
 --agent-command builtin:deepseek     # DeepSeek via opencode (deepseek/deepseek-chat)
+--agent-command builtin:muse         # muse exec (native, default model "muse-spark-1.2")
 ```
 
-claude and codex run their own CLIs; gemini and deepseek route through opencode
-(where their keys live), each proven by a local, deterministic wrapper smoke
-(override the model with CW_GEMINI_MODEL / CW_DEEPSEEK_MODEL). GLM stays an
-external agent command or HTTP endpoint. CW still imports no model SDK. The same
-headline shortcuts pick these builtins on the top-level CLI: `cw -q "..."
--claude` / `-codex` / `-gemini` / `-deepseek`.
+claude, codex, and muse run their own CLIs; gemini and deepseek route through
+opencode (where their keys live), each proven by a local, deterministic wrapper
+smoke (override the model with CW_GEMINI_MODEL / CW_DEEPSEEK_MODEL / CW_MUSE_MODEL).
+GLM stays an external agent command or HTTP endpoint. CW still imports no model
+SDK. The same headline shortcuts pick these builtins on the top-level CLI:
+`cw -q "..." -claude` / `-codex` / `-gemini` / `-deepseek` / `-muse`.
 
 The codex wrapper caps codex's reasoning effort for CW runs so a heavy
 `model_reasoning_effort = "high"` in the user's `~/.codex/config.toml` does not

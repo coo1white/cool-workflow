@@ -44,7 +44,7 @@ caseMain(() => {
   assert.equal(badBuiltin.stdout, "");
   assert.equal(
     badBuiltin.stderr,
-    'cw: Unknown builtin agent template "doesnotexist" — available: claude, codex, gemini, gemini-cli, opencode, deepseek\n'
+    'cw: Unknown builtin agent template "doesnotexist" — available: claude, codex, gemini, gemini-cli, opencode, deepseek, muse\n'
   );
 
   const badBuiltinJson = run(["doctor", "--json"], { env: { CW_AGENT_COMMAND: "builtin:doesnotexist" } });

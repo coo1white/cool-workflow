@@ -67,6 +67,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   if (args.options.gemini) args.options["agent-command"] = "builtin:gemini";
   if (args.options.opencode) args.options["agent-command"] = "builtin:opencode";
   if (args.options.deepseek) args.options["agent-command"] = "builtin:deepseek";
+  if (args.options.muse) args.options["agent-command"] = "builtin:muse";
 
   // -dir / --dir / -d is a second name for --repo; an explicit --repo wins
   // (src/cli/command-surface.ts:65).
