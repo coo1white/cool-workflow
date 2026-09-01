@@ -85,6 +85,28 @@ The dogfood release smoke and the architecture-review dogfood smoke are separate
 test files. The split keeps the same release and agent-drive proof, but lets
 `test:ci` schedule the two long checks in parallel.
 
+## growth:check
+
+```text
+npm run growth:check
+```
+
+Fail-closed gate over `manifest/growth-budget.json`: a ceiling on git-tracked
+`.md` file count repo-wide, and a ceiling on comment-line count under
+`plugins/cool-workflow/src`. Both counts come from `git ls-files`, so tracked
+files only — never untracked or ignored ones — and a run is reproducible by
+hand: `git ls-files | grep -c '\.md$'` for the `.md` count, and, for the
+comment count, read every tracked file under `plugins/cool-workflow/src` and
+count lines whose first non-space chars are `//` or `*`.
+
+Ceilings are the measured count at the time they were set, plus about 5%
+headroom. Over budget fails closed (exit 1) with a message that asks for a
+conscious choice: slim something else first (delete a stale `.md`, cut a
+narrating comment) — always a valid way to pay for growth — or raise the
+ceiling in `manifest/growth-budget.json` with the freshly measured number
+written into the commit message, not only the new cap. Teeth live in
+`test/growth-budget-check-smoke.js`.
+
 ## PR CI Merge Notes
 
 When a PR is ready, list open PRs by creation time and merge the oldest ready
