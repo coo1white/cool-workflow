@@ -64,7 +64,14 @@ function runReproduction(targetCwd, parent, tagged, verdictRel) {
 }
 
 // Sanity: the real pair actually exists in THIS checkout before testing
-// against it (git() throws on a non-zero exit, i.e. if the object is absent).
+// against it. A shallow checkout (CI's default depth-1) does not carry those
+// old objects, and git's own error for that ("exists on disk, but not in
+// <commit>") points at the wrong thing entirely — so name the real cause.
+assert.equal(
+  git(["rev-parse", "--is-shallow-repository"], REAL_REPO_ROOT),
+  "false",
+  "this test reads the repo's real release history; check out with full history (fetch-depth: 0)"
+);
 git(["cat-file", "-e", `${REAL_TAGGED}:${REAL_VERDICT_REL}`], REAL_REPO_ROOT);
 
 // ---- 1. Real release reproduces to a byte-exact tree match ----------------
