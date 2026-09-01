@@ -3,21 +3,15 @@
 // (maintain-stage control bands): read a config + a metrics input, work
 // out the breached tier, and build the text of an intent file.
 //
-// Pure: no fs, no clock, no network. `now` always comes in as a plain
-// string from the caller (shell/bands-io.ts), and file digests come in as
-// plain strings too (the shell layer reads the bytes and hashes them).
+// Pure: no fs, no clock, no network. `now` and file digests come in as
+// plain strings from the caller (shell/bands-io.ts hashes the files).
 //
-// Rule (three-sigma, the only rule this build supports): `config.baseline`
-// carries an already-worked-out mean/stddev for the metric. The input file
-// gives the CURRENT reading, either as one `value`, or as a `series` of
-// readings — when a series is given, its own mean/stddev is worked out
-// here (this is the "mean/stddev over the provided series" step) and its
-// mean is the reading tested against the baseline. The tier is the
-// largest k in {1,2,3} such that |reading - baseline.mean| >= k *
-// baseline.stddev; below 1 the tier is "none". This is a two-sided check
-// (a reading can breach a band by going up OR down). The Western Electric
-// rules (runs of points, not a single-sample sigma check) are NOT
-// implemented — an open extension, not a gap in this one.
+// Rule (three-sigma, the only one supported): `config.baseline` holds
+// an already-worked-out mean/stddev; input gives one `value` or a
+// `series` (its mean is the reading tested against the baseline).
+// Tier = largest k in {1,2,3} where |reading - baseline.mean| >= k *
+// baseline.stddev; below 1, tier is "none". Two-sided (up or down).
+// Western Electric rules (point-runs) are NOT implemented — an open extension.
 //
 // Evidence: docs/control-bands.7.md.
 Object.defineProperty(exports, "__esModule", { value: true });
