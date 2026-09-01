@@ -83,7 +83,7 @@ function main() {
     assert.ok(invocation.includes("--dangerously-skip-permissions"), "passes --dangerously-skip-permissions");
     // The whole point of -deepseek: it must actually select a DeepSeek model,
     // not silently fall back to opencode's default model.
-    assert.equal(modelOf(invocation), "deepseek/deepseek-chat", "default DeepSeek model is selected via --model");
+    assert.equal(modelOf(invocation), "deepseek/deepseek-v4-flash", "default DeepSeek model is selected via --model");
     assert.ok(!invocation.includes("--prompt"), "message is positional; there is no --prompt flag");
     const prompt = invocation[invocation.length - 1];
     assert.ok(prompt.includes(marker), "worker input reaches opencode as the positional message");
@@ -91,7 +91,7 @@ function main() {
     assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "final message persisted to result.md");
     const report = JSON.parse(child.stdout);
     assert.equal(report.result, RESULT, "stdout report carries final result for CW provenance");
-    assert.equal(report.model, "deepseek/deepseek-chat", "provenance records the requested DeepSeek model");
+    assert.equal(report.model, "deepseek/deepseek-v4-flash", "provenance records the requested DeepSeek model");
     assert.equal(report.usage.input_tokens, 9, "usage summed from step_finish token events");
     console.log("deepseek: default model selection + result persistence OK");
   }

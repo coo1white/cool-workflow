@@ -8,7 +8,7 @@
 // runner: it sets the variant env (display label + model) and delegates to
 // opencode-agent.js, so the run/parse/provenance logic lives in ONE place.
 //
-// Override the model with CW_DEEPSEEK_MODEL (default deepseek/deepseek-chat).
+// Override the model with CW_DEEPSEEK_MODEL (default deepseek/deepseek-v4-flash).
 // Requires opencode installed AND a DeepSeek provider configured in opencode
 // (`opencode auth login` or DEEPSEEK_API_KEY). Without that, opencode exits
 // nonzero and CW fails closed - it never fabricates a result.
@@ -18,6 +18,6 @@
 //   argv[3] = {{result}}  worker result.md to persist
 
 process.env.CW_OPENCODE_LABEL = "deepseek";
-process.env.CW_OPENCODE_MODEL = process.env.CW_DEEPSEEK_MODEL || "deepseek/deepseek-chat";
+process.env.CW_OPENCODE_MODEL = process.env.CW_DEEPSEEK_MODEL || "deepseek/deepseek-v4-flash";
 
 require("./opencode-agent.js");

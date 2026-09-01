@@ -10,7 +10,7 @@
 //
 // Thin variant of the opencode runner: it sets the variant env (display label +
 // model) and delegates to opencode-agent.js, so run/parse/provenance live in ONE
-// place. Override the model with CW_GEMINI_MODEL (default google/gemini-3.5-flash).
+// place. Override the model with CW_GEMINI_MODEL (default google/gemini-3.7-flash).
 // Requires opencode installed AND a "google" provider authed in opencode
 // (`opencode auth login` -> google). Without it, opencode exits nonzero and CW
 // fails closed - it never fabricates a result.
@@ -20,6 +20,6 @@
 //   argv[3] = {{result}}  worker result.md to persist
 
 process.env.CW_OPENCODE_LABEL = "gemini";
-process.env.CW_OPENCODE_MODEL = process.env.CW_GEMINI_MODEL || "google/gemini-3.5-flash";
+process.env.CW_OPENCODE_MODEL = process.env.CW_GEMINI_MODEL || "google/gemini-3.7-flash";
 
 require("./opencode-agent.js");

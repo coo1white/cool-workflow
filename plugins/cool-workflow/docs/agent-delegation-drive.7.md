@@ -323,10 +323,10 @@ The built-in templates are:
 ```text
 --agent-command builtin:claude       # claude -p (native)
 --agent-command builtin:codex        # codex exec (native)
---agent-command builtin:gemini       # Gemini via opencode (google/gemini-3.5-flash)
+--agent-command builtin:gemini       # Gemini via opencode (google/gemini-3.7-flash)
 --agent-command builtin:gemini-cli   # native gemini CLI (needs GEMINI_API_KEY)
 --agent-command builtin:opencode     # opencode (its configured default model)
---agent-command builtin:deepseek     # DeepSeek via opencode (deepseek/deepseek-chat)
+--agent-command builtin:deepseek     # DeepSeek via opencode (deepseek/deepseek-v4-flash)
 --agent-command builtin:muse         # muse exec (native, default model "muse-spark-1.2")
 ```
 

@@ -72,12 +72,12 @@ function main() {
     const invocation = readInvocation(dir);
     assert.deepEqual(invocation.slice(0, 3), ["run", "--format", "json"], "runs opencode with --format json");
     assert.ok(invocation.includes("--dangerously-skip-permissions"), "passes --dangerously-skip-permissions");
-    assert.equal(modelOf(invocation), "google/gemini-3.5-flash", "default Gemini model is selected via --model");
+    assert.equal(modelOf(invocation), "google/gemini-3.7-flash", "default Gemini model is selected via --model");
     assert.ok(!invocation.includes("--prompt"), "message is positional; there is no --prompt flag");
     assert.ok(invocation[invocation.length - 1].includes(marker), "worker input reaches opencode as the positional message");
     assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "final message persisted to result.md");
     const report = JSON.parse(child.stdout);
-    assert.equal(report.model, "google/gemini-3.5-flash", "provenance records the requested Gemini model");
+    assert.equal(report.model, "google/gemini-3.7-flash", "provenance records the requested Gemini model");
     console.log("gemini-opencode: default model selection + result persistence OK");
   }
 

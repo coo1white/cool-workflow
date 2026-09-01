@@ -234,7 +234,7 @@ The per-platform difference is config, not code — set the reviewer agent here:
 | Codex     | `CW_AGENT_COMMAND="codex exec {{input}}"` |
 | Gemini    | `CW_AGENT_COMMAND="gemini -p {{input}}"` |
 | OpenCode  | `CW_AGENT_COMMAND="opencode run -m <provider/model> {{input}}"` |
-| DeepSeek  | via OpenCode (`-m deepseek/deepseek-chat`) or `CW_AGENT_ENDPOINT=<deepseek-compatible HTTP agent>` |
+| DeepSeek  | via OpenCode (`-m deepseek/deepseek-v4-flash`) or `CW_AGENT_ENDPOINT=<deepseek-compatible HTTP agent>` |
 
 The reviewer's last act is to **write** the verdict file, so a headless agent
 needs file-write permission. For `claude -p`, recent CLIs default to a mode that
