@@ -178,7 +178,7 @@ function agentConfigFromArgs(args) {
 function detectAgentFromPath(env = process.env) {
     if (env.CW_NO_AUTO_AGENT === "1")
         return undefined;
-    const known = ["claude", "codex", "gemini", "opencode"];
+    const known = ["claude", "codex", "gemini", "opencode", "muse"];
     const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
     const exts = process.platform === "win32" ? (env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
     const templates = builtinAgentTemplates();

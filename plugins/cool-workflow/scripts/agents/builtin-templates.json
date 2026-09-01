@@ -7,6 +7,7 @@
     "gemini": "gemini-opencode-agent.js",
     "gemini-cli": "gemini-agent.js",
     "opencode": "opencode-agent.js",
-    "deepseek": "deepseek-agent.js"
+    "deepseek": "deepseek-agent.js",
+    "muse": "muse-agent.js"
   }
 }

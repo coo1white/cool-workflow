@@ -11,7 +11,7 @@ a fast command reference.*
 
 - **Node.js v18 or newer** — check with `node --version`.
 - **One agent CLI** on your `PATH` for the real review in Step 3: `claude`,
-  `codex`, `gemini`, or `opencode`. An "agent CLI" is a command-line AI tool
+  `codex`, `gemini`, `opencode`, or `muse`. An "agent CLI" is a command-line AI tool
   that can read code and answer questions — for example, Claude Code gives you
   the `claude` command. (Step 2 needs no agent at all.)
 
@@ -60,7 +60,7 @@ Any question works, not only a risk audit. CW finds the current repo and the
 first agent on your `PATH` by itself. Want a specific agent? Add a flag:
 
 ```bash
-cw -q "What are the security risks?" -claude     # or -codex / -gemini / -deepseek
+cw -q "What are the security risks?" -claude     # or -codex / -gemini / -deepseek / -muse
 ```
 
 As it runs you get a calm **live view** — a small rolling window of the

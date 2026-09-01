@@ -25,7 +25,7 @@ exports.warnUnknownFlags = warnUnknownFlags;
  *  `flagsComplete` row's check never flags them. Built by reading the
  *  actual consumers:
  *   - cli/entry.ts: `version`/`v`, `help`/`h`, the vendor shorthands
- *     `claude`/`codex`/`gemini`/`deepseek` (each sets `agent-command`),
+ *     `claude`/`codex`/`gemini`/`deepseek`/`muse` (each sets `agent-command`),
  *     `repo`/`dir` (`--dir`/`-d` is a global alias for `--repo`),
  *     `verbose`, `no-color`, `full`, `quiet`, `question` (`-q`), and the
  *     `--resume --run <id>` continuation pair;
@@ -50,6 +50,7 @@ exports.GLOBAL_CLI_FLAGS = [
     "help",
     "json",
     "link",
+    "muse",
     "no-color",
     "question",
     "quiet",
