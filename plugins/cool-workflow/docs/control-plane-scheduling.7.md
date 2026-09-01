@@ -100,9 +100,17 @@ Notes: time is measured to the minute; expiration defaults to 7 days;
 default — use `schedule daemon`, cron, or another overseer to call
 `schedule due` and run due prompts.
 
+## Control Bands
+
+`cw bands check`/`cw bands record` turn a metric breach into a queued,
+reviewable work item: `bands record --queue` adds its intent file to
+this SAME queue (`RunQueueEntry.inputs.intentPath`), on a plain tier-3
+breach only. `bands` never watches or polls anything itself — a routine
+or a CI cron job calls it. See [control-bands.7.md](control-bands.7.md).
+
 ## See Also
 
-run-registry-control-plane(7), cli-mcp-parity(7), release-and-migration(7)
+run-registry-control-plane(7), control-bands(7), cli-mcp-parity(7), release-and-migration(7)
 
 ## Agent Delegation Drive (v0.1.38)
 

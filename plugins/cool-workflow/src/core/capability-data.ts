@@ -288,6 +288,7 @@ export const COMMON_PROPERTY_TYPES: Record<string, McpPropertySchema> = {
   commit: { type: "string", description: "the commit's id" },
   commitId: { type: "string", description: "the commit's id" },
   concurrency: { type: "number", description: "the largest number of steps to run at once" },
+  config: { type: "string", description: "the file path to a bands config" },
   contract: { type: "string", description: "the pipeline contract's id" },
   contractId: { type: "string", description: "the pipeline contract's id" },
   criteria: { type: "array", description: "the list of scoring criteria" },
@@ -326,6 +327,7 @@ export const COMMON_PROPERTY_TYPES: Record<string, McpPropertySchema> = {
   id: { type: "string", description: "the id of this item" },
   includeArchived: { type: "boolean", description: "when true, also list archived runs" },
   includeRejected: { type: "boolean", description: "when true, also list rejected candidates" },
+  input: { type: "string", description: "the file path to a bands metrics input" },
   inputs: { type: "object", description: "the structured input values for the app" },
   intervalMinutes: { type: "number", description: "how often, in minutes, the task should repeat" },
   judgeCount: { type: "number", description: "the number of judge agents to use" },
@@ -373,6 +375,7 @@ export const COMMON_PROPERTY_TYPES: Record<string, McpPropertySchema> = {
   prompt: { type: "string", description: "the prompt text for this task" },
   pubkey: { type: "string", description: "the public key used to check a signature" },
   question: { type: "string", description: "the question that starts the run" },
+  queue: { type: "boolean", description: "when true, also add a tier-3 breach to the queue" },
   rationale: { type: "string", description: "the reason behind this decision" },
   reason: { type: "string", description: "a short text that explains why" },
   reclaimAfterArchiveDays: { type: "number", description: "how many days after archive before a run can be freed" },
@@ -786,4 +789,6 @@ export const MCP_TOOL_DATA: McpToolRow[] = [
   // --- post-rebuild additions (appended; see the header note above) ---
   { tool: "cw_audit_head", capability: "audit.head", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the trust-audit chain head anchor (event count + head hash) for a later truncation-proof audit.verify." },
   { tool: "cw_run_link", capability: "run.link", requiredArgs: ["runId", "url"], properties: ["runId", "cwd", "scope", "url", "kind", "note", "actor"], description: "Add an append-only link (PR/issue/ticket url) to a run record; no network call. A repeat of the same url is an idempotent no-op." },
+  { tool: "cw_bands_check", capability: "bands.check", requiredArgs: ["config", "input"], properties: ["cwd", "config", "input"], description: "Read a bands config and a metrics input file; work out the breached tier (none|1|2|3); write nothing. Deterministic; a breach is a normal result, not an error." },
+  { tool: "cw_bands_record", capability: "bands.record", requiredArgs: ["config", "input"], properties: ["cwd", "config", "input", "queue"], description: "Run the same check as bands.check; on tier 2 or 3 write an intent file under .cw/intents/; on tier 3, also add it to the run queue when --queue is given." },
 ];
