@@ -80,11 +80,22 @@ zero new .md.
 
 ## Status ledger
 
+Program COMPLETE 2026-09-01. All work merged; no branch or open
+code-scanning alert left behind.
+
 | Workstream | State | PR |
 |---|---|---|
 | WS4 backlog rows | merged | #583 |
 | WS1 run link | merged | #584 |
-| WS1 follow-up (assert pin) | in flight | — |
-| WS3 control bands | in build | — |
-| WS2a app-code label | queued | — |
-| WS0 / WS5 | stretch | — |
+| WS1 follow-up (assert pin) | merged | #586 |
+| Intent/spec chain | merged | #585 |
+| WS3 control bands | merged | #587 |
+| WS2a app-code label | merged | #588 |
+| WS5 growth-budget gate | merged | #589 |
+| WS0 steering-config gate | merged | #590 |
+
+Closing numbers: conformance 106/106 on every code PR; test:gate
+ended 264/264; core source-context 52508 of 54000; growth budget
+md 128/135, src comment lines 7210/7571. Fix rounds fell 2 -> 2 -> 0
+-> 0 -> 0 as each caught defect became a rule in the next task
+prompt — that transfer is the reusable result.
