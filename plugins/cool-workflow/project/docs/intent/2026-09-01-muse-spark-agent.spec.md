@@ -85,8 +85,11 @@ model id is `muse-spark-1.2` (per dev.meta.ai docs and the operator).
 
 Net src+test <= 400 lines. New files: wrapper + smoke only. New .md:
 ZERO. Header comments <= 15 lines. Core source-context guard 54000
-untouched (wrapper lives in scripts/, outside the profile — executor
-verifies rather than assumes).
+holds. CORRECTION (from the manager's acceptance, 2026-09-01): this
+spec first said the wrapper is "outside the profile" — that was
+false. `scripts/agents/**` is counted INSIDE both the `core` (54000)
+and `agent-wrappers` (14000) source-context profiles. The numbers
+still held: core closed at 52682/54000, agent-wrappers at 6346/14000.
 
 ## Vendor default refresh (pre-release, own small PR)
 
@@ -122,10 +125,23 @@ with the signing key — that step never moves to an agent.
 
 ## Status ledger
 
+Program COMPLETE on the agent side 2026-09-01. The one open step is
+the operator's own: `npm run release -- 0.2.7` with the signing key.
+
 | Item | State | PR |
 |---|---|---|
 | Intent/spec | merged | #592 |
-| Spec update to muse 1.0.1 + default refresh | committed | — |
-| muse wrapper + wiring | in build | — |
-| Vendor default refresh | queued | — |
-| Release-prep bump PR (0.2.7) | queued | — |
+| Spec update to muse 1.0.1 + default refresh | merged | #594 |
+| muse wrapper + wiring | merged | #593 |
+| Vendor default refresh | merged | #595 |
+| Release-prep bump PR (0.2.7) | merged | #596 |
+
+Closing numbers: test:gate 265/265 (the new muse smoke included);
+conformance 106/106 on every PR; net wrapper lines exactly 400/400;
+core source-context 52682/54000; agent-wrappers 6346/14000; new .md
+ZERO across the whole program. Fix rounds: 3 (wrapper) + 1 + 1. Known
+ceiling left behind: the `-q` headline help line sits at 75 of its
+80-char cap with five vendor flags — a sixth vendor flag needs a
+wrapping mechanism first (parked in BACKLOG.md). A real meta-provider
+proof stays open until the operator runs `muse login` (the saved
+Meta API key was rejected; the echo-provider proof shipped instead).
