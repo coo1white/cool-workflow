@@ -3,7 +3,7 @@
   "profiles": {
     "core": {
       "description": "Default AI source context: runtime source, apps, package metadata, and agent wrappers; generated artifacts, tests, docs, release records, and long logs are manifest-only.",
-      "maxLines": 52000,
+      "maxLines": 54000,
       "include": [
         "plugins/cool-workflow/src/**",
         "plugins/cool-workflow/apps/**",
