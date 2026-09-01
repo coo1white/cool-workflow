@@ -10,11 +10,12 @@
 //
 // muse --json emits JSONL keyed by `payload_type`, plus a non-JSON banner
 // line ("muse: workspace root: ...") that must be skipped, not a parse
-// error. Only the LAST `run.terminal.completed` record counts:
-// `payload.terminal === "completed"` carries the text in `payload.text`.
-// Any other terminal value, or none at all, is a FAILURE - never
-// fabricate a result. `model` is self-reported: the id passed via
-// --model, default "spark" (CW_MUSE_MODEL overrides).
+// error. Only the LAST `run.terminal.*` record counts (`.completed` or
+// `.failed`): `payload.terminal === "completed"` carries the text in
+// `payload.text`; any other terminal value (its `payload.reason` is
+// surfaced verbatim), or none at all, is a FAILURE - never fabricate a
+// result. `model` is self-reported: the id passed via --model, default
+// "muse-spark-1.2" (CW_MUSE_MODEL overrides).
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -38,7 +39,10 @@ if (!inputPath || !resultPath) {
   process.exit(2);
 }
 
-const modelId = (process.env.CW_MUSE_MODEL || "").trim() || "spark";
+const modelId = (process.env.CW_MUSE_MODEL || "").trim() || "muse-spark-1.2";
+// Reasoning effort: mirrors codex-agent.js's speed cap (muse's own default,
+// "high", is too slow for a worker). CW_MUSE_REASONING_EFFORT always wins.
+const reasoningEffort = process.env.CW_MUSE_REASONING_EFFORT || (process.env.CW_RELEASE_REVIEW === "1" ? "high" : "low");
 const promptFile = path.join(path.dirname(resultPath), `.muse-prompt-${process.pid}.md`);
 function removePromptFile() {
   try {
@@ -80,11 +84,13 @@ function recordJsonLine(line) {
     if (text) render.text(text);
     return;
   }
-  if (ev.payload_type === "run.terminal.completed") {
+  // Match the whole run.terminal.* family: 1.0.1 uses a DISTINCT payload_type
+  // per outcome (.completed / .failed), not one name with a varying field.
+  if (typeof ev.payload_type === "string" && ev.payload_type.startsWith("run.terminal.")) {
     state.sawTerminal = true;
     state.terminal = payload && payload.terminal;
     state.terminalReason = payload && payload.reason;
-    state.finalText = state.terminal === "completed" && payload && typeof payload.text === "string" ? payload.text : state.finalText;
+    if (state.terminal === "completed" && payload && typeof payload.text === "string") state.finalText = payload.text;
   }
   // Every other payload_type (reconciliation/status/task.lifecycle.*/...) is
   // intentionally ignored: unknown record shapes must never choke the parser.
@@ -92,7 +98,7 @@ function recordJsonLine(line) {
 
 render.action(`muse: running ${modelId} (workspace)…`);
 
-const args = ["exec", "--json", "--prompt-file", promptFile, "--model", modelId, "--workspace", process.cwd()];
+const args = ["exec", "--json", "--prompt-file", promptFile, "--model", modelId, "--reasoning-effort", reasoningEffort, "--workspace", process.cwd()];
 
 const child = spawn("muse", args, { stdio: ["ignore", "pipe", "pipe"], shell: false });
 recordVendorPid(child);
@@ -140,8 +146,12 @@ child.on("close", (code) => {
     process.exit(1);
   }
   if (state.terminal !== "completed") {
-    const reason = state.terminalReason ? ` (reason: ${state.terminalReason})` : "";
-    const detail = `muse run terminal was "${state.terminal}", not "completed"${reason} - refusing to fabricate a result`;
+    // payload.reason is the vendor's own words for what to do next (e.g. a
+    // rejected API key) - print it verbatim as the error line, not buried
+    // inside a longer sentence.
+    const detail = state.terminalReason
+      ? String(state.terminalReason)
+      : `muse run terminal was "${state.terminal}", not "completed" - refusing to fabricate a result`;
     persistStderr(resultPath, childStderr.trim() || detail);
     process.stderr.write(`${detail}\n`);
     process.exit(1);

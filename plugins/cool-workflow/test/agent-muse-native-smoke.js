@@ -3,9 +3,8 @@
 
 // agent-muse-native-smoke -- the Muse Code builtin agent adapter works
 // without a live muse login. A PATH shim stands in for `muse exec`, using
-// the recorded record shape: a non-JSON banner line, `run.output.delta`,
-// then a `run.terminal.completed` record whose `payload.terminal` carries
-// the real outcome. Also pins the `-muse` flag and auto-detect wiring.
+// the recorded 1.0.1 shape: a non-JSON banner, lifecycle noise, then a
+// DISTINCT `run.terminal.completed`/`.failed` record. Also pins `-muse`.
 
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
@@ -29,6 +28,9 @@ muse shim answer
 \`\`\`
 `;
 
+// Probed real example: the vendor's own words, printed verbatim, not paraphrased.
+const REASON = "your saved API key was rejected — run `muse login` or add a new key";
+
 function shimDir(behavior) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-muse-shim-"));
   const shim = path.join(dir, "muse");
@@ -50,11 +52,14 @@ if (${JSON.stringify(behavior)} === "garbage") {
   process.stdout.write("{not-json\\n");
   process.exit(0);
 }
-emit({ payload_type: "runtime.command.accepted", payload: { kind: "accepted" } });
+// 1.0.1 lifecycle noise the parser must ignore without choking.
+for (const t of ["runtime.command.accepted", "session.run.linked", "turn.input.user", "run.lifecycle.started", "task.lifecycle.started"]) emit({ payload_type: t, payload: {} });
 emit({ payload_type: "run.output.delta", payload: { text: ${JSON.stringify(RESULT)} } });
 if (${JSON.stringify(behavior)} === "noterminal") { process.exit(0); }
 if (${JSON.stringify(behavior)} === "failed") {
-  emit({ payload_type: "run.terminal.completed", payload: { terminal: "failed", text: null, reason: "muse shim: simulated failure" } });
+  // 1.0.1: a failure is a DISTINCT payload_type, "run.terminal.failed" --
+  // not "run.terminal.completed" with a varying payload.terminal.
+  emit({ payload_type: "run.terminal.failed", payload: { terminal: "failed", text: null, reason: ${JSON.stringify(REASON)} } });
   process.exit(0);
 }
 emit({
@@ -95,17 +100,30 @@ function main() {
     const invocation = readInvocation(dir);
     assert.deepEqual(invocation.args.slice(0, 2), ["exec", "--json"], "muse runs in exec JSON mode");
     assert.ok(invocation.args.includes("--prompt-file"), "muse takes the prompt from a file");
-    const modelIdx = invocation.args.indexOf("--model");
-    assert.equal(invocation.args[modelIdx + 1], "spark", "default model is spark");
+    assert.equal(invocation.args[invocation.args.indexOf("--model") + 1], "muse-spark-1.2", "default model is Meta's official id muse-spark-1.2, not bare spark");
     assert.ok(invocation.args.includes("--workspace"), "muse gets --workspace so its own tools root at the worker dir");
+    assert.equal(invocation.args[invocation.args.indexOf("--reasoning-effort") + 1], "low", "default reasoning effort is low (fast delegated worker)");
     assert.ok(invocation.prompt.includes(marker), "worker input reaches muse via --prompt-file");
     assert.ok(invocation.prompt.includes("cw:result"), "cw result contract is appended");
     assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "terminal.completed text is persisted to result.md");
     assert.equal(child.stderr, "", "default piped success is silent on stderr");
     const report = JSON.parse(child.stdout);
-    assert.equal(report.model, "spark", "model is self-reported: the id actually passed via --model");
+    assert.equal(report.model, "muse-spark-1.2", "model is self-reported: the id actually passed via --model");
     assert.equal(report.result, RESULT, "stdout report carries final result for CW provenance");
     console.log("muse: default prompt-file + terminal.completed + non-JSON banner tolerance OK");
+  }
+
+  {
+    // CW_RELEASE_REVIEW=1 raises the default effort to "high"; an explicit
+    // CW_MUSE_REASONING_EFFORT always wins over that signal.
+    for (const [env, expected] of [[{ CW_RELEASE_REVIEW: "1" }, "high"], [{ CW_RELEASE_REVIEW: "1", CW_MUSE_REASONING_EFFORT: "medium" }, "medium"]]) {
+      fs.rmSync(resultPath, { force: true });
+      const dir = shimDir("ok");
+      const child = runWrapper(dir, inputPath, resultPath, env);
+      assert.equal(child.status, 0, `muse wrapper exits 0 (stderr: ${child.stderr})`);
+      assert.equal(readInvocation(dir).args[readInvocation(dir).args.indexOf("--reasoning-effort") + 1], expected, `effort resolves to ${expected} for ${JSON.stringify(env)}`);
+    }
+    console.log("muse: --reasoning-effort default/review/override OK");
   }
 
   {
@@ -127,13 +145,13 @@ function main() {
   }
 
   {
-    // The acceptance bar: FAIL CLOSED on terminal !== "completed" -- asserted,
-    // not just described. result.md must be ABSENT.
+    // FAIL CLOSED on terminal !== "completed", result.md ABSENT; a
+    // "run.terminal.failed" record's payload.reason is the WHOLE stderr line.
     fs.rmSync(resultPath, { force: true });
     const failed = runWrapper(shimDir("failed"), inputPath, resultPath);
     assert.notEqual(failed.status, 0, "terminal !== completed must exit non-zero");
     assert.ok(!fs.existsSync(resultPath), "no result.md when terminal !== completed");
-    assert.match(failed.stderr, /not "completed"/, "the failure reason names the actual terminal value");
+    assert.match(failed.stderr, new RegExp(`^${REASON.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n$`), "payload.reason from run.terminal.failed is the wrapper's whole error line, word for word");
 
     const noTerminal = runWrapper(shimDir("noterminal"), inputPath, resultPath);
     assert.notEqual(noTerminal.status, 0, "a run that ends with no terminal event must exit non-zero");
