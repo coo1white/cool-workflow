@@ -61,6 +61,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorkflowAppNotFoundError = void 0;
+exports.isTrustedAppSourcePath = isTrustedAppSourcePath;
 exports.loadWorkflowApp = loadWorkflowApp;
 exports.listWorkflowAppRecords = listWorkflowAppRecords;
 exports.loadWorkflowAppRecordById = loadWorkflowAppRecordById;
@@ -191,6 +192,7 @@ function authorNameOf(author) {
  *  though `cw list` shows it. */
 function loadedAppFromRecord(record) {
     const workflowDefinition = record.app.workflow;
+    const entrypointPath = record.source.entrypointPath || record.source.path;
     return {
         id: record.app.id,
         title: record.app.title,
@@ -200,6 +202,8 @@ function loadedAppFromRecord(record) {
         workflow: workflowDefinition,
         sandboxProfiles: record.app.sandboxProfiles || workflowDefinition.sandboxProfiles || [],
         sourcePath: sourcePathOf(record),
+        entrypointPath,
+        trustedRoot: isTrustedAppSourcePath(entrypointPath),
         compatibility: record.app.compatibility,
         metadata: record.app.metadata,
     };
@@ -249,6 +253,8 @@ function loadWorkflowApp(appId) {
         workflow: definition,
         sandboxProfiles: manifest.sandboxProfiles || definition.sandboxProfiles || [],
         sourcePath: manifestPath,
+        entrypointPath,
+        trustedRoot: isTrustedAppSourcePath(entrypointPath),
         // Thread the manifest's compatibility window + metadata (incl. domain)
         // into the loaded app so workflowAppRunMetadata can stamp them onto
         // run.workflow.app — this is what lets report.md label a research-domain

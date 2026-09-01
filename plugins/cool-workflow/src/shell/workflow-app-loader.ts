@@ -150,7 +150,7 @@ function findAppDir(appId: string): string | undefined {
  *  operator-set CW_APPS_DIR/CW_WORKFLOWS_DIR, and the caller's cwd/apps +
  *  cwd/workflows (the "cw app init" default — must stay unwarned, it is
  *  the normal flow for a user's own local apps). */
-function isTrustedAppSourcePath(resolvedPath: string): boolean {
+export function isTrustedAppSourcePath(resolvedPath: string): boolean {
   const roots = [...candidateAppsRoots(), ...candidateWorkflowsRoots()];
   return roots.some((root) => isWithinRoot(path.resolve(root), resolvedPath));
 }
@@ -174,6 +174,7 @@ function authorNameOf(author: WorkflowAppAuthor | undefined): string | undefined
  *  though `cw list` shows it. */
 function loadedAppFromRecord(record: LoadedWorkflowAppRecord): LoadedWorkflowApp {
   const workflowDefinition = record.app.workflow as WorkflowDefinition;
+  const entrypointPath = record.source.entrypointPath || record.source.path;
   return {
     id: record.app.id,
     title: record.app.title,
@@ -183,6 +184,8 @@ function loadedAppFromRecord(record: LoadedWorkflowAppRecord): LoadedWorkflowApp
     workflow: workflowDefinition,
     sandboxProfiles: record.app.sandboxProfiles || workflowDefinition.sandboxProfiles || [],
     sourcePath: sourcePathOf(record),
+    entrypointPath,
+    trustedRoot: isTrustedAppSourcePath(entrypointPath),
     compatibility: record.app.compatibility,
     metadata: record.app.metadata,
   };
@@ -233,6 +236,8 @@ export function loadWorkflowApp(appId: string): LoadedWorkflowApp {
     workflow: definition,
     sandboxProfiles: manifest.sandboxProfiles || definition.sandboxProfiles || [],
     sourcePath: manifestPath,
+    entrypointPath,
+    trustedRoot: isTrustedAppSourcePath(entrypointPath),
     // Thread the manifest's compatibility window + metadata (incl. domain)
     // into the loaded app so workflowAppRunMetadata can stamp them onto
     // run.workflow.app — this is what lets report.md label a research-domain

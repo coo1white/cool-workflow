@@ -38,9 +38,10 @@ const {
   );
 }
 
-// OPTIONAL_TOP_LEVEL_KEYS: exact 14-key list (13 from SPEC + "links",
-// added by the run <-> PR linkage work, the same way "collaboration" was
-// added on top of the original SPEC count).
+// OPTIONAL_TOP_LEVEL_KEYS: exact 15-key list (13 from SPEC + "links" and
+// "appCode", added by the run <-> PR linkage work and the app-code honesty
+// label, the same way "collaboration" was added on top of the original
+// SPEC count).
 {
   assert.deepEqual(
     OPTIONAL_TOP_LEVEL_KEYS,
@@ -59,6 +60,7 @@ const {
       "topologies",
       "collaboration",
       "links",
+      "appCode",
     ],
     "OPTIONAL_TOP_LEVEL_KEYS must match SPEC plus later, deliberate additions"
   );

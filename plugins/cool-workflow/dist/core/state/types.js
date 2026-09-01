@@ -17,3 +17,7 @@
 //
 // Pure types — no runtime cost, no imports beyond each other.
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.APP_CODE_EXECUTION_MODE = void 0;
+/** Do not soften this string: it is the whole point of the app-code
+ *  honesty label (docs/workflow-app-framework.7.md). */
+exports.APP_CODE_EXECUTION_MODE = "in-process-unsandboxed";

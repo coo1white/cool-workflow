@@ -102,6 +102,11 @@ function renderTrustAudit(run: WorkflowRun): string[] {
   const modelLines = workers.length
     ? [`- Model provenance: ${selfReported} agent-self-reported · ${workers.length - selfReported} absent (agent-self-reported, never CW-verified)`]
     : [];
+  // Only when a workflow app actually ran — an empty/app-less run's report
+  // stays byte-identical (matches the modelLines/links gating pattern).
+  const appCodeLines = run.appCode
+    ? [`- App code execution: ${run.appCode.execution} (trustedRoot=${run.appCode.trustedRoot}, ${run.appCode.path})`]
+    : [];
   return [
     `- Events: ${summary.eventCount}`,
     `- Chain integrity: ${integrity ? (integrity.verified ? "verified" : "FAILED") : "n/a"}` +
@@ -116,6 +121,7 @@ function renderTrustAudit(run: WorkflowRun): string[] {
     `- Summary: ${summary.summaryPath}`,
     `- Index: ${summary.indexPath}`,
     ...modelLines,
+    ...appCodeLines,
     ...renderTelemetryAttestation(run),
   ];
 }

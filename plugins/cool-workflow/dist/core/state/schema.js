@@ -48,4 +48,5 @@ exports.OPTIONAL_TOP_LEVEL_KEYS = [
     "topologies",
     "collaboration",
     "links",
+    "appCode",
 ];

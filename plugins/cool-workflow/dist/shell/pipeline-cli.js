@@ -200,6 +200,7 @@ function resolveWorkflowAppForPlan(appId) {
             throw error;
         const record = (0, workflow_app_loader_1.loadWorkflowAppRecordById)(appId);
         const author = typeof record.app.author === "string" ? record.app.author : record.app.author?.name;
+        const entrypointPath = record.source.entrypointPath || record.source.path;
         return {
             id: record.app.id,
             title: record.app.title,
@@ -209,6 +210,8 @@ function resolveWorkflowAppForPlan(appId) {
             workflow: record.app.workflow,
             sandboxProfiles: record.app.sandboxProfiles || record.app.workflow.sandboxProfiles || [],
             sourcePath: record.source.manifestPath || record.source.path,
+            entrypointPath,
+            trustedRoot: (0, workflow_app_loader_1.isTrustedAppSourcePath)(entrypointPath),
         };
     }
 }

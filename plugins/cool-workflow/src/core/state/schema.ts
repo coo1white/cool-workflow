@@ -49,4 +49,5 @@ export const OPTIONAL_TOP_LEVEL_KEYS: readonly string[] = [
   "topologies",
   "collaboration",
   "links",
+  "appCode",
 ];

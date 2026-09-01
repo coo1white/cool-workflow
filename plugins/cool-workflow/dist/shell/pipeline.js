@@ -50,6 +50,7 @@ exports.plan = plan;
 const crypto = __importStar(require("node:crypto"));
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const types_1 = require("../core/state/types");
 const run_paths_1 = require("../core/state/run-paths");
 const migrations_1 = require("../core/state/migrations");
 const state_node_1 = require("../core/state/state-node");
@@ -174,6 +175,13 @@ function plan(app, options) {
             limits: app.workflow.limits,
             app: (0, app_schema_1.workflowAppRunMetadata)(app),
         },
+        // Honesty label: `workflow.js` app code runs in-process with full host
+        // privileges (workflow-app-loader.ts), never sandboxed like a
+        // delegated agent worker — absent only when the loader could not
+        // resolve which file it ran (never true for a real app load).
+        ...(app.entrypointPath
+            ? { appCode: { path: app.entrypointPath, trustedRoot: Boolean(app.trustedRoot), execution: types_1.APP_CODE_EXECUTION_MODE } }
+            : {}),
         inputs,
         loopStage: "interpret",
         phases: app.workflow.phases.map((phase) => ({

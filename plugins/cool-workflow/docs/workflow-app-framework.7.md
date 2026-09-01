@@ -270,6 +270,26 @@ tasks still waiting, short operator status, and next actions.
 The full agent-host runtime surface is written up in
 [mcp-app-surface.7.md](mcp-app-surface.7.md).
 
+## Execution Trust
+
+App code (`workflow.js`) is normal Node.js code. When CW loads and runs
+it, it runs in the same process, with full power over the host — CW puts
+no wall around it. The sandbox profiles named in this doc bound what a
+*delegated agent worker* may read, write, and run; they say nothing about
+the app's own code.
+
+At plan time, CW marks this fact once on the run, in
+`state.json.appCode`:
+
+```text
+appCode.path        — the workflow.js file CW ran
+appCode.trustedRoot — true when that file sat under a root CW trusts
+appCode.execution   — always "in-process-unsandboxed"
+```
+
+`report.md`'s Trust Audit part adds one line with the same
+`in-process-unsandboxed` word, only for a run where a workflow app ran.
+
 ## State And Reports
 
 Run state keeps short app metadata at:
