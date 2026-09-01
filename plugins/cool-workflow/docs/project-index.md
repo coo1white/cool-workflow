@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-09-01 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.6`
-- Source modules: `155`
+- Source modules: `158`
 - Workflow apps: `8`
-- Docs: `59`
-- Smoke tests: `261`
+- Docs: `60`
+- Smoke tests: `262`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -83,6 +83,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [cli/global-flags.ts](../src/cli/global-flags.ts)
 - [cli/io.ts](../src/cli/io.ts)
 - [cli/parseargv.ts](../src/cli/parseargv.ts)
+- [core/bands.ts](../src/core/bands.ts)
 - [core/capability-data.ts](../src/core/capability-data.ts)
 - [core/capability-table.ts](../src/core/capability-table.ts)
 - [core/format/completion.ts](../src/core/format/completion.ts)
@@ -131,6 +132,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [shell/app-run-cli.ts](../src/shell/app-run-cli.ts)
 - [shell/audit-cli.ts](../src/shell/audit-cli.ts)
 - [shell/audit-provenance.ts](../src/shell/audit-provenance.ts)
+- [shell/bands-io.ts](../src/shell/bands-io.ts)
 - [shell/candidate-scoring-io.ts](../src/shell/candidate-scoring-io.ts)
 - [shell/collaboration-io.ts](../src/shell/collaboration-io.ts)
 - [shell/commit-summary.ts](../src/shell/commit-summary.ts)
@@ -195,6 +197,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [shell/workbench-text.ts](../src/shell/workbench-text.ts)
 - [shell/workbench.ts](../src/shell/workbench.ts)
 - [shell/worker-cli.ts](../src/shell/worker-cli.ts)
+- [wiring/capability-table/bands.ts](../src/wiring/capability-table/bands.ts)
 - [wiring/capability-table/basics.ts](../src/wiring/capability-table/basics.ts)
 - [wiring/capability-table/exec-backend.ts](../src/wiring/capability-table/exec-backend.ts)
 - [wiring/capability-table/index.ts](../src/wiring/capability-table/index.ts)
@@ -229,6 +232,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [CAPABILITY-TOPOLOGY-REGISTRY(7) — Cool Workflow Agent-Driven Self-Evolution](capability-topology-registry.7.md)
 - [CLI ↔ MCP Parity](cli-mcp-parity.7.md)
 - [Contract Migration Tooling](contract-migration-tooling.7.md)
+- [CONTROL-BANDS(7)](control-bands.7.md)
 - [Control-Plane Scheduling](control-plane-scheduling.7.md)
 - [Coordinator / Blackboard](coordinator-blackboard.7.md)
 - [Cross-Agent Handoff Ledger](cross-agent-ledger.7.md)
@@ -302,6 +306,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [artifact-integrity-smoke.js](../test/artifact-integrity-smoke.js)
 - [audit-verify-smoke.js](../test/audit-verify-smoke.js)
 - [backend-registry-smoke.js](../test/backend-registry-smoke.js)
+- [bands-smoke.js](../test/bands-smoke.js)
 - [batch-delegate-error-flush-smoke.js](../test/batch-delegate-error-flush-smoke.js)
 - [batch-output-overflow-smoke.js](../test/batch-output-overflow-smoke.js)
 - [bench-run-smoke.js](../test/bench-run-smoke.js)

@@ -293,6 +293,8 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS: Array<{ reason: string; capabilities: strin
       "run.inspect-archive",
       "run.restore",
       "run.link",
+      "bands.check",
+      "bands.record",
       "multi-agent.reasoning.refresh",
       "multi-agent.graph.compact",
       "multi-agent.role.create",
@@ -354,6 +356,16 @@ export function declaredCliHelpTokens(): string[] {
   // parity smoke's HELP_INDEX_ONLY_TOKENS set so the help-token parity
   // stays balanced.
   tokens.delete("search");
+  // `bands` is a brand-new top-level verb whose two rows are BOTH
+  // `hiddenFromHelp` (wiring/capability-table/bands.ts) and left out of
+  // help.ts's `MORE_COMMANDS_TOKENS` on purpose: that array is printed in
+  // the root `cw help` text, which the conformance suite byte-pins
+  // against a fixture (v2/conformance/cases/fixtures/cli-help/_root.txt).
+  // So `bands` has NO visible spot anywhere in real help text, and the
+  // live probe (which reads real `cw help` output) never sees it either —
+  // delete it here so the two sides still agree. The command is real and
+  // reachable; it is documented in docs/control-bands.7.md instead.
+  tokens.delete("bands");
   return [...tokens].sort();
 }
 

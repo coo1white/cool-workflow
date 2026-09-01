@@ -25,5 +25,6 @@ import "./multi-agent";
 import "./scheduling-registry";
 import "./reporting";
 import "./workflow-apps";
+import "./bands";
 
 export * from "./parity";
