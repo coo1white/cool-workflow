@@ -229,6 +229,13 @@ export interface LoadedWorkflowApp {
   workflow: WorkflowDefinition;
   sandboxProfiles: string[];
   sourcePath: string;
+  // The `workflow.js` (or legacy `.workflow.js`) file that was require()'d
+  // to run this app's code, and whether it sat under a root CW already
+  // trusts (isTrustedAppSourcePath). Feeds the run's appCode honesty
+  // label — absent only for a LoadedWorkflowApp built without going
+  // through the real loader (test fixtures).
+  entrypointPath?: string;
+  trustedRoot?: boolean;
   // Threaded from the manifest so the run-metadata block (and report.md's
   // domain-gated "- Source:" label) can read app.metadata.domain and the
   // app's compatibility window. Byte-behavior port of the old build, where

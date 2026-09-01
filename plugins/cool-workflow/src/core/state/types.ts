@@ -430,6 +430,19 @@ export interface RunLinkAnnotation {
   actor: string;
 }
 
+/** Do not soften this string: it is the whole point of the app-code
+ *  honesty label (docs/workflow-app-framework.7.md). */
+export const APP_CODE_EXECUTION_MODE = "in-process-unsandboxed" as const;
+
+/** Recorded once at plan time when a workflow app's `workflow.js` was
+ *  loaded and run: CW does not sandbox app code, only delegated agent
+ *  workers, so the record says so plainly. */
+export interface AppCodeProvenance {
+  path: string;
+  trustedRoot: boolean;
+  execution: typeof APP_CODE_EXECUTION_MODE;
+}
+
 export interface WorkflowRun {
   schemaVersion: 1;
   id: string;
@@ -464,5 +477,6 @@ export interface WorkflowRun {
   topologies?: TopologyState;
   collaboration?: CollaborationState;
   links?: RunLinkAnnotation[];
+  appCode?: AppCodeProvenance;
   [key: string]: unknown;
 }

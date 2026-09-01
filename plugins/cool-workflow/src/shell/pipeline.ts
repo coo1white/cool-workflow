@@ -14,7 +14,7 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { RunTask, WorkflowRun } from "../core/state/types";
+import { APP_CODE_EXECUTION_MODE, RunTask, WorkflowRun } from "../core/state/types";
 import { createRunPaths } from "../core/state/run-paths";
 import { migrateRunState } from "../core/state/migrations";
 import { appendRunNode as pureAppendRunNode, createStateNode, upsertRunContract } from "../core/state/state-node";
@@ -142,6 +142,13 @@ export function plan(app: LoadedWorkflowApp, options: Record<string, unknown>): 
       limits: app.workflow.limits,
       app: workflowAppRunMetadata(app),
     },
+    // Honesty label: `workflow.js` app code runs in-process with full host
+    // privileges (workflow-app-loader.ts), never sandboxed like a
+    // delegated agent worker — absent only when the loader could not
+    // resolve which file it ran (never true for a real app load).
+    ...(app.entrypointPath
+      ? { appCode: { path: app.entrypointPath, trustedRoot: Boolean(app.trustedRoot), execution: APP_CODE_EXECUTION_MODE } }
+      : {}),
     inputs,
     loopStage: "interpret",
     phases: app.workflow.phases.map((phase) => ({

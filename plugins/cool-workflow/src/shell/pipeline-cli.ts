@@ -14,7 +14,7 @@ import * as path from "node:path";
 import * as readlinePromises from "node:readline/promises";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { plan } from "./pipeline";
-import { loadWorkflowApp, showWorkflowApp, loadWorkflowAppRecordById, WorkflowAppNotFoundError } from "./workflow-app-loader";
+import { loadWorkflowApp, showWorkflowApp, loadWorkflowAppRecordById, isTrustedAppSourcePath, WorkflowAppNotFoundError } from "./workflow-app-loader";
 import { LoadedWorkflowApp } from "../core/workflow-apps/app-schema";
 import { drive, driveAsync, DriveOptions, drivePreview } from "./drive";
 import { createDispatchManifest } from "./dispatch";
@@ -154,6 +154,7 @@ function resolveWorkflowAppForPlan(appId: string): LoadedWorkflowApp {
     if (!(error instanceof WorkflowAppNotFoundError)) throw error;
     const record = loadWorkflowAppRecordById(appId);
     const author = typeof record.app.author === "string" ? record.app.author : record.app.author?.name;
+    const entrypointPath = record.source.entrypointPath || record.source.path;
     return {
       id: record.app.id,
       title: record.app.title,
@@ -163,6 +164,8 @@ function resolveWorkflowAppForPlan(appId: string): LoadedWorkflowApp {
       workflow: record.app.workflow,
       sandboxProfiles: record.app.sandboxProfiles || record.app.workflow.sandboxProfiles || [],
       sourcePath: record.source.manifestPath || record.source.path,
+      entrypointPath,
+      trustedRoot: isTrustedAppSourcePath(entrypointPath),
     };
   }
 }
