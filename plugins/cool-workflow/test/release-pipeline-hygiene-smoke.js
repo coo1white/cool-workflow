@@ -117,4 +117,66 @@ let checks = 0;
   }
 }
 
+// ---- Guard 4: steering-config-gate job (ci.yml) --------------------------------
+{
+  const p = path.join(wfDir, "ci.yml");
+  const raw = fs.readFileSync(p, "utf8");
+  const lines = raw.split(/\n/);
+
+  // The workflow-level on: block must not gain a paths: key — that would
+  // gate every job in the file, not just this new one.
+  const onStart = lines.findIndex((l) => /^on:/.test(l));
+  assert.ok(onStart >= 0, "ci.yml must have an on: block");
+  let onBlock = lines[onStart];
+  for (let i = onStart + 1; i < lines.length; i++) {
+    if (/^\S/.test(lines[i])) break;
+    onBlock += "\n" + lines[i];
+  }
+  assert.ok(
+    !/^\s*paths:/m.test(onBlock),
+    "ci.yml workflow-level on: must not gain a paths: filter (would also gate the three test legs)"
+  );
+
+  // The gate job must exist, and stay a single 2-space job key so it does
+  // not fold into a neighbour job's step list.
+  const jobStart = lines.findIndex((l) => /^ {2}steering-config-gate:/.test(l));
+  assert.ok(jobStart >= 0, "ci.yml must define a steering-config-gate job");
+  let jobEnd = lines.length;
+  for (let i = jobStart + 1; i < lines.length; i++) {
+    if (/^ {2}\S/.test(lines[i])) {
+      jobEnd = i;
+      break;
+    }
+  }
+  const job = lines.slice(jobStart, jobEnd).join("\n");
+
+  assert.match(
+    job,
+    /^\s+- run: node test\/run-all\.js --filter 'release-flow'$/m,
+    "steering-config-gate must run the release-reviewer smokes via test/run-all.js --filter"
+  );
+  assert.match(
+    job,
+    /^\s+- run: npm run eval:replay$/m,
+    "steering-config-gate must run the eval-replay harness smoke (npm run eval:replay)"
+  );
+  assert.match(
+    job,
+    /^\s+if: steps\.\w+\.outputs\.\w+ == 'true'$/m,
+    "steering-config-gate must gate its real steps on a step-output check, scoped to this job alone"
+  );
+  assert.match(job, /AGENTS\\?\.md/, "steering-config-gate's path check must name AGENTS.md");
+  assert.match(
+    job,
+    /plugins\/cool-workflow\/agents\//,
+    "steering-config-gate's path check must name plugins/cool-workflow/agents/"
+  );
+  checks += 5;
+
+  // The three matrix legs and the macOS leg must stay untouched.
+  assert.match(raw, /node-version: \["18", "22", "24"\]/, "the three cool-workflow matrix legs must be unchanged");
+  assert.match(raw, /^ {2}cool-workflow-macos:$/m, "the macOS leg must still be defined");
+  checks += 2;
+}
+
 process.stdout.write(`release-pipeline-hygiene-smoke: ok (${checks} static guards)\n`);

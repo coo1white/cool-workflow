@@ -94,3 +94,41 @@ jobs:
       - run: node ../../v2/conformance/run.js --bin dist/cli.js
       - run: npm run test:gate
       - run: npm run test:unit
+
+  # Runs the release-reviewer smokes and the eval-replay harness smoke when
+  # AGENTS.md or plugins/cool-workflow/agents/** change, since a bad agent
+  # prompt is invisible to the other legs. Gated per job, not by a workflow-
+  # level on.paths (that would also skip the three legs above): a step here
+  # reads the changed files with git and sets an output; later steps run
+  # only when it says yes. Not a required check.
+  steering-config-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: plugins/cool-workflow
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - id: changed
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
+            base="$(git rev-list --max-parents=0 HEAD)"
+          fi
+          if git diff --name-only "$base" "${{ github.sha }}" | grep -qE '^(AGENTS\.md|plugins/cool-workflow/agents/)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        if: steps.changed.outputs.run == 'true'
+        with:
+          node-version: "22"
+      - run: npm install --no-package-lock --ignore-scripts
+        if: steps.changed.outputs.run == 'true'
+      - run: node test/run-all.js --filter 'release-flow'
+        if: steps.changed.outputs.run == 'true'
+      - run: npm run eval:replay
+        if: steps.changed.outputs.run == 'true'
