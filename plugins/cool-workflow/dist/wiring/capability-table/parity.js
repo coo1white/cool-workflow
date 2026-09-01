@@ -251,6 +251,7 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
             "run.verify-import",
             "run.inspect-archive",
             "run.restore",
+            "run.link",
             "multi-agent.reasoning.refresh",
             "multi-agent.graph.compact",
             "multi-agent.role.create",

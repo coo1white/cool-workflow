@@ -299,6 +299,15 @@ function renderPendingTasks(run: WorkflowRun): string[] {
   return pending.map((t) => `- ${t.id} (${t.phase}, ${t.status}): ${t.taskPath}`);
 }
 
+/** WS1 "run <-> PR linkage": one line per link annotation. Called only
+ *  when `run.links` is non-empty (see writeReport below) — a run with no
+ *  links never gains a "## Links" header, so an empty run's report.md
+ *  stays byte-identical to before this field existed. */
+function renderLinks(run: WorkflowRun): string[] {
+  const links = run.links || [];
+  return links.map((link) => `- [${link.kind}] ${link.url}${link.note ? ` — ${link.note}` : ""} (added ${link.addedAt} by ${link.actor})`);
+}
+
 function renderResults(run: WorkflowRun): string[] {
   const completed = run.tasks.filter((t) => t.status === "completed");
   if (!completed.length) return ["No completed results yet."];
@@ -402,6 +411,12 @@ export function writeReport(run: WorkflowRun): string {
     "## Results",
     "",
     ...renderResults(run),
+    // WS1 "run <-> PR linkage": the ONLY section that is fully absent (no
+    // header at all) when it has nothing to show — every section above
+    // keeps its header plus a "none yet" fallback line, but a "## Links"
+    // header on a run with no links would be new, unwanted noise on
+    // every run's report, so it is skipped outright instead.
+    ...(run.links && run.links.length ? ["", "## Links", "", ...renderLinks(run)] : []),
   ].join("\n");
   fs.writeFileSync(run.paths.report, report, "utf8");
   return run.paths.report;

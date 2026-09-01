@@ -13,6 +13,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { RunPlanner, RunRegistry } from "./run-registry-io";
+import { recordRunLink } from "./run-link-io";
 import { plan as pipelinePlan } from "./pipeline";
 import { loadWorkflowApp } from "./workflow-app-loader";
 import { DesktopSchedulerDaemon, RoutineTriggerBridge, Scheduler } from "./scheduler-io";
@@ -195,6 +196,16 @@ function cliRunPlanner(): RunPlanner {
 
 export function runRerunCli(runId: string, options: Record<string, unknown> = {}) {
   return new RunRegistry(resolveCwd(options), cliRunPlanner()).rerun(runId, { reason: optionalString(options.reason), scope: scopeOf(options, "home") });
+}
+export function runLinkCli(runId: string, options: Record<string, unknown> = {}) {
+  const url = optionalString(options.url);
+  if (!url) throw new Error("Missing run link url (--url <url>)");
+  return recordRunLink(
+    new RunRegistry(resolveCwd(options)),
+    runId,
+    { url, kind: optionalString(options.kind), note: optionalString(options.note), actor: optionalString(options.actor) },
+    { scope: scopeOf(options, "home") }
+  );
 }
 export function historyCli(options: Record<string, unknown> = {}) {
   return new RunRegistry(resolveCwd(options)).history({

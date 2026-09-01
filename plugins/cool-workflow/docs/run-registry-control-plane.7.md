@@ -156,6 +156,19 @@ in the repo's `registry/provenance.json`. The first failed run is KEPT
 for audit — the past is never written over. Rerunning a rerun adds one to
 `generation` and keeps `originRunId` pinned to the chain root.
 
+## Link
+
+`run link <run-id> --url <url> [--kind pr|issue|ticket] [--note TEXT]` adds one
+append-only link annotation (`{ url, kind, note?, addedAt, actor }`) straight
+onto the run record — no other file, no network call out to a forge (GitHub,
+Gitea, ...). `--kind` defaults to `pr`. The url must be a real http or https
+link; anything else is turned away before it is written. Adding the SAME url
+twice is a no-op: the run keeps only one entry for it, with its first
+`addedAt`/actor kept as-is. `run show` and `report.md` show a run's links only
+when it has at least one — a run with none renders exactly as it did before
+this command existed. `run export` carries links for free, since they live
+right in the run record.
+
 ## Portable export, import, and restore verification
 
 `run export <run-id> --output PATH` writes a portable JSON archive for a run. The
@@ -284,6 +297,7 @@ cw run resume <run-id> [--limit N] [--drive [--once]] [--json]
 cw run archive <run-id> [--reason TEXT] [--unarchive]
 cw run archive --older-than-days N [--state completed --state failed]
 cw run rerun <run-id> [--reason TEXT]
+cw run link <run-id> --url <url> [--kind pr|issue|ticket] [--note TEXT]
 cw run export <run-id> --output PATH
 cw run import PATH --target DIR
 cw run verify-import <run-id> [--cwd DIR]
@@ -308,8 +322,8 @@ passes `npm run parity:check`:
 
 - `cw_registry_refresh`, `cw_registry_show`
 - `cw_run_search`, `cw_run_list`, `cw_run_show`, `cw_run_resume`,
-  `cw_run_archive`, `cw_run_rerun`, `cw_run_export`, `cw_run_import`,
-  `cw_run_verify_import`
+  `cw_run_archive`, `cw_run_rerun`, `cw_run_link`, `cw_run_export`,
+  `cw_run_import`, `cw_run_verify_import`
 - `cw_queue_add`, `cw_queue_list`, `cw_queue_drain`, `cw_queue_show`
 - `cw_history`
 

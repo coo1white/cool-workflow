@@ -1,15 +1,15 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-08-24 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-09-01 by `npm run sync:project-index`.
 
 ## Snapshot
 
 - Package: `cool-workflow`
 - Version: `0.2.6`
-- Source modules: `153`
+- Source modules: `155`
 - Workflow apps: `8`
 - Docs: `59`
-- Smoke tests: `260`
+- Smoke tests: `261`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -99,6 +99,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/pipeline/drive-decide.ts](../src/core/pipeline/drive-decide.ts)
 - [core/pipeline/loop-expansion.ts](../src/core/pipeline/loop-expansion.ts)
 - [core/pipeline/result-normalize.ts](../src/core/pipeline/result-normalize.ts)
+- [core/run-link.ts](../src/core/run-link.ts)
 - [core/state/contract-migration.ts](../src/core/state/contract-migration.ts)
 - [core/state/migrations.ts](../src/core/state/migrations.ts)
 - [core/state/node-projection.ts](../src/core/state/node-projection.ts)
@@ -179,6 +180,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [shell/reporter.ts](../src/shell/reporter.ts)
 - [shell/run-export-cli.ts](../src/shell/run-export-cli.ts)
 - [shell/run-export.ts](../src/shell/run-export.ts)
+- [shell/run-link-io.ts](../src/shell/run-link-io.ts)
 - [shell/run-registry-io.ts](../src/shell/run-registry-io.ts)
 - [shell/scheduling-io.ts](../src/shell/scheduling-io.ts)
 - [shell/state-cli.ts](../src/shell/state-cli.ts)
@@ -482,6 +484,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [run-import-path-traversal-smoke.js](../test/run-import-path-traversal-smoke.js)
 - [run-import-tamper-failclosed-smoke.js](../test/run-import-tamper-failclosed-smoke.js)
 - [run-inspect-archive-smoke.js](../test/run-inspect-archive-smoke.js)
+- [run-link-smoke.js](../test/run-link-smoke.js)
 - [run-paths-shell-boundary-smoke.js](../test/run-paths-shell-boundary-smoke.js)
 - [run-registry-control-plane-smoke.js](../test/run-registry-control-plane-smoke.js)
 - [run-restore-failclosed-smoke.js](../test/run-restore-failclosed-smoke.js)

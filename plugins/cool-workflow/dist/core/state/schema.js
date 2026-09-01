@@ -47,4 +47,5 @@ exports.OPTIONAL_TOP_LEVEL_KEYS = [
     "blackboard",
     "topologies",
     "collaboration",
+    "links",
 ];

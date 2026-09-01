@@ -656,6 +656,22 @@ attachCliBinding("run.rerun", {
 });
 REGISTRY_BY_CAPABILITY.get("run.rerun")!.mcp!.handler = (args) => loadRegistryCli().runRerunCli(required(optionalArg(args.runId), "run id"), args);
 
+// `run link <run-id> --url <url> [--kind pr|issue|ticket] [--note TEXT]`
+// (WS1, run <-> PR linkage): records one append-only link annotation on
+// the run record. No network call — it only writes a link, it never
+// calls out to a forge. `hiddenFromHelp` keeps the byte-pinned `cw help
+// run` fixture unchanged (same reason run.export/import/... hide, per
+// that block's own comment above): the command is real and documented in
+// docs/run-registry-control-plane.7.md, it just does not add a new row
+// to that one byte-pinned help page.
+attachCliBinding("run.link", {
+  path: ["run", "link"],
+  jsonMode: "default",
+  hiddenFromHelp: true,
+  handler: (args) => ({ json: loadRegistryCli().runLinkCli(required(args.positionals[0], "run id"), args.options) }),
+});
+REGISTRY_BY_CAPABILITY.get("run.link")!.mcp!.handler = (args) => loadRegistryCli().runLinkCli(required(optionalArg(args.runId), "run id"), args);
+
 // ---- history ---------------------------------------------------------
 
 attachCliBinding("history", {

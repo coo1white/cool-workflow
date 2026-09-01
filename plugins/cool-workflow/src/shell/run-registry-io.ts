@@ -21,7 +21,7 @@ import * as path from "node:path";
 import { assertSafeRunId, readJson, withFileLock, writeJson } from "./fs-atomic";
 import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store";
 import { fingerprintStrings } from "../core/hash";
-import { LoopStage, WorkflowRun } from "../core/state/types";
+import { LoopStage, RunLinkAnnotation, WorkflowRun } from "../core/state/types";
 
 // ---------------------------------------------------------------------------
 // Shared types (byte-exact port of src/types/run-registry.ts)
@@ -87,6 +87,11 @@ export interface RunRecord {
   reclaimedAt?: string;
   reclaimedBytes?: number;
   tombstoneHash?: string;
+  /** WS1 "run <-> PR linkage": append-only link annotations from `cw run
+   *  link`. Absent (not an empty array) when the run has none, so a run
+   *  show/search payload with no links stays exactly as it was before
+   *  this field existed. */
+  links?: RunLinkAnnotation[];
 }
 
 export interface RunQueueEntry {
@@ -829,6 +834,7 @@ export class RunRegistry {
       sourceFingerprint: fingerprintRun(run),
       freshness: "valid",
       provenance,
+      links: Array.isArray(run.links) && run.links.length ? run.links : undefined,
     };
   }
 
@@ -1349,6 +1355,7 @@ export function formatRunShow(result: RunShowResult): string {
     `  commits=${r.commitCount} (verifier-gated=${r.verifierGatedCommitCount}) openFeedback=${r.openFeedbackCount}`,
   ];
   if (r.provenance?.rerunOf) lines.push(`  provenance: rerunOf=${r.provenance.rerunOf} gen=${r.provenance.generation} origin=${r.provenance.originRunId}`);
+  if (r.links?.length) lines.push(`  links: ${r.links.map((l) => `${l.kind}:${l.url}`).join(", ")}`);
   if (r.tier && r.tier !== "live") {
     lines.push(
       `  tier=${r.tier} capability=${r.capability} reason=${r.capabilityReason}${r.reclaimedBytes ? ` bytesFreed=${r.reclaimedBytes}` : ""}${
