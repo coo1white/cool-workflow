@@ -26,6 +26,20 @@ const { callTool } = require(path.join(pluginRoot, "dist", "mcp", "dispatch"));
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// Builds an anchored, whole-line regex matching the exact shape `renderLinks`
+// (src/shell/report.ts) writes for one link record, so a match proves the
+// link is rendered as its own well-formed line — not just that the url
+// string appears somewhere in the file.
+function linkLineRegex(link) {
+  const note = link.note ? ` — ${escapeRegExp(link.note)}` : "";
+  const pattern = `^- \\[${escapeRegExp(link.kind)}\\] ${escapeRegExp(link.url)}${note} \\(added ${escapeRegExp(link.addedAt)} by ${escapeRegExp(link.actor)}\\)$`;
+  return new RegExp(pattern, "m");
+}
+
 function freshRepo(label) {
   return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `cw-run-link-${label}-`)));
 }
@@ -82,8 +96,8 @@ function main() {
   const reported = cwOk(repo, ["report", runId]);
   const reportBody = fs.readFileSync(reported.path, "utf8");
   assert.ok(reportBody.includes("## Links"), "report.md has a Links section");
-  assert.ok(reportBody.includes("https://forge.example/pr/42"), "report.md names the first link");
-  assert.ok(reportBody.includes("https://tracker.example/ISSUE-9"), "report.md names the second link");
+  assert.match(reportBody, linkLineRegex(first.link), "report.md renders the first link as its own well-formed line");
+  assert.match(reportBody, linkLineRegex(second.link), "report.md renders the second link as its own well-formed line");
 
   const bareRepo = freshRepo("bare");
   const bareRunId = plan(bareRepo, "no links here");
