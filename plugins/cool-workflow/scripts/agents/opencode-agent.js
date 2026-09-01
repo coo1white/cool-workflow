@@ -110,7 +110,7 @@ render.action(`${label}: reading the repo…`);
 
 // `opencode run` takes the message as a POSITIONAL arg ("opencode run [message..]");
 // there is no --prompt flag. Pass the prompt last, as the positional message.
-// --model (provider/model, e.g. deepseek/deepseek-chat) is added only when a
+// --model (provider/model, e.g. deepseek/deepseek-v4-flash) is added only when a
 // variant requests it; otherwise opencode uses its configured default model.
 const args = [
   "run",
