@@ -68,6 +68,7 @@ exports.runShowCli = runShowCli;
 exports.runResumeCli = runResumeCli;
 exports.runArchiveCli = runArchiveCli;
 exports.runRerunCli = runRerunCli;
+exports.runLinkCli = runLinkCli;
 exports.historyCli = historyCli;
 exports.queueAddCli = queueAddCli;
 exports.queueListCli = queueListCli;
@@ -84,6 +85,7 @@ const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const numeric_flag_1 = require("../core/util/numeric-flag");
 const run_registry_io_1 = require("./run-registry-io");
+const run_link_io_1 = require("./run-link-io");
 const pipeline_1 = require("./pipeline");
 const workflow_app_loader_1 = require("./workflow-app-loader");
 const scheduler_io_1 = require("./scheduler-io");
@@ -248,6 +250,12 @@ function cliRunPlanner() {
 }
 function runRerunCli(runId, options = {}) {
     return new run_registry_io_1.RunRegistry(resolveCwd(options), cliRunPlanner()).rerun(runId, { reason: optionalString(options.reason), scope: scopeOf(options, "home") });
+}
+function runLinkCli(runId, options = {}) {
+    const url = optionalString(options.url);
+    if (!url)
+        throw new Error("Missing run link url (--url <url>)");
+    return (0, run_link_io_1.recordRunLink)(new run_registry_io_1.RunRegistry(resolveCwd(options)), runId, { url, kind: optionalString(options.kind), note: optionalString(options.note), actor: optionalString(options.actor) }, { scope: scopeOf(options, "home") });
 }
 function historyCli(options = {}) {
     return new run_registry_io_1.RunRegistry(resolveCwd(options)).history({

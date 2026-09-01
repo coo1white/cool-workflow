@@ -415,6 +415,21 @@ export interface RunAuditPaths {
   indexPath?: string;
 }
 
+/** "run <-> PR linkage": the kind of thing a run link points at. Free
+ *  text defaults to "pr" when not given. */
+export type RunLinkKind = "pr" | "issue" | "ticket";
+
+/** One append-only link annotation on a run record (`cw run link`). Built
+ *  by the pure helper in core/run-link.ts; never edited or removed once
+ *  written, only added to. */
+export interface RunLinkAnnotation {
+  url: string;
+  kind: RunLinkKind;
+  note?: string;
+  addedAt: string;
+  actor: string;
+}
+
 export interface WorkflowRun {
   schemaVersion: 1;
   id: string;
@@ -448,5 +463,6 @@ export interface WorkflowRun {
   blackboard?: BlackboardState;
   topologies?: TopologyState;
   collaboration?: CollaborationState;
+  links?: RunLinkAnnotation[];
   [key: string]: unknown;
 }

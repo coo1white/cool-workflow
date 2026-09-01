@@ -292,6 +292,7 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS: Array<{ reason: string; capabilities: strin
       "run.verify-import",
       "run.inspect-archive",
       "run.restore",
+      "run.link",
       "multi-agent.reasoning.refresh",
       "multi-agent.graph.compact",
       "multi-agent.role.create",

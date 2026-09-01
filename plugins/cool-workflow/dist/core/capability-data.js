@@ -269,6 +269,7 @@ exports.COMMON_PROPERTY_TYPES = {
     trustKey: { type: "string", description: "the trust key used to seal the run" },
     unarchive: { type: "boolean", description: "when true, undo an archive mark instead of setting one" },
     until: { type: "string", description: "the end of the time range to search" },
+    url: { type: "string", description: "a web address (http or https)" },
     value: { type: "string", description: "the value to store in this context frame" },
     verdict: { type: "string", description: "the review verdict" },
     verifier: { type: "string", description: "the name of the verifier" },
@@ -597,4 +598,5 @@ exports.MCP_TOOL_DATA = [
     { tool: "cw_history", capability: "history", requiredArgs: [], properties: ["cwd", "scope", "app", "status", "limit", "offset"], description: "Read a cross-repo unified run timeline (newest first)." },
     // --- post-rebuild additions (appended; see the header note above) ---
     { tool: "cw_audit_head", capability: "audit.head", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the trust-audit chain head anchor (event count + head hash) for a later truncation-proof audit.verify." },
+    { tool: "cw_run_link", capability: "run.link", requiredArgs: ["runId", "url"], properties: ["runId", "cwd", "scope", "url", "kind", "note", "actor"], description: "Add an append-only link (PR/issue/ticket url) to a run record; no network call. A repeat of the same url is an idempotent no-op." },
 ];

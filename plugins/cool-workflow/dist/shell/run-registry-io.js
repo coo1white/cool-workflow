@@ -552,6 +552,7 @@ class RunRegistry {
             sourceFingerprint: fingerprintRun(run),
             freshness: "valid",
             provenance,
+            links: Array.isArray(run.links) && run.links.length ? run.links : undefined,
         };
     }
     scanRepo(repo) {
@@ -1067,6 +1068,8 @@ function formatRunShow(result) {
     ];
     if (r.provenance?.rerunOf)
         lines.push(`  provenance: rerunOf=${r.provenance.rerunOf} gen=${r.provenance.generation} origin=${r.provenance.originRunId}`);
+    if (r.links?.length)
+        lines.push(`  links: ${r.links.map((l) => `${l.kind}:${l.url}`).join(", ")}`);
     if (r.tier && r.tier !== "live") {
         lines.push(`  tier=${r.tier} capability=${r.capability} reason=${r.capabilityReason}${r.reclaimedBytes ? ` bytesFreed=${r.reclaimedBytes}` : ""}${r.tombstoneHash ? ` tombstone=${r.tombstoneHash.slice(0, 19)}` : ""}`);
     }

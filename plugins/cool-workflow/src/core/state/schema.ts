@@ -48,4 +48,5 @@ export const OPTIONAL_TOP_LEVEL_KEYS: readonly string[] = [
   "blackboard",
   "topologies",
   "collaboration",
+  "links",
 ];
