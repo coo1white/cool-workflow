@@ -90,7 +90,11 @@ const checks = [
   // Fail closed if a live doc (docs/*.7.md and friends, AGENTS.md, READMEs)
   // names a source file that is not in the tree. Teeth live in
   // test/citation-check-smoke.js (run by `npm test`).
-  { name: "doc citation freshness", command: ["npm", "run", "citation:check"] }
+  { name: "doc citation freshness", command: ["npm", "run", "citation:check"] },
+  // Fail closed if tracked .md count or src comment-line count goes over the
+  // ceilings in manifest/growth-budget.json. Teeth live in
+  // test/growth-budget-check-smoke.js (run by `npm test`).
+  { name: "growth budget", command: ["npm", "run", "growth:check"] }
 ];
 
 function main() {
