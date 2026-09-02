@@ -318,15 +318,71 @@ src and test together, so both onramp rules stay quiet.
   caller, `citation:check` green, `test:gate` green, program net lines
   negative.
 
+## PR 8 — six more export-only-internal functions (added 2026-09-02)
+
+The architect's closing scan on main aaaf238d found six functions
+still exported but used only in their own file: `requireRunTask`,
+`findRunNode`, `resolveReviewPolicy`, `sha256OfFile`,
+`isBundledSandboxProfileId`, `listWorkflowAppRecords`. PR 2's audit
+missed them because a comment or test line in another file still
+named them; PR 3, 6 and 7 rewrote those lines. Scope: take `export`
+off each (in-file callers stay), and list the six as `dead` in
+`test/dead-export-removal-guard-smoke.js` beside a live sibling, so
+the guard holds them down. Net <= 0 for src. This section landed
+AFTER #612 merged (same closing PR as the ledger): PR 8 took its
+scope from the manager's brief, and its body says so. It is the one
+PR in this chain whose authority was the brief, not this file.
+
+## What this spec got wrong (recorded at close)
+
+1. PR 2 did not say the doubled smoke was also the `eval:replay` npm
+   entry and a `version-sync-check` row; deleting it broke both and
+   cost a round. Rule from it: grep the whole repo (package.json,
+   scripts/, .github/, docs/, test/) before a delete or rename.
+2. PR 4 said the leftovers "should be small". They were 386, then 401
+   after PR 3 narrowed. Became PR 6.
+3. The first token shape matched inside `project/docs/rebuild/PLAN.md`,
+   so rule 1's natural form could never pass. Fixed in #607.
+4. The manager's counting script had a second bug — `(?:ts|js|md)`
+   with no trailing guard read `package.json` as `package.js` — and
+   my own PR 3 count command counted grep's `file:line:` prefix. Both
+   fixed before any number was written down.
+5. The marker baseline for PR 7 was case-sensitive: 120 lines / 60
+   files instead of the true 142 / 67. "Leave it RED" hid behind a
+   capital L in the very file that started PR 7.
+6. Two onramp rules read paths, not diffs, and blocked two
+   comment-only PRs (PR 3, PR 6a). Ruling: no exemption door; PR 3
+   narrowed, 6a and 6b became one PR. BACKLOG row at close.
+7. Finding "7 bare names" was 7 sites over 6 names;
+   `capability-dispatcher.ts` names code deleted in v0.1.81, so that
+   site lost its `.ts` instead of getting a made-up path.
+
 ## Status ledger
+
+Program COMPLETE 2026-09-02. Main `b7487a6b` after PR 8.
 
 | Item | State | PR |
 |---|---|---|
-| Intent + spec (this file) | open | — |
-| PR 1 hermetic gate + onramp table | open | — |
-| PR 2 dead doors | open | — |
-| PR 3 old addresses out of comments | open | — |
-| PR 4 citation gate | open | — |
-| PR 5 TS7 install path in CI | open | — |
-| PR 6 dead paths in src (non-surface) + scripts + test comments | open | — |
-| PR 7 stale cut-over claims in test and src comments | open | — |
+| Intent + spec (this file) | merged | #599, amended #602 #605 #607 #609 |
+| PR 1 hermetic gate + onramp table | merged | #600 fcbdec87 |
+| PR 2 dead doors | merged | #601 fdd6d9fd |
+| PR 3 old addresses out of comments | merged | #604 833887b6 |
+| PR 4 citation gate | merged | #610 917db2d9 |
+| PR 5 TS7 install path in CI | merged | #603 fc8ab073 |
+| PR 6 dead paths in src (non-surface) + scripts + test comments | merged | #606 5876f6da |
+| PR 7 stale cut-over claims in test and src comments | merged | #611 aaaf238d |
+| PR 8 six export-only-internal functions | merged | #612 b7487a6b |
+
+Closing numbers, re-measured by the architect on `aaaf238d` and by
+the manager on `b7487a6b`: dead onramp patterns 19/33 -> 0/35;
+bare-name doc misses 7 -> 0; `path:line` cites in src/scripts/test
+comments 248 -> 0; dead no-line paths 386 -> 0; stale cut-over
+markers 142 lines / 67 files -> 0; exported functions with no caller
+3 -> 0, exported-but-file-only 13 -> 0; `citation-check` 62 docs, 664
+source files, all resolve; `growth:check` md 130 -> 131 (this file
+only), src-comments 7210 -> 7177; `release:check` 18/18; `test:gate`
+264/264 (one local run gave 263/264 with the failing name lost to a
+short log; the re-run and CI gave 264/264 — recorded, not explained).
+Program net: 418 files, +1727 / -2343 = -616 lines (R3 held). Rounds:
+1, 2, 1, 3, 3, 1, 1, 1. Nothing pushed to main; every PR merged on
+green CI with CodeQL.
