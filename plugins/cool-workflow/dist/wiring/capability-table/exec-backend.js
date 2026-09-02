@@ -146,7 +146,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
     handler: (args) => {
         const doctor = loadDoctor();
         const report = doctor.runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
-        // Byte-exact port of the old build: both text
+        // Byte-exact port of src/cli/command-surface.ts:170-176: both text
         // branches are written as `${formatX(report)}\n` UNCONDITIONALLY —
         // formatDoctorFixes already ends in its own "\n" (its last joined
         // element is ""), so its case needs one MORE explicit "\n" here to
@@ -181,7 +181,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
         const report = doctor.runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
         // See the "doctor" handler's comment above: formatDoctorFixes
         // already ends in "\n", so one more explicit "\n" here reproduces
-        // the old build's unconditional
+        // src/cli/command-surface.ts:126-130's unconditional
         // `${formatDoctorFixes(report)}\n` write.
         return { text: `${doctor.formatDoctorFixes(report)}\n`, exitCode: report.ok ? undefined : 1 };
     },

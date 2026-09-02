@@ -49,6 +49,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   const args = parseArgv(argv);
 
   // Top-level flags: accept --version / -v / --help / -h before command lookup.
+  // (src/cli/command-surface.ts:46-55)
   if (args.command?.startsWith("-") || !args.command) {
     if (args.command === "--version" || args.command === "-v" || args.options.v || args.options.version) {
       printVersion();
@@ -60,7 +61,7 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     }
   }
 
-  // Vendor short flags -> --agent-command.
+  // Vendor short flags -> --agent-command (src/cli/command-surface.ts:59-62).
   if (args.options.claude) args.options["agent-command"] = "builtin:claude";
   if (args.options.codex) args.options["agent-command"] = "builtin:codex";
   if (args.options.gemini) args.options["agent-command"] = "builtin:gemini";
@@ -68,10 +69,12 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   if (args.options.deepseek) args.options["agent-command"] = "builtin:deepseek";
   if (args.options.muse) args.options["agent-command"] = "builtin:muse";
 
-  // -dir / --dir / -d is a second name for --repo; an explicit --repo wins.
+  // -dir / --dir / -d is a second name for --repo; an explicit --repo wins
+  // (src/cli/command-surface.ts:65).
   if (!args.options.repo && args.options.dir) args.options.repo = args.options.dir;
 
-  // Presentation flags set env vars before any agent spawn.
+  // Presentation flags set env vars before any agent spawn
+  // (src/cli/command-surface.ts:73-75).
   if (args.options.verbose) process.env.CW_VERBOSE = "1";
   if (args.options["no-color"]) process.env.CW_NO_COLOR = "1";
   if (args.options.full) process.env.CW_OUTPUT = "full";
@@ -90,13 +93,14 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
   // purpose so the scope is clear without reading this comment.
   if (args.options.quiet) process.env.CW_DRIVE_PROGRESS = "0";
 
-  // `cw <verb> --help` / `-h` -> per-command help.
+  // `cw <verb> --help` / `-h` -> per-command help
+  // (src/cli/command-surface.ts:80-83).
   if ((args.options.help || args.options.h) && args.command && !args.command.startsWith("-")) {
     process.stdout.write(formatCommandHelp(args.command, suggestCommand));
     return;
   }
 
-  // Bare -q / --question -> redirect to quickstart.
+  // Bare -q / --question -> redirect to quickstart (src/cli/command-surface.ts:88-93).
   if (args.command === "-q" || args.command === "--question") {
     if (!args.options.question && args.positionals[0]) args.options.question = args.positionals.shift();
     args.command = "quickstart";

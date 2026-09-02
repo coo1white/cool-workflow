@@ -1,7 +1,7 @@
 "use strict";
 // cli/parseargv.ts — parseArgv, KNOWN_COMMANDS, suggestCommand.
 //
-// Pure. Byte-exact port of the old build's orchestrator module.
+// Pure. Byte-exact port of src/orchestrator.ts:789-887 in the old build.
 // See plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 15 and SPEC/cli-surface.md "Argument
 // parsing (parseArgv)" / SPEC/orchestrator.md "Module-level exports".
 //
@@ -22,7 +22,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.KNOWN_COMMANDS = void 0;
 exports.parseArgv = parseArgv;
 exports.suggestCommand = suggestCommand;
-/** The single-dash short-flag table. */
+/** src/orchestrator.ts:811 — single-dash short-flag table. */
 const SHORT_FLAG_TABLE = {
     q: "question",
     r: "repo",
@@ -35,7 +35,7 @@ const SHORT_FLAG_TABLE = {
 function looksLikeFlagValue(token) {
     return token !== undefined && !token.startsWith("-");
 }
-/** appendOption: a repeated key becomes an
+/** src/orchestrator.ts:1009-1016 — appendOption: a repeated key becomes an
  *  array; a third+ occurrence pushes onto that same array. */
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -100,7 +100,7 @@ function parseArgv(argv) {
     }
     return { command, positionals, options };
 }
-/** Every top-level command name, used for
+/** src/orchestrator.ts:842-851 — every top-level command name, used for
  *  "did you mean". NOTE: this deliberately does NOT include "ledger" even
  *  though the dispatcher handles it and formatHelp lists it — a known,
  *  intentionally-preserved wart (see plugins/cool-workflow/project/docs/rebuild/PLAN.md "Kept byte-for-byte").
@@ -138,7 +138,7 @@ function levenshtein(a, b) {
     }
     return dp[n];
 }
-/** Nearest known command by edit distance.
+/** src/orchestrator.ts:875-887 — nearest known command by edit distance.
  *  Gives `undefined` when the input is under 2 chars, or when the best
  *  distance is over 3 or over half the input length. Never gives back the
  *  input itself: a caller only asks for a suggestion when the input did

@@ -58,7 +58,7 @@ const capability_table_1 = require("../core/capability-table");
 function toolDefinitions() {
     return (0, capability_table_1.mcpToolDefinitions)();
 }
-/** SPEC/mcp.md invariant 6 — required-argument
+/** SPEC/mcp.md invariant 6 / src/mcp-surface.ts:7-25 — required-argument
  *  groups are declared data, not code. `undefined`/`null` become `{}`; a
  *  non-object throws; a group "keyA|keyB" passes when at least one named
  *  key is not `undefined`, not `null`, and not `""`. */
@@ -99,7 +99,8 @@ function coerceScalarArgs(args) {
 }
 /** `callTool(name, args)` — resolves `cwd` (SPEC/mcp.md invariant 7),
  *  checks required args, then calls the row's `mcp.handler`. Throws
- *  `Unknown tool: <name>` for a name with no row. */
+ *  `Unknown tool: <name>` for a name with no row (src/mcp/tool-call.ts:513
+ *  parity). */
 function callTool(name, rawArgs) {
     const row = (0, capability_table_1.findCapabilityByMcpTool)(name);
     if (!row || !row.mcp) {
