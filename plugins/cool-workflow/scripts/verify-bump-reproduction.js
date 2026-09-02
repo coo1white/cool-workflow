@@ -141,8 +141,12 @@ function main() {
     return true;
   }
 
+  if (!fs.existsSync(path.join(stepCwd, "package-lock.json"))) {
+    err(`verify-bump-reproduction: no package-lock.json in the scratch worktree at ${PARENT} — cannot npm ci`);
+    return 1;
+  }
   const bumpOk =
-    runStep("npm install", "npm", ["install", "--no-package-lock", "--ignore-scripts"]) &&
+    runStep("npm ci", "npm", ["ci", "--ignore-scripts"]) &&
     runStep("bump:version", "npm", ["run", "bump:version", "--", VERSION]) &&
     runStep("sync:project-index", "npm", ["run", "sync:project-index", "--", "--repo-only"]);
   if (!bumpOk) {
