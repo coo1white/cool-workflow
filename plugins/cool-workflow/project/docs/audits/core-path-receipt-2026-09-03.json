@@ -1,0 +1,45 @@
+{
+  "program": "2026-09-02-core-path-freeze",
+  "commit": "98e33a3c99cf24f5fe97a2664b78dc9cbbbf1f88",
+  "version": "0.2.7",
+  "startedAt": "2026-09-02T18:50:34Z",
+  "finishedAt": "2026-09-02T19:02:42Z",
+  "checks": [
+    {
+      "id": "north-star-names-core-path",
+      "pass": true,
+      "command": "grep -n \"Core path:\" AGENTS.md",
+      "seen": "AGENTS.md \"# North Star\" holds one line starting \"**Core path:**\" naming all ten: `cw`, `cw help`, `cw doctor`, `cw demo tamper`, `cw app list`, `cw -q \"<question>\" -claude`, `cw --resume --run <id>`, `cw run resume <id> --drive --repo <path>`, `cw doctor --onramp`, and reading `.cw/runs/<id>/report.md`. Same ten as the spec's measured facts, word for word.",
+      "note": "Added by PR #650. Unchanged by this closing PR."
+    },
+    {
+      "id": "frozen-paths-listed",
+      "pass": true,
+      "command": "grep -c '\"path\"' manifest/growth-budget.json",
+      "seen": "24. AGENTS.md \"Frozen surfaces\" lists 12 groups holding 24 paths total (multi-agent 5, coordinator/topology 2, candidates/eval 3, scheduling 2, collaboration/workbench 4, bands 1, state explosion 2, orchestrator 1, telemetry demo 1, evidence reasoning 1, observability intake 1, reclamation 1 = 24), the same 24 the North Star list names.",
+      "note": "Counted on the origin/main tree at 98e33a3c, before this PR's own edits."
+    },
+    {
+      "id": "freeze-gate-teeth",
+      "pass": true,
+      "command": "node test/growth-budget-check-smoke.js",
+      "seen": "growth-budget-check-smoke: PASS",
+      "note": "Teeth also shown by hand in this PR's own body: one line added under src/core/multi-agent/coordinator.ts made `node scripts/growth-budget-check.js` fail with `frozen plugins/cool-workflow/src/core/multi-agent/: 4252 > 4251` and exit 1; `git checkout --` on that one file, then a clean pass with `frozen=24 paths within ceiling` and an empty `git status --short`."
+    },
+    {
+      "id": "growth-check-pass",
+      "pass": true,
+      "command": "node scripts/growth-budget-check.js",
+      "seen": "growth-budget-check: md=135/135, src-comments=7205/7571, within budget, frozen=24 paths within ceiling.",
+      "note": "Run on origin/main at 98e33a3c, before this PR's own doc edits (the archive move in this same PR later drops the md count to 133/135, still within the 135 ceiling)."
+    },
+    {
+      "id": "readme-sentence",
+      "pass": true,
+      "command": "grep -n \"core path\" README.md plugins/cool-workflow/README.md plugins/cool-workflow/project/docs/wiki/Home.md",
+      "seen": "README.md:180 and plugins/cool-workflow/README.md:181: \"...in the User Guide are the core path; the rest is kept working, not grown.\" Home.md:52: \"These lanes and the commands in the User Guide are the core path; the rest is kept working, not grown.\" All three hold the sentence.",
+      "note": "Added by PR #650. Unchanged by this closing PR."
+    }
+  ],
+  "verdict": "pass"
+}
