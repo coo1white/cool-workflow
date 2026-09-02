@@ -30,6 +30,14 @@ cw run resume <run-id> --drive --once
 The default resume payload is read-only. Adding `--drive` reuses existing pending
 tasks and does not re-plan the run.
 
+You can also resume by the bare flag form:
+
+```bash
+cw --resume --run <run-id>
+```
+
+This needs the cwd inside the project, or `--repo <path>`.
+
 ## Export A Run
 
 ```bash

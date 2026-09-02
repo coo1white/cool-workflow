@@ -70,6 +70,7 @@ See [Workflow Apps](Workflow-Apps.md) for when to use each one.
 | `cw run search --scope home --text TEXT` | Search runs across registered repos. |
 | `cw run resume <run-id>` | Read-only next-action view. |
 | `cw run resume <run-id> --drive` | Continue pending work through the agent drive loop. |
+| `cw --resume --run <run-id>` | Bare form of resume; needs the cwd inside the project, or `--repo <path>`. |
 | `cw run export <run-id> --output PATH` | Write a portable run archive. |
 | `cw run inspect-archive PATH` | Check an archive without importing. |
 | `cw run import PATH --target DIR` | Restore an archive under another repo. |

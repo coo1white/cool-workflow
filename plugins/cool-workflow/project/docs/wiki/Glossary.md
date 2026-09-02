@@ -71,7 +71,7 @@ re-checkable with `cw audit verify`. See [Trust And Audit](Trust-And-Audit.md).
 
 **Coordinator / Blackboard** — The shared store agents use to work together
 (topics, messages, artifacts, context, snapshots, decisions), kept under
-`.cw/runs/<id>/blackboard/`.
+`.cw/runs/<id>/blackboard/`, made on first write.
 
 **Role / group / membership** — Multi-agent work kept like an OS *process
 table*: who is who, which group they are in, and where they are in their
