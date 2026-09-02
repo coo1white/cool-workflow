@@ -130,6 +130,17 @@ function writeStub(file, opts = {}) {
   } else if (opts.invalid) {
     // No cw:result fence + no evidence ⇒ rejected for evidence-gated workers.
     lines.push('fs.writeFileSync(rp, "# nope\\n\\nno cw result envelope here\\n");');
+  } else if (opts.unclosedOnce) {
+    // First call writes an UNCLOSED cw:result block (a truncated `}`); every
+    // call after that writes a valid one. A small counter file tracks the
+    // call count across the separate stub processes.
+    const cf = JSON.stringify(opts.unclosedOnce);
+    lines.push(
+      `let n = 0; try { n = Number(fs.readFileSync(${cf}, "utf8")); } catch {}`,
+      `fs.writeFileSync(${cf}, String(n + 1));`,
+      'const json = JSON.stringify({ summary: "stub section", findings: [], evidence: [process.cwd() + "/README.md:1"] });',
+      'fs.writeFileSync(rp, "# R\\n\\n" + fence + "cw:result\\n" + (n === 0 ? json.slice(0, -1) : json) + "\\n" + fence + "\\n");'
+    );
   } else {
     lines.push(
       'const body = "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "stub section", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + fence + "\\n";',
@@ -422,6 +433,30 @@ function main() {
       const finalO = runner.loadRun(run.id);
       assert.equal(finalO.tasks[0].status, "failed", "parked worker blocks the phase gate");
       assert.equal(runner.showWorker(run.id, workerId).retryCount, 3, "park attempt count persisted");
+    } finally {
+      process.chdir(cwd0);
+    }
+  }
+
+  // ---- 9c. an unclosed cw:result block gets a second try, then completes ---
+  {
+    const workR = tmpWorkspace();
+    const counterR = path.join(workR, "calls.txt");
+    const stubR = writeStub(path.join(workR, "stub.js"), { unclosedOnce: counterR });
+    process.chdir(workR);
+    try {
+      const runner = makeRunner();
+      const run = runner.plan("end-to-end-golden-path", { question: "q" });
+      const result = driveRun(runner, run.id, { now: FIXED_NOW, agentConfig: { schemaVersion: 1, command: process.execPath, args: [stubR, "{{result}}"], source: "flag" } });
+      assert.equal(result.status, "complete", "an unclosed cw:result block gets a second try and completes");
+      assert.equal(fs.readFileSync(counterR, "utf8"), "2", "the stub ran twice: the rejected attempt and the retry");
+      const finalR = runner.loadRun(run.id);
+      assert.equal(finalR.tasks[0].status, "completed");
+      const workerId = finalR.tasks[0].workerId;
+      assert.equal(runner.showWorker(run.id, workerId).retryCount, 1, "one retry happened");
+      const inputR = fs.readFileSync(runner.showWorker(run.id, workerId).inputPath, "utf8");
+      assert.match(inputR, /^Your last result was rejected: /, "the retried input.md opens with the rejection line");
+      assert.match(inputR, /cw:result` block must be one JSON object, closed with `\}`\./, "the rejection line names the fix");
     } finally {
       process.chdir(cwd0);
     }
