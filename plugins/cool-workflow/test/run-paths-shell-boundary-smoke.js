@@ -26,14 +26,15 @@ delete paths.auditDir;
 delete paths.workersDir;
 runStore.ensureRunDirs(paths);
 
-for (const name of ["tasks", "results", "dispatches", "artifacts", "commits", "nodes", "feedback", "audit", "workers"]) {
+for (const name of ["tasks", "results", "dispatches", "commits", "nodes", "audit", "workers"]) {
   assert.ok(fs.statSync(path.join(runDir, name)).isDirectory(), `${name} directory is made`);
 }
 
-// candidates/multi-agent/blackboard/topologies stayed empty in the sample
-// run (see the intent doc this PR closes) — ensureRunDirs no longer makes
-// them up front; each is made on first use by its own writer instead.
-for (const name of ["candidates", "multi-agent", "blackboard", "topologies"]) {
+// artifacts/feedback/candidates/multi-agent/blackboard/topologies stayed
+// empty in the sample run (see the intent doc this PR closes) —
+// ensureRunDirs no longer makes them up front; each is made on first use
+// by its own writer instead.
+for (const name of ["artifacts", "feedback", "candidates", "multi-agent", "blackboard", "topologies"]) {
   assert.ok(!fs.existsSync(path.join(runDir, name)), `${name} is not made until the run writes to it`);
 }
 

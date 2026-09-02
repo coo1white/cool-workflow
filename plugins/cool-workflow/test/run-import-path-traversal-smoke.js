@@ -30,6 +30,7 @@ const runDir = path.join(tmp, ".cw", "runs", runId);
 const paths = createRunPaths(runDir);
 ensureRunDirs(paths);
 const artifactPath = path.join(paths.artifactsDir, "evidence.txt");
+fs.mkdirSync(paths.artifactsDir, { recursive: true });
 fs.writeFileSync(artifactPath, "benign artifact bytes\n", "utf8");
 
 const run = {

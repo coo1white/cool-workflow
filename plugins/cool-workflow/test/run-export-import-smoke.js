@@ -20,6 +20,7 @@ const artifactPath = path.join(paths.artifactsDir, "evidence.txt");
 const externalArtifactPath = path.join(tmp, "evidence", "external-note.txt");
 const auditPath = path.join(paths.auditDir, "events.jsonl");
 const telemetryPath = path.join(paths.runDir, "telemetry.json");
+fs.mkdirSync(paths.artifactsDir, { recursive: true });
 fs.writeFileSync(artifactPath, "portable artifact bytes\n", "utf8");
 fs.mkdirSync(path.dirname(externalArtifactPath), { recursive: true });
 fs.writeFileSync(externalArtifactPath, "repo-local artifact outside the run dir\n", "utf8");

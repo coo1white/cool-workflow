@@ -66,20 +66,17 @@ const run_paths_1 = require("../core/state/run-paths");
 Object.defineProperty(exports, "createRunPaths", { enumerable: true, get: function () { return run_paths_1.createRunPaths; } });
 const migrations_1 = require("../core/state/migrations");
 const hash_1 = require("../core/hash");
-/** `mkdirSync` (recursive) every always-written directory, plus `artifacts`
- *  (no writer of its own — evidence lands there from outside `src/`).
- *  `candidates`/`multi-agent`/`blackboard`/`topologies` are made on first
- *  use instead, by their own writer in shell/. */
+/** `mkdirSync` (recursive) every always-written directory. `artifacts`,
+ *  `feedback`, `candidates`, `multi-agent`, `blackboard`, and `topologies`
+ *  are made on first use instead, each by its own writer in shell/. */
 function ensureRunDirs(paths) {
     const dirs = [
         paths.runDir,
         paths.tasksDir,
         paths.resultsDir,
         paths.dispatchesDir,
-        paths.artifactsDir,
         paths.commitsDir,
         paths.stateNodesDir,
-        paths.feedbackDir,
         paths.auditDir || path.join(paths.runDir, "audit"),
         paths.workersDir || path.join(paths.runDir, "workers"),
     ];

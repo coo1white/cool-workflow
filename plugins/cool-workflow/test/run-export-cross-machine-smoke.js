@@ -47,6 +47,7 @@ try {
   const externalDir = path.join(machineACwd, "external");
   const externalArtifact = path.join(externalDir, "source.md");
   fs.mkdirSync(externalDir, { recursive: true });
+  fs.mkdirSync(paths.artifactsDir, { recursive: true });
   fs.writeFileSync(internalArtifact, "notes from machine A\n", "utf8");
   fs.writeFileSync(externalArtifact, "external data from machine A\n", "utf8");
 
