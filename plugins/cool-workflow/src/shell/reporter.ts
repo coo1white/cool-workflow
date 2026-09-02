@@ -9,8 +9,7 @@
 // #1): `Reporter.runSummary` writes nothing when the stream is not a TTY.
 //
 // Evidence: SPEC/reporting-ux.md "The Rule of Silence (TTY view vs
-// pipes)"; plugins/cool-workflow/src/reporter.ts:1-84 (byte-exact
-// source).
+// pipes)".
 
 import { dim, green, yellow, nextHint, tryHint, formatFindingsSummary, FindingRow } from "./term";
 

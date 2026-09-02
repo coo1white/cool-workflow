@@ -122,8 +122,8 @@ const RUNTIME_KEYS = new Set([
     "agentModel", "agent-model", "agentTimeoutMs", "agent-timeout-ms", "resume", "incremental",
     "concurrency", "link", "ref", "branch", "refresh", "check", "app", "appId", "workflowId", "question", "repo",
 ]);
-/** Byte-exact port of the old build's `normalizeInputs`
- *  (src/orchestrator/lifecycle-operations.ts:465-480): repeated `--arg
+/** Byte-exact port of the old build's `normalizeInputs`:
+ *  repeated `--arg
  *  key=value` pairs unpack into inputs (key = text before the first "=",
  *  value = the rest re-joined with "="); `repo` copies to `cwd` when `cwd`
  *  is not already set. Per SPEC/orchestrator.md's "Plan input rules" and
@@ -234,7 +234,7 @@ function planRun(args) {
     }
     const run = (0, pipeline_1.plan)(app, planInputs);
     // `pendingTasks` is the canonical plan-payload key both `cw plan` and
-    // `cw_plan` carry (old build src/capability-core.ts:79 planSummary:
+    // `cw_plan` carry (old build's planSummary:
     // `pendingTasks: run.tasks.filter(status === "pending").length`, and
     // SPEC/workflow-apps.md). `taskCount` stays as a harmless extra.
     const pendingTasks = run.tasks.filter((task) => task.status === "pending").length;

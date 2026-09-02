@@ -68,9 +68,9 @@ async function main() {
 
     // (a) probe is ready when CW_CI_ENDPOINT is set
     // REAL-GAP (v2): this assertion fails. probeBackend calls the driver probe as
-    // `driver.probe(context)` (src/shell/execution-backend/registry.ts:372), but the
+    // `driver.probe(context)` (src/shell/execution-backend/registry.ts), but the
     // ci/remote/agent probes are typed `(env = process.env)`
-    // (src/shell/execution-backend/probes.ts:117). The passed context object shadows
+    // (src/shell/execution-backend/probes.ts). The passed context object shadows
     // the process.env default, so env.CW_CI_ENDPOINT is never read and the ci probe
     // can NEVER reach "ready" — it stays "unverified" even with CW_CI_ENDPOINT set.
     // Old build read the env correctly. Assertion left intact (do not weaken). Fix is

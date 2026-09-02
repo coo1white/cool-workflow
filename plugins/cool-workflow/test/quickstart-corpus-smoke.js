@@ -122,10 +122,10 @@ try {
   // dist require()s to repoint — it drives the real dist/cli.js as a subprocess,
   // and assertions 1-4 all pass (routing + investigate prompt + notes.md cite).
   // Only THIS label check fails: the v2 report renderer DOES gate the label on
-  // domain (src/shell/report.ts:299 reads workflowApp?.metadata?.domain ===
+  // domain (src/shell/report.ts reads workflowApp?.metadata?.domain ===
   // "research"), and apps/research-synthesis/app.json:43 sets that domain. But
   // the plumbing that fills run.workflow.app drops it: workflowAppRunMetadata()
-  // (src/core/workflow-apps/app-schema.ts:826) never emits a `metadata` block,
+  // (src/core/workflow-apps/app-schema.ts) never emits a `metadata` block,
   // and LoadedWorkflowApp (app-schema.ts:223) carries no `metadata`/`domain`
   // field, so workflowApp.metadata is always undefined -> label always falls to
   // "Repository". The old build's domain-gated "Source:" label is missing. Fix

@@ -27,7 +27,7 @@ const { migrateRunState } = require("../dist/core/state/migrations");
   // The CLI binding path is ["blackboard","message"], so after it is consumed
   // the leading positional is the action token ("post"/"list") and the runId
   // is positionals[1]. But the v2 handler reads positionals[0] as the runId
-  // (src/core/capability-table.ts:1543-1545 and 1553-1555), so it treats
+  // (src/core/capability-table.ts and 1553-1555), so it treats
   // "post" as the runId and fails with "File not found ... runs/post/state.json".
   // Old build errored with "Missing message body" here. Import repoint above is
   // correct; this failure is genuine v2 behavior, left failing per audit rules.

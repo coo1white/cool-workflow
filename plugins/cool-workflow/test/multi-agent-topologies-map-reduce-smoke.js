@@ -5,7 +5,7 @@
 // <run> map-reduce --id topo-map` to honor the caller-supplied id so derived ids
 // (topo-map-fanout, topo-map-group, topo-map-mapper-N) are stable and referenceable
 // by the later fanin/dispatch/coordinator steps. In v2, topologyApplyCli
-// (src/shell/multi-agent-cli.ts:103) reads the topology-run id from `args.id2`
+// (src/shell/multi-agent-cli.ts) reads the topology-run id from `args.id2`
 // (a field the CLI never emits) instead of `args.id`, so `--id` is silently
 // dropped and applyTopology falls through to a hash id
 // (map-reduce-<hash>-fanout). The old build passed CLI options straight to

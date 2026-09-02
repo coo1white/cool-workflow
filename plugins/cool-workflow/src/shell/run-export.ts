@@ -5,8 +5,7 @@
 // Impure (fs, tmpdir, os) by nature — the archive/bundle mechanism.
 //
 // Evidence: SPEC/ledger-trust.md "`cw report verify-bundle` JSON", "Files
-// on disk" (bundle shape), invariants 16-17, rebuild risk 8;
-// plugins/cool-workflow/src/run-export.ts:1-925 (byte-exact source).
+// on disk" (bundle shape), invariants 16-17, rebuild risk 8.
 
 import * as fs from "node:fs";
 import * as os from "node:os";

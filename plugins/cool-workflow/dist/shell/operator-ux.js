@@ -14,10 +14,7 @@
 // than ported in full — a later milestone can extend these without
 // changing this file's exported shapes.
 //
-// Evidence: SPEC/reporting-ux.md "Operator UX human text", "Exit codes";
-// plugins/cool-workflow/src/operator-ux.ts:1-788,
-// plugins/cool-workflow/src/orchestrator/report.ts:120-149 (byte-exact
-// source for the ported pieces).
+// Evidence: SPEC/reporting-ux.md "Operator UX human text", "Exit codes".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -80,9 +77,8 @@ function summarizeWorkersCounts(run) {
     const workers = run.workers || [];
     return { total: workers.length, byStatus: countBy(workers, (w) => w.status) };
 }
-/** `summarizeRun` — byte-exact port of the old build's
- *  src/orchestrator/report.ts:120-149. Used by `cw status <id> --json`
- *  and `cw report <id>`'s internals. */
+/** `summarizeRun` — byte-exact port of the old build's report module.
+ *  Used by `cw status <id> --json` and `cw report <id>`'s internals. */
 function summarizeRun(run) {
     (0, dispatch_1.updatePhaseStatuses)(run);
     const workerSummary = summarizeWorkersCounts(run);

@@ -46,7 +46,7 @@ const LEGAL_TABLE = {
 // SECOND gate (commit-without-verifier), which checks `node.status !==
 // "verified"` UNCONDITIONALLES of same->same. So committed -> committed
 // actually THROWS commit-without-verifier (verified in both v2's dist/ and
-// the old build's plugins/cool-workflow/src/state-node.ts:91 — this is a
+// the old build's state-node module — this is a
 // faithful port, not a v2-only quirk). Every OTHER same->same status is
 // unaffected by the second gate and succeeds normally.
 {

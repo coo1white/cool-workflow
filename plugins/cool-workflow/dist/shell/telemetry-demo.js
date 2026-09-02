@@ -8,8 +8,7 @@
 // hops/usages, a pinned `now`, no network, no model. Only the keypair
 // itself varies per run and never leaves this module.
 //
-// Evidence: SPEC/ledger-trust.md "`cw demo tamper`", "`cw demo bundle`";
-// plugins/cool-workflow/src/telemetry-demo.ts:1-424 (byte-exact source).
+// Evidence: SPEC/ledger-trust.md "`cw demo tamper`", "`cw demo bundle`".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

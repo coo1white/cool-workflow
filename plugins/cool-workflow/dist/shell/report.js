@@ -11,9 +11,7 @@
 // plugins/cool-workflow/src/orchestrator/report.ts's renderX helpers for
 // each.
 //
-// Evidence: SPEC/reporting-ux.md "report.md (written by writeReport)";
-// plugins/cool-workflow/src/orchestrator/report.ts:1-397 (byte-exact
-// source).
+// Evidence: SPEC/reporting-ux.md "report.md (written by writeReport)".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -98,7 +96,7 @@ function renderStateSize(run) {
     return (0, state_explosion_text_1.stateExplosionReportLines)(report);
 }
 /** `## Sandbox Profiles` — byte-exact port of the old build's
- *  renderSandboxProfiles (src/orchestrator/report.ts:277-287). */
+ *  renderSandboxProfiles. */
 function renderSandboxProfiles(run) {
     const profiles = run.sandboxProfiles || [];
     if (!profiles.length)
@@ -110,7 +108,7 @@ function renderSandboxProfiles(run) {
     ].join("\n"));
 }
 /** `## Trust Audit` — byte-exact port of the old build's renderTrustAudit
- *  + renderTelemetryAttestation (src/orchestrator/report.ts:301-355). */
+ *  + renderTelemetryAttestation. */
 function renderTrustAudit(run) {
     const summary = (0, trust_audit_1.summarizeTrustAudit)(run);
     const integrity = summary.integrity;
@@ -172,7 +170,7 @@ function renderTelemetryAttestation(run) {
     return lines;
 }
 /** `## Acceptance Rationale` — byte-exact port of the old build's
- *  renderAcceptanceRationale (src/orchestrator/report.ts:357-374). */
+ *  renderAcceptanceRationale. */
 function renderAcceptanceRationale(run) {
     const lines = [];
     for (const selectionRaw of run.candidateSelections || []) {
@@ -191,7 +189,7 @@ function renderAcceptanceRationale(run) {
     return lines.length ? lines : ["No accepted candidate or verifier-gated commit rationale yet."];
 }
 /** `## Multi-Agent Runtime` — byte-exact port of the old build's
- *  renderMultiAgent (src/orchestrator/report.ts:217-242). */
+ *  renderMultiAgent. */
 function renderMultiAgent(run) {
     const summary = (0, multi_agent_io_1.summarizeMultiAgent)(run);
     if (!summary.totalRuns)
@@ -222,7 +220,7 @@ function renderMultiAgent(run) {
     return lines;
 }
 /** `## Blackboard / Coordinator` — byte-exact port of the old build's
- *  renderBlackboard (src/orchestrator/report.ts:244-275). */
+ *  renderBlackboard. */
 function renderBlackboard(run) {
     const summary = (0, coordinator_io_1.summarizeBlackboard)(run);
     if (!summary.blackboardId)
@@ -259,8 +257,7 @@ function renderBlackboard(run) {
         lines.push("", `Next coordinator action: ${summary.nextAction}`);
     return lines;
 }
-/** `## Candidates` — byte-exact port of the old build's renderCandidates
- *  (src/orchestrator/report.ts:289-299). */
+/** `## Candidates` — byte-exact port of the old build's renderCandidates. */
 function renderCandidatesSection(run) {
     const summary = (0, candidate_scoring_io_1.summarizeCandidates)(run);
     if (!summary.total)

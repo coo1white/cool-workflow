@@ -4,7 +4,7 @@
 // writes the raw file bytes to stdout with NO added trailing newline.
 //
 // Evidence: SPEC/cli-surface.md "man <topic>" row, and the old build's
-// src/cli/command-surface.ts:147-161 ("man" case) — docsDir is resolved
+// "man" case — docsDir is resolved
 // relative to the plugin root the same way shell/workflow-app-loader.ts's
 // walkUpFor and shell/metrics-cli.ts's pluginRoot() do (walk up from this
 // file's own location looking for a sibling plugins/cool-workflow tree).

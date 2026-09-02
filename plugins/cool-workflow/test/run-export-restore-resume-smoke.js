@@ -108,7 +108,7 @@ try {
   // line 313 as an MCP capability but only worker.summary gets an
   // attachCliBinding (line 2346); every other `worker <verb>` falls through to
   // the worker.usage catch-all (path ["worker"], line 2805) and throws the usage
-  // error. docs/cli-mcp-parity.7.md:211 documents `worker.output | cw worker
+  // error. docs/cli-mcp-parity.7.md documents `worker.output | cw worker
   // output | ... | both | identical`, so the CLI surface is contract, not
   // optional. This assertion (and the two source-untouched asserts below) will
   // fail until v2 restores the worker.* CLI bindings. Intent preserved: prove

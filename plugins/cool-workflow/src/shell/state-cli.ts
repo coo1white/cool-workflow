@@ -2,10 +2,9 @@
 // capability rows (state.check, migration.list|check|prove, node.list|
 // show|graph|snapshot|diff|replay|replay.verify, contract.show).
 //
-// MILESTONE 3. Byte-exact port of the old build's checkState (src/
-// orchestrator/lifecycle-operations.ts:428-435), migrationList/Check/Prove
-// (src/orchestrator/migration-operations.ts), and the node.* runner
-// methods (src/orchestrator.ts:387-397,570-587). Impure (fs) — this is the
+// MILESTONE 3. Byte-exact port of the old build's checkState,
+// migrationList/Check/Prove, and the node.* runner
+// methods. Impure (fs) — this is the
 // shell layer the capability-table's CLI/MCP handlers delegate to; the
 // decision logic itself lives in core/state/*.
 

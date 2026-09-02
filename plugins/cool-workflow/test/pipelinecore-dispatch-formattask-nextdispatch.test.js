@@ -3,7 +3,7 @@
 // (workerDir/workerResultPath derivation) and nextDispatchTasks (pending
 // tasks of the first runnable phase, capped, mapped through
 // formatDispatchTask). SPEC/pipeline-run.md "Dispatch — src/dispatch.ts"
-// (src/dispatch.ts:28-37, 200-218).
+// (now src/core/pipeline/dispatch.ts).
 
 const assert = require("node:assert/strict");
 const { formatDispatchTask, nextDispatchTasks } = require("../dist/core/pipeline/dispatch");

@@ -3,7 +3,7 @@
 // the selection-pass and candidate-pass error codes (commit-selection-*,
 // commit-candidate-*, commit-verifier-linkage-mismatch), each fired under
 // its own precise condition. SPEC/pipeline-run.md "Commit gate —
-// src/commit.ts" (src/commit.ts:249-326, 584-604).
+// src/commit.ts" (now src/core/pipeline/commit-gate.ts).
 
 const assert = require("node:assert/strict");
 const { resolveCommitGate } = require("../dist/core/pipeline/commit-gate");

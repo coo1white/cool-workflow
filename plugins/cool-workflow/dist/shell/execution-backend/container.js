@@ -62,7 +62,7 @@ function containerHandle(request, env = process.env) {
 /** container — real `docker`/`podman run` under the sandbox contract. Fails
  *  closed when no runtime is on PATH, the daemon is unreachable, or the
  *  runtime itself errors (exit 125) — distinct from the command's own
- *  non-zero exit. Byte-exact port of src/execution-backend.ts:720-792. */
+ *  non-zero exit. Byte-exact port of the old build's execution-backend module. */
 function runContainer(descriptor, policy, request, label, handle, attestation) {
     const runtime = (0, probes_1.hasExecutable)("docker") ? "docker" : (0, probes_1.hasExecutable)("podman") ? "podman" : undefined;
     if (!runtime) {

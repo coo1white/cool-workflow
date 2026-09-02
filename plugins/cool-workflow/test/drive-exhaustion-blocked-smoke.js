@@ -19,7 +19,7 @@
 //   directly: every drive round that finds no runnable progress returns an
 //   explicit blocked guard from core/pipeline/drive-decide.ts's
 //   terminalOrConfigStep and BREAKS the loop on that round. So the
-//   max-iteration guard (src/shell/drive.ts:638-639) with reason
+//   max-iteration guard (src/shell/drive.ts) with reason
 //   /max iteration limit/ is now an unreachable defense-in-depth backstop; that
 //   exact reason string is a stale old-internal detail with no v2 equivalent.
 //

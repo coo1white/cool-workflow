@@ -2,7 +2,7 @@
 // pipelinecore-dispatch-updatephasestatuses — updatePhaseStatuses: completed
 // when every task is completed, running when some task is running or
 // completed, else pending. SPEC/pipeline-run.md "Dispatch — src/dispatch.ts"
-// (src/dispatch.ts:187-198).
+// (now src/core/pipeline/dispatch.ts).
 
 const assert = require("node:assert/strict");
 const { updatePhaseStatuses } = require("../dist/core/pipeline/dispatch");

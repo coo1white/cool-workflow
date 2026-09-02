@@ -2,7 +2,7 @@
 // pipelinecore-resultnormalize-fence — normalizeResultEnvelope: the
 // cw:result fence regex, no-fence prose fallback, bad-JSON throw, and
 // summary-key priority order. SPEC/pipeline-run.md "Result ingest —
-// src/result-normalize.ts" (src/result-normalize.ts:22-201).
+// src/result-normalize.ts" (now src/core/pipeline/result-normalize.ts).
 
 const assert = require("node:assert/strict");
 const { normalizeResultEnvelope, firstNonEmptyLine } = require("../dist/core/pipeline/result-normalize");

@@ -11,8 +11,7 @@
 //
 // Evidence: SPEC/reporting-ux.md "cw metrics show / summary", invariant 4
 // (metrics are derived and honest), invariant 5 (freshness is fail-
-// closed), invariant 6 (metricsShow never touches state.json); plugins/
-// cool-workflow/src/observability.ts:1-822 (byte-exact source).
+// closed), invariant 6 (metricsShow never touches state.json).
 
 import * as fs from "node:fs";
 import * as path from "node:path";

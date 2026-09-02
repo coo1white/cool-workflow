@@ -6,8 +6,7 @@
 // run exists but never wrote a trust-audit chain file, not to a missing
 // run entirely.
 //
-// Evidence: SPEC/ledger-trust.md "CLI: `cw audit verify`";
-// plugins/cool-workflow/src/capability-core.ts:1223-1249.
+// Evidence: SPEC/ledger-trust.md "CLI: `cw audit verify`".
 
 import * as path from "node:path";
 import { verifyTrustAudit, summarizeTrustAudit, listTrustAuditEvents, trustAuditHead, repairTrustAuditTornTail, TrustAuditAnchor, TrustAuditRepairResult } from "./trust-audit";

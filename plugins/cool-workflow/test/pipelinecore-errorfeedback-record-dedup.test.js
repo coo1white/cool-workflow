@@ -2,8 +2,8 @@
 // pipelinecore-errorfeedback-record-dedup — buildFeedbackRecord's id
 // formatting/severity/source derivation, feedbackKey's joined-key shape,
 // and findExistingFeedback's dedup match rule. SPEC/pipeline-run.md "Error
-// feedback — src/error-feedback.ts" (src/error-feedback.ts:109-168,
-// 301-346, 417-432).
+// feedback — src/error-feedback.ts" (now
+// src/core/pipeline/error-feedback.ts).
 
 const assert = require("node:assert/strict");
 const { buildFeedbackRecord, feedbackKey, findExistingFeedback, formatFeedbackId, summarizeFeedback } = require("../dist/core/pipeline/error-feedback");

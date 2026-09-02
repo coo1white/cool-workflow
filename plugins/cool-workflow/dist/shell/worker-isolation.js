@@ -135,7 +135,7 @@ function scopePath(scope) {
 }
 /** Deterministic worker id: the task plus a PER-TASK sequence (count of
  *  worker scopes already allocated for THIS task + 1) — byte-exact port
- *  of the old build's src/worker-isolation/paths.ts:38-42. Re-running the
+ *  of the old build's worker-isolation paths module. Re-running the
  *  same workflow yields byte-identical worker ids while retries of the
  *  SAME task still get a fresh, unique id (workerId is excluded from the
  *  snapshot source fingerprint, so this does not change replay digests). */
@@ -869,7 +869,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     // reason ride along, and the token buckets come from normalizeReportedUsage
     // (tolerates snake_case/camelCase) — CW still never measures usage, it only
     // records + labels what the agent self-reported. Byte-exact to the old
-    // build's src/worker-accept/verifier-completion.ts:58-68.
+    // build's worker-accept verifier-completion module.
     const usageRecord = agentDelegationMeta && (reportedModel || agentDelegationMeta.reportedUsage)
         ? {
             schemaVersion: 1,

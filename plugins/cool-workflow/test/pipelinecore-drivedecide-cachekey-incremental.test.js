@@ -2,7 +2,7 @@
 // pipelinecore-drivedecide-cachekey-incremental — incrementalCacheKey
 // (--incremental, schemaVersion 2) and incrementalDelegationDigest.
 // SPEC/pipeline-run.md "`--incremental` and the result cache"
-// (src/drive.ts:387-425, 449-462) and "Rebuild risks" #4 ("schemaVersion 1
+// (now src/core/pipeline/drive-decide.ts) and "Rebuild risks" #4 ("schemaVersion 1
 // and 2 caches must never collide").
 
 const assert = require("node:assert/strict");

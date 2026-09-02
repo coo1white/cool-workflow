@@ -133,7 +133,7 @@ for (const app of canonicalApps) {
   // `pendingTasks` field the old build's canonical plan summary emitted.
   // Old builder: src/capability-core.ts planSummary() returned
   // { runId, workflowId, statePath, reportPath, pendingTasks }.
-  // v2 builder: src/shell/pipeline-cli.ts:74 emits
+  // v2 builder: src/shell/pipeline-cli.ts emits
   // { schemaVersion, runId, workflowId, statePath, reportPath, taskCount }
   // — `pendingTasks` is gone, so this reads `undefined > 0` -> false.
   // This is NOT an import repoint (the smoke only shells out to dist/cli.js);
@@ -147,7 +147,7 @@ for (const app of canonicalApps) {
   // CUTOVER AUDIT — REAL-GAP (v2): the persisted run.workflow.app block dropped
   // `metadata` (and `compatibility`). Old builder src/workflow-app-framework.ts
   // workflowAppRunMetadata() carried `metadata: record.app.metadata` (holds
-  // canonical:true) into state; v2 builder src/core/workflow-apps/app-schema.ts:826
+  // canonical:true) into state; v2 builder src/core/workflow-apps/app-schema.ts
   // omits it, so state.workflow.app.metadata is undefined and reading .canonical
   // throws. Assertion left intact per audit rules (Phase B fixes v2).
   assert.equal(state.workflow.app.metadata.canonical, true);

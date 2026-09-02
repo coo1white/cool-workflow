@@ -78,10 +78,10 @@ try {
   assert.equal(check.appId, "architecture-review", "the README app id is checked");
   assert.equal(fs.existsSync(path.join(repo, ".cw")), false, "quickstart --check writes no repo .cw state");
   // CUTOVER REAL-GAP (v2): the v2 quickstart --check shape drops `nextCommand`.
-  // The old build's quickstartCheck (src/capability-core.ts:937) returned a
+  // The old build's quickstartCheck returned a
   // `nextCommand` string built by quickstartNextCommand(), which wove `--bundle`
   // (+ --with-trust-key / --strict-signatures) into the suggested resume line.
-  // v2's QuickstartCheckResult (src/shell/pipeline-cli.ts:114-121, built at :195)
+  // v2's QuickstartCheckResult (src/shell/pipeline-cli.ts)
   // has no `nextCommand` field at all, and also dropped the old `bundle-trust-key`
   // check the old build pushed when --bundle was set. So check.nextCommand is
   // undefined here. This is genuine missing functionality, not an import break

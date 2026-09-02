@@ -5,7 +5,7 @@
 // `reportBundle`/`runVerifyReportBundle` argv shapes.
 //
 // Evidence: SPEC/ledger-trust.md "CLI: `cw report verify-bundle` and `cw
-// report bundle`"; plugins/cool-workflow/src/capability-core.ts:396-433.
+// report bundle`".
 
 import * as path from "node:path";
 import { exportRun, verifyReportBundle, ReportBundleVerification } from "./run-export";

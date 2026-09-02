@@ -3,8 +3,8 @@
 // own refusal path.
 //
 // MILESTONE 5 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of the
-// `delegatedEnvelope` (src/execution-backend.ts:680-713) and
-// `refusedEnvelope` (:1095-1126) helpers, factored into one shared module
+// old build's `delegatedEnvelope` and
+// `refusedEnvelope` helpers, factored into one shared module
 // since every delegating driver builds the identical shape (byte-stable
 // evidence triple across backends — see SPEC/execution-backend.md invariant
 // 2 "Same envelopes, any backend").

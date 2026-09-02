@@ -2,8 +2,7 @@
 //
 // GAP #26 port: v2 dropped the CLI binding + shell body for commit.summary,
 // keeping only the MCP tool row. This restores the old build's
-// `summarizeOperatorCommits` (src/operator-ux.ts:339-349) + `formatCommitRow`
-// (src/operator-ux.ts:683-696) byte-for-byte, plus the `commitSummaryCli`
+// `summarizeOperatorCommits` + `formatCommitRow` byte-for-byte, plus the `commitSummaryCli`
 // thin adapter both front doors call (mirrors feedbackSummaryCli /
 // candidateSummaryCli shape). Impure: reads run state from disk.
 
@@ -48,8 +47,7 @@ function formatCommitRow(commit: StateCommit): OperatorCommitRow {
   };
 }
 
-/** Byte-exact port of the old build's `summarizeOperatorCommits`
- *  (src/operator-ux.ts:339-349). */
+/** Byte-exact port of the old build's `summarizeOperatorCommits`. */
 export function summarizeOperatorCommits(run: WorkflowRun): OperatorCommitSummary {
   const commits = [...(run.commits || [])].sort(
     (left, right) => stableCompare(left.createdAt, right.createdAt) || stableCompare(left.id, right.id)

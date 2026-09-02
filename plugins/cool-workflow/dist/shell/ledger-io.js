@@ -10,7 +10,7 @@
 //
 // Evidence: SPEC/ledger-trust.md "Handoff ledger entry" (listLedgerEntries/
 // unionLedgerEntries JSON shapes), "Edge cases" (dir-unreadable/entry-not-
-// regular/bad-json); plugins/cool-workflow/src/ledger.ts:307-391.
+// regular/bad-json).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

@@ -2,9 +2,8 @@
 // pipelinecore-drivedecide-tokenbudget-agentconfig — terminalOrConfigStep's
 // token-budget and unconfigured-agent blocked branches, exact reason
 // strings, and check ORDER (token budget before agent config).
-// SPEC/pipeline-run.md "Drive loop — src/drive.ts" (token budget:
-// src/drive.ts:186-197, 517; unconfigured agent: src/drive.ts:132-134,
-// 199-207).
+// SPEC/pipeline-run.md "Drive loop — src/drive.ts" (now
+// src/core/pipeline/drive-decide.ts).
 
 const assert = require("node:assert/strict");
 const { terminalOrConfigStep } = require("../dist/core/pipeline/drive-decide");

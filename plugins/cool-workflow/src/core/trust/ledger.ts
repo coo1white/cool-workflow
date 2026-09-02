@@ -12,7 +12,7 @@
 // dedup rule) rather than reimplementing a private copy.
 //
 // Evidence: SPEC/ledger-trust.md "Handoff ledger entry", "Exported
-// functions", "Edge cases"; plugins/cool-workflow/src/ledger.ts:1-429.
+// functions", "Edge cases".
 
 import { ledgerStableStringify, sha256 } from "../hash";
 import { stableCompare } from "../util/collate";

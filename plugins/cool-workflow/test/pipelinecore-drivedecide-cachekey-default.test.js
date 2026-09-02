@@ -3,7 +3,7 @@
 // --incremental): schemaVersion 1 formula, disabling conditions
 // (missing keyInput/keyValue, unavailable completedResultsDigest), and
 // cacheFileName's path format. SPEC/pipeline-run.md "`--incremental` and
-// the result cache" (src/drive.ts:398-467) and "Rebuild risks" #4
+// the result cache" (now src/core/pipeline/drive-decide.ts) and "Rebuild risks" #4
 // ("Cache-key completeness").
 
 const assert = require("node:assert/strict");

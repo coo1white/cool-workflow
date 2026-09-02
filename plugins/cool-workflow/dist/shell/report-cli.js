@@ -6,7 +6,7 @@
 // `reportBundle`/`runVerifyReportBundle` argv shapes.
 //
 // Evidence: SPEC/ledger-trust.md "CLI: `cw report verify-bundle` and `cw
-// report bundle`"; plugins/cool-workflow/src/capability-core.ts:396-433.
+// report bundle`".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

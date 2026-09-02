@@ -8,8 +8,7 @@
 // feedback.ts's `recordFeedback` (dedup-on-open-record, disk write,
 // saveCheckpoint).
 //
-// Evidence: SPEC/pipeline-run.md "Error feedback — src/error-feedback.ts";
-// plugins/cool-workflow/src/error-feedback.ts:109-158,290-360.
+// Evidence: SPEC/pipeline-run.md "Error feedback — src/error-feedback.ts".
 
 import * as fs from "node:fs";
 import * as path from "node:path";

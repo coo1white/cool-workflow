@@ -2,7 +2,7 @@
 // pipelinecore-drivedecide-retrypark — retryOrPark and priorAttempts: the
 // EXACT attempt-accounting ordering (max of in-memory vs persisted
 // retryCount BEFORE adding one). SPEC/pipeline-run.md "Drive internals a
-// rebuild must copy" (handleHop, src/drive.ts:608-652) and "Rebuild
+// rebuild must copy" (handleHop, now src/shell/drive.ts) and "Rebuild
 // risks" #3 ("Attempt accounting").
 
 const assert = require("node:assert/strict");

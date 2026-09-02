@@ -6,8 +6,7 @@
 // Impure (fs, tmpdir, os) by nature — the archive/bundle mechanism.
 //
 // Evidence: SPEC/ledger-trust.md "`cw report verify-bundle` JSON", "Files
-// on disk" (bundle shape), invariants 16-17, rebuild risk 8;
-// plugins/cool-workflow/src/run-export.ts:1-925 (byte-exact source).
+// on disk" (bundle shape), invariants 16-17, rebuild risk 8.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

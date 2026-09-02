@@ -11,7 +11,7 @@
 // poisoned file.
 //
 // Evidence: SPEC/ledger-trust.md "Absent vs corrupt telemetry ledger",
-// invariant 3; plugins/cool-workflow/src/telemetry-ledger.ts:25-72,133-161.
+// invariant 3.
 
 import * as fs from "node:fs";
 import * as path from "node:path";

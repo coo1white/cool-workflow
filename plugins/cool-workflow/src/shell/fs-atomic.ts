@@ -95,7 +95,7 @@ export function readJson(file: string): unknown {
 }
 
 // ---------------------------------------------------------------------------
-// Safe ids / names — src/state.ts:310-334 in the old build.
+// Safe ids / names — from the old build's state module.
 // ---------------------------------------------------------------------------
 
 /** Replaces every run of chars outside `[a-zA-Z0-9_.:-]` with a single `_`. */
@@ -122,7 +122,7 @@ export function assertSafeRunId(value: unknown, context = "run id"): string {
 }
 
 // ---------------------------------------------------------------------------
-// Symlink-hardened path containment — src/state.ts:195-227 in the old build.
+// Symlink-hardened path containment — from the old build's state module.
 // ---------------------------------------------------------------------------
 
 /** Realpath the deepest EXISTING ancestor (follows symlinks), then re-join

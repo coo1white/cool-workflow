@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // pipelinecore-errorfeedback-classify — classifyFeedback's fixed
 // classification order and severityFor's mapping. SPEC/pipeline-run.md
-// "Error feedback — src/error-feedback.ts" (src/error-feedback.ts:170-186,
-// 330-338).
+// "Error feedback — src/error-feedback.ts" (now
+// src/core/pipeline/error-feedback.ts).
 
 const assert = require("node:assert/strict");
 const { classifyFeedback } = require("../dist/core/pipeline/error-feedback");
@@ -25,7 +25,7 @@ const NOW = "2026-07-04T00:00:00.000Z";
 // word "required" splits the two halves) and also does NOT contain
 // "artifact-path" — so it falls through to "unknown", not
 // "missing-artifact". This byte-exact quirk is carried forward from the
-// OLD build's own src/error-feedback.ts:176 (same substring check), so it
+// OLD build's own error-feedback code (same substring check), so it
 // is preserved behavior, not a v2 regression — pinned here so a future
 // "cleanup" of the substring list does not silently change classification.
 {

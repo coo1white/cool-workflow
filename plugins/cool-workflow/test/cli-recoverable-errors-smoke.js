@@ -59,7 +59,7 @@ function run(args, cwd, extraEnv = {}) {
   assert.equal(p.agentConfigured, false, "no agent backend was configured");
   assert.equal(p.status, "blocked", "the drive fails CLOSED with no agent (never a fake completion)");
   // v2 relocated the recovery text: the old top-level `p.hint` string is now the
-  // blocked step's `reason` (src/core/pipeline/drive-decide.ts:130-140). Same two
+  // blocked step's `reason` (src/core/pipeline/drive-decide.ts). Same two
   // facts asserted, read from the v2 equivalent — intent preserved, not weakened.
   const hint = p.steps && p.steps.length ? p.steps[p.steps.length - 1].reason : undefined;
   assert.match(hint, /not configured/, "the hint explains WHY it blocked");
@@ -91,10 +91,10 @@ function run(args, cwd, extraEnv = {}) {
 // ===== 5. a missing-repo error points the user at the -dir flag (recoveryHint coverage) =====
 // REAL-GAP (v2): the old build did NOT default repo to cwd for `plan`, so `cw plan <app>`
 // surfaced "Missing required input --repo" and the content-based recoveryHint
-// (src/cli/entry.ts:44 — message matches "missing"+"repo") printed the `-dir` recovery line.
-// v2's planRun auto-fills repo from cwd (src/shell/pipeline-cli.ts:71:
+// (src/cli/entry.ts — message matches "missing"+"repo") printed the `-dir` recovery line.
+// v2's planRun auto-fills repo from cwd (src/shell/pipeline-cli.ts:
 //   `if (!args.repo && !args.cwd) args.repo = invocationCwd(args);`), so repo is never
-// missing. Input validation (src/shell/pipeline.ts:97-99) then hits the NEXT required
+// missing. Input validation (src/shell/pipeline.ts) then hits the NEXT required
 // input and throws "Missing required input: question" — which does not match the "repo"
 // branch of recoveryHint, so NO `Try:` recovery line is produced. The missing-repo
 // recovery surface for `plan` is gone. There is no v2 path where `cw plan <app>` yields

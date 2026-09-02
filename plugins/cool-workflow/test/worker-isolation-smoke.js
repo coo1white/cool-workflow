@@ -157,7 +157,7 @@ assert.equal(getWorkerScope(run, manual.id).status, "verified");
 //
 // REAL-GAP (v2): v2 has NO code path that records a `worker.sandbox-boundary`
 // trust-audit event. The old build emitted it inside validateWorkerBoundary
-// (old src/worker-isolation.ts:465, the `kind: "worker.sandbox-boundary"`
+// (the old build's worker-isolation code, the `kind: "worker.sandbox-boundary"`
 // event with metadata.enforced_by_cw / metadata.delegated_to_host). v2 deleted
 // that function and never relocated the event: for a worker it records only
 // worker.sandbox-profile | sandbox.path | worker.output, and the strings
@@ -165,9 +165,9 @@ assert.equal(getWorkerScope(run, manual.id).status, "verified");
 // *enforcement* survives via validateSandboxWrite (checked above), but the
 // audit *transparency* that documents the CW-enforced vs host-delegated policy
 // split is gone. This assertion is left as-is so it fails on the genuine
-// missing behavior, not on an import crash. Trace: v2 src/shell/worker-
-// isolation.ts:345-479 (recordWorkerOutput records no sandbox-boundary event);
-// the split metadata lived only in old src/worker-isolation.ts:462-476.
+// missing behavior, not on an import crash. Trace: v2 src/shell/worker-isolation.ts
+// (recordWorkerOutput records no sandbox-boundary event);
+// the split metadata lived only in the old build's worker-isolation code.
 const workerEvents = workerTrustAudit(run, manual.id);
 const boundaryEvent = workerEvents.events.find((e) => e.kind === "worker.sandbox-boundary");
 assert.ok(boundaryEvent, "a worker.sandbox-boundary audit event must be recorded");

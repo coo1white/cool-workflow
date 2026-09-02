@@ -26,7 +26,7 @@
 //
 // Evidence: SPEC/state-core.md "buildCompactGraph(...)", "State-explosion
 // collapse rules"; plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9;
-// src/multi-agent-operator-ux.ts:153-227 (buildMultiAgentOperatorGraph).
+// the old build's buildMultiAgentOperatorGraph.
 
 import { RunTask, StateCommit, WorkflowRun } from "../types";
 import { DEFAULT_STATE_EXPLOSION_THRESHOLDS, StateExplosionThresholds } from "./size";
@@ -228,8 +228,8 @@ function scorePath(runId: string, candidateId: string, scoreId: string): string 
   return `${runId}/candidates/${candidateId}/scores/${scoreId}.json`;
 }
 
-/** Faithful port of `buildMultiAgentOperatorGraph`'s node/edge
- *  construction (src/multi-agent-operator-ux.ts:153-227), scoped to the
+/** Faithful port of the old build's `buildMultiAgentOperatorGraph`'s node/edge
+ *  construction, scoped to the
  *  run-level arrays this milestone's state kernel carries: `tasks`,
  *  `dispatches`, `workers`, `candidates`/`candidateSelections`, `commits`,
  *  `feedback`. The topology/multi-agent/blackboard sub-graphs

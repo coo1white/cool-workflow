@@ -233,7 +233,7 @@ assert.equal(dispatch.tasks[0].backendId, "shell", "task records the backend");
 // REAL-GAP (v2): the dispatch payload does NOT record a backendAttestation block.
 // v2's src/shell/dispatch.ts:createDispatchManifest records backendId +
 // backendSelection (lines 122-123) but never calls attestSandbox nor threads a
-// `backendAttestation` onto the DispatchManifest (interface at src/shell/dispatch.ts:26-41
+// `backendAttestation` onto the DispatchManifest (interface at src/shell/dispatch.ts
 // has no such field). The old build recorded the sandbox attestation at dispatch time
 // (smoke intent #3: "record the selected backend + sandbox attestation in run state
 // and the manifest"). The core per-task field exists (core/pipeline/dispatch.ts:27,78:

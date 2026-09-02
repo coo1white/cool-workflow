@@ -13,7 +13,7 @@
 // (`assert.match(initialStatusText, /Agent Graph/)`): v2's
 // `cw multi-agent status` (no --json) emits JSON, and none of the operator-UX
 // panels this smoke drives exist anywhere in v2 src. Tracing:
-//   - src/shell/multi-agent-host.ts:399 hardcodes `multiAgentOperator: {}`
+//   - src/shell/multi-agent-host.ts hardcodes `multiAgentOperator: {}`
 //     (empty) — so status.summaries.multiAgentOperator.dependencies/failures/
 //     inspectableEvidence/evidence (lines ~49, 165, 201) are all undefined.
 //   - src/core/capability-table.ts registers CLI bindings ONLY for

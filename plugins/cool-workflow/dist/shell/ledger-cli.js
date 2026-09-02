@@ -8,8 +8,7 @@
 // file reads for verify/apply, directory scans for list) — this is the
 // shell layer the capability-table's CLI/MCP handlers delegate to.
 //
-// Evidence: SPEC/ledger-trust.md "CLI: `cw ledger`", "Edge cases";
-// plugins/cool-workflow/src/cli/handlers/ledger.ts:1-133.
+// Evidence: SPEC/ledger-trust.md "CLI: `cw ledger`", "Edge cases".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

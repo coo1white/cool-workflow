@@ -1,7 +1,7 @@
 // core/state/state-explosion/digest.ts — summarizeBlackboardDigest.
 //
 // MILESTONE 4. Byte-exact port of the old build's
-// `summarizeBlackboardDigest` (src/state-explosion.ts:302-526). The old
+// `summarizeBlackboardDigest`. The old
 // build's version also calls `summarizeBlackboard` (src/coordinator.ts),
 // which reads `ensureBlackboardState` — a milestone-9 concern (the real
 // Blackboard/topic/message/context/artifact/decision record shapes, not

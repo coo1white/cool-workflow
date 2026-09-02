@@ -2,7 +2,7 @@
 // statecore-record-error-and-link (milestone 3) — pins recordNodeError
 // (sets status "failed", appends the error with defaulted at/nodeId) and
 // linkStateNodes (de-duplicated children/parents arrays, fresh updatedAt
-// on both sides). SPEC/state-core.md src/state-node.ts:166-198.
+// on both sides). SPEC/state-core.md, now src/core/state/state-node.ts.
 
 const assert = require("node:assert/strict");
 const { createStateNode, recordNodeError, linkStateNodes } = require("../dist/core/state/state-node");

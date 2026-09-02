@@ -13,7 +13,7 @@
 //   cli.ts is a hand-written switch on args.command that re-encodes that same
 //   policy by hand per case. So the fact lives in TWO places and can silently
 //   drift (e.g. a flag verb made always-JSON, or a default verb gated behind
-//   --json). scripts/parity-check.js:153 is the ONLY current reader of jsonMode
+//   --json). scripts/parity-check.js is the ONLY current reader of jsonMode
 //   (it appends --json only for "flag" verbs) and it only ever JSON.parse-es the
 //   JSON rendering — it never asserts the HUMAN rendering, nor the no-flag JSON
 //   of "default" verbs.

@@ -41,8 +41,7 @@ const node_crypto_1 = require("node:crypto");
 // 1. Hash spellings
 // ---------------------------------------------------------------------------
 /** Prefixed `sha256:` + all 64 hex chars. Used by both hash chains,
- *  promptDigest, resultDigest, reportedUsageDigest, the ledger digest.
- *  (src/execution-backend/util.ts:13-15 in the old build.) */
+ *  promptDigest, resultDigest, reportedUsageDigest, the ledger digest. */
 function sha256(value) {
     return `sha256:${(0, node_crypto_1.createHash)("sha256").update(value, "utf8").digest("hex")}`;
 }
@@ -55,21 +54,20 @@ function sha256Bytes(bytes) {
  *  input. Sorts a COPY (`[...values].sort()`) with the JS default sort
  *  (UTF-16 code-unit order) — never mutates the caller's array. Used by
  *  snapshot ids, state-explosion fingerprints, evidence-reasoning
- *  fingerprints. (src/util/fingerprint.ts:6-10.) */
+ *  fingerprints. */
 function fingerprintStrings(values) {
     const hash = (0, node_crypto_1.createHash)("sha256");
     hash.update(JSON.stringify([...values].sort()));
     return `sha256:${hash.digest("hex").slice(0, 32)}`;
 }
 /** Maps each record to `"<id>:<status or empty>"`, sorts, then fingerprints.
- *  `updatedAt` is accepted in the record shape but NEVER used.
- *  (src/util/fingerprint.ts:12-14.) */
+ *  `updatedAt` is accepted in the record shape but NEVER used. */
 function fingerprintRecords(records) {
     return fingerprintStrings(records.map((r) => `${r.id}:${r.status || ""}`).sort());
 }
 /** Prefixed `sha256:` + all 64 hex chars, over recursively KEY-SORTED JSON
  *  (not normalized — used to prove a source snapshot was not mutated). Used
- *  by the contract-migration prover. (src/contract-migration.ts:90-103.) */
+ *  by the contract-migration prover. */
 function stableHash(value) {
     return `sha256:${(0, node_crypto_1.createHash)("sha256").update(stableStringify(value)).digest("hex")}`;
 }

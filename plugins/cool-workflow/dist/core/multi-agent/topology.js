@@ -49,7 +49,7 @@ function phaseSpec(id, title, roleIds, fanout, fanin, requiredEvidence, coordina
     return { id, title, roleIds, fanout, fanin, requiredEvidence, coordinatorDecisionKinds };
 }
 /** The three built-in topologies, in this exact order. Byte-exact
- *  transcription of src/topology.ts:58-137. */
+ *  transcription of the old build's topology module. */
 exports.OFFICIAL_TOPOLOGIES = [
     {
         schemaVersion: 1,

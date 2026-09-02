@@ -20,12 +20,12 @@ const {
 // the `topo-debate-debate-conflicts` topic below).
 //
 // v2 drops the id: topologyApplyCli reads the custom id from `args.id2`
-// (src/shell/multi-agent-cli.ts:103), but NO CLI/MCP surface ever writes
+// (src/shell/multi-agent-cli.ts), but NO CLI/MCP surface ever writes
 // `id2` — `--id` is consumed only as the topology-id fallback
-// (src/shell/multi-agent-cli.ts:100) and, on MCP, mapped straight to
-// topologyId (src/core/capability-table.ts:1352). So `input.id` is always
+// (src/shell/multi-agent-cli.ts) and, on MCP, mapped straight to
+// topologyId (src/core/capability-table.ts). So `input.id` is always
 // undefined and applyTopology auto-generates a hashed run id
-// (src/shell/topology-io.ts:141), e.g. `debate-52fe571f319ca79e-position-a`.
+// (src/shell/topology-io.ts), e.g. `debate-52fe571f319ca79e-position-a`.
 // Conformance never exercises `topology apply --id` (only --judge-count /
 // --debate-rounds), which is why 101/101 still pass. Fix belongs in v2 src
 // (Phase B): wire `--id` into ApplyTopologyInput.id. Left failing on purpose.

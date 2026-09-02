@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // pipelinecore-resultnormalize-emptycapture — isEmptyCapture's exact
 // empty-vs-non-empty boundary. SPEC/pipeline-run.md "Result ingest —
-// src/result-normalize.ts" (isEmptyCapture, src/result-normalize.ts:205-207)
+// src/result-normalize.ts" (isEmptyCapture, now src/core/pipeline/result-normalize.ts)
 // and "Invariants" #3 ("No false green").
 
 const assert = require("node:assert/strict");

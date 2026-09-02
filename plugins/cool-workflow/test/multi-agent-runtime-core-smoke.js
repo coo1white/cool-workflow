@@ -9,11 +9,11 @@
 // multi-agent option flags but silently drops the multi-word ones. parseArgv
 // emits kebab-case option keys verbatim (e.g. "required-evidence"), but
 // src/shell/multi-agent-cli.ts reads camelCase keys that never exist:
-//   - multiAgentRoleCli (src/shell/multi-agent-cli.ts:208-211) reads
+//   - multiAgentRoleCli (src/shell/multi-agent-cli.ts) reads
 //     args.requiredEvidence / args.sandboxProfileHint / args.expectedArtifact
 //     / args.faninObligation for --required-evidence / --sandbox-profile-hint
 //     / --expected-artifact / --fanin-obligation → all fold to [].
-//   - multiAgentFaninCli (src/shell/multi-agent-cli.ts:299) reads
+//   - multiAgentFaninCli (src/shell/multi-agent-cli.ts) reads
 //     args.requiredRole for --required-role → folds to [].
 // The old flat build honored these flags. First failure lands at line 65
 // (role.requiredEvidence is [] not [evidenceLocator]). Assertions below are
