@@ -272,4 +272,4 @@ holds — `worker-isolation.7.md`, `candidate-scoring.7.md`,
 | Reads do not make directories | merged | #636 e3e71554 |
 | A worker's folder holds only what the worker wrote | merged | #634 b23b72ea |
 | The run-level artifacts directory goes too | merged | #633 fe1d4e38 |
-| Closing ledger | merged — acceptance receipt `plugins/cool-workflow/project/docs/audits/run-folder-receipt-2026-09-02.json`, program verdict **PASS**, bound to commit `e3e71554f6084dbf114f95978642480d253207f8` | (this PR) |
+| Closing ledger | merged — acceptance receipt `plugins/cool-workflow/project/docs/audits/run-folder-receipt-2026-09-02.json`, program verdict **PASS**, bound to commit `e3e71554f6084dbf114f95978642480d253207f8` | #637 |
