@@ -133,6 +133,34 @@ After PR 3 merges. Files: `scripts/citation-check.js`,
   leftover in this same PR (should be small).
 - Header <= 15 lines. Budget: net <= +70.
 
+## PR 5 — TypeScript 7 install path in CI (added 2026-09-02)
+
+Operator's order: "the whole project on TS7". Checked on main: the
+package is already on TypeScript 7.0.2 (npm latest; bumped in #533),
+tsconfig is NodeNext/ES2022, the lockfile holds all 20
+`@typescript/typescript-<platform>` packages, `tsc --version` says
+7.0.2, `npm run check` is clean with no deprecation notes, no script
+uses the TypeScript JS API, and no live doc names TS 5. One thing is
+NOT on TS7 terms: TS7's compiler is a native binary picked per
+platform, but `ci.yml` (3 jobs) and `bench.yml` still install with
+`npm install --no-package-lock --ignore-scripts`, so each run asks npm
+to pick the platform package fresh. PR #601's macOS job failed in 15s
+that way ("Unable to resolve @typescript/typescript-darwin-arm64").
+`release-gate.yml` and `npm-publish.yml` already use `npm ci` and say
+in a comment not to go back.
+
+- Files: `.github/workflows/ci.yml` (lines 34, 92, 129),
+  `.github/workflows/bench.yml` (line 35) — at the REPO root, not
+  under the package.
+- Change: each `npm install --no-package-lock --ignore-scripts` becomes
+  `npm ci --ignore-scripts`. The jobs already run with
+  `working-directory: plugins/cool-workflow`, so no `--prefix`.
+- Keep `npm audit --audit-level=high` as it is.
+- Proof in the PR body: `npm ci --ignore-scripts` clean on the
+  executor's machine from a fresh `node_modules`; the CI run of the PR
+  itself green on Node 18, 22, 24 and macOS.
+- No .md, no code. May run in parallel with PR 3 / PR 4 (disjoint).
+
 ## Acceptance
 
 - Manager (per PR): CI green on all three platforms, CodeQL green,
@@ -153,3 +181,4 @@ After PR 3 merges. Files: `scripts/citation-check.js`,
 | PR 2 dead doors | open | — |
 | PR 3 old addresses out of comments | open | — |
 | PR 4 citation gate | open | — |
+| PR 5 TS7 install path in CI | open | — |
