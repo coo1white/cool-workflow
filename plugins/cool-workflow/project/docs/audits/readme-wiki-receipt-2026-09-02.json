@@ -1,0 +1,47 @@
+{
+  "program": "2026-09-02-two-rows-readme-wiki",
+  "commit": "d90bd8de96b6385c96247c3e26ad150bb1107fca",
+  "wikiCommit": "5d9dd3f63285c9ca257c100342d3200e4ec2e381",
+  "version": "0.2.7",
+  "startedAt": "2026-09-02T17:09:30Z",
+  "finishedAt": "2026-09-02T17:30:00Z",
+  "checks": [
+    {
+      "id": "wiki-15-pages-equal",
+      "pass": true,
+      "command": "git clone https://github.com/coo1white/cool-workflow.wiki.git into a fresh directory, then diff -rq plugins/cool-workflow/project/docs/wiki/ against it",
+      "seen": "Fresh clone HEAD is 5d9dd3f63285c9ca257c100342d3200e4ec2e381, matching `git ls-remote https://github.com/coo1white/cool-workflow.wiki.git master`. diff -rq printed nothing for any of the 15 shared pages (Architecture.md, Commands-or-API.md, FAQ.md, Getting-Started.md, Glossary.md, Home.md, MCP-And-Manifests.md, Mental-Model.md, Operations.md, Quickstart.md, Recovery-And-Restore.md, Trust-And-Audit.md, User-Guide.md, Workflow-Apps.md, _Sidebar.md) -- all byte-equal. The only diff -rq lines were \"Only in <fresh clone>\" for the wiki's own deep and GitHub-Showcase-* pages, which are not part of the repo's 15-page source set."
+    },
+    {
+      "id": "showcase-pointers",
+      "pass": true,
+      "command": "ls GitHub-Showcase-*.md in the fresh wiki clone, then grep -c . on each",
+      "seen": "The wiki holds 10 GitHub-Showcase-* pages, not 12. The spec's closing section named 12; a clone taken before the push measured the true count as 10, and the post-push fresh clone confirms 10. All 10 (Architecture, Commands-or-API, FAQ, Home, MCP-And-Manifests, Operations, Quickstart, Recovery-And-Restore, Trust-And-Audit, Workflow-Apps) are exactly 3 content lines: the page's title, \"This page moved; the live page is\", and a link to the shared page."
+    },
+    {
+      "id": "backlog-rows-gone",
+      "pass": true,
+      "command": "grep -n for the typeFiles-retarget, coverage-smoke-header, and agent-delegation-drive.7.md row text in plugins/cool-workflow/project/docs/BACKLOG.md",
+      "seen": "No match for any of the three 2026-09-02 rows; grep exited 1 (no matches). BACKLOG.md now holds the four 2026-07 design rows only."
+    },
+    {
+      "id": "onramp-type-only",
+      "pass": true,
+      "command": "node test/onramp-check-smoke.js",
+      "seen": "onramp-check-smoke: ok"
+    },
+    {
+      "id": "citations-resolve",
+      "pass": true,
+      "command": "node scripts/citation-check.js",
+      "seen": "citation-check: 62 docs (159 path citations), 665 source files scanned, all resolve."
+    },
+    {
+      "id": "md-count",
+      "pass": true,
+      "command": "node scripts/growth-budget-check.js",
+      "seen": "growth-budget-check: md=135/135, src-comments=7205/7571, within budget."
+    }
+  ],
+  "verdict": "pass"
+}
