@@ -2,14 +2,14 @@
 // authorizeMultiAgentAction's PURE decision half.
 //
 // MILESTONE 9. Byte-exact port of the decision logic in the old build's
-// src/multi-agent-trust.ts. Audit-event recording (recordTrustAuditEvent,
+// multi-agent-trust module. Audit-event recording (recordTrustAuditEvent,
 // which appends to disk) is the caller's job — see
 // shell/multi-agent-io.ts's `authorizeMultiAgentAction` wrapper, which
 // calls `evaluateMultiAgentAction` below then records the two audit
 // events exactly like the old build did.
 //
 // Evidence: SPEC/multi-agent.md section D ("Trust policies"), "Trust
-// denial reasons"; plugins/cool-workflow/src/multi-agent-trust.ts
+// denial reasons"; the old build's multi-agent-trust module
 // (byte-exact source for policyForRole/Group/Membership + evaluatePolicy/
 // missingEvidence).
 
@@ -30,7 +30,7 @@ function unique<T extends string>(values: readonly T[]): T[] {
 
 /** Chair detection: lowercased `metadata.topologyRoleId` (or title)
  *  contains "chair", "reducer", or "synthesizer". Judge detection:
- *  contains "judge". Renaming a role changes its authority (plugins/cool-workflow/project/docs/rebuild/PLAN.md
+ *  contains "judge". Renaming a role changes its authority (PLAN.md (project/docs/rebuild)
  *  byte-compat / rebuild risk 4 — substring match, not a flag). */
 export function policyForRole(role: AgentRole): MultiAgentPolicy {
   const topologyRole = String((role.metadata as Record<string, unknown> | undefined)?.topologyRoleId || role.title || "").toLowerCase();

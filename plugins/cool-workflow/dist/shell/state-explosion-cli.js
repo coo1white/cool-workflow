@@ -4,7 +4,7 @@
 //
 // MILESTONE 4. Byte-exact port of the old build's
 // `refreshStateExplosionSummaries`/`loadStateExplosionSummaryIndex`/
-// `showStateExplosionSummary`/`maybeCompactRun` (src/state-explosion.ts)
+// `showStateExplosionSummary`/`maybeCompactRun` (state-explosion module)
 // DISK I/O half — the report VALUE itself is built by core/state/state-
 // explosion/report.ts's `buildStateExplosionReport` (pure); this file only
 // writes/reads the summary files and wires the CLI handler bodies.

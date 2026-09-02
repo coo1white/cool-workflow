@@ -3,15 +3,15 @@
 // artifact/decision kernel.
 //
 // MILESTONE 9. Byte-exact port of the DECISION half of the old build's
-// src/coordinator.ts + src/coordinator/{util,classify,paths}.ts: record
+// coordinator module (plus its util/classify/paths helper modules): record
 // shape construction, conflict detection, author/scope normalization,
 // the status classifiers, link derivation, and the digest/graph
 // projections. Audit-event recording and disk persistence are the
 // caller's job — see shell/coordinator-io.ts.
 //
 // Evidence: SPEC/multi-agent.md section C ("Coordinator / blackboard");
-// plugins/cool-workflow/src/coordinator.ts,
-// src/coordinator/{util,classify,paths}.ts (byte-exact source).
+// the old build's coordinator module and its util/classify/paths helper
+// modules (byte-exact source).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BLACKBOARD_SCHEMA_VERSION = void 0;
 exports.unique = unique;

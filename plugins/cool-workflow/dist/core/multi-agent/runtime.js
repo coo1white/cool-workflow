@@ -3,8 +3,8 @@
 // membership/fanout/fanin create+transition.
 //
 // MILESTONE 9. Byte-exact port of the DECISION half of the old build's
-// src/multi-agent.ts + src/multi-agent/helpers.ts + src/multi-agent/
-// ids.ts + src/multi-agent/graph.ts: record shape construction, the
+// multi-agent module and its helpers, ids, and graph modules: record shape
+// construction, the
 // lifecycle transition table, the fanin coverage/blocked-reason math, id
 // minting, and the provenance graph. Every function here is pure — it
 // takes a WorkflowRun (mutated in place, matching the old build's own
@@ -18,16 +18,16 @@
 // DROPS falsy values AND SORTS — this is the kernel-side sorting variant
 // (byte-identical to core/state/state-explosion/helpers.ts's `unique`,
 // but kept as its own local copy here because the old build's
-// multi-agent/helpers.ts kept its own copy too — see that file's header).
+// multi-agent helpers module kept its own copy too — see that file's header).
 // core/multi-agent/topology.ts, candidate-scoring.ts, and the host/step
 // layer have their OWN separate `unique` that does NOT sort (insertion-
 // order only) — never merge the two. See uniquedual-role-vs-candidate-
-// order.case.js and plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 3.
+// order.case.js and PLAN.md (project/docs/rebuild) byte-compat item 3.
 //
 // Evidence: SPEC/multi-agent.md sections A ("Multi-agent kernel"), the
 // "Kernel error strings" and "Fanin blocked-reason strings" Exact-outputs
-// blocks, invariants 1-4/11; plugins/cool-workflow/src/multi-agent.ts,
-// src/multi-agent/{helpers,ids,paths,graph}.ts (byte-exact source).
+// blocks, invariants 1-4/11; the old build's multi-agent module and its
+// helpers/ids/paths/graph modules (byte-exact source).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MULTI_AGENT_SCHEMA_VERSION = void 0;
 exports.createId = createId;
@@ -106,7 +106,7 @@ function pluralKind(kind) {
 }
 /** Status -> StateNodeStatus, kernel side (default `pending`). Kept
  *  distinct from coordinator/classify.ts's own table (default
- *  `completed`) per plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat / rebuild risk 7 — collapsing
+ *  `completed`) per PLAN.md (project/docs/rebuild) byte-compat / rebuild risk 7 — collapsing
  *  the two tables changes graph output and eval dependency_parity. */
 function statusToNodeStatus(status) {
     switch (status) {

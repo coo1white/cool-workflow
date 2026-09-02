@@ -1,6 +1,6 @@
 // core/state/types.ts — the state-kernel's own type set.
 //
-// MILESTONE 3 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 3). Scoped to exactly what
+// MILESTONE 3 (PLAN.md (project/docs/rebuild) build order, step 3). Scoped to exactly what
 // state-core.md's public surface needs: WorkflowRun and everything it
 // carries, StateNode + its snapshot/replay/diff family, the pipeline
 // contract shape, and the small persisted-record shapes validation.ts

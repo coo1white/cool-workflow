@@ -2,13 +2,13 @@
 // decision core: task selection, terminal/gate logic, token-budget check,
 // retry/park math, cache-key formulas.
 //
-// MILESTONE 6+7 (combined; the big one — see plugins/cool-workflow/project/docs/rebuild/PLAN.md Open risk 9).
+// MILESTONE 6+7 (combined; the big one — see PLAN.md (project/docs/rebuild) Open risk 9).
 // Every branch here is a pure function of already-loaded run state; it
 // does not itself spawn a process or touch disk. shell/drive.ts is the
 // thin imperative loop that calls these functions once per step and
 // performs the actual spawn/commit/cache-write IO the decision names.
 //
-// Evidence: SPEC/pipeline-run.md "Drive loop — src/drive.ts", "Drive
+// Evidence: SPEC/pipeline-run.md "Drive loop — drive module", "Drive
 // internals a rebuild must copy", "`--incremental` and the result
 // cache".
 

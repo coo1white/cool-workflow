@@ -5,7 +5,7 @@
 // MILESTONE 5. Byte-exact port of the old build's orchestrator methods
 // (listSandboxProfiles/showSandboxProfile/
 // validateSandboxProfile/listBackends/showBackend/probeBackend) plus
-// src/cli/handlers/operational.ts's handleSandbox/handleBackend argv
+// cli operational-handler module's handleSandbox/handleBackend argv
 // shape. Impure (fs/env) — this is the shell layer the capability-table's
 // CLI/MCP handlers delegate to.
 

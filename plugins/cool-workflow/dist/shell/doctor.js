@@ -2,8 +2,8 @@
 // shell/doctor.ts — `cw doctor` environment diagnostics, in the spirit of
 // `brew doctor`.
 //
-// MILESTONE 5 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// plugins/cool-workflow/src/doctor.ts's checks this milestone needs
+// MILESTONE 5 (PLAN.md (project/docs/rebuild) build order, step 5). Byte-exact port of
+// the old build's doctor module's checks this milestone needs
 // (node/agent/agent-binary/git/home-registry/repo-state). The `--onramp`
 // section (buildDoctorOnramp) is later-milestone (reporting) territory and
 // is intentionally NOT wired here — no milestone-5 conformance case passes
@@ -17,7 +17,7 @@
 //  - TWO RENDERINGS. Human text by default; a stable `--json` payload.
 //
 // Evidence: SPEC/execution-backend.md "Agent delegation config"; the doctor
-// behavior itself is documented in the old build's src/doctor.ts (not yet a
+// behavior itself is documented in the old build's doctor module (not yet a
 // dedicated SPEC file — this milestone's conformance case,
 // exec-doctor-agent-config.case.js, pins the exact text this file must
 // produce).
@@ -295,7 +295,7 @@ function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
         checks,
         summary,
         // `--onramp` attaches the change-contract onramp block (byte-exact port
-        // of the old build's src/doctor.ts wiring). `--changed-from REF` threads
+        // of the old build's doctor module wiring). `--changed-from REF` threads
         // the base ref through to resolveChangedFiles + evaluateOnrampContract.
         ...((0, onramp_1.optionEnabled)(args.onramp)
             ? {

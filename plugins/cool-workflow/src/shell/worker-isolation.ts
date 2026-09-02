@@ -2,7 +2,7 @@
 // accept pipeline.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// src/worker-isolation.ts's real-execution-path (allocateWorkerScope,
+// worker-isolation module's real-execution-path (allocateWorkerScope,
 // writeWorkerManifest, recordWorkerOutput, recordWorkerFailure,
 // recordWorkerRetryAttempt, the worker index) — the multi-agent/
 // blackboard cross-linking (worker-accept/blackboard-*.ts) is milestone

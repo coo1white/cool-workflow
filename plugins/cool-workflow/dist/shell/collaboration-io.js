@@ -5,10 +5,10 @@
 // deriveReviewState/reviewGateErrors, plus the read-only reports.
 //
 // MILESTONE 9. Byte-exact port of the impure half of the old build's
-// src/collaboration.ts: trust-audit recording + saveCheckpoint.
+// collaboration module: trust-audit recording + saveCheckpoint.
 //
-// Evidence: SPEC/multi-agent.md section F; plugins/cool-workflow/src/
-// collaboration.ts (byte-exact source for the wiring sequence).
+// Evidence: SPEC/multi-agent.md section F; the old build's collaboration
+// module (byte-exact source for the wiring sequence).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

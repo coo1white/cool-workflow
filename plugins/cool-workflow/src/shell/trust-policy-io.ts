@@ -6,7 +6,7 @@
 // hasAcceptedJudgeRationale.
 //
 // MILESTONE 9. Byte-exact port of the audit-recording half of the old
-// build's src/multi-agent-trust.ts.
+// build's multi-agent-trust module.
 //
 // Evidence: SPEC/multi-agent.md section D ("Trust policies"), "Trust
 // denial reasons".

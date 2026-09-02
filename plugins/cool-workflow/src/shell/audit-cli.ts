@@ -1,6 +1,6 @@
 // shell/audit-cli.ts — CLI/MCP-reachable body for `cw audit verify`.
 //
-// MILESTONE 8. Byte-exact port of the old build's capability-core.ts's
+// MILESTONE 8. Byte-exact port of the old build's capability-core module's
 // `auditVerify`. A run id with no run directory at all is a hard load
 // failure (loadRunFromCwd throws) — absence-is-ok only applies once a
 // run exists but never wrote a trust-audit chain file, not to a missing

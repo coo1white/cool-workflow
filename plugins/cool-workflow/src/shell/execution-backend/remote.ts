@@ -1,10 +1,9 @@
 // shell/execution-backend/remote.ts — remote/ci delegating drivers (shared
 // HTTP-delegation body) + handle builders.
 //
-// MILESTONE 5 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// plugins/cool-workflow/src/execution-backend.ts's `runHttpDelegation`
-// (:821-876), `remoteHandle` (:1077-1084), `ciHandle` (:1086-1093), and
-// `delegateChildScript` (:801-811).
+// MILESTONE 5 (PLAN.md (project/docs/rebuild) build order, step 5). Byte-exact port of
+// the old build's execution-backend module's `runHttpDelegation`,
+// `remoteHandle`, `ciHandle`, and `delegateChildScript`.
 //
 // Evidence: SPEC/execution-backend.md "remote / ci drivers
 // (runHttpDelegation)".

@@ -2,8 +2,8 @@
 // once per step and performs the spawn/commit/cache-write IO the
 // decision names.
 //
-// MILESTONE 6+7 (combined; see plugins/cool-workflow/project/docs/rebuild/PLAN.md Open risk 9/10 — the LARGEST
-// milestone). Byte-exact port of the old build's src/drive.ts's
+// MILESTONE 6+7 (combined; see PLAN.md (project/docs/rebuild) Open risk 9/10 — the LARGEST
+// milestone). Byte-exact port of the old build's drive module's
 // imperative shell around the pure decision core now in
 // core/pipeline/drive-decide.ts. Sub-workflow nesting and `--incremental`
 // are ported; the concurrent-round driver (driveConcurrentRound, below)
@@ -11,7 +11,7 @@
 // `--concurrency`/`roundWidth`), pinned by
 // v2/conformance/cases/pipeline-concurrent-round.case.js.
 //
-// Evidence: SPEC/pipeline-run.md "Drive loop — src/drive.ts".
+// Evidence: SPEC/pipeline-run.md "Drive loop — drive module".
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -125,7 +125,7 @@ export interface DriveOptions {
   /** Override the retry/park scheduling policy (e.g. {maxAttempts:1} so a
    *  failing hop parks on its first attempt). Merged over
    *  DEFAULT_SCHEDULING_POLICY; unset fields keep the default. Byte-exact
-   *  port of the old build's src/drive.ts DriveOptions.policy. */
+   *  port of the old build's drive module DriveOptions.policy. */
   policy?: Partial<SchedulingPolicy>;
 }
 
@@ -152,7 +152,7 @@ function agentConfigured(config: AgentDelegationConfig): boolean {
  *  stderr is a TTY; silent in CI/pipes. CW_DRIVE_PROGRESS=0 forces off,
  *  =1 forces on. This is gate point #2 of the Rule of Silence's three
  *  gate points (SPEC/reporting-ux.md rebuild risk #1) — byte-exact port
- *  of the old build's src/drive.ts's emitProgress. */
+ *  of the old build's drive module's emitProgress. */
 function emitProgress(message: string): void {
   const forcedOff = process.env.CW_DRIVE_PROGRESS === "0";
   const forcedOn = process.env.CW_DRIVE_PROGRESS === "1";
@@ -182,7 +182,7 @@ interface DriveContext {
 // object instead of re-reading (necessarily stale) disk state. Keyed by
 // run id (not a stack) so a sub-workflow task's nested drive() call on a
 // DIFFERENT run id is unaffected — re-entrant, matches the old build's
-// runner.loadWithCache. Byte-exact in spirit to src/drive.ts's own
+// runner.loadWithCache. Byte-exact in spirit to drive module's own
 // per-runner cache; ported here as a module-level map since this build
 // has no persistent "runner" object to hang it on.
 const roundCache = new Map<string, WorkflowRun>();
@@ -891,7 +891,7 @@ function prepareConcurrentOutcomes(
  *  round). If no step was produced (nothing
  *  runnable at round entry — terminal/blocked/token-budget gate) the
  *  round degrades to one plain driveStep. Byte-exact to the old build's
- *  src/drive.ts's driveConcurrentRound. */
+ *  drive module's driveConcurrentRound. */
 function driveConcurrentRound(ctx: DriveContext, limit: number): DriveStep[] {
   return withRoundCache(ctx, () => {
     const run = loadRun(ctx);
@@ -986,7 +986,7 @@ function buildDriveContext(runId: string, cwd: string, options: DriveOptions): D
 // active and when it finishes — `==> Map ✓ (6/6)` / `==> Assess ⇉ (3/6)`.
 // Describes CW's OWN phases (vendor-neutral); goes to stderr via
 // emitProgress so stdout stays clean data. Byte-exact port of the old
-// build's src/drive.ts emitPhaseProgress. term.phaseProgressLine renders
+// build's drive module emitPhaseProgress. term.phaseProgressLine renders
 // the line; the returned closure decides WHEN to emit each boundary.
 // Shared by drive() and driveAsync() so the two never drift apart.
 function createPhaseProgressEmitter(): (run: WorkflowRun) => void {

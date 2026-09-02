@@ -1,8 +1,8 @@
 "use strict";
 // shell/execution-backend/probes.ts — per-backend readiness probe bodies.
 //
-// MILESTONE 5 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// plugins/cool-workflow/src/execution-backend/probes.ts. Each probe is a
+// MILESTONE 5 (PLAN.md (project/docs/rebuild) build order, step 5). Byte-exact port of
+// the old build's execution-backend probes module. Each probe is a
 // pure free function of the host (PATH + configured env); the registry's
 // `probeBackend` wraps these with the descriptor-derived envelope.
 //

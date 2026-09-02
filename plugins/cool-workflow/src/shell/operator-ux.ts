@@ -2,7 +2,7 @@
 // `cw graph`, `cw operator status|report|graph`.
 //
 // MILESTONE 11 (reporting/observability). A scoped-but-real port of the
-// old build's src/operator-ux.ts + src/orchestrator/report.ts's
+// old build's operator-ux module + orchestrator report module's
 // `summarizeRun`: every summary here reads real run state through the
 // same summarizers report.ts and the multi-agent/candidate/trust shell
 // modules already use (no duplicate logic, no fabricated fields). The
@@ -273,7 +273,7 @@ function summarizeOperatorWorkers(run: WorkflowRun): OperatorWorkerSummary {
  *  running tasks -> pending tasks -> ready-for-commit -> fallback
  *  `report --show`). */
 /** Next-action advice — port of the old build's adviseNextSteps
- *  (src/operator-ux.ts): a single ordered chain of guard arms, each
+ *  (operator-ux module): a single ordered chain of guard arms, each
  *  returning as soon as it fires so the operator sees the ONE next step
  *  the run is waiting on. The candidate lifecycle arms (register -> score
  *  -> rank/select -> commit) are the part v2's earlier scoped port dropped;
@@ -504,7 +504,7 @@ export function buildOperatorGraph(run: WorkflowRun): OperatorGraph {
   }
 
   // Fold the topology + multi-agent + blackboard graphs into the operator
-  // graph, per the old build's buildOperatorGraph (operator-ux.ts:411-419): a
+  // graph, per the old build's buildOperatorGraph (in its operator-ux module): a
   // run's top-level `cw graph` shows topology-run, multi-agent-run/agent-group/
   // agent-role/agent-membership/agent-fanout/agent-fanin, and the blackboard
   // topic/message/artifact nodes alongside the pipeline nodes.

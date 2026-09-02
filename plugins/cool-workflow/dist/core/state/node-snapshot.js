@@ -2,14 +2,14 @@
 // core/state/node-snapshot.ts — snapshotNode / diffNodeSnapshots /
 // replayNodeSnapshot / verifyNodeReplay.
 //
-// MILESTONE 3. Byte-exact port of the old build's src/node-snapshot.ts,
+// MILESTONE 3. Byte-exact port of the old build's node-snapshot module,
 // split into a PURE half (this file) and a shell half (shell/node-
 // store.ts, which supplies the actual `writeJson` persistence and file
 // scans for readNodeSnapshot/readNodeReplay). Every function here is pure
 // given `(run, clock)` — no direct fs/Date calls; `now` is always an
 // explicit parameter, `persist` is always a caller-supplied callback.
 //
-// RAW vs NORMALIZED fingerprints [plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 8 — do not
+// RAW vs NORMALIZED fingerprints [PLAN.md (project/docs/rebuild) byte-compat item 8 — do not
 // merge these two code paths]:
 //   - `sourceFingerprint` is RAW: built from the node's raw id/status/
 //     updatedAt plus raw artifact/evidence id+path strings. ANY transition
@@ -22,7 +22,7 @@
 // These stay two separate functions (`sourceFingerprint` vs
 // `snapshotBody`/`outputFingerprint`'s computation) — never one call.
 //
-// Evidence: SPEC/state-core.md "src/node-snapshot.ts — snapshot / diff /
+// Evidence: SPEC/state-core.md "node-snapshot module — snapshot / diff /
 // replay", "Raw vs. normalized fingerprints", "Snapshot freshness
 // fail-closed".
 Object.defineProperty(exports, "__esModule", { value: true });

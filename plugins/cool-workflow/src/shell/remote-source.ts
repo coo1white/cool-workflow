@@ -1,4 +1,4 @@
-// src/remote-source.ts — materialize a REMOTE repository (a URL) into a LOCAL checkout
+// remote-source module — materialize a REMOTE repository (a URL) into a LOCAL checkout
 // so the existing review pipeline can run against it unchanged.
 //
 // This lives in the CAPABILITY layer and is imported ONLY by capability-core (+ smokes),

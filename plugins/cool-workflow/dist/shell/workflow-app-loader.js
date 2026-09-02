@@ -1,7 +1,7 @@
 "use strict";
 // shell/workflow-app-loader.ts — the real workflow-app loader + discovery.
 //
-// See core/workflow-apps/app-schema.ts's file header for the validation
+// See src/core/workflow-apps/app-schema.ts's file header for the validation
 // half this file calls into. This file `require()`s real bundled apps'
 // `app.json` + `workflow.js` (the SAME files
 // plugins/cool-workflow/apps/<id>/ ships today, plus the legacy
@@ -266,7 +266,7 @@ function loadWorkflowApp(appId) {
 // ---------------------------------------------------------------------
 // Full discovery: apps/*/app.json + legacy workflows/*.workflow.js
 // (MILESTONE 12). Byte-exact in spirit to
-// src/orchestrator/app-operations.ts's loadWorkflowApps/listApps/showApp/
+// orchestrator app-operations module's loadWorkflowApps/listApps/showApp/
 // validateApp/initApp/packageApp.
 // ---------------------------------------------------------------------
 const FACTORY_API = { ...(0, app_schema_1.createWorkflowApi)(), parallel: app_schema_1.parallel, phase: app_schema_1.phase, loop: app_schema_1.loop, workflow: app_schema_1.workflow, agent: app_schema_1.agent, artifact: app_schema_1.artifact, subWorkflow: app_schema_1.subWorkflow, input: app_schema_1.input };

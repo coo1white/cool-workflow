@@ -3,11 +3,11 @@
 // ~25 error codes.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the DECISION half of the
-// old build's src/commit.ts (calls into core/state/state-node.ts's
+// old build's commit module (calls into core/state/state-node.ts's
 // transition matrix + commit-without-verifier gate from milestone 3). The
 // actual snapshot/audit writes are shell/drive.ts + shell/report.ts.
 //
-// Evidence: SPEC/pipeline-run.md "Commit gate — src/commit.ts",
+// Evidence: SPEC/pipeline-run.md "Commit gate — commit module",
 // "Commit-gate error codes (fixed strings)".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sandboxProfileForCandidate = sandboxProfileForCandidate;
@@ -23,7 +23,7 @@ const result_normalize_1 = require("./result-normalize");
 const collate_1 = require("../util/collate");
 /** The sandbox profile that accepted a candidate's worker output — the
  *  worker's own profile when present, else the backing task's. Pure port of
- *  the old build's src/gates.ts sandboxProfileForCandidate. */
+ *  the old build's gates module sandboxProfileForCandidate. */
 function sandboxProfileForCandidate(run, candidate) {
     const worker = candidate?.workerId
         ? (run.workers || []).find((entry) => entry.id === candidate.workerId)
@@ -34,7 +34,7 @@ function sandboxProfileForCandidate(run, candidate) {
     return task?.sandboxProfileId;
 }
 /** Build a normalized acceptance rationale record. Pure port of the old
- *  build's src/trust-audit.ts buildAcceptanceRationale. */
+ *  build's trust-audit module buildAcceptanceRationale. */
 function buildAcceptanceRationale(input) {
     const ids = (input.auditEventIds || []).filter((v, i, a) => v && a.indexOf(v) === i).sort();
     return {

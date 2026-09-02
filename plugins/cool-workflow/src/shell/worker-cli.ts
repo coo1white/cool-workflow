@@ -1,6 +1,6 @@
 // shell/worker-cli.ts — `cw worker list|show|manifest|output|fail|validate`
 // (and the mirrored cw_worker_* MCP tools) handler bodies. Byte-exact behavior
-// port of the old build's src/cli/handlers/worker.ts routing into the
+// port of the old build's cli worker-handler module routing into the
 // worker-isolation shell. Impure: loads run state, mutates, persists.
 
 import * as path from "node:path";

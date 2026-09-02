@@ -1,13 +1,13 @@
 "use strict";
 // core/trust/ledger.ts — the cross-agent handoff ledger kernel.
 //
-// MILESTONE 8 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 8; SPEC/ledger-trust.md in
+// MILESTONE 8 (PLAN.md (project/docs/rebuild) build order, step 8; SPEC/ledger-trust.md in
 // full). Pure: computeLedgerDigest, buildLedgerProposal/Review,
 // verifyLedgerEntry, applyLedgerProposal. Directory reads
 // (listLedgerEntries/unionLedgerEntries) live in shell/ledger-io.ts, NOT
 // here — this file touches no fs.
 //
-// Byte-exact port of the old build's src/ledger.ts. Uses
+// Byte-exact port of the old build's ledger module. Uses
 // core/hash.ts's `ledgerStableStringify` (byte-identical to
 // `stableStringify`, kept as its own named export per PLAN.md's Hash
 // dedup rule) rather than reimplementing a private copy.

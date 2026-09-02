@@ -3,7 +3,7 @@
 // show`/`cw metrics summary`.
 //
 // MILESTONE 11 (reporting/observability). Byte-exact port of the old
-// build's src/observability.ts — every number here is a PROJECTION of one
+// build's observability module — every number here is a PROJECTION of one
 // run's durable state.json (timestamps -> durations, verifier nodes ->
 // pass rate, candidates -> acceptance rate, failed workers/feedback ->
 // failure rate). No metrics database, no collector daemon. Cost is

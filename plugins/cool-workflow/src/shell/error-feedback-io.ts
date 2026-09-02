@@ -8,7 +8,7 @@
 // feedback.ts's `recordFeedback` (dedup-on-open-record, disk write,
 // saveCheckpoint).
 //
-// Evidence: SPEC/pipeline-run.md "Error feedback — src/error-feedback.ts".
+// Evidence: SPEC/pipeline-run.md "Error feedback — error-feedback module".
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -98,7 +98,7 @@ export function recordFeedback(run: WorkflowRun, input: RecordFeedbackInput, opt
 
 // ---------------------------------------------------------------------------
 // Operator feedback lifecycle primitives — collect / list / get / correction
-// task / resolve. Byte-behavior port of the old src/error-feedback.ts halves
+// task / resolve. Byte-behavior port of the old error-feedback module halves
 // that v2 had not yet ported (v2 shipped only the record-builder half).
 // ---------------------------------------------------------------------------
 

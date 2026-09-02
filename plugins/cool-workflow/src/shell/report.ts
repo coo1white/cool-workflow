@@ -7,7 +7,7 @@
 // Compaction (state-explosion, milestone 4), Sandbox Profiles (milestone
 // 5), Trust Audit (milestone 8), Acceptance Rationale (commit-gate,
 // milestone 6+7). Byte-exact port of
-// plugins/cool-workflow/src/orchestrator/report.ts's renderX helpers for
+// the old build's orchestrator report module's renderX helpers for
 // each.
 //
 // Evidence: SPEC/reporting-ux.md "report.md (written by writeReport)".

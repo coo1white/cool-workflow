@@ -1,7 +1,7 @@
 "use strict";
 // shell/reporter.ts — the cw-side run reporter: drive progress lines +
 // the end-of-run summary. Byte-exact port of the old build's
-// src/reporter.ts.
+// reporter module.
 //
 // MILESTONE 11 (reporting/observability). Everything here goes to
 // STDERR; stdout (the machine payload) carries NO term styling ever, so

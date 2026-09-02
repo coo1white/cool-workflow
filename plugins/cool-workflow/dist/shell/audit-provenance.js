@@ -1,6 +1,6 @@
 "use strict";
 // shell/audit-provenance.ts — the trust-audit READ + record helpers the
-// old flat build shipped inside src/trust-audit.ts but v2's
+// old flat build shipped inside trust-audit module but v2's
 // shell/trust-audit.ts dropped: workerTrustAudit, evidenceProvenance, and
 // the two thin record wrappers (recordHostAttestation,
 // recordSandboxPolicyDecision). These are pure wrappers over the primitives

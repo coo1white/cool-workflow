@@ -3,7 +3,7 @@
 // (v0.1.21 + v0.1.27): the dependency / failure / evidence panels that the
 // `multi-agent status|dependencies|failures|evidence` surfaces render.
 //
-// GAP #17. Port of the old build's src/multi-agent-operator-ux.ts data layer
+// GAP #17. Port of the old build's multi-agent-operator-ux module data layer
 // (summarizeMultiAgentOperator + deriveDependencies/deriveFailures/
 // deriveEvidence + the three text formatters + graph). Byte-behavior
 // preserved; adapted to v2's core/shell split:
@@ -14,7 +14,7 @@
 //     the on-disk record is trusted, matching the io reader).
 //
 // Evidence: SPEC/multi-agent.md "Multi-Agent Operator UX";
-// plugins/cool-workflow/src/multi-agent-operator-ux.ts (byte-exact source).
+// the old build's multi-agent-operator-ux module (byte-exact source).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

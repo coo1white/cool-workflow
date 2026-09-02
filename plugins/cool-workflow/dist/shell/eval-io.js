@@ -6,7 +6,7 @@
 // report + normalizeRun projection.
 //
 // MILESTONE 9. Byte-exact port of the impure half of the old build's
-// src/multi-agent-eval.ts: snapshot/suite/comparison/score/gate/report
+// multi-agent-eval module: snapshot/suite/comparison/score/gate/report
 // file writes, target-path resolution, and — the load-bearing piece —
 // replayMultiAgentSnapshot RE-DERIVING the projection from the raw
 // baseline run state file rather than copying snapshot.normalized.
@@ -15,7 +15,7 @@
 // eval-replay-detects-drift.case.js.
 //
 // Evidence: SPEC/multi-agent.md section I, "Eval harness exact outputs";
-// plugins/cool-workflow/src/multi-agent-eval.ts (byte-exact source for
+// the old build's multi-agent-eval module (byte-exact source for
 // the wiring/resolution sequence).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;

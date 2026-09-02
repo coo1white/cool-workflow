@@ -1,6 +1,6 @@
 // core/state/state-node.ts — StateNode lifecycle and pipeline-contract gates.
 //
-// MILESTONE 3. Byte-exact port of the old build's src/state-node.ts, split
+// MILESTONE 3. Byte-exact port of the old build's state-node module, split
 // into a PURE half (this file: create/transition/validate/link/record —
 // everything that does not touch disk) and a shell half
 // (shell/node-store.ts: writeRunNode, the only disk write). `appendRunNode`
@@ -8,9 +8,9 @@
 // out to a caller-supplied persist function so this file itself never
 // imports fs.
 //
-// Evidence: SPEC/state-core.md "src/state-node.ts — StateNode lifecycle and
+// Evidence: SPEC/state-core.md "state-node module — StateNode lifecycle and
 // contract gates", "StateNode transition matrix", "Deterministic id
-// fallback", "Contract gates" (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 7 — the double
+// fallback", "Contract gates" (PLAN.md (project/docs/rebuild) byte-compat item 7 — the double
 // commit gate).
 
 import { stableStringify, sha256 } from "../hash";
@@ -156,7 +156,7 @@ export function validatePipelineContract(contract: PipelineContract): void {
  *  check against; every real caller (shell/) passes `fs.existsSync` so the
  *  `missing-artifact-path` gate behaves exactly like the old build. Kept as
  *  an explicit parameter (never a top-level `require("node:fs")`) so this
- *  stays a pure core/ module per plugins/cool-workflow/project/docs/rebuild/PLAN.md's core/shell split. */
+ *  stays a pure core/ module per PLAN.md (project/docs/rebuild)'s core/shell split. */
 export function assertNodeSatisfiesContract(
   node: StateNode,
   contract: PipelineContract,

@@ -1,7 +1,7 @@
 // core/multi-agent/collaboration.ts — approvals/comments/handoffs,
 // deriveReviewState (review-gate stacking rule).
 //
-// MILESTONE 9. Byte-exact port of the old build's src/collaboration.ts,
+// MILESTONE 9. Byte-exact port of the old build's collaboration module,
 // minus recordTrustAuditEvent/saveCheckpoint calls (those are impure —
 // see shell/collaboration-io.ts, which calls the pure builders here then
 // wires the audit event + persist).
@@ -12,8 +12,8 @@
 // precedence.case.js and SPEC/multi-agent.md invariant 7/8.
 //
 // Evidence: SPEC/multi-agent.md section F ("Team collaboration / review
-// gate"), "Collaboration exact outputs"; plugins/cool-workflow/src/
-// collaboration.ts (byte-exact source).
+// gate"), "Collaboration exact outputs"; the old build's collaboration
+// module (byte-exact source).
 
 import { StateNodeError } from "../state/types";
 import { parseBoolFlag } from "../util/cli-args";

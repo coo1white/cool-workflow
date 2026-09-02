@@ -3,7 +3,7 @@
 // (pure transform), advancePipeline, failPipelineStage.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// src/pipeline-runner.ts, split so this file stays PURE (no fs — actual
+// pipeline-runner module, split so this file stays PURE (no fs — actual
 // disk writes are the caller's `persist` callback, threaded through from
 // shell/). The real per-stage disk write (node file + checkpoint) is
 // shell/run-store.ts + shell/node-store.ts; this file only mutates the

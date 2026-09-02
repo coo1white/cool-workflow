@@ -2,10 +2,10 @@
 // core/pipeline/commit-gate.ts's pure gate resolution.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// src/commit.ts's IO half (snapshot write, git-head read, the commit
+// commit module's IO half (snapshot write, git-head read, the commit
 // node's disk write via the pipeline runner).
 //
-// Evidence: SPEC/pipeline-run.md "Commit gate — src/commit.ts".
+// Evidence: SPEC/pipeline-run.md "Commit gate — commit module".
 
 import * as fs from "node:fs";
 import * as path from "node:path";

@@ -1,6 +1,6 @@
 // shell/feedback-operations.ts — operator-facing feedback lifecycle:
 // collect / list / show / create-task / resolve. Byte-behavior port of the old
-// src/orchestrator/feedback-operations.ts (thin wrappers over the
+// orchestrator feedback-operations module (thin wrappers over the
 // error-feedback-io primitives that also refresh the report + persist).
 
 import { WorkflowRun } from "../core/state/types";

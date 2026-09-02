@@ -1,10 +1,10 @@
 // core/state/state-explosion/graph.ts — buildCompactGraph + collapse rules.
 //
 // MILESTONE 4. Byte-exact port of the collapse-rule MACHINERY in the old
-// build's src/state-explosion.ts (buildCompactGraph and everything it
+// build's state-explosion module (buildCompactGraph and everything it
 // calls: collapseRuleFor, shouldCollapseKind, criticalPathNodeIds,
 // bfsNeighborhood, filterByView, finalizeGraphRecord), PLUS a faithful
-// port of `buildMultiAgentOperatorGraph`'s (src/multi-agent-operator-ux.ts)
+// port of `buildMultiAgentOperatorGraph`'s (multi-agent-operator-ux module)
 // node/edge construction for every run-level array this milestone's state
 // kernel actually carries: `tasks`, `dispatches`, `workers`,
 // `candidates`/`candidateSelections`, `commits`, `feedback` (real fields
@@ -25,7 +25,7 @@
 // file's collapse-rule machinery changing at all.
 //
 // Evidence: SPEC/state-core.md "buildCompactGraph(...)", "State-explosion
-// collapse rules"; plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9;
+// collapse rules"; PLAN.md (project/docs/rebuild) byte-compat item 9;
 // the old build's buildMultiAgentOperatorGraph.
 
 import { RunTask, StateCommit, WorkflowRun } from "../types";
@@ -169,8 +169,8 @@ import { fingerprintStrings } from "../../hash";
 // `unknown[]`-typed on WorkflowRun at this milestone (workers/candidates/
 // candidateSelections/feedback — real per-record shapes land with
 // milestones 5/9). Field usage matches the old build's
-// buildMultiAgentOperatorGraph exactly (src/multi-agent-operator-ux.ts:
-// 153-227), so this degrades to empty arrays today and needs no reshape
+// buildMultiAgentOperatorGraph exactly (in the multi-agent-operator-ux
+// module), so this degrades to empty arrays today and needs no reshape
 // once those milestones write real records.
 // ---------------------------------------------------------------------
 
@@ -402,7 +402,7 @@ function collapseRuleFor(): CollapseRule {
   };
 }
 
-/** Collapsible kinds ONLY (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9): high-volume,
+/** Collapsible kinds ONLY (PLAN.md (project/docs/rebuild) byte-compat item 9): high-volume,
  *  low-individual-signal. `decisions, artifacts, fanins, candidates,
  *  selections, commits, feedback` are NEVER collapsed so failures,
  *  evidence, policy, and judge rationale stay visible. */
@@ -605,7 +605,7 @@ export function buildCompactGraphFromView(
     if (isProtectedStatus(node.status)) protectedIds.add(node.id);
   }
   // Reasoning-critical nodes are on the critical path and must never be
-  // collapsed into a synthetic summary node (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9).
+  // collapsed into a synthetic summary node (PLAN.md (project/docs/rebuild) byte-compat item 9).
   for (const id of options.reasoningCriticalIds || []) protectedIds.add(id);
 
   const parents = parentMap(full.edges);
@@ -667,7 +667,7 @@ export function buildCompactGraphFromView(
   }
 
   // Buckets smaller than the collapse threshold stay expanded (unless
-  // critical-path — plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9).
+  // critical-path — PLAN.md (project/docs/rebuild) byte-compat item 9).
   const synthetic: SyntheticSummaryNode[] = [];
   const collapsedNodeIds = new Map<string, string>(); // sourceNodeId -> syntheticId
   for (const [bucketKey, ids] of [...buckets.entries()].sort((a, b) => stableCompare(a[0], b[0]))) {

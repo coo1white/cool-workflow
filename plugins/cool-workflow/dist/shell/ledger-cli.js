@@ -90,7 +90,7 @@ function ledgerProposeCli(options) {
 /** MCP-facing `cw_ledger_propose`: `files` is a comma string; `diff` is
  *  passed through as-is (undefined only when the arg itself is absent),
  *  a slightly looser shape than the CLI handler's flag-labeled
- *  requireds (byte-exact to the old build's src/mcp/tool-call.ts). */
+ *  requireds (byte-exact to the old build's mcp tool-call module). */
 function ledgerProposeMcp(args) {
     return (0, ledger_1.buildLedgerProposal)({
         from: String(args.from || ""),
@@ -118,7 +118,7 @@ function ledgerReviewCli(options) {
 }
 /** MCP-facing `cw_ledger_review`: same verdict check, but WITHOUT the
  *  `--verdict` CLI-flag framing in the error message (byte-exact to the
- *  old build's src/mcp/tool-call.ts, a separate call site from the CLI
+ *  old build's mcp tool-call module, a separate call site from the CLI
  *  handler's own message). */
 function ledgerReviewMcp(args) {
     const verdict = String(args.verdict || "").toUpperCase();

@@ -3,7 +3,7 @@
 // worker-accept path and the commit gate both consult.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// src/verifier.ts's `taskRequiresEvidence`. Pure logic; kept under
+// verifier module's `taskRequiresEvidence`. Pure logic; kept under
 // shell/ only because its caller (worker-isolation.ts) is shell-side —
 // the function itself takes no fs/clock/random input.
 //
@@ -30,7 +30,7 @@ function validateFinding(task, finding) {
 /** Validate an accepted result envelope against the task's declared contract:
  *  required grounded evidence, per-finding shape, and (opt-in) the task's
  *  declared output schema. Throws on violation (fail-closed — the drive parks
- *  the hop). Byte-behavior port of the old build's src/verifier.ts. */
+ *  the hop). Byte-behavior port of the old build's verifier module. */
 function validateResultEnvelope(task, result) {
     if (taskRequiresEvidence(task) && !(0, evidence_grounding_1.hasGroundedEvidence)(result.evidence)) {
         throw new Error(`Task ${task.id} requires grounded cw:result evidence (a path-like locator, URL, or namespace:value token — not free text)`);

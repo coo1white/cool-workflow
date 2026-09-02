@@ -3,9 +3,9 @@
 // show|resume|archive|rerun, queue.*, sched.*, gc.*, orphans.*, clones.*,
 // history.
 //
-// MILESTONE 10. Byte-exact port of the old build's
-// src/cli/handlers/{scheduling,registry,maintenance,orphans,clones}.ts +
-// the run-registry-owned slice of src/capability-core.ts. Impure (fs) —
+// MILESTONE 10. Byte-exact port of the old build's cli handler modules for
+// scheduling/registry/maintenance/orphans/clones, plus the run-registry-owned
+// slice of the capability-core module. Impure (fs) —
 // this is the shell layer the capability-table's CLI/MCP handlers
 // delegate to.
 

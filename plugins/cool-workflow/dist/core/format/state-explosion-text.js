@@ -3,7 +3,7 @@
 // formatCompactGraph, formatBlackboardDigest, stateExplosionReportLines.
 //
 // MILESTONE 4. Byte-exact port of the old build's
-// src/state-explosion/format.ts. CLI text only — never affects `--json`/
+// state-explosion format module. CLI text only — never affects `--json`/
 // MCP payloads. Pure: a record object in, strings out.
 //
 // Evidence: SPEC/state-core.md "Human formatters (CLI text only, never

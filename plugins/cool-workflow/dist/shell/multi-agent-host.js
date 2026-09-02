@@ -2,22 +2,22 @@
 // shell/multi-agent-host.ts — the multi-agent run|status|step|blackboard|
 // score|select high-level control loop.
 //
-// MILESTONE 9. Byte-exact port of the old build's src/multi-agent-host.ts
+// MILESTONE 9. Byte-exact port of the old build's multi-agent-host module
 // FOR THE SURFACES this milestone's conformance cases actually exercise:
 // the MultiAgentHostResponse envelope, hostRun (apply/attach topology),
 // hostStatus, hostStep (fanin/dispatch/snapshot/candidate/score/selection
 // deterministic step order), hostBlackboard's action dispatch. The
 // `summaries.workers/candidates/feedback/commits/operator` blocks are
 // simplified real projections (not the full operator-ux/multi-agent-
-// operator-ux module — out of this milestone's scope per plugins/cool-workflow/project/docs/rebuild/PLAN.md's
+// operator-ux module — out of this milestone's scope per PLAN.md (project/docs/rebuild)'s
 // build-order list) — every FIELD the conformance cases actually assert
 // on (`summaries.topologies.officialTopologies`, the envelope's fixed key
 // set, `ids.*`) is still byte-exact; the parts no case reaches are
 // reduced but structurally present so the envelope shape stays whole.
 //
 // Evidence: SPEC/multi-agent.md "Envelope: MultiAgentHostResponse", "Host
-// error strings", "Host next-action commands"; plugins/cool-workflow/src/
-// multi-agent-host.ts (byte-exact source for the sequencing/error
+// error strings", "Host next-action commands"; the old build's
+// multi-agent-host module (byte-exact source for the sequencing/error
 // strings ported here).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.buildBlackboardGraph = void 0;

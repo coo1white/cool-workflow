@@ -1,8 +1,8 @@
 // core/pipeline/contract.ts — DEFAULT_PIPELINE_CONTRACT_ID,
 // createDefaultPipelineContract.
 //
-// MILESTONE 6+7 (combined; see plugins/cool-workflow/project/docs/rebuild/PLAN.md Open risk 10). Byte-exact port
-// of the old build's src/pipeline-contract.ts. Pure data.
+// MILESTONE 6+7 (combined; see PLAN.md (project/docs/rebuild) Open risk 10). Byte-exact port
+// of the old build's pipeline-contract module. Pure data.
 //
 // Evidence: SPEC/pipeline-run.md "Default contract — src/pipeline-
 // contract.ts", "Default contract stage table (byte facts a rebuild must

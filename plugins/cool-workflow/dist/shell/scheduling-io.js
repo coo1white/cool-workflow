@@ -3,14 +3,14 @@
 // lease-plan mechanism over the run-registry-io.ts queue store, plus the
 // policy file IO.
 //
-// MILESTONE 10 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
-// old build's src/scheduling.ts + the sched-specific slice of
-// src/capability-core.ts. `sched` is a DIFFERENT system from `schedule`
+// MILESTONE 10 (PLAN.md (project/docs/rebuild) build order, step 10). Byte-exact port of the
+// old build's scheduling module + the sched-specific slice of
+// capability-core module. `sched` is a DIFFERENT system from `schedule`
 // (see scheduler-io.ts's file header) — this operates on
 // `$CW_HOME/registry/queue.json` leases, not wall-clock tasks.
 //
 // Evidence: SPEC/scheduling-registry.md section D;
-// plugins/cool-workflow/src/scheduling.ts (byte-exact source).
+// the old build's scheduling module (byte-exact source).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -213,7 +213,7 @@ function resetEntry(entries, id) {
 }
 // ---------------------------------------------------------------------------
 // Impure CLI-facing ops: policy file IO + the queue read-modify-write.
-// Byte-exact port of the `sched`-specific slice of src/capability-core.ts.
+// Byte-exact port of the `sched`-specific slice of capability-core module.
 // ---------------------------------------------------------------------------
 function resolveCwd(options) {
     return path.resolve(String(options.cwd || process.cwd()));

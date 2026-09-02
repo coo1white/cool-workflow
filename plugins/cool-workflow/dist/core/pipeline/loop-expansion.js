@@ -3,9 +3,9 @@
 // maybeExpandLoop's decision half (round clone, stop reasons).
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// src/loop-expansion.ts (predicate registry + maxLoopExpansion are
+// loop-expansion module (predicate registry + maxLoopExpansion are
 // already pure there) plus the DECISION half of
-// src/orchestrator/lifecycle-operations.ts's maybeExpandLoop (materializing
+// orchestrator lifecycle-operations module's maybeExpandLoop (materializing
 // the cloned phase/tasks + loop-control node is the caller's job in
 // shell/, since it needs writeTaskFiles + the plan pipeline stage).
 //

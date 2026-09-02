@@ -1,7 +1,7 @@
 // core/multi-agent/topology.ts — OFFICIAL_TOPOLOGIES, applyTopology's
 // decision half, role-width math, collector-exclusion, trust-authority.
 //
-// MILESTONE 9. Byte-exact port of the old build's src/topology.ts, minus
+// MILESTONE 9. Byte-exact port of the old build's topology module, minus
 // the actual multi-agent/blackboard/coordinator record creation and audit
 // writes (those are impure — see shell/topology-io.ts, which calls this
 // file's pure helpers then wires createMultiAgentRun/createAgentRole/
@@ -15,7 +15,7 @@
 // uniquedual-role-vs-candidate-order.case.js.
 //
 // Evidence: SPEC/multi-agent.md section B ("Topologies"), "Topology error
-// strings and outputs"; plugins/cool-workflow/src/topology.ts (byte-exact
+// strings and outputs"; the old build's topology module (byte-exact
 // source).
 
 export const TOPOLOGY_SCHEMA_VERSION = 1;

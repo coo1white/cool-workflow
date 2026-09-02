@@ -1,22 +1,22 @@
 "use strict";
-// core/workflow-apps/app-schema.ts — workflow-app manifest + workflow DSL
+// src/core/workflow-apps/app-schema.ts — workflow-app manifest + workflow DSL
 // types, a pure builder API (`workflow`, `phase`, `parallel`, `loop`,
 // `agent`, `artifact`, `subWorkflow`, `input`), and full manifest
 // validation (`validateWorkflowApp`).
 //
-// MILESTONE 12 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order; workflow-apps.md). Milestone 6+7
+// MILESTONE 12 (PLAN.md (project/docs/rebuild) build order; workflow-apps.md). Milestone 6+7
 // built the minimal real subset needed to load ONE app and drive it
 // end to end (see git history / the old header note this replaces).
 // This milestone adds, on top of that, WITHOUT changing any existing
 // exported function's signature or behavior:
 //   - `loop()` — sugar over `phase()` that sets a bounded dynamic loop
-//     spec, byte-exact to src/workflow-api.ts.
+//     spec, byte-exact to the old build's workflow-api module.
 //   - `subWorkflow()` — sugar over `agent()` that adds a `subWorkflow`
-//     field, byte-exact to src/workflow-api.ts.
+//     field, byte-exact to the old build's workflow-api module.
 //   - `validateWorkflowApp`/`assertValidWorkflowApp`/
 //     `validateWorkflowDefinition` — the full WorkflowAppValidationIssue
 //     taxonomy `cw app validate` needs, ported byte-for-byte from
-//     src/workflow-app-framework.ts.
+//     the old build's workflow-app-framework module.
 //   - `WorkflowAppValidationError` — thrown by a fail-closed manifest
 //     load (see shell/workflow-app-loader.ts's discovery functions).
 //
@@ -79,7 +79,7 @@ function parallel(name, tasks, options = {}) {
  *  round completes, the registered `until` predicate decides whether to run
  *  another round (a fresh appended phase with the same tasks, round-suffixed
  *  ids) or stop; capped at `maxRounds`. Sugar over phase() that sets `loop`;
- *  plain phases are unaffected. Byte-exact to src/workflow-api.ts's loop(). */
+ *  plain phases are unaffected. Byte-exact to the old build's workflow-api module's loop(). */
 function loop(name, tasks, spec, options = {}) {
     if (!spec || typeof spec.maxRounds !== "number" || spec.maxRounds < 1) {
         throw new Error(`loop ${name} requires a positive integer maxRounds`);
@@ -113,7 +113,7 @@ function agent(id, prompt, options = {}) {
 /** A task fulfilled by an inline SUB-WORKFLOW: instead of spawning an agent,
  *  the drive plans + drives the child `appId` and binds its report back as
  *  this task's result. The prompt is recorded for provenance but is not sent
- *  to an agent. Byte-exact to src/workflow-api.ts's subWorkflow(). */
+ *  to an agent. Byte-exact to the old build's workflow-api module's subWorkflow(). */
 function subWorkflow(id, appId, options = {}) {
     if (!appId)
         throw new Error(`subWorkflow task ${id} requires an appId`);
@@ -467,7 +467,7 @@ function validateWorkflowDefinition(candidate, context, issues = [], basePath = 
     return issues;
 }
 /** The full `cw app validate` check: byte-exact issue codes/messages to
- *  src/workflow-app-framework.ts's `validateWorkflowApp`. Never throws. */
+ *  the old build's workflow-app-framework module's `validateWorkflowApp`. Never throws. */
 function validateWorkflowApp(candidate, context, options = {}) {
     const issues = [];
     const appPath = options.appPath;

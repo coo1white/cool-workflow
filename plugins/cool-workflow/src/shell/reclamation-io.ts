@@ -1,9 +1,9 @@
 // shell/reclamation-io.ts — gc plan/run/verify's write-ahead reclamation
 // transaction, plus the orphan-run sweep and the clone cache gc.
 //
-// MILESTONE 10 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
-// old build's src/reclamation.ts + src/reclamation/hash.ts +
-// src/run-registry/{gc,orphans}.ts + src/clones.ts. Reuses
+// MILESTONE 10 (PLAN.md (project/docs/rebuild) build order, step 10). Byte-exact port of the
+// old build's reclamation, reclamation-hash, run-registry gc/orphans, and
+// clones modules. Reuses
 // shell/fs-atomic.ts's `withFileLock` directly (no reimplementation, per
 // the task's instruction) and core/state/node-projection.ts's
 // `replayStableStringify`/`nodeProjectionDigestInput` so the tombstone
@@ -23,9 +23,9 @@
 // BEFORE it is hashed (this is exactly what the tombstonesort-*.case.js
 // conformance cases pin) — see `planReclamation`'s explicit sort below.
 //
-// Evidence: SPEC/scheduling-registry.md sections E, F, G;
-// plugins/cool-workflow/src/reclamation.ts, src/reclamation/hash.ts,
-// src/run-registry/{gc,orphans}.ts, src/clones.ts (byte-exact source).
+// Evidence: SPEC/scheduling-registry.md sections E, F, G; the old build's
+// reclamation, reclamation-hash, run-registry gc/orphans, and clones
+// modules (byte-exact source).
 
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -51,7 +51,7 @@ import {
 
 // ---------------------------------------------------------------------------
 // Content addressing + byte measurement (in-process, no `du`) — carried
-// forward from src/reclamation/hash.ts.
+// forward from reclamation hash module.
 // ---------------------------------------------------------------------------
 
 export function sha256OfString(value: string): string {
@@ -98,7 +98,7 @@ function contentDigest(p: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Reclamation types (byte-exact port of src/types/reclamation.ts)
+// Reclamation types (byte-exact port of reclamation types module)
 // ---------------------------------------------------------------------------
 
 export type ReclaimKind = "scratch" | "reconstructable-snapshot" | "candidate" | "reference-free-blackboard" | "commit-snapshot";
@@ -1074,7 +1074,7 @@ export function verifyReclamation(run: WorkflowRun): { reclaimed: boolean; verif
 
 // ---------------------------------------------------------------------------
 // GcHost contract + gc plan/run/verify (byte-exact port of
-// src/run-registry/gc.ts)
+// run-registry gc module)
 // ---------------------------------------------------------------------------
 
 export interface GcHost {
@@ -1346,7 +1346,7 @@ export function formatGcVerify(result: GcVerifyResult): string {
 }
 
 // ---------------------------------------------------------------------------
-// Orphan Run Sweep (byte-exact port of src/run-registry/orphans.ts)
+// Orphan Run Sweep (byte-exact port of run-registry orphans module)
 // ---------------------------------------------------------------------------
 
 export interface OrphanRunEntry {
@@ -1536,7 +1536,7 @@ export function formatOrphanRunsGc(result: OrphanRunsGcResult): string {
 }
 
 // ---------------------------------------------------------------------------
-// Clone cache gc (byte-exact port of src/clones.ts)
+// Clone cache gc (byte-exact port of clones module)
 // ---------------------------------------------------------------------------
 
 export interface CloneEntry {

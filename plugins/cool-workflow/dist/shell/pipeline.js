@@ -3,7 +3,7 @@
 // loaded workflow app + inputs into a full WorkflowRun on disk.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// src/orchestrator/lifecycle-operations.ts's `plan` function (the
+// orchestrator lifecycle-operations module's `plan` function (the
 // multi-agent/topology/blackboard ensure calls are milestone 9's scope
 // and are no-ops here — no case in this milestone's gate reads those
 // fields).
