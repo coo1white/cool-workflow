@@ -21,7 +21,7 @@ function main() {
   const check = process.argv.includes("--check");
   const changedFrom = argValue("--changed-from");
   const changed = resolveChangedFiles({ cwd: pluginRoot, changedFrom, env: process.env });
-  const contract = evaluateOnrampContract(changed.files, { cwd: pluginRoot });
+  const contract = evaluateOnrampContract(changed.files, { cwd: pluginRoot, commentOnly: changed.commentOnly });
   const report = {
     schemaVersion: 1,
     baseRef: changed.baseRef,

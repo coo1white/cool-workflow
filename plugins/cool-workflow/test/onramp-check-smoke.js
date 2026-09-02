@@ -25,6 +25,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 const {
   evaluateOnrampContract,
   recommendSmokeTests,
+  isCommentOnlyPatch,
   CURATED_SMOKE_MAP
 } = require(path.join(pluginRoot, "dist", "shell", "onramp.js"));
 
@@ -244,6 +245,33 @@ function contract(files) {
     /cannot resolve changed files/.test(combinedOutput),
     `error should explain the git command failed, got: ${combinedOutput}`
   );
+}
+
+// commentOnly: a src/shell/*.ts change with no test change fails
+// runtime-smoke-required; the SAME file listed as commentOnly passes.
+{
+  const files = ["plugins/cool-workflow/src/shell/onramp.ts"];
+  const withoutCommentOnly = contract(files);
+  assert.ok(codes(withoutCommentOnly).includes("runtime-smoke-required"), "no commentOnly: must fail closed");
+  const withCommentOnly = evaluateOnrampContract(files, { cwd: pluginRoot, commentOnly: files });
+  assert.ok(!codes(withCommentOnly).includes("runtime-smoke-required"), codes(withCommentOnly).join(", "));
+}
+
+// commentOnly: a surface file with no doc change passes when it is
+// listed as commentOnly (it never really changed the surface).
+{
+  const files = ["plugins/cool-workflow/src/cli.ts"];
+  const report = evaluateOnrampContract(files, { cwd: pluginRoot, commentOnly: files });
+  assert.equal(report.ok, true, codes(report).join(", "));
+}
+
+// isCommentOnlyPatch: the pure line test, fed patch text directly.
+{
+  assert.equal(isCommentOnlyPatch("+// a\n-// b\n"), true, "// lines only is comment-only");
+  assert.equal(isCommentOnlyPatch("+const x = 1;\n"), false, "one code line is not comment-only");
+  assert.equal(isCommentOnlyPatch('+  "http://x"\n'), false, "// inside a string is code, not a comment");
+  assert.equal(isCommentOnlyPatch("+/* start\n+ * mid\n+ */\n"), true, "/* ... */ block edit is comment-only");
+  assert.equal(isCommentOnlyPatch("-doSomething();\n"), false, "removing a code line is not comment-only");
 }
 
 process.stdout.write("onramp-check-smoke: ok\n");
