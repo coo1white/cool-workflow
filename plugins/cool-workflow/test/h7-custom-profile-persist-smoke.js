@@ -9,21 +9,6 @@
 // threw sandbox-profile-not-found (fail-closed but unable to re-enforce). It also
 // risked re-resolving against dispatch-time paths and falsely denying a legit
 // worker write — the test pins worker-path re-binding via $workerDir tokens.
-//
-// v2 CUTOVER STATUS: REAL-GAP. Imports are repointed to the v2 dist layout and the
-// dropped H7 boundary helpers are rebuilt from v2's public primitives (see below),
-// so the failure lands on GENUINE v2 behavior, not an import crash. v2 dropped the
-// whole H7 custom-profile-persistence path:
-//   1. shell/dispatch.ts createDispatchManifest reads ONLY options.sandboxProfileId
-//      (dist/shell/dispatch.js:60) — it never reads options.sandbox, so a custom
-//      profile FILE passed as { sandbox: <file> } is ignored (defaults to "default").
-//   2. There is NO persistCustomSandboxProfile and NO write to
-//      run.customSandboxProfiles anywhere in v2 (the field is declared in
-//      dist/core/state/schema.js:43 and READ in dist/shell/worker-isolation.js:248,
-//      but never populated). The old build persisted it in its flat
-//      dispatch module (git 4225624 lines 48 + 255-263).
-// Result: assertion (1) below fails — run.customSandboxProfiles is undefined after
-// dispatch. This is the v2 gap for Phase B to close (do NOT fix v2 src here).
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");

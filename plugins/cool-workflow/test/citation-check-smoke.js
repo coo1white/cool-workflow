@@ -11,7 +11,8 @@
 //   3. clean    — the check PASSES on a doc whose citations all resolve.
 // The teeth/clean cases point the check at throwaway fixtures via
 // CW_CITATION_DOCS + CW_CITATION_ROOT, so the real tracked docs are never
-// touched.
+// touched. Case 5 covers rule (e): a stale cut-over audit marker anywhere
+// in src/scripts/test, case-insensitive.
 
 const assert = require("node:assert/strict");
 const cp = require("node:child_process");
@@ -86,6 +87,29 @@ try {
     assert.ok(/r\.js:9/.test(err), `rule (d) :line suffix, got: ${err}`);
     assert.ok(/s\.js:1/.test(err), `rule (c) comment-line miss, got: ${err}`);
     assert.ok(!/fake\.js/.test(err), `rule (c) must not flag a string, got: ${err}`);
+  }
+
+  // 5. rule (e): a stale marker fails closed anywhere in src/scripts/test,
+  //    matched case-insensitively (a different case than the canonical
+  //    spelling must still be caught), and an unrelated everyday phrase
+  //    that merely starts the same way must not false-match. Built from
+  //    joined parts so this smoke's own source never carries the literal
+  //    marker text (it would trip this very rule on itself).
+  {
+    const markerOne = ["Cutover", "Note"].join(" ");
+    const markerTwo = ["leave", "it", "red"].join(" ");
+    const lookalike = ["phase", "boundary"].join("-");
+    fs.writeFileSync(path.join(tmp, "src", "clean.ts"), `// a normal ${lookalike} comment\n`);
+    fs.writeFileSync(path.join(tmp, "src", "marked.ts"), `// ${markerOne}: old behavior\n`);
+    fs.writeFileSync(path.join(tmp, "test", "marked.js"), `// ${markerTwo} for now\n`);
+    const doc = path.join(tmp, "clean-doc.md");
+    fs.writeFileSync(doc, "See `real.ts` for the mechanism.\n");
+    const r = run({ CW_CITATION_DOCS: doc, CW_CITATION_ROOT: tmp });
+    assert.equal(r.status, 1, `must FAIL on a stale marker. exit=${r.status}\n${r.stdout}`);
+    const err = r.stderr;
+    assert.ok(/marked\.ts:1/.test(err), `rule (e) catches a differently-cased marker in src, got: ${err}`);
+    assert.ok(/marked\.js:1/.test(err), `rule (e) catches a differently-cased marker in test, got: ${err}`);
+    assert.ok(!/clean\.ts/.test(err), `rule (e) must not flag a hyphenated lookalike, got: ${err}`);
   }
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });

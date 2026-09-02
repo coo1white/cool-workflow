@@ -24,51 +24,17 @@
 //      structurally by agent-delegation-drive-smoke; here we assert the wrapper
 //      routes through the drive() core, not a private executor).
 //
-// ============================================================================
-// V2 CUTOVER NOTE (rewrite audit) — this smoke is a REAL-GAP marker.
-//
-// Imports repointed to v2's dist layout:
-//   dist/orchestrator.js CoolWorkflowRunner ........ REMOVED in v2 (no facade).
-//     v2's quickstart core takes a plain `args` object, not a runner. Run state
-//     is read with loadRunFromCwd(runId, cwd) from dist/shell/run-store.js.
-//   dist/capability-core.js quickstart/QUICKSTART_DEFAULT_APP
-//     -> dist/shell/pipeline-cli.js quickstartRun (QUICKSTART_DEFAULT_APP is now
-//        a private const; "architecture-review" is asserted by value).
-//   dist/capability-registry.js CAPABILITY_REGISTRY
-//     -> dist/core/capability-table.js REGISTRY.
-//   the old capability-core module -> src/shell/pipeline-cli.ts (the quickstart core).
-//
-// v2's quickstartRun(args) (src/shell/pipeline-cli.ts) is a STRIPPED-DOWN
-// composition. It handles plan -> drive -> report and `--check`, but DROPPED
-// several user-facing behaviors the old build (its capability-core module's
-// quickstart()) had and that this suite verifies. These are genuine gaps, not
-// import breakage — the assertions below are left INTACT (not weakened) so the
-// gaps stay visible:
-//
-//   * SECTION 2  — `hint` on a fail-closed block. v2 DriveResult has no `hint`
-//                  field at all (src/shell/drive.ts). The old build set a
-//                  "not configured … delegates" hint (old capability-core.ts:792).
-//   * SECTION 1b — `--resume` single-step advance + copy-paste continue `hint`
-//                  + `resumedFrom` echo. v2 quickstartRun never maps resume->once
-//                  and never stamps resumedFrom (src/shell/pipeline-cli.ts).
-//   * SECTION 3  — `--preview` read-only next-step projection. v2 quickstartRun
-//                  ignores args.preview and DRIVES instead of returning the
-//                  drivePreview() shape (nextAction/pendingWorkers). It only
-//                  branches on `--check` (src/shell/pipeline-cli.ts).
-//                  Note: the capability-table help text still ADVERTISES
-//                  "--preview for a read-only dry run"
-//                  (src/core/capability-table.ts) — surface documented,
-//                  behavior missing.
-//   * SECTION 5  — the `audit-run` alias. v2 has NO capability-table row and NO
-//                  dispatch arm for it; it is only a KNOWN_COMMANDS token
-//                  (src/cli/parseargv.ts), so `cw audit-run …` returns
-//                  "Unknown command: audit-run" (absurdly "Did you mean:
-//                  audit-run?"). REGISTRY rows also no longer carry `entry` or
-//                  `cli.caseTokens`, and the CLI is capability-table-driven so
-//                  there are no `case "quickstart":`/`case "audit-run":` strings.
-//
-// Cleanly-portable sections (1, 1c, 4, 6, 7) ARE adapted to v2 and pass.
-// ============================================================================
+// quickstartRun(args) (src/shell/pipeline-cli.ts) takes a plain `args`
+// object and composes plan -> drive -> report and `--check`/`--preview`:
+//   * SECTION 2  — a `hint` on a fail-closed block (QuickstartResult.hint,
+//                  src/shell/pipeline-cli.ts).
+//   * SECTION 1b — `--resume` single-step advance + copy-paste continue
+//                  `hint` + `resumedFrom` echo.
+//   * SECTION 3  — `--preview` returns the drivePreview() shape
+//                  (nextAction/pendingWorkers), read-only, no mutation.
+//   * SECTION 5  — the `audit-run` alias dispatches to the same quickstart
+//                  wrapper as `quickstart` (src/wiring/capability-table/
+//                  pipeline.ts caseTokens).
 
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
@@ -161,11 +127,9 @@ async function main() {
   }
 
   // ---- 1b. --resume: guided stop-then-resume a newcomer can WITNESS (Track A) -
-  // REAL-GAP: v2 quickstartRun (src/shell/pipeline-cli.ts) does NOT
-  // implement the --resume single-step behavior. It never maps resume->once, so
-  // `resume:true` drives the WHOLE run to completion instead of advancing one
-  // step, never emits a copy-paste `--resume` continue `hint`, and never stamps
-  // `resumedFrom`. Assertions kept intact so the gap stays visible.
+  // `resume:true` with no --run advances exactly one step (not the whole
+  // drive) and emits a copy-paste `--resume` continue hint; `resume:true`
+  // with --run <id> stamps `resumedFrom` and continues that run.
   {
     const work = tmpWorkspace();
     const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
@@ -221,11 +185,9 @@ async function main() {
   }
 
   // ---- 2. FAIL CLOSED: unconfigured agent blocks, never fabricates -----------
-  // REAL-GAP: the block itself works (status=blocked, agentConfigured=false,
-  // completedWorkers=0, no commit, report+state still written), but v2
-  // DriveResult (src/shell/drive.ts) has NO `hint` field, so the
-  // "not configured / delegate" triage hint the old build attached
-  // (old capability-core.ts:792) is gone. Assertions kept intact.
+  // status=blocked, agentConfigured=false, completedWorkers=0, no commit,
+  // report+state still written, and the result carries a "not configured /
+  // delegate" triage hint.
   {
     const work = tmpWorkspace();
     process.chdir(work);
@@ -247,12 +209,8 @@ async function main() {
   }
 
   // ---- 3. --preview: read-only, deterministic, no mutation/commit/spawn ------
-  // REAL-GAP: v2 quickstartRun ignores args.preview (src/shell/pipeline-cli.ts
-  // branches only on `--check`) and DRIVES the run, returning a DriveResult
-  // (no nextAction / pendingWorkers projection) instead of the deterministic
-  // drivePreview() shape. The read-only next-step dry run is unimplemented in
-  // the quickstart wrapper even though the help text advertises it
-  // (src/core/capability-table.ts). Assertions kept intact.
+  // args.preview returns the drivePreview() shape (nextAction/pendingWorkers
+  // projection), read-only and deterministic across two calls.
   {
     const work = tmpWorkspace();
     process.chdir(work);

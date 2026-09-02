@@ -142,15 +142,8 @@ fs.writeFileSync(artifactPath, "# adopted artifact\n", "utf8");
     writeWorkerResult(manifest.resultPath, label);
     runner.recordWorkerOutput(runId, workerId, manifest.resultPath);
   }
-  // REAL-GAP (v2): the multi-agent host step no longer binds a dispatch to its
-  // fanout role/group. The old build's hostStep called createDispatchManifest with
-  // { multiAgentGroupId, multiAgentRoleId, multiAgentFanoutId }; v2's DispatchOptions
-  // dropped those fields and createDispatchManifest never attaches the dispatch to
-  // the multi-agent fanout (attachDispatchToMultiAgent is exported but unused). With
-  // no membership recorded, nextDispatchPlan's role-exhaustion gate never fires, so
-  // hostStep keeps returning "created-dispatch-manifest" for EVERY pending task and
-  // never reaches "collected-fanin" -> the judge-panel fan-in/candidate/commit flow
-  // below is unreachable. Reported as a REAL GAP for a human call.
+  // The host step binds each dispatch to its fanout role/group, so once both
+  // judge workers report, the next host step reaches the fan-in stage.
   assert.equal(runner.hostMultiAgentStep(runId).performed, "collected-fanin");
   assert.equal(runner.hostMultiAgentStep(runId).performed, "created-blackboard-snapshot");
   assert.equal(runner.hostMultiAgentStep(runId, { candidate: "sem-candidate" }).performed, "registered-candidate");

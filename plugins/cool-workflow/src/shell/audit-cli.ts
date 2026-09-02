@@ -179,10 +179,10 @@ export function auditJudgeCli(runId: string, args: Record<string, unknown>): Aud
 }
 
 // ---------------------------------------------------------------------------
-// Phase B: the audit worker/provenance/role/blackboard/attest/decision verbs
-// the old flat build had (cli/handlers/audit.ts + orchestrator/
-// audit-operations.ts). Ported here as thin loadRun -> delegate wrappers over
-// audit-provenance.ts + trust-audit.ts primitives.
+// The audit worker/provenance/role/blackboard/attest/decision verbs the old
+// flat build had (cli/handlers/audit.ts + orchestrator/audit-operations.ts),
+// ported here as thin loadRun -> delegate wrappers over audit-provenance.ts +
+// trust-audit.ts primitives.
 // ---------------------------------------------------------------------------
 
 function optionalString(value: unknown): string | undefined {

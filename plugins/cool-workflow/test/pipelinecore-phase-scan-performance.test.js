@@ -17,9 +17,9 @@ const assert = require("node:assert/strict");
 const { firstRunnablePhase, updatePhaseStatuses } = require("../dist/core/pipeline/dispatch");
 const { selectDriveTask } = require("../dist/core/pipeline/drive-decide");
 
-// Every phase but the last is fully completed, forcing the scan to walk
-// through and re-filter every earlier phase before finding the one
-// runnable phase -- the worst case the O(tasks^2) bug hit hardest.
+// Every phase except the last is fully completed, forcing the scan to walk
+// through and re-filter every earlier phase ahead of the one runnable
+// phase -- the worst case the O(tasks^2) bug hit hardest.
 function buildRun(numPhases, tasksPerPhase) {
   const phases = [];
   const tasks = [];

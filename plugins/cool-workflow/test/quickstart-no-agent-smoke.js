@@ -14,19 +14,10 @@
 //
 // Hermetic: no agent binary, no network, no shared state.
 //
-// CUTOVER AUDIT (v2) — REAL-GAP, left failing on purpose. This is a black-box
-// CLI smoke: it only spawns dist/cli.js and asserts on stdout/JSON, so there
-// are NO old flat-dist requires to repoint. Steps 1-3 pass on v2 (demo tamper,
-// demo bundle, and the doctor agent/node checks all work). Steps 4 and 5 fail
-// because v2 dropped the `cw doctor --onramp` reporting surface the old build
-// shipped: v2 `doctor --onramp` prints only the standard checks — no
-// "Quick start (3 steps)" block, no "No Agent?" section, and `--json` carries
-// no `onramp` field. This is intentional-but-incomplete in v2, documented at
-// src/shell/doctor.ts ("The `--onramp` section (buildDoctorOnramp) is
-// later-milestone (reporting) territory and is intentionally NOT wired here").
-// buildDoctorOnramp is unimplemented in v2 (grep dist/: only the comment). The
-// fix belongs in Phase B (complete v2), not here — do NOT weaken these
-// assertions to force green; they correctly pin the old build's behavior.
+// This is a black-box CLI smoke: it only spawns dist/cli.js and asserts on
+// stdout/JSON. `cw doctor --onramp` (src/shell/doctor.ts, buildDoctorOnramp
+// in src/shell/onramp.ts) must print the "Quick start (3 steps)" block and
+// the "No Agent?" section, and `--json` must carry an `onramp` field.
 
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");

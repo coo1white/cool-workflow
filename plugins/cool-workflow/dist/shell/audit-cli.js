@@ -176,10 +176,10 @@ function auditJudgeCli(runId, args) {
     return { schemaVersion: 1, runId: run.id, judgeRationales: summary.judgeRationales, panelDecisions: summary.panelDecisions };
 }
 // ---------------------------------------------------------------------------
-// Phase B: the audit worker/provenance/role/blackboard/attest/decision verbs
-// the old flat build had (cli/handlers/audit.ts + orchestrator/
-// audit-operations.ts). Ported here as thin loadRun -> delegate wrappers over
-// audit-provenance.ts + trust-audit.ts primitives.
+// The audit worker/provenance/role/blackboard/attest/decision verbs the old
+// flat build had (cli/handlers/audit.ts + orchestrator/audit-operations.ts),
+// ported here as thin loadRun -> delegate wrappers over audit-provenance.ts +
+// trust-audit.ts primitives.
 // ---------------------------------------------------------------------------
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : Array.isArray(value) && typeof value[0] === "string" ? value[0] : undefined;

@@ -3,21 +3,11 @@
 
 // @cw-smoke: tags slow
 
-// NO v2 EQUIVALENT / REAL GAP (black-box smoke; no dist requires to repoint).
-// v2's CLI has not ported the worker + multi-agent-host surface this smoke drives:
-//   1. `cw worker manifest` and `cw worker output` are NOT CLI-wired in v2
-//      (only `worker summary`/`worker usage` are; worker.manifest/output declare
-//      surface:"both" in the REGISTRY but carry no cli binding, and the runtime
-//      handler prints a usage error). The smoke needs the manifest -> write
-//      result -> worker output cycle to feed the host loop; it cannot run.
-//   2. `multi-agent step` no longer surfaces the dispatch's multi-agent linkage
-//      at data.multiAgent.{runId,roleId} (line ~92/101). v2 puts run-level ids at
-//      the envelope's top-level `ids.multiAgentRunIds`, not the per-dispatch
-//      data.multiAgent object the old build attached.
-//   3. `audit summary` dropped `byKind` (line ~164-165): v2 summarizeTrustAudit
-//      returns byDecision/bySource/bySandboxProfile only (see src/shell/trust-
-//      audit.ts).
-// Left failing for a human call — do NOT delete. Reported for Phase-3 CLI parity.
+// Black-box smoke: drives the CLI's worker + multi-agent-host surface —
+// the `cw worker manifest` -> write result -> `cw worker output` cycle
+// feeding the host loop, `multi-agent step` surfacing the dispatch's
+// multi-agent linkage, and `audit summary`'s byDecision/bySource/
+// bySandboxProfile/byKind breakdown (src/shell/trust-audit.ts).
 
 const assert = require("node:assert/strict");
 const { execFileSync, spawn, spawnSync } = require("node:child_process");

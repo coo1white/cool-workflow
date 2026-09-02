@@ -5,44 +5,17 @@
 // formatCommentList).
 //
 // ---------------------------------------------------------------------------
-// CUTOVER NOTE (v2): NO-EQUIVALENT for the wrapper *facade*, partial for the
-// primitives.
+// This smoke drives the impure run-wiring layer, src/shell/collaboration-io.ts:
+// recordApproval / recordComment / recordHandoff / setReviewPolicy /
+// buildReviewStatusReport / listComments, each taking a `run` and persisting a
+// checkpoint. The pure record builders live in
+// src/core/multi-agent/collaboration.ts; CLI string-option parsing lives in
+// src/shell/multi-agent-cli.ts and loads its run from disk, so it is out of
+// scope for this in-memory hermetic unit smoke.
 //
-// The old build shipped an orchestrator collaboration-operations module — a thin
-// orchestrator facade that (a) wrapped return values in envelopes and (b) did
-// CLI-style string coercion inline. v2 deliberately dismantled that facade
-// (the orchestrator god-object is a documented anti-goal). Its work is now
-// split three ways, none of which reproduces the facade's exact contract:
-//
-//   * pure record builders  -> src/core/multi-agent/collaboration.ts
-//                              (buildApproval / buildComment / buildHandoff /
-//                               buildReviewPolicy / listComments / formatters)
-//   * impure run wiring      -> src/shell/collaboration-io.ts
-//                              (recordApproval / recordComment / recordHandoff /
-//                               setReviewPolicy / buildReviewStatusReport /
-//                               listComments — take a `run`, persist a
-//                               checkpoint). THIS is the layer this smoke now
-//                               drives; it preserves the primitives' behavior.
-//   * string-option parsing  -> src/shell/multi-agent-cli.ts (*Cli functions)
-//                              (body ?? message ?? text; boolArg/numberArg/
-//                               arrayArg). These load the run from DISK via
-//                               loadRunFromCwd(runId, cwd), so they cannot be
-//                               driven by an in-memory stub run the way this
-//                               hermetic unit smoke does.
-//
-// Repointed imports so the failures below land on genuine behavior, not an
-// import crash. Every assertion that maps cleanly to shell/collaboration-io.ts
-// is preserved verbatim. The three assertion groups that have NO v2 equivalent
-// are kept and clearly marked "NO-EQUIVALENT" — they assert facade-only
-// structure v2 legitimately lacks:
-//   1. collaborationComment body fallback to `message`/`text` — only the CLI
-//      layer has that fallback; recordComment takes `body` directly.
-//   2. collaborationCommentList's report envelope {schemaVersion, surface,
-//      count, comments} — v2 listComments returns a bare CommentRecord[].
-//   3. reviewPolicy's {policy:{...}} envelope + inline Boolean() coercion of
-//      "true"/"" — setReviewPolicy returns the policy object directly, and
-//      buildReviewPolicy does NOT Boolean-convert a string ("true" stays the
-//      string, not === true).
+// listComments returns a bare CommentRecord[]; setReviewPolicy returns the
+// policy object directly (no inline Boolean coercion — a string like "true"
+// stays a string).
 //
 // Hermetic: stub WorkflowRun in tmpdir, no real agent, no CLI, no MCP.
 

@@ -84,18 +84,10 @@ const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
 
 // ===== 2. integration: a real drive emits `==>` phase lines on stderr; --json stdout is clean =====
 //
-// REAL-GAP (v2, Phase B): the drive runs clean — status 0, complete, 14/14
-// workers, byte-clean --json stdout — but v2 NO LONGER emits the brew-style
-// `==> <Phase> ✓ (N/N)` phase-boundary lines this block asserts (lines below).
-// v2's src/shell/drive.ts emitProgress (drive.ts:101) only writes PER-WORKER
-// lines: `[drive] → <label> (<Phase>) — spawning agent…` (drive.ts:309) and
-// `[drive] ⇉ concurrent round: N agents…` (drive.ts:530). The phase-boundary
-// renderer term.phaseProgressLine still exists (src/shell/term.ts) but has
-// ZERO callers in v2 src — the drive→phaseProgressLine wiring the old build had
-// was dropped, so no `==> Map`, `==> Map ✓ (6/6)`, or `==> Verdict ✓` ever
-// reaches stderr. The unit surface (parts 1a–1d) still passes; only this live
-// integration assertion is broken. Fix belongs in v2 src (re-wire the drive to
-// emit phaseProgressLine at phase boundaries), NOT in this test.
+// A real drive must run clean — status 0, complete, 14/14 workers,
+// byte-clean --json stdout — and still emit the brew-style
+// `==> <Phase> ✓ (N/N)` phase-boundary lines on stderr at each phase
+// boundary (src/shell/drive.ts calling term.phaseProgressLine).
 {
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-progress-")));
   cleanups.push(work);
@@ -133,7 +125,7 @@ const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
   assert.equal(r.status, 0, `drive must complete: ${r.stderr}`);
 
   // stderr carries the phase-boundary progress (forced on via CW_DRIVE_PROGRESS=1).
-  assert.match(r.stderr, /==> Map/, "stderr shows the Map phase boundary");
+  assert.match(r.stderr, /==> Map/, "stderr shows the Map phase starting");
   assert.match(r.stderr, /==> Map ✓ \(\d+\/\d+\)/, "Map announces completion with N/N");
   assert.match(r.stderr, /==> Verdict ✓/, "stderr shows the terminal Verdict phase completing");
 

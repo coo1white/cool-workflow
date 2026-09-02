@@ -19,68 +19,16 @@ const path = require("node:path");
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 
-// ============================================================================
-// CUTOVER AUDIT — REAL-GAP (feature unimplemented in v2)
-// ----------------------------------------------------------------------------
-// This smoke exercises the whole `cw -q "…" --link <url>` remote-git-review
-// contract: --check validates a URL without fetching, a real run clones +
-// reviews + records provenance (run.remote block, `Source: url@sha` in
-// report.md, a hash-chained `source.clone` audit event), the clone cache is
-// reused, `-dir <url>` auto-detects the same, and every fail-closed path (bad
-// URL, blocked git transport helper, credential non-leak, credential
-// redaction of git output) holds.
-//
-// The OLD build shipped this whole feature in its flat remote-source module
-// (added in PRs #247/#248): classifyRemote, isRemoteUrl, sanitizeUrl, validateRemoteUrl,
-// gitAvailable, redactCredentials, materializeRemote, RemoteSource, plus the
-// --link wiring in the run/check path and the `remote` provenance block.
-//
-// v2 DROPPED the entire runtime. That old flat module has no v2 counterpart:
-// grep across src/ shows every symbol above is ABSENT (only help/capability
-// TEXT mentioning `--link` and the `clones list|gc` CACHE-MANAGEMENT cli
-// survive). v2 leaves the `--link` flag INERT — see the deliberate note at
-// src/shell/pipeline-cli.ts ("the --link/remote preflight variant is not
-// ported — no conformance case exercises it"). At runtime v2 silently ignores
-// `--link`: `--check --link <url>` reports repo === the LOCAL cwd (no `link`
-// sub-check, ok:true), and a real `--link` run against a bogus URL does NOT
-// fail closed — it reviews the local cwd with no `remote` block and no
-// `source.clone` audit event.
-//
-// So there is NOTHING to repoint the imports to: the module the smoke needs
-// does not exist in v2. Per the cutover rules this is a REAL-GAP, not a
-// tooling repoint. Below, section 0 fails on the genuine missing module (not a
-// bare require crash of the old flat dist path), and sections 1–5 drive the
-// real v2 CLI so they fail on genuine v2 behavior. Leave it RED until Phase B
-// re-lands the remote-source feature.
-// ============================================================================
-
-// Resolve the v2 credential-redaction export. In the old build this lived in
-// dist/remote-source.js as redactCredentials; there is no v2 equivalent, so
-// this require throws MODULE_NOT_FOUND — the genuine gap, surfaced as a clear
-// assertion instead of a top-of-file crash.
-let redactCredentials;
-try {
-  // v2 cutover: remote-source moved from the old flat dist/remote-source.js to
-  // dist/shell/remote-source.js (impure shell layer).
-  ({ redactCredentials } = require(path.join(pluginRoot, "dist", "shell", "remote-source.js")));
-} catch (err) {
-  redactCredentials = null;
-  var _remoteSourceLoadError = err;
-}
+const { redactCredentials } = require(path.join(pluginRoot, "dist", "shell", "remote-source.js"));
 const cleanups = [];
 
 // ===== 0. defense in depth: git diagnostics are credential-REDACTED before we surface them =====
 // (git can echo a credential-bearing URL on auth failure on some versions/transports; we never
 //  relay its output verbatim. This is deterministic — it does not depend on git's behavior.)
 {
-  // REAL-GAP: v2 has no remote-source module, so redactCredentials is missing
-  // entirely. The old build stripped userinfo (user:pass@) from any git output
-  // before surfacing it. This assertion fails until v2 re-lands the feature.
   assert.ok(
     typeof redactCredentials === "function",
-    `v2 REAL-GAP: dist/remote-source.js#redactCredentials is missing — the whole ` +
-      `--link remote-git-review feature (PRs #247/#248) was dropped in the v2 rebuild. ` +
-      `Load error: ${_remoteSourceLoadError && _remoteSourceLoadError.message}`
+    "dist/shell/remote-source.js exports redactCredentials"
   );
   assert.equal(
     redactCredentials("fatal: unable to access 'https://user:TOKEN@host/r.git/': bad"),

@@ -15,6 +15,11 @@
 // docs, project, v2, plugins, or .github — so `project/docs/<slug>.md`
 // resolves but a bare `docs/<slug>.md` inside it does not. Kept as before:
 // placeholders (`<>`, `*`), project/docs/**, and release-history.md.
+// (e) src/**/*.ts, scripts/**/*.js, test/**/*.js — no line's comment or
+// string text may carry one of the nine stale cut-over-audit marker
+// phrases (see STALE_MARKER_PARTS below), case-insensitive and
+// whole-phrase (so an everyday phrase sharing just its first word never
+// false-matches).
 //
 // Test overrides (real files untouched, see test/citation-check-smoke.js):
 //   CW_CITATION_DOCS  doc files to scan, comma-set, in place of the real set
@@ -38,6 +43,29 @@ const DOC_BARE_RE = /`([A-Za-z0-9_-]+\.(?:ts|js))`/g;
 // (project/docs/<slug>.md); extensions longest-first so package.json != .js.
 const SRC_TOKEN_RE =
   /(?<![A-Za-z0-9_/.-])([A-Za-z0-9_.\/-]+\.(?:mjs|json|ts|js|md))(?![A-Za-z0-9_])(:[0-9]+)?/g;
+
+// Rule (e): the nine stale cut-over-audit marker phrases, forbidden
+// anywhere in src/scripts/test. Each is built by joining word parts, not
+// spelled out whole — this file must define the ban list without tripping
+// it. Whole-phrase and case-insensitive so a real English phrase sharing
+// just a first word (e.g. one starting the same way as the third entry)
+// never false-matches.
+const STALE_MARKER_PARTS = [
+  [["REAL", "GAP"], "-"],
+  [["CUTOVER", "AUDIT"], " "],
+  [["CUTOVER", "STATUS"], " "],
+  [["CUTOVER", "NOTE"], " "],
+  [["Phase", "B"], " "],
+  [["left", "failing"], " "],
+  [["leave", "it", "RED"], " "],
+  [["do", "NOT", "weaken"], " "],
+  [["not", "ported"], " "]
+];
+const STALE_MARKERS = STALE_MARKER_PARTS.map(([parts, sep]) => parts.join(sep));
+const STALE_MARKER_RE = new RegExp(
+  `\\b(?:${STALE_MARKERS.map((m) => m.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`,
+  "gi"
+);
 function liveDocs() {
   const docsDir = path.join(pluginRoot, "docs");
   const files = [];
@@ -93,6 +121,27 @@ function scanSourceFiles(files, roots, commentOnly) {
   return problems;
 }
 
+// Rule (e): scan every line of every file (comment or string, no
+// restriction — unlike (b)/(c) this is not path-token-shaped) for a stale
+// marker. This script itself must name the markers to define them, so it
+// excludes its own file, the one legitimate exception.
+function scanStaleMarkers(files) {
+  const problems = [];
+  for (const file of files) {
+    if (path.basename(file) === path.basename(__filename)) continue;
+    const lines = fs.readFileSync(file, "utf8").split("\n");
+    lines.forEach((line, i) => {
+      STALE_MARKER_RE.lastIndex = 0;
+      const m = STALE_MARKER_RE.exec(line);
+      if (m) {
+        const rel = path.relative(repoRoot, file);
+        problems.push(`${rel}:${i + 1}  \`${m[0]}\`  — stale cut-over audit marker (rule e)`);
+      }
+    });
+  }
+  return problems;
+}
+
 function main() {
   const docs = process.env.CW_CITATION_DOCS
     ? process.env.CW_CITATION_DOCS.split(",").map((f) => f.trim()).filter(Boolean)
@@ -127,6 +176,7 @@ function main() {
 
   dead.push(...scanSourceFiles(srcFiles, roots, false));
   dead.push(...scanSourceFiles(testFiles, roots, true));
+  dead.push(...scanStaleMarkers(srcFiles.concat(testFiles)));
 
   if (dead.length > 0) {
     process.stderr.write(

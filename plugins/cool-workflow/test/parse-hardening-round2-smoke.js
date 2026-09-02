@@ -5,24 +5,16 @@
 // the resolvable-file-evidence gate refuses unresolved evidence but accepts
 // resolvable evidence.
 //
-// v2 cutover note: the old flat modules this smoke require()d are gone. The
-// CoolWorkflowRunner orchestrator facade (dist/orchestrator.js + dist/
-// orchestrator/*.js) was DISMANTLED by design — v2 replaces the thin facade
-// with the CLI-shaped pipeline spine in dist/shell/pipeline-cli.js (planRun,
-// dispatchRun, recordResultRun, commitRun) that reads runs from disk via dist/
-// shell/run-store.js. Two guards this smoke checks also MOVED surface in v2:
-//   * The old regex system-dir blacklist on recordResult's result path is now
-//     the worker sandbox-boundary guard: recordResultRun writes only inside the
-//     dispatched worker's sandbox, so a result path at /etc is refused there
-//     ("write path is outside sandbox profile ...") — same protective intent,
-//     stronger mechanism, different message.
-//   * The record-time "does not resolve on disk" evidence gate moved to the
-//     commit gate (dist/core/pipeline/commit-gate.ts): it now fires on a
-//     verifier-gated commit (commitRun --verifier), not inside recordResult.
-//     The resolution base dirs are [run.cwd, process.cwd(), run.paths.runDir],
-//     so evidence files must live in the run cwd (not the worker dir).
-// The rewrite drives the v2 spine end-to-end and preserves every original
-// assertion's INTENT.
+// Drives the pipeline spine in dist/shell/pipeline-cli.js (planRun,
+// dispatchRun, recordResultRun, commitRun) end-to-end. The system-dir
+// blacklist on the result path is the worker sandbox-boundary guard:
+// recordResultRun writes only inside the dispatched worker's sandbox, so a
+// result path at /etc is refused ("write path is outside sandbox profile
+// ..."). The "does not resolve on disk" evidence gate lives in the commit
+// gate (dist/core/pipeline/commit-gate.ts) and fires on a verifier-gated
+// commit (commitRun --verifier); the resolution base dirs are [run.cwd,
+// process.cwd(), run.paths.runDir], so evidence files must live in the run
+// cwd (not the worker dir).
 //
 // @cw-smoke: parse-hardening-round2-smoke
 

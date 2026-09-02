@@ -81,16 +81,8 @@ for (const vendor of ["-claude", "-codex", "-gemini", "-deepseek"]) {
   const p = JSON.parse(r.stdout);
   assert.equal(p.appId, "architecture-review", `${vendor} keeps the default app`);
   assert.equal(p.checks.find((c) => c.name === "agent").status, "ok", `${vendor} configures an agent interface`);
-  // REAL-GAP (v2): the `--check` JSON no longer carries a `nextCommand` field, so this
-  // assertion sees `undefined` and the smoke fails here. The vendor flag still routes
-  // (appId ok) and still configures the agent (agent check ok) — only the "what to run
-  // next" echo is gone. The old build built it in `quickstartNextCommand`
-  // and attached it at the end of the check result;
-  // it echoed the resolved `--agent-command builtin:<vendor>`.
-  // v2's port `quickstartCheck` (src/shell/pipeline-cli.ts)
-  // dropped the field and ships no `quickstartNextCommand` equivalent anywhere in src/.
-  // Do NOT weaken this assertion to force green — it guards a dropped user-facing surface;
-  // Phase B must restore `nextCommand` in the check output before this can pass.
+  // The `--check` JSON carries a `nextCommand` field echoing the resolved
+  // `--agent-command builtin:<vendor>` (src/shell/pipeline-cli.ts quickstartCheck).
   assert.match(p.nextCommand, new RegExp(`--agent-command builtin:${vendor.slice(1)}\\b`), `${vendor} chooses builtin:${vendor.slice(1)}`);
 }
 console.log("headline: vendor flags -claude/-codex/-gemini/-deepseek route ok");

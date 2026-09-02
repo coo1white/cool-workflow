@@ -129,27 +129,14 @@ for (const app of canonicalApps) {
   const workspace = fs.mkdtempSync(path.join(os.tmpdir(), `cw-canonical-smoke-${app.id}-`));
   const plan = run(["plan", app.id, ...app.args(workspace)]);
   assert.equal(plan.workflowId, app.id);
-  // CUTOVER AUDIT — REAL-GAP (v2): the `cw plan` CLI payload dropped the
-  // `pendingTasks` field the old build's canonical plan summary emitted.
-  // Old builder: the old capability-core module's planSummary() returned
-  // { runId, workflowId, statePath, reportPath, pendingTasks }.
-  // v2 builder: src/shell/pipeline-cli.ts emits
-  // { schemaVersion, runId, workflowId, statePath, reportPath, taskCount }
-  // — `pendingTasks` is gone, so this reads `undefined > 0` -> false.
-  // This is NOT an import repoint (the smoke only shells out to dist/cli.js);
-  // it is missing v2 output. Assertion left intact per audit rules (Phase B fixes v2).
+  // The `cw plan` CLI payload carries a `pendingTasks` count.
   assert.ok(plan.pendingTasks > 0);
 
   const state = JSON.parse(fs.readFileSync(plan.statePath, "utf8"));
   assert.equal(state.workflow.id, app.id);
   assert.equal(state.workflow.app.id, app.id);
   assert.equal(state.workflow.app.version, "0.2.7");
-  // CUTOVER AUDIT — REAL-GAP (v2): the persisted run.workflow.app block dropped
-  // `metadata` (and `compatibility`). The old workflow-app-framework module's
-  // workflowAppRunMetadata() carried `metadata: record.app.metadata` (holds
-  // canonical:true) into state; v2 builder src/core/workflow-apps/app-schema.ts
-  // omits it, so state.workflow.app.metadata is undefined and reading .canonical
-  // throws. Assertion left intact per audit rules (Phase B fixes v2).
+  // The persisted run.workflow.app block carries `metadata` (canonical:true).
   assert.equal(state.workflow.app.metadata.canonical, true);
   assert.equal(state.loopStage, "interpret");
   assertUniqueTaskIds(state.tasks, app.id);

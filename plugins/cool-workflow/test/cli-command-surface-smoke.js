@@ -1,34 +1,13 @@
 #!/usr/bin/env node
 "use strict";
 
-// v2 REWRITE (cutover audit) — outcome NO-EQUIVALENT, adapted to the v2
-// equivalent where one exists.
-//
-// The old build factored the CLI into a command-surface module
-// that owned a `runCli` with a big `switch (args.command)` and
-// delegated each operational verb into `src/cli/handlers/*.ts` via
-// `case "x": handleX(args, runner);`. The whole point of this smoke was a
-// GUARD against regressing that carve-out back into one god-dispatch, plus
-// a check that some dead imports stayed pruned from that surface file.
-//
-// v2 has NO `command-surface.ts` and NO `handlers/` dir. It reaches the
-// SAME anti-god-dispatch goal a different (stronger) way:
-//   - src/cli.ts is still the thin binary entrypoint, but it delegates to
-//     src/cli/entry.ts (which exports `runCli` and does the parseArgv-based
-//     parsing), not to a command-surface module.
-//   - Verbs are rows in the CAPABILITY TABLE (core/capability-table.ts),
-//     dispatched by the generic executor in src/cli/dispatch.ts. They are
-//     NOT inline arms of any command switch. dispatch.ts keeps only a small
-//     `dispatchLegacy` switch of milestone carry-over placeholders that is
-//     documented as never hand-extended again.
-// So every assertion below is repointed to the v2 module that carries the
-// same intent.
-//
-// NO-EQUIVALENT (dropped, not weakened): the three "pruned import" guards
-// (`../observability`, `runRegistryFor`, `formatCandidateSummary` gone from
-// command-surface.ts) were dead-export guards tied to that one old file.
-// v2 has no such file; there is no equivalent surface to guard. See the
-// audit report for the gap note.
+// This smoke guards against the CLI regressing into one big command-switch
+// dispatch. src/cli.ts is a thin binary entrypoint that delegates to
+// src/cli/entry.ts (runCli, parseArgv-based parsing); verbs are rows in the
+// capability table (core/capability-table.ts), dispatched by the generic
+// executor in src/cli/dispatch.ts — not inline arms of a command switch.
+// dispatch.ts keeps only a small `dispatchLegacy` switch of milestone
+// carry-over placeholders, documented as never hand-extended again.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

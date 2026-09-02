@@ -1,28 +1,13 @@
 #!/usr/bin/env node
 "use strict";
 
-// CUTOVER AUDIT (v2) — REAL-GAP, left failing on purpose.
-//
-// This smoke is black-box: it drives dist/cli.js and dist/mcp-server.js
-// as subprocesses and requires only node builtins, so there are NO old
-// flat dist imports to repoint. The failure is genuine v2 behavior, not
-// an import crash.
-//
-// GAP: v2 only wires `worker summary` to the CLI. In src/core/capability-table.ts
-// the only CLI path bindings under `worker` are `worker.summary`
-// (path ["worker","summary"], ~line 2346) and the `worker.usage` fallback
-// (path ["worker"], ~line 2801). The other worker subcommands —
-// list / show / manifest / output / fail / validate — have MCP tool rows
-// (cw_worker_manifest, cw_worker_output, ... ~lines 310-315) but NO CLI
-// path binding, so `cw worker manifest|output|...` all fall through to the
-// usage error "Usage: cw worker list|summary|show|manifest|...".
-//
-// The old build routed every one of these via its worker CLI handler
-// (git 7ee3215: switch over list/summary/show/manifest/output/fail/validate).
-// This smoke calls `worker manifest` and `worker output` (completeNextWorker,
-// below) plus `worker output` for the fail-closed check, so it dies at the
-// first `worker manifest` call. Fixing this is Phase B (add CLI bindings for
-// worker.manifest/output/show/fail/validate/list); do NOT weaken this test.
+// This smoke is black-box: it drives dist/cli.js and dist/mcp-server.js as
+// subprocesses. Every worker subcommand — list/summary/show/manifest/
+// output/fail/validate — must have a real CLI path binding
+// (src/core/capability-table.ts), not fall through to the usage error.
+// This smoke calls `worker manifest` and `worker output`
+// (completeNextWorker, below) plus `worker output` for the fail-closed
+// check.
 
 const assert = require("node:assert/strict");
 const { execFileSync, spawn, spawnSync } = require("node:child_process");

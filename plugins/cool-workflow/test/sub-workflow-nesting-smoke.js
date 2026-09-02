@@ -26,20 +26,6 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-// NO v2 EQUIVALENT / REAL GAP: v2's plan() drops the task's subWorkflow spec, so
-// inline sub-workflow nesting is unreachable. flattenTasks (src/shell/pipeline.ts)
-// copies a fixed field list onto each RunTask and omits `subWorkflow`; drive()'s
-// runSubWorkflow branch (src/shell/drive.ts) reads selected.subWorkflow, always
-// undefined, so the delegate task is fulfilled by a plain agent spawn (handleKind
-// "process") instead. subRunId/subRunDir and the worker.sub-workflow audit event
-// are never written (neither symbol exists in v2 src). The MAX_SUB_WORKFLOW_DEPTH
-// cap + cycle guard live inside the never-entered runSubWorkflow (dead code), so
-// the self-cycle / depth-cap cases complete instead of parking. Left failing for
-// a human call — do NOT delete. Fix requires editing src/ (forbidden here):
-// carry subWorkflow through flattenTasks + restore subRunId + the audit event.
-//
-// Imports repointed to v2 so the smoke fails on the honest capability gap
-// (subRunId undefined / handleKind "process"), not a missing-module crash.
 const pluginRoot = path.resolve(__dirname, "..");
 const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
 const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));

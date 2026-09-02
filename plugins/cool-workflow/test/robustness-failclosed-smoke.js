@@ -66,21 +66,9 @@ function addTask(run, taskId) {
 }
 
 // ---- A. corrupt worker.json: skip in listing, fail closed on direct lookup ----
-// REAL-GAP (v2 robustness regression). This part fails on genuine behavior after
-// the imports were repointed — it is NOT an import crash. v2 dropped two
-// fail-closed guards the old build had (git c8a6265^, its flat worker-isolation module):
-//   1. listWorkerScopes reloaded scopes from disk (loadWorkerScopesFromDisk) and
-//      SKIPPED a corrupt worker.json with a stderr diagnostic. v2's
-//      dist/shell/worker-isolation.js:577-580 just returns the in-memory
-//      run.workers slice with no disk reload — so `run.workers = []` (the test's
-//      forced reload) yields an EMPTY list and the readable worker A vanishes.
-//   2. getWorkerScope wrapped JSON.parse in try/catch and threw
-//      "Corrupt worker scope <file>: ...". v2's
-//      dist/shell/worker-isolation.js:111 does a raw
-//      JSON.parse(fs.readFileSync(...)) — a corrupt file throws a raw SyntaxError,
-//      not /Corrupt worker scope/.
-// Both guards must be restored in v2 src (Phase B); this test is left failing on
-// purpose to pin the regression. Assertions are unchanged (intent preserved).
+// listWorkerScopes reloads scopes from disk and skips a corrupt worker.json
+// with a stderr diagnostic, while getWorkerScope wraps JSON.parse in
+// try/catch and throws "Corrupt worker scope <file>: ...".
 function corruptWorkerScope() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-rob-worker-"));
   const run = makeRun(tmp, "rob-workers");

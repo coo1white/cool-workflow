@@ -38,23 +38,6 @@ const { drive } = require(path.join(pluginRoot, "dist/shell/drive.js"));
 const ns = require(path.join(pluginRoot, "dist/core/state/node-snapshot.js"));
 const { registerLoopPredicate, maxLoopExpansion } = require(path.join(pluginRoot, "dist/core/pipeline/loop-expansion.js"));
 
-// v2 REAL-GAP (audit finding — do NOT fix src here, that is Phase B):
-// Imports are fully repointed to v2 (dist/shell/{pipeline,drive,run-store,
-// workflow-app-loader}.js + dist/core/pipeline/loop-expansion.js + dist/core/
-// state/node-snapshot.js), so this smoke now reaches the GENUINE behavior. It
-// fails on line ~124: only 1 agent spawns, ZERO loop-control nodes are made,
-// and no round phases are appended — the loop() template runs exactly once,
-// then the run completes.
-// Root cause: v2's drive engine never wires the loop RUNTIME primitives.
-//   - src/shell/drive.ts imports ONLY maxLoopExpansion (the STATIC bound,
-//     used at drive.ts:610 to size the maxIterations budget).
-//   - src/core/pipeline/loop-expansion.ts DOES export the runtime primitives
-//     evaluateLoopStop / cloneLoopRoundTasks / loopControlNodeId, but NOTHING
-//     in the whole build calls them (grep dist: 0 hits outside the module).
-// So the old build's bounded dynamic control flow (#2) — expand round by round,
-// evaluate the pure stop predicate, append round-suffixed phases, record a
-// loop-control decision node per round, hard-cap at maxRounds — is absent in
-// v2. drive reserves the loop iteration budget but never expands.
 const FIXED_NOW = "2026-06-20T00:00:00.000Z";
 const cleanups = [];
 

@@ -77,16 +77,9 @@ try {
   assert.equal(check.ok, true, "README preflight is ready");
   assert.equal(check.appId, "architecture-review", "the README app id is checked");
   assert.equal(fs.existsSync(path.join(repo, ".cw")), false, "quickstart --check writes no repo .cw state");
-  // CUTOVER REAL-GAP (v2): the v2 quickstart --check shape drops `nextCommand`.
-  // The old build's quickstartCheck returned a
-  // `nextCommand` string built by quickstartNextCommand(), which wove `--bundle`
-  // (+ --with-trust-key / --strict-signatures) into the suggested resume line.
-  // v2's QuickstartCheckResult (src/shell/pipeline-cli.ts)
-  // has no `nextCommand` field at all, and also dropped the old `bundle-trust-key`
-  // check the old build pushed when --bundle was set. So check.nextCommand is
-  // undefined here. This is genuine missing functionality, not an import break
-  // (this smoke uses only the external CLI). Left failing on purpose; do not
-  // weaken the assertion. Phase B must restore nextCommand in quickstartCheck.
+  // quickstartCheck's `nextCommand` string (quickstartNextCommand(),
+  // src/shell/pipeline-cli.ts) weaves `--bundle` (+ --with-trust-key /
+  // --strict-signatures) into the suggested resume line.
   assert.match(check.nextCommand, /--bundle/, "the check next command keeps bundle intent");
 
   const bundled = runJson([

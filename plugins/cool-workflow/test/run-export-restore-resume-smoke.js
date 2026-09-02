@@ -103,17 +103,9 @@ try {
 
   const secondResultPath = secondDispatch.tasks[0].workerResultPath;
   fs.writeFileSync(secondResultPath, resultMarkdown("restored implementation completed"), "utf8");
-  // REAL-GAP (v2): `cw worker output` (and list/show/manifest/fail/validate) has
-  // NO CLI binding in v2. src/core/capability-table.ts declares worker.output at
-  // line 313 as an MCP capability but only worker.summary gets an
-  // attachCliBinding (line 2346); every other `worker <verb>` falls through to
-  // the worker.usage catch-all (path ["worker"], line 2805) and throws the usage
-  // error. docs/cli-mcp-parity.7.md documents `worker.output | cw worker
-  // output | ... | both | identical`, so the CLI surface is contract, not
-  // optional. This assertion (and the two source-untouched asserts below) will
-  // fail until v2 restores the worker.* CLI bindings. Intent preserved: prove
-  // the restored run accepts a fresh worker's output via the same CLI verb the
-  // old build shipped.
+  // `cw worker output` (and list/show/manifest/fail/validate) has a real
+  // CLI binding (docs/cli-mcp-parity.7.md documents it as both/identical),
+  // so the restored run accepts a fresh worker's output via that CLI verb.
   const accepted = cliJson(["worker", "output", run.id, secondDispatch.tasks[0].workerId, secondResultPath], restoredRepo);
   assert.equal(accepted.tasks.completed, 2, "restored run accepts new worker output");
 

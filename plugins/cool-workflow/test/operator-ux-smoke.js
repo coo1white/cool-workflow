@@ -1,18 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 
-// REAL v2 BEHAVIOR GAP (reported, not papered over): after `dispatch`, this smoke
-// expects the operator status to show `Stage: act` (line ~55), then advance through
-// observe/adjust/checkpoint as the run progresses. In v2 the RUN-level loopStage is
-// never advanced: dispatch.ts sets task.loopStage / the node's loopStage to "act"
-// but never `run.loopStage`, and no shell code assigns `run.loopStage = ...` after
-// plan (grep `run\.loopStage *=` over src/shell is empty). The operator status
-// "Stage:" line reads run.loopStage (operator-ux.ts:41 -> summary.loopStage ->
-// run-registry-io.ts:750 `loopStage: run.loopStage`), so it is frozen at "interpret"
-// for the whole run. The old build advanced run.loopStage (dispatch -> "act",
-// commit -> "checkpoint", etc.). This is a source lifecycle gap, not a moved/renamed
-// API; the test file drives the CLI black-box and has no dist imports to repoint.
-// Left failing for a human source fix (advance run.loopStage across the lifecycle).
+// After `dispatch`, the operator status must show `Stage: act` (line ~55),
+// then advance through observe/adjust/checkpoint as the run progresses —
+// the run-level loopStage the operator status "Stage:" line reads.
 
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");

@@ -10,37 +10,12 @@
 // reasoning-chain freshness (valid|stale|absent), evidence/reasoning parity
 // under compaction, fail-closed `unexplained` on missing rationale, backward
 // compatibility, eval/replay regression gates, and CLI/MCP/JSON determinism.
-
-// CUTOVER AUDIT (Phase A) — REAL-GAP, not an import problem.
 //
 // This smoke is a pure black-box driver: it require()s only Node built-ins
-// and drives dist/cli.js + dist/mcp-server.js as subprocesses. There is NO
-// old-flat-dist require() to repoint, so nothing in THIS file was changed.
-//
-// It fails on genuine v2 behavior at the first blackboard call below
-// (`blackboard message post <runId> ...`, line ~38): v2's CLI can no longer
-// parse the `<action> <runId>` grammar. The handler at
-// src/core/capability-table.ts (blackboard.message.post) reads the
-// action word as the run id — positionals[0] is taken as runId and
-// positionals[1] as the action, but after dispatchTable consumes the
-// `message` path token the positionals are [<action>, <runId>], so the
-// indices are swapped. Result: `cw: File not found: .../.cw/runs/post/state.json`
-// (the literal "post" is treated as a run id). The same swap defect is in
-// blackboard.artifact.add/.list (src/core/capability-table.ts, the two
-// action==="list" handlers) which line ~47 also hits.
-//
-// This is self-contradictory inside v2: its own next-action hints and help
-// still advertise the action-word grammar —
-// src/core/multi-agent/coordinator.ts emit
-// `blackboard message post ${runId} --topic ...` and
-// `blackboard artifact add ${runId} --path ...`; state-explosion/digest.ts,
-// report.ts, graph.ts do the same; and `cw help blackboard` lists
-// `message post`, `message list`, `artifact add`, `artifact list`.
-// Three other smokes (robustness-hardening, pdca-blackboard-loop,
-// blackboard-state-explosion-management) use the identical grammar.
-//
-// Left failing by design. Fixing v2 src is Phase B, not this rewrite. Do NOT
-// weaken the assertions below to force green.
+// and drives dist/cli.js + dist/mcp-server.js as subprocesses, using the
+// `blackboard message post <runId> ...` / `blackboard artifact add <runId>
+// ...` action-word grammar (also used by robustness-hardening,
+// pdca-blackboard-loop, and blackboard-state-explosion-management).
 
 const assert = require("node:assert/strict");
 const { execFileSync, spawn, spawnSync } = require("node:child_process");

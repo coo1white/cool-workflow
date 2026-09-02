@@ -153,24 +153,9 @@ function main() {
   ]);
 
   assert.equal(second.fastReview.completedWorkers, 2, "second run also completes the Map round");
-  // v2 REAL-GAP (do not weaken these assertions; do not fix here — Phase B):
-  //   The warm-run assertions below fail on v2. This smoke drives scripts, not
-  //   dist modules, so there is nothing to repoint; the failure is genuine
-  //   behavior. The app author declares a read-write result cache on the Map
-  //   tasks — apps/architecture-review-fast/workflow.js set
-  //   resultCache: { mode: "read-write", keyInput: "sourceContextDigest" } via
-  //   sourceContextResultCache() (workflow.js:167). But the v2 planner drops
-  //   the field: src/shell/pipeline.ts flattenTasks() (lines 57-71) copies
-  //   label/model/agentType/sandboxProfileId/requiresEvidence into each RunTask
-  //   yet never copies resultCache, and RunTask/WorkflowTaskDefinition have no
-  //   resultCache slot (grep: `resultCache` appears ONLY in src/shell/drive.ts).
-  //   So drive.ts:157 reads task.resultCache === undefined on the non-incremental
-  //   path, resultCachePath (drive.ts:151) returns undefined, the cache is never
-  //   written under .cw/cache/worker-results/, and the second run re-spawns the
-  //   Map workers instead of hitting the cache (spawn count 2 -> 4). Confirmed by
-  //   inspecting the persisted run state: Map tasks show resultCache: undefined.
-  //   (The --changed-from incremental overlay path at drive.ts:153 computes its
-  //   key without task.resultCache, so incremental caching is unaffected.)
+  // The app declares a read-write result cache on the Map tasks
+  // (apps/architecture-review-fast/workflow.js, sourceContextResultCache()),
+  // so a warm second run must reuse the cached Map results, not re-spawn.
   assert.ok(second.fastReview.steps.every((step) => step.handleKind === "result-cache"), "second run reuses cached Map results");
   assert.equal(second.metrics.fastReview.steps, 2);
   assert.equal(second.metrics.fastReview.agentSpawns, 0);

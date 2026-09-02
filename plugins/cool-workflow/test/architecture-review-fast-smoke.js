@@ -1,30 +1,12 @@
 #!/usr/bin/env node
 "use strict";
 
-// ===================================================================================
-// AUDIT STATUS: REAL-GAP (imports repointed to v2; behavior itself is missing).
-// -----------------------------------------------------------------------------------
-// Imports below are the correct v2 locations and the plan + drive flow runs cleanly,
-// so the failure is NOT an import crash. Plan shape (14 full tasks, 6 fast tasks,
-// Map/Assess parallel + Verify/Verdict sequential), model routing (fast-map-model /
-// strong-verify-model), source-context/digest in prompts, and drive-to-completion
-// (2 Map workers per --once round, 6 workers total, commitId set) all still hold.
-//
-// The gap: v2 DROPS the per-phase resultCache policy at run materialization. The app
-// DSL apps/architecture-review-fast/workflow.js still attaches
-//   resultCache: { mode:"read-write", keyInput:"sourceContextDigest",
-//                  includeCompletedResults:"previous-phases" }  (Assess/Verify/Verdict)
-// to every task, but v2's flattenTasks (src/shell/pipeline.ts) copies only
-// id/kind/phase/prompt/label/model/agentType onto each RunTask and NEVER copies
-// task.resultCache. So the materialized task has resultCache === undefined (confirmed
-// live: every byTask.get(...).resultCache is undefined), failing the plan-level
-// resultCache assertions. Downstream, src/shell/drive.ts resultCachePath() reads
-// task.resultCache, finds none, and short-circuits — so warm re-runs never produce
-// handleKind === "result-cache" hits, failing the cache-hit assertions too.
-// (Same gap fails the sibling architecture-review-fast-phase-cache-smoke.)
-// Phase B fix belongs in v2 src: flattenTasks must carry task.resultCache onto the
-// RunTask. Left failing on purpose — do NOT weaken the assertions to force green.
-// ===================================================================================
+// This smoke checks: plan shape (14 full tasks, 6 fast tasks, Map/Assess
+// parallel + Verify/Verdict sequential), model routing (fast-map-model /
+// strong-verify-model), source-context/digest in prompts, the per-phase
+// resultCache policy the app DSL attaches (Assess/Verify/Verdict), and
+// drive-to-completion (2 Map workers per --once round, 6 workers total,
+// commitId set), plus warm re-runs hitting the result cache.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

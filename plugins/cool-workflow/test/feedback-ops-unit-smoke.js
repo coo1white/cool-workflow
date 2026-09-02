@@ -22,21 +22,9 @@ const path = require("node:path");
 const { createRunPaths, ensureRunDirs } = require("../dist/shell/run-store");
 const { saveCheckpoint } = require("../dist/shell/run-store");
 const { recordFeedback } = require("../dist/shell/error-feedback-io");
-// REAL-GAP (v2 missing functionality): the operator-facing feedback
-// LIFECYCLE was never ported to v2. The old build had:
-//   - an orchestrator feedback-operations module: collectFeedback / showFeedback /
-//     createFeedbackTask / resolveFeedback (report+checkpoint wrappers), and
-//   - the old flat error-feedback module's primitives they wrapped: collectRunErrors (:61),
-//     createCorrectionTask (:188), resolveFeedback (:232, with the
-//     "cannot resolve without a verified node id" guard at :239),
-//     listFeedback (:268), getFeedback (:278).
-// v2's core/pipeline/error-feedback.ts only ported the RECORD-BUILDING half
-// (classifyFeedback/findExistingFeedback/buildFeedbackRecord/summarizeFeedback)
-// plus a shell recordFeedback writer. None of collect/show/create-task/resolve
-// exist anywhere in v2 dist or src. This require intentionally points at the
-// v2 location such a module would occupy so the failure lands on the genuine
-// missing surface (MODULE_NOT_FOUND) rather than an old dead path. Leave failing
-// until Phase B builds the feedback lifecycle.
+// The operator-facing feedback lifecycle (collect/show/create-task/resolve,
+// report+checkpoint wrappers) lives in shell/feedback-operations, over the
+// record-building primitives in core/pipeline/error-feedback.
 const {
   collectFeedback,
   showFeedback,

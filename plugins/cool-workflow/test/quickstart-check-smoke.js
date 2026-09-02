@@ -5,23 +5,10 @@
 // the README path. It must not plan a run, create `.cw/`, spawn an agent, write a
 // report, or commit. It only reports whether the next quickstart can run.
 //
-// CUTOVER STATUS (v2): REAL-GAP. This smoke is black-box (spawns dist/cli.js), so
-// there are no old flat-dist requires to repoint. Under the real harness env
-// (CW_NO_AUTO_AGENT=1 CW_REQUIRE_RESOLVABLE_EVIDENCE=0) cases 1 and 3 pass, but the
-// v2 `quickstartCheck` dropped two user-facing behaviors the old build shipped, so
-// cases 2 and 4 still fail on GENUINE behavior (not an import crash):
-//   1. No `nextCommand` field on the --check payload. The old build returned
-//      `nextCommand: quickstartNextCommand(...)` (the old capability-core module, the
-//      quickstartCheck return object). v2's quickstartCheck returns only
-//      { schemaVersion, mode, ok, appId, repo, checks } and `quickstartNextCommand`
-//      does not exist anywhere in v2 src — see src/shell/pipeline-cli.ts.
-//   2. No `--bundle` / `bundle-trust-key` preflight check. The old build pushed a
-//      bundle-trust-key check (warn by default, blocked under --strict-signatures)
-//      whenever --bundle was passed. v2's quickstartCheck has zero `bundle`
-//      handling — src/shell/pipeline-cli.ts (function quickstartCheck, lines
-//      129-196) never reads args.bundle, so --strict-signatures with no key does
-//      not block. Case 4 below therefore fails.
-// Assertions are LEFT INTACT (not weakened): fixing v2 is Phase B's job.
+// This smoke is black-box (spawns dist/cli.js). The `--check` payload
+// carries a `nextCommand` field (quickstartNextCommand, src/shell/
+// pipeline-cli.ts), and a `--bundle` preflight pushes a bundle-trust-key
+// check (warn by default, blocked under --strict-signatures with no key).
 
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
@@ -90,8 +77,6 @@ function parse(result) {
   const payload = parse(result);
   assert.equal(payload.ok, true);
   assert.equal(payload.checks.find((check) => check.name === "agent").status, "ok");
-  // REAL-GAP (see header): v2 dropped the `nextCommand` field; payload.nextCommand
-  // is undefined here. Left as a failing assertion for Phase B.
   assert.match(payload.nextCommand, /cw quickstart architecture-review/);
   assert.equal(fs.existsSync(path.join(work, ".cw")), false, "--check still must not create .cw");
 }
@@ -125,9 +110,6 @@ function parse(result) {
     "stub-agent {{result}}",
     "--bundle"
   ];
-  // REAL-GAP (see header): v2's quickstartCheck never reads args.bundle, so the
-  // `bundle-trust-key` check is absent and --strict-signatures with no key does not
-  // block. Both asserts below fail. Left intact for Phase B.
   const warn = parse(run(base, work));
   assert.equal(warn.ok, true, "no key is only a warning without strict signatures");
   assert.equal(warn.checks.find((check) => check.name === "bundle-trust-key").status, "warn");
