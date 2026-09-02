@@ -133,6 +133,10 @@ function makeAcceptedRun(repo, runId, options = {}) {
   saveCheckpoint(run);
   const scope = allocateWorkerScope(run, run.tasks[0], { workerId: `worker-${runId}`, persist: false });
   // Worker-local scratch (artifacts/logs) so the scratch dir has real bytes.
+  // The worker no longer makes these ahead of time, so the write makes them,
+  // same as a real worker would.
+  fs.mkdirSync(scope.artifactsDir, { recursive: true });
+  fs.mkdirSync(scope.logsDir, { recursive: true });
   fs.writeFileSync(path.join(scope.artifactsDir, "scratch-notes.md"), "throwaway scratch\n".repeat(40), "utf8");
   fs.writeFileSync(path.join(scope.logsDir, "run.log"), "log line\n".repeat(60), "utf8");
   fs.writeFileSync(scope.resultPath, RESULT_BODY("mapped", ["test/run-retention-reclamation-smoke.js:1"]), "utf8");
