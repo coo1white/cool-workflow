@@ -19,8 +19,6 @@ import { writeJson } from "./fs-atomic";
 import { stripSecretArgs } from "./execution-backend/agent";
 import { AgentDelegationConfig } from "./execution-backend/types";
 
-export const AGENT_CONFIG_SCHEMA_VERSION = 1;
-
 /** CW_HOME resolution: CW_HOME > XDG_STATE_HOME/cool-workflow > ~/.local/state/cool-workflow. */
 export function resolveCwHome(env: NodeJS.ProcessEnv = process.env): string {
   if (env.CW_HOME && String(env.CW_HOME).trim()) return path.resolve(String(env.CW_HOME));

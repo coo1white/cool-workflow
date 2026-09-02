@@ -39,8 +39,6 @@ import {
   WorkflowRun,
 } from "./types";
 
-export const NODE_SNAPSHOT_SCHEMA_VERSION = 1;
-
 /** Structured fail-closed error (mirrors PipelineContractError's shape). */
 export class NodeSnapshotError extends Error {
   code: string;

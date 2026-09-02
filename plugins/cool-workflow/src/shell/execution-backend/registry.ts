@@ -35,7 +35,6 @@ import {
   SandboxDimensionSupport,
 } from "./types";
 
-export const EXECUTION_BACKEND_SCHEMA_VERSION = 1;
 export const DEFAULT_BACKEND_ID = "node";
 export const SANDBOX_DIMENSIONS: SandboxDimension[] = ["read", "write", "command", "network", "env"];
 
@@ -528,15 +527,6 @@ export function runBackend(request: ExecutionRequest): ExecutionResultEnvelope {
     return refusedEnvelope(descriptor, policy, label, "no-command", `Backend ${descriptor.id} requires a command to execute`, attestation);
   }
   return executeLocal(descriptor, request, label, attestation, getBackendDriver(descriptor.id)?.spawnStyle);
-}
-
-export function createExecutionBackend(id: string): { descriptor: BackendDescriptor; probe: (context: { cwd?: string }) => BackendProbeResult; run: (request: ExecutionRequest) => ExecutionResultEnvelope } {
-  const descriptor = getBackendDescriptor(id);
-  return {
-    descriptor,
-    probe: (context) => probeBackend(id, context),
-    run: (request) => runBackend({ ...request, backendId: id }),
-  };
 }
 
 // ---- inspection payloads ---------------------------------------------------

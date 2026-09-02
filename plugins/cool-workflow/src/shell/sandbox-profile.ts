@@ -294,10 +294,6 @@ export function validateSandboxWrite(policy: ResolvedSandboxPolicy, rawPath: str
   return validateSandboxPathAccess("write", policy, rawPath, effectiveSandboxWritePaths(policy), workerId);
 }
 
-export function validateSandboxRead(policy: ResolvedSandboxPolicy, rawPath: string, workerId = ""): WorkerBoundaryViolation | null {
-  return validateSandboxPathAccess("read", policy, rawPath, policy.readPaths, workerId);
-}
-
 export function validateSandboxCommand(policy: ResolvedSandboxPolicy, command: string, workerId = ""): WorkerBoundaryViolation | null {
   const normalized = command.trim();
   if (!normalized || hasControlCharacters(normalized)) {
