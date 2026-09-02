@@ -89,7 +89,7 @@ function main() {
   checkIncludes("plugins/cool-workflow/test/multi-agent-topologies-debate-smoke.js", "multi-agent-topologies-debate-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/multi-agent-topologies-judge-panel-smoke.js", "multi-agent-topologies-judge-panel-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/multi-agent-cli-mcp-surface-smoke.js", "multi-agent-cli-mcp-surface-smoke", checks);
-  checkIncludes("plugins/cool-workflow/test/multi-agent-eval-replay-harness-smoke.js", "multi-agent-eval-replay-smoke", checks);
+  checkIncludes("plugins/cool-workflow/test/multi-agent-eval-replay-smoke.js", "multi-agent-eval-replay-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/blackboard-state-explosion-management-smoke.js", "blackboard-state-explosion-management-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/evidence-adoption-reasoning-smoke.js", "evidence-adoption-reasoning-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/mcp-app-surface-smoke.js", VERSION, checks);
