@@ -132,7 +132,7 @@ Keep these items in `docs/BACKLOG.md` until new evidence changes their value:
 - General util and small `loadRun` copy clean-up: local small code is cheaper
   than a new shared link.
 - A formatter, directory moves, a model SDK, or a runtime dependency.
-- `commitMessageTemplate`: it has no real reader.
+- `commitMessageTemplate`: removed 2026-09-02 (it had no real reader).
 
 ## Security Work Map
 
