@@ -171,9 +171,10 @@ closing PR runs last.
   body, budget held, Chain line, own BACKLOG row deleted, no internal
   labels in committed text, auto-merge armed only after CodeQL is
   green.
-- Architect (program), on main: `BACKLOG.md` has exactly five rows
+- Architect (program), on main: `BACKLOG.md` has exactly six rows
   (async lock, schedule shape, containment, purity with numbers, the
-  onramp `typeFiles` retarget to `src/core/types/`); `grep -rn
+  onramp `typeFiles` retarget to `src/core/types/`, the stale
+  `mcp-tool-call-coverage-smoke.js` header count); `grep -rn
   commitMessageTemplate src` is empty; `onramp:check` on a
   branch that only deletes one field from `src/core/state/types.ts`
   reports ok with the file in `deleteOnly`, and a branch that deletes
@@ -276,5 +277,5 @@ first round.
 | Three rows closed for good + purity row re-measured | merged | #620 (`145d3fa6`) |
 | Delete-only type changes are a valid cycle | merged | #622 (`9b4f785d`) |
 | `-q` help line vendor fold | merged | #621 (`33f44fbf`) |
-| onramp type source watches src/core/types | | |
+| onramp type source watches `src/core/types` | merged | #624 (`f5001c67`) |
 | Closing ledger | merged | #623 |
