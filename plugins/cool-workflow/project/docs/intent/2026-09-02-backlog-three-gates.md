@@ -99,11 +99,51 @@ The half of the first BACKLOG row about test strings stays as it was:
 because fixture strings use fake paths. That fact lives here now, not
 in BACKLOG.
 
+## What this spec got wrong (recorded at close)
+
+1. PR A listed `src/shell/doctor.ts` as a file to change. The
+   `--onramp` call path is `buildDoctorOnramp` inside `onramp.ts`, so
+   `doctor.ts` needed no edit.
+2. PR C's 15-line header cap pushed out one true sentence: the check
+   is git-independent on purpose, and committed-vs-built drift is
+   held by the porcelain step in `.github/workflows/ci.yml`. That
+   pointer is now nowhere in the script. R3's cap is for growth; it
+   should not cut a sentence that explains a design choice.
+3. R4 said each PR deletes its own BACKLOG row, and three PRs did, on
+   three ADJACENT lines of one table. The second and third merges
+   conflicted on context. Rule from it: merge `origin/main` into the
+   open PR branch, never rebase or force-push it; or land such rows
+   one PR at a time.
+4. The spec did not say "run `test:gate`, not the sampled `npm
+   test`, before push". PR B's `npm ci` broke an existing fixture in
+   `test/verdict-signing-workflow-smoke.js` (it wrote no lockfile) and
+   the 35-smoke sample missed it; the worker found it on a direct run
+   and fixed the fixture without weakening the assertion. CI runs the
+   full gate, so it would have been caught there — but a round later.
+   Third such case in two programs: the rule now goes in every brief.
+
 ## Status ledger
+
+Program COMPLETE 2026-09-02. Main `d1d683d0` after PR A.
 
 | Item | State | PR |
 |---|---|---|
-| Intent + spec (this file) | open | — |
-| PR A onramp contract reads the diff | open | — |
-| PR B bump rehearsal installs from the lockfile | open | — |
-| PR C dist drift check builds from nothing | open | — |
+| Intent + spec (this file) | merged | #614 c9098b1a |
+| PR A onramp contract reads the diff | merged | #617 d1d683d0 |
+| PR B bump rehearsal installs from the lockfile | merged | #615 867ad21e |
+| PR C dist drift check builds from nothing | merged | #616 5f754017 |
+
+Closing numbers, measured by the architect on `d1d683d0` and by the
+manager on each head: BACKLOG 12 rows -> 9, the three program rows
+gone; `onramp:check` on a comment-only edit to `src/shell/drive.ts`
+reports ok with the file in `commentOnly`, and the same file with one
+code line still fails `runtime-smoke-required`; `dist:check` on a
+hand-edited `dist/cli.js` reports `changed: cli.js` (before: "matches");
+`verify-bump-reproduction` smoke passes on the real 0.2.2 pair;
+`release:check` 18/18; `test:gate` 265/265 (one new smoke);
+`growth:check` md 132/135, src-comments 7177 -> 7188. Budgets: A src
++47/60, smoke +28/45; B +4/6; C +2/12, smoke 45/50. Rounds 1, 1, 1.
+PR A was opened by the operator by hand: the `gh pr create` step was
+refused by the permission classifier in two agent sessions, and no
+agent routed around it. Nothing pushed to main; every PR merged on
+green CI with CodeQL.
