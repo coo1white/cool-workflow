@@ -640,7 +640,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     }
     catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        recordWorkerFailure(run, workerId, message, { code: "result-parse-error", retryable: false });
+        recordWorkerFailure(run, workerId, message, { code: "result-parse-error", retryable: true });
         throw error;
     }
     if ((0, verifier_1.taskRequiresEvidence)(task) && !parsedResult.evidence.some((e) => (0, evidence_grounding_1.isGroundedEvidence)(e))) {
@@ -918,8 +918,19 @@ function recordWorkerFailure(run, workerId, error, options = {}) {
         }
     }
     failureNode = (0, node_store_1.appendRunNode)(run, failureNode);
-    task.status = "failed";
+    if (!structured.retryable)
+        task.status = "failed";
     task.loopStage = "adjust";
+    // A retryable failure gets a second try on the SAME input.md (written
+    // once, at first dispatch). Put why the last try was turned down at
+    // the top, in words that match the error, so the worker knows the fix.
+    if (structured.retryable && fs.existsSync(scope.inputPath)) {
+        const fix = structured.code === "worker-result-missing"
+            ? "Write the final Markdown result to result.md before finishing."
+            : "The `cw:result` block must be one JSON object, closed with `}`.";
+        const notice = `Your last result was rejected: ${message}. ${fix}\n\n`;
+        fs.writeFileSync(scope.inputPath, notice + fs.readFileSync(scope.inputPath, "utf8"), "utf8");
+    }
     // Record the failure as append-only operator feedback so worker.feedbackIds
     // and run.feedback carry it (its absence cascaded: failed workers left no
     // feedback trail). Byte-exact to the old build.
