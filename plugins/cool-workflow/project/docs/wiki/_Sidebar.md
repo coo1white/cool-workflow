@@ -4,6 +4,7 @@
 
 - [Home](Home.md)
 - [Getting Started](Getting-Started.md)
+- [User Guide](User-Guide.md)
 - [Mental Model](Mental-Model.md)
 - [Glossary](Glossary.md)
 - [Quickstart](Quickstart.md)
