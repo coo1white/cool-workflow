@@ -16,6 +16,7 @@ const path = require("node:path");
 
 const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
 const { allocateWorkerScope, recordWorkerOutput } = require("../dist/shell/worker-isolation");
+const { createDispatchManifest } = require("../dist/shell/dispatch");
 // v2 split node-snapshot into a PURE core half and a SHELL persistence half.
 // snapshotNode must come from shell/node-store: only that wrapper honors
 // `persist: true` and actually writes nodes/snapshots/<nodeId>/<id>.json to
@@ -223,6 +224,32 @@ function fileManifest(root) {
   }
   assert.ok(dirBytes(run.paths.runDir) > 0, "dirBytes measures a non-empty run dir in-process");
   assert.equal(dirBytes(path.join(run.paths.runDir, "does-not-exist")), 0, "dirBytes of an absent path is 0");
+}
+
+// ===========================================================================
+// Unit: a run planned and reported on by a worker never holds one of the
+// four directories that stayed empty in the sample run (see the intent doc
+// this PR closes). Each is made on first use now, not up front, so a run
+// that never uses one does not have it at all — not an empty directory.
+// ===========================================================================
+// A second task is left pending (`{ pending: true }`) so this run can also
+// prove the real dispatch path below.
+{
+  const repo = makeRepo();
+  const { run } = makeAcceptedRun(repo, "no-empty-dirs", { pending: true });
+  const names = fs.readdirSync(run.paths.runDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+  for (const name of ["candidates", "multi-agent", "blackboard", "topologies"]) {
+    assert.ok(!names.includes(name), `${name} is not made when the run never uses it`);
+  }
+  for (const name of ["tasks", "results", "nodes", "audit", "workers"]) {
+    assert.ok(fs.readdirSync(path.join(run.paths.runDir, name)).length > 0, `${name} holds the file this run wrote to it`);
+  }
+  // Dispatching the still-pending second task through the real dispatch
+  // path (createDispatchManifest, not a direct call) — none of the four
+  // multi-agent ids given — must still make no multi-agent directory.
+  const manifest = createDispatchManifest(run, 1);
+  assert.equal(manifest.tasks.length, 1, "the pending task was dispatched");
+  assert.ok(!fs.existsSync(path.join(run.paths.runDir, "multi-agent")), "a dispatch with none of the four multi-agent ids makes no multi-agent directory");
 }
 
 // ===========================================================================

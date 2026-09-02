@@ -66,10 +66,10 @@ const run_paths_1 = require("../core/state/run-paths");
 Object.defineProperty(exports, "createRunPaths", { enumerable: true, get: function () { return run_paths_1.createRunPaths; } });
 const migrations_1 = require("../core/state/migrations");
 const hash_1 = require("../core/hash");
-/** `mkdirSync` (recursive) every dir this run needs. Missing optional dir
- *  fields fall back to `path.join(runDir, "<name>")`, matching the old
- *  build's defensive default (a RunPaths loaded from an old/partial
- *  state.json may be missing an optional key). */
+/** `mkdirSync` (recursive) every always-written directory, plus `artifacts`
+ *  (no writer of its own — evidence lands there from outside `src/`).
+ *  `candidates`/`multi-agent`/`blackboard`/`topologies` are made on first
+ *  use instead, by their own writer in shell/. */
 function ensureRunDirs(paths) {
     const dirs = [
         paths.runDir,
@@ -82,10 +82,6 @@ function ensureRunDirs(paths) {
         paths.feedbackDir,
         paths.auditDir || path.join(paths.runDir, "audit"),
         paths.workersDir || path.join(paths.runDir, "workers"),
-        paths.candidatesDir || path.join(paths.runDir, "candidates"),
-        paths.multiAgentDir || path.join(paths.runDir, "multi-agent"),
-        paths.blackboardDir || path.join(paths.runDir, "blackboard"),
-        paths.topologiesDir || path.join(paths.runDir, "topologies"),
     ];
     for (const dir of dirs)
         fs.mkdirSync(dir, { recursive: true });
