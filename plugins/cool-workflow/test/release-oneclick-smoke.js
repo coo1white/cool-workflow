@@ -10,7 +10,7 @@
 // is --dry-run: a non-dry-run run would mutate the real checkout). What this
 // smoke pins:
 //   - no version arg -> usage error, exit 1, nothing touched
-//   - a version whose preflight must fail (no CHANGELOG section for it)
+//   - a version whose preflight must fail (no signed verdict key set)
 //     dies in stage 0, BEFORE any branch/commit/PR side effect
 //   - red lines: shell:false spawns only, no model SDK, no API key handling
 //
@@ -43,10 +43,15 @@ assert.ok(fs.existsSync(ONECLICK), "release-oneclick.js must exist");
 }
 
 function run(args, env = {}) {
+  const childEnv = { ...process.env };
+  // An operator's own shell must never leak a real signing key into this
+  // test — every case gets this unset unless it opts in via env above.
+  delete childEnv.CW_RELEASE_VERDICT_PRIVKEY;
+  Object.assign(childEnv, env);
   const r = spawnSync(process.execPath, [ONECLICK, ...args], {
     cwd: pluginRoot,
     encoding: "utf8",
-    env: { ...process.env, ...env }
+    env: childEnv
   });
   return { code: r.status, out: r.stdout || "", err: r.stderr || "" };
 }
@@ -66,16 +71,18 @@ function treeState() {
 }
 
 // ---- Case: preflight failure stops stage 0 with NO side effects -------------
-// 99.99.99 has no CHANGELOG section in this repo, so release-flow's cut
-// preflight must reject it; oneclick must stop right there — no branch, no
-// commit, no PR attempt (the gh stub would loudly fail if reached).
+// With the signing key scrubbed by run(), release-flow's cut preflight must
+// reject 99.99.99 on every machine: .cw-release/verdict-signing.pub is
+// committed and no key is set, so check (b) rejects, deterministically;
+// oneclick must stop right there — no branch, no commit, no PR attempt (the
+// gh stub would loudly fail if reached).
 {
   const before = treeState();
   const branchBefore = spawnSync("git", ["branch", "--show-current"], { cwd: repoRoot, encoding: "utf8" }).stdout.trim();
   const r = run(["99.99.99", "--dry-run"], { CW_ONECLICK_GH_CMD: "false" });
   assert.notEqual(r.code, 0, "a failing preflight must fail the whole run");
   assert.match(r.out + r.err, /\[0\/4\] preflight/, "stage 0 must have started");
-  assert.match(r.out + r.err, /CHANGELOG\.md has no "## 99\.99\.99" section|preflight failed/, "the preflight reason must surface");
+  assert.match(r.out + r.err, /verdict-signing\.pub is committed|preflight failed/, "the preflight reason must surface");
   assert.doesNotMatch(r.out, /\[1\/4\]|\[2\/4\]|\[3\/4\]/, "no later stage may start after a failed preflight");
   assert.equal(treeState(), before, "a failed preflight must leave the tree untouched");
   const branchAfter = spawnSync("git", ["branch", "--show-current"], { cwd: repoRoot, encoding: "utf8" }).stdout.trim();
