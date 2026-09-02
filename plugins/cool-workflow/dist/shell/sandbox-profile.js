@@ -42,7 +42,6 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SandboxProfileError = exports.DEFAULT_SANDBOX_PROFILE_ID = exports.SANDBOX_PROFILE_SCHEMA_VERSION = void 0;
 exports.bundledSandboxProfileIds = bundledSandboxProfileIds;
-exports.isBundledSandboxProfileId = isBundledSandboxProfileId;
 exports.listBundledSandboxProfiles = listBundledSandboxProfiles;
 exports.showBundledSandboxProfile = showBundledSandboxProfile;
 exports.resolveSandboxProfileById = resolveSandboxProfileById;

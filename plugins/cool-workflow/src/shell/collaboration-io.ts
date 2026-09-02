@@ -146,7 +146,7 @@ export function setReviewPolicy(run: WorkflowRun, input: collab.ReviewPolicyInpu
   return { ...policy, surface: "collaboration", runId: run.id, policy };
 }
 
-export function resolveReviewPolicy(run: WorkflowRun, policy?: collab.ReviewGatePolicy): collab.ReviewGatePolicy | undefined {
+function resolveReviewPolicy(run: WorkflowRun, policy?: collab.ReviewGatePolicy): collab.ReviewGatePolicy | undefined {
   return policy || ensureCollaborationState(run).policy || undefined;
 }
 

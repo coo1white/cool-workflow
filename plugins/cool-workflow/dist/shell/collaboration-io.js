@@ -49,7 +49,6 @@ exports.recordApproval = recordApproval;
 exports.recordComment = recordComment;
 exports.recordHandoff = recordHandoff;
 exports.setReviewPolicy = setReviewPolicy;
-exports.resolveReviewPolicy = resolveReviewPolicy;
 exports.selfActorIdsForCandidate = selfActorIdsForCandidate;
 exports.deriveReviewState = deriveReviewState;
 exports.reviewGateErrors = reviewGateErrors;

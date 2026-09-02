@@ -30,7 +30,15 @@ const cases = [
   // live in report.ts in v2 at all — the compact-graph builder moved to
   // state-explosion/graph.ts as buildCompactGraphFromView — so this case checks
   // report.ts's real live pair instead.
-  { mod: "../dist/core/state/state-explosion/report", dead: [], live: ["buildStateExplosionReport", "buildOperatorDigest"] }
+  { mod: "../dist/core/state/state-explosion/report", dead: [], live: ["buildStateExplosionReport", "buildOperatorDigest"] },
+  // Round 2 (found once PR 3/6/7 rewrote away the last outside mentions):
+  // each of these 6 is called only inside its own file now.
+  { mod: "../dist/core/multi-agent/runtime", dead: ["requireRunTask"], live: ["summarizeMultiAgent"] },
+  { mod: "../dist/core/state/node-snapshot", dead: ["findRunNode"], live: ["snapshotNode"] },
+  { mod: "../dist/shell/collaboration-io", dead: ["resolveReviewPolicy"], live: ["deriveReviewState"] },
+  { mod: "../dist/shell/reclamation-io", dead: ["sha256OfFile"], live: ["planReclamation"] },
+  { mod: "../dist/shell/sandbox-profile", dead: ["isBundledSandboxProfileId"], live: ["sandboxPolicyForWorker"] },
+  { mod: "../dist/shell/workflow-app-loader", dead: ["listWorkflowAppRecords"], live: ["loadWorkflowApp"] }
 ];
 
 for (const { mod, dead, live } of cases) {

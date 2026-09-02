@@ -27,7 +27,6 @@
 // fail-closed".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.NodeSnapshotError = exports.NODE_SNAPSHOT_SCHEMA_VERSION = void 0;
-exports.findRunNode = findRunNode;
 exports.sourceFingerprint = sourceFingerprint;
 exports.snapshotNode = snapshotNode;
 exports.loadNodeSnapshot = loadNodeSnapshot;

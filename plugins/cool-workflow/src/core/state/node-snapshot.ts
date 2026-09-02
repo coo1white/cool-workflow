@@ -72,7 +72,7 @@ const SNAPSHOT_SECTIONS: NodeSnapshotSection["section"][] = [
 
 /** Look up a StateNode by id in `run.nodes`, or `undefined` if absent. Pure
  *  data lookup — no fs. */
-export function findRunNode(run: WorkflowRun, nodeId: string): StateNode | undefined {
+function findRunNode(run: WorkflowRun, nodeId: string): StateNode | undefined {
   return (run.nodes || []).find((candidate) => candidate.id === nodeId);
 }
 
