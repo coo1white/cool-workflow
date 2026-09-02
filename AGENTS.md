@@ -716,6 +716,10 @@ package.json — same convention as the VERIFY step above):
    it), creates the GitHub Release, then waits for `release-gate` +
    `npm-publish` and confirms `npm view`. A re-run after any failure
    RESUMES (an already-cut tag goes straight to the CI wait).
+3. **Wiki publish**: after a release, publish the wiki by hand. Clone the
+   wiki repo (`cool-workflow.wiki.git`). Copy the pages from
+   `plugins/cool-workflow/project/docs/wiki/` over their live twins.
+   Commit, naming the release commit the pages match. Push.
 
 Hard rules the tooling enforces (do not work around them by hand):
 
