@@ -308,6 +308,12 @@ and the bare `cw --resume --run <id>` form.
   main was never touched. Lesson: a stand-down must be the last message
   that worker ever gets, since any later message can wake it and it may
   act on stale state.
+- The wiki push was not done by the closing worker. It refused a
+  relayed yes for a public action, which was right. The architect, who
+  had the user's own word in their session, pushed 5d9dd3f from the
+  prepared clone as a fast-forward on e5ac7bb after checking the remote
+  had not moved. Rule from this: a public step goes to the agent that
+  holds the user's word, never to a subagent through a relay.
 
 ## Status ledger
 
