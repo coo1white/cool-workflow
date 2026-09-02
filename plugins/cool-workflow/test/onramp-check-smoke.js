@@ -70,14 +70,26 @@ function contract(files) {
   assert.ok(!codes(report).includes("runtime-smoke-required"), codes(report).join(", "));
 }
 
-// Type-only source changes are invalid even if a smoke exists.
+// Type-only source changes are invalid even if a smoke exists. Must use
+// src/core/types/ -- src/types/ is no longer excluded by isRuntimeSource.
 {
   const report = contract([
-    "plugins/cool-workflow/src/types/run.ts",
+    "plugins/cool-workflow/src/core/types/boundary.ts",
     "plugins/cool-workflow/test/onramp-check-smoke.js"
   ]);
   assert.equal(report.ok, false);
   assert.ok(codes(report).includes("types-without-runtime"));
+}
+
+// Not every file named types.ts is the live tree: src/core/state/types.ts
+// holds a real export (APP_CODE_EXECUTION_MODE), so it is not type-only.
+{
+  const report = contract([
+    "plugins/cool-workflow/src/core/state/types.ts",
+    "plugins/cool-workflow/test/onramp-check-smoke.js"
+  ]);
+  assert.equal(report.ok, true, codes(report).join(", "));
+  assert.ok(!codes(report).includes("types-without-runtime"));
 }
 
 // Surface changes need public docs.

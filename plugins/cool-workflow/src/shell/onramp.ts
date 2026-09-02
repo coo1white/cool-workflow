@@ -445,7 +445,7 @@ export function evaluateOnrampContract(
   const issues: OnrampContractIssue[] = [];
   const runtimeFiles = classifiable.filter(isRuntimeSource);
   const appFiles = classifiable.filter((file) => file.startsWith("plugins/cool-workflow/apps/"));
-  const typeFiles = classifiable.filter((file) => file.startsWith("plugins/cool-workflow/src/types/") && file.endsWith(".ts"));
+  const typeFiles = classifiable.filter((file) => file.startsWith("plugins/cool-workflow/src/core/types/") && file.endsWith(".ts"));
   const surfaceFiles = classifiable.filter(isSurfaceFile);
   const smokeFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+-smoke\.js$/.test(file));
   // WP1.1 (#360) restored a second, parallel test layer: pure `core/`
@@ -650,11 +650,11 @@ function stripPluginPrefix(file: string): string {
 }
 
 function isRuntimeSource(file: string): boolean {
-  return file.startsWith("plugins/cool-workflow/src/") && file.endsWith(".ts") && !file.startsWith("plugins/cool-workflow/src/types/");
+  return file.startsWith("plugins/cool-workflow/src/") && file.endsWith(".ts") && !file.startsWith("plugins/cool-workflow/src/core/types/");
 }
 
-// A "type source" is the src/types/ tree, the src/core/types/ tree, or a
-// file under src/ named types.ts.
+// A "type source" is the src/core/types/ tree (the live one), a file
+// under src/ named types.ts, or the old, now-empty src/types/ path.
 function isTypeSource(file: string): boolean {
   const pluginPath = stripPluginPrefix(file);
   if (!pluginPath.startsWith("src/") || !pluginPath.endsWith(".ts")) return false;
