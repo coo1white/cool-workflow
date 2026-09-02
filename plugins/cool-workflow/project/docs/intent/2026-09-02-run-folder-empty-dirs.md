@@ -188,18 +188,88 @@ Budget: docs only, no src. md count stays 135/135.
 
 ## Architecture snapshot diff (claims this program makes stale)
 
-(filled by the closing PR)
+Checked: the man pages under `plugins/cool-workflow/docs/*.7.md` that name
+the run folder layout or the worker folder, or list the directories a run
+holds — `worker-isolation.7.md`, `candidate-scoring.7.md`,
+`sandbox-profiles.7.md`, `error-feedback.7.md`,
+`coordinator-blackboard.7.md`, `multi-agent-topologies.7.md`,
+`multi-agent-operator-ux.7.md`, `run-retention-reclamation.7.md`,
+`dogfood-one-real-repo.7.md`, `end-to-end-golden-path.7.md`,
+`pipeline-runner.7.md`, and `run-registry-control-plane.7.md`.
+
+- `plugins/cool-workflow/docs/worker-isolation.7.md`'s FILES list named
+  `workers/<worker-id>/artifacts/`, `workers/<worker-id>/logs/`, and the
+  run-level `feedback/` as standing paths, each with no file inside it —
+  true before this program, when `allocateWorkerScope` made `artifacts/`
+  and `logs/` up front and `ensureFeedbackState` made `feedback/` on any
+  read. Both are lazy now. Fixed: each of the three lines now ends with
+  "(made only if the worker writes into it)" or "(made only if a
+  feedback record is written)".
+- `plugins/cool-workflow/docs/candidate-scoring.7.md` and
+  `plugins/cool-workflow/docs/sandbox-profiles.7.md` each had the same
+  bare `.cw/runs/<run-id>/feedback/` line in their own FILES list. Same
+  words added, same fix.
+- `plugins/cool-workflow/docs/coordinator-blackboard.7.md`'s Storage
+  Layout tree, `plugins/cool-workflow/docs/multi-agent-topologies.7.md`'s
+  topology-run-record paths, and
+  `plugins/cool-workflow/docs/error-feedback.7.md`'s own FILES list were
+  checked and left as they are. Each names a file with an id in place of
+  a name (`topics/<topic-id>.json`, `feedback/<feedback-id>.json`), never
+  a bare directory standing empty from the start, so none went stale.
+  `plugins/cool-workflow/docs/run-retention-reclamation.7.md`'s mention
+  of `ensureRunDirs` talks about the window before the first checkpoint,
+  not what the directory list holds, so it stayed true as written.
+- `plugins/cool-workflow/docs/dogfood-one-real-repo.7.md` says a worker's
+  command log is "written under the worker `logs/` directory" — true
+  only when a log is written, which is what that page's dry run always
+  does. Not stale.
+- The new words on the `- Artifacts:` and `- Logs:` lines in a worker's
+  `input.md` ("(make it if you need it)") are not quoted anywhere else
+  in the doc set, so no second fix was needed for them.
 
 ## What this spec got wrong (recorded at close)
 
-(filled at close)
+- The spec's step to delete the two `mkdirSync` lines for the worker's
+  `artifactsDir` and `logsDir` in `allocateWorkerScope` also took away
+  the only thing making their shared parent, `workerDir` — those two
+  lines, through `recursive: true`, were doing double duty.
+  `writeWorkerInput` then wrote `input.md` with a plain
+  `fs.writeFileSync`, which makes no parent on its own, so every worker
+  allocation broke with `ENOENT`. The spec's measured facts looked at
+  reads under the two directories and missed this side effect on their
+  parent. Fixed by making `writeWorkerInput` make its own parent
+  directory at the point of write, right before the write.
+- The spec's measured facts said `ensureRunDirs` in
+  `src/shell/run-store.ts` "still lists `paths.artifactsDir`". It also
+  still listed `paths.feedbackDir`, and the file's own header comment
+  was wrong about both. Both lines were removed and the comment
+  rewritten.
+- The spec put `test/run-retention-reclamation-smoke.js` under the reads
+  section only. The worker-folder change broke that file too, since it
+  writes into `scope.artifactsDir` and `scope.logsDir` with no
+  `mkdirSync` of its own. Because of this, the merge order had to be
+  serialised so one worker touched the file at a time.
+- The spec allowed "exactly the three (or a listed fourth)" failing
+  smokes for the run-level artifacts removal. It was four:
+  `test/run-paths-shell-boundary-smoke.js` asserts both `artifacts` and
+  `feedback` exist right after `ensureRunDirs`. This sits inside what
+  the spec allowed, and is written down here so the count stays honest.
+- Process: a subagent inherits the parent's working directory, so a
+  worker with no worktree of its own made its branch inside the
+  architect's checkout, and three agents ended up sharing one checkout.
+  Every worker's brief must now say "make your own worktree first", and
+  the manager must check work through `git show origin/...` and
+  `gh pr diff`, not a local file read.
+- Two workers stopped and reported back instead of working around the
+  spec — the `ENOENT` finding and the `feedbackDir` finding above. Both
+  stops were right, and both found a real fault in the spec.
 
 ## Status ledger
 
 | Item | State | PR |
 |---|---|---|
-| Intent + spec (this file) | open | |
-| Reads do not make directories | | |
-| A worker's folder holds only what the worker wrote | | |
-| The run-level artifacts directory goes too | | |
-| Closing ledger | | |
+| Intent + spec (this file) | merged | #632 3335d3d3 |
+| Reads do not make directories | merged | #636 e3e71554 |
+| A worker's folder holds only what the worker wrote | merged | #634 b23b72ea |
+| The run-level artifacts directory goes too | merged | #633 fe1d4e38 |
+| Closing ledger | merged — acceptance receipt `plugins/cool-workflow/project/docs/audits/run-folder-receipt-2026-09-02.json`, program verdict **PASS**, bound to commit `e3e71554f6084dbf114f95978642480d253207f8` | (this PR) |

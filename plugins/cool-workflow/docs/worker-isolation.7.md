@@ -93,10 +93,10 @@ Out-of-scope output is rejected and kept as:
 .cw/runs/<run-id>/workers/<worker-id>/manifest.json
 .cw/runs/<run-id>/workers/<worker-id>/input.md
 .cw/runs/<run-id>/workers/<worker-id>/result.md
-.cw/runs/<run-id>/workers/<worker-id>/artifacts/
-.cw/runs/<run-id>/workers/<worker-id>/logs/
+.cw/runs/<run-id>/workers/<worker-id>/artifacts/  (made only if the worker writes into it)
+.cw/runs/<run-id>/workers/<worker-id>/logs/       (made only if the worker writes into it)
 .cw/runs/<run-id>/nodes/
-.cw/runs/<run-id>/feedback/
+.cw/runs/<run-id>/feedback/  (made only if a feedback record is written)
 .cw/runs/<run-id>/report.md
 ```
 
