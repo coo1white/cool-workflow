@@ -3,8 +3,8 @@
 // validateAgainstSchema's per-keyword behavior: type (incl. arrays of
 // types, integer, null), const, enum, required, properties,
 // additionalProperties:false, items. SPEC/state-core.md
-// "src/schema-validate.ts — dependency-free JSON-schema subset",
-// "Schema-validator error strings".
+// "dependency-free JSON-schema subset" section
+// (now src/core/state/schema-validate.ts), "Schema-validator error strings".
 
 const assert = require("node:assert/strict");
 const { validateAgainstSchema } = require("../dist/core/state/schema-validate");

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // pipelinecore-runner-failstage — failPipelineStage: structured error
 // building, preserve-vs-discard failure node, feedback recording hook.
-// SPEC/pipeline-run.md "Pipeline kernel — src/pipeline-runner.ts"
+// SPEC/pipeline-run.md "Pipeline kernel" section
 // (failPipelineStage, now src/core/pipeline/runner.ts).
 
 const assert = require("node:assert/strict");

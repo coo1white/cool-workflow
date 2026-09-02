@@ -32,7 +32,7 @@ const {
 }
 
 // --- ledgerStableStringify: NO special-casing of top-level undefined -----
-// (src/ledger.ts's stableStringify — a top-level undefined is not a real
+// (src/core/hash.ts's ledgerStableStringify — a top-level undefined is not a real
 // call site in practice, but must not silently behave like the telemetry
 // variant.)
 {
@@ -49,7 +49,7 @@ const {
 }
 
 // --- telemetryStableStringify: top-level undefined -> the literal string
-// "null" (src/telemetry-attestation.ts's stableStringify). This is the exact
+// "null" (src/core/trust/telemetry-attestation.ts's stableStringify). This is the exact
 // point of divergence from ledgerStableStringify.
 {
   assert.equal(
@@ -79,7 +79,7 @@ const {
 // --- eventHashInput: JSON round-trips FIRST, dropping every undefined-
 // valued key (nested or top-level), THEN sorts-and-stringifies. This is a
 // pre-pass that changes the shape being hashed, not a formatting flag on the
-// same shape (src/trust-audit.ts's eventHash). --------------------------------
+// same shape (src/core/hash.ts's eventHashInput). --------------------------------
 {
   const eventSansHash = {
     kind: "worker.accept",

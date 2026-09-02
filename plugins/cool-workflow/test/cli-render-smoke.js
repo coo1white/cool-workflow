@@ -2,7 +2,7 @@
 "use strict";
 
 // cli-render-smoke -- the calm terminal presentation layer (v0.1.91): the cw-side Reporter
-// (src/reporter.ts) and the zero-dep term primitives (truncate / findings table / color-env).
+// (src/shell/reporter.ts) and the zero-dep term primitives (truncate / findings table / color-env).
 //
 // Asserts the Step-3 constraints directly, deterministically, with NO live model:
 //   * Reporter renders on a TTY (findings table + report path + status + transcript + next hint),

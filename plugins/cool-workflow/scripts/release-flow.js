@@ -10,7 +10,7 @@
 // DELEGATED through CW's agent backend config (CW_AGENT_COMMAND / CW_AGENT_ENDPOINT),
 // so whichever model you configure does the review. CW spawns the agent
 // argv-style (shell:false), inherits the agent's own env/key, and imports no
-// model SDK — the same red line as src/execution-backend.ts.
+// model SDK — the same red line as src/shell/execution-backend/agent.ts.
 //
 // Modes:
 //   node release-flow.js [--check]                 gate + review, no mutation (default)
@@ -339,7 +339,7 @@ function delegateReview(resultPath, inputPath) {
     // "node /abs/claude-p-agent.js {{input}} {{result}}" with cfg.args undefined,
     // and a durable agent-config.json command field is read verbatim (no split).
     // Split it on whitespace into binary + inline args — the SAME way the
-    // orchestrator does (src/execution-backend/agent.ts resolveAgentInvocation) —
+    // orchestrator does (src/shell/execution-backend/agent.ts resolveAgentInvocation) —
     // so we spawn the real binary, never one literally named
     // "node /abs/... {{input}}" (an instant ENOENT the old code mislabeled as a
     // timeout). An explicit cfg.args array still follows the inline args. A plain

@@ -131,7 +131,7 @@ for (const app of canonicalApps) {
   assert.equal(plan.workflowId, app.id);
   // CUTOVER AUDIT — REAL-GAP (v2): the `cw plan` CLI payload dropped the
   // `pendingTasks` field the old build's canonical plan summary emitted.
-  // Old builder: src/capability-core.ts planSummary() returned
+  // Old builder: the old capability-core module's planSummary() returned
   // { runId, workflowId, statePath, reportPath, pendingTasks }.
   // v2 builder: src/shell/pipeline-cli.ts emits
   // { schemaVersion, runId, workflowId, statePath, reportPath, taskCount }
@@ -145,7 +145,7 @@ for (const app of canonicalApps) {
   assert.equal(state.workflow.app.id, app.id);
   assert.equal(state.workflow.app.version, "0.2.7");
   // CUTOVER AUDIT — REAL-GAP (v2): the persisted run.workflow.app block dropped
-  // `metadata` (and `compatibility`). Old builder src/workflow-app-framework.ts
+  // `metadata` (and `compatibility`). The old workflow-app-framework module's
   // workflowAppRunMetadata() carried `metadata: record.app.metadata` (holds
   // canonical:true) into state; v2 builder src/core/workflow-apps/app-schema.ts
   // omits it, so state.workflow.app.metadata is undefined and reading .canonical

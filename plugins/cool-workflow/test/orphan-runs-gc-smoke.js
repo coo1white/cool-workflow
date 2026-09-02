@@ -3,9 +3,9 @@
 
 // orphan-runs-gc-smoke — manage run directories a killed/interrupted process left
 // behind BEFORE it ever wrote a state.json (`cw orphans list` / `cw orphans gc`).
-// This is orthogonal to `cw gc plan/run` (src/run-registry/gc.ts): those tier runs
-// that HAVE durable state; a directory with no state.json is invisible to that
-// system entirely (see src/run-registry/orphans.ts). Hermetic: seeds a throwaway
+// This is orthogonal to `cw gc plan/run` (now in src/shell/registry-cli.ts): those
+// tier runs that HAVE durable state; a directory with no state.json is invisible
+// to that system entirely (same file). Hermetic: seeds a throwaway
 // repo directly on disk (no agent, no network), then asserts list/gc find and
 // reclaim only genuine orphans — never a known (state.json-bearing) run, never a
 // run whose state.json failed to write cleanly (corrupt-but-present), and never

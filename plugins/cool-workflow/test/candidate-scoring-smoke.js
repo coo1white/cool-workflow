@@ -5,8 +5,8 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
-// v2 layout: flat src/state.ts split into shell/run-store (fs-backed run I/O)
-// + core/state/*. state-node moved to core/state/state-node. The candidate
+// v2 layout: the old flat state module split into shell/run-store (fs-backed
+// run I/O) + core/state/*. state-node moved to core/state/state-node. The candidate
 // scoring surface split into a pure core/multi-agent/candidate-scoring and an
 // fs-backed shell/candidate-scoring-io; the register/score/rank/select/reject/
 // summarize functions used here are the shell IO wrappers (same signatures).

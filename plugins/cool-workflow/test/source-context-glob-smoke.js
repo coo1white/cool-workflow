@@ -4,8 +4,8 @@
 // source-context-glob-smoke: the profile matcher must honour `**` (cross a
 // directory separator) distinctly from `*` (a single segment). Before the fix
 // every `*` compiled to `[^/]*`, so a standard gitignore-style `**/*.test.ts`
-// silently matched only ONE level deep (`src/a.test.ts` but not
-// `src/x/y/z.test.ts`) — a foreign-repo profile under-excluded without a word.
+// silently matched only a test file one level deep (see the fixtures below)
+// but not one three levels deep — a foreign-repo profile under-excluded without a word.
 
 const assert = require("node:assert/strict");
 const cp = require("node:child_process");

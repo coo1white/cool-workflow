@@ -21,16 +21,16 @@
 //
 // CUTOVER AUDIT (v2) — NO-EQUIVALENT. This smoke asserts an OLD internal
 // TYPE-LAYER structure that v2 legitimately does not have:
-//   - src/types/boundary.ts (the weld module) — GONE in v2.
+//   - the old types/boundary weld module — GONE in v2.
 //   - Its exports OneWayData<T>, IsOneWayData<T>, AssertTrue<T extends true>
 //     — GONE (grep src for "IsOneWayData"/"AssertTrue"/"OneWayData" = 0 hits).
 //   - The three welds AssertTrue<IsOneWayData<{ExecutionResultEnvelope,
 //     ResultEnvelope,UsageRecord}>> — GONE.
-//   - The barrel src/types.ts (which re-exported ./types/boundary) — GONE;
-//     v2 has no top-level src/types.ts (only src/core/state/types.ts and
+//   - The old top-level types barrel (which re-exported ./types/boundary)
+//     — GONE; v2 has no top-level types barrel (only src/core/state/types.ts and
 //     src/shell/execution-backend/types.ts, neither carries the weld).
 // ExecutionResultEnvelope itself DID survive the rebuild — it moved from
-// src/types/execution-backend.ts to src/shell/execution-backend/types.ts —
+// the old types/execution-backend module to src/shell/execution-backend/types.ts —
 // so the import below is repointed to its real v2 home. But EVERY one of the
 // four checks needs IsOneWayData/AssertTrue from a "boundary" module that has
 // no v2 equivalent to adapt to, so the smoke cannot be made green without
@@ -165,7 +165,7 @@ function main() {
   }
 
   // ---- 4. the welds stay present in source ----------------------------------
-  // v2 has no boundary weld module and no top-level src/types.ts barrel, so
+  // v2 has no boundary weld module and no top-level types barrel, so
   // both reads below fail (ENOENT) — that IS the NO-EQUIVALENT gap. Kept as the
   // real v2 paths so a Phase-B fix (re-adding the weld) turns this green.
   {

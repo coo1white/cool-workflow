@@ -6,8 +6,8 @@
 // the two changes persisted record order and eval parity. This file only
 // tests THIS sorting variant.
 //
-// Evidence: SPEC/state-core.md "Helpers (src/state-explosion/helpers.ts):
-// ... unique (drops falsy, sorts) ..."; v2/PLAN.md byte-compat item 3.
+// Evidence: SPEC/state-core.md "Helpers" list (now src/core/state/state-explosion/helpers.ts):
+// "... unique (drops falsy, sorts) ..."; v2/PLAN.md byte-compat item 3.
 
 const assert = require("node:assert/strict");
 const { unique } = require("../dist/core/state/state-explosion/helpers");

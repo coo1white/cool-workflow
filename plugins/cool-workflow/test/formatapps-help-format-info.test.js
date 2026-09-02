@@ -6,8 +6,8 @@
 // line that always appears.
 //
 // Evidence: SPEC/workflow-apps.md "cw info <id>" / showApp shape;
-// src/core/format/help.ts's formatInfo (byte-exact-in-spirit port of
-// src/orchestrator.ts's formatInfo, color stripped).
+// src/core/format/help.ts's formatInfo (byte-exact-in-spirit port of the
+// old orchestrator module's formatInfo, color stripped).
 
 const assert = require("node:assert/strict");
 const { formatInfo } = require("../dist/core/format/help");

@@ -3,8 +3,8 @@
 
 // CUTOVER AUDIT (v2): GREEN — repointed to v2's module layout, intent kept.
 //
-// The OLD build split the MCP surface into src/mcp-surface.ts (a separate
-// module the transport imported) + dist/capability-registry.js with two
+// The OLD build split the MCP surface into a separate mcp-surface module
+// (the transport imported) + dist/capability-registry.js with two
 // per-tool helpers `mcpCapabilityForTool` / `mcpToolDefinition`. v2 removed
 // both flat modules; the same surface now lives in:
 //   - src/mcp-server.ts (entry)  -> imports ./mcp/server (the transport);

@@ -6,7 +6,7 @@
 //
 // Evidence: SPEC/state-core.md "Human formatters (CLI text only, never
 // --json)"; src/core/format/state-explosion-text.ts (byte-exact port of
-// src/state-explosion/format.ts).
+// the old flat state-explosion format module).
 
 const assert = require("node:assert/strict");
 const { formatStateExplosionReport } = require("../dist/core/format/state-explosion-text");

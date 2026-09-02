@@ -11,7 +11,7 @@
 // (which release-flow's own "no reviewer agent configured" hint suggests), that
 // var leaked into the gate's smoke children. CW_NO_AUTO_AGENT=1 only blocks PATH
 // auto-detection — an explicit CW_AGENT_COMMAND/ENDPOINT still resolves (flags >
-// env > file, src/agent-config.ts) — so every fail-closed / no-agent / blocked
+// env > file, src/shell/agent-config.ts) — so every fail-closed / no-agent / blocked
 // smoke false-FAILED and the cut REJECTED at the gate, even though
 // `npm run release:check` (run without that env var) passed.
 //
@@ -38,7 +38,7 @@ try {
   fs.copyFileSync(path.join(testDir, "run-all.js"), runner);
 
   // The ambient agent/backend env that must NOT reach a smoke child. Mirrors the
-  // env layer of src/agent-config.ts (agentConfigFromEnv) + CW_BACKEND.
+  // env layer of src/shell/agent-config.ts (agentConfigFromEnv) + CW_BACKEND.
   const AGENT_ENV = {
     CW_AGENT_COMMAND: "claude -p {{input}}",
     CW_AGENT_ENDPOINT: "https://example.invalid/agent",

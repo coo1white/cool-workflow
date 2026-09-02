@@ -65,7 +65,7 @@ function colorOn(env, stderr) {
   if (env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== "" && env.FORCE_COLOR !== "0") return true;
   return Boolean(stderr.isTTY);
 }
-// Behaviorally IDENTICAL to src/term.ts truncate() — the two copies exist only because the wrapper
+// Behaviorally IDENTICAL to src/shell/term.ts truncate() — the two copies exist only because the wrapper
 // is a self-contained plain-JS "config" (no import of the TS build). cli-render-smoke cross-checks
 // them on shared cases so this invariant cannot silently drift: maxWidth<=0 → ""; a string that fits
 // returns the ORIGINAL text (ANSI intact); otherwise stripped + sliced + "…".
@@ -453,7 +453,7 @@ function emitReport(model, usage, resultText) {
 // 1)` is readable AFTER the fact. CW core keeps only the child's stdout + exit
 // code (byte-stable evidence), so without this the real reason — a relay 5xx, an
 // auth error, a killed run — is lost. The worker dir already has a `logs/` folder
-// (src/worker-isolation.ts); resultPath is `<workerDir>/result.md`, so its
+// (src/shell/worker-isolation.ts); resultPath is `<workerDir>/result.md`, so its
 // `logs/agent-stderr.log` sibling is the natural home. Advisory only: never throws,
 // never changes the exit code or the recorded evidence.
 function persistStderr(resultPath, text) {

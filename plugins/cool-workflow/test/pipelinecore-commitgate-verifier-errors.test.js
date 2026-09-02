@@ -3,8 +3,8 @@
 // verifier-required / verifier-not-found / verifier-wrong-kind /
 // verifier-not-verified / verifier-missing-evidence / evidence-ungrounded
 // / evidence-unresolvable / empty-capture error codes, each fired under
-// its own precise condition. SPEC/pipeline-run.md "Commit gate —
-// src/commit.ts", "Commit-gate error codes (fixed strings)".
+// its own precise condition. SPEC/pipeline-run.md "Commit gate" section (now
+// src/core/pipeline/commit-gate.ts), "Commit-gate error codes (fixed strings)".
 
 const assert = require("node:assert/strict");
 const { resolveCommitGate } = require("../dist/core/pipeline/commit-gate");

@@ -2,8 +2,8 @@
 // pipelinecore-loopexpansion-predicates-maxexpansion — registerLoopPredicate/
 // getLoopPredicate/hasLoopPredicate registry, the built-in "no-new-findings"
 // and "single-round" predicates, and maxLoopExpansion's static worst-case
-// formula. SPEC/pipeline-run.md "loop() expansion — src/loop-expansion.ts +
-// maybeExpandLoop" (now src/core/pipeline/loop-expansion.ts).
+// formula. SPEC/pipeline-run.md "loop() expansion" section + maybeExpandLoop
+// (now src/core/pipeline/loop-expansion.ts).
 
 const assert = require("node:assert/strict");
 const { registerLoopPredicate, getLoopPredicate, hasLoopPredicate, maxLoopExpansion } = require("../dist/core/pipeline/loop-expansion");

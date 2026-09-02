@@ -142,8 +142,8 @@ function writeCopy(tag, mutate) {
   }
 }
 
-// (g) handler routing: the `cw run …` family now lives in src/cli/handlers/run.ts
-// (carved out of the command-surface god-dispatch). Prove the dispatcher routes to
+// (g) handler routing: the `cw run …` family now lives in its own handler
+// (src/shell/registry-cli.ts), carved out of the old command-surface god-dispatch. Prove the dispatcher routes to
 // it and the fail-closed `required()` guards + the inner default Usage throw survived
 // the move byte-for-byte. Only assert verbs that GENUINELY fail closed via required():
 // show/resume/rerun/export/verify-import with no id -> exit≠0 + "Missing run id".

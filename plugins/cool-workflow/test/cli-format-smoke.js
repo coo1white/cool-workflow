@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 
-// cli-format-smoke: the CLI render helpers extracted from command-surface.ts into
-// src/cli/format.ts are pure string formatters. Pin their output so the
-// god-object extraction stays behaviour-preserving.
+// cli-format-smoke: the CLI render helpers extracted from the old
+// command-surface module's format module are pure string formatters, now
+// spread across shell/*.ts. Pin their output so the god-object extraction stays behaviour-preserving.
 
 const assert = require("node:assert/strict");
 const { humanBytes } = require("../dist/shell/run-registry-io");

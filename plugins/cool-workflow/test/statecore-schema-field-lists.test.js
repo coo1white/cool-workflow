@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // statecore-schema-field-lists (milestone 3) — pins the exact field-list
-// constants in core/state/schema.ts against SPEC/state-core.md's
-// "src/run-state-schema.ts — the single field-list source" section.
+// constants in core/state/schema.ts against SPEC/state-core.md's "the
+// single field-list source" section (now src/core/state/schema.ts).
 
 const assert = require("node:assert/strict");
 const {

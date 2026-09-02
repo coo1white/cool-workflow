@@ -309,8 +309,8 @@ assert.match(runFail(["schedule", "complete", "missing-id"]).stderr, /Scheduled 
 assert.match(runFail(["routine", "create"]).stderr, /Missing required prompt/);
 assert.match(runFail(["routine", "fire", "slack"]).stderr, /Unsupported routine trigger kind: slack/);
 
-// The schedule/routine/sched verbs are dispatched into src/cli/handlers/scheduling.ts —
-// each bare verb fails closed with its carved handler's usage string.
+// The schedule/routine/sched verbs are dispatched into their own handler
+// (src/shell/registry-cli.ts) — each bare verb fails closed with its carved handler's usage string.
 assert.match(runFail(["schedule"]).stderr, /schedule create\|list\|delete/, "cw schedule routes through the carved handler");
 assert.match(runFail(["routine"]).stderr, /routine create\|list\|delete\|fire\|events/, "cw routine routes through the carved handler");
 assert.match(runFail(["sched"]).stderr, /sched plan\|lease\|release/, "cw sched routes through the carved handler");

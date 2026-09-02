@@ -91,8 +91,8 @@ fs.writeFileSync(stub, [
 const agent = `${process.execPath} ${stub} {{result}}`;
 
 // REAL-GAP (v2): this smoke has no ../dist imports to repoint — it drives the CLI
-// with `--link <url>`. v2 has NO remote-source materialization: the old build's
-// src/remote-source.ts (materializeRemote / isRemoteUrl / validateRemoteUrl and the
+// with `--link <url>`. v2 has NO remote-source materialization wired to the CLI:
+// the old build's remote-source module (materializeRemote / isRemoteUrl / validateRemoteUrl and the
 // zip-slip / tar-slip / symlink / decompression-bomb / SSRF guards) was not ported,
 // and v2's shell/execution-backend/remote.ts is an unrelated execution BACKEND.
 // v2 accepts `--link` (it is a runtime key alias) but silently ignores it: the drive

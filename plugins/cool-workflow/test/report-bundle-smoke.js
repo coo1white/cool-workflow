@@ -14,7 +14,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync, spawnSync } = require("node:child_process");
 
-// v2 layout: flat src/state.ts split into shell/run-store (run I/O) + core/state;
+// v2 layout: the old flat state module split into shell/run-store (run I/O) + core/state;
 // telemetry-ledger + telemetry-attestation moved under shell/core-trust.
 const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
 const { appendTelemetryAttestation, computeRecordHash } = require("../dist/shell/telemetry-ledger-io");

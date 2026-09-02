@@ -359,8 +359,8 @@ assert.equal(reloaded.collaboration.approvals.length, run.collaboration.approval
 assert.ok(reloaded.commits.find((c) => c.id === goodCommit.id).review.approvers.includes("dave"), "shipped commit's approver persists");
 
 // ---- 11. BARE-VERB ROUTING: each carved verb still reaches its real handler --
-// After carving approve/reject/comment/handoff/review into
-// src/cli/handlers/collaboration.ts, a bare invocation must FAIL CLOSED with the
+// After carving approve/reject/comment/handoff/review into their own
+// capability-table CLI bindings, a bare invocation must FAIL CLOSED with the
 // SAME error the in-handler throw site raises (byte-identical behavior). Each
 // regex is reasoned from the real throw string in the source — never weakened.
 function expectFail(args, re, why) {

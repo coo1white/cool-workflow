@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // pipelinecore-runner-findrunnable — findRunnablePipelineStages: every
 // node x every stage, kept only when kind/status/artifacts/evidence/
-// verifier-gate all pass. SPEC/pipeline-run.md "Pipeline kernel —
-// src/pipeline-runner.ts" (findRunnablePipelineStages).
+// verifier-gate all pass. SPEC/pipeline-run.md "Pipeline kernel" section
+// (findRunnablePipelineStages, now src/core/pipeline/runner.ts).
 
 const assert = require("node:assert/strict");
 const { createDefaultPipelineContract } = require("../dist/core/pipeline/contract");

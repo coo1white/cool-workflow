@@ -22,8 +22,8 @@ const { validateAgainstSchema } = require(path.join(pluginRoot, "dist/core/state
 // v2 cutover REAL-GAP: the VERIFIER GATE half is missing. Old dist/verifier.js
 // exported validateResultEnvelope, which — after the evidence/finding checks —
 // enforced task.schema against the accepted result and threw
-// "…violates declared schema…" (fail-closed ⇒ the drive parks the hop). See old
-// src/verifier.ts (commit 7639165) validateResultEnvelope, Track 3.
+// "…violates declared schema…" (fail-closed ⇒ the drive parks the hop). See the
+// old flat verifier module (commit 7639165) validateResultEnvelope, Track 3.
 //   v2 has NO such wiring: dist/shell/verifier.js (the successor of dist/
 //   verifier.js) exports only { taskRequiresEvidence }; there is no
 //   validateResultEnvelope anywhere, and validateAgainstSchema is never imported

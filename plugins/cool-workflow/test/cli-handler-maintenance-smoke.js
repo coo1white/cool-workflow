@@ -2,8 +2,8 @@
 "use strict";
 
 // cli-handler-maintenance-smoke: the `cw gc`, `cw telemetry`, and `cw demo`
-// groups were carved out of the command-surface god-dispatch into
-// src/cli/handlers/maintenance.ts. Guard the dispatcher->handler routing and
+// groups were carved out of the old command-surface god-dispatch into
+// their own gc/telemetry/demo handlers. Guard the dispatcher->handler routing and
 // each group's usage shape. Routing is asserted via the required/usage path
 // (bare verb, bogus subcommand, and gc verify's `Missing run id`), NOT via the
 // fail-closed exit gates — those depend on registry/ledger contents a fresh
