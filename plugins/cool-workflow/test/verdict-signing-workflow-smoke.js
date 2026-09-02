@@ -169,7 +169,7 @@ function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = fa
   // count on the fixture's verify-bump-reproduction.js being the one used.
   fs.copyFileSync(RELEASE_VERDICT_SCRIPT, path.join(scriptsDir, "verify-release-verdict.js"));
   fs.writeFileSync(path.join(dir, "README.md"), "x\n");
-  // verify-bump-reproduction.js runs `npm install` + `npm run bump:version` +
+  // verify-bump-reproduction.js runs `npm ci` + `npm run bump:version` +
   // `npm run sync:project-index` for real — this fixture is a MINIMAL real
   // npm project (stub scripts that no-op) so that orchestration is genuinely
   // exercised (worktree creation, npm invocation, tree-hash comparison)
@@ -178,13 +178,34 @@ function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = fa
   // directly against real repo history (see the header comment above).
   const pkg = { name: "fixture", version: "1.0.0", scripts: { "bump:version": "true", "sync:project-index": "true" } };
   // breakParentInstall: an unresolvable dependency baked into R (the approved
-  // parent, checked out fresh into the scratch worktree) so `npm install`
+  // parent, checked out fresh into the scratch worktree) so `npm ci`
   // itself fails during REPRODUCTION — standing in for a transient registry
   // hiccup, to prove that fails closed rather than being silently treated as
   // "reproduction succeeded".
   if (breakParentInstall) pkg.dependencies = { "this-package-definitely-does-not-exist-cw-smoke": "1.0.0" };
   fs.writeFileSync(path.join(dir, "plugins", "cool-workflow", "package.json"), `${JSON.stringify(pkg, null, 2)}\n`);
-  if (!breakParentInstall) {
+  if (breakParentInstall) {
+    // `npm install --package-lock-only` cannot generate a lock for a
+    // dependency that does not exist, so write one by hand, in sync with
+    // package.json above — `npm ci` then accepts it and fails for real, at
+    // the actual fetch, the same shape as a genuine registry problem.
+    const lock = {
+      name: pkg.name,
+      version: pkg.version,
+      lockfileVersion: 3,
+      requires: true,
+      packages: {
+        "": { name: pkg.name, version: pkg.version, dependencies: pkg.dependencies },
+        "node_modules/this-package-definitely-does-not-exist-cw-smoke": {
+          version: "1.0.0",
+          resolved:
+            "https://registry.npmjs.org/this-package-definitely-does-not-exist-cw-smoke/-/this-package-definitely-does-not-exist-cw-smoke-1.0.0.tgz",
+          integrity: `sha512-${"a".repeat(86)}==`
+        }
+      }
+    };
+    fs.writeFileSync(path.join(dir, "plugins", "cool-workflow", "package-lock.json"), `${JSON.stringify(lock, null, 2)}\n`);
+  } else {
     spawnSync("npm", ["install", "--package-lock-only", "--silent"], { cwd: path.join(dir, "plugins", "cool-workflow"), encoding: "utf8" });
   }
   fs.mkdirSync(path.join(dir, ".cw-release"), { recursive: true });
@@ -385,7 +406,7 @@ function runScript(script, cwd, env) {
   assert.ok(!fs.existsSync(marker), "(h) verify-bump-reproduction.js must never be invoked when no pubkey is committed");
 }
 
-// (i) npm install failing (e.g. an unresolvable dependency, standing in for
+// (i) npm ci failing (e.g. an unresolvable dependency, standing in for
 // any transient registry/infra issue) during REPRODUCTION (i.e. baked into
 // the APPROVED PARENT R, which is what the scratch worktree actually checks
 // out and installs from) must fail CLOSED — an infrastructure hiccup must
@@ -393,8 +414,8 @@ function runScript(script, cwd, env) {
 {
   const { dir } = buildFixture({ committedPubkey: true, sigFor: "real", breakParentInstall: true });
   const r = runScript(gateScript, dir);
-  assert.notEqual(r.code, 0, `(i) a failing npm install must fail closed, not silently pass:\n${r.out}`);
-  assert.match(r.out + r.err, /npm install failed/, "(i) should identify npm install as the failing step");
+  assert.notEqual(r.code, 0, `(i) a failing npm ci must fail closed, not silently pass:\n${r.out}`);
+  assert.match(r.out + r.err, /npm ci failed/, "(i) should identify npm ci as the failing step");
 }
 
 // (j) BUG-1 regression: THE FILENAME-VS-CONTENT REPLAY ATTACK. A verdict
