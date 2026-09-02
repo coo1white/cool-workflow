@@ -171,9 +171,11 @@ closing PR runs last.
   body, budget held, Chain line, own BACKLOG row deleted, no internal
   labels in committed text, auto-merge armed only after CodeQL is
   green.
-- Architect (program), on main: `BACKLOG.md` has exactly four rows
-  (async lock, schedule shape, containment, purity with numbers);
-  `grep -rn commitMessageTemplate src` is empty; `onramp:check` on a
+- Architect (program), on main: `BACKLOG.md` has exactly six rows
+  (async lock, schedule shape, containment, purity with numbers, the
+  onramp `typeFiles` retarget to `src/core/types/`, the stale
+  `mcp-tool-call-coverage-smoke.js` header count); `grep -rn
+  commitMessageTemplate src` is empty; `onramp:check` on a
   branch that only deletes one field from `src/core/state/types.ts`
   reports ok with the file in `deleteOnly`, and a branch that deletes
   one code line from `src/shell/drive.ts` still fails
@@ -181,16 +183,99 @@ closing PR runs last.
   holds `[-<vendor>]`; `release:check` 18/18; `test:gate` 265/265;
   `growth:check` md 133/135.
 
+## Measured facts (checked by command before design)
+
+- Purity baseline: 14 sites in 8 core files; 13 are default-parameter
+  fallbacks; a call-span scan counts 26 src call sites in 15 files and
+  about 280 test call sites in about 60 files that omit `now`/`env`.
+- `commitMessageTemplate` lives in `src/core/state/types.ts`;
+  `src/types/` does not exist in the tree; the gate that blocks a
+  delete is `runtime-smoke-required`, not `types-without-runtime` as
+  the BACKLOG row said.
+- `src/types/` has not existed since `bcb5db0d` (#334); the onramp
+  `types-without-runtime` rule watches that dead path, so it can not
+  fire on any real file today.
+- The `-q` help row is 75 of 80 columns; three byte pins hold it
+  (`help.ts`, the layout test, the `v2` fixture); the folded row is 73
+  columns with the description at column 45, same as the `--link` row.
+- The capability registry has 244 rows; at runtime none falls to
+  `notYetImplemented`; three smokes still say in their header that
+  they "stay red" and all three pass.
+
+## Paths weighed (complexity / upkeep / cost / can it be undone)
+
+- Purity: (1) thread `now`/`env` through every caller: low complexity,
+  high cost (about 300 call sites), easy to undo; (2) teach the gate
+  to accept the default-parameter form: low cost, but a policy change
+  against `PLAN.md` "Target shape"; (3) keep the row parked with
+  numbers: zero cost, fully undoable. Chosen: 3, until an intent
+  decides between 1 and 2.
+- Delete-only cycle: (1) any delete-only src file skips the smoke
+  rule: simple, but a deleted safety check would pass with no new
+  proof; (2) only type sources skip it: one more small function, no
+  such hole. Chosen: 2.
+- `-q` row: (1) wrap the vendor list onto a second line: grows with
+  vendors, and a 2-space continuation reads as a command token to the
+  help parity parser; (2) build the row from the vendor list: still
+  grows; (3) one `[-<vendor>]` token: never grows, the Flags block
+  keeps the list. Chosen: 3.
+
+## Architecture snapshot diff (claims this round makes stale)
+
+- The onramp contract now classes changed files by their diff
+  (comment-only, delete-only), not by path alone. Any doc that
+  describes the contract as path-only is stale; the rebuild capture
+  `project/docs/rebuild/SPEC/scripts-runtime.md` stays as history.
+- `project/docs/ARCHITECTURE_PLAN.md` no longer lists
+  `commitMessageTemplate` as a field with no reader.
+- `BACKLOG.md` is 6 rows; the three closed ideas are recorded only in
+  this file.
+- Checked `plugins/cool-workflow/docs/*.7.md` and
+  `plugins/cool-workflow/README.md` for the word "onramp": the only
+  hits are in `docs/doctor.7.md`, and they name the unrelated `cw
+  doctor --onramp` quick-start flag, not the change-file contract this
+  round touched. Nothing live is stale.
+
 ## What this spec got wrong (recorded at close)
 
-(filled at close)
+1. The spec's `-q` help section names four files and says they are the
+   files for that change; three sit under `plugins/cool-workflow/`, but
+   `v2/conformance/cases/fixtures/cli-help/_root.txt` sits at the repo
+   root, next to `plugins/`, not inside it.
+2. The spec's acceptance asks that `onramp:check` "reports ok with the
+   file in `deleteOnly`", but step 4 only asked to pass `deleteOnly`
+   into `evaluateOnrampContract`. The printed report in
+   `plugins/cool-workflow/scripts/onramp-check.js` had no `deleteOnly`
+   field at all, so one more line was needed to print it.
+3. The same spec section told the worker to grep for `-deepseek|-muse]`
+   and skip the rebuild SPEC captures. The skip was never needed: those
+   captures hold an older four-vendor form and never match that grep.
+   The grep found exactly the three files the spec named, and no more.
+4. The src budget of +40 was tight, not roomy. The first build of the
+   delete-only change came in at +51 and had to be made smaller (two
+   calls put on one line, comments cut) to land at +38.
+5. The spec's order says the two code PRs "rebase once the docs PR
+   lands" — one rebase. The delete-only change in fact needed two
+   fetch-and-rebase rounds, because the spec PR itself and then two
+   row-deleting PRs all landed while it was being built. The `-q`
+   change needed none: its `BACKLOG.md` hunk did not touch the same
+   rows.
+6. What the spec got right and is worth saying: the claim that the
+   blocker was stale (a delete of `commitMessageTemplate` fails
+   `runtime-smoke-required`, not `types-without-runtime`) held up, and
+   the smoke case proves it. Every gate number in the acceptance list
+   was met.
+
+No worker needed a fix round: all three build PRs passed review on the
+first round.
 
 ## Status ledger
 
 | Item | State | PR |
 |---|---|---|
-| Intent + spec (this file) | open | |
-| Three rows closed for good + purity row re-measured | | |
-| Delete-only type changes are a valid cycle | | |
-| `-q` help line vendor fold | | |
-| Closing ledger | | |
+| Intent + spec (this file) | merged | #619 (`80d0eb78`) |
+| Three rows closed for good + purity row re-measured | merged | #620 (`145d3fa6`) |
+| Delete-only type changes are a valid cycle | merged | #622 (`9b4f785d`) |
+| `-q` help line vendor fold | merged | #621 (`33f44fbf`) |
+| onramp type source watches `src/core/types` | merged | #624 (`f5001c67`) |
+| Closing ledger | merged | #623 |
