@@ -67,7 +67,7 @@ function buildBundle(label, opts = {}) {
     });
   }
 
-  fs.writeFileSync(path.join(runDir, "report.md"), `# Report for ${runId}\n\nFinding: src/server.js:18 — example cited evidence.\n`, "utf8");
+  fs.writeFileSync(path.join(runDir, "report.md"), `# Report for ${runId}\n\nFinding: app/server.js:18 — example cited evidence.\n`, "utf8");
 
   if (opts.tamper) {
     const ledgerPath = path.join(runDir, "telemetry.json");
@@ -197,7 +197,7 @@ function reseal(record) {
   assert.equal(v.ok, true, "bundle verifies");
   assert.equal(v.reportExtractedTo, out, "reports where it wrote the report");
   assert.ok(fs.existsSync(out), "report.md extracted to disk");
-  assert.match(fs.readFileSync(out, "utf8"), /src\/server\.js:18/, "extracted report carries the cited evidence");
+  assert.match(fs.readFileSync(out, "utf8"), /app\/server\.js:18/, "extracted report carries the cited evidence");
 }
 
 // --- 6. REAL CLI surface: clean exits 0, forged exits 1 (fail-closed exit code) ---

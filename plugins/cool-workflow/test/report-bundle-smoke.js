@@ -62,7 +62,7 @@ function persistRun(label, opts = {}) {
     fs.writeFileSync(ledgerPath, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
   }
   if (!opts.noReport) {
-    fs.writeFileSync(path.join(runDir, "report.md"), `# Report for ${runId}\n\nFinding: src/server.js:18 — cited evidence.\n`, "utf8");
+    fs.writeFileSync(path.join(runDir, "report.md"), `# Report for ${runId}\n\nFinding: app/server.js:18 — cited evidence.\n`, "utf8");
   }
 
   saveCheckpoint({
@@ -206,7 +206,7 @@ function cliJson(cwd, args, extraEnv) {
   const result = JSON.parse(r.stdout);
   assert.equal(result.reportExtractedTo, human, "reports where it wrote the human report");
   assert.ok(fs.existsSync(human), "human-readable report.md written next to the bundle");
-  assert.match(fs.readFileSync(human, "utf8"), /src\/server\.js:18/, "companion report carries the cited evidence");
+  assert.match(fs.readFileSync(human, "utf8"), /app\/server\.js:18/, "companion report carries the cited evidence");
 }
 
 process.stdout.write("report-bundle-smoke: ok\n");

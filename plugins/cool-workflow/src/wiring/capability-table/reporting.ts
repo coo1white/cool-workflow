@@ -178,7 +178,7 @@ REGISTRY_BY_CAPABILITY.get("worker.summary")!.mcp!.handler = (args) => workerSum
 
 // ---- worker list|show|manifest|output|fail|validate (CLI + MCP) ----------
 // Each worker lifecycle verb over a run. The old build routed all of these
-// via src/cli/handlers/worker.ts; v2 shipped only worker.summary bound, so the
+// via its worker handler module; v2 shipped only worker.summary bound, so the
 // rest fell through to the worker.usage error. positionals: [runId, workerId,
 // resultFile].
 

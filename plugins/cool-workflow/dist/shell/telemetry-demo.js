@@ -238,7 +238,7 @@ function runBundleDemo(options = {}) {
             now: DEMO_NOW,
         });
     }
-    fs.writeFileSync(path.join(runDir, "report.md"), "# Architecture review\n\nRisk: src/server.js:18 — unauthenticated route.\n", "utf8");
+    fs.writeFileSync(path.join(runDir, "report.md"), "# Architecture review\n\nRisk: app/server.js:18 — unauthenticated route.\n", "utf8");
     const attestedCount = HOPS.filter((h) => h.attestation === "attested").length;
     const fullRun = {
         schemaVersion: 1,

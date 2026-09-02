@@ -17,8 +17,8 @@ exports.payloadProbePlan = payloadProbePlan;
 exports.buildParityReport = buildParityReport;
 const registry_core_1 = require("./registry-core");
 // CLI <-> MCP parity planning + report. Ported from the old flat build's
-// src/capability-registry.ts (its single source of parity data) onto this
-// table's row shape. Same rule as that file's header: a capability marked
+// capability-registry module (its single source of parity data) onto this
+// table's row shape. Same rule as that module's header: a capability marked
 // `payloadIdentical` (the default for `surface: "both"`) MUST return a
 // byte-for-byte equal JSON payload from `cw <cmd> --json` and from the
 // `cw_<tool>` MCP result (whitespace aside); any divergence is drift. A
