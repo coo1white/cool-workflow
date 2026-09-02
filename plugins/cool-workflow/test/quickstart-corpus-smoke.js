@@ -123,7 +123,7 @@ try {
   // and assertions 1-4 all pass (routing + investigate prompt + notes.md cite).
   // Only THIS label check fails: the v2 report renderer DOES gate the label on
   // domain (src/shell/report.ts reads workflowApp?.metadata?.domain ===
-  // "research"), and apps/research-synthesis/app.json:43 sets that domain. But
+  // "research"), and the research-synthesis app's manifest, app.json (under apps/research-synthesis), sets that domain. But
   // the plumbing that fills run.workflow.app drops it: workflowAppRunMetadata()
   // (src/core/workflow-apps/app-schema.ts) never emits a `metadata` block,
   // and LoadedWorkflowApp (app-schema.ts:223) carries no `metadata`/`domain`

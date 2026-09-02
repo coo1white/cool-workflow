@@ -62,9 +62,9 @@ const snapB = readSnapshot(runB.sourceContext.path);
 assert.deepEqual(Object.keys(snapB.profiles), ["mine"], "custom run snapshots the profile it USED, not the stale 'repo'");
 assert.deepEqual(snapB.profiles.mine.include, ["src/**"], "the snapshot's include set matches the custom profile");
 assert.deepEqual(snapB.profiles.mine.exclude, ["**/*.test.ts"], "the snapshot's exclude set matches the custom profile");
-// The snapshot describes exactly what produced the context: src/app.ts present,
-// src/app.test.ts excluded — so a worker comparing the two will not raise a false
-// "omission" alarm.
+// The snapshot describes exactly what produced the context: an ordinary
+// source file under src/ present, a `*.test.ts` file under src/ excluded
+// — so a worker comparing the two will not raise a false "omission" alarm.
 assert.ok(!("repo" in snapB.profiles), "no stale 'repo' profile lingers after a custom run");
 
 // --- Regression: a --profile without a --profile-file must NOT try to read a

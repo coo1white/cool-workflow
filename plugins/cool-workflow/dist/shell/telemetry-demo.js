@@ -3,7 +3,7 @@
 // offline trust proofs. Impure (fs, ephemeral keypair generation,
 // tmpdir), so this lives in shell/ not core/.
 //
-// MILESTONE 8. Byte-exact port of the old build's src/telemetry-demo.ts.
+// MILESTONE 8. Byte-exact port of the old build's telemetry-demo module.
 // Fully hermetic + deterministic: an EPHEMERAL ed25519 keypair, fixed
 // hops/usages, a pinned `now`, no network, no model. Only the keypair
 // itself varies per run and never leaves this module.

@@ -4,12 +4,12 @@
 // chain.
 //
 // MILESTONE 9. Byte-exact port of the impure half of the old build's
-// src/coordinator.ts: directory creation, index.json + messages.jsonl +
+// coordinator module: directory creation, index.json + messages.jsonl +
 // per-record writes, and every create call's audit-event recording +
 // state-node append + policy checks.
 //
 // Evidence: SPEC/multi-agent.md section C, "Files on disk";
-// plugins/cool-workflow/src/coordinator.ts (byte-exact source for the
+// the old build's coordinator module (byte-exact source for the
 // wiring sequence).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;

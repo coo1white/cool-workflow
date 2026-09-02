@@ -3,10 +3,10 @@
 // core/pipeline/commit-gate.ts's pure gate resolution.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// src/commit.ts's IO half (snapshot write, git-head read, the commit
+// commit module's IO half (snapshot write, git-head read, the commit
 // node's disk write via the pipeline runner).
 //
-// Evidence: SPEC/pipeline-run.md "Commit gate — src/commit.ts".
+// Evidence: SPEC/pipeline-run.md "Commit gate — commit module".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

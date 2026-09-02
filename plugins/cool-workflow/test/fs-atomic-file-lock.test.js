@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // fs-atomic-file-lock (milestone 0) — pins withFileLock's exact protocol per
-// v2/PLAN.md byte-compat item 6 and SPEC/state-core.md "Lock protocol":
+// project/docs/rebuild/PLAN.md byte-compat item 6 and SPEC/state-core.md "Lock protocol":
 // O_EXCL lock body "<pid>@<ISO>\n", stale-lock steal (30s window), refresh-
 // before, verify-after (never delete a stolen lock), and serialized RMW.
 

@@ -2,12 +2,11 @@
 // shell/telemetry-cli.ts — CLI/MCP-reachable body for `cw telemetry
 // verify`.
 //
-// MILESTONE 8. Byte-exact port of the old build's capability-core.ts's
-// `telemetryVerify` + src/cli/handlers/maintenance.ts's argv shape.
+// MILESTONE 8. Byte-exact port of the old build's capability-core module's
+// `telemetryVerify` + cli maintenance-handler module's argv shape.
 //
 // Evidence: SPEC/ledger-trust.md "CLI: `cw telemetry verify`", "`cw
-// telemetry verify` JSON"; plugins/cool-workflow/src/capability-
-// core.ts:1181-1215.
+// telemetry verify` JSON"; the old build's capability-core module.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

@@ -13,7 +13,7 @@
 //
 // Pure: no I/O, no wall-clock, no random.
 //
-// Evidence: SPEC/state-core.md "src/node-projection.ts — the canonical node
+// Evidence: SPEC/state-core.md "node-projection module — the canonical node
 // projection", "normalizeValue ... drops the keys createdAt, updatedAt,
 // recordedAt, selectedAt, replayedAt, generatedAt ...".
 
@@ -25,7 +25,7 @@ const SCRUBBED_TIMESTAMP_KEYS = new Set(["createdAt", "updatedAt", "recordedAt",
  *  timestamp/tmp-path substrings out of every string value (so a snapshot
  *  body captured at two different wall-clock times, in two different tmp
  *  dirs, is byte-identical). Ported literally from the old build's
- *  src/multi-agent-eval/normalize.ts — this is the ONE normalizer every
+ *  multi-agent-eval normalize module — this is the ONE normalizer every
  *  node snapshot/replay/diff/eval-line path shares. */
 export function normalizeValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(normalizeValue);

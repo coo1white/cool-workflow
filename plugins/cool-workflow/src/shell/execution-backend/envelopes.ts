@@ -2,7 +2,7 @@
 // every delegating driver (container/remote/ci/agent) plus the registry's
 // own refusal path.
 //
-// MILESTONE 5 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of the
+// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of the
 // old build's `delegatedEnvelope` and
 // `refusedEnvelope` helpers, factored into one shared module
 // since every delegating driver builds the identical shape (byte-stable

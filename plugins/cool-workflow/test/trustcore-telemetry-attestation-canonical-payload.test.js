@@ -2,7 +2,7 @@
 // trustcore-telemetry-attestation-canonical-payload — pins
 // canonicalTelemetryPayload's exact signed bytes and telemetry-attestation's
 // own stableStringify (SPEC/ledger-trust.md "Attestation verify": "keys come
-// out sorted (promptDigest, resultDigest, runId, taskId, usage)"; v2/PLAN.md
+// out sorted (promptDigest, resultDigest, runId, taskId, usage)"; project/docs/rebuild/PLAN.md
 // byte-compat item 2's divergent top-level-undefined rule).
 
 const assert = require("node:assert/strict");
@@ -52,7 +52,7 @@ const USAGE = { input_tokens: 10, output_tokens: 20 };
 // stableStringify: THE divergent behavior — a top-level undefined maps to
 // the literal string "null" (JSON.stringify(undefined) is JS `undefined`,
 // not a string; this wrapper coerces it). This is the exact edge that
-// differs from core/hash.ts's ledgerStableStringify, per v2/PLAN.md byte-
+// differs from core/hash.ts's ledgerStableStringify, per project/docs/rebuild/PLAN.md byte-
 // compat item 2.
 {
   assert.equal(stableStringify(undefined), "null", "a top-level undefined must stringify to the literal string \"null\"");

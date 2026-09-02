@@ -185,7 +185,7 @@ function isMissingInput(value) {
 /** Resolve a workflow app for `plan`/`run --drive` over the SAME surface `cw
  *  list` shows — bundled apps AND legacy `<name>.workflow.js` files. The old
  *  build's plan() resolved via loadWorkflowAppById (full discovery over both the
- *  workflows/ and apps/ roots — app-operations.ts:64), so any id `cw list`
+ *  workflows/ and apps/ roots, in its orchestrator app-operations module), so any id `cw list`
  *  surfaces is plannable. v2's fast-path loadWorkflowApp only reads
  *  apps/<id>/app.json, so a legacy workflow-file wrapper (e.g.
  *  legacy-research-synthesis) that `list` CAN resolve died with "Workflow app
@@ -221,7 +221,7 @@ function planRun(args) {
     const appId = String(args.workflowId || args.app || QUICKSTART_DEFAULT_APP);
     // POLA: `cw plan <app>` does NOT default repo to the caller's cwd (unlike the
     // one-command quickstart). The old build validated required inputs FIRST
-    // (lifecycle-operations.ts validateInputs, message `Missing required input
+    // (orchestrator lifecycle-operations module's validateInputs, message `Missing required input
     // --<name>`), so a missing --repo surfaces the copy-pasteable `-dir` recovery
     // line (cli/entry.ts recoveryHint's "missing"+"repo" branch) instead of a
     // silent cwd-anchored run. Auto-filling repo here would hide that recovery.
@@ -276,7 +276,7 @@ async function runDriveStep(args) {
 /** `cw quickstart [app] --check` — read-only preflight: does the app
  *  resolve, is the repo readable/writable, is a question set, is an
  *  agent backend configured. Never plans or writes a run. Byte-exact
- *  port of the old build's `quickstartCheck` (src/capability-core.ts),
+ *  port of the old build's `quickstartCheck` (capability-core module),
  *  local-repo path only (the --link/remote preflight variant is not
  *  ported — no conformance case exercises it). */
 function quickstartCheck(appId, args, remoteCandidate) {
@@ -432,7 +432,7 @@ async function promptForQuestion() {
  *  `quickstartCheck` above). `--preview` is a read-only next-step
  *  projection (never drives), `--resume` advances one step (no --run) or
  *  continues a named run to completion (--run <id>) — both ported byte-for-
- *  byte from the old build's src/capability-core.ts quickstart(). */
+ *  byte from the old build's capability-core module quickstart(). */
 async function quickstartRun(args) {
     const appId = String(args.appId || args.app || args.workflowId || QUICKSTART_DEFAULT_APP);
     // Remote source: a `--link <url>` — or a URL passed to `--repo`/`-dir` — is
@@ -451,7 +451,7 @@ async function quickstartRun(args) {
     // `--run`, advance exactly ONE step (reuse the `--once` path) and print a
     // copy-pasteable continue line; with `--run <id>`, continue that run to
     // completion (the default drive). It adds no new execution path. Byte-exact to
-    // the old build's src/capability-core.ts quickstart(). Hoisted above the TTY
+    // the old build's capability-core module quickstart(). Hoisted above the TTY
     // prompt below: `existingRunId` is the one fact (mirrored at both the
     // `--preview` branch's `if (!previewRunId)` and the main path's `if
     // (existingRunId) {...} else { run = plan(...) }`) that decides whether THIS
@@ -569,7 +569,7 @@ async function quickstartRun(args) {
     }
     // Human-facing triage `hint` (stderr-side; absent on a clean completion so the
     // default payload is byte-identical). Byte-exact wording to the old build's
-    // src/capability-core.ts quickstart(): the fail-closed "not configured …
+    // capability-core module quickstart(): the fail-closed "not configured …
     // DELEGATES" line reaffirms the red line; the resume/once lines are copy-paste
     // continue commands.
     let hint;
@@ -594,7 +594,7 @@ async function quickstartRun(args) {
         hint = `${hint ? `${hint} ` : ""}--bundle skipped: the run did not complete (status=${result.status}); no bundle was sealed.`;
     }
     // Byte-exact to the old build's quickstart() return shape
-    // (src/capability-core.ts): `appId` is the resolved app id (the
+    // (capability-core module): `appId` is the resolved app id (the
     // argument, or its architecture-review default), distinct from
     // `workflowId` which is the driven run's own workflow id (equal for a
     // top-level run, different for a sub-workflow hop). `remote` is present only
@@ -665,7 +665,7 @@ function recordResultRun(args) {
         const workerId = String(task.workerId);
         // Host-attested `cw result <run> <task> <file>` intake: the operator hands CW
         // an EXTERNAL result file that lives OUTSIDE the worker's read-only write
-        // boundary. The old task-level recordResult (lifecycle-operations.ts:279-280)
+        // boundary. The old task-level recordResult (in the orchestrator lifecycle-operations module)
         // COPIED that external file into the run's results area and recorded the
         // internal path — it never ran the external path through validateSandboxWrite.
         // v2 collapsed the two intakes into recordWorkerOutput, which sandbox-validates
@@ -682,7 +682,8 @@ function recordResultRun(args) {
         });
         // Host-attested token usage (v0.1.31): record it verbatim as provenance when
         // the operator supplied `--usage-*` flags; CW never synthesizes usage. The old
-        // task-level recordResult set `task.usage = usage` (lifecycle-operations.ts:286)
+        // task-level recordResult set `task.usage = usage` (in the orchestrator
+        // lifecycle-operations module)
         // and its unit was the TASK. v2 records through recordWorkerOutput, which gives
         // the worker an `output` record — so the observability usage UNIT becomes the
         // WORKER (deriveUsageTotals reads worker.usage for workers with output, and
@@ -706,7 +707,7 @@ function recordResultRun(args) {
     });
 }
 /** `cw commit <run-id>` — byte-exact port of the old build's
- *  `orchestrator/lifecycle-operations.ts`'s `commit()`: the CLI/MCP
+ *  orchestrator lifecycle-operations module's `commit()`: the CLI/MCP
  *  payload wraps the commit record as `{runId, commit}` (NOT the commit
  *  record at top level). Both the success AND the throw path write the
  *  report + checkpoint before returning/re-throwing — a gate failure

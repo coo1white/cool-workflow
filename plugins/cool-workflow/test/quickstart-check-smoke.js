@@ -11,7 +11,7 @@
 // v2 `quickstartCheck` dropped two user-facing behaviors the old build shipped, so
 // cases 2 and 4 still fail on GENUINE behavior (not an import crash):
 //   1. No `nextCommand` field on the --check payload. The old build returned
-//      `nextCommand: quickstartNextCommand(...)` (old src/capability-core.ts, the
+//      `nextCommand: quickstartNextCommand(...)` (the old capability-core module, the
 //      quickstartCheck return object). v2's quickstartCheck returns only
 //      { schemaVersion, mode, ok, appId, repo, checks } and `quickstartNextCommand`
 //      does not exist anywhere in v2 src — see src/shell/pipeline-cli.ts.

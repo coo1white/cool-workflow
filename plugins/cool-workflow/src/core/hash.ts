@@ -5,7 +5,7 @@
 // content object, a list of strings) still comes in as a plain function
 // argument here.
 //
-// Per plugins/cool-workflow/project/docs/rebuild/PLAN.md's byte-compat section ("Hash dedup — three shapes, not one
+// Per project/docs/rebuild/PLAN.md's byte-compat section ("Hash dedup — three shapes, not one
 // edge case"), this file must keep THREE things separate, each with its own
 // name, never collapsed into a single flagged helper:
 //
@@ -94,7 +94,7 @@ export function stableStringify(value: unknown): string {
   return `{${body}}`;
 }
 
-/** `src/ledger.ts`'s `stableStringify` — sorts keys recursively, NO special-
+/** `ledger module`'s `stableStringify` — sorts keys recursively, NO special-
  *  casing of a top-level `undefined`. A top-level `undefined` is not a real
  *  call site here in practice, but this must not be assumed to behave like
  *  `telemetryStableStringify` below. Byte-identical to `stableStringify`;
@@ -105,7 +105,7 @@ export function ledgerStableStringify(value: unknown): string {
   return stableStringify(value);
 }
 
-/** `src/telemetry-attestation.ts`'s `stableStringify` — sorts keys
+/** `telemetry-attestation module`'s `stableStringify` — sorts keys
  *  recursively, AND maps a top-level `undefined` input to the literal
  *  string `"null"` (via `JSON.stringify(value) ?? "null"`). Divergent from
  *  `ledgerStableStringify` exactly at the top-level-undefined edge. */
@@ -125,7 +125,7 @@ export function telemetryStableStringify(value: unknown): string {
   return `{${entries.join(",")}}`;
 }
 
-/** `src/trust-audit.ts`'s `eventHash` input builder: JSON-round-trips the
+/** `trust-audit module`'s `eventHash` input builder: JSON-round-trips the
  *  value FIRST (`JSON.parse(JSON.stringify(value))`), which DROPS every key
  *  (nested or top-level) whose value is `undefined`, and ONLY THEN runs the
  *  sort-and-stringify step. This is a pre-pass that changes the shape being

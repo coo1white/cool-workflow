@@ -3,7 +3,7 @@
 //
 // MILESTONE 4. Byte-exact port of the old build's
 // `summarizeBlackboardDigest`. The old
-// build's version also calls `summarizeBlackboard` (src/coordinator.ts),
+// build's version also calls `summarizeBlackboard` (coordinator module),
 // which reads `ensureBlackboardState` — a milestone-9 concern (the real
 // Blackboard/topic/message/context/artifact/decision record shapes, not
 // yet built; `WorkflowRun.blackboard` is `unknown[]` at this milestone,

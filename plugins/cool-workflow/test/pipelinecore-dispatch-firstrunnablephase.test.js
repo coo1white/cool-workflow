@@ -2,7 +2,7 @@
 // pipelinecore-dispatch-firstrunnablephase — firstRunnablePhase: walks
 // phases in order; running-task or pending-task phase wins; an incomplete
 // phase with nothing pending/running blocks everything after it (null).
-// SPEC/pipeline-run.md "Dispatch — src/dispatch.ts" (now src/core/pipeline/dispatch.ts).
+// SPEC/pipeline-run.md "Dispatch" section (now src/core/pipeline/dispatch.ts).
 
 const assert = require("node:assert/strict");
 const { firstRunnablePhase } = require("../dist/core/pipeline/dispatch");

@@ -3,9 +3,9 @@
 // isEmptyCapture.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// src/result-normalize.ts. Pure (no fs/clock/random).
+// result-normalize module. Pure (no fs/clock/random).
 //
-// Evidence: SPEC/pipeline-run.md "Result ingest — src/result-normalize.ts".
+// Evidence: SPEC/pipeline-run.md "Result ingest — result-normalize module".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.normalizeResultEnvelope = normalizeResultEnvelope;
 exports.firstNonEmptyLine = firstNonEmptyLine;

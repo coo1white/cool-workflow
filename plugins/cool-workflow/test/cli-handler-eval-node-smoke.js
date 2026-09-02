@@ -2,8 +2,8 @@
 "use strict";
 
 // cli-handler-eval-node-smoke: the `cw eval` and `cw node` groups were carved
-// out of the command-surface god-dispatch into src/cli/handlers/eval.ts and
-// src/cli/handlers/node.ts. Guard the dispatcher->handler routing. We reason
+// out of the old command-surface god-dispatch into their own eval and node
+// handlers. Guard the dispatcher->handler routing. We reason
 // each assertion from io.ts `required` (throws "Missing <label>.") and the
 // inner-switch Usage throws — NOT via the fail-closed gate/verify exit, so a
 // bare verb missing its required positional surfaces the handler's own error.

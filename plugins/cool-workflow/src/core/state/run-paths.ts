@@ -4,7 +4,7 @@
 // `createRunPaths` is pure path math. The directory write mechanism lives in
 // shell/run-store.ts.
 //
-// Evidence: SPEC/state-core.md "src/state.ts — persistence kernel" and "The
+// Evidence: SPEC/state-core.md "state module — persistence kernel" and "The
 // full .cw/runs/<run-id>/ layout".
 
 import * as path from "node:path";

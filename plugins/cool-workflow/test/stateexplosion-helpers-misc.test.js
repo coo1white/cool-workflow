@@ -2,7 +2,7 @@
 // stateexplosion-helpers-misc — pins isProtectedStatus, dominantStatus,
 // parentMap, byId, truncate, slug, sortKeys/stableLine, stripRunId.
 //
-// Evidence: SPEC/state-core.md "Helpers (src/state-explosion/helpers.ts)".
+// Evidence: SPEC/state-core.md "Helpers" list (now src/core/state/state-explosion/helpers.ts).
 
 const assert = require("node:assert/strict");
 const {

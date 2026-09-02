@@ -1,21 +1,21 @@
-// core/workflow-apps/app-schema.ts — workflow-app manifest + workflow DSL
+// src/core/workflow-apps/app-schema.ts — workflow-app manifest + workflow DSL
 // types, a pure builder API (`workflow`, `phase`, `parallel`, `loop`,
 // `agent`, `artifact`, `subWorkflow`, `input`), and full manifest
 // validation (`validateWorkflowApp`).
 //
-// MILESTONE 12 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order; workflow-apps.md). Milestone 6+7
+// MILESTONE 12 (project/docs/rebuild/PLAN.md build order; workflow-apps.md). Milestone 6+7
 // built the minimal real subset needed to load ONE app and drive it
 // end to end (see git history / the old header note this replaces).
 // This milestone adds, on top of that, WITHOUT changing any existing
 // exported function's signature or behavior:
 //   - `loop()` — sugar over `phase()` that sets a bounded dynamic loop
-//     spec, byte-exact to src/workflow-api.ts.
+//     spec, byte-exact to the old build's workflow-api module.
 //   - `subWorkflow()` — sugar over `agent()` that adds a `subWorkflow`
-//     field, byte-exact to src/workflow-api.ts.
+//     field, byte-exact to the old build's workflow-api module.
 //   - `validateWorkflowApp`/`assertValidWorkflowApp`/
 //     `validateWorkflowDefinition` — the full WorkflowAppValidationIssue
 //     taxonomy `cw app validate` needs, ported byte-for-byte from
-//     src/workflow-app-framework.ts.
+//     the old build's workflow-app-framework module.
 //   - `WorkflowAppValidationError` — thrown by a fail-closed manifest
 //     load (see shell/workflow-app-loader.ts's discovery functions).
 //
@@ -113,7 +113,7 @@ export function parallel(name: string, tasks: WorkflowTaskDefinition[], options:
  *  round completes, the registered `until` predicate decides whether to run
  *  another round (a fresh appended phase with the same tasks, round-suffixed
  *  ids) or stop; capped at `maxRounds`. Sugar over phase() that sets `loop`;
- *  plain phases are unaffected. Byte-exact to src/workflow-api.ts's loop(). */
+ *  plain phases are unaffected. Byte-exact to the old build's workflow-api module's loop(). */
 export function loop(
   name: string,
   tasks: WorkflowTaskDefinition[],
@@ -154,7 +154,7 @@ export function agent(id: string, prompt: string, options: Partial<WorkflowTaskD
 /** A task fulfilled by an inline SUB-WORKFLOW: instead of spawning an agent,
  *  the drive plans + drives the child `appId` and binds its report back as
  *  this task's result. The prompt is recorded for provenance but is not sent
- *  to an agent. Byte-exact to src/workflow-api.ts's subWorkflow(). */
+ *  to an agent. Byte-exact to the old build's workflow-api module's subWorkflow(). */
 export function subWorkflow(
   id: string,
   appId: string,
@@ -246,7 +246,7 @@ export interface LoadedWorkflowApp {
 
 // ---------------------------------------------------------------------
 // Full manifest validation (`cw app validate`) — ported byte-for-byte
-// from src/workflow-app-framework.ts. `WorkflowAppDefinition` is the
+// from the old build's workflow-app-framework module. `WorkflowAppDefinition` is the
 // richer "candidate manifest, possibly with an inline workflow" shape
 // `validateWorkflowApp` accepts; `WorkflowAppSource`/`LoadedWorkflowAppRecord`
 // are the discovery-time record shape shell/workflow-app-loader.ts's
@@ -753,7 +753,7 @@ export function validateWorkflowDefinition(
 }
 
 /** The full `cw app validate` check: byte-exact issue codes/messages to
- *  src/workflow-app-framework.ts's `validateWorkflowApp`. Never throws. */
+ *  the old build's workflow-app-framework module's `validateWorkflowApp`. Never throws. */
 export function validateWorkflowApp(
   candidate: unknown,
   context: WorkflowAppValidationContext,

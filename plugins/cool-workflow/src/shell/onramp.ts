@@ -1,6 +1,6 @@
 // shell/onramp.ts — the change-contract onramp subsystem.
 //
-// Byte-exact port of the old flat build's src/onramp.ts (added in #198):
+// Byte-exact port of the old flat build's onramp module (added in #198):
 // evaluateOnrampContract, recommendSmokeTests, resolveChangedFiles,
 // buildDoctorOnramp. Impure (git/fs reads), so it lives under shell/.
 // The v2 rebuild dropped this module on purpose for a later milestone;
@@ -98,20 +98,20 @@ export const CURATED_SMOKE_MAP: Array<{ patterns: string[]; smokes: string[] }> 
     smokes: ["cli-command-surface-smoke.js", "cli-jsonmode-parity-smoke.js", "cli-mcp-parity-smoke.js"]
   },
   {
-    // Pre-rebuild this was the single flat src/orchestrator.ts; the real
+    // Pre-rebuild this was the single flat orchestrator module; the real
     // current file is shell/orchestrator.ts (self-audit-cool-workflow-v0.2.6.md P2).
     patterns: ["src/shell/orchestrator.ts"],
     smokes: ["cli-mcp-parity-smoke.js"]
   },
   {
-    // Pre-rebuild this was the single flat src/capability-registry.ts; it was
+    // Pre-rebuild this was the single flat capability-registry module; it was
     // split into core/capability-data.ts plus wiring/capability-table/*.ts at
     // the v2 rebuild (PR #368) — same finding as above.
     patterns: ["src/core/capability-table.ts", "src/core/capability-data.ts", "src/wiring/capability-table/", "scripts/parity-check.js"],
     smokes: ["cli-mcp-parity-smoke.js", "cli-jsonmode-parity-smoke.js", "parity-doc-sync-smoke.js"]
   },
   {
-    // Pre-rebuild this was the single flat src/mcp-surface.ts, which did not
+    // Pre-rebuild this was the single flat mcp-surface module, which did not
     // survive the v2 cutover; the real current MCP surface is src/mcp/*.ts.
     patterns: ["src/mcp-server.ts", "src/mcp/"],
     smokes: ["mcp-surface-registry-smoke.js", "mcp-app-surface-smoke.js", "cli-mcp-parity-smoke.js"]
@@ -568,8 +568,8 @@ function isRuntimeSource(file: string): boolean {
   return file.startsWith("plugins/cool-workflow/src/") && file.endsWith(".ts") && !file.startsWith("plugins/cool-workflow/src/types/");
 }
 
-// Pre-rebuild flat literals here (src/capability-registry.ts, src/mcp-surface.ts,
-// src/orchestrator.ts) named files that no longer exist anywhere in the
+// Pre-rebuild flat literals here (capability-registry module, mcp-surface module,
+// orchestrator module) named files that no longer exist anywhere in the
 // tree after the v2 core/shell/wiring split — capability-registry.ts
 // became core/capability-table.ts + core/capability-data.ts +
 // wiring/capability-table/*.ts (PR #368), mcp-surface.ts became mcp/*.ts,

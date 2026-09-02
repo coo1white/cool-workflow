@@ -2,12 +2,12 @@
 // decision half, dedup key.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the DECISION half of the
-// old build's src/error-feedback.ts (record shape, classification,
+// old build's error-feedback module (record shape, classification,
 // severity, dedup key, id formatting). The disk write (feedback/*.json +
 // index.json + saveCheckpoint) is the caller's job (shell/), since this
 // file stays pure per the core/shell split.
 //
-// Evidence: SPEC/pipeline-run.md "Error feedback — src/error-feedback.ts".
+// Evidence: SPEC/pipeline-run.md "Error feedback — error-feedback module".
 
 import { StateArtifact, StateEvidence, StateNodeError } from "../state/types";
 

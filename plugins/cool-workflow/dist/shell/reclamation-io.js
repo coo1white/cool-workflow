@@ -2,9 +2,9 @@
 // shell/reclamation-io.ts — gc plan/run/verify's write-ahead reclamation
 // transaction, plus the orphan-run sweep and the clone cache gc.
 //
-// MILESTONE 10 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
-// old build's src/reclamation.ts + src/reclamation/hash.ts +
-// src/run-registry/{gc,orphans}.ts + src/clones.ts. Reuses
+// MILESTONE 10 (project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
+// old build's reclamation, reclamation-hash, run-registry gc/orphans, and
+// clones modules. Reuses
 // shell/fs-atomic.ts's `withFileLock` directly (no reimplementation, per
 // the task's instruction) and core/state/node-projection.ts's
 // `replayStableStringify`/`nodeProjectionDigestInput` so the tombstone
@@ -24,9 +24,9 @@
 // BEFORE it is hashed (this is exactly what the tombstonesort-*.case.js
 // conformance cases pin) — see `planReclamation`'s explicit sort below.
 //
-// Evidence: SPEC/scheduling-registry.md sections E, F, G;
-// plugins/cool-workflow/src/reclamation.ts, src/reclamation/hash.ts,
-// src/run-registry/{gc,orphans}.ts, src/clones.ts (byte-exact source).
+// Evidence: SPEC/scheduling-registry.md sections E, F, G; the old build's
+// reclamation, reclamation-hash, run-registry gc/orphans, and clones
+// modules (byte-exact source).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -108,7 +108,7 @@ const collate_1 = require("../core/util/collate");
 const run_registry_io_1 = require("./run-registry-io");
 // ---------------------------------------------------------------------------
 // Content addressing + byte measurement (in-process, no `du`) — carried
-// forward from src/reclamation/hash.ts.
+// forward from reclamation hash module.
 // ---------------------------------------------------------------------------
 function sha256OfString(value) {
     return (0, hash_1.sha256)(value);

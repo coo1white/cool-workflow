@@ -4,11 +4,11 @@
 // topology-run record.
 //
 // MILESTONE 9. Byte-exact port of the impure half of the old build's
-// src/topology.ts's applyTopology + summarizeTopologies/buildTopologyGraph/
+// topology module's applyTopology + summarizeTopologies/buildTopologyGraph/
 // showTopologyRun/persistTopologyState.
 //
-// Evidence: SPEC/multi-agent.md section B; plugins/cool-workflow/src/
-// topology.ts:139-455 (byte-exact source for the wiring sequence).
+// Evidence: SPEC/multi-agent.md section B; the old build's topology
+// module (byte-exact source for the wiring sequence).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

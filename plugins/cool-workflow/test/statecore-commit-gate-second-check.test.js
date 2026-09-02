@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // statecore-commit-gate-second-check (milestone 3) — pins the SECOND gate:
 // `committed` is refused unless the node status is EXACTLY `verified`,
-// checked AFTER the transition matrix. v2/PLAN.md byte-compat item 7: "the
+// checked AFTER the transition matrix. project/docs/rebuild/PLAN.md byte-compat item 7: "the
 // SECOND gate — committed is refused unless status is exactly 'verified'
 // (commit-without-verifier) — checked AFTER the matrix".
 //

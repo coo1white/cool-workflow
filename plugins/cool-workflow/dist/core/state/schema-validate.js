@@ -1,13 +1,13 @@
 "use strict";
 // core/state/schema-validate.ts — dependency-free JSON-schema subset.
 //
-// MILESTONE 3. Byte-exact port of the old build's src/schema-validate.ts.
+// MILESTONE 3. Byte-exact port of the old build's schema-validate module.
 // Deliberately a SUBSET of JSON Schema (type, const, enum, required,
 // properties, additionalProperties:false, items) — adds no runtime
 // dependency. Unsupported keywords are surfaced as a stderr diagnostic
 // (TTY only), never enforced.
 //
-// Evidence: SPEC/state-core.md "src/schema-validate.ts — dependency-free
+// Evidence: SPEC/state-core.md "schema-validate module — dependency-free
 // JSON-schema subset", "Schema-validator error strings".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validateAgainstSchema = validateAgainstSchema;

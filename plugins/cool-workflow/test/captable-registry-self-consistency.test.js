@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // captable-registry-self-consistency — the "one source of truth stays
-// sane" standing regression guard v2/PLAN.md's whole design depends on
+// sane" standing regression guard project/docs/rebuild/PLAN.md's whole design depends on
 // (Target shape: "capability-table.ts: THE one data table"; Byte-compat
 // item 5; SPEC/mcp.md's registry-lint list: "duplicate capability ids,
 // duplicate MCP tool names, ... cli-only with no cli binding, ...

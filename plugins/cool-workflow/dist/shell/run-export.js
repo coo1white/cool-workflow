@@ -2,7 +2,7 @@
 // shell/run-export.ts — portable run archive format: exportRun,
 // importRun, inspectArchive, verifyImportedRun, verifyReportBundle.
 //
-// MILESTONE 8. Byte-exact port of the old build's src/run-export.ts.
+// MILESTONE 8. Byte-exact port of the old build's run-export module.
 // Impure (fs, tmpdir, os) by nature — the archive/bundle mechanism.
 //
 // Evidence: SPEC/ledger-trust.md "`cw report verify-bundle` JSON", "Files

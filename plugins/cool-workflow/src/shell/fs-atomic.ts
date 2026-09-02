@@ -4,7 +4,7 @@
 // `writeJson` here, so the write bytes stay exactly one place.
 //
 // Evidence: SPEC/state-core.md "Write ordering and atomic rules", "Lock
-// protocol"; plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat items 1 and 6.
+// protocol"; project/docs/rebuild/PLAN.md byte-compat items 1 and 6.
 
 import * as fs from "node:fs";
 import * as path from "node:path";

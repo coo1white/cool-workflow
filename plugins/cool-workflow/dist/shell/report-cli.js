@@ -2,7 +2,7 @@
 // shell/report-cli.ts — CLI/MCP-reachable bodies for `cw report bundle`
 // and `cw report verify-bundle`.
 //
-// MILESTONE 8. Byte-exact port of the old build's capability-core.ts's
+// MILESTONE 8. Byte-exact port of the old build's capability-core module's
 // `reportBundle`/`runVerifyReportBundle` argv shapes.
 //
 // Evidence: SPEC/ledger-trust.md "CLI: `cw report verify-bundle` and `cw

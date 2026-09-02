@@ -285,8 +285,8 @@ const evidenceLocator = `${evidencePath}:1`;
   assert.equal(mcp.blackboard.messageProvenance.length, blackboardAudit.messageProvenance.length);
   assert.equal(mcp.judge.judgeRationales.length, judgeAudit.judgeRationales.length);
 
-  // The `cw audit` group is now dispatched into src/cli/handlers/audit.ts. Guard the
-  // dispatcher -> handler routing: a bare `cw audit` fails closed with the handler's usage.
+  // The `cw audit` group is now dispatched into its own handler
+  // (src/shell/audit-cli.ts). Guard the dispatcher -> handler routing: a bare `cw audit` fails closed with the handler's usage.
   const auditUsage = runFail(["audit"]);
   assert.match(String(auditUsage.stderr || ""), /audit summary\|worker\|provenance/, "cw audit routes through the carved handler");
 

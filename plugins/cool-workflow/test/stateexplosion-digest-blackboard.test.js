@@ -8,7 +8,7 @@
 // finalizeGraphRecord and report.ts's buildStateExplosionReport, which both
 // accept an options.now and fall back to the real clock only when it's
 // omitted. This function has no such fallback path — it always reads the
-// real clock. That is a PURITY VIOLATION per v2/PLAN.md ("core/ must not
+// real clock. That is a PURITY VIOLATION per project/docs/rebuild/PLAN.md ("core/ must not
 // call Date.now()/new Date() — every such input is a function parameter")
 // and is reported as a finding, not silently worked around. The assertion
 // below only checks generatedAt is a parseable ISO string near "now",

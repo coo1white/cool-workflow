@@ -10,7 +10,7 @@
 // kinds ONLY: blackboard-message, blackboard-context, agent-membership,
 // worker, score, blackboard-snapshot, agent-role ... decisions, artifacts,
 // fanins, candidates, selections, commits, feedback are never collapsed";
-// v2/PLAN.md byte-compat item 9.
+// project/docs/rebuild/PLAN.md byte-compat item 9.
 
 const assert = require("node:assert/strict");
 const { buildCompactGraphFromView } = require("../dist/core/state/state-explosion/graph");

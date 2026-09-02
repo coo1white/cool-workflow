@@ -3,8 +3,8 @@
 // registerBackend, resolveBackendSelection, attestSandbox, probeBackend,
 // runBackend, and the CLI-facing inspection payloads.
 //
-// MILESTONE 5 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// plugins/cool-workflow/src/execution-backend.ts (the parts not carved into
+// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
+// the old build's execution-backend module (the parts not carved into
 // local.ts/container.ts/remote.ts/ci.ts/agent.ts/probes.ts).
 //
 // Evidence: SPEC/execution-backend.md "The driver registry".

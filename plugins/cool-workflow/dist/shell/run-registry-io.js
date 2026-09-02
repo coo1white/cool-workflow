@@ -2,9 +2,9 @@
 // shell/run-registry-io.ts — the on-disk run registry: index/queue/history
 // persistence, lifecycle derivation, search/resume/archive/rerun.
 //
-// MILESTONE 10 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
-// old build's src/run-registry.ts + src/run-registry/{derive,policy,
-// queue}.ts. The registry is a DERIVED, rebuildable index over each repo's
+// MILESTONE 10 (project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
+// old build's run-registry module and its derive/policy/queue helper
+// modules. The registry is a DERIVED, rebuildable index over each repo's
 // `.cw/runs/<id>/state.json` (the single source of truth, never mutated
 // here except via `archive`/`rerun`'s overlay files). Every read
 // re-derives from source; the persisted index.json is only ever compared,
@@ -12,8 +12,8 @@
 // note in SPEC/scheduling-registry.md's "Rebuild risks" #1).
 //
 // Evidence: SPEC/scheduling-registry.md sections C, D (partial: policy
-// constant), H; plugins/cool-workflow/src/run-registry.ts,
-// src/run-registry/{derive,policy,queue}.ts (byte-exact source).
+// constant), H; the old build's run-registry module and its
+// derive/policy/queue helper modules (byte-exact source).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -92,9 +92,9 @@ exports.DEFAULT_RUN_REGISTRY_POLICY = {
     maxReclaimBytes: 0,
 };
 // ---------------------------------------------------------------------------
-// Pure helpers (byte-exact port of src/run-registry/derive.ts)
+// Pure helpers (byte-exact port of run-registry derive module)
 // ---------------------------------------------------------------------------
-/** Simple byte (UTF-16 code-unit) comparator — matches src/compare.ts's
+/** Simple byte (UTF-16 code-unit) comparator — matches compare module's
  *  `compareBytes` used throughout the old build's registry/reclamation
  *  code. Kept as a small local copy (same pattern as core/multi-agent's
  *  own local copies) rather than a new shared module. */

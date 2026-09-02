@@ -2,7 +2,7 @@
 // shell/eval-text.ts — human render for the multi-agent eval/replay layer
 // (`cw eval snapshot|replay|compare|score|gate|report` text output).
 //
-// Byte-behavior port of the old build's src/multi-agent-eval/format.ts's
+// Byte-behavior port of the old build's multi-agent-eval format module's
 // formatMultiAgentEval + its runtime-discriminating type guards. CLI-only —
 // never affects --json / MCP payloads. Types are imported type-only from the
 // v2 core eval-replay module.

@@ -2,9 +2,9 @@
 // shell/harness.ts — writeTaskFiles, renderTask (task file template).
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// src/harness.ts.
+// harness module.
 //
-// Evidence: SPEC/pipeline-run.md "Task files — src/harness.ts", "Task
+// Evidence: SPEC/pipeline-run.md "Task files — harness module", "Task
 // file template (verbatim skeleton from renderTask)".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;

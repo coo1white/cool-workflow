@@ -179,8 +179,8 @@ function main() {
   assert.ok(second.metrics.fastReview.taskMetrics.every((task) => task.resultCacheHit && !task.agentSpawned), "warm metrics mark cache hits without agent spawns");
   assert.equal(spawnLines(countFile), 2, "result cache avoids spawning Map workers again");
 
-  // --changed-from incremental overlay: a second commit changes only src/app.js;
-  // the overlay must scope the exported context to the changed file, record the
+  // --changed-from incremental overlay: a second commit changes only the
+  // repo's one source file (below); the overlay must scope the exported context to the changed file, record the
   // base, and tell the scheduled full review to still do a complete audit.
   fs.writeFileSync(path.join(repo, "src", "app.js"), "module.exports = () => 'ok2';\n", "utf8");
   git(repo, ["add", "."]);

@@ -2,7 +2,7 @@
 // maruntime-purity-clock-violation (multiagent-core bucket) — pins the
 // CORRECT, spec-required behavior of stateNodeError's `at` timestamp: a
 // pure core/ function must take its clock value as a parameter, never
-// read the real wall clock internally (v2/PLAN.md "Target shape": "core/
+// read the real wall clock internally (project/docs/rebuild/PLAN.md "Target shape": "core/
 // (pure -- no fs, ... Date.now(), Math.random() -- every such input is a
 // function parameter").
 //

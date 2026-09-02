@@ -20,8 +20,8 @@
 //   2. There is NO persistCustomSandboxProfile and NO write to
 //      run.customSandboxProfiles anywhere in v2 (the field is declared in
 //      dist/core/state/schema.js:43 and READ in dist/shell/worker-isolation.js:248,
-//      but never populated). The old build persisted it in src/dispatch.ts
-//      (git 4225624 lines 48 + 255-263).
+//      but never populated). The old build persisted it in its flat
+//      dispatch module (git 4225624 lines 48 + 255-263).
 // Result: assertion (1) below fails — run.customSandboxProfiles is undefined after
 // dispatch. This is the v2 gap for Phase B to close (do NOT fix v2 src here).
 const assert = require("node:assert/strict");
@@ -53,7 +53,7 @@ const {
 // run.customSandboxProfiles) so the assertions still exercise the SAME intent:
 // after snapshot loss, re-resolve a CUSTOM policy by logical id against the WORKER's
 // paths and re-enforce it. This is a byte-for-byte port of the old
-// sandboxPolicyForBoundary (git 4225624 src/worker-isolation.ts) onto v2 exports.
+// sandboxPolicyForBoundary (git 4225624, the old flat worker-isolation module) onto v2 exports.
 function sandboxPolicyForBoundary(run, scope, options = {}) {
   if (scope.sandboxPolicy && !options.policy && !options.sandboxProfileId) return scope.sandboxPolicy;
   const profileId =

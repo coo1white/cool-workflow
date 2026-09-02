@@ -1,7 +1,7 @@
 "use strict";
 // shell/worker-cli.ts — `cw worker list|show|manifest|output|fail|validate`
 // (and the mirrored cw_worker_* MCP tools) handler bodies. Byte-exact behavior
-// port of the old build's src/cli/handlers/worker.ts routing into the
+// port of the old build's cli worker-handler module routing into the
 // worker-isolation shell. Impure: loads run state, mutates, persists.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;

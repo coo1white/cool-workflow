@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // hash-sha256-stablehash (milestone 0) — pins sha256/sha256Bytes/stableHash:
 // the three OTHER hash spellings besides fingerprintStrings, per
-// v2/PLAN.md byte-compat item 2 ("Hash dedup — three shapes, not one edge
+// project/docs/rebuild/PLAN.md byte-compat item 2 ("Hash dedup — three shapes, not one edge
 // case") and SPEC/ledger-trust.md "Hash form", SPEC/state-core.md
 // "Fingerprint / hash formats".
 

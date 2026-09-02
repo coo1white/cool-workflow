@@ -3,8 +3,8 @@
 // state-explosion derived-index layer.
 //
 // MILESTONE 4. Byte-exact port of the old build's
-// src/state-explosion/helpers.ts. `fingerprintStrings`/`fingerprintRecords`
-// live in core/hash.ts (the one hash module, per plugins/cool-workflow/project/docs/rebuild/PLAN.md's byte-compat
+// state-explosion helpers module. `fingerprintStrings`/`fingerprintRecords`
+// live in core/hash.ts (the one hash module, per project/docs/rebuild/PLAN.md's byte-compat
 // item 2) and are re-exported here so every importer of this file keeps
 // the same surface the old build had.
 //
@@ -13,11 +13,11 @@
 // a later milestone's topology/candidate/host-decide code has its OWN
 // separate `unique` (dedup-only, unsorted) that must NEVER be merged with
 // this one; collapsing them changes persisted record order and eval
-// parity (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 3, Open risk 2). See
+// parity (project/docs/rebuild/PLAN.md byte-compat item 3, Open risk 2). See
 // core/state/state-node.ts's own local `unique` for the sibling that must
 // stay separate.
 //
-// Evidence: SPEC/state-core.md "Helpers (src/state-explosion/helpers.ts)".
+// Evidence: SPEC/state-core.md "Helpers (state-explosion helpers module)".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fingerprintStrings = exports.fingerprintRecords = void 0;
 exports.isProtectedStatus = isProtectedStatus;
@@ -35,7 +35,7 @@ Object.defineProperty(exports, "fingerprintRecords", { enumerable: true, get: fu
 Object.defineProperty(exports, "fingerprintStrings", { enumerable: true, get: function () { return hash_1.fingerprintStrings; } });
 const collate_1 = require("../../util/collate");
 /** True for `failed`, `blocked`, `rejected`, `conflicting` — the never-
- *  collapse status set (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9). */
+ *  collapse status set (project/docs/rebuild/PLAN.md byte-compat item 9). */
 function isProtectedStatus(status) {
     return ["failed", "blocked", "rejected", "conflicting"].includes(status);
 }

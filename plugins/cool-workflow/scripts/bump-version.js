@@ -117,7 +117,7 @@ function main() {
   }
 
   // 3. src/core/version.ts runtime constant (v2 moved it from the old flat
-  //    src/version.ts into the core state layer)
+  //    version module into the core state layer)
   const versionTs = path.join(pluginRoot, "src", "core", "version.ts");
   const vtsText = fs.readFileSync(versionTs, "utf8");
   const vtsNext = vtsText.replace(

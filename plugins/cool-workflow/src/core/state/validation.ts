@@ -2,7 +2,7 @@
 // guards.
 //
 // MILESTONE 3 (+ WorkerScope port). Byte-exact port of the old build's
-// src/validation.ts. NodeSnapshot / NodeReplayRun are read at the
+// validation module. NodeSnapshot / NodeReplayRun are read at the
 // `readNodeSnapshot`/`readNodeReplay` edge in shell/node-store.ts.
 // WorkerScope is read at the `getWorkerScope`/`loadWorkerScopesFromDisk`
 // edge in shell/worker-isolation.ts. CandidateScore/CandidateRecord
@@ -25,7 +25,7 @@
 // Dependency-light by construction: imports only from ./types. No fs, no
 // clock, no randomness — pure structural checks, safe in replay/core paths.
 //
-// Evidence: SPEC/state-core.md "src/validation.ts — persisted-record shape
+// Evidence: SPEC/state-core.md "validation module — persisted-record shape
 // guards", "Fail-closed record reads".
 
 import { NodeReplayRun, NodeSnapshot, NodeSnapshotBody, NodeSnapshotFreshness, StateNodeError } from "./types";
@@ -218,7 +218,7 @@ export function validateNodeReplayRun(value: unknown): NodeReplayRun {
 // we fail closed at the read edge. schemaVersion===1; id/candidateId/runId/
 // createdAt/scorer strings; criteria a Record<string, number>; total/maxTotal/
 // normalized finite numbers; verdict a pass|warn|fail enum; evidence/artifacts
-// object arrays. Byte-behavior port of the old build's src/validation.ts guard.
+// object arrays. Byte-behavior port of the old build's validation module guard.
 // ---------------------------------------------------------------------------
 
 const SCORE_VERDICTS: ReadonlySet<string> = new Set<CandidateScore["verdict"]>(["pass", "warn", "fail"]);

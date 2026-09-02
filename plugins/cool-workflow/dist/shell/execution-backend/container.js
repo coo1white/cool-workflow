@@ -1,9 +1,9 @@
 "use strict";
 // shell/execution-backend/container.ts — the container delegating driver.
 //
-// MILESTONE 5 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// plugins/cool-workflow/src/execution-backend.ts's container handle builder
-// (:1068-1075) and `runContainer` (:720-792).
+// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
+// the old build's execution-backend module's container handle builder
+// and `runContainer`.
 //
 // Evidence: SPEC/execution-backend.md "container driver (runContainer)".
 Object.defineProperty(exports, "__esModule", { value: true });

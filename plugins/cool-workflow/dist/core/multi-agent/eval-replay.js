@@ -3,8 +3,8 @@
 // the 31-metric compare, and the pure projection (normalizeRun) half of
 // snapshot/replay/score/gate/report.
 //
-// MILESTONE 9. Byte-exact port of the old build's src/multi-agent-eval.ts
-// + src/multi-agent-eval/normalize.ts's PURE halves. Disk reads/writes
+// MILESTONE 9. Byte-exact port of the old build's multi-agent-eval module
+// + multi-agent-eval normalize module's PURE halves. Disk reads/writes
 // (snapshot.json, replay-run.json, comparison.json, score.json, gate.json,
 // report.md, suite.json) and the "re-derive from raw baseline state" load
 // are the caller's job — see shell/eval-io.ts.
@@ -17,7 +17,7 @@
 // `failures`/`evidenceAdoption` from the multi-agent/topology/blackboard/
 // trust state actually built in this milestone (runtime.ts/topology.ts/
 // coordinator.ts/candidate-scoring.ts), NOT from the full operator-ux
-// module (out of this milestone's scope per plugins/cool-workflow/project/docs/rebuild/PLAN.md's build-order
+// module (out of this milestone's scope per project/docs/rebuild/PLAN.md's build-order
 // list). The 9 optional v0.1.25/v0.1.26 sections (summaryFreshness
 // through reasoningUnexplained) default to `[]`, which SPEC/multi-
 // agent.md's own edge-case list says is valid for snapshots that predate
@@ -29,8 +29,8 @@
 // exercises exactly the sections this milestone computes for real).
 //
 // Evidence: SPEC/multi-agent.md section I ("Eval replay harness"), "Eval
-// harness exact outputs"; plugins/cool-workflow/src/multi-agent-eval.ts,
-// src/multi-agent-eval/normalize.ts (byte-exact source for the ported
+// harness exact outputs"; the old build's multi-agent-eval module,
+// multi-agent-eval normalize module (byte-exact source for the ported
 // pieces).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ALL_METRIC_SECTIONS = exports.METRIC_SECTIONS = void 0;

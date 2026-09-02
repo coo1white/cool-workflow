@@ -3,11 +3,11 @@
 // updatePhaseStatuses, formatDispatchTask, dispatch-id formatting.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the PURE parts of the old
-// build's src/dispatch.ts (the decision half — worker-scope allocation,
+// build's dispatch module (the decision half — worker-scope allocation,
 // manifest file writes, and multi-agent attachment are shell-side, see
 // shell/worker-isolation.ts and shell/drive.ts).
 //
-// Evidence: SPEC/pipeline-run.md "Dispatch — src/dispatch.ts".
+// Evidence: SPEC/pipeline-run.md "Dispatch — dispatch module".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.firstRunnablePhase = firstRunnablePhase;
 exports.updatePhaseStatuses = updatePhaseStatuses;

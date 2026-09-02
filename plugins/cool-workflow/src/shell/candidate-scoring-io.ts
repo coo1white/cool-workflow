@@ -4,7 +4,7 @@
 // rejectCandidate/summarizeCandidates.
 //
 // MILESTONE 9. Byte-exact port of the impure half of the old build's
-// src/candidate-scoring.ts: disk reads/writes, trust-audit calls,
+// candidate-scoring module: disk reads/writes, trust-audit calls,
 // feedback recording, review-gate stacking, and saveCheckpoint.
 //
 // BYTE-COMPAT / REBUILD RISK 8 [load-bearing]: the review gate STACKS on
@@ -12,8 +12,8 @@
 // appended, never replacing a verifier error. See
 // reviewstack-verifier-error-precedence.case.js.
 //
-// Evidence: SPEC/multi-agent.md section E; plugins/cool-workflow/src/
-// candidate-scoring.ts (byte-exact source for the wiring sequence).
+// Evidence: SPEC/multi-agent.md section E; the old build's
+// candidate-scoring module (byte-exact source for the wiring sequence).
 
 import * as fs from "node:fs";
 import * as path from "node:path";

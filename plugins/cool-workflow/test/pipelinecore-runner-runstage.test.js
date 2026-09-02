@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // pipelinecore-runner-runstage — runPipelineStage: the one-step engine.
-// SPEC/pipeline-run.md "Pipeline kernel — src/pipeline-runner.ts"
+// SPEC/pipeline-run.md "Pipeline kernel" section
 // (runPipelineStage, now src/core/pipeline/runner.ts).
 
 const assert = require("node:assert/strict");

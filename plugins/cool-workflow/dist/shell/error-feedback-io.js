@@ -9,7 +9,7 @@
 // feedback.ts's `recordFeedback` (dedup-on-open-record, disk write,
 // saveCheckpoint).
 //
-// Evidence: SPEC/pipeline-run.md "Error feedback — src/error-feedback.ts".
+// Evidence: SPEC/pipeline-run.md "Error feedback — error-feedback module".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -95,7 +95,7 @@ function recordFeedback(run, input, options = {}) {
 }
 // ---------------------------------------------------------------------------
 // Operator feedback lifecycle primitives — collect / list / get / correction
-// task / resolve. Byte-behavior port of the old src/error-feedback.ts halves
+// task / resolve. Byte-behavior port of the old error-feedback module halves
 // that v2 had not yet ported (v2 shipped only the record-builder half).
 // ---------------------------------------------------------------------------
 function stringMetadata(metadata, key) {

@@ -29,7 +29,7 @@ const pluginRoot = path.resolve(__dirname, "..");
 // dist/shell/run-store.js; dist/drive.js -> dist/shell/drive.js; the
 // old dist/orchestrator/lifecycle-operations.js plan() is now plan() in
 // dist/shell/pipeline.js; the old dist/workflow-api.js factory api
-// (agent/parallel/workflow) is dist/core/workflow-apps/app-schema.js.
+// (agent/parallel/workflow) now lives in the app-schema module (dist/core/workflow-apps).
 // v2 dismantled the CoolWorkflowRunner facade entirely — drive() no
 // longer takes a runner object; it takes (runId, cwd, options). This
 // smoke still counts the SAME saveCheckpoint function the fix batches,

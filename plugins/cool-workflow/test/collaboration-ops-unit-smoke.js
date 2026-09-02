@@ -8,7 +8,7 @@
 // CUTOVER NOTE (v2): NO-EQUIVALENT for the wrapper *facade*, partial for the
 // primitives.
 //
-// The old build shipped src/orchestrator/collaboration-operations.ts — a thin
+// The old build shipped an orchestrator collaboration-operations module — a thin
 // orchestrator facade that (a) wrapped return values in envelopes and (b) did
 // CLI-style string coercion inline. v2 deliberately dismantled that facade
 // (the orchestrator god-object is a documented anti-goal). Its work is now

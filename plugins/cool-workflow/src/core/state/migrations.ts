@@ -1,15 +1,15 @@
 // core/state/migrations.ts — RUN_STATE_MIGRATIONS, findMigrationPath (BFS),
 // migrateRunState, reverseRunState, normalizeRunState.
 //
-// MILESTONE 3. Byte-exact port of the old build's src/state-migrations.ts.
+// MILESTONE 3. Byte-exact port of the old build's state-migrations module.
 // Pure: no fs, no clock reads except `new Date(0)` (a fixed epoch
 // constant, not a real clock read) — statePath-derived `runDir`/`cwd`
 // defaults are path math over a string the caller already has, never a
 // real filesystem read.
 //
-// Evidence: SPEC/state-core.md "src/state-migrations.ts — run-state
+// Evidence: SPEC/state-core.md "state-migrations module — run-state
 // migration", "Migration pipeline (migrateRunState)", "Normalization
-// defaults" (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 4).
+// defaults" (project/docs/rebuild/PLAN.md byte-compat item 4).
 
 import * as path from "node:path";
 import {
@@ -300,7 +300,7 @@ export function reverseRunState(
 }
 
 /** Fill in every WorkflowRun default, each recorded as a StateMigrationChange.
- *  Pinned defaults (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 4): epoch-0 ISO timestamps,
+ *  Pinned defaults (project/docs/rebuild/PLAN.md byte-compat item 4): epoch-0 ISO timestamps,
  *  cwd = three dirs above the run dir else process.cwd(), workflow.limits =
  *  { maxAgents: 8, maxConcurrentAgents: 4 }, loopStage = "interpret" (any
  *  unknown value overwritten). */

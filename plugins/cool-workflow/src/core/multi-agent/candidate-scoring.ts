@@ -2,7 +2,7 @@
 // rankCandidates/selectCandidate's PURE decision half.
 //
 // MILESTONE 9. Byte-exact port of the decision math in the old build's
-// src/candidate-scoring.ts: id minting, score/verdict math, ranking sort
+// candidate-scoring module: id minting, score/verdict math, ranking sort
 // + tie detection, and the selection gate's failure list. Disk reads/
 // writes, trust-audit calls, feedback recording, and saveCheckpoint are
 // the caller's job — see shell/candidate-scoring-io.ts.
@@ -13,8 +13,8 @@
 // sorting `unique`. See uniquedual-role-vs-candidate-order.case.js.
 //
 // Evidence: SPEC/multi-agent.md section E ("Candidate scoring"),
-// "Candidate scoring exact outputs"; plugins/cool-workflow/src/
-// candidate-scoring.ts (byte-exact source).
+// "Candidate scoring exact outputs"; the old build's candidate-scoring
+// module (byte-exact source).
 
 import { StateArtifact, StateEvidence, StateNode, StateNodeError } from "../state/types";
 
@@ -289,7 +289,7 @@ export interface SelectionGateInput {
 /** Byte-exact port of selectCandidate's own gate ordering: not-selectable
  *  -> verifier-missing/no-evidence/empty-capture -> score-below-threshold.
  *  Review-gate errors are NOT included here; the caller appends them
- *  (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat / rebuild risk 8: append-only stacking, never
+ *  (project/docs/rebuild/PLAN.md byte-compat / rebuild risk 8: append-only stacking, never
  *  replacing a verifier error). */
 export function selectionGateFailures(input: SelectionGateInput, now?: string): StateNodeError[] {
   const failures: StateNodeError[] = [];

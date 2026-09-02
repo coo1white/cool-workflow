@@ -3,12 +3,12 @@
 // around core/pipeline/dispatch.ts's pure decision helpers.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// src/dispatch.ts's IO half (worker-scope allocation, manifest file
+// dispatch module's IO half (worker-scope allocation, manifest file
 // write, state-node append). Multi-agent attachment and custom sandbox
 // profile persistence at dispatch (H7) are milestone 9's scope and are
 // no-ops here.
 //
-// Evidence: SPEC/pipeline-run.md "Dispatch — src/dispatch.ts".
+// Evidence: SPEC/pipeline-run.md "Dispatch — dispatch module".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

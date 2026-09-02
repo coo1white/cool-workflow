@@ -4,7 +4,7 @@
 // `dim()`, which is TTY/env-aware.
 //
 // MILESTONE 11 (reporting/observability). Byte-exact port of the parts of
-// the old build's src/operator-ux/format.ts this milestone's conformance
+// the old build's operator-ux format module this milestone's conformance
 // surface exercises: formatOperatorSummary (`--summary`/`--brief`),
 // formatOperatorStatus (full `cw status`), formatOperatorReport (`cw
 // report --show`), formatOperatorGraph (`cw graph`).
@@ -211,7 +211,7 @@ export function formatMultiAgentSummaryText(summary: OperatorRunSummary["multiAg
 }
 
 /** `Multi-Agent Operator UX` block — port of the old build's inline
- *  operator-status summary (operator-ux/format.ts:41-45): active runs,
+ *  operator-status summary (in its operator-ux format module): active runs,
  *  dependency/failure/evidence counts, and the next command. */
 function formatMultiAgentOperatorBlock(operator: OperatorRunSummary["multiAgentOperator"]): string {
   return [

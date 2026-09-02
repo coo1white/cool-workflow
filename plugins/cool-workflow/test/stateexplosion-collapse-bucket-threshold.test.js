@@ -7,7 +7,7 @@
 // Evidence: SPEC/state-core.md "A bucket smaller than collapseBucket (6)
 // stays expanded — except in the critical-path view, where everything off
 // the path collapses into one bucket per kind named critical-context:<kind>";
-// v2/PLAN.md byte-compat item 9.
+// project/docs/rebuild/PLAN.md byte-compat item 9.
 
 const assert = require("node:assert/strict");
 const { buildCompactGraphFromView } = require("../dist/core/state/state-explosion/graph");

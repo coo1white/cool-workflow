@@ -2,10 +2,10 @@
 // operator-digest builder, and maybeCompactRun's PURE decision half.
 //
 // MILESTONE 4. Byte-exact port of the old build's `buildStateExplosion
-// Report`/`buildOperatorDigestWithContext` (src/state-explosion.ts) minus
+// Report`/`buildOperatorDigestWithContext` (state-explosion module) minus
 // the disk I/O — persistence (`refreshStateExplosionSummaries`'s writes,
 // `loadStateExplosionSummaryIndex`'s read) is shell/state-explosion-
-// cli.ts's job per plugins/cool-workflow/project/docs/rebuild/PLAN.md's core/shell split. This file only builds
+// cli.ts's job per project/docs/rebuild/PLAN.md's core/shell split. This file only builds
 // the report VALUE from an in-memory run + an already-loaded index.
 //
 // See size.ts/graph.ts/digest.ts's own header notes on why `operatorDigest`

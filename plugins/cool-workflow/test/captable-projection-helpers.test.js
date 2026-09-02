@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // captable-projection-helpers — pins cliCapabilities()/declaredMcpTools(),
 // the two read-projections `core/format/help.ts`'s formatCommandHelp and
-// the MCP tools/list handler are built on (v2/PLAN.md Target shape:
+// the MCP tools/list handler are built on (project/docs/rebuild/PLAN.md Target shape:
 // "formatHelp/formatCommandHelp become pure projections of the table").
 
 const assert = require("node:assert/strict");

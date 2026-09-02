@@ -3,14 +3,14 @@
 // extractEvidenceContent's PURE decision half.
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// src/evidence-grounding.ts, split so this file stays pure (no fs):
+// evidence-grounding module, split so this file stays pure (no fs):
 // resolution against real disk paths takes a caller-supplied
 // `pathExists`/`readFile`, matching the core/shell split. Real callers
 // (shell/) pass `fs.existsSync`/`fs.readFileSync`.
 //
-// Evidence: SPEC/pipeline-run.md "Result ingest — src/result-normalize.ts"
+// Evidence: SPEC/pipeline-run.md "Result ingest — result-normalize module"
 // (isGroundedEvidence is its evidence-classification primitive);
-// plugins/cool-workflow/src/evidence-grounding.ts (byte-exact source).
+// the old build's evidence-grounding module (byte-exact source).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isGroundedEvidence = isGroundedEvidence;
 exports.hasGroundedEvidence = hasGroundedEvidence;

@@ -2,10 +2,10 @@
 // core/state/state-explosion/graph.ts — buildCompactGraph + collapse rules.
 //
 // MILESTONE 4. Byte-exact port of the collapse-rule MACHINERY in the old
-// build's src/state-explosion.ts (buildCompactGraph and everything it
+// build's state-explosion module (buildCompactGraph and everything it
 // calls: collapseRuleFor, shouldCollapseKind, criticalPathNodeIds,
 // bfsNeighborhood, filterByView, finalizeGraphRecord), PLUS a faithful
-// port of `buildMultiAgentOperatorGraph`'s (src/multi-agent-operator-ux.ts)
+// port of `buildMultiAgentOperatorGraph`'s (multi-agent-operator-ux module)
 // node/edge construction for every run-level array this milestone's state
 // kernel actually carries: `tasks`, `dispatches`, `workers`,
 // `candidates`/`candidateSelections`, `commits`, `feedback` (real fields
@@ -26,7 +26,7 @@
 // file's collapse-rule machinery changing at all.
 //
 // Evidence: SPEC/state-core.md "buildCompactGraph(...)", "State-explosion
-// collapse rules"; plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9;
+// collapse rules"; project/docs/rebuild/PLAN.md byte-compat item 9;
 // the old build's buildMultiAgentOperatorGraph.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.byId = exports.GRAPH_VIEWS = void 0;
@@ -221,7 +221,7 @@ function collapseRuleFor() {
         },
     };
 }
-/** Collapsible kinds ONLY (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9): high-volume,
+/** Collapsible kinds ONLY (project/docs/rebuild/PLAN.md byte-compat item 9): high-volume,
  *  low-individual-signal. `decisions, artifacts, fanins, candidates,
  *  selections, commits, feedback` are NEVER collapsed so failures,
  *  evidence, policy, and judge rationale stay visible. */
@@ -415,7 +415,7 @@ function buildCompactGraphFromView(runId, full, view = "compact", options = {}) 
             protectedIds.add(node.id);
     }
     // Reasoning-critical nodes are on the critical path and must never be
-    // collapsed into a synthetic summary node (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9).
+    // collapsed into a synthetic summary node (project/docs/rebuild/PLAN.md byte-compat item 9).
     for (const id of options.reasoningCriticalIds || [])
         protectedIds.add(id);
     const parents = (0, helpers_1.parentMap)(full.edges);
@@ -473,7 +473,7 @@ function buildCompactGraphFromView(runId, full, view = "compact", options = {}) 
         addToBucket(rule.bucketBy(node, parentOf), node.id);
     }
     // Buckets smaller than the collapse threshold stay expanded (unless
-    // critical-path — plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 9).
+    // critical-path — project/docs/rebuild/PLAN.md byte-compat item 9).
     const synthetic = [];
     const collapsedNodeIds = new Map(); // sourceNodeId -> syntheticId
     for (const [bucketKey, ids] of [...buckets.entries()].sort((a, b) => (0, collate_1.stableCompare)(a[0], b[0]))) {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // statecore-node-projection-fields (milestone 3) — pins rawNodeProjection's
-// exact 13-field list. v2/PLAN.md byte-compat item 4 / rebuild risk #4:
+// exact 13-field list. project/docs/rebuild/PLAN.md byte-compat item 4 / rebuild risk #4:
 // "The 13-field node projection is used by snapshots AND the reclamation
 // tombstone hash-chain. Adding or dropping a field (or including
 // updatedAt) silently breaks the chain." SPEC/state-core.md:

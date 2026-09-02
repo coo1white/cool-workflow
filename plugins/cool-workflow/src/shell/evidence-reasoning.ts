@@ -1,12 +1,12 @@
 // shell/evidence-reasoning.ts — the Evidence Adoption Reasoning Chain
-// (v0.1.26). Faithful port of the old flat build's src/evidence-reasoning.ts
-// (+ its src/types/evidence-reasoning.ts types), adapted to v2's core/shell
+// (v0.1.26). Faithful port of the old flat build's evidence-reasoning module
+// (+ its evidence-reasoning types module types), adapted to v2's core/shell
 // split. DERIVES the "why" behind each evidence adoption decision from
 // existing run state; never mutates source records, never fabricates a
 // rationale (an untraceable adoption renders `unexplained`).
 //
 // Evidence: SPEC/multi-agent.md "Evidence adoption reasoning";
-// plugins/cool-workflow/src/evidence-reasoning.ts (byte-behavior source).
+// the old build's evidence-reasoning module (byte-behavior source).
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -21,7 +21,7 @@ import { stableCompare } from "../core/util/collate";
 
 export const EVIDENCE_REASONING_SCHEMA_VERSION = 1;
 
-// ---- Types (ported from src/types/evidence-reasoning.ts) -------------------
+// ---- Types (ported from evidence-reasoning types module) -------------------
 
 export type EvidenceReasoningGate = "fanin" | "candidate-score" | "selection" | "verifier" | "commit";
 export type EvidenceReasoningStatus = "adopted" | "rejected" | "superseded" | "conflicting" | "pending" | "missing" | "unexplained";

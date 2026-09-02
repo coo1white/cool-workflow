@@ -1,6 +1,6 @@
 "use strict";
 // shell/workbench-text.ts — human text for `cw workbench view`. Byte-
-// exact port of the old build's src/cli/format.ts's formatWorkbenchView.
+// exact port of the old build's cli-format module's formatWorkbenchView.
 //
 // MILESTONE 11 (reporting/observability).
 Object.defineProperty(exports, "__esModule", { value: true });

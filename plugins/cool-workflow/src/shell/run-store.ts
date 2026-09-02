@@ -1,12 +1,12 @@
 // shell/run-store.ts — loadRunFromCwd, saveCheckpoint, compactCheckpoint.
 //
 // MILESTONE 3. The ONLY place state.json is read or written. Byte-exact
-// port of the old build's src/state.ts load/save/compact functions, now
+// port of the old build's state module load/save/compact functions, now
 // split so the migration DECISION logic lives in core/state/migrations.ts
 // and this file is the thin impure shell around it (disk read, lock,
 // durable write).
 //
-// Evidence: SPEC/state-core.md "src/state.ts — persistence kernel",
+// Evidence: SPEC/state-core.md "state module — persistence kernel",
 // "Write ordering and atomic rules", "compactCheckpoint on a run with no
 // empty optional arrays writes nothing".
 
@@ -47,7 +47,7 @@ export function ensureRunDirs(paths: RunPaths): void {
 /** Read the file at artifact.path and stamp sha256 (the core `sha256:`+hex
  *  form) + sizeBytes onto the StateArtifact. A missing/unreadable file is
  *  silently skipped so hashing an absent artifact never throws. Byte-exact
- *  port of the old flat src/state.ts:hashArtifactFile. */
+ *  port of the old flat state module:hashArtifactFile. */
 export function hashArtifactFile(artifact: StateArtifact): StateArtifact {
   try {
     const content = fs.readFileSync(artifact.path, "utf8");

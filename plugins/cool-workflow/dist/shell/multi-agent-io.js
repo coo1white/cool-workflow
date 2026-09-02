@@ -4,12 +4,12 @@
 // and the trust-audit chain (recordTrustAuditEvent).
 //
 // MILESTONE 9. Byte-exact port of the impure half of the old build's
-// src/multi-agent.ts: ensureMultiAgentState's directory creation,
+// multi-agent module: ensureMultiAgentState's directory creation,
 // persistMultiAgentState's index.json + per-record writes, and every
 // create/transition call's audit-event recording + state-node append.
 //
 // Evidence: SPEC/multi-agent.md sections A ("Multi-agent kernel"),
-// "Files on disk"; plugins/cool-workflow/src/multi-agent.ts (byte-exact
+// "Files on disk"; the old build's multi-agent module (byte-exact
 // source for the wiring sequence).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;

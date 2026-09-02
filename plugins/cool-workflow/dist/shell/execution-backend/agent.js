@@ -2,8 +2,8 @@
 // shell/execution-backend/agent.ts — agent-delegation pure helpers +
 // concurrent batch fulfillment.
 //
-// MILESTONE 5 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// plugins/cool-workflow/src/execution-backend/agent.ts. This module holds
+// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
+// the old build's execution-backend agent module. This module holds
 // the PURE data-transform helpers (invocation resolution, arg substitution,
 // secret redaction, report parsing) plus the batch delegate-child spawn — both
 // the CLI-binary batch (runAgentBatchOutcomes) and, added later, its
@@ -486,9 +486,9 @@ function runEndpointBatchOutcomes(jobs) {
     return reconcileBatchOutcomes(jobs, child);
 }
 // ---------------------------------------------------------------------------
-// The stateful agent runners (spawn + settle). Byte-exact port of
-// src/execution-backend.ts's runAgentProcess (:915-995), runAgentEndpoint
-// (:1002-1062), and shouldStreamAgentStderr (:908-913).
+// The stateful agent runners (spawn + settle). Byte-exact port of the old
+// build's execution-backend module's runAgentProcess, runAgentEndpoint,
+// and shouldStreamAgentStderr.
 // ---------------------------------------------------------------------------
 /** Decide whether cw FORWARDS the agent wrapper's live stderr view (stdio
  *  "inherit") or captures it ("pipe"). CW_NO_STREAM=1 wins over everything;

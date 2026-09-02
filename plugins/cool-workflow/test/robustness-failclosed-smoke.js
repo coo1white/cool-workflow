@@ -68,7 +68,7 @@ function addTask(run, taskId) {
 // ---- A. corrupt worker.json: skip in listing, fail closed on direct lookup ----
 // REAL-GAP (v2 robustness regression). This part fails on genuine behavior after
 // the imports were repointed — it is NOT an import crash. v2 dropped two
-// fail-closed guards the old build had (git c8a6265^:src/worker-isolation.ts):
+// fail-closed guards the old build had (git c8a6265^, its flat worker-isolation module):
 //   1. listWorkerScopes reloaded scopes from disk (loadWorkerScopesFromDisk) and
 //      SKIPPED a corrupt worker.json with a stderr diagnostic. v2's
 //      dist/shell/worker-isolation.js:577-580 just returns the in-memory

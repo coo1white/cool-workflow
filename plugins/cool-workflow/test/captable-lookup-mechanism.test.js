@@ -2,7 +2,7 @@
 // captable-lookup-mechanism — pins the three lookup functions
 // core/capability-table.ts exports over the REGISTRY data table:
 // findCapability, findCapabilityByCliPath, findCapabilityByMcpTool.
-// Per v2/PLAN.md's Target shape, capability-table.ts is THE one data
+// Per project/docs/rebuild/PLAN.md's Target shape, capability-table.ts is THE one data
 // table; every later milestone adds rows only, never touches these
 // lookup helpers again. SPEC/mcp.md, SPEC/orchestrator.md, SPEC/cli-
 // surface.md all describe this as "one source of truth" for both front

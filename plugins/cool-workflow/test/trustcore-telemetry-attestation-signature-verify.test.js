@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // trustcore-telemetry-attestation-signature-verify — pins the two-arm
-// telemetry signature verify (v2/PLAN.md byte-compat item 11,
+// telemetry signature verify (project/docs/rebuild/PLAN.md byte-compat item 11,
 // SPEC/ledger-trust.md rebuild risk #3): try the 5-field payload (with
 // resultDigest) first, retry the 4-field payload on a miss, and set
 // coversResult ONLY on a first-arm match. Uses node:crypto's ed25519

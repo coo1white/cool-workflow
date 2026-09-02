@@ -173,9 +173,9 @@ assert.match(commitSummary, /verifier-gated=1/);
 assert.match(commitSummary, /checkpoints=/);
 assert.equal(runJson(["commit", "summary", plan.runId, "--json"], tmp).verifierGated, 1);
 
-// report/operator/graph/topology/summary are dispatched into src/cli/handlers/operator.ts —
-// each bare verb fails closed (no run-id / no subcommand) with a handler-originated message,
-// proving the dispatcher routes to the carved handler.
+// report/operator/graph/topology/summary are dispatched into their own
+// capability-table CLI bindings — each bare verb fails closed (no run-id /
+// no subcommand) with a handler-originated message, proving the dispatcher routes to the carved handler.
 for (const [verb, re] of [
   ["report", /Missing run id/],
   ["operator", /operator status\|report/],

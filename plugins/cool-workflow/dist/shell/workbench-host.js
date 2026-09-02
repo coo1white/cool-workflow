@@ -3,7 +3,7 @@
 // server: `cw workbench serve`.
 //
 // MILESTONE 11 (reporting/observability). Byte-exact port of the old
-// build's src/workbench-host.ts's HTTP behavior: loopback bind only,
+// build's workbench-host module's HTTP behavior: loopback bind only,
 // GET-only, non-localhost Host header refused, optional bearer-token
 // auth (timing-safe compare), pretty (2-space) JSON responses with
 // `Cache-Control: no-store` + `X-Content-Type-Options: nosniff`, a fixed

@@ -5,7 +5,7 @@
 //
 // Evidence: SPEC/state-core.md "Protected — NEVER collapsed: nodes on the
 // critical path (run root, ...), ... reasoning-critical nodes, and
-// failure-linked nodes"; v2/PLAN.md byte-compat item 9.
+// failure-linked nodes"; project/docs/rebuild/PLAN.md byte-compat item 9.
 
 const assert = require("node:assert/strict");
 const { buildCompactGraphFromView } = require("../dist/core/state/state-explosion/graph");
