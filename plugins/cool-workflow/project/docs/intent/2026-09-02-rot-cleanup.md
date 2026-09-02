@@ -117,9 +117,18 @@ After PR 3 merges. Files: `scripts/citation-check.js`,
 - Extend `citation-check` with four rules:
   (a) live docs: a bare backtick name ending `.ts`/`.js` must match a
   file basename under `src/`, `scripts/`, `test/`, or `apps/`;
-  (b) `src/**/*.ts` and `scripts/**/*.js`: every path token
-  `(src|scripts|test|apps|docs)/...\.(ts|js|md)`, with or without a
-  `:line` suffix, must exist in the tree;
+  (b) `src/**/*.ts` and `scripts/**/*.js`: every repo path token, with
+  or without a `:line` suffix, must exist in the tree. Token shape
+  (corrected 2026-09-02 — the first form, `(src|...|docs)/...`, matched
+  INSIDE `project/docs/rebuild/PLAN.md` and so flagged a true path):
+  take the whole path run — the longest `[A-Za-z0-9_./-]+` run that
+  ends in `.ts`, `.js`, `.mjs`, `.json` or `.md` and is not preceded by
+  a word character, `/`, `.` or `-`. It is a repo path when its first
+  segment is one of `src`, `scripts`, `test`, `apps`, `docs`,
+  `project`, `v2`, `plugins`, `.github`. Resolve it against the plugin
+  root, then the repo root (the two roots `citation-check` uses now).
+  `project/docs/rebuild/PLAN.md` is one token and resolves;
+  `docs/rebuild/PLAN.md` is one token and does not;
   (c) `test/**/*.js`: same as (b), but only on lines that start with
   `//`;
   (d) a `:line` suffix in (b) or (c) is a failure by itself (R1).
@@ -226,6 +235,20 @@ Rewrite rules (bind 6a, 6b, and PR 4's comment edits):
 Budget: net <= 0 for 6a and 6b. PR 4 budget stays net <= +70 for the
 gate itself; its comment edits are net <= 0.
 
+Third correction (2026-09-02, from the manager's run of 6a): the
+onramp contract has a second path-only rule, `runtime-smoke-required`
+— a change under `src/` with no change under `test/` fails
+`release:check`. So 6a (src only) can never pass on its own, the same
+way PR 3 could not pass `surface-docs-required`. Ruling: 6a and 6b
+become ONE PR, "PR 6" (src non-surface + scripts + test comment
+lines): the test/ comment edits satisfy `runtime-smoke-required`, and
+the surface files stay out so `surface-docs-required` stays quiet.
+Same rewrite rules, one body with the counts per partition. The
+contract's two path-only rules go to BACKLOG at close as one row.
+Also: rule 1 is to be applied in its natural form
+(`project/docs/rebuild/PLAN.md`), not as a workaround phrasing — the
+corrected token shape in PR 4 makes that form resolve.
+
 ## Acceptance
 
 - Manager (per PR): CI green on all three platforms, CodeQL green,
@@ -247,5 +270,4 @@ gate itself; its comment edits are net <= 0.
 | PR 3 old addresses out of comments | open | — |
 | PR 4 citation gate | open | — |
 | PR 5 TS7 install path in CI | open | — |
-| PR 6a dead paths in src (non-surface) | open | — |
-| PR 6b dead paths in scripts + test comments | open | — |
+| PR 6 dead paths in src (non-surface) + scripts + test comments | open | — |
