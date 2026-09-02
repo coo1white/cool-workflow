@@ -102,6 +102,12 @@ export async function runCli(argv: string[] = process.argv.slice(2)): Promise<vo
     args.command = "quickstart";
   } else if (!args.command && typeof args.options.question === "string") {
     args.command = "quickstart";
+  } else if (args.command === "--resume") {
+    // A bare leading --resume matches the help line `cw --resume --run
+    // <id>` (same redirect shape as -q above): route to quickstart with
+    // the default app, resume on.
+    args.options.resume = true;
+    args.command = "quickstart";
   }
 
   await dispatch(args);
