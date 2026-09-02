@@ -29,7 +29,7 @@ import {
 import { runDriveStep } from "./pipeline-cli";
 
 function resolveCwd(options: Record<string, unknown>): string {
-  return path.resolve(String(options.cwd || process.cwd()));
+  return path.resolve(String(options.cwd || options.repo || process.cwd()));
 }
 
 function optionalString(value: unknown): string | undefined {

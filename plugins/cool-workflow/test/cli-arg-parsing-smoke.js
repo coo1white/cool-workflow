@@ -89,4 +89,27 @@ console.log("argparse: no dead verb in KNOWN_COMMANDS or cw help (update stays g
 }
 console.log("argparse: suggestCommand never points at its own input ok");
 
+// 7. Help says `cw --resume --run <id>` — the line must be accepted as typed
+// (not "Unknown command: --resume"), and `cw run resume <id> --repo <path>`
+// must find the run from a different folder (README's troubleshooting row).
+{
+  const { spawnSync } = require("node:child_process");
+  const fs = require("node:fs");
+  const os = require("node:os");
+  const cli = path.resolve(__dirname, "..", "dist", "cli.js");
+  const env = { ...process.env, CW_NO_AUTO_AGENT: "1" };
+  const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-flag-")));
+  fs.writeFileSync(path.join(repo, "README.md"), "# t\n", "utf8");
+  const planned = spawnSync(process.execPath, [cli, "run", "architecture-review", "--drive", "--once", "--repo", repo, "--question", "q", "--json"], { encoding: "utf8", env });
+  const runId = JSON.parse(planned.stdout).runId;
+  const resumed = spawnSync(process.execPath, [cli, "--resume", "--run", runId, "--json"], { cwd: repo, encoding: "utf8", env });
+  assert.doesNotMatch(resumed.stderr || "", /Unknown command/, "cw --resume --run <id> is accepted as the help says");
+  assert.equal(JSON.parse(resumed.stdout).runId, runId, "--resume --run <id> reaches the same run");
+  const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-elsewhere-"));
+  const found = spawnSync(process.execPath, [cli, "run", "resume", runId, "--repo", repo, "--scope", "repo", "--json"], { cwd: elsewhere, encoding: "utf8", env });
+  assert.doesNotMatch(found.stderr || "", /not found in source state/, "cw run resume <id> --repo <path> finds the run from another folder");
+  assert.equal(JSON.parse(found.stdout).runId, runId, "run resume --repo <path> reaches the same run");
+}
+console.log("argparse: --resume redirect and run resume --repo lookup ok");
+
 console.log("cli-arg-parsing-smoke: ok");

@@ -92,7 +92,7 @@ const scheduler_io_1 = require("./scheduler-io");
 const reclamation_io_1 = require("./reclamation-io");
 const pipeline_cli_1 = require("./pipeline-cli");
 function resolveCwd(options) {
-    return path.resolve(String(options.cwd || process.cwd()));
+    return path.resolve(String(options.cwd || options.repo || process.cwd()));
 }
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;

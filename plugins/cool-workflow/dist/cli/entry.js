@@ -111,6 +111,13 @@ async function runCli(argv = process.argv.slice(2)) {
     else if (!args.command && typeof args.options.question === "string") {
         args.command = "quickstart";
     }
+    else if (args.command === "--resume") {
+        // A bare leading --resume matches the help line `cw --resume --run
+        // <id>` (same redirect shape as -q above): route to quickstart with
+        // the default app, resume on.
+        args.options.resume = true;
+        args.command = "quickstart";
+    }
     await (0, dispatch_1.dispatch)(args);
 }
 /** Broken pipe (`cw ... --json | head`): when the reader at the other end
