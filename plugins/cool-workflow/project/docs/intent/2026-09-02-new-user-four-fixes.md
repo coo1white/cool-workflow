@@ -262,20 +262,155 @@ auto-merge. Max 3 rounds per PR.
 
 ## Architecture snapshot diff (claims this program makes stale)
 
-(filled by the closing PR)
+Checked: the root `README.md` rows named by this program, the generated
+`plugins/cool-workflow/README.md` copy, the man pages under
+`plugins/cool-workflow/docs/*.7.md` that name the onramp sections or the
+run folder layout, and the true directory list in
+`plugins/cool-workflow/src/core/state/run-paths.ts`.
+
+- `README.md` troubleshooting rows: "Run stopped before the end" now lists
+  `cw --resume --run <id>` first, and a new row for "`... is not a git
+  project`" tells the user to pass `--repo`. Both rows were fixed inside
+  the merged PRs (#627, #629) at the same time as the code, so they were
+  never left stale. `plugins/cool-workflow/README.md` — the copy
+  `scripts/sync-readme.js` makes from the root file — carries the same two
+  rows word for word, so the built copy is not stale either.
+- `plugins/cool-workflow/docs/doctor.7.md` names `--onramp` only as "a
+  quick-start guide... with recommended checks and a three-step path". It
+  never names "Change Loop", "Surface Guard", or "Release Gate" by name, so
+  the contributor-only check added in PR #626
+  (`detectSourceCheckout(cwd)` in `src/shell/onramp.ts`) left this page true
+  as written. No fix was needed.
+- The man pages that describe the run folder
+  (`plugins/cool-workflow/docs/coordinator-blackboard.7.md`,
+  `candidate-scoring.7.md`, `multi-agent-topologies.7.md`,
+  `pipeline-runner.7.md`, `run-retention-reclamation.7.md`) each say what a
+  feature writes when it runs — none of them say the five directories are
+  always there from the start. So none went stale when `ensureRunDirs` (in
+  `src/shell/run-store.ts`) stopped making four of them up front.
+- One real gap, not a stale claim:
+  `plugins/cool-workflow/docs/agent-delegation-drive.7.md` writes out
+  `quickstart --resume` and `run resume <id> --drive` in full, but never
+  names the new top-level `cw --resume --run <id>` short form that PR #627
+  added in `src/cli/entry.ts`. Nothing on that page is wrong — it just does
+  not name the shortest way to type the command it already explains. Logged
+  as one row in `plugins/cool-workflow/project/docs/BACKLOG.md`
+  (2026-09-02).
 
 ## What this spec got wrong (recorded at close)
 
-(filled at close)
+**Spec corrections**
+
+- The spec said the fix was to make the `result-parse-error` failure
+  `retryable: true`. That flag alone was not the block: `recordWorkerFailure`
+  in `src/shell/worker-isolation.ts` set `task.status = "failed"` no
+  matter what the flag said, and `selectDriveTask` in
+  `src/core/pipeline/drive-decide.ts` only picks a task whose status is
+  "running" or "pending". So the second try the spec counted on could
+  never run. The fix had to change the status-setting line too.
+- The spec counted five directories to drop from `ensureRunDirs`. Only
+  four could go. `artifacts` has no writer of its own anywhere in `src/`,
+  and three smoke tests write an evidence file straight into it with no
+  `mkdir` first, so it stays.
+- The spec's own smoke test for the run-folder item checked the folder
+  right after plan, not after a full run. A person sees the folder
+  after the run ends, not at plan time. The readers the item's own Plan
+  step listed (`summarizeBlackboard`, `buildTopologyGraph` /
+  `summarizeTopologies`, `listCandidates`, `recordFeedback`,
+  `allocateWorkerScope`) do live through a missing directory — by
+  making it while they read — and the spec never said a read must not
+  make one. So the item passed the test it was given and a full run
+  still ends with empty directories: `candidates`, `artifacts`,
+  `feedback`, `topologies/runs`, the five `blackboard/` sub-directories,
+  and `artifacts` plus `logs` under every worker. Recorded, not fixed,
+  as its own row in `plugins/cool-workflow/project/docs/BACKLOG.md`.
+- The spec said to check git with "the same spawn style as `gitRoot` in
+  `onramp.ts`" inside `pipeline-cli.ts`. That could not be done as
+  written: `test/quickstart-smoke.js` has a check that
+  `pipeline-cli.ts` holds no `child_process` / `spawn(` / `execFile` text.
+  The fix was an exported `isGitWorkTree` function next to `gitRoot` in
+  `onramp.ts`, brought in by `pipeline-cli.ts`.
+- `attachDispatchToMultiAgent` in `src/shell/multi-agent-io.ts` called
+  `ensureMultiAgentState(run)` before its own
+  `if (!result.multiAgent) return result;` check, and `src/shell/dispatch.ts`
+  calls it on every dispatch. So even a plain one-worker run made an
+  empty `multi-agent` folder. This file was outside the file list for
+  that item and was taken in by a ruling.
+- The spec did not say that `plugins/cool-workflow/README.md` is made
+  again from the root `README.md` by `scripts/sync-readme.js`.
+- The closing brief pointed at a worktree rule "in the Iteration Loop"
+  of `AGENTS.md` as the place to add the new process-stopping rule.
+  There was no such rule anywhere in `AGENTS.md`. The line went to
+  "Anti-Patterns (auto-reject your own work if detected)" instead, as
+  its own bullet, in the shape of the bullets already there.
+
+**Two fixes in this program met, and neither part of the spec saw it
+coming**
+
+- The `cw --resume --run <id>` redirect added by the resume fix would
+  have been turned away by the new not-a-project check, because a resume
+  takes the cwd-default repo path. The check now steps aside when
+  `--run <id>` is given.
+
+**Named results and growth**
+
+- Fixing the status-setting line for the `retryable` flag also gives
+  `worker-result-missing` a real second try. Ruled right: a worker that
+  wrote no result file is the same kind of bad output as one that wrote a
+  broken block, and `maxAttempts` 3 keeps a limit on it. The retry line
+  names which of the two things went wrong.
+- The spec grew once by ruling: outside this repo, the onramp `summary`
+  must not talk about release gates.
+- The smoke test size limit of +20 for the run-folder item was set
+  before the multi-agent ruling. That ruling cost 6 lines. Taken at +26.
+- The gate numbers put on the not-a-project PR were taken on a base
+  without the retry fix. CI runs on the merged result and the files do
+  not touch each other, so this was taken as-is rather than run again.
+
+**How the work went (short and plain)**
+
+- On one PR, the body was written after the code, not before.
+- A worker stopped `node test/run-all.js` processes without checking
+  whose they were; two of the three belonged to other workers. It said
+  so itself, unasked. CI was not touched and is the real gate, so
+  nothing that merged rests on a run that was cut short. An earlier
+  guess that the gate is "slow to fail under load" was dropped: there
+  is no clean proof for it.
+- One PR sat with every check green while still missing a change that
+  had been ruled in. Only reading the pushed diff caught it. A report
+  that work is done is not proof; the pushed diff is.
+- A stand-in worker and the first worker were both live on one branch
+  for a short time. Both were stopped before either wrote over the
+  other. When a worker goes quiet, check the remote before you decide
+  the work is lost.
 
 ## Status ledger
 
 | Item | State | PR |
 |---|---|---|
-| Intent + spec (this file) | open | |
-| A bad result block gets a second try | | |
-| Resume works as the help says | | |
-| cw refuses to review a folder that is not a project | | |
-| The run folder holds only what the run used | | |
-| doctor --onramp speaks to the person in front of it | | |
-| Closing ledger | | |
+| Intent + spec (this file) | merged | #625 fd3388a2 |
+| A bad result block gets a second try | merged | #630 95802f17 |
+| Resume works as the help says | merged | #627 adf0ccad |
+| cw refuses to review a folder that is not a project | merged | #629 405dc112 |
+| The run folder holds only what the run used | merged | #628 ef21862f |
+| doctor --onramp speaks to the person in front of it | merged | #626 f4edf419 |
+| Closing ledger | merged — acceptance receipt `plugins/cool-workflow/project/docs/audits/four-fixes-receipt-2026-09-02.json`, program verdict **FAIL**, bound to commit `ef21862f63689a32a28fb82dc1aefcc79ee59b10` | #631 |
+
+The program's own acceptance re-run is **FAIL**, not a pass. Five of the
+six checks pass (`A-retry`, `B-resume-flag`, `B-resume-repo`,
+`C-refuse-non-git`, `D-onramp-user-words`); one fails
+(`D-no-empty-dirs`: 33 empty directories still there after a real run).
+Five out of six is not a pass. The receipt is the record; nothing in
+this file softens that.
+
+Two honest notes carried from the receipt's own `note` fields:
+
+- `A-retry` passed, but the walkthrough's run finished in one pass with
+  no worker failure, so the "goes on by itself after one worker fails"
+  path was never actually tried in this re-run. The real proof for that
+  fix is the smoke test added with it (PR #630), not the walkthrough.
+- `B-resume-flag` works — "Unknown command: --resume" is gone — but run
+  from outside the sample project with no `--repo`, it prints "Run not
+  found", and the short help line does not say it needs the cwd inside
+  the project or a `--repo`. Folded into the existing
+  `agent-delegation-drive.7.md` row in `BACKLOG.md`, not a new row.

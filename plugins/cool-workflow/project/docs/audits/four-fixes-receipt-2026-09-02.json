@@ -1,0 +1,53 @@
+{
+  "program": "2026-09-02-new-user-four-fixes",
+  "commit": "ef21862f63689a32a28fb82dc1aefcc79ee59b10",
+  "version": "0.2.7",
+  "startedAt": "2026-09-02T13:39:53Z",
+  "finishedAt": "2026-09-02T13:54:27Z",
+  "secondsToFirstReport": 685,
+  "checks": [
+    {
+      "id": "A-retry",
+      "pass": true,
+      "command": "cw -q \"How does the done command mark an item finished and where can it go wrong?\" --repo <sample> -claude",
+      "seen": "\"status\": \"complete\", plannedWorkers: 14, completedWorkers: 14, parkedWorkers: 0, all four phases (Map, Assess, Verify, Verdict) ran, reportPath written",
+      "note": "Run finished in one pass with no worker failure, so the 'does it go on by itself after one worker fails' path was not actually triggered this time; it did not park."
+    },
+    {
+      "id": "B-resume-flag",
+      "pass": true,
+      "command": "cw --resume --run <id>",
+      "seen": "cw: Run not found: architecture-review-20260902T133959Z-85e2ab\n  Try: cw run list",
+      "note": "Run from a folder that is not the sample, with no --repo. No longer 'Unknown command: --resume.' (the old bug); the flag is now recognized. It needs cwd inside the project or --repo, which the short help line does not show. Run from inside the sample folder it printed the full completed-run JSON right away."
+    },
+    {
+      "id": "B-resume-repo",
+      "pass": true,
+      "command": "cw run resume <id> --drive --repo <sample>",
+      "seen": "Resume architecture-review-20260902T133959Z-85e2ab [completed] loopStage=checkpoint (resolved from repo, valid)",
+      "note": "Run from a folder that is not the sample. Correctly found and resolved the run through --repo. Old bug was 'Cannot resume: run ... not found in source state.' — gone."
+    },
+    {
+      "id": "C-refuse-non-git",
+      "pass": true,
+      "command": "cw -q \"what is here\" -claude",
+      "seen": "cw: <path> is not a git project. Run cw inside a project, or pass --repo <path>.",
+      "note": "Run from a brand-new empty non-git folder. Printed in about 0.22 seconds, well under the 5-second bar. Process did not keep running."
+    },
+    {
+      "id": "D-no-empty-dirs",
+      "pass": false,
+      "command": "find .cw/runs/<id> -type d -empty",
+      "seen": "33 empty dirs: runs/<id>/candidates, runs/<id>/artifacts, runs/<id>/feedback, runs/<id>/topologies/runs, runs/<id>/blackboard/{artifacts,contexts,snapshots,decisions,topics} (5), and runs/<id>/workers/worker-<task>-0001/{artifacts,logs} empty for all 14 workers (28 dirs)",
+      "note": "A single-agent run with no multi-agent/topology/candidate use still leaves 33 empty folders behind."
+    },
+    {
+      "id": "D-onramp-user-words",
+      "pass": true,
+      "command": "cw doctor --onramp",
+      "seen": "Sections printed: 'Quick start (3 steps)', 'Onramp' with 'First Run' and 'No Agent?'. No 'Surface Guard', no 'Release Gate', no npm run parity:check, no node test/doctor-smoke.js.",
+      "note": "Old developer-only lines are gone; only user-facing onboarding steps remain."
+    }
+  ],
+  "verdict": "fail"
+}
