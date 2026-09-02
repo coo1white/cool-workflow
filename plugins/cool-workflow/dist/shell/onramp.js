@@ -30,6 +30,7 @@ exports.isDeleteOnlyPatch = isDeleteOnlyPatch;
 exports.resolveChangedFiles = resolveChangedFiles;
 exports.evaluateOnrampContract = evaluateOnrampContract;
 exports.recommendSmokeTests = recommendSmokeTests;
+exports.isGitWorkTree = isGitWorkTree;
 const node_fs_1 = __importDefault(require("node:fs"));
 const node_path_1 = __importDefault(require("node:path"));
 const node_child_process_1 = require("node:child_process");
@@ -530,6 +531,10 @@ function verifyRef(root, ref) {
 }
 function gitRoot(cwd) {
     return gitOne(node_path_1.default.resolve(cwd), ["rev-parse", "--show-toplevel"]) || node_path_1.default.resolve(cwd);
+}
+/** True when `cwd` is inside a git work tree (same spawn/timeout behavior as gitRoot). */
+function isGitWorkTree(cwd) {
+    return gitOne(node_path_1.default.resolve(cwd), ["rev-parse", "--is-inside-work-tree"]) === "true";
 }
 // Every onramp git call is a quick metadata read (rev-parse, merge-base, diff
 // --name-only, ls-files). A finite timeout keeps a HUNG git -- a cold fsmonitor

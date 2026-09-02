@@ -105,4 +105,26 @@ try {
   for (const dir of [repo, caller, keyDir]) fs.rmSync(dir, { recursive: true, force: true });
 }
 
+// Not a project: `cw -q` with no --repo in a folder that is not a git work
+// tree refuses before it plans; an explicit --repo to a real git dir is
+// never checked and reaches the normal "agent not configured" path.
+const notAProject = tmpWorkspace("not-a-project");
+const gitProject = tmpWorkspace("git-project");
+try {
+  assert.equal(spawnSync("git", ["init", "-q"], { cwd: gitProject }).status, 0, "git init sets up the fixture project");
+  const refused = spawnSync(process.execPath, [cli, "-q", "x"], { cwd: notAProject, encoding: "utf8" });
+  assert.notEqual(refused.status, 0, "cw -q in a non-git folder exits non-zero");
+  assert.match(refused.stderr, /is not a git project\. Run cw inside a project, or pass --repo <path>\./, "the refusal names the fix");
+  assert.equal(fs.existsSync(path.join(notAProject, ".cw")), false, "the refused run wrote no .cw state");
+
+  const proceeds = runJson(["quickstart", "architecture-review", "--repo", gitProject, "--check"], {
+    cwd: notAProject,
+    status: 1,
+    env: { CW_AGENT_COMMAND: "", CW_AGENT_ENDPOINT: "", CW_NO_AUTO_AGENT: "1" }
+  });
+  assert.equal(proceeds.checks.find((c) => c.name === "agent").status, "blocked", "an explicit --repo to a git dir skips the check and reaches the agent-not-configured path");
+} finally {
+  for (const dir of [notAProject, gitProject]) fs.rmSync(dir, { recursive: true, force: true });
+}
+
 process.stdout.write("quickstart-readme-path-smoke: ok (check zero-write, bundle, offline verify)\n");

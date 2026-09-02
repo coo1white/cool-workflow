@@ -26,6 +26,7 @@ import { writeReport } from "./report";
 import { WorkflowRun } from "../core/state/types";
 import { agentConfigured, resolveAgentConfig } from "./agent-config";
 import { materializeRemote, isRemoteUrl, validateRemoteUrl, gitAvailable, RemoteSource } from "./remote-source";
+import { isGitWorkTree } from "./onramp";
 import { recordTrustAuditEvent } from "./trust-audit";
 import { reportBundleCli, ReportBundleResult } from "./report-cli";
 
@@ -136,6 +137,11 @@ function existingRunCwd(args: Record<string, unknown>): string {
  *  build's cli-options.isMissing (undefined / null / empty string). */
 function isMissingInput(value: unknown): boolean {
   return value === undefined || value === null || value === "";
+}
+
+/** Refuses when the repo defaulted to the cwd (no --repo/--dir/--cwd/--link) and that cwd is not a git project. */
+function assertGitProject(repo: string): void {
+  if (!isGitWorkTree(repo)) throw new Error(`${repo} is not a git project. Run cw inside a project, or pass --repo <path>.`);
 }
 
 /** Resolve a workflow app for `plan`/`run --drive` over the SAME surface `cw
@@ -418,8 +424,10 @@ export async function quickstartRun(
   const linkArg = typeof args.link === "string" && args.link.trim() ? args.link.trim() : undefined;
   const repoArgRaw = typeof args.repo === "string" && args.repo.trim() ? args.repo.trim() : undefined;
   const remoteCandidate = linkArg || (repoArgRaw && isRemoteUrl(repoArgRaw) ? repoArgRaw : undefined);
-  if (!remoteCandidate && !args.repo && !args.cwd) args.repo = invocationCwd(args);
+  const repoFromCwd = !remoteCandidate && !args.repo && !args.cwd;
+  if (repoFromCwd) args.repo = invocationCwd(args);
   if (Boolean(args.check)) return quickstartCheck(appId, args, remoteCandidate);
+  if (repoFromCwd) assertGitProject(args.repo as string);
 
   // `--resume`: a discoverability flag over the existing continuation. With no
   // `--run`, advance exactly ONE step (reuse the `--once` path) and print a

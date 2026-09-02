@@ -582,6 +582,11 @@ function gitRoot(cwd: string): string {
   return gitOne(path.resolve(cwd), ["rev-parse", "--show-toplevel"]) || path.resolve(cwd);
 }
 
+/** True when `cwd` is inside a git work tree (same spawn/timeout behavior as gitRoot). */
+export function isGitWorkTree(cwd: string): boolean {
+  return gitOne(path.resolve(cwd), ["rev-parse", "--is-inside-work-tree"]) === "true";
+}
+
 // Every onramp git call is a quick metadata read (rev-parse, merge-base, diff
 // --name-only, ls-files). A finite timeout keeps a HUNG git -- a cold fsmonitor
 // daemon, a credential prompt on a misconfigured remote -- from blocking the
