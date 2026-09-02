@@ -590,12 +590,15 @@ function stripPluginPrefix(file) {
 function isRuntimeSource(file) {
     return file.startsWith("plugins/cool-workflow/src/") && file.endsWith(".ts") && !file.startsWith("plugins/cool-workflow/src/types/");
 }
-// A "type source" is the src/types/ tree, or a file under src/ named types.ts.
+// A "type source" is the src/types/ tree, the src/core/types/ tree, or a
+// file under src/ named types.ts.
 function isTypeSource(file) {
     const pluginPath = stripPluginPrefix(file);
     if (!pluginPath.startsWith("src/") || !pluginPath.endsWith(".ts"))
         return false;
-    return pluginPath.startsWith("src/types/") || node_path_1.default.basename(pluginPath) === "types.ts";
+    return (pluginPath.startsWith("src/types/") ||
+        pluginPath.startsWith("src/core/types/") ||
+        node_path_1.default.basename(pluginPath) === "types.ts");
 }
 // Pre-rebuild flat literals here (capability-registry module, mcp-surface module,
 // orchestrator module) named files that no longer exist anywhere in the
