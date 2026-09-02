@@ -207,21 +207,11 @@ const evidenceLocator = `${evidencePath}:1`;
     "--topic",
     "topic-synthesis"
   ]);
-  // REAL-GAP (v2): this asserts the blackboard linkage the old build carried on
-  // every multi-agent record. In v2 the kernel still supports it — the
-  // Create*Input types accept blackboardId/topicIds and createAgentFanout even
-  // inherits `input.blackboardId || group.blackboardId || multiAgentRun.blackboardId`
-  // (src/core/multi-agent/runtime.ts). But the SHELL CLI layer silently drops
-  // the `--blackboard`/`--topic` flags: none of the multi-agent CLI handlers
-  // forward them into the kernel input:
-  //   src/shell/multi-agent-cli.ts  createMultiAgentRun  (only id/title/objective)
-  //   src/shell/multi-agent-cli.ts  createAgentGroup     (no blackboardId/topicIds)
-  //   src/shell/multi-agent-cli.ts  createAgentFanout    (no blackboardId/topicIds)
-  // So `multi-agent run|group|fanout --blackboard bb-smoke` leaves
-  // blackboardId undefined, and this assertion (plus every downstream
-  // manifest.blackboard / membership.blackboardId / fanin.blackboardArtifactRefIds
-  // check) fails. No CLI-invocation change can repair this — the flag never
-  // reaches the kernel. Left failing intentionally; fix belongs in Phase B.
+  // The blackboard linkage carries through every multi-agent record: the CLI
+  // `--blackboard`/`--topic` flags reach the kernel input
+  // (src/shell/multi-agent-cli.ts -> src/core/multi-agent/runtime.ts), so
+  // `multi-agent run|group|fanout --blackboard bb-smoke` sets blackboardId
+  // on the fanout and every downstream manifest/membership/fanin record.
   assert.equal(fanout.blackboardId, "bb-smoke");
 
   const dispatch = runJson([

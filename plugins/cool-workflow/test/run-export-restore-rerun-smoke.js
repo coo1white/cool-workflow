@@ -15,16 +15,10 @@ const path = require("node:path");
 const pluginRoot = path.resolve(__dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
-// REAL-GAP (v2): the CoolWorkflowRunner facade is gone (remapped below to free
-// functions), but the deeper issue is that v2's recordWorkerFailure records an
-// error NODE + trust-audit event yet emits NO error-feedback record. So the
-// failed source run has an empty run.feedback (line 51 assertion), and because
-// deriveLifecycle only returns "blocked" when openFeedback > 0 (a failed task
-// alone derives "failed"), the restored run shows derivedLifecycle "failed", not
-// the "blocked" this smoke asserts (line 62). Same missing error-feedback
-// integration seen in error-feedback-smoke / no-false-green-smoke. The facade
-// remap lets the export/import/rerun/provenance CLI assertions still run; the two
-// feedback-derived assertions fail on the real gap. Reported for a human call.
+// recordWorkerFailure records an error node + trust-audit event and an
+// error-feedback record, so a failed source run carries a non-empty
+// run.feedback, and the restored run's derivedLifecycle reads "blocked"
+// (deriveLifecycle returns "blocked" when openFeedback > 0).
 const { plan: planApp } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
 const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
 const { loadRunFromCwd, saveCheckpoint } = require(path.join(pluginRoot, "dist/shell/run-store.js"));

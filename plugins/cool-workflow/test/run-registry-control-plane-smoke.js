@@ -281,16 +281,9 @@ function openMcp() {
     // the control plane resolves + reruns runs through the MCP surface too.
     const mcpResume = await mcp.tool("cw_run_resume", { cwd: repoA, scope: "home", runId: b1.id });
     assert.equal(mcpResume.repo, repoB, "MCP resume resolves cross-repo by id");
-    // REAL-GAP (v2): cw_run_rerun through the CLI/MCP surface is inert. In-process
-    // rerun works (sections 5-7 above pass, driven by a planner-injected RunRegistry),
-    // but v2's src/shell/registry-cli.ts runRerunCli builds `new RunRegistry(cwd)`
-    // with NO planner, and RunRegistry.rerun (src/shell/run-registry-io.ts)
-    // throws "rerun requires a run planner (CoolWorkflowRunner)" when planner is
-    // absent. The old build wired the orchestrator as the CLI/MCP planner, so
-    // `cw run rerun` and `cw_run_rerun` succeeded. Every RunRegistry construction on
-    // the CLI/MCP path in v2 omits the planner, so this line throws. Intent is
-    // preserved (not weakened) — this asserts the genuine missing behavior; leave it
-    // failing until Phase B injects a planner into the CLI/MCP rerun path.
+    // cw_run_rerun through the CLI/MCP surface plans the new linked run via
+    // a real run planner (src/shell/registry-cli.ts cliRunPlanner, injected
+    // into RunRegistry).
     const mcpRerun = await mcp.tool("cw_run_rerun", { cwd: repoA, scope: "home", runId: b1.id, reason: "mcp rerun" });
     assert.equal(mcpRerun.provenance.rerunOf, b1.id, "MCP rerun records provenance to the original");
     assert.ok(fs.existsSync(b1.paths.state), "MCP rerun preserves the original");

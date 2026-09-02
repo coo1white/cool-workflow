@@ -19,16 +19,6 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 const WRAP = path.join(pluginRoot, "scripts/agents/cw-attest-wrap.js");
 const KEYGEN = path.join(pluginRoot, "scripts/agents/cw-attest-keygen.js");
 
-// REAL-GAP (v2): v2 dismantled the CoolWorkflowRunner facade AND did not port the
-// quickstart `--bundle` seal-into-portable-bundle flow. v2's shell/pipeline-cli
-// quickstartRun returns only `{ appId, ...driveResult }` — it never seals a
-// completed run into a self-verified bundle, so `result.bundle` is always absent,
-// even though the capability-table STILL advertises "--bundle [--with-trust-key K]
-// seals a completed run into a self-verified portable bundle". runVerifyReportBundle
-// (verify an existing archive) survives as run-export's verifyReportBundle, but the
-// quickstart-side SEALING has no v2 equivalent. Imports repointed to the closest v2
-// modules + a facade shim so the smoke fails on the missing `result.bundle`, not an
-// import crash. Reported as a REAL GAP for a human call.
 const { plan: planApp } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
 const { loadWorkflowApp } = require(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"));
 const { loadRunFromCwd } = require(path.join(pluginRoot, "dist/shell/run-store.js"));

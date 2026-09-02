@@ -271,25 +271,9 @@ async function liveParity() {
   );
   const runId = plan.runId;
 
-  // Dispatch + record a result with host-attested usage through the real intake.
-  //
-  // REAL-GAP (v2 regression, NOT weakened here on purpose):
-  //   `cw result <run> <task> <file>` below fails with
-  //   "Worker <id> write path is outside sandbox profile readonly: <file>".
-  //   v2's result handler recordResultRun (src/shell/pipeline-cli.ts)
-  //   routes the operator's EXTERNAL result file straight into
-  //   recordWorkerOutput(run, workerId, absolute), which sandbox-validates that
-  //   path via validateSandboxWrite against the worker's readonly write boundary
-  //   (only .cw/runs/.../workers/.../result.md is allowed). Any file outside the
-  //   worker dir is rejected.
-  //   The OLD build's `cw result` went through the TASK-level recordResult
-  //   (orchestrator/lifecycle-operations.ts:253), which COPIED the operator file
-  //   into run.paths.resultsDir (fs.copyFileSync, line 280) and NEVER
-  //   sandbox-validated the external path. v2 collapsed the two intakes and
-  //   dropped the copy-in step. So host-attested usage intake via `cw result`
-  //   is broken for any external result file. The pure-derivation checks above
-  //   (parts 1-7 — the actual observability/cost contract) all pass; only this
-  //   live-intake helper is blocked. Fix belongs to Phase B, not this test.
+  // Dispatch + record a result with host-attested usage through the real
+  // intake: `cw result <run> <task> <file>` must accept an operator result
+  // file living outside the worker's sandbox dir and copy it in.
   const dispatch = JSON.parse(execFileSync(node, [cli, "dispatch", runId], { cwd: workspace, encoding: "utf8" }));
   const taskId = dispatch.tasks[0].id;
   const resultFile = path.join(workspace, "result.md");

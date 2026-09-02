@@ -5,22 +5,13 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-// CUTOVER NOTE (v2 audit): NO-EQUIVALENT file layout, adapted to a behavior
-// check.
-// The old build split the accept path across five focused
-// src/worker-accept/*.ts modules (validation, acceptance, telemetry-ledger,
-// verifier-completion, blackboard-fanout). v2 does NOT reproduce that split:
-// worker-isolation.ts moved to src/shell/worker-isolation.ts, and its own
-// header comment documents the accept path as ONE inlined orchestrator
-// (recordWorkerOutput), a deliberate choice, not a dropped behavior —
-// external CLI behavior stays byte-identical (conformance 101/101).
-// Re-decomposing a working, single-owner file into five just to satisfy a
-// file-layout lint would be pure churn with no behavior change, so this
-// smoke now checks the property the old layout was really guarding: that
-// the accept path still runs its five steps in the documented order
-// (validate -> attest delegation -> accept -> verify -> completion), and
-// that blackboard fanout still goes through its own module (multi-agent-io)
-// rather than reaching into coordinator.ts directly.
+// The accept path (src/shell/worker-isolation.ts, recordWorkerOutput) is
+// one inlined orchestrator, not split across separate modules. This smoke
+// checks the property that split was guarding: the accept path still runs
+// its five steps in the documented order (validate -> attest delegation ->
+// accept -> verify -> completion), and blackboard fanout still goes
+// through its own module (multi-agent-io) rather than reaching into
+// coordinator.ts directly.
 const pluginRoot = path.resolve(__dirname, "..");
 const workerSourcePath = path.join(pluginRoot, "src", "shell", "worker-isolation.ts");
 const workerSource = fs.readFileSync(workerSourcePath, "utf8");

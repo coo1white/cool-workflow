@@ -4,22 +4,9 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-// REAL-GAP (v2 cutover): the old flat state module exported
-// `hashArtifactFile(artifact)` — it read the file at `artifact.path`, stamped
-// `sha256` (full `sha256:`+64 hex, via core sha256) and `sizeBytes` onto the
-// StateArtifact, and silently skipped a missing file. See old source at
-// commit c8a6265~1 (the old build's flat state module).
-//
-// v2 split the old flat `state` into `../dist/shell/run-store` (shell side) +
-// `../dist/core/state/*` (pure side). The StateArtifact type still carries
-// `sha256?`/`sizeBytes?` (src/core/state/types.ts) and run-export still
-// consumes them (src/shell/run-export.ts), BUT no v2 module reimplements
-// the function that POPULATES those fields from disk. `hashArtifactFile` is gone
-// from every dist module (grep -rl hashArtifactFile dist/ = empty), so the
-// require below resolves the successor module but `hashArtifactFile` is
-// undefined. This lands the failure on the genuine missing behavior, not an
-// import crash. See src/core/hash.ts:sha256 (the still-present primitive the
-// old wrapper used) — only the file-reading wrapper is missing.
+// hashArtifactFile(artifact) reads the file at artifact.path and stamps
+// sha256 (full `sha256:`+64 hex) and sizeBytes onto the StateArtifact, and
+// skips a missing file without throwing.
 const { hashArtifactFile } = require("../dist/shell/run-store");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-artifact-hash-"));

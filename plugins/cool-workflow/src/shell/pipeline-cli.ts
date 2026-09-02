@@ -248,10 +248,8 @@ interface QuickstartCheckResult {
 
 /** `cw quickstart [app] --check` — read-only preflight: does the app
  *  resolve, is the repo readable/writable, is a question set, is an
- *  agent backend configured. Never plans or writes a run. Byte-exact
- *  port of the old build's `quickstartCheck` (capability-core module),
- *  local-repo path only (the --link/remote preflight variant is not
- *  ported — no conformance case exercises it). */
+ *  agent backend configured. Never plans or writes a run. The local-repo
+ *  path is below; a remote candidate is handed to remoteQuickstartCheck. */
 function quickstartCheck(appId: string, args: Record<string, unknown>, remoteCandidate?: string): QuickstartCheckResult {
   // `--link`/URL preflight: validate the URL SHAPE + tooling WITHOUT fetching
   // (a clone is heavy + side-effecting; --check stays read-only). Swaps the

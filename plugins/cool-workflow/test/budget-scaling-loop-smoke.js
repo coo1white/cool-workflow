@@ -14,28 +14,9 @@
 //      the run BLOCKS after 2 rounds (spent 12 >= budget 12), before the loop target is
 //      reached. The cap can never be overshot.
 //
-// ===================================================================================
-// AUDIT STATUS: REAL-GAP (imports repointed to v2; behavior itself is missing).
-// -----------------------------------------------------------------------------------
-// The imports below are the correct v2 locations and the run drives cleanly, so the
-// failure is NOT an import crash — it lands on genuine v2 behavior. But v2 never
-// spawns loop rounds: test 1 gets 1 round (spawnCount 1 != 3), status "complete".
-//
-// Root cause: v2's imperative shell driver src/shell/drive.ts (dist/shell/drive.js)
-// imports ONLY `maxLoopExpansion` from core/pipeline/loop-expansion (drive.ts:46). The
-// three functions that actually re-spawn a loop round —
-//   evaluateLoopStop      (src/core/pipeline/loop-expansion.ts)
-//   cloneLoopRoundTasks   (src/core/pipeline/loop-expansion.ts)
-//   loopControlNodeId     (src/core/pipeline/loop-expansion.ts)
-// are fully implemented in the PURE decision core but are DEAD CODE: grep of src/
-// finds ZERO callers. The module header says materializing the cloned round is
-// "the caller's job in shell/", but shell/drive.ts never wired it in. So a loop()
-// phase executes exactly one round and completes; budget-target scaling, the
-// maxRounds cap, and loop-control nodes never fire. (Same gap fails the sibling
-// loop-bounded-expansion-smoke.) The old build did this in
-// orchestrator/lifecycle-operations.ts's maybeExpandLoop, called from its driver.
-// Phase B must call evaluateLoopStop + cloneLoopRoundTasks from shell/drive.ts.
-// ===================================================================================
+// The shell driver (src/shell/drive.ts) calls evaluateLoopStop and
+// cloneLoopRoundTasks (src/core/pipeline/loop-expansion.ts) to re-spawn a
+// loop round.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

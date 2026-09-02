@@ -152,16 +152,10 @@ assert.throws(
     }),
   /Verifier node not found/
 );
-// REAL-GAP (v2): the throw + error code are correct, but v2 never records the
-// gate-failure code into run.feedback. The old build pushed these codes onto the
-// deduped, disk-persisted feedback surface (the one cw doctor/report reads).
-// v2's src/shell/commit.ts recordCommitGateFailure (lines 162-189) only builds an
-// error node via appendRunNode; it never calls recordFeedback
-// (src/shell/error-feedback-io.ts), and it bypasses runPipelineStage's
-// recordFeedback hook (src/core/pipeline/runner.ts). So run.feedback stays
-// empty and this assertion (and the two below at ~L167 and ~L250) fails.
-// Do NOT weaken: the intent is that a blocked commit leaves an operator-visible
-// feedback record. Fix belongs in v2 src (Phase B), not here.
+// A blocked commit leaves an operator-visible feedback record: commit.ts's
+// recordCommitGateFailure calls recordFeedback (src/shell/error-feedback-io.ts)
+// with the gate-failure code, onto the deduped, disk-persisted feedback
+// surface (the one cw doctor/report reads).
 assert.ok(run.feedback.some((record) => record.code === "commit-verifier-not-found"));
 
 assert.throws(

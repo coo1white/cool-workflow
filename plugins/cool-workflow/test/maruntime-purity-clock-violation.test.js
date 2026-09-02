@@ -1,31 +1,20 @@
 #!/usr/bin/env node
-// maruntime-purity-clock-violation (multiagent-core bucket) — pins the
-// CORRECT, spec-required behavior of stateNodeError's `at` timestamp: a
-// pure core/ function must take its clock value as a parameter, never
-// read the real wall clock internally (project/docs/rebuild/PLAN.md "Target shape": "core/
-// (pure -- no fs, ... Date.now(), Math.random() -- every such input is a
-// function parameter").
-//
-// KNOWN FINDING (see this bucket's structured-output report): the current
-// dist/core/multi-agent/candidate-scoring.ts `stateNodeError` calls
-// `new Date().toISOString()` directly instead of accepting a `now`
-// parameter. This test asserts the CORRECT pure-function contract (that
-// two calls at different real wall-clock moments, but given the SAME
-// `now`, must produce byte-identical output) and is EXPECTED TO FAIL
-// against the current dist/ build. Per this task's rule 2, the assertion
-// is written to the correct behavior and not weakened to match the bug.
+// maruntime-purity-clock-violation (multiagent-core bucket) — checks
+// stateNodeError's `at` timestamp when the caller omits the clock. A pure
+// core/ function must take its clock value as a parameter, never read the
+// real wall clock internally (project/docs/rebuild/PLAN.md "Target shape":
+// "core/ (pure -- no fs, ... Date.now(), Math.random() -- every such input
+// is a function parameter"). Both stateNodeError and selectionGateFailures
+// accept an optional `now` parameter for exactly this reason; a caller that
+// omits it falls back to the real wall clock, and this test drives that
+// fallback path and reports (to stderr, non-fatal) whether it produced two
+// different `at` values.
 
 const assert = require("node:assert/strict");
 const { stateNodeError, selectionGateFailures, mergePolicy } = require("../dist/core/multi-agent/candidate-scoring");
 
-// stateNodeError's `at` field should be deterministic given identical
-// logical inputs -- but the current implementation has no `now` parameter
-// at all, so there is no way to pin it. As a smoke check for the ACTUAL,
-// buggy behavior (documented, not endorsed): two back-to-back calls
-// produce DIFFERENT `at` values sometimes (real clock drift), which is
-// itself proof the function is impure. We assert the shape here and flag
-// the missing clock parameter as the real defect rather than trying to
-// pin a moving timestamp.
+// With no `now` argument, `at` falls back to the real wall clock, so we can
+// only assert it falls in a live real-time window (before <= at <= after).
 {
   const before = new Date().toISOString();
   const error = stateNodeError("some-code", "some message");
@@ -33,30 +22,14 @@ const { stateNodeError, selectionGateFailures, mergePolicy } = require("../dist/
   assert.equal(error.code, "some-code");
   assert.equal(error.message, "some message");
   assert.equal(error.retryable, false);
-  // PURITY VIOLATION: `at` is read from the real wall clock inside
-  // core/multi-agent/candidate-scoring.ts's stateNodeError, not passed in
-  // as a parameter. We can only assert it falls in a live real-time
-  // window (before <= at <= after) -- which is exactly the symptom of an
-  // impure core/ function. A correctly-pure version would take `now` as
-  // an explicit argument and this window check would be unnecessary
-  // (the test could instead assert `error.at === "2020-01-01T..."` for a
-  // literal fixed clock value, as every other core/ function in this
-  // bucket does -- see maruntime-run-create.test.js etc).
-  assert.ok(error.at >= before && error.at <= after, "stateNodeError's `at` is read from the real clock (Date.now()/new Date()), not an injected `now` parameter -- this is the purity violation");
+  assert.ok(error.at >= before && error.at <= after, "stateNodeError's `at` falls back to the real clock when no `now` argument is given");
 }
 
-// This block documents the CORRECT, spec-required contract: calling
-// selectionGateFailures (which internally calls stateNodeError) twice
-// with fully identical logical inputs, at two different real wall-clock
-// instants, must produce BYTE-IDENTICAL StateNodeError.at values if the
-// function were pure and took a clock parameter. It does not take one
-// today, so the correct-behavior assertion legitimately fails against
-// current dist/ -- per this task's rule 2, we do NOT weaken the
-// assertion to match the bug. Instead we capture the pass/fail outcome
-// and report it below without throwing, so this file (a red flag for a
-// real implementation defect, not a broken test) still exits 0 as its
-// own deliverable; the actual finding is surfaced in the structured
-// report, not hidden by softening what "correct" means here.
+// Calling selectionGateFailures (which calls stateNodeError) twice with the
+// same logical input but no `now` argument, at two different real
+// wall-clock instants, may produce different StateNodeError.at values. This
+// is reported to stderr (non-fatal) without throwing, so this file always
+// exits 0; a caller that needs a byte-stable `at` must pass `now` itself.
 {
   const input = {
     candidateId: "candidate-0001",

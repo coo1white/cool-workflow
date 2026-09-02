@@ -201,8 +201,8 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
         ],
     },
     {
-        // Phase B: the CLI bindings just layered onto these previously
-        // MCP-only rows make each a real both-surface dual-bound capability, so
+        // The CLI bindings layered onto these previously MCP-only rows make each
+        // a real both-surface dual-bound capability, so
         // the payload probe now sees them. Each needs a seeded fixture beyond a
         // bare cwd/runId — a scheduled task / routine trigger / durable queue
         // entry / lease / portable archive on disk, a target entity id

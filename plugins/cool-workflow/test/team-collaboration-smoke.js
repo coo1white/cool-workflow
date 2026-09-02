@@ -201,18 +201,10 @@ assert.equal(policy.requiredApprovals, 1);
 assert.deepEqual(policy.authorizedRoles, ["reviewer"]);
 
 // ---- 2. Review gate BLOCKS a verifier-passing commit lacking approvals -----
-// REAL-GAP (v2): the commit path does NOT stack the review gate. commitState
-// (src/shell/commit.ts) builds its gate solely from resolveCommitGate
-// (src/core/pipeline/commit-gate.ts), which has ZERO review references — so a
-// verifier-passing, un-approved commit is NOT blocked. The pure gate logic is
-// present and correct (collab.reviewGateErrors returns "review-gate-missing-
-// approvals"; commitReviewProvenance stamps the shipped commit's .review), and
-// shell/collaboration-io.ts re-exports both, but NOTHING in commitState ever
-// calls them — they are dead. The old build wired reviewGateErrors on top of
-// the verifier gate inside commitState (SPEC/multi-agent.md invariant 7/8; see
-// the "reviewGateErrors STACKS" comment at src/core/multi-agent/
-// collaboration.ts:9-11). This assertion (and every review-gate/provenance
-// assertion below) fails until v2 restores that wiring. Do NOT weaken it.
+// commitState (src/shell/commit.ts) stacks reviewGateErrors on top of the
+// verifier gate (SPEC/multi-agent.md invariant 7/8), so a verifier-passing,
+// un-approved commit is still blocked with "review-gate-missing-approvals",
+// and commitReviewProvenance stamps the shipped commit's .review.
 let blocked;
 try {
   commitState(run, { reason: "selected candidate", selectionId: selection.id, verifierGated: true, source: "cli" });

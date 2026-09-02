@@ -52,15 +52,8 @@ const canonicalResearchPlan = run([
   "local docs"
 ]);
 assert.equal(canonicalResearchPlan.workflowId, "research-synthesis");
-// REAL-GAP (v2): this smoke is pure-CLI (no flat-dist requires to repoint), so the
-// failure already lands on genuine v2 behavior. v2's `cw plan --json` payload drops
-// the canonical `pendingTasks` key and emits `taskCount` instead (plus an
-// unspecified `schemaVersion: 1`). Old build + v2 SPEC both mandate `pendingTasks`:
-//   - old: the old build's `pendingTasks: run.tasks.filter(pending).length`
-//   - SPEC: the workflow-apps SPEC doc under project/docs/rebuild/SPEC ("pendingTasks": 14)
-//   - v2 defect: src/shell/pipeline-cli.ts returns `taskCount: run.tasks.length`
-// Conformance is 101/101 but no case covers the plan --json key, so it slipped through.
-// Left failing on purpose (do NOT weaken): reports the gap for Phase B to fix in v2.
+// `cw plan --json` carries the canonical `pendingTasks` key (the workflow-apps
+// SPEC doc under project/docs/rebuild/SPEC mandates it).
 assert.equal(canonicalResearchPlan.pendingTasks, 6);
 const canonicalResearchState = JSON.parse(fs.readFileSync(canonicalResearchPlan.statePath, "utf8"));
 assert.equal(canonicalResearchState.workflow.app.id, "research-synthesis");
@@ -74,12 +67,10 @@ const legacyPlan = run([
   "--question",
   "Do legacy workflow files still plan?"
 ]);
-// REAL-GAP (v2, secondary): `cw list` shows `legacy-research-synthesis` (a
-// compatibility workflow-file wrapper), but `cw plan legacy-research-synthesis`
-// dies with "Workflow app not found". v2's planRun calls loadWorkflowApp(appId)
-// (src/shell/pipeline-cli.ts) which cannot resolve the legacy workflow-file
-// wrapper that the list surface CAN resolve. Old build could plan it. Left
-// failing on purpose; reports the gap for Phase B.
+// `cw list` shows `legacy-research-synthesis` (a compatibility
+// workflow-file wrapper), and `cw plan legacy-research-synthesis` must
+// also resolve it (loadWorkflowApp falls back to the discovery record for
+// a legacy workflow-file id with no apps/<id>/app.json directory).
 assert.equal(legacyPlan.workflowId, "legacy-research-synthesis");
 assert.equal(legacyPlan.pendingTasks, 5);
 

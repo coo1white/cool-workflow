@@ -89,17 +89,9 @@ function run(args, cwd, extraEnv = {}) {
 }
 
 // ===== 5. a missing-repo error points the user at the -dir flag (recoveryHint coverage) =====
-// REAL-GAP (v2): the old build did NOT default repo to cwd for `plan`, so `cw plan <app>`
-// surfaced "Missing required input --repo" and the content-based recoveryHint
-// (src/cli/entry.ts — message matches "missing"+"repo") printed the `-dir` recovery line.
-// v2's planRun auto-fills repo from cwd (src/shell/pipeline-cli.ts:
-//   `if (!args.repo && !args.cwd) args.repo = invocationCwd(args);`), so repo is never
-// missing. Input validation (src/shell/pipeline.ts) then hits the NEXT required
-// input and throws "Missing required input: question" — which does not match the "repo"
-// branch of recoveryHint, so NO `Try:` recovery line is produced. The missing-repo
-// recovery surface for `plan` is gone. There is no v2 path where `cw plan <app>` yields
-// the missing-repo hint, so this assertion cannot be adapted without weakening its intent.
-// Left failing on purpose per the cutover rules (Phase B fixes v2, not this test).
+// `plan` does not default repo to cwd, so `cw plan <app>` with no --repo/-dir
+// surfaces "Missing required input --repo" plus the content-based
+// recoveryHint (src/cli/entry.ts) that prints the `-dir` recovery line.
 {
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-recover-norepo-")));
   cleanups.push(work);

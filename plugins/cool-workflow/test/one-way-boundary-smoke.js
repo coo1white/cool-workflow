@@ -19,27 +19,10 @@
 //
 // Portable: node + the repo's own typescript devDependency. No new dependency.
 //
-// CUTOVER AUDIT (v2) — NO-EQUIVALENT. This smoke asserts an OLD internal
-// TYPE-LAYER structure that v2 legitimately does not have:
-//   - the old types/boundary weld module — GONE in v2.
-//   - Its exports OneWayData<T>, IsOneWayData<T>, AssertTrue<T extends true>
-//     — GONE (grep src for "IsOneWayData"/"AssertTrue"/"OneWayData" = 0 hits).
-//   - The three welds AssertTrue<IsOneWayData<{ExecutionResultEnvelope,
-//     ResultEnvelope,UsageRecord}>> — GONE.
-//   - The old top-level types barrel (which re-exported ./types/boundary)
-//     — GONE; v2 has no top-level types barrel (only src/core/state/types.ts and
-//     src/shell/execution-backend/types.ts, neither carries the weld).
-// ExecutionResultEnvelope itself DID survive the rebuild — it moved from
-// the old types/execution-backend module to src/shell/execution-backend/types.ts —
-// so the import below is repointed to its real v2 home. But EVERY one of the
-// four checks needs IsOneWayData/AssertTrue from a "boundary" module that has
-// no v2 equivalent to adapt to, so the smoke cannot be made green without
-// re-adding the deleted type-weld to v2 src (Phase B's call, not this file's).
-// The old boundary.ts source is preserved at git c8a6265^ for that work.
-// Left failing on the genuine gap (missing weld module / welds in source),
-// NOT on a bare require crash: the ExecutionResultEnvelope import is repointed
-// so the tsc error is "Cannot find module .../boundary" (the real absence),
-// and check 4 reads the real v2 paths so it reports the missing weld/barrel.
+// The weld module is src/core/types/boundary.ts: OneWayData<T>,
+// IsOneWayData<T>, AssertTrue<T extends true>, and the three welds over
+// ExecutionResultEnvelope, ResultEnvelope, and UsageRecord
+// (src/shell/execution-backend/types.ts).
 
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");

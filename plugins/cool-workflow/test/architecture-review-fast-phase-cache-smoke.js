@@ -8,31 +8,11 @@
 // including Verify and Verdict — is served from the result cache (no agent spawn),
 // keyed by source digest + upstream result digests.
 //
-// AUDIT NOTE (v2 cutover): this smoke needs NO dist-require repoint — it only shells
-// out to scripts/architecture-review-fast.js -> cw.js, all of which import node
-// builtins only. It still FAILS on genuine v2 behavior, not on any import crash.
-//
-// REAL-GAP (v2 drops the per-phase resultCache policy at run materialization):
-//   - apps/architecture-review-fast/workflow.js attaches
-//     resultCache: { mode:"read-write", keyInput:"sourceContextDigest",
-//     includeCompletedResults:"previous-phases" } to every task (Map/Assess/
-//     Verify/Verdict), same as the old build.
-//   - src/shell/pipeline.ts flattenTasks() copies only a fixed whitelist of
-//     fields into each RunTask and NEVER copies task.resultCache. The persisted
-//     task therefore has resultCache === undefined (confirmed live in the run's
-//     state.json for all six tasks).
-//   - src/shell/drive.ts resultCachePath() then short-circuits
-//     (`if (!policy || policy.mode !== "read-write" || !policy.keyInput) return
-//     undefined`), so .cw/cache/worker-results is never written on the cold run
-//     and every warm task re-spawns the agent. Cold assertions pass (they expect
-//     spawns); the warm cache-hit assertion at line ~76 fails.
-//   - Secondary drop even if the policy survived: drive.ts:160 hardcodes
-//     completedResultsDigest = "" and nothing in src/ reads
-//     includeCompletedResults, so upstream-result-digest busting is also gone.
-// Fix belongs in v2 src (Phase B), NOT here: flattenTasks must carry resultCache
-// through, and the default (non-incremental) cache key must fold in the completed
-// upstream result digests when includeCompletedResults is set. Left failing on
-// purpose per audit rules — do not weaken the assertions to force green.
+// apps/architecture-review-fast/workflow.js attaches resultCache: { mode:
+// "read-write", keyInput:"sourceContextDigest",
+// includeCompletedResults:"previous-phases" } to every task (Map/Assess/
+// Verify/Verdict); the cold run spawns the agent for each, the warm run must
+// hit the cache for each, keyed also on the completed upstream results.
 
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");

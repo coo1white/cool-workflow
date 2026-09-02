@@ -101,6 +101,9 @@ every line of `src/**/*.ts` and `scripts/**/*.js` — code and comments alike
 `test/**/*.js`, but only on `//` comment lines, since a test's fixture
 strings use made-up paths on purpose. A file name with a `:line` number
 fails on its own — line numbers go stale fast, and a file name does not.
+It also refuses a stale cut-over-audit marker phrase (case-insensitive,
+whole-phrase) anywhere in `src/`, `scripts/`, or `test/` — the kind of
+"this test is RED on purpose" comment that outlives the gap it once named.
 
 ## growth:check
 

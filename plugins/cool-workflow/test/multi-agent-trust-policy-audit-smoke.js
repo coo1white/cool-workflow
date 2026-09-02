@@ -1,18 +1,11 @@
 #!/usr/bin/env node
 "use strict";
 
-// NO v2 EQUIVALENT / REAL GAP (black-box smoke; no dist requires to repoint).
-// v2's CLI has not ported the worker + blackboard/audit surface this smoke drives:
-//   1. `cw blackboard topic create <runId>` arg order changed — v2 wants
-//      `cw blackboard topic <runId> create ...` (runId first, then action), so the
-//      old order makes v2 read "create" as the runId (fails at line ~42).
-//   2. `cw worker manifest` / `cw worker output` are NOT CLI-wired in v2 (only
-//      `worker summary`/`worker usage` are), and showWorkerManifest dropped the
-//      `multiAgent.membershipId` field (line ~111-113). The smoke needs both.
-//   3. The `cw audit multi-agent|policy|role|blackboard|judge` sub-surface and its
-//      rolePolicies/permissionDecisions/policyViolations payloads are not exercised
-//      by the 101-case conformance suite; verify against v2 before trusting.
-// Left failing for a human call — do NOT delete. Reported for Phase-3 CLI parity.
+// Black-box smoke: drives the CLI's worker + blackboard/audit surface —
+// `cw blackboard topic <runId> create ...`, `cw worker manifest` / `cw
+// worker output` (showWorkerManifest carrying multiAgent.membershipId),
+// and `cw audit multi-agent|policy|role|blackboard|judge` with its
+// rolePolicies/permissionDecisions/policyViolations payloads.
 
 const assert = require("node:assert/strict");
 const { execFileSync, spawn, spawnSync } = require("node:child_process");

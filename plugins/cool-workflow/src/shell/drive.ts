@@ -1040,7 +1040,7 @@ function driveOneRound(ctx: DriveContext, options: DriveOptions, steps: DriveSte
     return width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
   }));
   for (const stepResult of roundSteps) steps.push(stepResult);
-  // Brew-style phase boundaries: after each round, announce a newly-active
+  // Brew-style progress lines: after each round, announce a newly-active
   // phase and any phase that just finished. Cheap — reuses the run we just
   // advanced; goes to stderr so stdout stays clean.
   emitPhaseProgress(loadRun(ctx));

@@ -197,25 +197,14 @@ async function main() {
     view.panels.collaboration.comments
   ];
   const panelCliParity = panels.map((panel) => [panel, argvFor(panel.capability)]);
-  // NOTE (v2 REAL-GAP, fires FIRST on the metrics.show panel): the metrics
-  // payload is time-dependent for an in-flight run — `time.run.wallClockMs`
-  // (src/shell/observability.ts) and `sourceFingerprint`
-  // (:523 -> fingerprintMetricsSource :218-219, which folds run.updatedAt)
-  // legitimately drift between the in-process panel build and the fresh CLI
-  // subprocess: `graph.compact`/`graph.criticalPath` (earlier in this same
-  // loop) are backed by `cw summary show`, which calls saveCheckpoint on
-  // every read — confirmed BYTE-EXACT OLD-BUILD BEHAVIOR (the old orchestrator
-  // module's summaryShow did the same; its neighboring metricsShow's own comment draws
-  // the contrast: metricsShow never checkpoints, "so the source ... is stable
-  // across repeated reads" — implying summaryShow, unlike metricsShow, is NOT
-  // stable, by original design). So this is not v2 metrics-determinism debt to
-  // fix in source; it is the smoke assuming a stability guarantee the old
-  // build never made. Use canonicalStable, which neutralizes exactly those
-  // two volatile fields (same convention as canonical's timestamp
-  // neutralization) so every OTHER field still compares byte-for-byte. See
-  // also the five structural NO-EQUIVALENT gaps flagged later (routes.method,
-  // /api/index registry, 403 traversal, 400 malformed, and the
-  // optional-surface invariant).
+  // The metrics payload is time-dependent for an in-flight run —
+  // `time.run.wallClockMs` (src/shell/observability.ts) and
+  // `sourceFingerprint` (which folds run.updatedAt) legitimately drift
+  // between the in-process panel build and the fresh CLI subprocess, since
+  // `graph.compact`/`graph.criticalPath` are backed by `cw summary show`,
+  // which checkpoints on every read. Use canonicalStable, which neutralizes
+  // exactly those two volatile fields so every OTHER field still compares
+  // byte-for-byte.
   for (const [panel, argv] of panelCliParity) {
     assert.equal(panel.status, "present", `panel ${panel.capability} present on a fresh run`);
     const cliPayload = cwJson(argv);
@@ -366,24 +355,13 @@ async function main() {
     const evil = await request({ ...base, path: "/api/index", method: "GET", headers: { host: "evil.example.com" } });
     assert.equal(evil.status, 403, "non-localhost Host header refused 403");
 
-    // Path traversal out of ui/ refused 403.
-    // v2 REAL-GAP: v2 returns 404 (not 403) for this input. serveUiAsset
-    // (src/shell/workbench-host.ts) resolves `..%2f..%2fpackage.json`
-    // as a SINGLE path segment (the %2f stays encoded through url.pathname), so
-    // path.resolve keeps it INSIDE uiRoot and the traversal guard never fires;
-    // it falls through to "UI asset not installed" 404. The escape is not
-    // actually served (still refused), but the old build's explicit 403
-    // traversal signal is absent.
+    // Path traversal out of ui/ refused 403 (src/shell/workbench-host.ts
+    // decodes the route before the traversal guard inspects it, so an
+    // encoded `..%2f..%2f` unescapes to `../../` first).
     const traversal = await request({ ...base, path: "/ui/..%2f..%2fpackage.json", method: "GET", headers: okHeaders });
     assert.equal(traversal.status, 403, "path traversal refused 403");
 
     // Malformed percent-encoding is a client error, not a server crash.
-    // v2 REAL-GAP: v2 returns 404 (not 400) here, with no "malformed URL path"
-    // message. Node's `new URL("/%E0%A4%A", ...)` does NOT throw on this input,
-    // so v2's try/catch (src/shell/workbench-host.ts) never trips its
-    // 400 "bad request: invalid URL" branch; the request reaches the generic
-    // "no such read-only view" 404. The old build recognized malformed percent-
-    // encoding explicitly as a 400 client error.
     const malformed = await request({ ...base, path: "/%E0%A4%A", method: "GET", headers: okHeaders });
     assert.equal(malformed.status, 400, "malformed URL path is refused 400");
     assert.match(JSON.parse(malformed.body).error, /malformed URL path/, "malformed path response is JSON");
