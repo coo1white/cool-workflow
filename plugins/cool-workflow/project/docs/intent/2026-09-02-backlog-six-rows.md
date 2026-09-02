@@ -183,14 +183,43 @@ closing PR runs last.
 
 ## What this spec got wrong (recorded at close)
 
-(filled at close)
+1. The spec's `-q` help section names four files and says they are the
+   files for that change; three sit under `plugins/cool-workflow/`, but
+   `v2/conformance/cases/fixtures/cli-help/_root.txt` sits at the repo
+   root, next to `plugins/`, not inside it.
+2. The spec's acceptance asks that `onramp:check` "reports ok with the
+   file in `deleteOnly`", but step 4 only asked to pass `deleteOnly`
+   into `evaluateOnrampContract`. The printed report in
+   `plugins/cool-workflow/scripts/onramp-check.js` had no `deleteOnly`
+   field at all, so one more line was needed to print it.
+3. The same spec section told the worker to grep for `-deepseek|-muse]`
+   and skip the rebuild SPEC captures. The skip was never needed: those
+   captures hold an older four-vendor form and never match that grep.
+   The grep found exactly the three files the spec named, and no more.
+4. The src budget of +40 was tight, not roomy. The first build of the
+   delete-only change came in at +51 and had to be made smaller (two
+   calls put on one line, comments cut) to land at +38.
+5. The spec's order says the two code PRs "rebase once the docs PR
+   lands" — one rebase. The delete-only change in fact needed two
+   fetch-and-rebase rounds, because the spec PR itself and then two
+   row-deleting PRs all landed while it was being built. The `-q`
+   change needed none: its `BACKLOG.md` hunk did not touch the same
+   rows.
+6. What the spec got right and is worth saying: the claim that the
+   blocker was stale (a delete of `commitMessageTemplate` fails
+   `runtime-smoke-required`, not `types-without-runtime`) held up, and
+   the smoke case proves it. Every gate number in the acceptance list
+   was met.
+
+No worker needed a fix round: all three build PRs passed review on the
+first round.
 
 ## Status ledger
 
 | Item | State | PR |
 |---|---|---|
-| Intent + spec (this file) | open | |
-| Three rows closed for good + purity row re-measured | | |
-| Delete-only type changes are a valid cycle | | |
-| `-q` help line vendor fold | | |
-| Closing ledger | | |
+| Intent + spec (this file) | merged | #619 (`80d0eb78`) |
+| Three rows closed for good + purity row re-measured | merged | #620 (`145d3fa6`) |
+| Delete-only type changes are a valid cycle | merged | #622 (`9b4f785d`) |
+| `-q` help line vendor fold | merged | #621 (`33f44fbf`) |
+| Closing ledger | merged | (filled in after `gh pr create`) |
