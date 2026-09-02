@@ -270,6 +270,11 @@ freezes.
   error right after #651 merged. The architect accepted this closing
   PR in the manager's place, reading the merged diffs directly rather
   than a manager's report.
+- `git add -A` in a shared checkout swept another branch's uncommitted
+  edits into a commit, so the first push of this closing work carried
+  work from a different program. The rule from it: never `git add -A`
+  in a shared checkout; add files by name. And start every worker with
+  its own worktree, not a shared one.
 
 ## Status ledger
 
