@@ -84,7 +84,7 @@ try {
     const sections = doct.onramp.sections.map((s) => s.id);
     assert.ok(sections.includes("first-run"), "onramp has first-run section");
     assert.ok(sections.includes("no-agent"), "onramp has no-agent section");
-    assert.ok(sections.includes("change-loop"), "onramp has change-loop section");
+    assert.ok(!sections.includes("change-loop"), "onramp hides change-loop outside the source checkout");
     const noAgentSection = doct.onramp.sections.find((s) => s.id === "no-agent");
     assert.ok(noAgentSection.actions.some((a) => a.id === "agent-claude"), "no-agent section lists claude install");
     assert.ok(noAgentSection.actions.some((a) => a.id === "agent-check"), "no-agent section points to cw doctor");

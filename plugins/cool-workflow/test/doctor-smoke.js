@@ -149,6 +149,14 @@ function run(args, env, cwd) {
     changedFromRepoRoot.onramp.recommendedChecks.commands.includes("cd plugins/cool-workflow && npm run test:fast"),
     "changed-file recommended commands are rooted when doctor runs from the repo root"
   );
+
+  // Outside a cool-workflow checkout, the contributor sections do not show:
+  // only a new user's own next steps belong in front of a new user.
+  const outsideRepo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-onramp-outside-")));
+  const outsideTitles = JSON.parse(run(["--onramp", "--json"], env, outsideRepo).stdout).onramp.sections.map((s) => s.title);
+  for (const title of ["Change Loop", "Surface Guard", "Release Gate"]) {
+    assert.ok(!outsideTitles.includes(title), `${title} hidden outside the source checkout`);
+  }
 })();
 
 // --fix consolidated fix commands

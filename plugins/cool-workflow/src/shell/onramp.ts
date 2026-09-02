@@ -201,6 +201,7 @@ export function shellQuote(value: string): string {
 export function buildDoctorOnramp(options: BuildDoctorOnrampOptions = {}): DoctorOnramp {
   const cwd = path.resolve(options.cwd || process.cwd());
   const agentCommand = "--agent-command builtin:claude";
+  const source = detectSourceCheckout(cwd);
   const onramp: DoctorOnramp = {
     schemaVersion: 1,
     summary: "start small, run the short gate while changing code, then run the full gate before release",
@@ -273,6 +274,7 @@ export function buildDoctorOnramp(options: BuildDoctorOnrampOptions = {}): Docto
           }
         ]
       },
+      ...(source ? [
       {
         id: "change-loop",
         title: "Change Loop",
@@ -330,6 +332,7 @@ export function buildDoctorOnramp(options: BuildDoctorOnrampOptions = {}): Docto
           }
         ]
       }
+      ] : [])
     ]
   };
 
