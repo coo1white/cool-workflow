@@ -35,6 +35,7 @@ export interface OnrampSection {
 export interface OnrampChangedFiles {
   baseRef: string;
   files: string[];
+  commentOnly: string[];
 }
 
 export interface OnrampRecommendedChecks {
@@ -333,7 +334,7 @@ export function buildDoctorOnramp(options: BuildDoctorOnrampOptions = {}): Docto
 
   if (options.changedFrom) {
     const changed = resolveChangedFiles({ cwd, changedFrom: options.changedFrom, env: options.env });
-    const contract = evaluateOnrampContract(changed.files, { cwd });
+    const contract = evaluateOnrampContract(changed.files, { cwd, commentOnly: changed.commentOnly });
     onramp.changedFiles = changed;
     onramp.contract = contract;
     onramp.recommendedChecks = {
@@ -347,25 +348,71 @@ export function buildDoctorOnramp(options: BuildDoctorOnrampOptions = {}): Docto
   return onramp;
 }
 
+/** Pure line test for "did this diff touch only comments/blanks". Takes the
+ *  TEXT of a `git diff -U0 <base> -- <file>` patch (its `+`/`-` lines only
+ *  matter; `+++`/`---` headers and `@@` hunk lines are skipped since they
+ *  never start with a bare `+`/`-`). A trimmed line counts as a comment only
+ *  when it STARTS WITH `//`, `/*`, `*` or `* /` -- checking the start, not
+ *  whether the text merely contains `//`, is what keeps a string literal
+ *  like `"http://x"` classed as code. No lines at all (or none that are
+ *  code/comment) is NOT comment-only -- fail closed, same as the rest of
+ *  this module. */
+export function isCommentOnlyPatch(patchText: string): boolean {
+  let sawLine = false;
+  for (const raw of patchText.split(/\r?\n/)) {
+    if (raw.startsWith("+++") || raw.startsWith("---")) continue;
+    if (raw[0] !== "+" && raw[0] !== "-") continue;
+    const trimmed = raw.slice(1).trim();
+    sawLine = true;
+    if (trimmed !== "" && !/^(\/\/|\/\*|\*\/|\*)/.test(trimmed)) return false;
+  }
+  return sawLine;
+}
+
+function gitDiffPatch(cwd: string, baseRef: string, file: string): string {
+  const result = spawnSync("git", ["diff", "-U0", baseRef, "--", file], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GIT_TIMEOUT_MS });
+  return result.status === 0 ? String(result.stdout || "") : "";
+}
+
 export function resolveChangedFiles(options: ResolveChangedFilesOptions = {}): OnrampChangedFiles {
   const cwd = path.resolve(options.cwd || process.cwd());
   const root = gitRoot(cwd);
   const baseRef = resolveBaseRef(root, options.changedFrom, options.env || process.env);
   const files = new Set<string>();
-  for (const file of gitLinesOrThrow(root, ["diff", "--name-only", baseRef, "--"])) files.add(normalizeChangedPath(file));
-  for (const file of gitLinesOrThrow(root, ["ls-files", "--others", "--exclude-standard"])) files.add(normalizeChangedPath(file));
-  return { baseRef, files: [...files].filter(Boolean).sort() };
+  const candidates = new Map<string, string>();
+  for (const file of gitLinesOrThrow(root, ["diff", "--name-only", baseRef, "--"])) {
+    const normalized = normalizeChangedPath(file);
+    files.add(normalized);
+    if (/\.(ts|js|mjs)$/.test(file)) candidates.set(normalized, file);
+  }
+  for (const file of gitLinesOrThrow(root, ["ls-files", "--others", "--exclude-standard"])) {
+    const normalized = normalizeChangedPath(file);
+    files.add(normalized);
+    candidates.delete(normalized); // an untracked file is never comment-only
+  }
+  const commentOnly = [...candidates.entries()]
+    .filter(([, raw]) => isCommentOnlyPatch(gitDiffPatch(root, baseRef, raw)))
+    .map(([normalized]) => normalized)
+    .sort();
+  return { baseRef, files: [...files].filter(Boolean).sort(), commentOnly };
 }
 
-export function evaluateOnrampContract(files: string[], options: { cwd?: string } = {}): OnrampContractReport {
+export function evaluateOnrampContract(
+  files: string[],
+  options: { cwd?: string; commentOnly?: string[] } = {}
+): OnrampContractReport {
   const cwd = path.resolve(options.cwd || process.cwd());
   const normalized = [...new Set(files.map((file) => normalizeChangedPath(file)).filter(Boolean))].sort();
+  // A commentOnly file stays in `normalized` (changedFiles, smoke recs) but
+  // is left out of the sets below that decide the runtime/app/type/script/
+  // surface rules -- it never DID change behavior, so it can't trigger them.
+  const commentOnlySet = new Set((options.commentOnly || []).map((file) => normalizeChangedPath(file)));
+  const classifiable = normalized.filter((file) => !commentOnlySet.has(file));
   const issues: OnrampContractIssue[] = [];
-  const runtimeFiles = normalized.filter(isRuntimeSource);
-  const appFiles = normalized.filter((file) => file.startsWith("plugins/cool-workflow/apps/"));
-  const typeFiles = normalized.filter((file) => file.startsWith("plugins/cool-workflow/src/types/") && file.endsWith(".ts"));
-  const scriptFiles = normalized.filter((file) => file.startsWith("plugins/cool-workflow/scripts/"));
-  const surfaceFiles = normalized.filter(isSurfaceFile);
+  const runtimeFiles = classifiable.filter(isRuntimeSource);
+  const appFiles = classifiable.filter((file) => file.startsWith("plugins/cool-workflow/apps/"));
+  const typeFiles = classifiable.filter((file) => file.startsWith("plugins/cool-workflow/src/types/") && file.endsWith(".ts"));
+  const surfaceFiles = classifiable.filter(isSurfaceFile);
   const smokeFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+-smoke\.js$/.test(file));
   // WP1.1 (#360) restored a second, parallel test layer: pure `core/`
   // logic proven by `test/*.test.js` under `npm run test:unit`, run and
