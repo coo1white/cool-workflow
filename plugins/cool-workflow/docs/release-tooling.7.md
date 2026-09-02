@@ -85,6 +85,23 @@ The dogfood release smoke and the architecture-review dogfood smoke are separate
 test files. The split keeps the same release and agent-drive proof, but lets
 `test:ci` schedule the two long checks in parallel.
 
+## citation:check
+
+```text
+npm run citation:check
+```
+
+This is the `doc citation freshness` step in `release:check`. It makes sure
+every file name that a doc, or a line of code, points at is a real file in
+the tree. It checks three things: a bare name like `<name>.ts` in a doc
+must match some real file's name under `src/`, `scripts/`, `test/`, or
+`apps/`;
+every line of `src/**/*.ts` and `scripts/**/*.js` — code and comments alike
+— must name only files that exist; and the same check runs on
+`test/**/*.js`, but only on `//` comment lines, since a test's fixture
+strings use made-up paths on purpose. A file name with a `:line` number
+fails on its own — line numbers go stale fast, and a file name does not.
+
 ## growth:check
 
 ```text

@@ -94,14 +94,14 @@ main();
   // 3. Gate-file edits to make by hand (printed, never auto-applied).
   process.stdout.write(`Remaining wiring (edit by hand — kept manual so a scaffold can't break a gate):\n\n`);
   process.stdout.write(`  docs/index.md\n    add:  N. [${title}](${slug}.7.md) - ${summary}\n\n`);
-  process.stdout.write(`  package.json  "test" chain\n    add:  && node ${testRel}\n\n`);
+  process.stdout.write(`  test/run-all.js  finds test/*-smoke.js on its own — nothing to add.\n\n`);
   process.stdout.write(`  scripts/release-check.js  "docs presence" list\n    add:  "${docRel}",\n\n`);
   process.stdout.write(`  scripts/version-sync-check.js  (assert the new surfaces carry the version)\n`);
   process.stdout.write(`    checkIncludes("plugins/cool-workflow/${docRel}", "${title}", checks);\n`);
   process.stdout.write(`    checkIncludes("plugins/cool-workflow/${docRel}", VERSION, checks);\n`);
   process.stdout.write(`    checkIncludes("plugins/cool-workflow/docs/index.md", "${slug}.7.md", checks);\n`);
   process.stdout.write(`    checkIncludes("plugins/cool-workflow/${testRel}", "${slug}-smoke", checks);\n\n`);
-  process.stdout.write(`  src/capability-registry.ts  — declare the new verb(s) so CLI === MCP (parity gate).\n`);
+  process.stdout.write(`  src/wiring/capability-table/*.ts  — add the verb row (src/core/capability-table.ts exports it) so CLI === MCP.\n`);
   process.stdout.write(`  sibling docs/*.7.md  — append a "## ${title} (v${version})" forward-reference section\n`);
   process.stdout.write(`    to the docs version:sync checks for VERSION (that's the repo's per-release pattern).\n`);
 }

@@ -65,6 +65,28 @@ try {
     const r = run({ CW_CITATION_DOCS: doc, CW_CITATION_ROOT: tmp });
     assert.equal(r.status, 0, `must PASS on a live citation. exit=${r.status}\n${r.stderr}`);
   }
+
+  // 4. rules (a)-(d), hermetic via CW_CITATION_ROOT's fake src/scripts/test
+  //    tree: a bare doc name with no matching file, a dead src token, a
+  //    resolving token with a `:line` suffix, and a dead test-comment token
+  //    all fail; a fake path inside a test STRING (not a `//` line) does not.
+  {
+    fs.mkdirSync(path.join(tmp, "scripts"));
+    fs.mkdirSync(path.join(tmp, "test"));
+    fs.writeFileSync(path.join(tmp, "scripts", "r.js"), "x\n");
+    fs.writeFileSync(path.join(tmp, "src", "bad.ts"), "// scripts/gone.js scripts/r.js:9\n");
+    fs.writeFileSync(path.join(tmp, "test", "s.js"), '// scripts/gone.js\nconst x = "test/fake.js";\n');
+    const doc = path.join(tmp, "bare.md");
+    fs.writeFileSync(doc, "`real.ts` `gone.ts`\n");
+    const r = run({ CW_CITATION_DOCS: doc, CW_CITATION_ROOT: tmp });
+    assert.equal(r.status, 1, `must FAIL on (a)-(d) misses. exit=${r.status}\n${r.stdout}`);
+    const err = r.stderr;
+    assert.ok(/gone\.ts/.test(err), `rule (a) bare-name miss, got: ${err}`);
+    assert.ok(/bad\.ts:1/.test(err), `rule (b) dead src token, got: ${err}`);
+    assert.ok(/r\.js:9/.test(err), `rule (d) :line suffix, got: ${err}`);
+    assert.ok(/s\.js:1/.test(err), `rule (c) comment-line miss, got: ${err}`);
+    assert.ok(!/fake\.js/.test(err), `rule (c) must not flag a string, got: ${err}`);
+  }
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }

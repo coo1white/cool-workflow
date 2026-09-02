@@ -2,7 +2,7 @@
 // core/capability-table.ts.
 //
 // MILESTONE 2 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 2). Replaces the old build's
-// 196-arm `callTool` switch (src/mcp/tool-call.ts) with a data-driven
+// 196-arm `callTool` switch (the old build's tool-call module) with a data-driven
 // lookup: resolve the row by tool name, check its declared required-arg
 // groups (SPEC/mcp.md's `McpBinding.requiredArgs`), re-base `cwd` if
 // given, then call the row's `mcp.handler`. Every future milestone adds
@@ -24,7 +24,7 @@ export function toolDefinitions(): McpToolDefinition[] {
   return mcpToolDefinitions();
 }
 
-/** SPEC/mcp.md invariant 6 / src/mcp-surface.ts:7-25 — required-argument
+/** SPEC/mcp.md invariant 6 / the old build's mcp-surface module — required-argument
  *  groups are declared data, not code. `undefined`/`null` become `{}`; a
  *  non-object throws; a group "keyA|keyB" passes when at least one named
  *  key is not `undefined`, not `null`, and not `""`. */
@@ -67,8 +67,8 @@ function coerceScalarArgs(args: Record<string, unknown>): Record<string, unknown
 
 /** `callTool(name, args)` — resolves `cwd` (SPEC/mcp.md invariant 7),
  *  checks required args, then calls the row's `mcp.handler`. Throws
- *  `Unknown tool: <name>` for a name with no row (src/mcp/tool-call.ts:513
- *  parity). */
+ *  `Unknown tool: <name>` for a name with no row (the old build's
+ *  tool-call module had the same parity). */
 export function callTool(name: string, rawArgs: unknown): unknown {
   const row = findCapabilityByMcpTool(name);
   if (!row || !row.mcp) {

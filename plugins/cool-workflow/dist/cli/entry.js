@@ -2,7 +2,7 @@
 // cli/entry.ts — the real entry point (`cw` / `cool-workflow` binaries).
 //
 // Byte-exact port of the shape of src/cli.ts + the top-of-function part of
-// src/cli/command-surface.ts's `runCli` in the old build: top-level flag
+// the old build's command-surface module's `runCli`: top-level flag
 // redirects, then dispatch (see cli/dispatch.ts), then the top-level
 // catch that turns any thrown error into the fixed `cw: <message>` /
 // `  Try: <hint>` stderr shape.
@@ -49,7 +49,6 @@ function printVersion() {
 async function runCli(argv = process.argv.slice(2)) {
     const args = (0, parseargv_1.parseArgv)(argv);
     // Top-level flags: accept --version / -v / --help / -h before command lookup.
-    // (src/cli/command-surface.ts:46-55)
     if (args.command?.startsWith("-") || !args.command) {
         if (args.command === "--version" || args.command === "-v" || args.options.v || args.options.version) {
             printVersion();
@@ -60,7 +59,7 @@ async function runCli(argv = process.argv.slice(2)) {
             return;
         }
     }
-    // Vendor short flags -> --agent-command (src/cli/command-surface.ts:59-62).
+    // Vendor short flags -> --agent-command.
     if (args.options.claude)
         args.options["agent-command"] = "builtin:claude";
     if (args.options.codex)
@@ -73,12 +72,10 @@ async function runCli(argv = process.argv.slice(2)) {
         args.options["agent-command"] = "builtin:deepseek";
     if (args.options.muse)
         args.options["agent-command"] = "builtin:muse";
-    // -dir / --dir / -d is a second name for --repo; an explicit --repo wins
-    // (src/cli/command-surface.ts:65).
+    // -dir / --dir / -d is a second name for --repo; an explicit --repo wins.
     if (!args.options.repo && args.options.dir)
         args.options.repo = args.options.dir;
-    // Presentation flags set env vars before any agent spawn
-    // (src/cli/command-surface.ts:73-75).
+    // Presentation flags set env vars before any agent spawn.
     if (args.options.verbose)
         process.env.CW_VERBOSE = "1";
     if (args.options["no-color"])
@@ -100,13 +97,12 @@ async function runCli(argv = process.argv.slice(2)) {
     // purpose so the scope is clear without reading this comment.
     if (args.options.quiet)
         process.env.CW_DRIVE_PROGRESS = "0";
-    // `cw <verb> --help` / `-h` -> per-command help
-    // (src/cli/command-surface.ts:80-83).
+    // `cw <verb> --help` / `-h` -> per-command help.
     if ((args.options.help || args.options.h) && args.command && !args.command.startsWith("-")) {
         process.stdout.write((0, help_1.formatCommandHelp)(args.command, parseargv_2.suggestCommand));
         return;
     }
-    // Bare -q / --question -> redirect to quickstart (src/cli/command-surface.ts:88-93).
+    // Bare -q / --question -> redirect to quickstart.
     if (args.command === "-q" || args.command === "--question") {
         if (!args.options.question && args.positionals[0])
             args.options.question = args.positionals.shift();

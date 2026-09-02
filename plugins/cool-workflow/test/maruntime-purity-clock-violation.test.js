@@ -77,7 +77,7 @@ const { stateNodeError, selectionGateFailures, mergePolicy } = require("../dist/
   if (!isPure) {
     process.stderr.write(
       "FINDING (not a test bug): core/multi-agent/candidate-scoring.ts's stateNodeError() calls `new Date().toISOString()` directly instead of taking a `now` clock parameter, so selectionGateFailures's StateNodeError.at is not byte-stable across identical logical calls (" +
-        first[0].at + " vs " + second[0].at + "). This is a core/ purity violation per v2/PLAN.md's Target shape rule and breaks replay determinism for any caller comparing StateNodeError.at byte-for-byte.\n"
+        first[0].at + " vs " + second[0].at + "). This is a core/ purity violation per project/docs/rebuild/PLAN.md's Target shape rule and breaks replay determinism for any caller comparing StateNodeError.at byte-for-byte.\n"
     );
   }
 }
