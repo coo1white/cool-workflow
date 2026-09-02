@@ -222,4 +222,4 @@ first round.
 | Three rows closed for good + purity row re-measured | merged | #620 (`145d3fa6`) |
 | Delete-only type changes are a valid cycle | merged | #622 (`9b4f785d`) |
 | `-q` help line vendor fold | merged | #621 (`33f44fbf`) |
-| Closing ledger | merged | (filled in after `gh pr create`) |
+| Closing ledger | merged | #623 |
