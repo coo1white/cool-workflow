@@ -19,7 +19,7 @@ const cases = [
   },
   {
     mod: "../dist/shell/execution-backend/registry",
-    dead: ["backendSelectionFrom", "clearProbeCache", "listExecutionBackends"],
+    dead: ["backendSelectionFrom", "clearProbeCache", "listExecutionBackends", "EXECUTION_BACKEND_SCHEMA_VERSION"],
     // resolveBackendSelection is KEPT — used by dispatch.ts + worker-isolation.ts.
     live: ["resolveBackendSelection", "runBackend", "attestSandbox"]
   },
@@ -34,10 +34,10 @@ const cases = [
   // Round 2 (found once PR 3/6/7 rewrote away the last outside mentions):
   // each of these 6 is called only inside its own file now.
   { mod: "../dist/core/multi-agent/runtime", dead: ["requireRunTask"], live: ["summarizeMultiAgent"] },
-  { mod: "../dist/core/state/node-snapshot", dead: ["findRunNode"], live: ["snapshotNode"] },
+  { mod: "../dist/core/state/node-snapshot", dead: ["findRunNode", "NODE_SNAPSHOT_SCHEMA_VERSION"], live: ["snapshotNode"] },
   { mod: "../dist/shell/collaboration-io", dead: ["resolveReviewPolicy"], live: ["deriveReviewState"] },
   { mod: "../dist/shell/reclamation-io", dead: ["sha256OfFile"], live: ["planReclamation"] },
-  { mod: "../dist/shell/sandbox-profile", dead: ["isBundledSandboxProfileId"], live: ["sandboxPolicyForWorker"] },
+  { mod: "../dist/shell/sandbox-profile", dead: ["isBundledSandboxProfileId", "validateSandboxRead"], live: ["sandboxPolicyForWorker"] },
   { mod: "../dist/shell/workflow-app-loader", dead: ["listWorkflowAppRecords"], live: ["loadWorkflowApp"] }
 ];
 

@@ -361,6 +361,9 @@ REGISTRY_BY_CAPABILITY.get("workbench.serve")!.reason =
 function loadAuditCli(): typeof import("../../shell/audit-cli") {
   return require("../../shell/audit-cli") as typeof import("../../shell/audit-cli");
 }
+function loadEvalText(): typeof import("../../shell/eval-text") {
+  return require("../../shell/eval-text") as typeof import("../../shell/eval-text");
+}
 
 attachCliBinding("audit.summary", {
   path: ["audit", "summary"],

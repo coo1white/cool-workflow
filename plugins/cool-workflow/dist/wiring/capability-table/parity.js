@@ -4,6 +4,7 @@
 // sed, not retyped).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CAPABILITY_REGISTRY = void 0;
+exports.mcpRequiredArgsForTool = mcpRequiredArgsForTool;
 exports.declaredCliTokens = declaredCliTokens;
 exports.declaredCliHelpTokens = declaredCliHelpTokens;
 exports.requiresReason = requiresReason;
@@ -263,6 +264,10 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
         ],
     },
 ];
+/** Required MCP argument groups for a registry-declared tool. */
+function mcpRequiredArgsForTool(tool) {
+    return (0, registry_core_1.findCapabilityByMcpTool)(tool)?.mcp?.requiredArgs ?? [];
+}
 /** The CLI `case` tokens this registry declares (deduped). */
 function declaredCliTokens() {
     const tokens = new Set();
