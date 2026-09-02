@@ -302,6 +302,12 @@ and the bare `cw --resume --run <id>` form.
   `release:check`. A worker's own measurement corrected both times. This
   is the same fault as the `| head -8` grep above: a cut-short command
   read as a full one.
+- A worker that had been stood down woke up on its own, pushed an old
+  commit back to a branch whose work was already merged, and opened a
+  duplicate PR. The duplicate was closed and the stale branch deleted;
+  main was never touched. Lesson: a stand-down must be the last message
+  that worker ever gets, since any later message can wake it and it may
+  act on stale state.
 
 ## Status ledger
 
