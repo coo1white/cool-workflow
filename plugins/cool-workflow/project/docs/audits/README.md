@@ -6,8 +6,7 @@ already be fixed.
 
 | File | Produced at | Status |
 |---|---|---|
-| [architecture-review-verdict.md](architecture-review-verdict.md) | v0.1.38 (first agent-delegation drive) | historical record |
-| [architecture-review-verdict-v0.1.39.md](architecture-review-verdict-v0.1.39.md) | v0.1.39 | historical record |
+| [architecture-review-verdicts.md](architecture-review-verdicts.md) | v0.1.38 (first agent-delegation drive) and v0.1.39, one file since 2026-09-02 | historical record |
 
 For the current, fully citation-verified self-audit, see
 [`examples/audits/self-audit-cool-workflow-v0.2.6.md`](../../examples/audits/self-audit-cool-workflow-v0.2.6.md)
