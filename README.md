@@ -177,7 +177,8 @@ ask simple → run simple → verify simple → resume simple
 
 Every app writes the same thing: a saved report you can check again offline,
 with every claim tied to its source. These four are the main lanes;
-`cw app list` shows all eight installed apps.
+`cw app list` shows all eight installed apps. These lanes and the commands
+in the User Guide are the core path; the rest is kept working, not grown.
 
 ```bash
 cw app list            # see everything installed

@@ -135,6 +135,23 @@ Every cycle must trace to one of these validated-use-case tracks:
 If a proposed change serves none of these tracks, log it to
 plugins/cool-workflow/project/docs/BACKLOG.md instead of implementing it.
 
+**Core path:** `cw`, `cw help`, `cw doctor`, `cw demo tamper`, `cw app list`, `cw -q "<question>" -claude`, `cw --resume --run <id>`, `cw run resume <id> --drive --repo <path>`, `cw doctor --onramp`, and reading `.cw/runs/<id>/report.md`.
+The `cw -q` path: `src/cli/entry.ts` → `src/shell/pipeline-cli.ts` → `pipeline.ts`, `dispatch.ts`, `drive.ts`, `worker-isolation.ts`, `run-store.ts`, `report.ts`, `commit.ts`, `node-store.ts`, `trust-audit.ts`, `observability.ts`, `onramp.ts`, `agent-config.ts`, `workflow-app-loader.ts`, `sandbox-profile.ts`, `fs-atomic.ts`; resume adds `registry-cli.ts`, `run-registry-io.ts`.
+Proof: `plugins/cool-workflow/project/docs/audits/four-fixes-receipt-2026-09-02.json`, `plugins/cool-workflow/project/docs/audits/run-folder-receipt-2026-09-02.json`.
+**Frozen surfaces** — fixes and deletions only; growth needs the operator's yes in an intent; `growth:check` holds the ceiling.
+- multi-agent: `src/shell/multi-agent-cli.ts`, `multi-agent-host.ts`, `multi-agent-io.ts`, `multi-agent-operator-ux.ts`, `src/core/multi-agent/`
+- coordinator and topology: `src/shell/coordinator-io.ts`, `topology-io.ts`
+- candidates and eval: `src/shell/candidate-scoring-io.ts`, `eval-io.ts`, `eval-text.ts`
+- scheduling: `src/shell/scheduler-io.ts`, `scheduling-io.ts`
+- collaboration and workbench: `src/shell/collaboration-io.ts`, `workbench.ts`, `workbench-host.ts`, `workbench-text.ts`
+- bands: `src/shell/bands-io.ts`
+- state explosion: `src/shell/state-explosion-cli.ts`, `src/core/state/state-explosion/`
+- orchestrator: `src/shell/orchestrator.ts`
+- telemetry demo: `src/shell/telemetry-demo.ts`
+- evidence reasoning: `src/shell/evidence-reasoning.ts`
+- observability intake: `src/shell/observability-intake.ts`
+- reclamation: `src/shell/reclamation-io.ts`
+
 # Multi-Vendor Agent Standards
 
 CW is built and used by agents from more than one vendor (Claude, Codex,

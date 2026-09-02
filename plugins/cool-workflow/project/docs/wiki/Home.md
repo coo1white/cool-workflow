@@ -49,6 +49,8 @@ Read these in order for the full picture, or jump to the one you need:
 - writes a report from the saved run record, with every claim tied to its
   source.
 
+These lanes and the commands in the User Guide are the core path; the rest is kept working, not grown.
+
 When evidence, dependencies, or a stated reason are missing, CW does not make
 up success — it stops at a clear `unexplained` / `blocked` state. See the
 **[Mental Model](Mental-Model.md)** for why.
