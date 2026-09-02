@@ -204,7 +204,7 @@ export function buildDoctorOnramp(options: BuildDoctorOnrampOptions = {}): Docto
   const source = detectSourceCheckout(cwd);
   const onramp: DoctorOnramp = {
     schemaVersion: 1,
-    summary: "start small, run the short gate while changing code, then run the full gate before release",
+    summary: source ? "start small, run the short gate while changing code, then run the full gate before release" : "Three steps: check your setup, run one review, read the report.",
     sections: [
       {
         id: "first-run",
