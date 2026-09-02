@@ -7,7 +7,7 @@
 //
 // MILESTONE 8. Byte-exact port of the old build's telemetry-ledger module's
 // verify-side logic. Uses core/hash.ts's `sha256`/`telemetryStableStringify`
-// (see PLAN.md (project/docs/rebuild) byte-compat item 2's key-omission-vs-null rule).
+// (see project/docs/rebuild/PLAN.md byte-compat item 2's key-omission-vs-null rule).
 //
 // Evidence: SPEC/ledger-trust.md "Telemetry ledger record", byte-compat
 // items 2 and 12.
@@ -43,7 +43,7 @@ function genesisPrevHash(runId) {
  *  recordHash itself. `reportedUsage`/`resultDigest` are OMITTED (not
  *  `null`) when absent, so a usage-only record's hash is byte-identical
  *  to a pre-result-coverage one (back-compat with old ledgers) — see
- *  PLAN.md (project/docs/rebuild) byte-compat item 2. */
+ *  project/docs/rebuild/PLAN.md byte-compat item 2. */
 function recordHashInput(record) {
     return (0, hash_1.telemetryStableStringify)({
         schemaVersion: record.schemaVersion,

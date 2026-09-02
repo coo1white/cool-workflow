@@ -1,7 +1,7 @@
 // shell/execution-backend/local.ts — the local-execution driver body
 // (executeLocal) shared by the node/bun/shell built-in drivers.
 //
-// MILESTONE 5 (PLAN.md (project/docs/rebuild) build order, step 5). Byte-exact port of
+// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
 // the old build's execution-backend module's `executeLocal` plus the leaf
 // helpers it needs (sha256/hasExecutable/messageOf).
 //

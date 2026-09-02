@@ -289,7 +289,7 @@ export interface SelectionGateInput {
 /** Byte-exact port of selectCandidate's own gate ordering: not-selectable
  *  -> verifier-missing/no-evidence/empty-capture -> score-below-threshold.
  *  Review-gate errors are NOT included here; the caller appends them
- *  (PLAN.md (project/docs/rebuild) byte-compat / rebuild risk 8: append-only stacking, never
+ *  (project/docs/rebuild/PLAN.md byte-compat / rebuild risk 8: append-only stacking, never
  *  replacing a verifier error). */
 export function selectionGateFailures(input: SelectionGateInput, now?: string): StateNodeError[] {
   const failures: StateNodeError[] = [];

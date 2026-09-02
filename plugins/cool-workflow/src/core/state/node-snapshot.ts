@@ -8,7 +8,7 @@
 // given `(run, clock)` — no direct fs/Date calls; `now` is always an
 // explicit parameter, `persist` is always a caller-supplied callback.
 //
-// RAW vs NORMALIZED fingerprints [PLAN.md (project/docs/rebuild) byte-compat item 8 — do not
+// RAW vs NORMALIZED fingerprints [project/docs/rebuild/PLAN.md byte-compat item 8 — do not
 // merge these two code paths]:
 //   - `sourceFingerprint` is RAW: built from the node's raw id/status/
 //     updatedAt plus raw artifact/evidence id+path strings. ANY transition

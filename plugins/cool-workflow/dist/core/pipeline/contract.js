@@ -2,7 +2,7 @@
 // core/pipeline/contract.ts — DEFAULT_PIPELINE_CONTRACT_ID,
 // createDefaultPipelineContract.
 //
-// MILESTONE 6+7 (combined; see PLAN.md (project/docs/rebuild) Open risk 10). Byte-exact port
+// MILESTONE 6+7 (combined; see project/docs/rebuild/PLAN.md Open risk 10). Byte-exact port
 // of the old build's pipeline-contract module. Pure data.
 //
 // Evidence: SPEC/pipeline-run.md "Default contract — src/pipeline-

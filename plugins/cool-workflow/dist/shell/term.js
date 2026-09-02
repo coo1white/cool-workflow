@@ -1,7 +1,7 @@
 "use strict";
 // shell/term.ts — zero-dependency terminal styling.
 //
-// MILESTONE 5 (PLAN.md (project/docs/rebuild) build order, step 5, doctor/fix): TTY-gated
+// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5, doctor/fix): TTY-gated
 // ANSI formatting, so a piped run (every conformance case pipes with
 // NO_COLOR=1) prints plain text. EXTENDED at MILESTONE 11 (reporting/
 // observability) with the rest of the old build's term module: indent,

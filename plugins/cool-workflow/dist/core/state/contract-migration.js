@@ -2,7 +2,7 @@
 // core/state/contract-migration.ts — declared migration registry + prover.
 //
 // MILESTONE 3. Byte-exact port of the old build's contract-migration module
-// (renamed target per PLAN.md (project/docs/rebuild)'s module layout note — listed there as
+// (renamed target per project/docs/rebuild/PLAN.md's module layout note — listed there as
 // `pipeline/contract-migration.ts`, kept here under state/ since every
 // symbol it needs — RUN_STATE_MIGRATIONS, migrateRunState,
 // findMigrationPath — is this milestone's own state kernel and nothing in

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // fs-atomic-write-json (milestone 0) — pins writeJson's exact byte format
 // (JSON.stringify(value, null, 2) + "\n"), its atomic temp-then-rename
-// behavior, and torn-write safety. Per v2/PLAN.md byte-compat item 1.
+// behavior, and torn-write safety. Per project/docs/rebuild/PLAN.md byte-compat item 1.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

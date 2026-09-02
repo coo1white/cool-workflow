@@ -1,7 +1,7 @@
 // shell/reclamation-io.ts — gc plan/run/verify's write-ahead reclamation
 // transaction, plus the orphan-run sweep and the clone cache gc.
 //
-// MILESTONE 10 (PLAN.md (project/docs/rebuild) build order, step 10). Byte-exact port of the
+// MILESTONE 10 (project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
 // old build's reclamation, reclamation-hash, run-registry gc/orphans, and
 // clones modules. Reuses
 // shell/fs-atomic.ts's `withFileLock` directly (no reimplementation, per

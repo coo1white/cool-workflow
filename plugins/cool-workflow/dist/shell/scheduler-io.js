@@ -2,7 +2,7 @@
 // shell/scheduler-io.ts — Scheduler (cw schedule/loop), the daemon tick
 // (cw schedule daemon), and routine triggers (cw routine).
 //
-// MILESTONE 10 (PLAN.md (project/docs/rebuild) build order, step 10). Byte-exact port of the
+// MILESTONE 10 (project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
 // old build's scheduler module + daemon module + triggers module. Reuses
 // shell/fs-atomic.ts's `withFileLock`/`readJson`/`writeJson`/`safeFileName`
 // directly (no reimplementation).

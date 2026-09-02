@@ -2,7 +2,7 @@
 // shell/doctor.ts — `cw doctor` environment diagnostics, in the spirit of
 // `brew doctor`.
 //
-// MILESTONE 5 (PLAN.md (project/docs/rebuild) build order, step 5). Byte-exact port of
+// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
 // the old build's doctor module's checks this milestone needs
 // (node/agent/agent-binary/git/home-registry/repo-state). The `--onramp`
 // section (buildDoctorOnramp) is later-milestone (reporting) territory and

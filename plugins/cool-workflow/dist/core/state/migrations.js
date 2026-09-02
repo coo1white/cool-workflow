@@ -10,7 +10,7 @@
 //
 // Evidence: SPEC/state-core.md "state-migrations module — run-state
 // migration", "Migration pipeline (migrateRunState)", "Normalization
-// defaults" (PLAN.md (project/docs/rebuild) byte-compat item 4).
+// defaults" (project/docs/rebuild/PLAN.md byte-compat item 4).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -243,7 +243,7 @@ function reverseRunState(input, targetSchemaVersion, options = {}) {
     return { run: state, report };
 }
 /** Fill in every WorkflowRun default, each recorded as a StateMigrationChange.
- *  Pinned defaults (PLAN.md (project/docs/rebuild) byte-compat item 4): epoch-0 ISO timestamps,
+ *  Pinned defaults (project/docs/rebuild/PLAN.md byte-compat item 4): epoch-0 ISO timestamps,
  *  cwd = three dirs above the run dir else process.cwd(), workflow.limits =
  *  { maxAgents: 8, maxConcurrentAgents: 4 }, loopStage = "interpret" (any
  *  unknown value overwritten). */

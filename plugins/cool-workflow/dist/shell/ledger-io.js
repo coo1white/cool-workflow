@@ -5,7 +5,7 @@
 //
 // MILESTONE 8. Byte-exact port of the old build's ledger module stage-2
 // git-transport functions (listLedgerEntries, unionLedgerEntries), split
-// out per PLAN.md (project/docs/rebuild)'s core/shell rule since these two functions are the
+// out per project/docs/rebuild/PLAN.md's core/shell rule since these two functions are the
 // ONLY impure ones in the old ledger.ts module.
 //
 // Evidence: SPEC/ledger-trust.md "Handoff ledger entry" (listLedgerEntries/

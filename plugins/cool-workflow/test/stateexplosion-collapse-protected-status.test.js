@@ -6,7 +6,7 @@
 //
 // Evidence: SPEC/state-core.md "State-explosion collapse rules": "Protected
 // — NEVER collapsed: ... any node with status failed|blocked|rejected|
-// conflicting"; v2/PLAN.md byte-compat item 9.
+// conflicting"; project/docs/rebuild/PLAN.md byte-compat item 9.
 
 const assert = require("node:assert/strict");
 const { buildCompactGraphFromView } = require("../dist/core/state/state-explosion/graph");

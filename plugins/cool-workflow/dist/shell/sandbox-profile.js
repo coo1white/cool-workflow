@@ -2,7 +2,7 @@
 // shell/sandbox-profile.ts — the 4 bundled sandbox profiles, resolution,
 // validation, and the runtime read/write/command/network checks.
 //
-// MILESTONE 5 (PLAN.md (project/docs/rebuild) build order, step 5). Byte-exact port of
+// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
 // the old build's sandbox-profile module.
 //
 // Evidence: SPEC/execution-backend.md "Sandbox profiles".

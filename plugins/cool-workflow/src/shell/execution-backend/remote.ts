@@ -1,7 +1,7 @@
 // shell/execution-backend/remote.ts — remote/ci delegating drivers (shared
 // HTTP-delegation body) + handle builders.
 //
-// MILESTONE 5 (PLAN.md (project/docs/rebuild) build order, step 5). Byte-exact port of
+// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
 // the old build's execution-backend module's `runHttpDelegation`,
 // `remoteHandle`, `ciHandle`, and `delegateChildScript`.
 //

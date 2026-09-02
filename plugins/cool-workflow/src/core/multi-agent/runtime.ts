@@ -21,7 +21,7 @@
 // core/multi-agent/topology.ts, candidate-scoring.ts, and the host/step
 // layer have their OWN separate `unique` that does NOT sort (insertion-
 // order only) — never merge the two. See uniquedual-role-vs-candidate-
-// order.case.js and PLAN.md (project/docs/rebuild) byte-compat item 3.
+// order.case.js and project/docs/rebuild/PLAN.md byte-compat item 3.
 //
 // Evidence: SPEC/multi-agent.md sections A ("Multi-agent kernel"), the
 // "Kernel error strings" and "Fanin blocked-reason strings" Exact-outputs
@@ -79,7 +79,7 @@ export function pluralKind(kind: string): string {
 
 /** Status -> StateNodeStatus, kernel side (default `pending`). Kept
  *  distinct from coordinator/classify.ts's own table (default
- *  `completed`) per PLAN.md (project/docs/rebuild) byte-compat / rebuild risk 7 — collapsing
+ *  `completed`) per project/docs/rebuild/PLAN.md byte-compat / rebuild risk 7 — collapsing
  *  the two tables changes graph output and eval dependency_parity. */
 export function statusToNodeStatus(status: string): StateNodeStatus {
   switch (status) {

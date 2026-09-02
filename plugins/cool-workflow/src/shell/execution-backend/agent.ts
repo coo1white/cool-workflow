@@ -1,7 +1,7 @@
 // shell/execution-backend/agent.ts — agent-delegation pure helpers +
 // concurrent batch fulfillment.
 //
-// MILESTONE 5 (PLAN.md (project/docs/rebuild) build order, step 5). Byte-exact port of
+// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
 // the old build's execution-backend agent module. This module holds
 // the PURE data-transform helpers (invocation resolution, arg substitution,
 // secret redaction, report parsing) plus the batch delegate-child spawn — both

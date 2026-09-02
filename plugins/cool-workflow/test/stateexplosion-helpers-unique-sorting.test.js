@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // stateexplosion-helpers-unique-sorting — pins the state-explosion side
-// `unique()` helper: v2/PLAN.md byte-compat item 3's load-bearing
+// `unique()` helper: project/docs/rebuild/PLAN.md byte-compat item 3's load-bearing
 // counter-case. This variant DROPS falsy values AND SORTS its output,
 // unlike its multi-agent-side sibling (unsorted dedup-only) — collapsing
 // the two changes persisted record order and eval parity. This file only
 // tests THIS sorting variant.
 //
 // Evidence: SPEC/state-core.md "Helpers" list (now src/core/state/state-explosion/helpers.ts):
-// "... unique (drops falsy, sorts) ..."; v2/PLAN.md byte-compat item 3.
+// "... unique (drops falsy, sorts) ..."; project/docs/rebuild/PLAN.md byte-compat item 3.
 
 const assert = require("node:assert/strict");
 const { unique } = require("../dist/core/state/state-explosion/helpers");

@@ -5,7 +5,7 @@
 // Report`/`buildOperatorDigestWithContext` (state-explosion module) minus
 // the disk I/O — persistence (`refreshStateExplosionSummaries`'s writes,
 // `loadStateExplosionSummaryIndex`'s read) is shell/state-explosion-
-// cli.ts's job per PLAN.md (project/docs/rebuild)'s core/shell split. This file only builds
+// cli.ts's job per project/docs/rebuild/PLAN.md's core/shell split. This file only builds
 // the report VALUE from an in-memory run + an already-loaded index.
 //
 // See size.ts/graph.ts/digest.ts's own header notes on why `operatorDigest`

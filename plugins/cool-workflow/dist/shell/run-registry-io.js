@@ -2,7 +2,7 @@
 // shell/run-registry-io.ts — the on-disk run registry: index/queue/history
 // persistence, lifecycle derivation, search/resume/archive/rerun.
 //
-// MILESTONE 10 (PLAN.md (project/docs/rebuild) build order, step 10). Byte-exact port of the
+// MILESTONE 10 (project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
 // old build's run-registry module and its derive/policy/queue helper
 // modules. The registry is a DERIVED, rebuildable index over each repo's
 // `.cw/runs/<id>/state.json` (the single source of truth, never mutated

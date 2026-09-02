@@ -1,7 +1,7 @@
 "use strict";
 // core/types/execution-backend.ts — plain data shapes for the driver layer.
 //
-// MILESTONE 5 (PLAN.md (project/docs/rebuild) build order, step 5). Byte-exact port of the shapes
+// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of the shapes
 // in the old build's execution-backend types module and the sandbox slice of
 // sandbox types module that this subsystem needs. Types only — no logic —
 // so this file lives in core/ (moved here from shell/execution-backend/

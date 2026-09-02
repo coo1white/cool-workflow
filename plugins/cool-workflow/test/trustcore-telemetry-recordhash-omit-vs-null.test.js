@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // trustcore-telemetry-recordhash-omit-vs-null — pins computeRecordHash's
-// exact key-omission-vs-null rule (v2/PLAN.md byte-compat item 2 and
+// exact key-omission-vs-null rule (project/docs/rebuild/PLAN.md byte-compat item 2 and
 // SPEC/ledger-trust.md rebuild risk #2): reportedUsage/resultDigest are
 // OMITTED (not null) when absent; usageSignature/attestationReason become
 // null when absent. Getting this wrong changes every record hash and

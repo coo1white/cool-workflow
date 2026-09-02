@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // statecore-transition-matrix-legal (milestone 3) — pins every LEGAL
 // StateNode transition from SPEC/state-core.md "StateNode transition
-// matrix": same->same always legal, plus the full table. v2/PLAN.md
+// matrix": same->same always legal, plus the full table. project/docs/rebuild/PLAN.md
 // byte-compat item 7.
 //
 // NOTE: createStateNode/transitionStateNode currently call `new

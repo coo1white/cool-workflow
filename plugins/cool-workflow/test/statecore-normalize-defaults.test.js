@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // statecore-normalize-defaults (milestone 3) — pins normalizeRunState's
-// pinned defaults via migrateRunState, per v2/PLAN.md byte-compat item 4
+// pinned defaults via migrateRunState, per project/docs/rebuild/PLAN.md byte-compat item 4
 // and SPEC/state-core.md "Normalization defaults": epoch-0 ISO timestamps,
 // cwd = three dirs above the run dir else process.cwd(), workflow.limits =
 // {maxAgents:8, maxConcurrentAgents:4}, loopStage "interpret".

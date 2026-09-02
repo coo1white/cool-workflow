@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // hash-stringify-divergence (milestone 0) — pins the THREE named, divergent
-// stringify-before-hash behaviors that v2/PLAN.md's byte-compat item 2
+// stringify-before-hash behaviors that project/docs/rebuild/PLAN.md's byte-compat item 2
 // requires to stay separately named and separately tested: this is the
 // single biggest named judge risk in the whole rebuild (Open risk #1). A
 // naive "collapse to one function with a flag" implementation would pass

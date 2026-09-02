@@ -13,7 +13,7 @@
 // the era-rule check + trustAuditGenesis on top, and switches
 // computeEventHash to use core/hash.ts's named `eventHashInput` export
 // (byte-identical behavior to the pre-existing inline JSON-round-trip,
-// now shared with the rest of the hash-dedup story per PLAN.md (project/docs/rebuild) byte-
+// now shared with the rest of the hash-dedup story per project/docs/rebuild/PLAN.md byte-
 // compat item 2).
 //
 // Evidence: SPEC/ledger-trust.md "Trust-audit chain", invariant 10 (era
@@ -105,7 +105,7 @@ function trustAuditGenesis(runId) {
  *  itself, via core/hash.ts's `eventHashInput` (the JSON round-trip
  *  pre-pass that drops nested `undefined`-valued keys BEFORE the
  *  sort-and-stringify step — not a formatting flag on the same shape,
- *  see PLAN.md (project/docs/rebuild) byte-compat item 2). Hashing the PERSISTED form this
+ *  see project/docs/rebuild/PLAN.md byte-compat item 2). Hashing the PERSISTED form this
  *  way makes record-time hashes equal verify-time (parsed-from-disk)
  *  hashes. */
 function computeEventHash(event) {
@@ -203,7 +203,7 @@ function trustAuditHead(run) {
  *  hash are reported as `unchained` (skipped), NOT treated as a forgery
  *  — they predate the chain.
  *
- *  ERA RULE (PLAN.md (project/docs/rebuild), SPEC/ledger-trust.md invariant 10): a single
+ *  ERA RULE (project/docs/rebuild/PLAN.md, SPEC/ledger-trust.md invariant 10): a single
  *  run is written by one code version, so a log is all-chained (chain
  *  era) or all-legacy (pre-chain). An unchained (eventHash-less) line
  *  mixed into an otherwise-chained log is a forgery attempt — dropping

@@ -4,7 +4,7 @@
 // wrapped block, and the deliberately 4-space trailing note line.
 //
 // Evidence: SPEC/cli-surface.md "formatHelp() (stdout)" (the literal text
-// block); v2/PLAN.md byte-compat item 14 (2-space vs 4-space distinction).
+// block); project/docs/rebuild/PLAN.md byte-compat item 14 (2-space vs 4-space distinction).
 
 const assert = require("node:assert/strict");
 const { formatHelp } = require("../dist/core/format/help");
