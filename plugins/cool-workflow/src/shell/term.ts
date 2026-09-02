@@ -27,7 +27,6 @@ const ansi = {
   green: "\x1b[32m",
   yellow: "\x1b[33m",
   red: "\x1b[31m",
-  cyan: "\x1b[36m",
 };
 
 function style(code: string, text: string, stream?: NodeJS.WriteStream): string {
@@ -53,10 +52,6 @@ export function yellow(text: string, stream?: NodeJS.WriteStream): string {
 
 export function red(text: string, stream?: NodeJS.WriteStream): string {
   return style(ansi.red, text, stream);
-}
-
-export function cyan(text: string, stream?: NodeJS.WriteStream): string {
-  return style(ansi.cyan, text, stream);
 }
 
 /** Returns the styled glyph + label for a doctor check severity. */
