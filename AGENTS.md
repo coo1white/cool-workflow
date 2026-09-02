@@ -120,7 +120,10 @@ hard, upkeep, cost, and if it can be undone.
 At close: an "Architecture snapshot diff" part, filled by the
 closing PR — which live doc claims got old, and where fixed. It
 sits by "What this spec got wrong" and the status ledger.
-First file in this shape: `2026-09-02-backlog-six-rows.md`.
+First file in this shape: `2026-09-02-backlog-six-rows.md`, now the
+first part of `2026-09-archive.md`. When a program's closing PR has
+merged, its file joins `intent/<year>-<month>-archive.md`, text kept
+as is, so the .md count does not grow with every program.
 
 # North Star
 Every cycle must trace to one of these validated-use-case tracks:
