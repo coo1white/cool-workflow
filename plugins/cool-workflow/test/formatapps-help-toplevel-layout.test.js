@@ -17,7 +17,7 @@ const { formatHelp } = require("../dist/core/format/help");
   const expected = [
     "Cool Workflow",
     "",
-    '  -q "question" [-claude|-codex|-gemini|-deepseek|-muse]  Ask, get a report',
+    '  -q "question" [-<vendor>]                  Ask a question, get a report',
     '  -q "question" --link <url>                 Review a remote repo by URL',
     "  version                                   Show version",
     "  doctor                                    Check setup",
