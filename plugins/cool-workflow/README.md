@@ -317,7 +317,7 @@ page **[MCP And Manifests](https://github.com/coo1white/cool-workflow/wiki/MCP-A
 | `claude: command not found` | Install Claude Code and run again |
 | Where is my report? | `<repo>/.cw/runs/<id>/report.md` |
 | `Missing required input: question` | Add `-q "<question>"` — CW now prints this same `Try:` line for you |
-| Run stopped before the end | `cw --resume --run <id>` takes it to the end (`cw quickstart <app> --resume --run <id>` and `cw run resume <id> --drive` do the same) |
+| Run stopped before the end | `cw --resume --run <id>` takes it to the end — run it inside the project, or add `--repo <path>` |
 | `... is not a git project` | Run it inside the project, or pass `--repo` |
 | What flags does a command take? | `cw help doctor`, `cw help quickstart`, `cw help ledger` now list a `Flags` block under the command |
 

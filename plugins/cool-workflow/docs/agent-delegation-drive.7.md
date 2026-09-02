@@ -210,6 +210,7 @@ node dist/cli.js run drive <run-id> --json       # read-only preview of the next
 node dist/cli.js quickstart --resume --repo /path/to/repo --question "..."   # advances ONE step, prints a continue line
 node dist/cli.js quickstart --run <run-id> --resume                          # continues that run to completion
 node dist/cli.js quickstart --run <run-id> --resume --bundle                  # continues, then seals a completed run
+node dist/cli.js --resume --run <run-id>                                      # bare form of the same continue command
 ```
 
 `quickstart --check` is a zero-write preflight. It does not make a run, write
@@ -224,7 +225,9 @@ the `--run <id>` to finish. The continuing invocation echoes `resumedFrom: <id>`
 Bare `quickstart` (no `--resume`) is unchanged — it drives straight to the end.
 When `--bundle` is present on the fresh resume step, no bundle is sealed until
 the run is complete; the continue line keeps `--bundle` so the second command
-finishes and seals the report.
+finishes and seals the report. The bare `--resume --run <run-id>` form above
+needs the cwd inside the project, or `--repo <path>`, since it looks up the
+run under `.cw/runs/<run-id>/` from there.
 
 For faster first results, use the opt-in fast app in place of changing the full
 review contract:
