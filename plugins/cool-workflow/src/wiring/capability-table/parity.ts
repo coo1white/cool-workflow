@@ -307,11 +307,6 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS: Array<{ reason: string; capabilities: strin
   },
 ];
 
-/** The MCP tool names this registry declares. */
-export function declaredMcpToolsList(): string[] {
-  return declaredMcpTools();
-}
-
 /** Required MCP argument groups for a registry-declared tool. */
 export function mcpRequiredArgsForTool(tool: string): string[] {
   return findCapabilityByMcpTool(tool)?.mcp?.requiredArgs ?? [];

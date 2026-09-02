@@ -253,12 +253,6 @@ export function topologyGraphCli(args: Record<string, unknown>): unknown {
   return topio.buildTopologyGraph(run);
 }
 
-export function topologyRunShowCli(args: Record<string, unknown>, topologyRunId: string): unknown {
-  const runId = requireArg(args.runId, "run id");
-  const run = loadRun(args, runId);
-  return topio.showTopologyRun(run, topologyRunId);
-}
-
 // ---------------------------------------------------------------------------
 // Multi-agent kernel (CLI verbs: run/status/step/blackboard/score/select via
 // the host, plus role/group/membership/fanout/fanin/show for direct kernel

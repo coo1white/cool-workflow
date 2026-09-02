@@ -87,7 +87,6 @@
   "metrics-summary-limit-smoke.js": 201,
   "multi-agent-cli-mcp-surface-smoke.js": 12967,
   "multi-agent-eval-determinism-regression-smoke.js": 805,
-  "multi-agent-eval-replay-harness-smoke.js": 9909,
   "multi-agent-eval-replay-smoke.js": 10106,
   "multi-agent-operator-ux-smoke.js": 10646,
   "multi-agent-runtime-core-smoke.js": 6400,

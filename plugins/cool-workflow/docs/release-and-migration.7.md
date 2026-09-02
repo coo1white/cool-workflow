@@ -69,7 +69,6 @@ changed.
 - `node test/multi-agent-runtime-core-smoke.js`
 - `node test/coordinator-blackboard-smoke.js`
 - multi-agent topologies smoke coverage
-- `node test/multi-agent-eval-replay-harness-smoke.js`
 - `npm run eval:replay`
 - dogfood release smoke coverage
 - `npm run canonical-apps`

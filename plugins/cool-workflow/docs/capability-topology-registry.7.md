@@ -15,7 +15,7 @@ then come up by themselves in `topology list`, `topology validate`, and
 `topology apply`.
 
 > History: v0.1.53 also shipped a dynamic *capability* dispatcher
-> (`capability-dispatcher.ts`, `registerCapabilityHandler`,
+> (`capability-dispatcher`, `registerCapabilityHandler`,
 > `dispatchCapability`, `resolveCliPath`, `resolveMcpTool`) meant to let
 > capabilities register handlers and be routed at runtime. It had zero call
 > sites — the handler map was always empty and every dispatch path was
@@ -184,7 +184,7 @@ expansion. Now it reads `role.count` on each role spec:
 ## See Also
 
 - `src/core/capability-data.ts` — the one declared source for all capabilities
-- `capability-core.ts` — the shared core entries both surfaces route through
+- `src/wiring/capability-table/registry-core.ts` — the shared core entries both surfaces route through
 - `topology.ts` — topology definitions and the registry
 - `src/core/multi-agent/topology.ts` — topology type definitions
 - `docs/cli-mcp-parity.7.md` — CLI <-> MCP parity gate

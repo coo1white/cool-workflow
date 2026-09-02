@@ -18,7 +18,7 @@ export type CompletionShell = "bash" | "zsh" | "fish";
 /** The full top-level completion word list: `help`/`doctor` (absent from
  *  MORE_COMMANDS_TOKENS — see help.ts) plus every token formatHelp's
  *  "More commands" section lists (already includes `version`/`fix`). */
-export function completionWords(): string[] {
+function completionWords(): string[] {
   return ["help", "doctor", ...MORE_COMMANDS_TOKENS];
 }
 

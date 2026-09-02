@@ -63,7 +63,6 @@
 //     path. The envelope-level "missing field: name" check (right above
 //     this bullet) is unchanged — it still answers -32000.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.mcpToolAuthority = mcpToolAuthority;
 exports.negotiateProtocolVersion = negotiateProtocolVersion;
 exports.startServer = startServer;
 const version_1 = require("../core/version");

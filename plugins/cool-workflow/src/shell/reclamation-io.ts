@@ -81,7 +81,7 @@ export function dirBytes(p: string): number {
 
 /** Stable content digest of a path (file = its bytes; dir = digest over
  *  each member's relative path + bytes, sorted). */
-export function contentDigest(p: string): string {
+function contentDigest(p: string): string {
   const stat = fs.statSync(p);
   if (stat.isFile()) return sha256OfFile(p);
   const parts: string[] = [];
@@ -981,7 +981,7 @@ export function runReclamation(run: WorkflowRun, options: RunReclamationOptions 
 // Reconstruction + verification
 // ---------------------------------------------------------------------------
 
-export function reconstructArtifact(run: WorkflowRun, recipe: ReconstructionRecipe): { inputsDigest: string; expectDigest: string } {
+function reconstructArtifact(run: WorkflowRun, recipe: ReconstructionRecipe): { inputsDigest: string; expectDigest: string } {
   if (recipe.recipeKind === "node-snapshot-projection") {
     const node = (run.nodes || []).find((n) => n.id === recipe.sourceRef);
     if (!node) {

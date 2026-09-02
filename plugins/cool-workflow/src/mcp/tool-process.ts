@@ -146,7 +146,7 @@ function send(message: ToolProcessResponse): void {
 
 /** Child entry point. Kept in this module so the parent and child share one
  * small, checked IPC shape. */
-export function startToolProcessWorker(): void {
+function startToolProcessWorker(): void {
   process.on("disconnect", () => process.exit(0));
   process.on("message", async (message: unknown) => {
     if (!isRequest(message)) return;

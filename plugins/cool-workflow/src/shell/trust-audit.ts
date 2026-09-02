@@ -777,11 +777,6 @@ export function normalizeEvidence(
   }));
 }
 
-export function writeTrustAuditIndexPlaceholder(run: WorkflowRun): void {
-  const audit = ensureTrustAudit(run);
-  writeJson(audit.summaryPath, { schemaVersion: 1, runId: run.id, eventCount: readEventsRaw(audit.eventLogPath).length });
-}
-
 function countBy<T>(values: T[], key: (v: T) => string): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const value of values) {

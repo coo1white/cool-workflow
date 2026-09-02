@@ -65,7 +65,6 @@ exports.recordTrustAuditEvent = recordTrustAuditEvent;
 exports.withTrustAuditBatch = withTrustAuditBatch;
 exports.recordSandboxPathDecision = recordSandboxPathDecision;
 exports.normalizeEvidence = normalizeEvidence;
-exports.writeTrustAuditIndexPlaceholder = writeTrustAuditIndexPlaceholder;
 exports.summarizeTrustAudit = summarizeTrustAudit;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
@@ -600,10 +599,6 @@ function normalizeEvidence(run, evidence, provenance) {
             note: provenance.note || entry.provenance?.note,
         },
     }));
-}
-function writeTrustAuditIndexPlaceholder(run) {
-    const audit = ensureTrustAudit(run);
-    (0, fs_atomic_1.writeJson)(audit.summaryPath, { schemaVersion: 1, runId: run.id, eventCount: readEventsRaw(audit.eventLogPath).length });
 }
 function countBy(values, key) {
     const counts = {};

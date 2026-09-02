@@ -85,7 +85,7 @@ interface McpToolAuthority {
 /** Read the optional server-side tool policy. When both values are unset, the
  * full present tool list and access stay unchanged. An enabled list is an
  * allowlist; disabled names are then removed. */
-export function mcpToolAuthority(
+function mcpToolAuthority(
   definitions: readonly McpToolDefinition[] = toolDefinitions(),
   environment: Record<string, string | undefined> = process.env
 ): McpToolAuthority {

@@ -49,7 +49,6 @@ exports.topologyValidateCli = topologyValidateCli;
 exports.topologyApplyCli = topologyApplyCli;
 exports.topologySummaryCli = topologySummaryCli;
 exports.topologyGraphCli = topologyGraphCli;
-exports.topologyRunShowCli = topologyRunShowCli;
 exports.multiAgentRunCli = multiAgentRunCli;
 exports.multiAgentStatusCli = multiAgentStatusCli;
 exports.multiAgentStatusText = multiAgentStatusText;
@@ -346,11 +345,6 @@ function topologyGraphCli(args) {
     const runId = requireArg(args.runId, "run id");
     const run = loadRun(args, runId);
     return topio.buildTopologyGraph(run);
-}
-function topologyRunShowCli(args, topologyRunId) {
-    const runId = requireArg(args.runId, "run id");
-    const run = loadRun(args, runId);
-    return topio.showTopologyRun(run, topologyRunId);
 }
 // ---------------------------------------------------------------------------
 // Multi-agent kernel (CLI verbs: run/status/step/blackboard/score/select via

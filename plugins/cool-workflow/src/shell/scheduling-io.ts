@@ -177,7 +177,7 @@ export function reclaimExpired(entries: RunQueueEntry[], policy: SchedulingPolic
   return { entries: next, reclaimed };
 }
 
-export function leaseComplete(entries: RunQueueEntry[], leaseId: string, now: string): { entries: RunQueueEntry[]; matched: boolean } {
+function leaseComplete(entries: RunQueueEntry[], leaseId: string, now: string): { entries: RunQueueEntry[]; matched: boolean } {
   let matched = false;
   const next = entries.map((entry) => {
     if (entry.leaseId !== leaseId || entry.status !== "leased") return entry;
@@ -187,7 +187,7 @@ export function leaseComplete(entries: RunQueueEntry[], leaseId: string, now: st
   return { entries: next, matched };
 }
 
-export function leaseRelease(
+function leaseRelease(
   entries: RunQueueEntry[],
   leaseId: string,
   policy: SchedulingPolicy,
