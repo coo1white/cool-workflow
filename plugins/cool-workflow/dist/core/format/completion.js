@@ -12,7 +12,6 @@
 // without hand-maintaining a second, deeper copy of the capability
 // table's subcommand shape.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.completionWords = completionWords;
 exports.formatCompletionScript = formatCompletionScript;
 const help_1 = require("./help");
 /** The full top-level completion word list: `help`/`doctor` (absent from

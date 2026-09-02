@@ -40,7 +40,7 @@ muse) live OUTSIDE the core as out-of-process wrapper scripts in
                        ▼
 ┌──────────── CW core  (src/ — zero runtime deps, imports NO model SDK, holds NO key) ───────────┐
 │                                                                                                │
-│  command-surface.ts        agent-config.ts                 execution-backend  ("agent" driver) │
+│  src/cli/entry.ts          agent-config.ts                 execution-backend  ("agent" driver) │
 │  -codex → builtin:codex ─► builtin:<name> ─►               runAgentProcess:                     │
 │                            node <dir>/<name>-agent.js       spawnSync(binary, args, shell:false)│
 │                            {{input}} {{result}}            · inherits env  · captures stdout    │
@@ -63,7 +63,7 @@ muse) live OUTSIDE the core as out-of-process wrapper scripts in
    Add a vendor = drop a wrapper script + one line in builtin-templates.json — NO core edit.
 ```
 
-Each box maps to one source seam: the flag map lives in `command-surface.ts`
+Each box maps to one source seam: the flag map lives in `src/cli/entry.ts`
 (`-codex` → `builtin:codex`); `agent-config.ts` expands `builtin:<name>` into
 `node <dir>/<name>-agent.js {{input}} {{result}}` by reading
 `builtin-templates.json` (the registry is DATA, not a kernel literal); the

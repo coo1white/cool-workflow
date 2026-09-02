@@ -75,7 +75,7 @@
     "test:ci": "npm run build && node dist/cli.js version > /dev/null && node test/run-all.js --sample 55",
     "test:coverage": "node dist/cli.js version > /dev/null && node scripts/coverage-gate.js --concurrency auto",
     "test:unit": "node dist/cli.js version > /dev/null && node test/run-unit.js",
-    "eval:replay": "tsc -p tsconfig.json && node test/multi-agent-eval-replay-harness-smoke.js",
+    "eval:replay": "tsc -p tsconfig.json && node test/multi-agent-eval-replay-smoke.js",
     "ci": "npm run build && npm run check && npm run test && npm run release:check",
     "validate:schema": "node scripts/validate-run-state-schema.js",
     "bench:workbench:deep": "node scripts/bench/workbench-load.js"

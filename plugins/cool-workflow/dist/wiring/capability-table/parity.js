@@ -4,7 +4,6 @@
 // sed, not retyped).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CAPABILITY_REGISTRY = void 0;
-exports.declaredMcpToolsList = declaredMcpToolsList;
 exports.mcpRequiredArgsForTool = mcpRequiredArgsForTool;
 exports.declaredCliTokens = declaredCliTokens;
 exports.declaredCliHelpTokens = declaredCliHelpTokens;
@@ -265,10 +264,6 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
         ],
     },
 ];
-/** The MCP tool names this registry declares. */
-function declaredMcpToolsList() {
-    return (0, registry_core_1.declaredMcpTools)();
-}
 /** Required MCP argument groups for a registry-declared tool. */
 function mcpRequiredArgsForTool(tool) {
     return (0, registry_core_1.findCapabilityByMcpTool)(tool)?.mcp?.requiredArgs ?? [];

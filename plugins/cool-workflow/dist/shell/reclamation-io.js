@@ -65,7 +65,6 @@ exports.DEFAULT_ORPHAN_MIN_AGE_MINUTES = exports.SKELETON_REQUIRED_KEYS = export
 exports.sha256OfString = sha256OfString;
 exports.sha256OfFile = sha256OfFile;
 exports.dirBytes = dirBytes;
-exports.contentDigest = contentDigest;
 exports.reclaimedLogPath = reclaimedLogPath;
 exports.loadReclamationLog = loadReclamationLog;
 exports.extractSkeleton = extractSkeleton;
@@ -79,7 +78,6 @@ exports.commitTombstone = commitTombstone;
 exports.prepareFree = prepareFree;
 exports.freeBulk = freeBulk;
 exports.runReclamation = runReclamation;
-exports.reconstructArtifact = reconstructArtifact;
 exports.verifyReclamation = verifyReclamation;
 exports.reclamationPolicy = reclamationPolicy;
 exports.reclaimEligibility = reclaimEligibility;

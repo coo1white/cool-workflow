@@ -12,7 +12,7 @@ cryptographic proof that what was freed can be made again or has no worth, and t
 the audit-essential subset is sealed.
 
 This release is built straight on a clear line of past work: v0.1.28's archive overlay
-(`run-registry.ts` — "Archive is an overlay mark, not a delete"), v0.1.35's
+(`src/shell/run-registry-io.ts` — "Archive is an overlay mark, not a delete"), v0.1.35's
 per-node snapshot/diff/deterministic replay (`node-snapshot.ts`), v0.1.32's
 append-only collaboration log, and v0.1.37's policy-as-data scheduling. It EXTENDS
 them; it forks nothing.
@@ -143,8 +143,8 @@ lifecycle above.
 
 **Known gap, not covered by either mechanism:** a run stuck `running`/`queued`/
 `blocked` with a perfectly valid but stale `state.json` (its owning process died
-without ever reaching a terminal state) is reclaimed by NEITHER `gc.ts` (fail-closes
-on `non-terminal`, no age override) NOR `orphans.ts` (it has a `state.json`, so it
+without ever reaching a terminal state) is reclaimed by NEITHER `src/shell/reclamation-io.ts` (fail-closes
+on `non-terminal`, no age override) NOR that same file's orphan sweep (it has a `state.json`, so it
 is not an orphan candidate). As of this writing nothing in `cw` reclaims that
 class of run; it is left `retained` indefinitely rather than guessed at.
 

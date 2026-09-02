@@ -39,7 +39,6 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ToolProcessExecutor = void 0;
-exports.startToolProcessWorker = startToolProcessWorker;
 const node_child_process_1 = require("node:child_process");
 const path = __importStar(require("node:path"));
 const safe_json_1 = require("../core/format/safe-json");
