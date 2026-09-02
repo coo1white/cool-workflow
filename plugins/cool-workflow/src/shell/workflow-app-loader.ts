@@ -445,7 +445,7 @@ function sourcePathOf(record: LoadedWorkflowAppRecord): string {
  *  `CW_WORKFLOWS_DIR`). Sorted by app id then source path; a duplicate id
  *  across BOTH roots is a fail-closed error, matching
  *  `loadWorkflowApps` in the old build. */
-export function listWorkflowAppRecords(): LoadedWorkflowAppRecord[] {
+function listWorkflowAppRecords(): LoadedWorkflowAppRecord[] {
   const appsDir = candidateAppsRoots().find((root) => fs.existsSync(root)) || candidateAppsRoots()[0];
   const workflowsDir = candidateWorkflowsRoots().find((root) => fs.existsSync(root)) || candidateWorkflowsRoots()[0];
   const records = [

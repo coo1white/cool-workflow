@@ -51,7 +51,6 @@ exports.requireMultiAgentRun = requireMultiAgentRun;
 exports.requireAgentRole = requireAgentRole;
 exports.requireAgentGroup = requireAgentGroup;
 exports.requireAgentFanout = requireAgentFanout;
-exports.requireRunTask = requireRunTask;
 exports.assertLifecycleTransition = assertLifecycleTransition;
 exports.lifecycleEvent = lifecycleEvent;
 exports.isMembershipReported = isMembershipReported;

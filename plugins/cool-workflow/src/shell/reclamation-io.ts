@@ -58,7 +58,7 @@ export function sha256OfString(value: string): string {
   return sha256(value);
 }
 
-export function sha256OfFile(file: string): string {
+function sha256OfFile(file: string): string {
   return `sha256:${sha256Bytes(fs.readFileSync(file))}`;
 }
 

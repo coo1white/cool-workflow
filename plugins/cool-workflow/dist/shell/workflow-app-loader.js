@@ -63,7 +63,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorkflowAppNotFoundError = void 0;
 exports.isTrustedAppSourcePath = isTrustedAppSourcePath;
 exports.loadWorkflowApp = loadWorkflowApp;
-exports.listWorkflowAppRecords = listWorkflowAppRecords;
 exports.loadWorkflowAppRecordById = loadWorkflowAppRecordById;
 exports.listWorkflowApps = listWorkflowApps;
 exports.listWorkflowsShallow = listWorkflowsShallow;

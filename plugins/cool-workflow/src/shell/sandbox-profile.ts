@@ -113,7 +113,7 @@ export function bundledSandboxProfileIds(): string[] {
   return BUNDLED_PROFILE_DEFINITIONS.map((profile) => profile.id).sort();
 }
 
-export function isBundledSandboxProfileId(id: string): boolean {
+function isBundledSandboxProfileId(id: string): boolean {
   return BUNDLED_PROFILE_DEFINITIONS.some((profile) => profile.id === id);
 }
 

@@ -63,7 +63,6 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DEFAULT_ORPHAN_MIN_AGE_MINUTES = exports.SKELETON_REQUIRED_KEYS = exports.ReclamationAbort = exports.ReclamationError = void 0;
 exports.sha256OfString = sha256OfString;
-exports.sha256OfFile = sha256OfFile;
 exports.dirBytes = dirBytes;
 exports.reclaimedLogPath = reclaimedLogPath;
 exports.loadReclamationLog = loadReclamationLog;

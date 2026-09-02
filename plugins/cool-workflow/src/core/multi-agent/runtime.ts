@@ -434,7 +434,7 @@ export function requireAgentFanout(run: WorkflowRun, id: string): AgentFanout {
   if (!record) throw new Error(`Unknown AgentFanout id: ${id}`);
   return record;
 }
-export function requireRunTask(run: WorkflowRun, id: string): RunTask {
+function requireRunTask(run: WorkflowRun, id: string): RunTask {
   const task = run.tasks.find((record) => record.id === id);
   if (!task) throw new Error(`Unknown task id for multi-agent record: ${id}`);
   return task;
