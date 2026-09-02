@@ -427,7 +427,8 @@ export async function quickstartRun(
   const repoFromCwd = !remoteCandidate && !args.repo && !args.cwd;
   if (repoFromCwd) args.repo = invocationCwd(args);
   if (Boolean(args.check)) return quickstartCheck(appId, args, remoteCandidate);
-  if (repoFromCwd) assertGitProject(args.repo as string);
+  // An existing --run <id> never plans a fresh run, so it skips this check.
+  if (repoFromCwd && !(args.runId || args.run)) assertGitProject(args.repo as string);
 
   // `--resume`: a discoverability flag over the existing continuation. With no
   // `--run`, advance exactly ONE step (reuse the `--once` path) and print a
