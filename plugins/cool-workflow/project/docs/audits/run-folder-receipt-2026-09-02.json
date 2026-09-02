@@ -1,0 +1,17 @@
+{
+  "program": "2026-09-02-run-folder-empty-dirs",
+  "commit": "e3e71554f6084dbf114f95978642480d253207f8",
+  "version": "0.2.7",
+  "startedAt": "2026-09-02T15:25:23Z",
+  "finishedAt": "2026-09-02T15:36:33Z",
+  "checks": [
+    {
+      "id": "D-no-empty-dirs",
+      "pass": true,
+      "command": "cw -q \"How does the done command mark an item finished and where can it go wrong?\" --repo <sample> -claude, then find .cw/runs/<id> -type d -empty",
+      "seen": "cw run architecture-review-20260902T152529Z-61b2b5 reached \"status\": \"complete\" (plannedWorkers: 14, completedWorkers: 14, parkedWorkers: 0, all four phases Map/Assess/Verify/Verdict ran, commitId state-0008). find .cw/runs/architecture-review-20260902T152529Z-61b2b5 -type d -empty printed nothing. The run folder held 22 directories total (audit, commits, dispatches, nodes, results, tasks, workers, and one per-worker folder for all 14 workers) and none was empty.",
+      "note": "This is the same check that failed at ef21862f with 33 empty directories. After the three merged fixes (reads no longer make directories, a worker's artifacts/logs are lazy, the run-level artifacts directory is gone), a full 14-worker run leaves no empty directory behind."
+    }
+  ],
+  "verdict": "pass"
+}

@@ -60,7 +60,7 @@ Each step writes plain JSON. Rejected and failed candidates are still open to vi
 .cw/runs/<run-id>/candidates/<candidate-id>/scores/<score-id>.json
 .cw/runs/<run-id>/candidates/selections/<selection-id>.json
 .cw/runs/<run-id>/nodes/
-.cw/runs/<run-id>/feedback/
+.cw/runs/<run-id>/feedback/  (made only if a feedback record is written)
 .cw/runs/<run-id>/report.md
 ```
 

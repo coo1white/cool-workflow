@@ -125,7 +125,7 @@ sandboxing unless the agent host truly puts OS policy to work.
 .cw/runs/<run-id>/dispatches/<dispatch-id>.json
 .cw/runs/<run-id>/workers/<worker-id>/worker.json
 .cw/runs/<run-id>/workers/<worker-id>/manifest.json
-.cw/runs/<run-id>/feedback/
+.cw/runs/<run-id>/feedback/  (made only if a feedback record is written)
 .cw/runs/<run-id>/report.md
 ```
 
