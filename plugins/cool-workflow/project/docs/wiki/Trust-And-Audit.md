@@ -8,6 +8,19 @@ configured: the saved record was not changed after it was written, and the
 signed parts came from the holder of the signing key. It does not prove that
 what the agent first reported was true.
 
+CW does not run the model — it keeps the books. Your agent signs its findings
+(**ed25519**), and `cw report verify-bundle` checks — **offline, with nothing
+but the public key** — that every signed finding is in the report unaltered.
+CW holds no private key: the agent signs, CW only verifies.
+
+```bash
+cw -q "…" --bundle                              # seal a run into one portable file
+cw report verify-bundle report.cwrun.json       # anyone can re-check it offline, with just the file
+```
+
+This proves the agent's **signed findings** reached you unaltered — not that
+nothing else was added, and not that nothing was left out.
+
 ## Try The Demo
 
 ```bash

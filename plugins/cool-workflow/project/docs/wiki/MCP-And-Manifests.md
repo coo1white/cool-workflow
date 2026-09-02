@@ -38,8 +38,64 @@ path from `npm root -g` in `args`):
 }
 ```
 
-The README's "Use It From Your Editor" section has the per-editor config file
-locations and a VS Code variant.
+See **[From your editor](#from-your-editor)** below for the per-editor config
+file locations and the VS Code variant.
+
+## From your editor
+
+CW offers the same runtime over MCP — a standard way for editors to call
+tools. Claude Desktop, Cursor, and VS Code call CW as a tool, so your agent
+can plan a run, drive it, and verify a report without leaving the editor.
+
+<details>
+<summary><b>Claude Code</b></summary>
+
+The simple way — as a plugin (this wires MCP for you):
+
+```text
+/plugin marketplace add coo1white/cool-workflow
+/plugin install cool-workflow@cool-workflow
+```
+
+Or use the one-line MCP command in [Hook It Up](#hook-it-up).
+</details>
+
+<details>
+<summary><b>Claude Desktop</b></summary>
+
+Add the `mcpServers` block from [Hook It Up](#hook-it-up) to
+`claude_desktop_config.json` (macOS: `~/Library/Application Support/Claude/`,
+Windows: `%APPDATA%\Claude\`), then restart Claude Desktop.
+</details>
+
+<details>
+<summary><b>Cursor</b></summary>
+
+Add the same block to `~/.cursor/mcp.json` (or `.cursor/mcp.json` inside one
+project).
+</details>
+
+<details>
+<summary><b>VS Code</b></summary>
+
+VS Code uses a `servers` key. Add this to `.vscode/mcp.json` in your project
+(or run **MCP: Add Server** from the Command Palette):
+
+```json
+{
+  "servers": {
+    "cool-workflow": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/path/from/npm-root-g/cool-workflow/scripts/mcp-server.js"]
+    }
+  }
+}
+```
+</details>
+
+Once connected, your agent sees the `cw_*` tools — `cw_plan`, `cw_status`,
+`cw_report`, and the rest — the same registry the CLI uses, parity-checked.
 
 ## Generated Vendor Targets
 

@@ -17,6 +17,18 @@ multi-agent host -> topology -> blackboard/coordinator
     -> fanout/fanin -> candidate score/select
 ```
 
+CW is a small TypeScript tool with **zero runtime dependencies**. It drives
+your agent over a repo — or any folder — in saved stages that you can replay,
+writing everything to disk as files you can open and read.
+
+<div align="center">
+<img src="https://raw.githubusercontent.com/coo1white/cool-workflow/main/plugins/cool-workflow/project/docs/assets/cw-pipeline.png" alt="The CW pipeline: ask, plan, dispatch (delegated to your agent), verify (evidence gate, fails closed), commit verified state, and a saved, cited, signed report — every step recorded as durable .cw/ JSON." width="100%">
+</div>
+
+```text
+ask simple → run simple → verify simple → resume simple
+```
+
 ## Core Boundary
 
 The runtime lives under `plugins/cool-workflow/src/`. It provides:
