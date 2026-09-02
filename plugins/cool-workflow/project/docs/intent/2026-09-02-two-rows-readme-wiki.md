@@ -251,14 +251,37 @@ and the bare `cw --resume --run <id>` form.
 - The coverage smoke header was stale in three ways at once: it claimed 17
   deferred tools (true count 0), it claimed the smoke "stays red" while the
   gate was green, and it named a line number in the wrong file.
+- This spec's closing section said "12 `GitHub-Showcase-*` pages" and "27
+  deep pages" for the wiki-only set. A fresh clone of the public wiki
+  measured **10** `GitHub-Showcase-*` pages and **28** deep pages (52
+  `.md` files total, minus the 14 that already matched a repo page name).
+  The spec's counts were wrong; the closing PR worked the true numbers,
+  not the stated ones.
+- Of the 28 deep pages the closing PR checked against the claim topics
+  (`--resume` forms, `run resume --repo`, `doctor --onramp`, `cw -q`
+  outside a project, the run folder's directory list, the `-q` help
+  line, `src/types/`), only one, `Runtime-Contract.md`, needed a fix
+  (+2 lines: `audit/` and `nodes/` were missing from its run-folder
+  directory list). The other 27 either did not mention any of the
+  claim topics, or their mentions were already accurate. This is a
+  good result stated plainly: the deep pages had drifted far less than
+  the spec feared, and the small diff means the check was run and came
+  back nearly clean, not that it was skipped.
 
 ## How the work went (process notes, recorded at close)
 
 - `agent-*` worktrees were reclaimed from disk under three workers while
   still running mid-task. Each of the three refused to fall back to a
-  shared checkout and reported the loss instead of guessing. The pattern
-  that stood up: `git worktree add` at a plain named path. Every worker
-  brief in this program now says "make your own worktree first".
+  shared checkout and reported the loss instead of guessing.
+  Correction to an earlier version of this note: "make your own worktree
+  first" is the right rule ONLY for an agent that inherits a shared
+  working directory. A worktree-isolated subagent cannot switch to a
+  worktree it makes itself — its Bash/Read/Edit/Write tools stay locked
+  to the one the harness handed it — so for that kind of agent the
+  auto-made `agent-*` worktree IS the right one to work in, and trying
+  `git worktree add` plus a switch is a dead end. Recorded so the next
+  worker brief tells the two cases apart instead of sending an
+  isolated subagent down that dead end.
 - A fresh worktree has no `node_modules`, so `npm run build` dies with
   "tsc: command not found". Run `npm ci` first.
 - A two-dot `git diff origin/main <branch>` on a branch that is behind
