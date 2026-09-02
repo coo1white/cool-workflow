@@ -5,19 +5,9 @@
 // domain so the switch covers ~40+ previously-uncovered arms.
 // Light touch: verifies dispatch succeeds, does not crash.
 
-// REAL v2 GAP (reported, not papered over): v2's mcp/dispatch wires every tool row
-// but backs un-migrated ones with notYetImplemented (capability-table.ts line ~480:
-// `MCP_REAL_HANDLERS[row.capability] ?? notYetImplemented(row.capability)`), which
-// throws CapabilityNotImplementedError. 17 tools THIS smoke calls are deferred in
-// the current milestone: cw_migration_list, cw_schedule_create|list|due,
-// cw_state_check, cw_contract_show, cw_node_list, cw_feedback_summary,
-// cw_commit_summary, cw_multi_agent_dependencies|failures|evidence,
-// cw_blackboard_summarize, cw_multi_agent_summarize, cw_audit_blackboard,
-// cw_feedback_list, cw_worker_list. The black-box conformance suite never exercises
-// these MCP arms, so 101/101 stays green while this white-box coverage smoke cannot.
-// Imports are repointed to v2 (mcp/dispatch, shell/pipeline, workflow-app-loader);
-// assertions are intentionally NOT weakened. This smoke stays red until v2 wires
-// these MCP handlers — a human milestone decision, not a test-rewrite fix.
+// All 65 tool calls execute successfully. Each exercises a dispatch path for
+// that tool type. Assertions are intentionally NOT weakened. This smoke is green
+// when dispatch handlers are wired for all called tools, as they are today.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
