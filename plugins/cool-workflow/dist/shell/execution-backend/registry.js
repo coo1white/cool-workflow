@@ -9,7 +9,7 @@
 //
 // Evidence: SPEC/execution-backend.md "The driver registry".
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.hasExecutable = exports.BackendError = exports.SANDBOX_DIMENSIONS = exports.DEFAULT_BACKEND_ID = exports.EXECUTION_BACKEND_SCHEMA_VERSION = void 0;
+exports.hasExecutable = exports.BackendError = exports.SANDBOX_DIMENSIONS = exports.DEFAULT_BACKEND_ID = void 0;
 exports.registerBackend = registerBackend;
 exports.getBackendDriver = getBackendDriver;
 exports.listBackendDescriptors = listBackendDescriptors;
@@ -35,7 +35,6 @@ const remote_1 = require("./remote");
 const ci_1 = require("./ci");
 const agent_1 = require("./agent");
 const collate_1 = require("../../core/util/collate");
-exports.EXECUTION_BACKEND_SCHEMA_VERSION = 1;
 exports.DEFAULT_BACKEND_ID = "node";
 exports.SANDBOX_DIMENSIONS = ["read", "write", "command", "network", "env"];
 class BackendError extends Error {

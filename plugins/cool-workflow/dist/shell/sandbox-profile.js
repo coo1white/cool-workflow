@@ -51,7 +51,6 @@ exports.validateSandboxProfileDefinition = validateSandboxProfileDefinition;
 exports.effectiveSandboxWritePaths = effectiveSandboxWritePaths;
 exports.sandboxPolicyForWorker = sandboxPolicyForWorker;
 exports.validateSandboxWrite = validateSandboxWrite;
-exports.validateSandboxRead = validateSandboxRead;
 exports.validateSandboxCommand = validateSandboxCommand;
 exports.validateSandboxNetwork = validateSandboxNetwork;
 exports.sandboxContextForValidation = sandboxContextForValidation;
@@ -301,9 +300,6 @@ function sandboxPolicyForWorker(profileId, context) {
 }
 function validateSandboxWrite(policy, rawPath, workerId = "") {
     return validateSandboxPathAccess("write", policy, rawPath, effectiveSandboxWritePaths(policy), workerId);
-}
-function validateSandboxRead(policy, rawPath, workerId = "") {
-    return validateSandboxPathAccess("read", policy, rawPath, policy.readPaths, workerId);
 }
 function validateSandboxCommand(policy, command, workerId = "") {
     const normalized = command.trim();

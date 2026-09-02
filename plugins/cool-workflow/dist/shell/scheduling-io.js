@@ -45,7 +45,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_SCHEDULING_POLICY = exports.SCHEDULING_SCHEMA_VERSION = void 0;
+exports.DEFAULT_SCHEDULING_POLICY = void 0;
 exports.normalizeSchedulingPolicy = normalizeSchedulingPolicy;
 exports.backoffMs = backoffMs;
 exports.planSchedule = planSchedule;
@@ -66,7 +66,6 @@ const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
 const run_registry_io_1 = require("./run-registry-io");
 const numeric_flag_1 = require("../core/util/numeric-flag");
-exports.SCHEDULING_SCHEMA_VERSION = 1;
 /** Conservative fail-closed defaults: serial, bounded retries, exponential backoff. */
 exports.DEFAULT_SCHEDULING_POLICY = {
     schemaVersion: 1,

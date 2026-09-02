@@ -529,6 +529,15 @@ export function runBackend(request: ExecutionRequest): ExecutionResultEnvelope {
   return executeLocal(descriptor, request, label, attestation, getBackendDriver(descriptor.id)?.spawnStyle);
 }
 
+export function createExecutionBackend(id: string): { descriptor: BackendDescriptor; probe: (context: { cwd?: string }) => BackendProbeResult; run: (request: ExecutionRequest) => ExecutionResultEnvelope } {
+  const descriptor = getBackendDescriptor(id);
+  return {
+    descriptor,
+    probe: (context) => probeBackend(id, context),
+    run: (request) => runBackend({ ...request, backendId: id }),
+  };
+}
+
 // ---- inspection payloads ---------------------------------------------------
 
 export function backendListPayload(): { schemaVersion: 1; default: string; backends: BackendDescriptor[] } {

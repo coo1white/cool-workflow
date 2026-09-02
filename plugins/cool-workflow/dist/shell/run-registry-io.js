@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RunRegistry = exports.DEFAULT_RUN_REGISTRY_POLICY = exports.RUN_REGISTRY_SCHEMA_VERSION = void 0;
+exports.RunRegistry = exports.DEFAULT_RUN_REGISTRY_POLICY = void 0;
 exports.compareBytes = compareBytes;
 exports.compareRecords = compareRecords;
 exports.compareHistory = compareHistory;
@@ -77,7 +77,6 @@ const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
 const run_store_1 = require("./run-store");
 const hash_1 = require("../core/hash");
-exports.RUN_REGISTRY_SCHEMA_VERSION = 1;
 exports.DEFAULT_RUN_REGISTRY_POLICY = {
     schemaVersion: 1,
     archiveOlderThanDays: 0,

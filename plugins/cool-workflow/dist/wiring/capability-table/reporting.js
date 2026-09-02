@@ -355,9 +355,6 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.serve").reason =
 function loadAuditCli() {
     return require("../../shell/audit-cli");
 }
-function loadEvalText() {
-    return require("../../shell/eval-text");
-}
 (0, registry_core_1.attachCliBinding)("audit.summary", {
     path: ["audit", "summary"],
     jsonMode: "default",
