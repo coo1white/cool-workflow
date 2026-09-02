@@ -14,7 +14,7 @@
 //      `nextCommand: quickstartNextCommand(...)` (old src/capability-core.ts, the
 //      quickstartCheck return object). v2's quickstartCheck returns only
 //      { schemaVersion, mode, ok, appId, repo, checks } and `quickstartNextCommand`
-//      does not exist anywhere in v2 src — see src/shell/pipeline-cli.ts:195.
+//      does not exist anywhere in v2 src — see src/shell/pipeline-cli.ts.
 //   2. No `--bundle` / `bundle-trust-key` preflight check. The old build pushed a
 //      bundle-trust-key check (warn by default, blocked under --strict-signatures)
 //      whenever --bundle was passed. v2's quickstartCheck has zero `bundle`

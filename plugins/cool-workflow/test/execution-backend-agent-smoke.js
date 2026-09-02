@@ -60,13 +60,13 @@ function main() {
   // ---- 3. PROBE: configured -> ready -------------------------------------------
   // REAL-GAP (v2): this FAILS. probeBackend never threads env into the probe body.
   // registry.probeBackend(id, {cwd}) calls driver.probe(context) with the {cwd}
-  // context object (src/shell/execution-backend/registry.ts:372), but the agent
+  // context object (src/shell/execution-backend/registry.ts), but the agent
   // probe body reads config from its `env` parameter which defaults to
-  // process.env (src/shell/execution-backend/probes.ts:141,144). So `context`
+  // process.env (src/shell/execution-backend/probes.ts). So `context`
   // (a {cwd} object) shadows process.env, CW_AGENT_COMMAND is never seen, and a
   // configured agent still reports readiness "unverified" / agent-command ok:false.
   // Same seam breaks the CLI: probeBackendCli -> backendProbePayload(id,{cwd})
-  // (src/shell/exec-backend-cli.ts:64). The probe body logic itself is correct
+  // (src/shell/exec-backend-cli.ts). The probe body logic itself is correct
   // (configured -> "ready"); only the registry->probe call site is wrong.
   // Assertions kept intact per audit rules — do NOT weaken to force green.
   {

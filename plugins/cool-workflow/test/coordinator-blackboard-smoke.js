@@ -214,9 +214,9 @@ const evidenceLocator = `${evidencePath}:1`;
   // (src/core/multi-agent/runtime.ts). But the SHELL CLI layer silently drops
   // the `--blackboard`/`--topic` flags: none of the multi-agent CLI handlers
   // forward them into the kernel input:
-  //   src/shell/multi-agent-cli.ts:147  createMultiAgentRun  (only id/title/objective)
-  //   src/shell/multi-agent-cli.ts:227  createAgentGroup     (no blackboardId/topicIds)
-  //   src/shell/multi-agent-cli.ts:272  createAgentFanout    (no blackboardId/topicIds)
+  //   src/shell/multi-agent-cli.ts  createMultiAgentRun  (only id/title/objective)
+  //   src/shell/multi-agent-cli.ts  createAgentGroup     (no blackboardId/topicIds)
+  //   src/shell/multi-agent-cli.ts  createAgentFanout    (no blackboardId/topicIds)
   // So `multi-agent run|group|fanout --blackboard bb-smoke` leaves
   // blackboardId undefined, and this assertion (plus every downstream
   // manifest.blackboard / membership.blackboardId / fanin.blackboardArtifactRefIds

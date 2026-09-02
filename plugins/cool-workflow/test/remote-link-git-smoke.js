@@ -39,7 +39,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // grep across src/ shows every symbol above is ABSENT (only help/capability
 // TEXT mentioning `--link` and the `clones list|gc` CACHE-MANAGEMENT cli
 // survive). v2 leaves the `--link` flag INERT — see the deliberate note at
-// src/shell/pipeline-cli.ts:127 ("the --link/remote preflight variant is not
+// src/shell/pipeline-cli.ts ("the --link/remote preflight variant is not
 // ported — no conformance case exercises it"). At runtime v2 silently ignores
 // `--link`: `--check --link <url>` reports repo === the LOCAL cwd (no `link`
 // sub-check, ok:true), and a real `--link` run against a bogus URL does NOT

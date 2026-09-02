@@ -20,7 +20,7 @@
 // It fails on genuine v2 behavior at the first blackboard call below
 // (`blackboard message post <runId> ...`, line ~38): v2's CLI can no longer
 // parse the `<action> <runId>` grammar. The handler at
-// src/core/capability-table.ts:1542-1546 (blackboard.message.post) reads the
+// src/core/capability-table.ts (blackboard.message.post) reads the
 // action word as the run id — positionals[0] is taken as runId and
 // positionals[1] as the action, but after dispatchTable consumes the
 // `message` path token the positionals are [<action>, <runId>], so the
@@ -31,7 +31,7 @@
 //
 // This is self-contradictory inside v2: its own next-action hints and help
 // still advertise the action-word grammar —
-// src/core/multi-agent/coordinator.ts:741-742 emit
+// src/core/multi-agent/coordinator.ts emit
 // `blackboard message post ${runId} --topic ...` and
 // `blackboard artifact add ${runId} --path ...`; state-explosion/digest.ts,
 // report.ts, graph.ts do the same; and `cw help blackboard` lists

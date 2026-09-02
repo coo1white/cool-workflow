@@ -90,7 +90,7 @@ const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
 // v2's src/shell/drive.ts emitProgress (drive.ts:101) only writes PER-WORKER
 // lines: `[drive] → <label> (<Phase>) — spawning agent…` (drive.ts:309) and
 // `[drive] ⇉ concurrent round: N agents…` (drive.ts:530). The phase-boundary
-// renderer term.phaseProgressLine still exists (src/shell/term.ts:99) but has
+// renderer term.phaseProgressLine still exists (src/shell/term.ts) but has
 // ZERO callers in v2 src — the drive→phaseProgressLine wiring the old build had
 // was dropped, so no `==> Map`, `==> Map ✓ (6/6)`, or `==> Verdict ✓` ever
 // reaches stderr. The unit surface (parts 1a–1d) still passes; only this live

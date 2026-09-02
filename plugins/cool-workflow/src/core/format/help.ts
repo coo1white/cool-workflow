@@ -1,8 +1,8 @@
 // core/format/help.ts — formatHelp, formatCommandHelp.
 //
-// Pure functions of already-loaded data. Byte-exact port of
-// src/orchestrator.ts:899-1007 in the old build (formatHelp,
-// formatCommandHelp) plus the color helpers `bold`/`dim` keyed off stdout.
+// Pure functions of already-loaded data. Byte-exact port of the old
+// build's formatHelp and formatCommandHelp, plus the color helpers
+// `bold`/`dim` keyed off stdout.
 //
 // LOAD-BEARING LAYOUT (plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 14 — do not "clean up"):
 //   - The command-line rows under "Cool Workflow" and the `cw <path...>`
@@ -38,7 +38,7 @@ export interface CommandHelpRow {
   flags?: Array<{ name: string; summary: string }>;
 }
 
-/** src/orchestrator.ts:934-951 — the "More commands" token set, in the old
+/** The "More commands" token set, in the old
  *  build's order (space-joined in the source, pipe-joined for display).
  *  One change from the old capture: `update` is gone. The verb had no code
  *  behind it in this build (`cw update` said "Unknown command"), so the
@@ -61,7 +61,7 @@ export const MORE_COMMANDS_TOKENS: string[] = [
 
 const MORE_COMMANDS_WRAP_WIDTH = 76;
 
-/** src/orchestrator.ts:940-951 — greedily pack pipe-joined tokens into
+/** Greedily pack pipe-joined tokens into
  *  lines of at most `width` columns, INCLUDING the 2-space indent in the
  *  width check (a token is never split). Returns lines WITH the 2-space
  *  indent already applied — callers must not add another one. */
@@ -80,7 +80,7 @@ function wrapPipeJoined(tokens: string[], width: number): string[] {
   return lines;
 }
 
-/** src/orchestrator.ts:988-1007 — the per-verb subcommand rows, keyed by
+/** The per-verb subcommand rows, keyed by
  *  the verb (`cli.path[0]` in the old registry). Verbs whose capability
  *  now has a real `cli` binding in core/capability-table.ts (`list`,
  *  `version`, `status`) are read from `cliCommandHelpRows()` instead (see
@@ -233,7 +233,7 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
   // and come from cliCommandHelpRows("demo") below.
 };
 
-/** src/orchestrator.ts:899-933 — the top-level `cw help` text. Color is
+/** The top-level `cw help` text. Color is
  *  intentionally NOT applied here (this milestone's conformance runs pipe
  *  stdout, so NO_COLOR/non-TTY always wins); byte content matches the
  *  plain-text capture at SPEC/cli-help/_root.txt, but for the dead
@@ -285,7 +285,7 @@ export function formatHelp(): string {
   return `${lines.join("\n")}\n`;
 }
 
-/** src/orchestrator.ts:875-887 equivalent — passed in by the caller so this
+/** The old build's nearest-command-match function, passed in by the caller so this
  *  module stays a pure function of already-loaded data (no import cycle on
  *  cli/parseargv.ts's suggestCommand). */
 export type SuggestCommandFn = (input: string) => string | undefined;
@@ -321,7 +321,7 @@ function aliasTargetVerb(verb: string): string | undefined {
   return undefined;
 }
 
-/** src/orchestrator.ts:988-1007 — `formatCommandHelp(verb)`. Unknown verb
+/** `formatCommandHelp(verb)`. Unknown verb
  *  gives a SOFT text (never a throw); known verb lists its registry rows,
  *  sorted by command string, padded to the longest command column + 2
  *  (capped at 40, per the old registry's own cap; none of the milestone-1
@@ -386,7 +386,7 @@ function renderCommandHelpRows(header: string, rows: CommandHelpRow[]): string {
 }
 
 /** `cw info <id>` human card — MILESTONE 12. Byte-exact in spirit to
- *  src/orchestrator.ts:899-929's `formatInfo` (color stripped, matching
+ *  the old build's `formatInfo` (color stripped, matching
  *  this file's own `formatHelp`/`formatCommandHelp` — styling, if any, is
  *  applied by the shell layer, never here). `data` is the `showApp`/
  *  `showWorkflowApp` payload. */

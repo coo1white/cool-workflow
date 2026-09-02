@@ -20,7 +20,7 @@ function makeNode(status) {
 // node.status !== "verified" — it does not special-case same->same. So
 // committed is terminal in the strongest sense: not even a no-op
 // re-commit is possible. Verified byte-identical against the old build's
-// plugins/cool-workflow/src/state-node.ts:91 — this is a faithful port,
+// state-node module — this is a faithful port,
 // not a v2 regression.
 {
   const node = makeNode("committed");

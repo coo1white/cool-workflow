@@ -87,7 +87,7 @@ export function runtimeNoteFor(backendId: string): string {
 
 /** executeLocal — spawn a thin child process and capture verifiable
  *  evidence (exit code + output digest). Byte-exact port of
- *  src/execution-backend.ts:547-626. */
+ *  the old build's execution-backend module. */
 export function executeLocal(
   descriptor: BackendDescriptor,
   request: ExecutionRequest,

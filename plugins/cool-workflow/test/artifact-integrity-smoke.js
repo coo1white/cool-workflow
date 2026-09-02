@@ -8,12 +8,12 @@ const path = require("node:path");
 // `hashArtifactFile(artifact)` — it read the file at `artifact.path`, stamped
 // `sha256` (full `sha256:`+64 hex, via core sha256) and `sizeBytes` onto the
 // StateArtifact, and silently skipped a missing file. See old source at
-// commit c8a6265~1 src/state.ts:338.
+// commit c8a6265~1 src/state.ts.
 //
 // v2 split the old flat `state` into `../dist/shell/run-store` (shell side) +
 // `../dist/core/state/*` (pure side). The StateArtifact type still carries
-// `sha256?`/`sizeBytes?` (src/core/state/types.ts:69) and run-export still
-// consumes them (src/shell/run-export.ts:620-621), BUT no v2 module reimplements
+// `sha256?`/`sizeBytes?` (src/core/state/types.ts) and run-export still
+// consumes them (src/shell/run-export.ts), BUT no v2 module reimplements
 // the function that POPULATES those fields from disk. `hashArtifactFile` is gone
 // from every dist module (grep -rl hashArtifactFile dist/ = empty), so the
 // require below resolves the successor module but `hashArtifactFile` is

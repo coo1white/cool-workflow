@@ -99,7 +99,7 @@ function phaseSpec(id: string, title: string, roleIds: string[], fanout: boolean
 }
 
 /** The three built-in topologies, in this exact order. Byte-exact
- *  transcription of src/topology.ts:58-137. */
+ *  transcription of the old build's topology module. */
 export const OFFICIAL_TOPOLOGIES: MultiAgentTopologyDefinition[] = [
   {
     schemaVersion: 1,
@@ -232,7 +232,7 @@ export interface ApplyTopologyInput {
   mapperCount?: number;
   judgeCount?: number;
   roleCounts?: Record<string, number>;
-  /** Accepted but never read — src/topology.ts:48; a debate run always
+  /** Accepted but never read — a debate run always
    *  mints exactly one instance of each role (byte-compat: a known,
    *  intentionally-preserved wart, do not "clean this up"). */
   debateRounds?: number;

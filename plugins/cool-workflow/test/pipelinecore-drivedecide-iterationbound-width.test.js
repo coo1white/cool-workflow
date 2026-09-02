@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // pipelinecore-drivedecide-iterationbound-width — maxIterations,
 // autoWidth, roundWidth. SPEC/pipeline-run.md "Loop control in drive()"
-// (src/drive.ts:796-894) and "Rebuild risks" #6 ("plannedWorkers freeze +
+// (now src/core/pipeline/drive-decide.ts) and "Rebuild risks" #6 ("plannedWorkers freeze +
 // iteration bound").
 
 const assert = require("node:assert/strict");

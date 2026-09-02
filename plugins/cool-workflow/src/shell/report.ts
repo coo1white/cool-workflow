@@ -10,9 +10,7 @@
 // plugins/cool-workflow/src/orchestrator/report.ts's renderX helpers for
 // each.
 //
-// Evidence: SPEC/reporting-ux.md "report.md (written by writeReport)";
-// plugins/cool-workflow/src/orchestrator/report.ts:1-397 (byte-exact
-// source).
+// Evidence: SPEC/reporting-ux.md "report.md (written by writeReport)".
 
 import * as fs from "node:fs";
 import { WorkflowRun } from "../core/state/types";
@@ -77,7 +75,7 @@ function renderStateSize(run: WorkflowRun): string[] {
 }
 
 /** `## Sandbox Profiles` — byte-exact port of the old build's
- *  renderSandboxProfiles (src/orchestrator/report.ts:277-287). */
+ *  renderSandboxProfiles. */
 function renderSandboxProfiles(run: WorkflowRun): string[] {
   const profiles = (run.sandboxProfiles as SandboxProfileLike[] | undefined) || [];
   if (!profiles.length) return ["No sandbox profiles selected yet."];
@@ -91,7 +89,7 @@ function renderSandboxProfiles(run: WorkflowRun): string[] {
 }
 
 /** `## Trust Audit` — byte-exact port of the old build's renderTrustAudit
- *  + renderTelemetryAttestation (src/orchestrator/report.ts:301-355). */
+ *  + renderTelemetryAttestation. */
 function renderTrustAudit(run: WorkflowRun): string[] {
   const summary = summarizeTrustAudit(run);
   const integrity = summary.integrity;
@@ -158,7 +156,7 @@ function renderTelemetryAttestation(run: WorkflowRun): string[] {
 }
 
 /** `## Acceptance Rationale` — byte-exact port of the old build's
- *  renderAcceptanceRationale (src/orchestrator/report.ts:357-374). */
+ *  renderAcceptanceRationale. */
 function renderAcceptanceRationale(run: WorkflowRun): string[] {
   const lines: string[] = [];
   for (const selectionRaw of run.candidateSelections || []) {
@@ -180,7 +178,7 @@ function renderAcceptanceRationale(run: WorkflowRun): string[] {
 }
 
 /** `## Multi-Agent Runtime` — byte-exact port of the old build's
- *  renderMultiAgent (src/orchestrator/report.ts:217-242). */
+ *  renderMultiAgent. */
 function renderMultiAgent(run: WorkflowRun): string[] {
   const summary = summarizeMultiAgent(run);
   if (!summary.totalRuns) return ["No multi-agent runtime records yet."];
@@ -209,7 +207,7 @@ function renderMultiAgent(run: WorkflowRun): string[] {
 }
 
 /** `## Blackboard / Coordinator` — byte-exact port of the old build's
- *  renderBlackboard (src/orchestrator/report.ts:244-275). */
+ *  renderBlackboard. */
 function renderBlackboard(run: WorkflowRun): string[] {
   const summary = summarizeBlackboard(run);
   if (!summary.blackboardId) return ["No blackboard records yet."];
@@ -243,8 +241,7 @@ function renderBlackboard(run: WorkflowRun): string[] {
   return lines;
 }
 
-/** `## Candidates` — byte-exact port of the old build's renderCandidates
- *  (src/orchestrator/report.ts:289-299). */
+/** `## Candidates` — byte-exact port of the old build's renderCandidates. */
 function renderCandidatesSection(run: WorkflowRun): string[] {
   const summary = summarizeCandidates(run);
   if (!summary.total) return ["No candidates yet."];

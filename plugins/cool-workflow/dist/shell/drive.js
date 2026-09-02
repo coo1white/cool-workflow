@@ -310,7 +310,7 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     // agentDelegation telemetry below, never the cache key. The cache key
     // instead digests the task's own static, workflow-authored prompt text
     // (selected.prompt), which IS stable across runs — byte-exact to the
-    // old build's src/drive.ts:280-282 (two differently-sourced digests,
+    // old build (two differently-sourced digests,
     // easy to collapse into one by mistake).
     const promptDigest = fs.existsSync(manifest.inputPath) ? (0, hash_1.sha256)(fs.readFileSync(manifest.inputPath, "utf8")) : (0, hash_1.sha256)(manifest.prompt || "");
     const cacheKeyPromptDigest = (0, hash_1.sha256)(selected.prompt || "");

@@ -11,14 +11,14 @@
 // (2 Map workers per --once round, 6 workers total, commitId set) all still hold.
 //
 // The gap: v2 DROPS the per-phase resultCache policy at run materialization. The app
-// DSL apps/architecture-review-fast/workflow.js:62-128 still attaches
+// DSL apps/architecture-review-fast/workflow.js still attaches
 //   resultCache: { mode:"read-write", keyInput:"sourceContextDigest",
 //                  includeCompletedResults:"previous-phases" }  (Assess/Verify/Verdict)
-// to every task, but v2's flattenTasks (src/shell/pipeline.ts:57-71) copies only
+// to every task, but v2's flattenTasks (src/shell/pipeline.ts) copies only
 // id/kind/phase/prompt/label/model/agentType onto each RunTask and NEVER copies
 // task.resultCache. So the materialized task has resultCache === undefined (confirmed
 // live: every byTask.get(...).resultCache is undefined), failing the plan-level
-// resultCache assertions. Downstream, src/shell/drive.ts:157 resultCachePath() reads
+// resultCache assertions. Downstream, src/shell/drive.ts resultCachePath() reads
 // task.resultCache, finds none, and short-circuits — so warm re-runs never produce
 // handleKind === "result-cache" hits, failing the cache-hit assertions too.
 // (Same gap fails the sibling architecture-review-fast-phase-cache-smoke.)

@@ -22,7 +22,7 @@
 // shipped: v2 `doctor --onramp` prints only the standard checks — no
 // "Quick start (3 steps)" block, no "No Agent?" section, and `--json` carries
 // no `onramp` field. This is intentional-but-incomplete in v2, documented at
-// src/shell/doctor.ts:6-10 ("The `--onramp` section (buildDoctorOnramp) is
+// src/shell/doctor.ts ("The `--onramp` section (buildDoctorOnramp) is
 // later-milestone (reporting) territory and is intentionally NOT wired here").
 // buildDoctorOnramp is unimplemented in v2 (grep dist/: only the comment). The
 // fix belongs in Phase B (complete v2), not here — do NOT weaken these

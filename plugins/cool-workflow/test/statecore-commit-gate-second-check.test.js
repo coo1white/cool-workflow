@@ -15,7 +15,7 @@
 // attempting -> committed is stopped by the FIRST gate (matrix) already.
 // This makes "committed" terminal in the strongest sense: it has no legal
 // transition at all, not even a same->same no-op. Confirmed byte-identical
-// against the old build (plugins/cool-workflow/src/state-node.ts:91).
+// against the old build's state-node module.
 
 const assert = require("node:assert/strict");
 const { createStateNode, transitionStateNode, PipelineContractError } = require("../dist/core/state/state-node");

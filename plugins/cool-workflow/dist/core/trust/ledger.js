@@ -13,7 +13,7 @@
 // dedup rule) rather than reimplementing a private copy.
 //
 // Evidence: SPEC/ledger-trust.md "Handoff ledger entry", "Exported
-// functions", "Edge cases"; plugins/cool-workflow/src/ledger.ts:1-429.
+// functions", "Edge cases".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.computeLedgerDigest = computeLedgerDigest;
 exports.buildLedgerProposal = buildLedgerProposal;

@@ -24,7 +24,7 @@ export function toolDefinitions(): McpToolDefinition[] {
   return mcpToolDefinitions();
 }
 
-/** SPEC/mcp.md invariant 6 / src/mcp-surface.ts:7-25 — required-argument
+/** SPEC/mcp.md invariant 6 — required-argument
  *  groups are declared data, not code. `undefined`/`null` become `{}`; a
  *  non-object throws; a group "keyA|keyB" passes when at least one named
  *  key is not `undefined`, not `null`, and not `""`. */
@@ -67,8 +67,7 @@ function coerceScalarArgs(args: Record<string, unknown>): Record<string, unknown
 
 /** `callTool(name, args)` — resolves `cwd` (SPEC/mcp.md invariant 7),
  *  checks required args, then calls the row's `mcp.handler`. Throws
- *  `Unknown tool: <name>` for a name with no row (src/mcp/tool-call.ts:513
- *  parity). */
+ *  `Unknown tool: <name>` for a name with no row. */
 export function callTool(name: string, rawArgs: unknown): unknown {
   const row = findCapabilityByMcpTool(name);
   if (!row || !row.mcp) {

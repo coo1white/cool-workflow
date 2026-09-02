@@ -9,8 +9,7 @@
 // feedback.ts's `recordFeedback` (dedup-on-open-record, disk write,
 // saveCheckpoint).
 //
-// Evidence: SPEC/pipeline-run.md "Error feedback — src/error-feedback.ts";
-// plugins/cool-workflow/src/error-feedback.ts:109-158,290-360.
+// Evidence: SPEC/pipeline-run.md "Error feedback — src/error-feedback.ts".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

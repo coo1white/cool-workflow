@@ -6,7 +6,7 @@
 // observability) with the rest of the old build's src/term.ts: indent,
 // sectionHeader, phaseProgressLine, printSuccessSummary, stripAnsi,
 // visibleWidth, truncate, formatFindingsSummary, FindingRow — byte-exact
-// port of plugins/cool-workflow/src/term.ts:81-210.
+// port of the old build's term module.
 
 export type TermSeverity = "ok" | "warn" | "fail";
 

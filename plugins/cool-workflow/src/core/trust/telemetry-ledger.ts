@@ -4,12 +4,12 @@
 // (telemetryLedgerPath, loadTelemetryLedger, appendTelemetryAttestation)
 // lives in shell/telemetry-ledger-io.ts.
 //
-// MILESTONE 8. Byte-exact port of the old build's src/telemetry-ledger.ts
+// MILESTONE 8. Byte-exact port of the old build's telemetry-ledger module's
 // verify-side logic. Uses core/hash.ts's `sha256`/`telemetryStableStringify`
 // (see plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 2's key-omission-vs-null rule).
 //
 // Evidence: SPEC/ledger-trust.md "Telemetry ledger record", byte-compat
-// items 2 and 12; plugins/cool-workflow/src/telemetry-ledger.ts:1-224.
+// items 2 and 12.
 
 import { sha256, telemetryStableStringify } from "../hash";
 

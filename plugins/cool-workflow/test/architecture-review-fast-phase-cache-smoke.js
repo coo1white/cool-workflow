@@ -17,11 +17,11 @@
 //     resultCache: { mode:"read-write", keyInput:"sourceContextDigest",
 //     includeCompletedResults:"previous-phases" } to every task (Map/Assess/
 //     Verify/Verdict), same as the old build.
-//   - src/shell/pipeline.ts:57-71 flattenTasks() copies only a fixed whitelist of
+//   - src/shell/pipeline.ts flattenTasks() copies only a fixed whitelist of
 //     fields into each RunTask and NEVER copies task.resultCache. The persisted
 //     task therefore has resultCache === undefined (confirmed live in the run's
 //     state.json for all six tasks).
-//   - src/shell/drive.ts:157 resultCachePath() then short-circuits
+//   - src/shell/drive.ts resultCachePath() then short-circuits
 //     (`if (!policy || policy.mode !== "read-write" || !policy.keyInput) return
 //     undefined`), so .cw/cache/worker-results is never written on the cold run
 //     and every warm task re-spawns the agent. Cold assertions pass (they expect

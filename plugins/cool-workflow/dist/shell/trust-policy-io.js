@@ -10,8 +10,7 @@
 // build's src/multi-agent-trust.ts.
 //
 // Evidence: SPEC/multi-agent.md section D ("Trust policies"), "Trust
-// denial reasons"; plugins/cool-workflow/src/multi-agent-trust.ts:129-415
-// (byte-exact source).
+// denial reasons".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.policyForRole = exports.policyForMembership = exports.policyForGroup = void 0;
 exports.authorizeMultiAgentAction = authorizeMultiAgentAction;

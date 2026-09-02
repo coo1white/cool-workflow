@@ -18,8 +18,7 @@
 //
 // Evidence: SPEC/ledger-trust.md "Trust-audit chain", invariant 10 (era
 // rule), byte-compat item 2; SPEC/pipeline-run.md's worker-accept
-// references; plugins/cool-workflow/src/trust-audit.ts:1-731 (byte-exact
-// source for the pieces ported here).
+// references.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -610,7 +609,7 @@ function countBy(values, key) {
 }
 /** MILESTONE 11 (reporting/observability) — the `## Trust Audit` report
  *  section's data source. A scoped-down port of the old build's
- *  `summarizeTrustAudit` (plugins/cool-workflow/src/trust-audit.ts:413+):
+ *  `summarizeTrustAudit`:
  *  this milestone's report.ts only renders eventCount/integrity/byDecision/
  *  bySource/bySandboxProfile/paths, so those are the only fields carried
  *  here — the old build's extra workers/candidates/commits/multiAgent/

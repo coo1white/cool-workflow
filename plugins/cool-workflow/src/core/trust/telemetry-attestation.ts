@@ -13,8 +13,7 @@
 // resolves a key path pays no fs cost).
 //
 // Evidence: SPEC/ledger-trust.md "The signing model", "Attestation
-// verify", byte-compat items 2 and 11;
-// plugins/cool-workflow/src/telemetry-attestation.ts:1-319.
+// verify", byte-compat items 2 and 11.
 
 import * as crypto from "node:crypto";
 

@@ -14,16 +14,16 @@
 //   1. `cw commit summary` — GONE as a CLI subcommand AND as a help row.
 //      Old: src/capability-registry.ts had commit.summary with
 //        cli: { path: ["commit","summary"], jsonMode: "flag" }, surface "both".
-//      v2: src/core/capability-table.ts:224 keeps only the MCP tool
+//      v2: src/core/capability-table.ts keeps only the MCP tool
 //        (cw_commit_summary); NO attachCliBinding for commit.summary, and
 //        `commit` is absent from COMMAND_HELP_ROWS in src/core/format/help.ts.
 //        So `cw help commit` shows only `cw commit`, and `cw commit summary`
 //        mis-dispatches ("summary" is read as a positional runId).
 //   2. `cw worker list` (and worker show/manifest/output/fail/validate) — the
 //      CLI still dispatches (through the worker.usage catch-all,
-//      src/core/capability-table.ts:2802 addCliOnlyCapability, hiddenFromHelp),
+//      src/core/capability-table.ts addCliOnlyCapability, hiddenFromHelp),
 //      but the per-subcommand HELP rows are gone: only worker.summary has a
-//      non-hidden cli binding (src/core/capability-table.ts:2347), so
+//      non-hidden cli binding (src/core/capability-table.ts), so
 //      `cw help worker` shows only `cw worker summary`.
 // The registry data still EXISTS in v2 (both capabilities are live rows); v2
 // just no longer surfaces them via `cw help <verb>` (and, for commit.summary,

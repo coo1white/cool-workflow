@@ -11,7 +11,7 @@
 // Evidence: SPEC/state-core.md "resolveChain(contract, detected) ...
 // exact errors: ... <contract> schemaVersion <d> is not current (<cur>)
 // and no migration edges exist, no migration edge from <contract>
-// schemaVersion <v>"; src/contract-migration.ts:154-191 (ported 1:1 in
+// schemaVersion <v>"; the old build's contract-migration code (ported 1:1 in
 // core/state/contract-migration.ts's resolveChain).
 
 const assert = require("node:assert/strict");

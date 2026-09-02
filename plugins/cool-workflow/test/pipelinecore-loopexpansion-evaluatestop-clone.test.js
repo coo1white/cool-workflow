@@ -3,7 +3,7 @@
 // budget-target/predicate branches and the atCap ceiling,
 // cloneLoopRoundTasks's field reset, and loopControlNodeId's id format.
 // SPEC/pipeline-run.md "loop() expansion — src/loop-expansion.ts +
-// maybeExpandLoop" (src/orchestrator/lifecycle-operations.ts:490-604).
+// maybeExpandLoop" (now src/core/pipeline/loop-expansion.ts + src/shell/drive.ts).
 
 const assert = require("node:assert/strict");
 const { evaluateLoopStop, cloneLoopRoundTasks, loopControlNodeId, registerLoopPredicate } = require("../dist/core/pipeline/loop-expansion");

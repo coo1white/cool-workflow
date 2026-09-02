@@ -10,8 +10,7 @@
 // #1): `Reporter.runSummary` writes nothing when the stream is not a TTY.
 //
 // Evidence: SPEC/reporting-ux.md "The Rule of Silence (TTY view vs
-// pipes)"; plugins/cool-workflow/src/reporter.ts:1-84 (byte-exact
-// source).
+// pipes)".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reporter = void 0;
 exports.createReporter = createReporter;

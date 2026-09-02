@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // pipelinecore-runner-advance — advancePipeline: idle/advance/fail and the
 // autoAdvance failurePolicy branch. SPEC/pipeline-run.md "Pipeline kernel —
-// src/pipeline-runner.ts" (advancePipeline, src/pipeline-runner.ts:87-118).
+// src/pipeline-runner.ts" (advancePipeline, now src/core/pipeline/runner.ts).
 
 const assert = require("node:assert/strict");
 const { createDefaultPipelineContract } = require("../dist/core/pipeline/contract");
@@ -58,7 +58,7 @@ function baseRun(nodes, contractOverrides) {
 // honors contract.evidencePolicy.requireEvidence exactly like
 // runPipelineStage's stricter assertNodeSatisfiesContract
 // (assertRequiredEvidence) does, matching the old build's hasRequiredEvidence
-// (src/pipeline-runner.ts:272-279, which also takes `contract` and checks
+// (now src/core/pipeline/runner.ts, which also takes `contract` and checks
 // `contract.evidencePolicy?.requireEvidence`). The two gates staying
 // consistent means advancePipeline reports "idle", not a wasted "failed"
 // attempt.

@@ -9,8 +9,7 @@
 // build's src/multi-agent-trust.ts.
 //
 // Evidence: SPEC/multi-agent.md section D ("Trust policies"), "Trust
-// denial reasons"; plugins/cool-workflow/src/multi-agent-trust.ts:129-415
-// (byte-exact source).
+// denial reasons".
 
 import { WorkflowRun } from "../core/state/types";
 import { AgentGroup, AgentMembership, AgentRole, MultiAgentPolicy, MultiAgentPolicyOperation, getAgentGroup, getAgentMembership, getAgentRole } from "../core/multi-agent/runtime";

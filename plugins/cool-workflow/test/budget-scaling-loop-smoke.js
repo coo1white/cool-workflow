@@ -24,9 +24,9 @@
 // Root cause: v2's imperative shell driver src/shell/drive.ts (dist/shell/drive.js)
 // imports ONLY `maxLoopExpansion` from core/pipeline/loop-expansion (drive.ts:46). The
 // three functions that actually re-spawn a loop round —
-//   evaluateLoopStop      (src/core/pipeline/loop-expansion.ts:80)
-//   cloneLoopRoundTasks   (src/core/pipeline/loop-expansion.ts:108)
-//   loopControlNodeId     (src/core/pipeline/loop-expansion.ts:142)
+//   evaluateLoopStop      (src/core/pipeline/loop-expansion.ts)
+//   cloneLoopRoundTasks   (src/core/pipeline/loop-expansion.ts)
+//   loopControlNodeId     (src/core/pipeline/loop-expansion.ts)
 // are fully implemented in the PURE decision core but are DEAD CODE: grep of src/
 // finds ZERO callers. The module header says materializing the cloned round is
 // "the caller's job in shell/", but shell/drive.ts never wired it in. So a loop()

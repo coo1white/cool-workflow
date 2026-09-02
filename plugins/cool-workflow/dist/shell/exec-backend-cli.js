@@ -4,7 +4,7 @@
 // backend.agent.config.show|set, sandbox.list|show|validate).
 //
 // MILESTONE 5. Byte-exact port of the old build's orchestrator methods
-// (src/orchestrator.ts:260-284 listSandboxProfiles/showSandboxProfile/
+// (listSandboxProfiles/showSandboxProfile/
 // validateSandboxProfile/listBackends/showBackend/probeBackend) plus
 // src/cli/handlers/operational.ts's handleSandbox/handleBackend argv
 // shape. Impure (fs/env) — this is the shell layer the capability-table's

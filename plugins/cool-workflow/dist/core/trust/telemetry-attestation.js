@@ -14,8 +14,7 @@
 // resolves a key path pays no fs cost).
 //
 // Evidence: SPEC/ledger-trust.md "The signing model", "Attestation
-// verify", byte-compat items 2 and 11;
-// plugins/cool-workflow/src/telemetry-attestation.ts:1-319.
+// verify", byte-compat items 2 and 11.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

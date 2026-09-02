@@ -10,7 +10,7 @@
 //   - `cw audit provenance` (inspect evidence provenance for a commit)
 // and never ported the `evidenceProvenance()` library function used at line ~185.
 // Evidence in v2 source:
-//   src/core/capability-table.ts:282-290  declare cw_audit_worker /
+//   src/core/capability-table.ts  declare cw_audit_worker /
 //     cw_audit_provenance / cw_audit_decision as MCP tools, but NO
 //     `path: ["audit","decision"|"worker"|"provenance"]` capability row is
 //     registered (only verify/summary/multi-agent/policy/judge are — lines

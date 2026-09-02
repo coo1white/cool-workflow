@@ -2,7 +2,7 @@
 // pipelinecore-runner-failstage — failPipelineStage: structured error
 // building, preserve-vs-discard failure node, feedback recording hook.
 // SPEC/pipeline-run.md "Pipeline kernel — src/pipeline-runner.ts"
-// (failPipelineStage, src/pipeline-runner.ts:180-250).
+// (failPipelineStage, now src/core/pipeline/runner.ts).
 
 const assert = require("node:assert/strict");
 const { createDefaultPipelineContract } = require("../dist/core/pipeline/contract");

@@ -2,7 +2,7 @@
 // pipelinecore-dispatch-id-format — formatDispatchId: dispatch-<STAMP>-<seq>
 // (STAMP = ISO with -/: stripped, sub-second cut) and the
 // CW_DETERMINISTIC_RUN_IDS-equivalent deterministic form dispatch-<seq>.
-// SPEC/pipeline-run.md "Dispatch — src/dispatch.ts" (src/dispatch.ts:225-232)
+// SPEC/pipeline-run.md "Dispatch — src/dispatch.ts" (now src/core/pipeline/dispatch.ts)
 // and "Deterministic id formats".
 
 const assert = require("node:assert/strict");

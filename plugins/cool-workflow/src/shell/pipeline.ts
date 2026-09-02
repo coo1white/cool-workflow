@@ -7,9 +7,7 @@
 // and are no-ops here — no case in this milestone's gate reads those
 // fields).
 //
-// Evidence: SPEC/pipeline-run.md's plan() references;
-// plugins/cool-workflow/src/orchestrator/lifecycle-operations.ts:62-202
-// (byte-exact source).
+// Evidence: SPEC/pipeline-run.md's plan() references.
 
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";

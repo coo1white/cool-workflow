@@ -4,7 +4,7 @@
 // MILESTONE 3. The disk half of core/state/state-node.ts (writeRunNode)
 // and core/state/node-snapshot.ts (persist callbacks + readNodeSnapshot/
 // readNodeReplay's directory scans). Byte-exact port of the old build's
-// src/state-node.ts:226-231 and src/node-snapshot.ts:96-127.
+// state-node and node-snapshot modules.
 
 import * as fs from "node:fs";
 import * as path from "node:path";

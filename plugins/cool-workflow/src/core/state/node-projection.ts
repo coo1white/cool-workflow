@@ -1,8 +1,8 @@
 // core/state/node-projection.ts — the canonical StateNode projection.
 //
-// MILESTONE 3. Byte-exact port of the old build's src/node-projection.ts
+// MILESTONE 3. Byte-exact port of the old build's node-projection module,
 // PLUS the `normalizeValue`/`replayStableStringify` pair it depends on
-// (src/multi-agent-eval/normalize.ts:9-45). This is the SINGLE source of
+// (now in src/core/multi-agent/eval-replay.ts). This is the SINGLE source of
 // truth for the 13-field projected-node shape; node-snapshot.ts and (in a
 // later milestone) reclamation.ts's tombstone chain both read from here so
 // the field set can only change in one place.

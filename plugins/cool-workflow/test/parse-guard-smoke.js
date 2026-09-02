@@ -21,7 +21,7 @@ function main() {
   // ---- 1. metadata JSON parse throws clear error on invalid JSON --------------
   // v2 NO-EQUIVALENT: the old flat exported internal API metadataOption(options)
   // from src/orchestrator/cli-options.ts is gone. v2 collapsed it into the
-  // module-private helper parseJsonObject(value) at src/shell/scheduler-io.ts:608
+  // module-private helper parseJsonObject(value) at src/shell/scheduler-io.ts
   // (throws "Expected a JSON object, got invalid JSON"; matches /Invalid JSON/i).
   // It is NOT exported, so it cannot be required and called directly.
   // The reachable v2 surface that routes options.metadata through that same

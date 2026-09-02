@@ -506,7 +506,7 @@ function shouldStreamAgentStderr(env, isTTY) {
 const HTTP_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");
 /** agent — spawns an EXTERNAL agent process per worker argv-style
  *  (shell:false), or POSTs the manifest to a configured HTTP agent
- *  endpoint. Byte-exact port of src/execution-backend.ts:915-995. */
+ *  endpoint. Byte-exact port of the old build's execution-backend module. */
 function runAgentProcess(descriptor, policy, request, label, attestation) {
     const resolved = resolveAgentInvocation(request);
     const subst = agentSubstitutions(request, resolved.model);
@@ -631,7 +631,7 @@ function settleEndpointResult(descriptor, label, endpoint, resolvedModel, manife
 }
 /** Agent HTTP endpoint variant — POSTs the worker manifest/prompt to a
  *  configured agent endpoint via the shared Node delegate child. Byte-exact
- *  port of src/execution-backend.ts:1002-1062, plus a prepared-outcome branch:
+ *  port of the old build's execution-backend module, plus a prepared-outcome branch:
  *  in a concurrent round the POST already ran in the batch child
  *  (runEndpointBatchOutcomes), so settle that pre-collected outcome instead of
  *  spawning again. The serial (no prepared outcome) path is unchanged. */

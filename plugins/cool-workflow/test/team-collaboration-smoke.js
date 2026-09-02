@@ -202,7 +202,7 @@ assert.deepEqual(policy.authorizedRoles, ["reviewer"]);
 
 // ---- 2. Review gate BLOCKS a verifier-passing commit lacking approvals -----
 // REAL-GAP (v2): the commit path does NOT stack the review gate. commitState
-// (src/shell/commit.ts:74-90) builds its gate solely from resolveCommitGate
+// (src/shell/commit.ts) builds its gate solely from resolveCommitGate
 // (src/core/pipeline/commit-gate.ts), which has ZERO review references — so a
 // verifier-passing, un-approved commit is NOT blocked. The pure gate logic is
 // present and correct (collab.reviewGateErrors returns "review-gate-missing-

@@ -8,10 +8,10 @@
 // is only PARTLY wired in v2's current milestone. tools/list reports the
 // full 196-tool set (src/core/capability-table.ts MCP_TOOL_DATA), but many
 // of the tools this smoke CALLS still carry the notYetImplemented placeholder
-// handler (src/core/capability-table.ts:159-163, :480). The first one hit is
+// handler (src/core/capability-table.ts, :480). The first one hit is
 // cw_sandbox_choose at line ~92 below:
 //   "sandbox.choose is not implemented in this milestone"
-//   -> capability "sandbox.choose", row src/core/capability-table.ts:295,
+//   -> capability "sandbox.choose", row src/core/capability-table.ts,
 //      no MCP_REAL_HANDLERS entry and no later handler override.
 // Also still placeholders: app.run (cw_app_run, ~line 95), worker.manifest
 // (cw_worker_manifest, ~line 115). Real handlers exist for some later tools

@@ -7,7 +7,7 @@
 // recordTrustAuditEvent), so they live in their own module rather than
 // re-open the audited trust-audit.ts chain writer.
 //
-// Byte-behavior port of the old build's src/trust-audit.ts:354-620.
+// Byte-behavior port of the old flat build's trust-audit source.
 
 import {
   RecordTrustAuditInput,

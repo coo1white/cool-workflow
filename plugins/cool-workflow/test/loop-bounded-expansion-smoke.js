@@ -46,7 +46,7 @@ const { registerLoopPredicate, maxLoopExpansion } = require(path.join(pluginRoot
 // and no round phases are appended — the loop() template runs exactly once,
 // then the run completes.
 // Root cause: v2's drive engine never wires the loop RUNTIME primitives.
-//   - src/shell/drive.ts:46 imports ONLY maxLoopExpansion (the STATIC bound,
+//   - src/shell/drive.ts imports ONLY maxLoopExpansion (the STATIC bound,
 //     used at drive.ts:610 to size the maxIterations budget).
 //   - src/core/pipeline/loop-expansion.ts DOES export the runtime primitives
 //     evaluateLoopStop / cloneLoopRoundTasks / loopControlNodeId, but NOTHING

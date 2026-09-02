@@ -157,7 +157,7 @@ function main() {
   //   The warm-run assertions below fail on v2. This smoke drives scripts, not
   //   dist modules, so there is nothing to repoint; the failure is genuine
   //   behavior. The app author declares a read-write result cache on the Map
-  //   tasks — apps/architecture-review-fast/workflow.js:62,71 set
+  //   tasks — apps/architecture-review-fast/workflow.js set
   //   resultCache: { mode: "read-write", keyInput: "sourceContextDigest" } via
   //   sourceContextResultCache() (workflow.js:167). But the v2 planner drops
   //   the field: src/shell/pipeline.ts flattenTasks() (lines 57-71) copies

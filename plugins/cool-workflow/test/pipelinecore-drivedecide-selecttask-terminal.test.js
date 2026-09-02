@@ -5,7 +5,7 @@
 // commit/complete/blocked branches (the phase-gate half). This is
 // drive-decide.ts, the most load-bearing pure function in the rebuild —
 // SPEC/pipeline-run.md "Drive internals a rebuild must copy"
-// (terminalOrConfigStep, src/drive.ts:157-176, 105-108).
+// (terminalOrConfigStep, now src/core/pipeline/drive-decide.ts).
 
 const assert = require("node:assert/strict");
 const {

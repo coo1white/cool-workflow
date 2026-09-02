@@ -2,7 +2,7 @@
 // statecore-transition-merge-behavior (milestone 3) — pins
 // transitionStateNode's merge rules for outputs (object spread),
 // artifacts/evidence (merge by id — replace-in-slot or append), and
-// metadata (object spread). SPEC/state-core.md src/state-node.ts:81-110.
+// metadata (object spread). SPEC/state-core.md, now src/core/state/state-node.ts.
 
 const assert = require("node:assert/strict");
 const { createStateNode, transitionStateNode } = require("../dist/core/state/state-node");

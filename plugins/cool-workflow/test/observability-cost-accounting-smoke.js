@@ -276,7 +276,7 @@ async function liveParity() {
   // REAL-GAP (v2 regression, NOT weakened here on purpose):
   //   `cw result <run> <task> <file>` below fails with
   //   "Worker <id> write path is outside sandbox profile readonly: <file>".
-  //   v2's result handler recordResultRun (src/shell/pipeline-cli.ts:246-256)
+  //   v2's result handler recordResultRun (src/shell/pipeline-cli.ts)
   //   routes the operator's EXTERNAL result file straight into
   //   recordWorkerOutput(run, workerId, absolute), which sandbox-validates that
   //   path via validateSandboxWrite against the worker's readonly write boundary

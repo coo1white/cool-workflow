@@ -199,7 +199,7 @@ async function main() {
   const panelCliParity = panels.map((panel) => [panel, argvFor(panel.capability)]);
   // NOTE (v2 REAL-GAP, fires FIRST on the metrics.show panel): the metrics
   // payload is time-dependent for an in-flight run — `time.run.wallClockMs`
-  // (src/shell/observability.ts:519) and `sourceFingerprint`
+  // (src/shell/observability.ts) and `sourceFingerprint`
   // (:523 -> fingerprintMetricsSource :218-219, which folds run.updatedAt)
   // legitimately drift between the in-process panel build and the fresh CLI
   // subprocess: `graph.compact`/`graph.criticalPath` (earlier in this same
@@ -368,7 +368,7 @@ async function main() {
 
     // Path traversal out of ui/ refused 403.
     // v2 REAL-GAP: v2 returns 404 (not 403) for this input. serveUiAsset
-    // (src/shell/workbench-host.ts:147-156) resolves `..%2f..%2fpackage.json`
+    // (src/shell/workbench-host.ts) resolves `..%2f..%2fpackage.json`
     // as a SINGLE path segment (the %2f stays encoded through url.pathname), so
     // path.resolve keeps it INSIDE uiRoot and the traversal guard never fires;
     // it falls through to "UI asset not installed" 404. The escape is not
@@ -380,7 +380,7 @@ async function main() {
     // Malformed percent-encoding is a client error, not a server crash.
     // v2 REAL-GAP: v2 returns 404 (not 400) here, with no "malformed URL path"
     // message. Node's `new URL("/%E0%A4%A", ...)` does NOT throw on this input,
-    // so v2's try/catch (src/shell/workbench-host.ts:110-116) never trips its
+    // so v2's try/catch (src/shell/workbench-host.ts) never trips its
     // 400 "bad request: invalid URL" branch; the request reaches the generic
     // "no such read-only view" 404. The old build recognized malformed percent-
     // encoding explicitly as a 400 client error.

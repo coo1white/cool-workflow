@@ -85,9 +85,9 @@ for (const vendor of ["-claude", "-codex", "-gemini", "-deepseek"]) {
   // assertion sees `undefined` and the smoke fails here. The vendor flag still routes
   // (appId ok) and still configures the agent (agent check ok) — only the "what to run
   // next" echo is gone. The old build built it in `quickstartNextCommand`
-  // (old src/capability-core.ts:1006) and attached it at the end of the check result
-  // (old src/capability-core.ts:945); it echoed the resolved `--agent-command builtin:<vendor>`.
-  // v2's port `quickstartCheck` (src/shell/pipeline-cli.ts:129-196, returns at :195)
+  // and attached it at the end of the check result;
+  // it echoed the resolved `--agent-command builtin:<vendor>`.
+  // v2's port `quickstartCheck` (src/shell/pipeline-cli.ts)
   // dropped the field and ships no `quickstartNextCommand` equivalent anywhere in src/.
   // Do NOT weaken this assertion to force green — it guards a dropped user-facing surface;
   // Phase B must restore `nextCommand` in the check output before this can pass.

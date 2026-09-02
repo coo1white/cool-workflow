@@ -9,9 +9,7 @@
 // formatOperatorStatus (full `cw status`), formatOperatorReport (`cw
 // report --show`), formatOperatorGraph (`cw graph`).
 //
-// Evidence: SPEC/reporting-ux.md "Operator UX human text";
-// plugins/cool-workflow/src/operator-ux/format.ts:1-132 (byte-exact
-// source for the ported pieces).
+// Evidence: SPEC/reporting-ux.md "Operator UX human text".
 
 import { dim } from "./term";
 import {

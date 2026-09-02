@@ -12,8 +12,7 @@
 //
 // Evidence: SPEC/reporting-ux.md "cw metrics show / summary", invariant 4
 // (metrics are derived and honest), invariant 5 (freshness is fail-
-// closed), invariant 6 (metricsShow never touches state.json); plugins/
-// cool-workflow/src/observability.ts:1-822 (byte-exact source).
+// closed), invariant 6 (metricsShow never touches state.json).
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

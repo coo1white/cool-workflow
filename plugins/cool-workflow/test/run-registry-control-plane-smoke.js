@@ -284,7 +284,7 @@ function openMcp() {
     // REAL-GAP (v2): cw_run_rerun through the CLI/MCP surface is inert. In-process
     // rerun works (sections 5-7 above pass, driven by a planner-injected RunRegistry),
     // but v2's src/shell/registry-cli.ts runRerunCli builds `new RunRegistry(cwd)`
-    // with NO planner, and RunRegistry.rerun (src/shell/run-registry-io.ts:1096)
+    // with NO planner, and RunRegistry.rerun (src/shell/run-registry-io.ts)
     // throws "rerun requires a run planner (CoolWorkflowRunner)" when planner is
     // absent. The old build wired the orchestrator as the CLI/MCP planner, so
     // `cw run rerun` and `cw_run_rerun` succeeded. Every RunRegistry construction on

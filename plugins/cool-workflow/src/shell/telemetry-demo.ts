@@ -7,8 +7,7 @@
 // hops/usages, a pinned `now`, no network, no model. Only the keypair
 // itself varies per run and never leaves this module.
 //
-// Evidence: SPEC/ledger-trust.md "`cw demo tamper`", "`cw demo bundle`";
-// plugins/cool-workflow/src/telemetry-demo.ts:1-424 (byte-exact source).
+// Evidence: SPEC/ledger-trust.md "`cw demo tamper`", "`cw demo bundle`".
 
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
