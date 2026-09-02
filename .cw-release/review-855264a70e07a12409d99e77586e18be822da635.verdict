@@ -1,0 +1,2 @@
+APPROVED 855264a70e07a12409d99e77586e18be822da635
+Link a run to the PR or issue it served (`cw run link`) and turn a metric breach into a queued, reviewable intent file (`cw bands record --queue`), with no model call in either path.
