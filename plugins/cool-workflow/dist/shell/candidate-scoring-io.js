@@ -74,7 +74,6 @@ function now() {
 }
 function ensureCandidateState(run) {
     run.paths.candidatesDir = run.paths.candidatesDir || path.join(run.paths.runDir, "candidates");
-    fs.mkdirSync(run.paths.candidatesDir, { recursive: true });
     run.candidates = run.candidates || [];
     run.candidateSelections = run.candidateSelections || [];
 }

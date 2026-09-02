@@ -104,8 +104,6 @@ function dirtyTopologyIds(state: TopologyState): Set<string> {
 
 export function ensureTopologyState(run: WorkflowRun): TopologyState {
   run.paths.topologiesDir = topologyRoot(run);
-  fs.mkdirSync(run.paths.topologiesDir, { recursive: true });
-  fs.mkdirSync(path.join(run.paths.topologiesDir, "runs"), { recursive: true });
   const existing = run.topologies as unknown as TopologyState | undefined;
   const state: TopologyState = existing || { schemaVersion: topo.TOPOLOGY_SCHEMA_VERSION, runs: [] };
   state.schemaVersion = topo.TOPOLOGY_SCHEMA_VERSION;

@@ -61,7 +61,6 @@ const run_store_1 = require("./run-store");
 const runner_1 = require("../core/pipeline/runner");
 function ensureFeedbackState(run) {
     run.paths.feedbackDir = run.paths.feedbackDir || path.join(run.paths.runDir, "feedback");
-    fs.mkdirSync(run.paths.feedbackDir, { recursive: true });
     run.feedback = run.feedback || [];
     return run.feedback;
 }

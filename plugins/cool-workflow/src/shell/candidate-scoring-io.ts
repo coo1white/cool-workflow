@@ -35,7 +35,6 @@ function now(): string {
 
 function ensureCandidateState(run: WorkflowRun): void {
   run.paths.candidatesDir = run.paths.candidatesDir || path.join(run.paths.runDir, "candidates");
-  fs.mkdirSync(run.paths.candidatesDir, { recursive: true });
   run.candidates = (run.candidates as cs.CandidateRecord[] | undefined) || [];
   run.candidateSelections = (run.candidateSelections as unknown[] | undefined) || [];
 }
