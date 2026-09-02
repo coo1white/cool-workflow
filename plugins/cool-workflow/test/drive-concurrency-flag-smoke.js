@@ -22,7 +22,7 @@
 // of this smoke) forwards args.concurrency into drive()'s options
 // (pipeline-cli.js:129). Planning is now plan(app, {repo, cwd}) from
 // dist/shell/pipeline.js; the workflow-builder DSL (agent/workflow/parallel)
-// moved to dist/core/workflow-apps/app-schema.js.
+// moved to the app-schema module (dist/core/workflow-apps).
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

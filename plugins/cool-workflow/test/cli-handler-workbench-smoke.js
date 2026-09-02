@@ -2,8 +2,8 @@
 "use strict";
 
 // cli-handler-workbench-smoke: the `cw workbench` group was carved out of the
-// command-surface god-dispatch into src/cli/handlers/workbench.ts. Guard that the
-// dispatcher still routes to the handler and the verb's behaviour is unchanged.
+// old command-surface god-dispatch into its own handler (now
+// src/shell/workbench.ts). Guard that the dispatcher still routes to the handler and the verb's behaviour is unchanged.
 
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");

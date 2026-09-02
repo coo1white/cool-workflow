@@ -2,8 +2,8 @@
 "use strict";
 
 // cli-handler-clones-smoke: the `cw clones` group was carved out of the
-// command-surface god-dispatch into src/cli/handlers/clones.ts. Guard the
-// dispatcher->handler routing and the verb's shape (robust to cache contents).
+// old command-surface god-dispatch into its own clones handler (now
+// src/shell/registry-cli.ts). Guard the dispatcher->handler routing and the verb's shape (robust to cache contents).
 
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");

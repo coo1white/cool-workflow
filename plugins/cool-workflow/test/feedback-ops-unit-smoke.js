@@ -24,9 +24,9 @@ const { saveCheckpoint } = require("../dist/shell/run-store");
 const { recordFeedback } = require("../dist/shell/error-feedback-io");
 // REAL-GAP (v2 missing functionality): the operator-facing feedback
 // LIFECYCLE was never ported to v2. The old build had:
-//   - src/orchestrator/feedback-operations.ts: collectFeedback / showFeedback /
+//   - an orchestrator feedback-operations module: collectFeedback / showFeedback /
 //     createFeedbackTask / resolveFeedback (report+checkpoint wrappers), and
-//   - src/error-feedback.ts primitives they wrapped: collectRunErrors (:61),
+//   - the old flat error-feedback module's primitives they wrapped: collectRunErrors (:61),
 //     createCorrectionTask (:188), resolveFeedback (:232, with the
 //     "cannot resolve without a verified node id" guard at :239),
 //     listFeedback (:268), getFeedback (:278).

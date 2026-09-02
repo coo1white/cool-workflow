@@ -36,11 +36,11 @@
 //        a private const; "architecture-review" is asserted by value).
 //   dist/capability-registry.js CAPABILITY_REGISTRY
 //     -> dist/core/capability-table.js REGISTRY.
-//   src/capability-core.ts -> src/shell/pipeline-cli.ts (the quickstart core).
+//   the old capability-core module -> src/shell/pipeline-cli.ts (the quickstart core).
 //
 // v2's quickstartRun(args) (src/shell/pipeline-cli.ts) is a STRIPPED-DOWN
 // composition. It handles plan -> drive -> report and `--check`, but DROPPED
-// several user-facing behaviors the old build (src/capability-core.ts
+// several user-facing behaviors the old build (its capability-core module's
 // quickstart()) had and that this suite verifies. These are genuine gaps, not
 // import breakage — the assertions below are left INTACT (not weakened) so the
 // gaps stay visible:

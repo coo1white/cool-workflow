@@ -17,7 +17,7 @@
 // path binding, so `cw worker manifest|output|...` all fall through to the
 // usage error "Usage: cw worker list|summary|show|manifest|...".
 //
-// The old build routed every one of these via src/cli/handlers/worker.ts
+// The old build routed every one of these via its worker CLI handler
 // (git 7ee3215: switch over list/summary/show/manifest/output/fail/validate).
 // This smoke calls `worker manifest` and `worker output` (completeNextWorker,
 // below) plus `worker output` for the fail-closed check, so it dies at the

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // pipelinecore-drivedecide-finalstatus — finalDriveStatus: the once/
 // non-once branches and their exact precedence. SPEC/pipeline-run.md
-// "Drive loop — src/drive.ts" (Final DriveResult.status,
-// now src/core/pipeline/drive-decide.ts) and "Rebuild risks" #1 ("the park/block split").
+// "Drive loop" section (Final DriveResult.status, now
+// src/core/pipeline/drive-decide.ts) and "Rebuild risks" #1 ("the park/block split").
 
 const assert = require("node:assert/strict");
 const { finalDriveStatus } = require("../dist/core/pipeline/drive-decide");

@@ -53,7 +53,7 @@ const {
 
 // v2's reclamation-io no longer exports the dominantFailureCode test helper
 // (it was a pure ranker over verifyReclamation's `checks`, not a behavior).
-// Inlined byte-for-byte from the pre-cutover src/reclamation.ts so the
+// Inlined byte-for-byte from the pre-cutover flat reclamation module so the
 // "which failure code dominates" assertions keep their exact original intent.
 function dominantFailureCode(checks) {
   const order = ["tombstone-chain-broken", "tombstone-digest-mismatch", "reconstruction-digest-mismatch", "skeleton-incomplete", "not-reclaimed"];

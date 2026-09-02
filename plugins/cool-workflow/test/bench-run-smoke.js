@@ -4,7 +4,7 @@
 //
 // The full bench path is NOT run here: it drives real plan+drive rounds against
 // the agent stub with 20-45s synthetic delays per round (minutes of wall clock
-// by design — see project/docs/benchmark.md for the operator path). This smoke pins the
+// by design — see the benchmark doc under project/docs for the operator path). This smoke pins the
 // cheap, deterministic surface instead: syntax, the arg/agent contract, and the
 // stdout-is-CSV / stderr-is-progress split encoded in the source.
 
@@ -29,8 +29,8 @@ assert.match(res.stderr, /Unknown agent: nope/);
 assert.equal(res.stdout, "", "no CSV on the failure path");
 
 // 3. The agent->delay table and the 10-field CSV emit are pinned in source, so
-//    a rename/reshape shows up here before it silently breaks project/docs/benchmark.md
-//    consumers of the CSV columns.
+//    a rename/reshape shows up here before it silently breaks the
+//    benchmark doc's consumers of the CSV columns.
 const source = fs.readFileSync(script, "utf8");
 assert.match(source, /claude: 45000, gemini: 30000, deepseek: 20000, codex: 25000/, "agent delay table unchanged");
 assert.match(source, /\[ARCH, "22", CONC, AGENT, meanPlanMs, overheadMs, meanMs, k6Rps, k6P95, DELAY_MS\]/, "CSV column order unchanged");

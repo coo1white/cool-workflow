@@ -233,8 +233,8 @@ const evidenceLocator = `${evidencePath}:1`;
   assert.ok(mcp.failures.some((entry) => entry.kind === "worker"));
   assert.ok(mcp.evidence.some((entry) => entry.status === "adopted"));
 
-  // The multi-agent verb family is dispatched into src/cli/handlers/multi-agent.ts —
-  // each bare verb fails closed (no run-id / no subcommand) with a handler-originated
+  // The multi-agent verb family is dispatched into its own handler
+  // (src/shell/multi-agent-cli.ts) — each bare verb fails closed (no run-id / no subcommand) with a handler-originated
   // message, proving the dispatcher routes to the carved handler.
   const cases = [
     [["multi-agent"], /multi-agent run\|status\|step/],

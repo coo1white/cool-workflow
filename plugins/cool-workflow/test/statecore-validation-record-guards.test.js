@@ -2,8 +2,8 @@
 // statecore-validation-record-guards (milestone 3) — pins
 // validateNodeSnapshot/validateNodeReplayRun's fail-closed shape guards and
 // RecordValidationError's exact message format. SPEC/state-core.md
-// "src/validation.ts — persisted-record shape guards": message =
-// "Invalid persisted <TypeName>: <reason>".
+// "persisted-record shape guards" section (now src/core/state/validation.ts):
+// message = "Invalid persisted <TypeName>: <reason>".
 
 const assert = require("node:assert/strict");
 const { validateNodeSnapshot, validateNodeReplayRun, RecordValidationError } = require("../dist/core/state/validation");

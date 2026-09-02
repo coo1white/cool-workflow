@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // pipelinecore-runner-advance — advancePipeline: idle/advance/fail and the
-// autoAdvance failurePolicy branch. SPEC/pipeline-run.md "Pipeline kernel —
-// src/pipeline-runner.ts" (advancePipeline, now src/core/pipeline/runner.ts).
+// autoAdvance failurePolicy branch. SPEC/pipeline-run.md "Pipeline kernel"
+// section (advancePipeline, now src/core/pipeline/runner.ts).
 
 const assert = require("node:assert/strict");
 const { createDefaultPipelineContract } = require("../dist/core/pipeline/contract");

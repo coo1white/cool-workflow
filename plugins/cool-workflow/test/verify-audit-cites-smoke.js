@@ -1,6 +1,6 @@
 "use strict";
-// verify-audit-cites-smoke — first regression net for project/docs/scripts/verify-audit-cites.js
-// (the audit cite checker had NO tests as a shell script; the Node port gets one).
+// verify-audit-cites-smoke — first regression net for the audit cite checker
+// (project/docs/scripts/verify-audit-cites): it had NO tests as a shell script; the Node port gets one.
 // Pins the full exit-code contract: 0 = all cites resolve and are in range,
 // 1 = at least one failed, 2 = bad usage / missing root / no locators.
 

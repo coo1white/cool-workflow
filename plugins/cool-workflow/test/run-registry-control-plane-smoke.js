@@ -248,8 +248,8 @@ function openMcp() {
   assert.equal(goneShow.found, false, "run show of a deleted run => not found");
   assert.equal(goneShow.freshness, "missing", "run show of a deleted run => missing (never a live status)");
 
-  // registry/queue are dispatched into src/cli/handlers/registry.ts — a bare verb
-  // fails closed with the carved handler's usage string (dispatcher->handler routing).
+  // registry/queue are dispatched into their own handler (src/shell/registry-cli.ts)
+  // — a bare verb fails closed with the carved handler's usage string (dispatcher->handler routing).
   for (const [verb, re] of [["registry", /registry refresh\|show/], ["queue", /queue add\|list\|drain\|show/]]) {
     try {
       execFileSync(node, [cli, verb, "--cwd", repoA], { cwd: repoA, encoding: "utf8", env: process.env, stdio: ["ignore", "pipe", "pipe"] });

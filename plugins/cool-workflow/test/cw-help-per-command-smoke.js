@@ -12,7 +12,7 @@
 //
 // v2 drops per-command subcommand rows the old build listed:
 //   1. `cw commit summary` — GONE as a CLI subcommand AND as a help row.
-//      Old: src/capability-registry.ts had commit.summary with
+//      Old: the old build's capability registry module had commit.summary with
 //        cli: { path: ["commit","summary"], jsonMode: "flag" }, surface "both".
 //      v2: src/core/capability-table.ts keeps only the MCP tool
 //        (cw_commit_summary); NO attachCliBinding for commit.summary, and

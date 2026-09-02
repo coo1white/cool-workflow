@@ -4,7 +4,7 @@
 // the agent to use CW's exact keys. Canonical results pass through unchanged.
 const assert = require("node:assert/strict");
 // v2 cutover: old flat dist/verifier.parseResultEnvelope was a thin alias of
-// normalizeResultEnvelope (old src/verifier.ts: `return normalizeResultEnvelope(markdown)`).
+// normalizeResultEnvelope (the old flat verifier module: `return normalizeResultEnvelope(markdown)`).
 // v2 dropped that alias from shell/verifier; the real pure function + isEmptyCapture
 // both live in core/pipeline/result-normalize. Bind the local name to preserve intent.
 const { normalizeResultEnvelope: parseResultEnvelope, isEmptyCapture } = require("../dist/core/pipeline/result-normalize");

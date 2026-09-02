@@ -62,7 +62,7 @@ function canonical(value) {
 
 // `cw summary show` (backing the graph.compact/graph.criticalPath panels)
 // calls saveCheckpoint on every read -- confirmed byte-exact old-build
-// behavior (src/orchestrator.ts's summaryShow did the same; its own comment
+// behavior (the old orchestrator module's summaryShow did the same; its own comment
 // on the neighboring metricsShow method draws the contrast: "NEVER mutates
 // the run's own state.json (no saveCheckpoint), so the source -- and
 // therefore the report -- is stable across repeated reads" -- implying
@@ -204,8 +204,8 @@ async function main() {
   // legitimately drift between the in-process panel build and the fresh CLI
   // subprocess: `graph.compact`/`graph.criticalPath` (earlier in this same
   // loop) are backed by `cw summary show`, which calls saveCheckpoint on
-  // every read — confirmed BYTE-EXACT OLD-BUILD BEHAVIOR (src/orchestrator.ts
-  // summaryShow did the same; its neighboring metricsShow's own comment draws
+  // every read — confirmed BYTE-EXACT OLD-BUILD BEHAVIOR (the old orchestrator
+  // module's summaryShow did the same; its neighboring metricsShow's own comment draws
   // the contrast: metricsShow never checkpoints, "so the source ... is stable
   // across repeated reads" — implying summaryShow, unlike metricsShow, is NOT
   // stable, by original design). So this is not v2 metrics-determinism debt to

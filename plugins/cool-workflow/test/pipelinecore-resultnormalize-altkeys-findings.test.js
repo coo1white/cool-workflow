@@ -2,7 +2,7 @@
 // pipelinecore-resultnormalize-altkeys-findings — normalizeResultEnvelope's
 // alt-key finding-array fallback chain, per-finding field normalization
 // (id/classification/severity/evidence), and the evidence cap/dedup/sort
-// rules. SPEC/pipeline-run.md "Result ingest — src/result-normalize.ts".
+// rules. SPEC/pipeline-run.md "Result ingest" section (now src/core/pipeline/result-normalize.ts).
 
 const assert = require("node:assert/strict");
 const { normalizeResultEnvelope } = require("../dist/core/pipeline/result-normalize");

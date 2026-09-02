@@ -4,11 +4,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-// REAL-GAP (v2 cutover): the old flat `src/state.ts` exported
+// REAL-GAP (v2 cutover): the old flat state module exported
 // `hashArtifactFile(artifact)` — it read the file at `artifact.path`, stamped
 // `sha256` (full `sha256:`+64 hex, via core sha256) and `sizeBytes` onto the
 // StateArtifact, and silently skipped a missing file. See old source at
-// commit c8a6265~1 src/state.ts.
+// commit c8a6265~1 (the old build's flat state module).
 //
 // v2 split the old flat `state` into `../dist/shell/run-store` (shell side) +
 // `../dist/core/state/*` (pure side). The StateArtifact type still carries

@@ -12,7 +12,7 @@ const pluginRoot = path.resolve(__dirname, "..");
 const fixtureRoot = path.join(__dirname, "fixtures", "runs");
 const cli = path.join(pluginRoot, "scripts", "cw.js");
 const node = process.execPath;
-// v2 moved the flat src/state-migrations.ts into src/core/state/migrations.ts.
+// v2 moved the old flat state-migrations module into src/core/state/migrations.ts.
 // migrateRunState keeps the same (input, { statePath, dryRun }) -> { run, report }
 // signature, so only the require path changes here.
 const { migrateRunState } = require("../dist/core/state/migrations");

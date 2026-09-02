@@ -2,7 +2,7 @@
 // pipelinecore-errorfeedback-record-dedup — buildFeedbackRecord's id
 // formatting/severity/source derivation, feedbackKey's joined-key shape,
 // and findExistingFeedback's dedup match rule. SPEC/pipeline-run.md "Error
-// feedback — src/error-feedback.ts" (now
+// feedback" section (now
 // src/core/pipeline/error-feedback.ts).
 
 const assert = require("node:assert/strict");
@@ -106,7 +106,7 @@ const NOW = "2026-07-04T00:00:00.000Z";
 // feedbackKey: joined with the ASCII unit-separator char (U+001F) in the
 // fixed field order runId,code,message,nodeId,stageId,contractId,path —
 // missing fields fold to empty string before joining. This separator is
-// byte-exact to the old build's own src/error-feedback.ts feedbackKey
+// byte-exact to the old build's own error-feedback module's feedbackKey
 // (confirmed there too), so it is preserved behavior, not an
 // implementation detail to simplify away.
 {

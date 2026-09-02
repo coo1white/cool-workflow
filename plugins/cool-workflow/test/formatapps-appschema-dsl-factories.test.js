@@ -6,8 +6,8 @@
 // required-field check genuinely throws rather than silently accepting
 // bad input.
 //
-// Evidence: SPEC/workflow-apps.md "Authoring API (src/workflow-api.ts)";
-// src/core/workflow-apps/app-schema.ts.
+// Evidence: SPEC/workflow-apps.md "Authoring API" section
+// (now src/core/workflow-apps/app-schema.ts).
 
 const assert = require("node:assert/strict");
 const { workflow, phase, parallel, loop, agent, artifact, subWorkflow, input, slugify, createWorkflowApi } = require("../dist/core/workflow-apps/app-schema");

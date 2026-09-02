@@ -30,12 +30,12 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // URL, blocked git transport helper, credential non-leak, credential
 // redaction of git output) holds.
 //
-// The OLD build shipped this whole feature in src/remote-source.ts (added in
-// PRs #247/#248): classifyRemote, isRemoteUrl, sanitizeUrl, validateRemoteUrl,
+// The OLD build shipped this whole feature in its flat remote-source module
+// (added in PRs #247/#248): classifyRemote, isRemoteUrl, sanitizeUrl, validateRemoteUrl,
 // gitAvailable, redactCredentials, materializeRemote, RemoteSource, plus the
 // --link wiring in the run/check path and the `remote` provenance block.
 //
-// v2 DROPPED the entire runtime. src/remote-source.ts has no v2 counterpart:
+// v2 DROPPED the entire runtime. That old flat module has no v2 counterpart:
 // grep across src/ shows every symbol above is ABSENT (only help/capability
 // TEXT mentioning `--link` and the `clones list|gc` CACHE-MANAGEMENT cli
 // survive). v2 leaves the `--link` flag INERT — see the deliberate note at

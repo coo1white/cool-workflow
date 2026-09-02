@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // pipelinecore-errorfeedback-classify — classifyFeedback's fixed
 // classification order and severityFor's mapping. SPEC/pipeline-run.md
-// "Error feedback — src/error-feedback.ts" (now
+// "Error feedback" section (now
 // src/core/pipeline/error-feedback.ts).
 
 const assert = require("node:assert/strict");

@@ -4,8 +4,8 @@
 // v2 REWRITE (cutover audit) — outcome NO-EQUIVALENT, adapted to the v2
 // equivalent where one exists.
 //
-// The old build factored the CLI into a `src/cli/command-surface.ts`
-// module that owned a `runCli` with a big `switch (args.command)` and
+// The old build factored the CLI into a command-surface module
+// that owned a `runCli` with a big `switch (args.command)` and
 // delegated each operational verb into `src/cli/handlers/*.ts` via
 // `case "x": handleX(args, runner);`. The whole point of this smoke was a
 // GUARD against regressing that carve-out back into one god-dispatch, plus

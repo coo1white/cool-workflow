@@ -2,7 +2,7 @@
 // pipelinecore-dispatch-formattask-nextdispatch — formatDispatchTask
 // (workerDir/workerResultPath derivation) and nextDispatchTasks (pending
 // tasks of the first runnable phase, capped, mapped through
-// formatDispatchTask). SPEC/pipeline-run.md "Dispatch — src/dispatch.ts"
+// formatDispatchTask). SPEC/pipeline-run.md "Dispatch" section
 // (now src/core/pipeline/dispatch.ts).
 
 const assert = require("node:assert/strict");
