@@ -24,18 +24,17 @@ const runDir = path.join(root, "run");
 const paths = coreRunPaths.createRunPaths(runDir);
 delete paths.auditDir;
 delete paths.workersDir;
-delete paths.candidatesDir;
-delete paths.multiAgentDir;
-delete paths.blackboardDir;
-delete paths.topologiesDir;
 runStore.ensureRunDirs(paths);
 
-for (const name of [
-  "tasks", "results", "dispatches", "artifacts", "commits", "nodes",
-  "feedback", "audit", "workers", "candidates", "multi-agent",
-  "blackboard", "topologies",
-]) {
+for (const name of ["tasks", "results", "dispatches", "artifacts", "commits", "nodes", "feedback", "audit", "workers"]) {
   assert.ok(fs.statSync(path.join(runDir, name)).isDirectory(), `${name} directory is made`);
+}
+
+// candidates/multi-agent/blackboard/topologies stayed empty in the sample
+// run (see the intent doc this PR closes) — ensureRunDirs no longer makes
+// them up front; each is made on first use by its own writer instead.
+for (const name of ["candidates", "multi-agent", "blackboard", "topologies"]) {
+  assert.ok(!fs.existsSync(path.join(runDir, name)), `${name} is not made until the run writes to it`);
 }
 
 fs.rmSync(root, { recursive: true, force: true });

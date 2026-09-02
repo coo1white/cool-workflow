@@ -226,6 +226,24 @@ function fileManifest(root) {
 }
 
 // ===========================================================================
+// Unit: a run planned and reported on by a worker never holds one of the
+// four directories that stayed empty in the sample run (see the intent doc
+// this PR closes). Each is made on first use now, not up front, so a run
+// that never uses one does not have it at all — not an empty directory.
+// ===========================================================================
+{
+  const repo = makeRepo();
+  const { run } = makeAcceptedRun(repo, "no-empty-dirs");
+  const names = fs.readdirSync(run.paths.runDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
+  for (const name of ["candidates", "multi-agent", "blackboard", "topologies"]) {
+    assert.ok(!names.includes(name), `${name} is not made when the run never uses it`);
+  }
+  for (const name of ["tasks", "results", "nodes", "audit", "workers"]) {
+    assert.ok(fs.readdirSync(path.join(run.paths.runDir, name)).length > 0, `${name} holds the file this run wrote to it`);
+  }
+}
+
+// ===========================================================================
 // A — Dry-run frees zero; plan.bytesToFree equals summed per-path sizes.
 // ===========================================================================
 {
