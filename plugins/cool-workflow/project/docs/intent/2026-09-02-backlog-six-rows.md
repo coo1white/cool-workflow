@@ -228,7 +228,7 @@ closing PR runs last.
   `project/docs/rebuild/SPEC/scripts-runtime.md` stays as history.
 - `project/docs/ARCHITECTURE_PLAN.md` no longer lists
   `commitMessageTemplate` as a field with no reader.
-- `BACKLOG.md` is 5 rows; the three closed ideas are recorded only in
+- `BACKLOG.md` is 6 rows; the three closed ideas are recorded only in
   this file.
 - Checked `plugins/cool-workflow/docs/*.7.md` and
   `plugins/cool-workflow/README.md` for the word "onramp": the only
