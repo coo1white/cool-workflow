@@ -60,7 +60,6 @@ export interface ErrorFeedbackLoopOptions {
 
 function ensureFeedbackState(run: WorkflowRun): ErrorFeedbackRecord[] {
   run.paths.feedbackDir = run.paths.feedbackDir || path.join(run.paths.runDir, "feedback");
-  fs.mkdirSync(run.paths.feedbackDir, { recursive: true });
   run.feedback = (run.feedback as ErrorFeedbackRecord[] | undefined) || [];
   return run.feedback as ErrorFeedbackRecord[];
 }

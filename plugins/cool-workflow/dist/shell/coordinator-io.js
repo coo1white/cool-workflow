@@ -88,9 +88,6 @@ function now() {
 }
 function ensureBlackboardState(run) {
     run.paths.blackboardDir = blackboardRoot(run);
-    fs.mkdirSync(run.paths.blackboardDir, { recursive: true });
-    for (const dir of ["topics", "contexts", "artifacts", "snapshots", "decisions"])
-        fs.mkdirSync(path.join(run.paths.blackboardDir, dir), { recursive: true });
     const existing = run.blackboard;
     const state = existing || cb.emptyBlackboardState();
     state.schemaVersion = cb.BLACKBOARD_SCHEMA_VERSION;

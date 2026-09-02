@@ -45,8 +45,6 @@ function now(): string {
 
 export function ensureBlackboardState(run: WorkflowRun): cb.BlackboardState {
   run.paths.blackboardDir = blackboardRoot(run);
-  fs.mkdirSync(run.paths.blackboardDir, { recursive: true });
-  for (const dir of ["topics", "contexts", "artifacts", "snapshots", "decisions"]) fs.mkdirSync(path.join(run.paths.blackboardDir, dir), { recursive: true });
   const existing = run.blackboard as unknown as cb.BlackboardState | undefined;
   const state: cb.BlackboardState = existing || cb.emptyBlackboardState();
   state.schemaVersion = cb.BLACKBOARD_SCHEMA_VERSION;

@@ -25,6 +25,10 @@ const { createDispatchManifest } = require("../dist/shell/dispatch");
 // `persist` is a callback, so `persist:true` there writes nothing.)
 // loadNodeSnapshot stays the pure freshness check from core.
 const { snapshotNode, appendRunNode } = require("../dist/shell/node-store");
+const { summarizeBlackboard } = require("../dist/shell/coordinator-io");
+const { summarizeTopologies } = require("../dist/shell/topology-io");
+const { listCandidates } = require("../dist/shell/candidate-scoring-io");
+const { listFeedback, recordFeedback } = require("../dist/shell/error-feedback-io");
 const { loadNodeSnapshot } = require("../dist/core/state/node-snapshot");
 const { createStateNode } = require("../dist/core/state/state-node");
 const { RunRegistry } = require("../dist/shell/run-registry-io");
@@ -237,7 +241,7 @@ function fileManifest(root) {
 // that never uses one does not have it at all — not an empty directory.
 // ===========================================================================
 // A second task is left pending (`{ pending: true }`) so this run can also
-// prove the real dispatch path below.
+// prove the real dispatch path, then that a read never makes one appear.
 {
   const repo = makeRepo();
   const { run } = makeAcceptedRun(repo, "no-empty-dirs", { pending: true });
@@ -254,6 +258,15 @@ function fileManifest(root) {
   const manifest = createDispatchManifest(run, 1);
   assert.equal(manifest.tasks.length, 1, "the pending task was dispatched");
   assert.ok(!fs.existsSync(path.join(run.paths.runDir, "multi-agent")), "a dispatch with none of the four multi-agent ids makes no multi-agent directory");
+  summarizeBlackboard(run);
+  summarizeTopologies(run);
+  listCandidates(run);
+  listFeedback(run);
+  for (const name of ["blackboard", "topologies", "candidates", "feedback"]) {
+    assert.ok(!fs.existsSync(path.join(run.paths.runDir, name)), `${name} is not made by a read`);
+  }
+  const feedback = recordFeedback(run, { error: "no-empty-dirs probe", source: "pipeline-runner" });
+  assert.ok(fs.existsSync(path.join(run.paths.feedbackDir, `${feedback.id}.json`)), "recordFeedback makes its own feedback directory and file");
 }
 
 // ===========================================================================

@@ -51,7 +51,6 @@ exports.summarizeTopologies = summarizeTopologies;
 exports.buildTopologyGraph = buildTopologyGraph;
 exports.formatTopologySummaryText = formatTopologySummaryText;
 exports.formatTopologyGraphText = formatTopologyGraphText;
-const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
 const node_store_1 = require("./node-store");
@@ -90,8 +89,6 @@ function dirtyTopologyIds(state) {
 }
 function ensureTopologyState(run) {
     run.paths.topologiesDir = topologyRoot(run);
-    fs.mkdirSync(run.paths.topologiesDir, { recursive: true });
-    fs.mkdirSync(path.join(run.paths.topologiesDir, "runs"), { recursive: true });
     const existing = run.topologies;
     const state = existing || { schemaVersion: topo.TOPOLOGY_SCHEMA_VERSION, runs: [] };
     state.schemaVersion = topo.TOPOLOGY_SCHEMA_VERSION;
