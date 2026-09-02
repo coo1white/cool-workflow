@@ -10,9 +10,9 @@
 // (it never stats files) — which cuts both ways: it never breaks on a
 // missing file, but it also never notices when a literal it matches
 // against has moved. isSurfaceFile and CURATED_SMOKE_MAP both drifted this
-// way after the v2 core/shell/wiring split (self-audit-cool-workflow-
-// v0.2.6.md P2, fixed) — keep every literal here in sync with the real
-// current path, don't assume the old flat names still resolve to anything.
+// way after the v2 core/shell/wiring split (self-audit-cool-workflow-v0.2.6.md
+// P2) — 19 of 33 CURATED_SMOKE_MAP rows named a file gone as of #598.
+// test/onramp-check-smoke.js now checks every row against the real tree.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -84,9 +84,9 @@ export interface SourceCheckout {
   chdir: string;
 }
 
-const CURATED_SMOKE_MAP: Array<{ patterns: string[]; smokes: string[] }> = [
+export const CURATED_SMOKE_MAP: Array<{ patterns: string[]; smokes: string[] }> = [
   {
-    patterns: ["src/doctor.ts", "src/onramp.ts", "scripts/onramp-check.js"],
+    patterns: ["src/shell/doctor.ts", "src/shell/onramp.ts", "scripts/onramp-check.js"],
     smokes: ["doctor-smoke.js", "onramp-check-smoke.js"]
   },
   {
@@ -117,27 +117,32 @@ const CURATED_SMOKE_MAP: Array<{ patterns: string[]; smokes: string[] }> = [
     smokes: ["mcp-surface-registry-smoke.js", "mcp-app-surface-smoke.js", "cli-mcp-parity-smoke.js"]
   },
   {
-    patterns: ["src/run-export.ts", "src/types/run.ts"],
+    patterns: ["src/shell/run-export.ts", "src/shell/run-export-cli.ts", "src/core/state/types.ts"],
     smokes: ["run-export-import-smoke.js", "run-export-restore-resume-smoke.js", "run-inspect-archive-smoke.js"]
   },
   {
-    patterns: ["src/capability-core.ts", "src/drive.ts", "src/agent-config.ts"],
+    patterns: ["src/shell/pipeline-cli.ts", "src/shell/drive.ts", "src/shell/agent-config.ts"],
     smokes: ["quickstart-smoke.js", "quickstart-check-smoke.js", "agent-delegation-drive-smoke.js"]
   },
   {
-    patterns: ["src/telemetry", "src/worker-accept/telemetry"],
+    patterns: ["src/shell/telemetry-", "src/core/trust/telemetry-"],
     smokes: ["telemetry-ledger-smoke.js", "telemetry-attestation-smoke.js", "telemetry-verify-signatures-smoke.js"]
   },
   {
-    patterns: ["src/workbench", "ui/workbench/"],
+    patterns: ["src/shell/workbench", "ui/workbench/"],
     smokes: ["web-desktop-workbench-smoke.js"]
   },
   {
-    patterns: ["src/scheduler.ts", "src/scheduling.ts", "src/daemon.ts", "src/triggers.ts"],
+    patterns: ["src/shell/scheduler-io.ts", "src/shell/scheduling-io.ts"],
     smokes: ["schedule-routine-daemon-smoke.js", "sched-policy-validation-smoke.js"]
   },
   {
-    patterns: ["src/multi-agent", "src/topology.ts", "src/coordinator", "src/evidence-reasoning.ts", "src/state-explosion"],
+    patterns: [
+      "src/core/multi-agent/", "src/shell/multi-agent-", "src/shell/topology-io.ts",
+      "src/shell/coordinator-io.ts", "src/shell/evidence-reasoning.ts",
+      "src/core/state/state-explosion/", "src/shell/state-explosion-cli.ts",
+      "src/core/format/state-explosion-text.ts"
+    ],
     smokes: [
       "multi-agent-runtime-core-smoke.js",
       "multi-agent-topologies-map-reduce-smoke.js",

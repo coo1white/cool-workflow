@@ -24,7 +24,8 @@ const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const {
   evaluateOnrampContract,
-  recommendSmokeTests
+  recommendSmokeTests,
+  CURATED_SMOKE_MAP
 } = require(path.join(pluginRoot, "dist", "shell", "onramp.js"));
 
 function codes(report) {
@@ -163,7 +164,7 @@ function contract(files) {
 // Curated hits should not be widened by filename-token fallback matches.
 {
   const smokes = recommendSmokeTests([
-    "plugins/cool-workflow/src/onramp.ts",
+    "plugins/cool-workflow/src/shell/onramp.ts",
     "plugins/cool-workflow/src/shell/orchestrator.ts"
   ], pluginRoot);
   assert.ok(smokes.includes("doctor-smoke.js"), "onramp work keeps the doctor smoke");
@@ -172,6 +173,25 @@ function contract(files) {
   assert.ok(!smokes.includes("parallel-onramp-smoke.js"), "DSL parallel smoke is not recommended for onramp gate work");
   assert.ok(!smokes.includes("cli-command-surface-smoke.js"), "CLI entrypoint architecture smoke is not recommended for help text");
   assert.ok(!smokes.includes("cli-jsonmode-parity-smoke.js"), "JSON-mode smoke is not recommended for help text");
+}
+
+// Every CURATED_SMOKE_MAP pattern must name a real file (or a real file's
+// prefix), and every smoke it names must exist under test/ (#598, one layer up).
+{
+  const skip = new Set(["node_modules", "dist", ".git"]);
+  const files = [];
+  (function walk(dir) {
+    for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (skip.has(item.name)) continue;
+      const full = path.join(dir, item.name);
+      if (item.isDirectory()) walk(full);
+      else files.push(path.relative(pluginRoot, full).replace(/\\/g, "/"));
+    }
+  })(pluginRoot);
+  for (const { patterns, smokes } of CURATED_SMOKE_MAP) {
+    for (const p of patterns) assert.ok(files.some((f) => f === p || f.startsWith(p)), `dead onramp pattern: ${p}`);
+    for (const s of smokes) assert.ok(fs.existsSync(path.join(pluginRoot, "test", s)), `missing onramp smoke: ${s}`);
+  }
 }
 
 // The CLI exposes the changed-file recommendation structure under doctor --onramp.
