@@ -24,6 +24,7 @@ const cleanups = [];
 function tmpRepo() {
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-headline-")));
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  spawnSync("git", ["init", "-q"], { cwd: work }); // a real project: the cwd-default repo check needs one
   cleanups.push(work);
   return work;
 }

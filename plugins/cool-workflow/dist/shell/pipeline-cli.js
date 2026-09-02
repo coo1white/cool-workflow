@@ -65,6 +65,7 @@ const run_store_1 = require("./run-store");
 const report_1 = require("./report");
 const agent_config_1 = require("./agent-config");
 const remote_source_1 = require("./remote-source");
+const onramp_1 = require("./onramp");
 const trust_audit_1 = require("./trust-audit");
 const report_cli_1 = require("./report-cli");
 const QUICKSTART_DEFAULT_APP = "architecture-review";
@@ -181,6 +182,11 @@ function existingRunCwd(args) {
  *  build's cli-options.isMissing (undefined / null / empty string). */
 function isMissingInput(value) {
     return value === undefined || value === null || value === "";
+}
+/** Refuses when the repo defaulted to the cwd (no --repo/--dir/--cwd/--link) and that cwd is not a git project. */
+function assertGitProject(repo) {
+    if (!(0, onramp_1.isGitWorkTree)(repo))
+        throw new Error(`${repo} is not a git project. Run cw inside a project, or pass --repo <path>.`);
 }
 /** Resolve a workflow app for `plan`/`run --drive` over the SAME surface `cw
  *  list` shows — bundled apps AND legacy `<name>.workflow.js` files. The old
@@ -441,10 +447,14 @@ async function quickstartRun(args) {
     const linkArg = typeof args.link === "string" && args.link.trim() ? args.link.trim() : undefined;
     const repoArgRaw = typeof args.repo === "string" && args.repo.trim() ? args.repo.trim() : undefined;
     const remoteCandidate = linkArg || (repoArgRaw && (0, remote_source_1.isRemoteUrl)(repoArgRaw) ? repoArgRaw : undefined);
-    if (!remoteCandidate && !args.repo && !args.cwd)
+    const repoFromCwd = !remoteCandidate && !args.repo && !args.cwd;
+    if (repoFromCwd)
         args.repo = invocationCwd(args);
     if (Boolean(args.check))
         return quickstartCheck(appId, args, remoteCandidate);
+    // An existing --run <id> never plans a fresh run, so it skips this check.
+    if (repoFromCwd && !(args.runId || args.run))
+        assertGitProject(args.repo);
     // `--resume`: a discoverability flag over the existing continuation. With no
     // `--run`, advance exactly ONE step (reuse the `--once` path) and print a
     // copy-pasteable continue line; with `--run <id>`, continue that run to
