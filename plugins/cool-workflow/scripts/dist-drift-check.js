@@ -12,12 +12,10 @@
 // stays stale — the drift is invisible. This is the same fail-closed drift
 // discipline the vendor manifests already use (gen:manifests --check).
 //
-// Approach: snapshot dist/, rebuild, diff the snapshot against the rebuild. This
-// is git-independent — it asks the only question that matters ("is the dist on
-// disk the build of the src on disk?"), so it does NOT punish a consistent but
-// uncommitted working tree the way a `git diff HEAD` would. Committed-vs-built
-// drift is enforced separately by the porcelain step in ci.yml on a clean
-// checkout. Portable: node + npm only.
+// Approach: snapshot dist/, rebuild, diff the snapshot against the rebuild.
+// tsc is incremental (.cache/tsconfig.tsbuildinfo), so a warm cache with an
+// unchanged src/ builds nothing — we clear that one file first so the
+// rebuild is always real. Portable: node + npm only.
 
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
@@ -48,6 +46,10 @@ function fail(message, detail) {
 
 // 1) Snapshot the dist/ that is on disk right now (i.e. what is committed).
 const before = snapshot(distDir);
+
+// 1.5) Clear tsc's incremental cache so the rebuild below is never a no-op.
+fs.rmSync(path.join(packageDir, ".cache", "tsconfig.tsbuildinfo"), { force: true });
+process.stdout.write("dist drift check: cleared .cache/tsconfig.tsbuildinfo before rebuild.\n");
 
 // 2) Rebuild from the current src/.
 const build = spawnSync("npm", ["run", "build"], {
