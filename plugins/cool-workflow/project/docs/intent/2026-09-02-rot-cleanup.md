@@ -249,6 +249,64 @@ Also: rule 1 is to be applied in its natural form
 (`project/docs/rebuild/PLAN.md`), not as a workaround phrasing — the
 corrected token shape in PR 4 makes that form resolve.
 
+## PR 7 — stale cut-over claims in test and src comments (added 2026-09-02)
+
+Found by the 6b worker in `test/remote-link-git-smoke.js`: a header
+says v2 "DROPPED the entire runtime", that every remote-source symbol
+"is ABSENT", and "leave it RED until Phase B re-lands the feature".
+Measured on main 08ba5400: `src/shell/remote-source.ts` exports all
+of them, `src/shell/pipeline-cli.ts` wires `--link` and the `-dir
+<url>` auto-detect, and the smoke passes 6/6 sections. The feature
+came back in the same cut-over commit (#334) that kept the old
+header. The assertions were right the whole time; only the words
+were wrong.
+
+The class is wider than one file. Markers `REAL-GAP`, `CUTOVER
+AUDIT`, `CUTOVER STATUS`, `CUTOVER NOTE`, `Phase B`, `left failing`,
+`leave it RED`, `do NOT weaken`, `not ported` sit on 120 lines in 60
+files (58 smokes, `src/shell/audit-cli.ts`, `src/wiring/
+capability-table/parity.ts`), plus one site the grep misses because
+the marker breaks across two lines (`src/shell/pipeline-cli.ts`,
+`quickstartCheck` note) — and `test:gate` is 265/265 green. So every "this test is RED on purpose"
+claim is false today. A reader who trusts them stops looking for the
+feature that is there. Also in scope: rule 4 of PR 6 was written for
+paths; a claim is not a path, so this class needs its own PR.
+
+Scope (one PR, comments plus the dead scaffolding around them):
+
+1. In `test/remote-link-git-smoke.js`: header block goes down to the
+   contract lines it already carries at the top; the try/catch and
+   `_remoteSourceLoadError` go, replaced by a plain `require` of
+   `dist/shell/remote-source.js`; the section-0 assertion message
+   says what it checks, not what was missing. Sections 1–5 keep every
+   assertion as is.
+2. In every other file on the list: drop the marker paragraph. When
+   the paragraph also says what the test proves, keep that sentence.
+   When a "Phase B:" line is provenance for real code (the two src
+   sites), keep the meaning and drop the label ("the audit verbs the
+   old build had, ported as thin wrappers").
+3. In `src/shell/pipeline-cli.ts`: the `quickstartCheck` note "the
+   --link/remote preflight variant is not ported" goes; the function
+   handles a remote candidate a few lines down.
+4. No assertion becomes weaker. No assertion is added. A smoke whose
+   body truly still fails is reported, not edited — expected count 0,
+   since the gate is green.
+5. Proof: a grep for the nine markers over `src/ scripts/ test/`
+   reports 0 after; `build`, `check`, `test:gate` green;
+   `growth:check` src-comments goes down. The PR body gives the
+   before/after count of marker lines and files.
+
+Gate: the PR 4 gate gets rule (e): the nine markers are forbidden in
+`src/ scripts/ test/` comment or string text. One list, one regex, no
+new script file. PR 7 lands after PR 4, so rule (e) is red on main
+for the gap between them only if PR 4 lands first — the manager runs
+PR 4 with rule (e) present but checked against PR 7's branch, or
+lands PR 7 first and adds rule (e) in PR 4. Either order; the ledger
+says which.
+
+Budget: net negative (about -100 lines). Zero new files. Touches
+src and test together, so both onramp rules stay quiet.
+
 ## Acceptance
 
 - Manager (per PR): CI green on all three platforms, CodeQL green,
@@ -271,3 +329,4 @@ corrected token shape in PR 4 makes that form resolve.
 | PR 4 citation gate | open | — |
 | PR 5 TS7 install path in CI | open | — |
 | PR 6 dead paths in src (non-surface) + scripts + test comments | open | — |
+| PR 7 stale cut-over claims in test and src comments | open | — |
