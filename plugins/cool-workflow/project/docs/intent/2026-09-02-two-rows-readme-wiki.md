@@ -207,19 +207,91 @@ Budget: docs only in the repo, no src; md count stays 135/135.
 
 ## Architecture snapshot diff (claims this program makes stale)
 
-(filled by the closing PR)
+Measured by `grep -rn` across the 53 files under
+`plugins/cool-workflow/docs/*.7.md`, both README files, `AGENTS.md`, and
+`plugins/cool-workflow/project/docs/wiki/*.md`, for the strings this
+program's four merges touched: `src/types/`, `17 deferred`/`17 tools`,
+`notYetImplemented`/`CapabilityNotImplementedError`, `14 wiki`/`14 pages`,
+and the bare `cw --resume --run <id>` form.
+
+- No live doc outside the files those four PRs themselves changed still
+  carries a stale claim. `test/mcp-tool-call-coverage-smoke.js` now reads
+  "All 65 tool calls execute successfully" with no deferred-tool count.
+  `plugins/cool-workflow/docs/agent-delegation-drive.7.md` names the bare
+  `cw --resume --run <id>` form and its cwd/`--repo` rule (line naming the
+  bare form). `README.md`'s `Troubleshooting` row does the same. No doc
+  names `src/types/` as a live tree; `src/shell/onramp.ts` and
+  `test/onramp-smoke.js` are the only files that named it, and both were
+  fixed in the onramp PR.
+- Nothing measured stale and unfixed. No BACKLOG row is added for this
+  check.
 
 ## What this spec got wrong (recorded at close)
 
-(filled at close)
+- This spec told the worker to delete `notYetImplemented` since it read as
+  having no callers. It has one live caller, in
+  `src/wiring/capability-table/registry-core.ts`, as the fallback for every
+  tool row with no real handler. Deleting it would have broken that
+  fallback. Root cause: the measuring grep that fed this spec was cut short
+  with `| head -8`, so the caller line never came up. The section's own
+  rule — one or more callers means keep it and say where — is what saved
+  it.
+- The onramp smoke's old type-only case used `src/types/run.ts`. After the
+  retarget to `src/core/types/`, that same case would have gone on passing
+  while testing nothing at all. A test that passes for the wrong reason is
+  worse than one that fails. The case was moved to
+  `src/core/types/boundary.ts`, and a negative case was added for
+  `src/core/state/types.ts`.
+- This spec called the wiki source set "14 pages". That set also holds
+  `Home.md` and `_Sidebar.md`, which the separate `User-Guide.md` page had
+  to touch too. The set is now 15.
+- The coverage smoke's test budget of "-3 to +3" was set before anyone
+  measured the stale header. The stale text ran 13 lines; the change was
+  net -10. Taken as is.
+- The coverage smoke header was stale in three ways at once: it claimed 17
+  deferred tools (true count 0), it claimed the smoke "stays red" while the
+  gate was green, and it named a line number in the wrong file.
+
+## How the work went (process notes, recorded at close)
+
+- `agent-*` worktrees were reclaimed from disk under three workers while
+  still running mid-task. Each of the three refused to fall back to a
+  shared checkout and reported the loss instead of guessing. The pattern
+  that stood up: `git worktree add` at a plain named path. Every worker
+  brief in this program now says "make your own worktree first".
+- A fresh worktree has no `node_modules`, so `npm run build` dies with
+  "tsc: command not found". Run `npm ci` first.
+- A two-dot `git diff origin/main <branch>` on a branch that is behind
+  main reads as if it reverts other people's merged work. Use `gh pr diff`
+  or the three-dot `git diff origin/main...<branch>` instead.
+- The package install (`npm ci`, `npm install`) was refused by the
+  permission system for the coverage-smoke PR. Nobody retried it and
+  nobody asked another agent to run it in their place. That PR's local
+  gate ran with node directly and reported 263/265 plus release-check 15
+  of 18, with the cause named plainly as "tsc: command not found, package
+  install refused in this sandbox". CI on GitHub, which does install the
+  packages, was the full gate and was green on all eight checks before the
+  merge.
+- The manager twice stated a guess as if it were a measurement: once
+  reporting how many workers had lost their worktree, from a listing cut
+  short by `tail -20`; once claiming every gate script was plain node with
+  no need of the install, which was false for `test:gate` and
+  `release:check`. A worker's own measurement corrected both times. This
+  is the same fault as the `| head -8` grep above: a cut-short command
+  read as a full one.
 
 ## Status ledger
 
 | Item | State | PR |
 |---|---|---|
-| Intent + spec (this file) | open | |
-| The onramp type rule names the live type tree | | |
-| The coverage smoke header says what it counts | | |
-| The docs name the shortest resume form | | |
-| The 14 wiki source pages match the tree | | |
-| Closing ledger, wiki publish, receipt | | |
+| Intent + spec (this file) | merged | #638 fc4a8c23 |
+| The onramp type rule names the live type tree | merged | #640 94068071 |
+| The coverage smoke header says what it counts | merged | #643 e3917a0e |
+| The docs name the shortest resume form | merged | #642 23e1a300 |
+| The 14 wiki source pages match the tree | merged | #641 f174a971 |
+| Closing ledger, wiki publish, receipt | (this PR) | fill in your own number after you open it |
+
+A new wiki page, `User-Guide.md`, landed on its own as #639 9e97a426. That
+took the wiki source set from 14 pages to 15. Every "14" in this file's
+older sections is the count at spec time; the true count from this point
+on is 15.
