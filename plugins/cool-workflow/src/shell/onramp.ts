@@ -646,11 +646,16 @@ function isRuntimeSource(file: string): boolean {
   return file.startsWith("plugins/cool-workflow/src/") && file.endsWith(".ts") && !file.startsWith("plugins/cool-workflow/src/types/");
 }
 
-// A "type source" is the src/types/ tree, or a file under src/ named types.ts.
+// A "type source" is the src/types/ tree, the src/core/types/ tree, or a
+// file under src/ named types.ts.
 function isTypeSource(file: string): boolean {
   const pluginPath = stripPluginPrefix(file);
   if (!pluginPath.startsWith("src/") || !pluginPath.endsWith(".ts")) return false;
-  return pluginPath.startsWith("src/types/") || path.basename(pluginPath) === "types.ts";
+  return (
+    pluginPath.startsWith("src/types/") ||
+    pluginPath.startsWith("src/core/types/") ||
+    path.basename(pluginPath) === "types.ts"
+  );
 }
 
 // Pre-rebuild flat literals here (capability-registry module, mcp-surface module,

@@ -295,6 +295,14 @@ function contract(files) {
   assert.equal(report.ok, true, codes(report).join(", "));
 }
 
+// deleteOnly: a src/core/types/ file alone in deleteOnly also passes -- that
+// is the real type directory in this repo, not src/types/.
+{
+  const files = ["plugins/cool-workflow/src/core/types/boundary.ts"];
+  const report = evaluateOnrampContract(files, { cwd: pluginRoot, deleteOnly: files });
+  assert.equal(report.ok, true, codes(report).join(", "));
+}
+
 // deleteOnly only excuses a type source, not any delete: a non-type-source
 // file (src/shell/drive.ts) in deleteOnly, with no test, still fails
 // runtime-smoke-required.
