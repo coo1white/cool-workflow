@@ -318,7 +318,7 @@ and the bare `cw --resume --run <id>` form.
 | The coverage smoke header says what it counts | merged | #643 e3917a0e |
 | The docs name the shortest resume form | merged | #642 23e1a300 |
 | The 14 wiki source pages match the tree | merged | #641 f174a971 |
-| Closing ledger, wiki publish, receipt | (this PR) | fill in your own number after you open it |
+| Closing ledger, wiki publish, receipt | open | #646 |
 
 A new wiki page, `User-Guide.md`, landed on its own as #639 9e97a426. That
 took the wiki source set from 14 pages to 15. Every "14" in this file's
