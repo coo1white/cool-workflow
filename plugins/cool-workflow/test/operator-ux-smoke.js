@@ -164,11 +164,10 @@ assert.match(commitSummary, /verifier-gated=1/);
 assert.match(commitSummary, /checkpoints=/);
 assert.equal(runJson(["commit", "summary", plan.runId, "--json"], tmp).verifierGated, 1);
 
-// report/operator/graph/topology/summary are dispatched into their own
+// operator/graph/topology/summary are dispatched into their own
 // capability-table CLI bindings — each bare verb fails closed (no run-id /
 // no subcommand) with a handler-originated message, proving the dispatcher routes to the carved handler.
 for (const [verb, re] of [
-  ["report", /Missing run id/],
   ["operator", /operator status\|report/],
   ["graph", /Missing run id/],
   ["topology", /topology list\|show/],
@@ -183,6 +182,12 @@ for (const [verb, re] of [
   }
   assert.match(stderr, re, `cw ${verb} routes through the carved handler`);
 }
+
+// `report` no longer fails closed with no id ("open the report in one
+// step", project/docs/intent/2026-09-03-readme-one-page.md): it resolves
+// the newest run under `.cw/runs/` — here, the one run plan() made above.
+const bareReport = runText(["report"], tmp);
+assert.match(bareReport, /report\.md\s*$/, "cw report with no id resolves the newest run");
 
 process.stdout.write("operator-ux-smoke: ok\n");
 

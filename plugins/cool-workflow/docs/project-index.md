@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-09-02 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.7`
-- Source modules: `158`
+- Source modules: `159`
 - Workflow apps: `8`
 - Docs: `60`
-- Smoke tests: `265`
+- Smoke tests: `266`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -89,6 +89,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/format/completion.ts](../src/core/format/completion.ts)
 - [core/format/help.ts](../src/core/format/help.ts)
 - [core/format/recovery-hint.ts](../src/core/format/recovery-hint.ts)
+- [core/format/report-html.ts](../src/core/format/report-html.ts)
 - [core/format/safe-json.ts](../src/core/format/safe-json.ts)
 - [core/format/state-explosion-text.ts](../src/core/format/state-explosion-text.ts)
 - [core/hash.ts](../src/core/hash.ts)
@@ -475,6 +476,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [remote-link-archive-smoke.js](../test/remote-link-archive-smoke.js)
 - [remote-link-git-smoke.js](../test/remote-link-git-smoke.js)
 - [report-bundle-smoke.js](../test/report-bundle-smoke.js)
+- [report-open-smoke.js](../test/report-open-smoke.js)
 - [report-pubkey-pin-smoke.js](../test/report-pubkey-pin-smoke.js)
 - [report-verify-bundle-smoke.js](../test/report-verify-bundle-smoke.js)
 - [result-normalize-smoke.js](../test/result-normalize-smoke.js)
