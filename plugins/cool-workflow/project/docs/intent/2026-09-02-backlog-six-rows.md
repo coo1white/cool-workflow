@@ -171,15 +171,69 @@ closing PR runs last.
   body, budget held, Chain line, own BACKLOG row deleted, no internal
   labels in committed text, auto-merge armed only after CodeQL is
   green.
-- Architect (program), on main: `BACKLOG.md` has exactly four rows
-  (async lock, schedule shape, containment, purity with numbers);
-  `grep -rn commitMessageTemplate src` is empty; `onramp:check` on a
+- Architect (program), on main: `BACKLOG.md` has exactly five rows
+  (async lock, schedule shape, containment, purity with numbers, the
+  onramp `typeFiles` retarget to `src/core/types/`); `grep -rn
+  commitMessageTemplate src` is empty; `onramp:check` on a
   branch that only deletes one field from `src/core/state/types.ts`
   reports ok with the file in `deleteOnly`, and a branch that deletes
   one code line from `src/shell/drive.ts` still fails
   `runtime-smoke-required`; `cw help` first row is <= 80 columns and
   holds `[-<vendor>]`; `release:check` 18/18; `test:gate` 265/265;
   `growth:check` md 133/135.
+
+## Measured facts (checked by command before design)
+
+- Purity baseline: 14 sites in 8 core files; 13 are default-parameter
+  fallbacks; a call-span scan counts 26 src call sites in 15 files and
+  about 280 test call sites in about 60 files that omit `now`/`env`.
+- `commitMessageTemplate` lives in `src/core/state/types.ts`;
+  `src/types/` does not exist in the tree; the gate that blocks a
+  delete is `runtime-smoke-required`, not `types-without-runtime` as
+  the BACKLOG row said.
+- `src/types/` has not existed since `bcb5db0d` (#334); the onramp
+  `types-without-runtime` rule watches that dead path, so it can not
+  fire on any real file today.
+- The `-q` help row is 75 of 80 columns; three byte pins hold it
+  (`help.ts`, the layout test, the `v2` fixture); the folded row is 73
+  columns with the description at column 45, same as the `--link` row.
+- The capability registry has 244 rows; at runtime none falls to
+  `notYetImplemented`; three smokes still say in their header that
+  they "stay red" and all three pass.
+
+## Paths weighed (complexity / upkeep / cost / can it be undone)
+
+- Purity: (1) thread `now`/`env` through every caller: low complexity,
+  high cost (about 300 call sites), easy to undo; (2) teach the gate
+  to accept the default-parameter form: low cost, but a policy change
+  against `PLAN.md` "Target shape"; (3) keep the row parked with
+  numbers: zero cost, fully undoable. Chosen: 3, until an intent
+  decides between 1 and 2.
+- Delete-only cycle: (1) any delete-only src file skips the smoke
+  rule: simple, but a deleted safety check would pass with no new
+  proof; (2) only type sources skip it: one more small function, no
+  such hole. Chosen: 2.
+- `-q` row: (1) wrap the vendor list onto a second line: grows with
+  vendors, and a 2-space continuation reads as a command token to the
+  help parity parser; (2) build the row from the vendor list: still
+  grows; (3) one `[-<vendor>]` token: never grows, the Flags block
+  keeps the list. Chosen: 3.
+
+## Architecture snapshot diff (claims this round makes stale)
+
+- The onramp contract now classes changed files by their diff
+  (comment-only, delete-only), not by path alone. Any doc that
+  describes the contract as path-only is stale; the rebuild capture
+  `project/docs/rebuild/SPEC/scripts-runtime.md` stays as history.
+- `project/docs/ARCHITECTURE_PLAN.md` no longer lists
+  `commitMessageTemplate` as a field with no reader.
+- `BACKLOG.md` is 5 rows; the three closed ideas are recorded only in
+  this file.
+- Checked `plugins/cool-workflow/docs/*.7.md` and
+  `plugins/cool-workflow/README.md` for the word "onramp": the only
+  hits are in `docs/doctor.7.md`, and they name the unrelated `cw
+  doctor --onramp` quick-start flag, not the change-file contract this
+  round touched. Nothing live is stale.
 
 ## What this spec got wrong (recorded at close)
 
@@ -222,4 +276,5 @@ first round.
 | Three rows closed for good + purity row re-measured | merged | #620 (`145d3fa6`) |
 | Delete-only type changes are a valid cycle | merged | #622 (`9b4f785d`) |
 | `-q` help line vendor fold | merged | #621 (`33f44fbf`) |
+| onramp type source watches src/core/types | | |
 | Closing ledger | merged | #623 |

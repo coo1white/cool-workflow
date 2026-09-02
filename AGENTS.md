@@ -110,6 +110,18 @@ Each cycle MUST follow this sequence. Do not skip steps.
    - Every release PR must be approved by the reviewer agent
      (plugins/cool-workflow/agents/release-reviewer.md) before tagging.
 
+# Intent files (the playbook)
+Every program starts with one intent + spec file, under
+`plugins/cool-workflow/project/docs/intent/`.
+Before design: a "Measured facts" part, each idea checked by a
+command, with numbers.
+A "Paths weighed" part: one other way turned down, weighed by how
+hard, upkeep, cost, and if it can be undone.
+At close: an "Architecture snapshot diff" part, filled by the
+closing PR — which live doc claims got old, and where fixed. It
+sits by "What this spec got wrong" and the status ledger.
+First file in this shape: `2026-09-02-backlog-six-rows.md`.
+
 # North Star
 Every cycle must trace to one of these validated-use-case tracks:
 - Track A: end-to-end "resumable multi-step pipeline" demo runnable by an
