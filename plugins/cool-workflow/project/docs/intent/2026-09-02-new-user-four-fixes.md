@@ -394,7 +394,7 @@ coming**
 | cw refuses to review a folder that is not a project | merged | #629 405dc112 |
 | The run folder holds only what the run used | merged | #628 ef21862f |
 | doctor --onramp speaks to the person in front of it | merged | #626 f4edf419 |
-| Closing ledger | merged — acceptance receipt `plugins/cool-workflow/project/docs/audits/four-fixes-receipt-2026-09-02.json`, program verdict **FAIL**, bound to commit `ef21862f63689a32a28fb82dc1aefcc79ee59b10` | (this PR) |
+| Closing ledger | merged — acceptance receipt `plugins/cool-workflow/project/docs/audits/four-fixes-receipt-2026-09-02.json`, program verdict **FAIL**, bound to commit `ef21862f63689a32a28fb82dc1aefcc79ee59b10` | #631 |
 
 The program's own acceptance re-run is **FAIL**, not a pass. Five of the
 six checks pass (`A-retry`, `B-resume-flag`, `B-resume-repo`,
