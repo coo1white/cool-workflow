@@ -11,5 +11,31 @@
     "measuredAt": "2026-09-01",
     "measured": 7210,
     "maxCount": 7571
-  }
+  },
+  "frozenPaths": [
+    { "path": "plugins/cool-workflow/src/shell/multi-agent-cli.ts", "measuredAt": "2026-09-03", "measured": 1000, "maxLines": 1000 },
+    { "path": "plugins/cool-workflow/src/shell/multi-agent-host.ts", "measuredAt": "2026-09-03", "measured": 614, "maxLines": 614 },
+    { "path": "plugins/cool-workflow/src/shell/multi-agent-io.ts", "measuredAt": "2026-09-03", "measured": 381, "maxLines": 381 },
+    { "path": "plugins/cool-workflow/src/shell/multi-agent-operator-ux.ts", "measuredAt": "2026-09-03", "measured": 670, "maxLines": 670 },
+    { "path": "plugins/cool-workflow/src/shell/coordinator-io.ts", "measuredAt": "2026-09-03", "measured": 563, "maxLines": 563 },
+    { "path": "plugins/cool-workflow/src/shell/topology-io.ts", "measuredAt": "2026-09-03", "measured": 444, "maxLines": 444 },
+    { "path": "plugins/cool-workflow/src/shell/candidate-scoring-io.ts", "measuredAt": "2026-09-03", "measured": 471, "maxLines": 471 },
+    { "path": "plugins/cool-workflow/src/shell/eval-io.ts", "measuredAt": "2026-09-03", "measured": 449, "maxLines": 449 },
+    { "path": "plugins/cool-workflow/src/shell/eval-text.ts", "measuredAt": "2026-09-03", "measured": 198, "maxLines": 198 },
+    { "path": "plugins/cool-workflow/src/shell/scheduler-io.ts", "measuredAt": "2026-09-03", "measured": 730, "maxLines": 730 },
+    { "path": "plugins/cool-workflow/src/shell/scheduling-io.ts", "measuredAt": "2026-09-03", "measured": 329, "maxLines": 329 },
+    { "path": "plugins/cool-workflow/src/shell/collaboration-io.ts", "measuredAt": "2026-09-03", "measured": 259, "maxLines": 259 },
+    { "path": "plugins/cool-workflow/src/shell/workbench.ts", "measuredAt": "2026-09-03", "measured": 269, "maxLines": 269 },
+    { "path": "plugins/cool-workflow/src/shell/workbench-host.ts", "measuredAt": "2026-09-03", "measured": 340, "maxLines": 340 },
+    { "path": "plugins/cool-workflow/src/shell/workbench-text.ts", "measuredAt": "2026-09-03", "measured": 18, "maxLines": 18 },
+    { "path": "plugins/cool-workflow/src/shell/bands-io.ts", "measuredAt": "2026-09-03", "measured": 97, "maxLines": 97 },
+    { "path": "plugins/cool-workflow/src/shell/state-explosion-cli.ts", "measuredAt": "2026-09-03", "measured": 193, "maxLines": 193 },
+    { "path": "plugins/cool-workflow/src/shell/orchestrator.ts", "measuredAt": "2026-09-03", "measured": 229, "maxLines": 229 },
+    { "path": "plugins/cool-workflow/src/shell/telemetry-demo.ts", "measuredAt": "2026-09-03", "measured": 410, "maxLines": 410 },
+    { "path": "plugins/cool-workflow/src/shell/evidence-reasoning.ts", "measuredAt": "2026-09-03", "measured": 748, "maxLines": 748 },
+    { "path": "plugins/cool-workflow/src/shell/observability-intake.ts", "measuredAt": "2026-09-03", "measured": 82, "maxLines": 82 },
+    { "path": "plugins/cool-workflow/src/shell/reclamation-io.ts", "measuredAt": "2026-09-03", "measured": 1728, "maxLines": 1728 },
+    { "path": "plugins/cool-workflow/src/core/multi-agent/", "measuredAt": "2026-09-03", "measured": 4251, "maxLines": 4251 },
+    { "path": "plugins/cool-workflow/src/core/state/state-explosion/", "measuredAt": "2026-09-03", "measured": 1653, "maxLines": 1653 }
+  ]
 }
