@@ -26,6 +26,7 @@ const {
   evaluateOnrampContract,
   recommendSmokeTests,
   isCommentOnlyPatch,
+  isDeleteOnlyPatch,
   CURATED_SMOKE_MAP
 } = require(path.join(pluginRoot, "dist", "shell", "onramp.js"));
 
@@ -272,6 +273,44 @@ function contract(files) {
   assert.equal(isCommentOnlyPatch('+  "http://x"\n'), false, "// inside a string is code, not a comment");
   assert.equal(isCommentOnlyPatch("+/* start\n+ * mid\n+ */\n"), true, "/* ... */ block edit is comment-only");
   assert.equal(isCommentOnlyPatch("-doSomething();\n"), false, "removing a code line is not comment-only");
+}
+
+// deleteOnly: a type source (a file under src/ named types.ts) alone fails
+// runtime-smoke-required; the same file listed as deleteOnly passes -- a
+// pure delete of a declared field nothing reads has no new behavior to
+// prove.
+{
+  const files = ["plugins/cool-workflow/src/core/state/types.ts"];
+  const withoutDeleteOnly = contract(files);
+  assert.ok(codes(withoutDeleteOnly).includes("runtime-smoke-required"), "no deleteOnly: must fail closed");
+  const withDeleteOnly = evaluateOnrampContract(files, { cwd: pluginRoot, deleteOnly: files });
+  assert.equal(withDeleteOnly.ok, true, codes(withDeleteOnly).join(", "));
+}
+
+// deleteOnly: a src/types/ file alone in deleteOnly also passes (no
+// types-without-runtime either).
+{
+  const files = ["plugins/cool-workflow/src/types/run.ts"];
+  const report = evaluateOnrampContract(files, { cwd: pluginRoot, deleteOnly: files });
+  assert.equal(report.ok, true, codes(report).join(", "));
+}
+
+// deleteOnly only excuses a type source, not any delete: a non-type-source
+// file (src/shell/drive.ts) in deleteOnly, with no test, still fails
+// runtime-smoke-required.
+{
+  const files = ["plugins/cool-workflow/src/shell/drive.ts"];
+  const report = evaluateOnrampContract(files, { cwd: pluginRoot, deleteOnly: files });
+  assert.ok(codes(report).includes("runtime-smoke-required"), codes(report).join(", "));
+}
+
+// isDeleteOnlyPatch: the pure line test, fed patch text directly.
+{
+  assert.equal(isDeleteOnlyPatch("-doSomething();\n"), true, "removing a code line only is delete-only");
+  assert.equal(isDeleteOnlyPatch("-doSomething();\n+const x = 1;\n"), false, "one added code line is not delete-only");
+  assert.equal(isDeleteOnlyPatch("-doSomething();\n+// note\n"), true, "an added comment line keeps it delete-only");
+  assert.equal(isDeleteOnlyPatch("-// old note\n"), false, "removing a comment only is not delete-only");
+  assert.equal(isDeleteOnlyPatch(""), false, "an empty patch is not delete-only");
 }
 
 process.stdout.write("onramp-check-smoke: ok\n");

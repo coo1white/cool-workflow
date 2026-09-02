@@ -26,6 +26,7 @@ exports.detectSourceCheckout = detectSourceCheckout;
 exports.shellQuote = shellQuote;
 exports.buildDoctorOnramp = buildDoctorOnramp;
 exports.isCommentOnlyPatch = isCommentOnlyPatch;
+exports.isDeleteOnlyPatch = isDeleteOnlyPatch;
 exports.resolveChangedFiles = resolveChangedFiles;
 exports.evaluateOnrampContract = evaluateOnrampContract;
 exports.recommendSmokeTests = recommendSmokeTests;
@@ -278,7 +279,7 @@ function buildDoctorOnramp(options = {}) {
     };
     if (options.changedFrom) {
         const changed = resolveChangedFiles({ cwd, changedFrom: options.changedFrom, env: options.env });
-        const contract = evaluateOnrampContract(changed.files, { cwd, commentOnly: changed.commentOnly });
+        const contract = evaluateOnrampContract(changed.files, { cwd, commentOnly: changed.commentOnly, deleteOnly: changed.deleteOnly });
         onramp.changedFiles = changed;
         onramp.contract = contract;
         onramp.recommendedChecks = {
@@ -314,6 +315,27 @@ function isCommentOnlyPatch(patchText) {
     }
     return sawLine;
 }
+/** Pure line test for "did this diff only remove code" (lets a type-only
+ *  delete through the onramp gate). Same header-skip and comment-start test
+ *  as isCommentOnlyPatch: a `+` line must be blank or a comment, and at
+ *  least one `-` line must be real code. Empty patch, or a patch that only
+ *  removes comments, is NOT delete-only -- fail closed. */
+function isDeleteOnlyPatch(patchText) {
+    let sawRemovedCode = false;
+    for (const raw of patchText.split(/\r?\n/)) {
+        if (raw.startsWith("+++") || raw.startsWith("---"))
+            continue;
+        if (raw[0] !== "+" && raw[0] !== "-")
+            continue;
+        const trimmed = raw.slice(1).trim();
+        const isCode = trimmed !== "" && !/^(\/\/|\/\*|\*\/|\*)/.test(trimmed);
+        if (raw[0] === "+" && isCode)
+            return false;
+        if (raw[0] === "-" && isCode)
+            sawRemovedCode = true;
+    }
+    return sawRemovedCode;
+}
 function gitDiffPatch(cwd, baseRef, file) {
     const result = (0, node_child_process_1.spawnSync)("git", ["diff", "-U0", baseRef, "--", file], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GIT_TIMEOUT_MS });
     return result.status === 0 ? String(result.stdout || "") : "";
@@ -333,13 +355,23 @@ function resolveChangedFiles(options = {}) {
     for (const file of gitLinesOrThrow(root, ["ls-files", "--others", "--exclude-standard"])) {
         const normalized = normalizeChangedPath(file);
         files.add(normalized);
-        candidates.delete(normalized); // an untracked file is never comment-only
+        candidates.delete(normalized); // an untracked file is never comment-only or delete-only
     }
-    const commentOnly = [...candidates.entries()]
-        .filter(([, raw]) => isCommentOnlyPatch(gitDiffPatch(root, baseRef, raw)))
-        .map(([normalized]) => normalized)
-        .sort();
-    return { baseRef, files: [...files].filter(Boolean).sort(), commentOnly };
+    const commentOnly = [];
+    const deleteOnly = [];
+    for (const [normalized, raw] of candidates) {
+        const patch = gitDiffPatch(root, baseRef, raw);
+        if (isCommentOnlyPatch(patch))
+            commentOnly.push(normalized);
+        if (isDeleteOnlyPatch(patch))
+            deleteOnly.push(normalized);
+    }
+    return {
+        baseRef,
+        files: [...files].filter(Boolean).sort(),
+        commentOnly: commentOnly.sort(),
+        deleteOnly: deleteOnly.sort()
+    };
 }
 function evaluateOnrampContract(files, options = {}) {
     const cwd = node_path_1.default.resolve(options.cwd || process.cwd());
@@ -347,8 +379,12 @@ function evaluateOnrampContract(files, options = {}) {
     // A commentOnly file stays in `normalized` (changedFiles, smoke recs) but
     // is left out of the sets below that decide the runtime/app/type/script/
     // surface rules -- it never DID change behavior, so it can't trigger them.
+    // A deleteOnly file that is also a type source gets the same treatment:
+    // a pure delete of a declared field/type nothing reads has no new
+    // behavior to prove.
     const commentOnlySet = new Set((options.commentOnly || []).map((file) => normalizeChangedPath(file)));
-    const classifiable = normalized.filter((file) => !commentOnlySet.has(file));
+    const deleteOnlySet = new Set((options.deleteOnly || []).map((file) => normalizeChangedPath(file)));
+    const classifiable = normalized.filter((file) => !commentOnlySet.has(file) && !(deleteOnlySet.has(file) && isTypeSource(file)));
     const issues = [];
     const runtimeFiles = classifiable.filter(isRuntimeSource);
     const appFiles = classifiable.filter((file) => file.startsWith("plugins/cool-workflow/apps/"));
@@ -553,6 +589,13 @@ function stripPluginPrefix(file) {
 }
 function isRuntimeSource(file) {
     return file.startsWith("plugins/cool-workflow/src/") && file.endsWith(".ts") && !file.startsWith("plugins/cool-workflow/src/types/");
+}
+// A "type source" is the src/types/ tree, or a file under src/ named types.ts.
+function isTypeSource(file) {
+    const pluginPath = stripPluginPrefix(file);
+    if (!pluginPath.startsWith("src/") || !pluginPath.endsWith(".ts"))
+        return false;
+    return pluginPath.startsWith("src/types/") || node_path_1.default.basename(pluginPath) === "types.ts";
 }
 // Pre-rebuild flat literals here (capability-registry module, mcp-surface module,
 // orchestrator module) named files that no longer exist anywhere in the

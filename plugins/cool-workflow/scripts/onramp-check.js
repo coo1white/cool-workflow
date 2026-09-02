@@ -21,10 +21,11 @@ function main() {
   const check = process.argv.includes("--check");
   const changedFrom = argValue("--changed-from");
   const changed = resolveChangedFiles({ cwd: pluginRoot, changedFrom, env: process.env });
-  const contract = evaluateOnrampContract(changed.files, { cwd: pluginRoot, commentOnly: changed.commentOnly });
+  const contract = evaluateOnrampContract(changed.files, { cwd: pluginRoot, commentOnly: changed.commentOnly, deleteOnly: changed.deleteOnly });
   const report = {
     schemaVersion: 1,
     baseRef: changed.baseRef,
+    deleteOnly: changed.deleteOnly,
     ...contract
   };
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);

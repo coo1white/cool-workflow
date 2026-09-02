@@ -262,7 +262,6 @@ export interface PipelineContract {
   evidencePolicy?: PipelineEvidencePolicy;
   failurePolicy?: PipelineFailurePolicy;
   commitPolicy?: PipelineCommitPolicy;
-  commitMessageTemplate?: string;
   compatibility: PipelineCompatibility;
 }
 
