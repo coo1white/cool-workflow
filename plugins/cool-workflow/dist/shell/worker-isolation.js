@@ -396,8 +396,8 @@ function writeWorkerInput(run, task, scope) {
         `- Task: ${task.id}`,
         `- Dispatch: ${scope.dispatchId || ""}`,
         `- Result: ${scope.resultPath}`,
-        `- Artifacts: ${scope.artifactsDir}`,
-        `- Logs: ${scope.logsDir}`,
+        `- Artifacts: ${scope.artifactsDir} (make it if you need it)`,
+        `- Logs: ${scope.logsDir} (make it if you need it)`,
         `- Sandbox Profile: ${scope.sandboxProfileId || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID}`,
         "",
         "## Task",
@@ -418,6 +418,9 @@ function writeWorkerInput(run, task, scope) {
         ...priorFindingsSection(run, task),
         "",
     ];
+    // The worker directory is made here, at the point of write, not ahead of
+    // time: a directory exists because a file was written into it.
+    fs.mkdirSync(path.dirname(scope.inputPath), { recursive: true });
     fs.writeFileSync(scope.inputPath, lines.join("\n"), "utf8");
 }
 function allocateWorkerScope(run, task, options = {}) {
@@ -461,8 +464,6 @@ function allocateWorkerScope(run, task, options = {}) {
     const backendAttestation = options.backendId
         ? (0, registry_1.attestSandbox)((0, registry_1.getBackendDescriptor)(options.backendId), sandboxPolicy, { mode: "delegate-host" })
         : undefined;
-    fs.mkdirSync(artifactsDir, { recursive: true });
-    fs.mkdirSync(logsDir, { recursive: true });
     const scope = {
         schemaVersion: exports.WORKER_ISOLATION_SCHEMA_VERSION,
         id: workerId,
