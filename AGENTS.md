@@ -633,6 +633,8 @@ evidence and are never "cleaned up".
   `plugins/cool-workflow/scripts/lang-policy-check.js` (`npm run lang:check`)
 - A new file that breaks a File Lifecycle rule above (orphan tool, committed
   draft, stale version snapshot, stub/copy of another file)
+- Stopping a process you did not start; before you kill anything, check
+  that its working directory is inside your own worktree
 
 # Description Standard — Ogden Basic English (850)
 All descriptions in this project are to be put into words using Ogden's Basic
