@@ -16,6 +16,7 @@ recorder.** Your agent spends the tokens; CW keeps the books.
 | Page | Use it for |
 | --- | --- |
 | **[Getting Started](Getting-Started.md)** | Install, run the 30-second tamper proof, and make your first report. |
+| **[User Guide](User-Guide.md)** | Your first ten minutes, from a real test: what to type, what you see, what to do when a run stops. |
 | **[Mental Model](Mental-Model.md)** | *Why* CW is built this way — the four commitments, and when it is worth it. |
 | **[Glossary](Glossary.md)** | Every core term in one place: run, evidence, topology, verifier gate, and more. |
 | **[Quickstart](Quickstart.md)** | The fast command reference, once you know the shape. |
