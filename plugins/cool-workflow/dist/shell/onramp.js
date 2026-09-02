@@ -146,9 +146,10 @@ function shellQuote(value) {
 function buildDoctorOnramp(options = {}) {
     const cwd = node_path_1.default.resolve(options.cwd || process.cwd());
     const agentCommand = "--agent-command builtin:claude";
+    const source = detectSourceCheckout(cwd);
     const onramp = {
         schemaVersion: 1,
-        summary: "start small, run the short gate while changing code, then run the full gate before release",
+        summary: source ? "start small, run the short gate while changing code, then run the full gate before release" : "Three steps: check your setup, run one review, read the report.",
         sections: [
             {
                 id: "first-run",
@@ -218,63 +219,65 @@ function buildDoctorOnramp(options = {}) {
                     }
                 ]
             },
-            {
-                id: "change-loop",
-                title: "Change Loop",
-                summary: "Use the small checks while changing code; save the slow full gate for the end.",
-                actions: [
-                    {
-                        id: "build",
-                        title: "Type check the change",
-                        command: npmCommand(cwd, "build"),
-                        reason: "Fast first check for TypeScript errors."
-                    },
-                    {
-                        id: "target-smoke",
-                        title: "Run the closest smoke",
-                        command: nodeSmokeCommand(cwd, "doctor-smoke.js"),
-                        reason: "Replace this smoke name with the one that covers your changed path."
-                    },
-                    {
-                        id: "fast-suite",
-                        title: "Run the parallel suite",
-                        command: npmCommand(cwd, "test:fast"),
-                        reason: "Runs all smokes with isolated state and parallel workers."
-                    }
-                ]
-            },
-            {
-                id: "surface-guard",
-                title: "Surface Guard",
-                summary: "Keep the wide runner, CLI, and MCP faces tied to one source.",
-                actions: [
-                    {
-                        id: "registry",
-                        title: "Declare each new verb once",
-                        command: npmCommand(cwd, "parity:check"),
-                        reason: "Fails if CLI and MCP drift from the capability registry."
-                    },
-                    {
-                        id: "manifest",
-                        title: "Check generated faces",
-                        command: npmCommand(cwd, "gen:manifests -- --check"),
-                        reason: "Fails if plugin manifests drift from source."
-                    }
-                ]
-            },
-            {
-                id: "release-gate",
-                title: "Release Gate",
-                summary: "Run the full gate only when the batch is ready.",
-                actions: [
-                    {
-                        id: "release-check",
-                        title: "Dry-run the release gate",
-                        command: npmCommand(cwd, "release:check"),
-                        reason: "Builds, checks docs and generated files, runs the parallel suite, and makes no tag."
-                    }
-                ]
-            }
+            ...(source ? [
+                {
+                    id: "change-loop",
+                    title: "Change Loop",
+                    summary: "Use the small checks while changing code; save the slow full gate for the end.",
+                    actions: [
+                        {
+                            id: "build",
+                            title: "Type check the change",
+                            command: npmCommand(cwd, "build"),
+                            reason: "Fast first check for TypeScript errors."
+                        },
+                        {
+                            id: "target-smoke",
+                            title: "Run the closest smoke",
+                            command: nodeSmokeCommand(cwd, "doctor-smoke.js"),
+                            reason: "Replace this smoke name with the one that covers your changed path."
+                        },
+                        {
+                            id: "fast-suite",
+                            title: "Run the parallel suite",
+                            command: npmCommand(cwd, "test:fast"),
+                            reason: "Runs all smokes with isolated state and parallel workers."
+                        }
+                    ]
+                },
+                {
+                    id: "surface-guard",
+                    title: "Surface Guard",
+                    summary: "Keep the wide runner, CLI, and MCP faces tied to one source.",
+                    actions: [
+                        {
+                            id: "registry",
+                            title: "Declare each new verb once",
+                            command: npmCommand(cwd, "parity:check"),
+                            reason: "Fails if CLI and MCP drift from the capability registry."
+                        },
+                        {
+                            id: "manifest",
+                            title: "Check generated faces",
+                            command: npmCommand(cwd, "gen:manifests -- --check"),
+                            reason: "Fails if plugin manifests drift from source."
+                        }
+                    ]
+                },
+                {
+                    id: "release-gate",
+                    title: "Release Gate",
+                    summary: "Run the full gate only when the batch is ready.",
+                    actions: [
+                        {
+                            id: "release-check",
+                            title: "Dry-run the release gate",
+                            command: npmCommand(cwd, "release:check"),
+                            reason: "Builds, checks docs and generated files, runs the parallel suite, and makes no tag."
+                        }
+                    ]
+                }
+            ] : [])
         ]
     };
     if (options.changedFrom) {
