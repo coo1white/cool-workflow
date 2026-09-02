@@ -27,7 +27,8 @@ npm run canonical-apps
 ## Shipped Apps
 
 Eight apps ship in `apps/`. Five are canonical (the lanes the docs support); three
-are examples or an internal proof. List them all with `cw app list`.
+are examples or an internal proof. List them all with `cw app list`. `cw app
+list` also shows two older workflow-file wrappers, ten in all.
 
 ### Canonical
 
@@ -46,6 +47,31 @@ are examples or an internal proof. List them all with `cw app list`.
 | `pdca-blackboard-loop` | You want a small multi-agent example. | 4 tasks; three agents share one blackboard to plan, do, check, and act. |
 | `workflow-app-framework-demo` | You want a small example app contract. | 3 tasks; shows inputs, phases, evidence gates, and sandbox hints. |
 | `end-to-end-golden-path` | You want the deterministic integration proof. | 1 task; the one-worker app behind `npm run golden-path`. |
+
+Every app writes the same thing: a saved report you can check again offline,
+with every claim tied to its source. These four are the main lanes:
+
+| Workflow | What it produces |
+|---|---|
+| `architecture-review` | Map a repo, rank risks, and back every claim with `file:line` evidence |
+| `pr-review-fix-ci` | Review a PR or branch, work out why CI fails, and propose + verify fixes |
+| `research-synthesis` | Answer a question over a local folder of files — your docs, notes, or papers |
+| `release-cut` | Run a gated, reviewed release with dry-run evidence |
+
+```bash
+cw app list            # see everything installed
+cw doctor              # check your setup    →    cw fix   shows the fix commands
+```
+
+**Multi-agent, when you need it.** Fan work out across agents with built-in
+topologies (ready-made team shapes), compose flows (a task can run a whole
+child workflow with `subWorkflow`, or a `loop()` phase can go round until a
+condition or a token budget says stop), and re-run fast — `cw run <app>
+--drive --incremental` reuses every step whose inputs did not change.
+
+<div align="center">
+<img src="https://raw.githubusercontent.com/coo1white/cool-workflow/main/plugins/cool-workflow/project/docs/assets/topologies.svg" alt="Built-in multi-agent topologies: map-reduce (fan out, fold in), debate (argue then draw a verdict), and judge-panel (N independent judges score one candidate)." width="92%">
+</div>
 
 ## Full Review vs Fast Review
 

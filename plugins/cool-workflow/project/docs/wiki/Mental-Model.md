@@ -88,6 +88,13 @@ fail-closed drift check in CI stops any adapter from forking the logic. You
 do not get *zero* cost of moving between vendors — you get a **shared runtime
 and a drift gate**, so the surfaces cannot quietly grow apart.
 
+**What CW is not.** CW is not the model — it never calls a model API and never
+holds your keys; your agent does that work in its own process. It is not a CI
+system or a build tool — it keeps and checks the record of agent work; it does
+not take the place of your tests or your release pipeline. And it is not a big
+framework to build on — it is a small set of commands over plain `.cw/` files
+on your own disk, not a library your code has to wrap itself around.
+
 ## When it is worth it — and when it is not
 
 CW trades speed for a record you can check. You pay up front in task

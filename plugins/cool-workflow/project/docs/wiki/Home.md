@@ -28,6 +28,7 @@ Read these in order for the full picture, or jump to the one you need:
 | Page | Use it for |
 | --- | --- |
 | [Architecture](Architecture.md) | The runtime boundary, state files, verifier gate, and MCP surface. |
+| [Repo Map](Repo-Map.md) | What every top-level folder and file is for, one line each. |
 | [Workflow Apps](Workflow-Apps.md) | Pick between the shipped apps and see how an app is put together. |
 | [Commands or API](Commands-or-API.md) | The stable CLI shapes and MCP entry points. |
 | [MCP And Manifests](MCP-And-Manifests.md) | Generated vendor manifests and CLI ↔ MCP parity. |
