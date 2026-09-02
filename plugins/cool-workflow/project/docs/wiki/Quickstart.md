@@ -79,6 +79,13 @@ Go on with the same run:
 cw quickstart architecture-review --run <run-id> --resume
 ```
 
+Or, from the project's own folder (or with `--repo <path>`), the shorter
+bare flag form:
+
+```bash
+cw --resume --run <run-id>
+```
+
 You can also resume through the registry:
 
 ```bash
