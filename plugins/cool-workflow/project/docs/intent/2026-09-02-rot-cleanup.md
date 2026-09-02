@@ -161,6 +161,71 @@ in a comment not to go back.
   itself green on Node 18, 22, 24 and macOS.
 - No .md, no code. May run in parallel with PR 3 / PR 4 (disjoint).
 
+## PR 6a / 6b — dead paths with no line number (added 2026-09-02)
+
+Two corrections to this spec, found by the manager while running the
+PR 4 rules as a script against the PR 3 branch:
+
+1. The PR 4 line "fix any leftover in this same PR (should be small)"
+   was wrong. PR 3 removed every `path:line` cite (86 -> 16, the 15 in
+   four surface files plus one sample string), but rules (b) and (c)
+   also flag paths with NO line number that name a file that is gone:
+   386 sites (src 280, scripts 9, test comment lines 97). 70 of them
+   are `docs/rebuild/PLAN.md`, which exists at
+   `project/docs/rebuild/PLAN.md`; most of the rest are old-build
+   provenance notes ("byte-exact port of src/drive.ts" — top:
+   `src/capability-core.ts` 16, `src/drive.ts` 10, `src/state.ts` 9,
+   `src/dispatch.ts` 9); a few are sample paths in test comments.
+   The audit's "about 66 + 27" only counted a short list of old names.
+2. The onramp contract (`release:check`, `evaluateOnrampContract`)
+   counts a comment-only edit to a surface file as a surface change
+   and demands a doc change. PR 3 hit it on four files with no honest
+   doc change to make. Ruling: no exemption door, no diff-aware
+   rewrite in this program; the surface files move to PR 4, which has
+   a true doc line of its own. The contract's limit (path strings
+   only) goes to BACKLOG at close.
+
+Ruling on the 386: the operator's order is "clean ALL of it", so all
+of them go, split by directory so that three PRs never touch the same
+file and no comment-only PR touches a surface file (the split follows
+`isSurfaceFile` in `src/shell/onramp.ts`). Gate lands last, as the
+proof of zero.
+
+- PR 6a: every dead path token in `src/**/*.ts` EXCEPT the surface
+  files (`src/cli/*`, `src/mcp/*`, `src/core/capability-table.ts`,
+  `src/core/capability-data.ts`, `src/wiring/capability-table/*`,
+  `src/shell/orchestrator.ts`). Comments only.
+- PR 6b: every dead path token in `scripts/**/*.js` (except
+  `scripts/parity-check.js`) and on `//` comment lines in
+  `test/**/*.js`. Comments only.
+- PR 4 (after 6a and 6b): the gate + all surface files' comment edits
+  (the 15 `path:line` cites and any dead no-line paths, plus
+  `scripts/parity-check.js`) + the `telemetry-demo.ts` sample string
+  (`src/server.js:18` -> `app/server.js:18`, with its two fixtures) +
+  one true doc line in the man page that describes `citation:check`,
+  saying what the gate checks now. The gate must be green on the PR's
+  own head.
+
+Rewrite rules (bind 6a, 6b, and PR 4's comment edits):
+
+1. A path whose file exists at a new place names the new place
+   (`docs/rebuild/PLAN.md` -> `project/docs/rebuild/PLAN.md`).
+2. A provenance note that names a file that is gone keeps its meaning
+   and loses the path: the module as a plain word, no directory, no
+   extension ("the old build's drive module"). No line numbers (R1).
+3. A sample path in a test comment must not look like a repo path:
+   use a root that is not src/scripts/test/apps/docs (`app/` is fine),
+   or reword.
+4. Comment lines only. A dead path in a code string is reported, not
+   changed; PR 4 owns code strings.
+5. Before push: the manager's rule script reports 0 on the partition;
+   `build`, `check`, `test` green; `growth:check` src-comments does not
+   go up. The PR body gives the count per rewrite rule and the
+   before/after totals.
+
+Budget: net <= 0 for 6a and 6b. PR 4 budget stays net <= +70 for the
+gate itself; its comment edits are net <= 0.
+
 ## Acceptance
 
 - Manager (per PR): CI green on all three platforms, CodeQL green,
@@ -182,3 +247,5 @@ in a comment not to go back.
 | PR 3 old addresses out of comments | open | — |
 | PR 4 citation gate | open | — |
 | PR 5 TS7 install path in CI | open | — |
+| PR 6a dead paths in src (non-surface) | open | — |
+| PR 6b dead paths in scripts + test comments | open | — |
