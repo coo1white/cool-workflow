@@ -44,6 +44,9 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reportWriteCli = reportWriteCli;
+exports.resolveReportRunId = resolveReportRunId;
+exports.ensureAndOpenReportHtml = ensureAndOpenReportHtml;
+exports.reportOpenCli = reportOpenCli;
 exports.statusCli = statusCli;
 exports.statusSummaryText = statusSummaryText;
 exports.statusFullText = statusFullText;
@@ -53,11 +56,14 @@ exports.operatorReportText = operatorReportText;
 exports.graphCli = graphCli;
 exports.graphText = graphText;
 exports.optionalString = optionalString;
+const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const node_child_process_1 = require("node:child_process");
 const run_store_1 = require("./run-store");
 const report_1 = require("./report");
 const operator_ux_1 = require("./operator-ux");
 const operator_ux_text_1 = require("./operator-ux-text");
+const report_html_1 = require("../core/format/report-html");
 function invocationCwd(args) {
     return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
 }
@@ -70,6 +76,45 @@ function optionalString(value) {
 function reportWriteCli(runId, args) {
     const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
     return { path: (0, report_1.writeReport)(run) };
+}
+/** `cw report` with no run id: the newest run under this repo's
+ *  `.cw/runs/`. Run ids sort chronologically (checked on three real
+ *  runs: the largest id by plain string sort was also the latest
+ *  `createdAt`), so "newest" is just the last name after a sort.
+ *  Returns undefined when the repo has no run yet. */
+function resolveReportRunId(args) {
+    const runsDir = path.join(invocationCwd(args), ".cw", "runs");
+    if (!fs.existsSync(runsDir))
+        return undefined;
+    const ids = fs
+        .readdirSync(runsDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(runsDir, entry.name, "state.json")))
+        .map((entry) => entry.name)
+        .sort();
+    return ids.length ? ids[ids.length - 1] : undefined;
+}
+/** Writes/refreshes `report.html` beside `report.md` (only when missing
+ *  or older) and opens it with the system viewer: `CW_OPENER` when set
+ *  (the smoke test's stub), else `open`/`xdg-open`/`start` for macOS/
+ *  Linux/Windows. Spawned argv-style, `shell: false` — never a shell
+ *  string built from a path. A missing opener never throws (spawnSync's
+ *  `error` field just carries it), so the caller still gets the path
+ *  back and exits 0. */
+function ensureAndOpenReportHtml(mdPath) {
+    const htmlPath = mdPath.replace(/\.md$/, ".html");
+    const mdMtime = fs.statSync(mdPath).mtimeMs;
+    const htmlMtime = fs.existsSync(htmlPath) ? fs.statSync(htmlPath).mtimeMs : -1;
+    if (htmlMtime < mdMtime)
+        fs.writeFileSync(htmlPath, (0, report_html_1.reportToHtml)(fs.readFileSync(mdPath, "utf8")), "utf8");
+    const opener = process.env.CW_OPENER || (process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open");
+    (0, node_child_process_1.spawnSync)(opener, [htmlPath], { stdio: "ignore", shell: false });
+    return htmlPath;
+}
+/** `cw report --open [run-id]` — a fresh report.md, then the html+open
+ *  step above. */
+function reportOpenCli(runId, args) {
+    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    return { path: ensureAndOpenReportHtml((0, report_1.writeReport)(run)) };
 }
 /** `cw status [<run-id>]` / `cw_status` — no id: the fixed advice shape;
  *  with an id: `summarizeRun`'s payload. */
