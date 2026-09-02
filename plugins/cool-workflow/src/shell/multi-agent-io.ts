@@ -210,9 +210,9 @@ export function createAgentFanout(run: WorkflowRun, input: rt.CreateAgentFanoutI
 }
 
 export function attachDispatchToMultiAgent(run: WorkflowRun, input: rt.AttachDispatchToMultiAgentInput): rt.AttachDispatchToMultiAgentResult {
-  ensureMultiAgentState(run);
   const result = rt.attachDispatchToMultiAgent(run, input, now(), policyForMembership, workerExists(run));
   if (!result.multiAgent) return result;
+  ensureMultiAgentState(run);
   // Mirror each task's freshly-set multiAgent attachment onto its durable
   // worker scope so worker.json (read by `cw worker show`/operators) and the
   // manifest both carry the run/group/role/membership/fanout linkage. The

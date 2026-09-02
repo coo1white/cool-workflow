@@ -16,6 +16,7 @@ const path = require("node:path");
 
 const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
 const { allocateWorkerScope, recordWorkerOutput } = require("../dist/shell/worker-isolation");
+const { createDispatchManifest } = require("../dist/shell/dispatch");
 // v2 split node-snapshot into a PURE core half and a SHELL persistence half.
 // snapshotNode must come from shell/node-store: only that wrapper honors
 // `persist: true` and actually writes nodes/snapshots/<nodeId>/<id>.json to
@@ -241,6 +242,43 @@ function fileManifest(root) {
   for (const name of ["tasks", "results", "nodes", "audit", "workers"]) {
     assert.ok(fs.readdirSync(path.join(run.paths.runDir, name)).length > 0, `${name} holds the file this run wrote to it`);
   }
+}
+
+// ===========================================================================
+// Unit: a single-worker dispatch through the real dispatch path
+// (createDispatchManifest, not a direct call) leaves no multi-agent
+// directory — none of the four multi-agent ids were given.
+// ===========================================================================
+{
+  const repo = makeRepo();
+  const runId = "no-multi-agent-dir";
+  const paths = createRunPaths(path.join(repo, ".cw", "runs", runId));
+  ensureRunDirs(paths);
+  const taskPath = path.join(paths.tasksDir, "map.md");
+  fs.writeFileSync(taskPath, "map\n", "utf8");
+  const run = {
+    schemaVersion: 1,
+    id: runId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    cwd: repo,
+    workflow: { id: "dispatch-smoke", title: "Dispatch Smoke", summary: "", limits: { maxAgents: 1, maxConcurrentAgents: 1 }, app: { id: "dispatch-smoke", version: "0.0.0" } },
+    inputs: {},
+    loopStage: "interpret",
+    phases: [{ id: "map", name: "Map", status: "pending", taskIds: ["map:system"] }],
+    tasks: [{ id: "map:system", kind: "agent", phase: "Map", status: "pending", requiresEvidence: false, prompt: "Map.", taskPath, resultPath: "", loopStage: "interpret", stateNodeId: `${runId}:task:map:system` }],
+    dispatches: [],
+    commits: [],
+    paths,
+    nodes: [],
+    contracts: [],
+    feedback: [],
+    workers: []
+  };
+  saveCheckpoint(run);
+  const manifest = createDispatchManifest(run, 1);
+  assert.equal(manifest.tasks.length, 1, "the single task was dispatched");
+  assert.ok(!fs.existsSync(path.join(run.paths.runDir, "multi-agent")), "a dispatch with none of the four multi-agent ids makes no multi-agent directory");
 }
 
 // ===========================================================================
