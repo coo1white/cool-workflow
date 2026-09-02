@@ -106,7 +106,7 @@ console.log("argparse: suggestCommand never points at its own input ok");
   assert.doesNotMatch(resumed.stderr || "", /Unknown command/, "cw --resume --run <id> is accepted as the help says");
   assert.equal(JSON.parse(resumed.stdout).runId, runId, "--resume --run <id> reaches the same run");
   const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-elsewhere-"));
-  const found = spawnSync(process.execPath, [cli, "run", "resume", runId, "--repo", repo, "--scope", "repo", "--json"], { cwd: elsewhere, encoding: "utf8", env });
+  const found = spawnSync(process.execPath, [cli, "run", "resume", runId, "--repo", repo, "--json"], { cwd: elsewhere, encoding: "utf8", env });
   assert.doesNotMatch(found.stderr || "", /not found in source state/, "cw run resume <id> --repo <path> finds the run from another folder");
   assert.equal(JSON.parse(found.stdout).runId, runId, "run resume --repo <path> reaches the same run");
 }
