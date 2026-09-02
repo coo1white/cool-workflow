@@ -232,9 +232,11 @@ function fileManifest(root) {
 // this PR closes). Each is made on first use now, not up front, so a run
 // that never uses one does not have it at all — not an empty directory.
 // ===========================================================================
+// A second task is left pending (`{ pending: true }`) so this run can also
+// prove the real dispatch path below.
 {
   const repo = makeRepo();
-  const { run } = makeAcceptedRun(repo, "no-empty-dirs");
+  const { run } = makeAcceptedRun(repo, "no-empty-dirs", { pending: true });
   const names = fs.readdirSync(run.paths.runDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);
   for (const name of ["candidates", "multi-agent", "blackboard", "topologies"]) {
     assert.ok(!names.includes(name), `${name} is not made when the run never uses it`);
@@ -242,42 +244,11 @@ function fileManifest(root) {
   for (const name of ["tasks", "results", "nodes", "audit", "workers"]) {
     assert.ok(fs.readdirSync(path.join(run.paths.runDir, name)).length > 0, `${name} holds the file this run wrote to it`);
   }
-}
-
-// ===========================================================================
-// Unit: a single-worker dispatch through the real dispatch path
-// (createDispatchManifest, not a direct call) leaves no multi-agent
-// directory — none of the four multi-agent ids were given.
-// ===========================================================================
-{
-  const repo = makeRepo();
-  const runId = "no-multi-agent-dir";
-  const paths = createRunPaths(path.join(repo, ".cw", "runs", runId));
-  ensureRunDirs(paths);
-  const taskPath = path.join(paths.tasksDir, "map.md");
-  fs.writeFileSync(taskPath, "map\n", "utf8");
-  const run = {
-    schemaVersion: 1,
-    id: runId,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    cwd: repo,
-    workflow: { id: "dispatch-smoke", title: "Dispatch Smoke", summary: "", limits: { maxAgents: 1, maxConcurrentAgents: 1 }, app: { id: "dispatch-smoke", version: "0.0.0" } },
-    inputs: {},
-    loopStage: "interpret",
-    phases: [{ id: "map", name: "Map", status: "pending", taskIds: ["map:system"] }],
-    tasks: [{ id: "map:system", kind: "agent", phase: "Map", status: "pending", requiresEvidence: false, prompt: "Map.", taskPath, resultPath: "", loopStage: "interpret", stateNodeId: `${runId}:task:map:system` }],
-    dispatches: [],
-    commits: [],
-    paths,
-    nodes: [],
-    contracts: [],
-    feedback: [],
-    workers: []
-  };
-  saveCheckpoint(run);
+  // Dispatching the still-pending second task through the real dispatch
+  // path (createDispatchManifest, not a direct call) — none of the four
+  // multi-agent ids given — must still make no multi-agent directory.
   const manifest = createDispatchManifest(run, 1);
-  assert.equal(manifest.tasks.length, 1, "the single task was dispatched");
+  assert.equal(manifest.tasks.length, 1, "the pending task was dispatched");
   assert.ok(!fs.existsSync(path.join(run.paths.runDir, "multi-agent")), "a dispatch with none of the four multi-agent ids makes no multi-agent directory");
 }
 
