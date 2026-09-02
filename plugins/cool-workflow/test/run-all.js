@@ -280,18 +280,21 @@ const SERIAL_ONLY = new Set(serialEnv ? serialEnv.split(",").map((s) => s.trim()
 const pooledSmokes = eligibleSmokes.filter((file) => !SERIAL_ONLY.has(file)).sort((a, b) => durationOf(b) - durationOf(a));
 const serialSmokes = eligibleSmokes.filter((file) => SERIAL_ONLY.has(file));
 
-// Ambient agent/backend configuration must NEVER leak from the parent env into a
-// smoke child. CW_NO_AUTO_AGENT (set in makeSandbox) only blocks PATH
-// auto-detection; an explicit CW_AGENT_COMMAND/CW_AGENT_ENDPOINT exported into the
-// parent still resolves (flags > env > file, see src/agent-config.ts), so a
-// fail-closed / no-agent / blocked smoke would false-FAIL. That is exactly how
-// `release-flow.js --cut` rejected at the gate when the reviewer was configured
-// via the CW_AGENT_COMMAND *env var* (release-flow's own hint suggests it): the
-// var leaks into the gate's `npm test` child, yet `npm run release:check` — run
-// without it — passed. Strip the whole ambient set here so the sandbox is the
-// single guarantee the agent-config-sensitive smokes each used to hand-roll at
-// their own top. Keep in sync with the env layer of src/agent-config.ts
-// (agentConfigFromEnv) + CW_BACKEND (execution-backend selection).
+// Ambient agent/backend/release configuration must NEVER leak from the parent
+// env into a smoke child. CW_NO_AUTO_AGENT (set in makeSandbox) only blocks
+// PATH auto-detection; an explicit CW_AGENT_COMMAND/CW_AGENT_ENDPOINT set in
+// the parent still resolves (flags > env > file, see
+// src/shell/agent-config.ts), so a fail-closed / no-agent / blocked smoke
+// would false-FAIL. That is exactly how `release-flow.js --cut` rejected at
+// the gate when the reviewer was set via the CW_AGENT_COMMAND *env var*: it
+// leaked into the gate's `npm test` child, yet `npm run release:check` — run
+// without it — passed. The SAME event hit CW_RELEASE_VERDICT_PRIVKEY (#598):
+// an operator's real signing key leaked into release-oneclick-smoke.js's
+// child and let a "must fail" case pass for the wrong reason. Strip the
+// whole ambient set HERE so the sandbox is the one guard for every smoke,
+// not each smoke's own hand-rolled top. Keep in sync with the env layer of
+// src/shell/agent-config.ts (agentConfigFromEnv), CW_BACKEND
+// (execution-backend selection), and release-flow.js's signing key.
 const AGENT_ENV_KEYS = [
   "CW_AGENT_COMMAND",
   "CW_AGENT_ENDPOINT",
@@ -301,6 +304,7 @@ const AGENT_ENV_KEYS = [
   "CW_AGENT_ATTEST_PRIVKEY",
   "CW_REQUIRE_ATTESTED_TELEMETRY",
   "CW_BACKEND",
+  "CW_RELEASE_VERDICT_PRIVKEY",
 ];
 
 // Build a private, fully-isolated sandbox for one smoke child: a unique cwd plus
