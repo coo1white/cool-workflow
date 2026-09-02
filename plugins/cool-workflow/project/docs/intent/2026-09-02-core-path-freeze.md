@@ -189,17 +189,93 @@ Budget: docs only, no src; md count stays 135/135.
 
 ## Architecture snapshot diff (claims this program makes stale)
 
-(filled by the closing PR)
+Checked: `plugins/cool-workflow/project/docs/wiki/Architecture.md`,
+`Workflow-Apps.md`, `Operations.md`, `Trust-And-Audit.md`,
+`MCP-And-Manifests.md`, `project/docs/benchmark.md`, and
+`project/docs/ARCHITECTURE_PLAN.md`, for the surface names this program
+freezes.
+
+- `project/docs/wiki/Architecture.md` is stale and not fixed in this
+  PR. Its opening diagram puts `multi-agent host -> topology ->
+  blackboard/coordinator -> fanout/fanin -> candidate score/select`
+  right beside the proved `workflow app -> runner -> dispatch ->
+  isolated workers` line, with no mark that the first line is a frozen
+  surface. Its "Core Boundary" table lists `orchestrator` as one of the
+  seven runtime areas "the runtime... provides", the same weight as
+  `state`, `dispatch`, `verifier`, `capability-registry`, and
+  `run-registry` — but `orchestrator` (`src/shell/orchestrator.ts`) is
+  a frozen surface in the new North Star, not on the `cw -q` import
+  path. This page was not in the file list of either code PR in this
+  program, so fixing it is out of this PR's scope. This closing PR's
+  own budget is docs-only with the BACKLOG row count held fixed, so
+  the fix is recorded here, not queued as a new row; the next program
+  that touches `Architecture.md` should give `orchestrator` and the
+  multi-agent line the same freeze mark the North Star now carries.
+- `Workflow-Apps.md`, `Operations.md`, and `MCP-And-Manifests.md` each
+  name a frozen command in passing (`pdca-blackboard-loop`, `cw
+  workbench serve`, `cw workbench view`). None claims the surface is
+  proved or core; they only say the command exists. Not stale.
+- `Trust-And-Audit.md` names `docs/multi-agent-trust-policy-audit.7.md`
+  as a further-reading link, making no claim about the surface's
+  status. Not stale.
+- `benchmark.md` and `ARCHITECTURE_PLAN.md` name `workbench` only as a
+  load-test target and a further-reading link. Not stale.
+- The README "What You Can Run" part already put multi-agent under
+  "when you need it" before this program (measured fact in this
+  file's own spec section), so it needed no fix beyond the one
+  sentence the North Star PR (#650) added.
 
 ## What this spec got wrong (recorded at close)
 
-(filled at close)
+- The spec's "Rules for every PR in this program" repeated the
+  `git worktree add` line from the two programs before it: "own
+  worktree first (`git worktree add` to a named path, then `npm ci`)."
+  That rule is a dead end for a worktree-isolated subagent — its
+  Bash/Read/Edit/Write tools stay locked to the one worktree the
+  harness gave it, so `git worktree add` plus a switch cannot be
+  followed. The rule is right only for an agent that inherits a shared
+  working directory. The two-rows program (now in
+  `2026-09-archive.md`) already recorded this correction once; this
+  spec was written before that correction landed and repeated the
+  stale form. The closing worker used the harness-given worktree
+  directly, per the corrected rule.
+- The spec's measured facts gave no line count for
+  `src/core/state/state-explosion/`, only for `src/core/multi-agent/`
+  (4,251) and named groups. The freeze-gate worker (PR #651) measured
+  it: 1,653 lines across 5 files, now the `maxLines` for that
+  frozen-path entry in `manifest/growth-budget.json`.
+- The spec's measured facts said the tool has "ten apps" from `cw app
+  list`. Measured at close: `cw app list` prints 10 entries, but only
+  8 are `app-directory` entries with a folder under
+  `plugins/cool-workflow/apps/`; the other 2
+  (`legacy-architecture-review`, `legacy-research-synthesis`) are
+  `workflow-file` compatibility wrappers around two of the 8. `ls
+  plugins/cool-workflow/apps` lists 8 directories. The root README's
+  "eight installed apps" line was lower than what the command itself
+  prints (10), so this closing PR changed it to "ten installed apps"
+  to match the command's own number, per the spec's rule to change the
+  line only when the command's number differs from eight.
+- `citation-check` on the tree after this PR's own archive move (the
+  run-folder and two-rows programs joined into `2026-09-archive.md`)
+  found a repo-path-shaped fake filename inside a test comment in the
+  freeze-gate PR (#651): the smoke fixture used a name that reads as a
+  real repo path but is not one. `citation-check` caught it before
+  merge; it is not a stale reference left behind by this program.
+- A worker held so its PR would land in the right order lost its
+  own worktree (the one the harness made for it) once its session
+  ended; the lesson recorded here is that held work is done by
+  starting a new worker later, not by pausing a live one and hoping
+  its worktree is still there when it wakes.
+- The manager session that ran PRs #650 and #651 ended on an API 403
+  error right after #651 merged. The architect accepted this closing
+  PR in the manager's place, reading the merged diffs directly rather
+  than a manager's report.
 
 ## Status ledger
 
 | Item | State | PR |
 |---|---|---|
-| Intent + spec (this file) | open | |
-| The North Star names the core path | | |
-| growth:check freezes the platform surfaces | | |
-| Closing ledger and receipt | | |
+| Intent + spec (this file) | merged | #644 fce52d1c |
+| The North Star names the core path | merged | #650 9e6f1e2a |
+| growth:check freezes the platform surfaces | merged | #651 98e33a3c |
+| Closing ledger and receipt | this PR | |
