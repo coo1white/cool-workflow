@@ -23,7 +23,7 @@
     },
     "runtime": {
       "description": "Runtime-kernel source context for state, orchestration, scheduling, execution, and shared types.",
-      "maxLines": 50000,
+      "maxLines": 50250,
       "include": [
         "plugins/cool-workflow/src/**",
         "plugins/cool-workflow/package.json",

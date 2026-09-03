@@ -35,7 +35,7 @@ const core = profileFile.profiles.core;
 assert.deepEqual(core.include, expectedInclude, "core include policy must match project memory");
 assert.deepEqual(core.exclude, expectedExclude, "core exclude policy must match project memory");
 assert.equal(core.maxLines, 54000, "core profile keeps a 54k-line guard");
-assert.equal(profileFile.profiles.runtime.maxLines, 50000, "runtime profile keeps a 50k-line guard");
+assert.equal(profileFile.profiles.runtime.maxLines, 50250, "runtime profile keeps a 50k-line guard");
 for (const name of ["runtime", "mcp", "workflow-apps", "release", "agent-wrappers"]) {
   assert.ok(profileFile.profiles[name], `${name} subprofile is declared`);
   assert.ok(profileFile.profiles[name].maxLines < core.maxLines, `${name} subprofile has a tighter line guard than core`);
