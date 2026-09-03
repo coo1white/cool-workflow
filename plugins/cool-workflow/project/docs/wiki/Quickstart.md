@@ -39,13 +39,25 @@ npx cool-workflow quickstart architecture-review \
   --agent-command builtin:claude
 ```
 
-The command prints JSON that includes a `runId`, status, worker counts, and a
-`reportPath`.
-
-Read the report:
+On a real terminal, CW opens the report in your browser by itself and
+prints a short summary (`✓ Report: <path>`, status, and `cw report --open`
+for later). Add `--json`, or pipe the output, for the machine payload
+instead — a `runId`, status, worker counts, and a `reportPath`, with no
+browser opened:
 
 ```bash
-cat /path/to/your/project/.cw/runs/<run-id>/report.md
+npx cool-workflow quickstart architecture-review \
+  --repo /path/to/your/project \
+  --question "How does auth work end-to-end here?" \
+  --agent-command builtin:claude \
+  --json
+```
+
+Read the report again any time:
+
+```bash
+cw report --open      # reopens it in your browser
+cw report --show      # or read it in the terminal
 ```
 
 If no agent is configured, CW returns `status: blocked`. That is the expected
