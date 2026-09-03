@@ -37,7 +37,7 @@ const cases = [
   { mod: "../dist/core/state/node-snapshot", dead: ["findRunNode"], live: ["snapshotNode"] },
   { mod: "../dist/shell/collaboration-io", dead: ["resolveReviewPolicy"], live: ["deriveReviewState"] },
   { mod: "../dist/shell/reclamation-io", dead: ["sha256OfFile"], live: ["planReclamation"] },
-  { mod: "../dist/shell/sandbox-profile", dead: ["isBundledSandboxProfileId"], live: ["sandboxPolicyForWorker"] },
+  { mod: "../dist/shell/sandbox-profile", dead: ["isBundledSandboxProfileId", "validateSandboxRead"], live: ["sandboxPolicyForWorker"] },
   { mod: "../dist/shell/workflow-app-loader", dead: ["listWorkflowAppRecords"], live: ["loadWorkflowApp"] }
 ];
 
