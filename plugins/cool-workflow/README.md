@@ -111,6 +111,8 @@ CW does not run the model — it keeps the books. Your agent signs its findings 
 - **[Repo Map](https://github.com/coo1white/cool-workflow/wiki/Repo-Map)**
 - **[Wiki home](https://github.com/coo1white/cool-workflow/wiki)**
 
+CW dogfoods its own release: every cut runs `release-cut` against this repo.
+
 ## License
 
 BSD-2-Clause. Built by COOLWHITE LLC.
