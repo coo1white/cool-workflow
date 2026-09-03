@@ -250,18 +250,116 @@ path).
 
 ## Architecture snapshot diff (claims this program makes stale)
 
-(filled by the closing PR)
+Checked the man pages under `plugins/cool-workflow/docs/*.7.md` that name
+`cw report`, the end-of-run hint, or the run folder, plus the wiki page
+`Getting-Started.md`, for claims this program's code change (open the
+report in one step) or its doc moves made false.
+
+- `project/docs/wiki/Getting-Started.md` showed the old end-of-run block
+  — `Findings: 3 — 2×P1, 1×P2` then `Next: cw report <run-id> --show` —
+  and told the reader to open the report by hand (`cw report <run-id>
+  --show # or: cat .cw/runs/<run-id>/report.md`). Neither line matches
+  the real build: a real terminal now opens the report by itself and
+  prints `✓ Report opened. Again later: cw report --open`. Fixed in this
+  PR: the block now shows the true printed lines, the read-it-again step
+  points at `cw report --open`/`--show`, and a note covers the piped/
+  `--json` case, where nothing changes.
+- `project/docs/wiki/User-Guide.md` said a run ends with "a short
+  findings table" and told the reader to run `cat
+  .cw/runs/<run-id>/report.md`. Checked against
+  `src/shell/pipeline-cli.ts`'s `formatQuickstartSummary` (the function
+  this program wired in): it prints the report path, status, and the
+  open/show hints — no findings table, and the report is already open
+  by then. Fixed in this PR: the page now shows the true printed lines.
+- `project/docs/wiki/Quickstart.md` said `cw quickstart architecture-
+  review ...` "prints JSON". Before this program that was always true —
+  `quickstart` had no human view at all. Now, on a real terminal with no
+  `--json`, it opens the report and prints the short summary instead;
+  JSON only comes back under `--json` or a pipe. Fixed in this PR: the
+  page now shows both paths and adds `--json` to the example command.
+- The man pages under `docs/*.7.md` that name `cw report` (`operator-
+  ux.7.md`, `coordinator-blackboard.7.md`, `end-to-end-golden-path.7.md`,
+  `multi-agent-operator-ux.7.md`, and others) all show `cw report <run-
+  id> --show` with an explicit run id. That form still works exactly as
+  shown — the run id became optional, it was never made wrong — so none
+  of these needed a change. `cli-mcp-parity.7.md`'s `report` row (marked
+  `identical`) is machine-written by `scripts/gen-parity-doc.js` and
+  checked by `test/parity-doc-sync-smoke.js`; its `identical` label is
+  about the `--json`/MCP payload shape with a run id given, which this
+  program did not touch, so it still holds.
+- Not fixed here: `formatFindingsSummary` (`src/shell/term.ts`), the
+  function behind the findings table the wiki pages used to show, has
+  no caller anywhere in the real build — its one caller,
+  `Reporter.runSummary` in `src/shell/reporter.ts`, is itself never
+  called. This is a source gap, out of the docs-only budget of this PR,
+  so it is one row in `BACKLOG.md` instead of a source change here.
 
 ## What this spec got wrong (recorded at close)
 
-(filled at close)
+- The spec said the end-of-run "Next:" hint was live. It was not. The
+  hint sat in both `src/shell/reporter.ts` and `src/shell/term.ts`,
+  neither called from production, and `quickstart` had no human render
+  at all — so `cw -q` printed raw JSON even on a real terminal. The fix
+  wired `reporter.ts` into `quickstart` for the TTY, non-JSON case,
+  leaving the JSON path byte for byte as it was.
+- Because of that, the README's promise of "a clean findings table at
+  the end" was false when the spec was written. The report PR made the
+  end-of-run summary real by wiring it in, rather than by softening the
+  words — though, as the architecture snapshot diff above found, the
+  findings table part of that old promise is still not wired to any
+  caller; only the report path, status, and open/show hints print.
+- The spec did not know the runtime source-context guard would block
+  the feature. That guard covers all of `src` and sat at 49,967 of
+  50,000 — 33 lines of room — while the feature needed 214. A sweep
+  checked 1,091 exports and found only 8 dead, worth 13 lines, so the
+  codebase was not padded; the guard was simply full. The user decided
+  on 2026-09-03 to raise it to 50,250, with the measured numbers written
+  into the commit message.
+- `release:check`'s own "tests" step is a sampled run that never reaches
+  `test/source-context-profile-smoke.js`, so that guard is only ever
+  seen in a full `test:gate`. That is how it reached 33 lines of
+  headroom unnoticed.
+- A zero-caller export can still be a contract. The sweep first removed
+  five `SCHEMA_VERSION` constants that no code calls; `scripts/schema-
+  version-inventory.json` pins them and `validate-run-state-schema`
+  fails closed when a listed domain has no definition. Counting callers
+  in `src` and `test` was not enough — the inventory was a third place
+  to check, and the five were restored.
+- Two genuinely dead exports under `src/wiring/capability-table/` could
+  not be removed at all, because `onramp:check` demands a public-docs
+  update for any change in that directory, and the worker would not
+  fake one. Separately, `version-sync-check` requires the literal text
+  `ExecutionBackend` in `registry.ts`, pinning text rather than
+  behaviour.
+- Cutting the README to one page twice removed something another part
+  of the system depended on: the resume row lost its "inside the
+  project, or add `--repo`" condition, which an earlier receipt had
+  measured as the difference between working and "Run not found"; and
+  the "dogfood" sentence went, which `scripts/dogfood-release.js` reads
+  from the README at HEAD and fails closed without. The first was
+  caught by review, the second by the full gate. Both read correctly on
+  `README.md` as it stands now.
+- Process: a worker's Plan round is read-only by design, so it leaves no
+  tracked change and its worktree gets cleaned up as unchanged. One
+  worker lost its worktree that way between rounds. The rule now: a
+  Plan-gated worker commits its Plan and opens its PR as a draft before
+  it stops.
+- Process: the manager named four `term.ts` exports as dead. Three were
+  not: `sectionHeader` is called by `phaseProgressLine`, which
+  `drive.ts` calls; and `stripAnsi`, `visibleWidth`, and
+  `printSuccessSummary` all have test callers, the last being a byte-
+  parity contract. Only `cyan` was dead. The worker's own measurement
+  corrected the manager's list rather than following it.
+
+A dead-export sweep merged separately as a source cleanup, trying to pay
+for the report feature's runtime lines: #656 538f6e70.
 
 ## Status ledger
 
 | Item | State | PR |
 |---|---|---|
-| Intent + spec (this file) | open | |
-| The wiki takes the six parts | | |
-| Open the report in one step | | |
-| The README is one page | | |
-| Closing ledger, wiki publish, receipt | | |
+| Intent + spec (this file) | merged | #652 6a8f9182 |
+| The wiki takes the six parts | merged | #654 e1fbf070 |
+| Open the report in one step | merged | #655 963409b1 |
+| The README is one page | merged | #658 827715ba |
+| Closing ledger, wiki publish, receipt | open | (fill in after PR opens) |

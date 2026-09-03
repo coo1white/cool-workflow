@@ -74,28 +74,35 @@ agent's tool calls that updates in place, in the style of Claude Code:
 ✶ Searching worker-isolation.ts… (3s)
 ```
 
-When it is done, CW prints a short findings table and the saved report path:
+When it is done, CW opens the report in your browser by itself and prints:
 
 ```text
-==> Map ✓ (6/6)
-==> Verdict ✓
-
-Findings: 3 — 2×P1, 1×P2
 ✓ Report: /path/to/project/.cw/runs/<run-id>/report.md
-  Next: cw report <run-id> --show
+  ✓ Status: complete — 6/6
+  ✓ Report opened. Again later: cw report --open
+  Try: cw report --show
 ```
 
 > **Got `status: blocked`?** No agent was found. Run `cw doctor`, or set
 > `CW_AGENT_COMMAND=builtin:claude`, or pass `-claude`. CW fails closed — it
 > saves the run state as-is, and never makes up a completed result.
+>
+> **Piped output, or `--json`?** The browser never opens and the printed
+> line stays the plain JSON payload, unchanged — the safety rail, so a
+> script reading `cw -q`'s output is never surprised by a popup.
 
-## 4 · Read the report
+## 4 · Read it again
+
+The report already opened once, in Step 3. Open it again any time, or read
+it in the terminal:
 
 ```bash
-cw report <run-id> --show          # or: cat .cw/runs/<run-id>/report.md
+cw report --open      # reopens report.html in your browser
+cw report --show      # prints it in the terminal
 ```
 
-Every finding has a clickable `file.ts:42` pointer back to the evidence. The
+Both pick the newest run in this repo when you leave off `<run-id>`. Every
+finding has a clickable `file.ts:42` pointer back to the evidence. The
 whole run lives on disk as files you can open:
 
 ```text

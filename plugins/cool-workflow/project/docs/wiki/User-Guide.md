@@ -38,11 +38,14 @@ cw -q "How does the done command mark an item finished and where can it go wrong
 ```
 
 `-claude` says which agent does the work (`-codex`, `-gemini`, `-deepseek`
-and `-muse` work too). When it ends you get a short findings table and the
-path of the report:
+and `-muse` work too). When it ends, CW opens the report in your browser by
+itself and prints the path plus one line for later:
 
-```bash
-cat .cw/runs/<run-id>/report.md
+```text
+✓ Report: /path/to/project/.cw/runs/<run-id>/report.md
+  ✓ Status: complete — 14/14
+  ✓ Report opened. Again later: cw report --open
+  Try: cw report --show
 ```
 
 A full run on a small project takes some minutes. The test's second run
