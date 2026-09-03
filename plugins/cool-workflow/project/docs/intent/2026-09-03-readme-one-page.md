@@ -358,6 +358,19 @@ report in one step) or its doc moves made false.
 - The walkthrough harness has no TTY, so TTY-only behaviour cannot be
   checked by it. A brief that asks for TTY-only behaviour must say to
   use a pseudo-terminal.
+- The receipt's own `six-parts-in-wiki` check asked for a byte-for-byte
+  first-line match, but the spec's own method for moving the six parts
+  told the worker to do the opposite in two cases: cut a duplicate
+  sentence when the wiki page already said the same thing, and give
+  `Repo-Map.md` a fresh "one line of intro" instead of the README's own
+  sentence, since it was designed as a new page, not a moved one. A
+  check written against a first-line match and a method written to
+  reword or replace that same first line cannot both be followed at
+  once — work that did exactly what the spec's move method asked could
+  never pass the spec's own first-line check. Reworded the check to
+  what the spec meant: each of the six parts is present in its wiki
+  page, where a twin sentence the page already had, or a designed new
+  page, counts. The evidence did not change, only the yardstick.
 
 A dead-export sweep merged separately as a source cleanup, trying to pay
 for the report feature's runtime lines: #656 538f6e70.
