@@ -1,0 +1,59 @@
+{
+  "program": "2026-09-03-readme-one-page",
+  "commit": "375f50adea98db3426484f2d11e0aec79357e656",
+  "wikiCommit": "1b53601025b1733f5e1643389f7ce5d13e7f0546",
+  "version": "0.2.7",
+  "startedAt": "2026-09-03T04:53:09Z",
+  "finishedAt": "2026-09-03T05:02:28Z",
+  "checks": [
+    {
+      "id": "readme-under-cap",
+      "pass": true,
+      "command": "wc -l README.md",
+      "seen": "119 <= 120. (117 before this PR's one-line core-path fix; +2 for that fix, since a blank separator line was added along with the sentence.)"
+    },
+    {
+      "id": "readme-tests-pass",
+      "pass": true,
+      "command": "node test/readme-trust-claim-smoke.js && node test/claude-p-agent-wrapper-smoke.js && node test/readme-sync-smoke.js",
+      "seen": "readme-trust-claim-smoke: ok. claude-p-agent-wrapper-smoke: ok (input.md -> prompt; read-only claude; result persisted; provenance forwarded; fail-closed; docs guarded). readme-sync-smoke: ok (npm README mirrors GitHub; absolute URLs; drift fails closed; idempotent)."
+    },
+    {
+      "id": "citations-resolve",
+      "pass": true,
+      "command": "node scripts/citation-check.js",
+      "seen": "citation-check: 62 docs (200 path citations), 667 source files scanned, all resolve."
+    },
+    {
+      "id": "six-parts-in-wiki",
+      "pass": true,
+      "command": "For each of the six moved README parts, grep its original first line (read from README.md at c7bc1510^, the commit before the one-page cut) against its destination wiki page.",
+      "seen": "4 of 6 carry the moved part's first line byte for byte: How It Works -> Architecture.md (\"CW is a small TypeScript tool with **zero runtime dependencies**. It drives\"); What You Can Run -> Workflow-Apps.md (\"| Workflow | What it produces |\"); Can You Trust the Report -> Trust-And-Audit.md (\"CW does not run the model...Your agent signs its findings\"); Use It From Your Editor -> MCP-And-Manifests.md under \"From your editor\" (\"CW offers the same runtime over MCP...\", bold markers dropped by the earlier move, prose unchanged). The other 2 carry the same content in different wording, both by design recorded in the spec itself: Why Cool Workflow -> Mental-Model.md kept the page's own pre-existing opening (\"Most agent frameworks take a task as one long prompt and hope for the best\") instead of inserting the README's near-duplicate sentence, per the spec's own step 2 (\"cut duplicates found in step 1\"); Repo Map -> Repo-Map.md opens with a fresh \"one line of intro\" (\"What every top-level folder and file is for, one line each...\") rather than the README's original sentence, per the spec's own Paths-weighed choice to make Repo-Map.md a new page, not a moved one. No content is missing from the wiki in either case."
+    },
+    {
+      "id": "wiki-pages-equal",
+      "pass": true,
+      "command": "git clone https://github.com/coo1white/cool-workflow.wiki.git into a FRESH directory (not the clone the push came from), then diff -rq against plugins/cool-workflow/project/docs/wiki/",
+      "seen": "Fresh clone HEAD is 1b53601025b1733f5e1643389f7ce5d13e7f0546, matching `git ls-remote https://github.com/coo1white/cool-workflow.wiki.git master`. diff -rq printed 0 lines starting \"differ\" for any of the 16 shared pages (Architecture.md, Commands-or-API.md, FAQ.md, Getting-Started.md, Glossary.md, Home.md, MCP-And-Manifests.md, Mental-Model.md, Operations.md, Quickstart.md, Recovery-And-Restore.md, Repo-Map.md, Trust-And-Audit.md, User-Guide.md, Workflow-Apps.md, _Sidebar.md) -- all byte-equal. The only diff -rq lines were \"Only in <fresh clone>\" for the wiki's own deep/GitHub-Showcase-* pages and assets/, which are not part of the repo's 16-page source set."
+    },
+    {
+      "id": "md-count",
+      "pass": true,
+      "command": "node scripts/growth-budget-check.js",
+      "seen": "growth-budget-check: md=135/135, src-comments=7254/7571, within budget, frozen=24 paths within ceiling."
+    },
+    {
+      "id": "agent-table",
+      "pass": true,
+      "command": "grep -n \"^| \" README.md; grep -n \"demo.gif\" README.md plugins/cool-workflow/README.md",
+      "seen": "One table under \"Works with your agent\" (lines 44-56): 6 rows checked with a working icon and one short note each (Claude Code -claude, Codex CLI -codex, Muse Code -muse, OpenCode -opencode, Gemini -gemini through opencode, DeepSeek -deepseek through opencode or an HTTP endpoint), then 5 rows marked not yet (Cursor, GitHub Copilot CLI, Aider, Qwen Code, Kimi). No second agent table anywhere else in the file. grep for demo.gif and demo-tamper.gif returned no matches in either README.md or plugins/cool-workflow/README.md."
+    },
+    {
+      "id": "report-open",
+      "pass": true,
+      "command": "Copied the walkthrough sample (newuser/sample) to a scratch directory, rewrote the absolute paths baked into its one run's state.json to point at the copy (a raw file copy keeps the run's own recorded repo/paths pointing at the original, which cw reads verbatim), then ran `CW_OPENER=<stub> node dist/cli.js report --open` inside the copy with no run id.",
+      "seen": "Exit 0. report.html was written next to the run's report.md inside the COPY (not the original sample), 58313 bytes, real content (h1/ul/table markup, escaped text, the run's true evidence paths rewritten to the copy). The opener stub's log held exactly the report.html path cw passed it, matching byte for byte. The original newuser/sample directory was left untouched (verified with `git status --short` there after the run: no report.html, no other change)."
+    }
+  ],
+  "verdict": "pass"
+}
