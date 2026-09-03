@@ -383,4 +383,4 @@ for the report feature's runtime lines: #656 538f6e70.
 | The wiki takes the six parts | merged | #654 e1fbf070 |
 | Open the report in one step | merged | #655 963409b1 |
 | The README is one page | merged | #658 827715ba |
-| Closing ledger, wiki publish, receipt | open | (fill in after PR opens) |
+| Closing ledger, wiki publish, receipt | open | #659 |
