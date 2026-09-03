@@ -14,6 +14,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reporter = void 0;
 exports.createReporter = createReporter;
+exports.formatQuickstartSummary = formatQuickstartSummary;
 const term_1 = require("./term");
 function isTTY(stream) {
     return Boolean(stream.isTTY);
@@ -59,3 +60,27 @@ function createReporter(stream) {
 }
 /** The default reporter writes the orchestration view to stderr. */
 exports.reporter = createReporter(process.stderr);
+/** The `cw -q`/`cw quickstart` end-of-run summary: wired in by
+ *  shell/pipeline-cli.ts's formatQuickstartHuman, called ONLY on a real
+ *  terminal, never for --json or a piped run (the CLI dispatcher's own
+ *  TTY gate — cli/dispatch.ts's shouldRenderHuman). Styled against
+ *  stdout, since that is the stream this text lands on (unlike the
+ *  stderr-only StderrReporter above). `opened` says whether the report
+ *  was just opened in the browser, so the hint line matches what really
+ *  happened. */
+function formatQuickstartSummary(f, opened) {
+    const out = process.stdout;
+    const counts = typeof f.completedWorkers === "number" && typeof f.plannedWorkers === "number" ? ` — ${f.completedWorkers}/${f.plannedWorkers}` : "";
+    const lines = [`${(0, term_1.green)("✓", out)} Report: ${f.reportPath}`];
+    if (f.status === "complete") {
+        lines.push(`  ${(0, term_1.green)("✓", out)} Status: complete${counts}`);
+    }
+    else {
+        lines.push(`  ${(0, term_1.yellow)("!", out)} Status: ${f.status}${counts}`);
+        if (f.agentConfigured === false)
+            lines.push(`  ${(0, term_1.tryHint)("cw doctor", out)}`);
+    }
+    lines.push(opened ? `  ${(0, term_1.green)("✓", out)} Report opened. Again later: cw report --open` : `  ${(0, term_1.nextHint)("cw report --open", out)}`);
+    lines.push(`  ${(0, term_1.dim)("Try:", out)} cw report --show`);
+    return lines.join("\n");
+}

@@ -14,7 +14,6 @@ exports.dim = dim;
 exports.green = green;
 exports.yellow = yellow;
 exports.red = red;
-exports.cyan = cyan;
 exports.doctorGlyph = doctorGlyph;
 exports.tryHint = tryHint;
 exports.nextHint = nextHint;
@@ -43,7 +42,6 @@ const ansi = {
     green: "\x1b[32m",
     yellow: "\x1b[33m",
     red: "\x1b[31m",
-    cyan: "\x1b[36m",
 };
 function style(code, text, stream) {
     if (!colorEnabled(stream))
@@ -64,9 +62,6 @@ function yellow(text, stream) {
 }
 function red(text, stream) {
     return style(ansi.red, text, stream);
-}
-function cyan(text, stream) {
-    return style(ansi.cyan, text, stream);
 }
 /** Returns the styled glyph + label for a doctor check severity. */
 function doctorGlyph(status, stream) {

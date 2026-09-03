@@ -266,6 +266,11 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
         const exitCode = (result.mode === "check" && result.ok === false) || bundleFailed ? 1 : undefined;
         return { json: result, exitCode };
     },
+    // UI/UX fix: a real terminal used to get raw JSON even outside
+    // --json — see shell/pipeline-cli.ts's formatQuickstartHuman for the
+    // short summary + auto-open this now renders instead (piped/--json
+    // output is untouched; see cli/dispatch.ts's shouldRenderHuman).
+    humanRender: (json) => loadPipelineCli().formatQuickstartHuman(json),
     // UI/UX fix: `cw help quickstart` used to list only the one-line
     // summary above, so a first-run user had no way to learn these flags
     // without reading source. Real flag names verified against

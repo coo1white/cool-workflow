@@ -13,6 +13,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as readlinePromises from "node:readline/promises";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
+import { wantsJson } from "../core/util/cli-args";
+import { safeJsonStringify } from "../core/format/safe-json";
 import { plan } from "./pipeline";
 import { loadWorkflowApp, showWorkflowApp, loadWorkflowAppRecordById, isTrustedAppSourcePath, WorkflowAppNotFoundError } from "./workflow-app-loader";
 import { LoadedWorkflowApp } from "../core/workflow-apps/app-schema";
@@ -23,6 +25,8 @@ import { recordWorkerOutput, showWorkerManifest, getWorkerScope } from "./worker
 import { parseUsageFromArgs } from "./observability";
 import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store";
 import { writeReport } from "./report";
+import { ensureAndOpenReportHtml } from "./report-view-cli";
+import { formatQuickstartSummary } from "./reporter";
 import { WorkflowRun } from "../core/state/types";
 import { agentConfigured, resolveAgentConfig } from "./agent-config";
 import { materializeRemote, isRemoteUrl, validateRemoteUrl, gitAvailable, RemoteSource } from "./remote-source";
@@ -577,6 +581,22 @@ export async function quickstartRun(
     hint = `${hint ? `${hint} ` : ""}--bundle skipped: the run did not complete (status=${result.status}); no bundle was sealed.`;
   }
 
+  // The foolproof step (the operator's own order): a real terminal, never
+  // under --json, gets its report opened by itself — no path, no id
+  // typed. `reportOpened` is stamped ONLY on that one path, so `--json`
+  // and a piped run keep the exact same payload as before this existed
+  // (the safety rail). `--no-open`/CW_NO_OPEN=1 turns it off; this never
+  // runs off a TTY at all (the Rule of Silence).
+  let reportOpened: boolean | undefined;
+  if (Boolean(process.stdout.isTTY) && !wantsJson(args) && !truthyFlag(args["no-open"] ?? args.noOpen) && process.env.CW_NO_OPEN !== "1") {
+    try {
+      ensureAndOpenReportHtml(result.reportPath);
+      reportOpened = true;
+    } catch {
+      /* best-effort: the terminal summary still shows without a browser */
+    }
+  }
+
   // Byte-exact to the old build's quickstart() return shape
   // (capability-core module): `appId` is the resolved app id (the
   // argument, or its architecture-review default), distinct from
@@ -596,7 +616,32 @@ export async function quickstartRun(
     ...(remoteSource
       ? { remote: { url: remoteSource.url, commit: remoteSource.commit, kind: remoteSource.kind, cached: remoteSource.cached, ...(remoteSource.ref ? { ref: remoteSource.ref } : {}) } }
       : {}),
+    ...(reportOpened ? { reportOpened } : {}),
   };
+}
+
+/** The `cw quickstart`/`cw -q` TTY human projection, wired via
+ *  wiring/capability-table/pipeline.ts's `humanRender` — called ONLY on a
+ *  real terminal with no `--json` (cli/dispatch.ts's shouldRenderHuman).
+ *  A `--check`/`--preview` payload has no `reportPath`, so it falls back
+ *  to the same compact JSON a piped run would have printed — no change
+ *  in behavior for those read-only modes. */
+export function formatQuickstartHuman(json: unknown): string {
+  const r = json as Record<string, unknown>;
+  if (typeof r.runId !== "string" || typeof r.status !== "string" || typeof r.reportPath !== "string") {
+    return safeJsonStringify(json);
+  }
+  return formatQuickstartSummary(
+    {
+      runId: r.runId,
+      reportPath: r.reportPath,
+      status: r.status,
+      completedWorkers: r.completedWorkers as number | undefined,
+      plannedWorkers: r.plannedWorkers as number | undefined,
+      agentConfigured: r.agentConfigured as boolean | undefined,
+    },
+    Boolean(r.reportOpened)
+  );
 }
 
 export function dispatchRun(args: Record<string, unknown>): Record<string, unknown> {

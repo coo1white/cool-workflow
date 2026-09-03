@@ -47,6 +47,7 @@ exports.planRun = planRun;
 exports.runDrivePreview = runDrivePreview;
 exports.runDriveStep = runDriveStep;
 exports.quickstartRun = quickstartRun;
+exports.formatQuickstartHuman = formatQuickstartHuman;
 exports.dispatchRun = dispatchRun;
 exports.recordResultRun = recordResultRun;
 exports.commitRun = commitRun;
@@ -54,6 +55,8 @@ const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const readlinePromises = __importStar(require("node:readline/promises"));
 const numeric_flag_1 = require("../core/util/numeric-flag");
+const cli_args_1 = require("../core/util/cli-args");
+const safe_json_1 = require("../core/format/safe-json");
 const pipeline_1 = require("./pipeline");
 const workflow_app_loader_1 = require("./workflow-app-loader");
 const drive_1 = require("./drive");
@@ -63,6 +66,8 @@ const worker_isolation_1 = require("./worker-isolation");
 const observability_1 = require("./observability");
 const run_store_1 = require("./run-store");
 const report_1 = require("./report");
+const report_view_cli_1 = require("./report-view-cli");
+const reporter_1 = require("./reporter");
 const agent_config_1 = require("./agent-config");
 const remote_source_1 = require("./remote-source");
 const onramp_1 = require("./onramp");
@@ -601,6 +606,22 @@ async function quickstartRun(args) {
     if (wantsBundle && result.status !== "complete") {
         hint = `${hint ? `${hint} ` : ""}--bundle skipped: the run did not complete (status=${result.status}); no bundle was sealed.`;
     }
+    // The foolproof step (the operator's own order): a real terminal, never
+    // under --json, gets its report opened by itself — no path, no id
+    // typed. `reportOpened` is stamped ONLY on that one path, so `--json`
+    // and a piped run keep the exact same payload as before this existed
+    // (the safety rail). `--no-open`/CW_NO_OPEN=1 turns it off; this never
+    // runs off a TTY at all (the Rule of Silence).
+    let reportOpened;
+    if (Boolean(process.stdout.isTTY) && !(0, cli_args_1.wantsJson)(args) && !truthyFlag(args["no-open"] ?? args.noOpen) && process.env.CW_NO_OPEN !== "1") {
+        try {
+            (0, report_view_cli_1.ensureAndOpenReportHtml)(result.reportPath);
+            reportOpened = true;
+        }
+        catch {
+            /* best-effort: the terminal summary still shows without a browser */
+        }
+    }
     // Byte-exact to the old build's quickstart() return shape
     // (capability-core module): `appId` is the resolved app id (the
     // argument, or its architecture-review default), distinct from
@@ -620,7 +641,28 @@ async function quickstartRun(args) {
         ...(remoteSource
             ? { remote: { url: remoteSource.url, commit: remoteSource.commit, kind: remoteSource.kind, cached: remoteSource.cached, ...(remoteSource.ref ? { ref: remoteSource.ref } : {}) } }
             : {}),
+        ...(reportOpened ? { reportOpened } : {}),
     };
+}
+/** The `cw quickstart`/`cw -q` TTY human projection, wired via
+ *  wiring/capability-table/pipeline.ts's `humanRender` — called ONLY on a
+ *  real terminal with no `--json` (cli/dispatch.ts's shouldRenderHuman).
+ *  A `--check`/`--preview` payload has no `reportPath`, so it falls back
+ *  to the same compact JSON a piped run would have printed — no change
+ *  in behavior for those read-only modes. */
+function formatQuickstartHuman(json) {
+    const r = json;
+    if (typeof r.runId !== "string" || typeof r.status !== "string" || typeof r.reportPath !== "string") {
+        return (0, safe_json_1.safeJsonStringify)(json);
+    }
+    return (0, reporter_1.formatQuickstartSummary)({
+        runId: r.runId,
+        reportPath: r.reportPath,
+        status: r.status,
+        completedWorkers: r.completedWorkers,
+        plannedWorkers: r.plannedWorkers,
+        agentConfigured: r.agentConfigured,
+    }, Boolean(r.reportOpened));
 }
 function dispatchRun(args) {
     const runId = String(args.runId);

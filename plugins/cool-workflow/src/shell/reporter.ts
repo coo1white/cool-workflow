@@ -70,3 +70,26 @@ export function createReporter(stream: NodeJS.WriteStream): Reporter {
 
 /** The default reporter writes the orchestration view to stderr. */
 export const reporter: Reporter = createReporter(process.stderr);
+
+/** The `cw -q`/`cw quickstart` end-of-run summary: wired in by
+ *  shell/pipeline-cli.ts's formatQuickstartHuman, called ONLY on a real
+ *  terminal, never for --json or a piped run (the CLI dispatcher's own
+ *  TTY gate — cli/dispatch.ts's shouldRenderHuman). Styled against
+ *  stdout, since that is the stream this text lands on (unlike the
+ *  stderr-only StderrReporter above). `opened` says whether the report
+ *  was just opened in the browser, so the hint line matches what really
+ *  happened. */
+export function formatQuickstartSummary(f: RunSummaryFields, opened: boolean): string {
+  const out = process.stdout;
+  const counts = typeof f.completedWorkers === "number" && typeof f.plannedWorkers === "number" ? ` — ${f.completedWorkers}/${f.plannedWorkers}` : "";
+  const lines = [`${green("✓", out)} Report: ${f.reportPath}`];
+  if (f.status === "complete") {
+    lines.push(`  ${green("✓", out)} Status: complete${counts}`);
+  } else {
+    lines.push(`  ${yellow("!", out)} Status: ${f.status}${counts}`);
+    if (f.agentConfigured === false) lines.push(`  ${tryHint("cw doctor", out)}`);
+  }
+  lines.push(opened ? `  ${green("✓", out)} Report opened. Again later: cw report --open` : `  ${nextHint("cw report --open", out)}`);
+  lines.push(`  ${dim("Try:", out)} cw report --show`);
+  return lines.join("\n");
+}

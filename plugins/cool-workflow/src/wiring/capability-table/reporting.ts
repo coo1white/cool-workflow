@@ -37,10 +37,19 @@ type MultiAgentSummaryText = OperatorRunSummary["multiAgent"];
 
 attachCliBinding("report", {
   path: ["report"],
+  helpPath: ["report", "[run-id]", "[--show|--open]"],
   jsonMode: "flag",
   handler: (args) => {
-    const runId = required(optionalArg(args.positionals[0]), "run id");
     const reportViewCli = loadReportViewCli();
+    // No id given: fall back to the newest run under `.cw/runs/`; no run
+    // at all is a one-line pointer to the tool's real starting command,
+    // never a "Missing required input" throw.
+    const runId = optionalArg(args.positionals[0]) || reportViewCli.resolveReportRunId(args.options);
+    if (!runId) return { json: { runId: null }, text: 'No run yet. Try: cw -q "<question>"\n' };
+    if (args.options.open) {
+      const opened = reportViewCli.reportOpenCli(runId, args.options);
+      return { json: opened, text: `${opened.path}\n` };
+    }
     const result = reportViewCli.reportWriteCli(runId, args.options);
     if (args.options.show || args.options.summary) {
       const stateExplosion = formatStateExplosionReport(loadStateExplosionCli().summaryShowCli(runId, args.options));
