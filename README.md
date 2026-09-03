@@ -96,7 +96,7 @@ CW does not run the model — it keeps the books. Your agent signs its findings 
 | `claude: command not found` | Install Claude Code and run again |
 | Where is my report? | `<repo>/.cw/runs/<id>/report.md`, or run `cw report --open` |
 | `Missing required input: question` | Add `-q "<question>"` |
-| Run stopped before the end | `cw --resume --run <id>` takes it to the end |
+| Run stopped before the end | `cw --resume --run <id>` takes it to the end (inside the project, or add `--repo <path>`) |
 | `... is not a git project` | Run it inside the project, or pass `--repo` |
 
 ## Learn more
