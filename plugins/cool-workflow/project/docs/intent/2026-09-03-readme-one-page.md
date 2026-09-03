@@ -350,6 +350,14 @@ report in one step) or its doc moves made false.
   `printSuccessSummary` all have test callers, the last being a byte-
   parity contract. Only `cyan` was dead. The worker's own measurement
   corrected the manager's list rather than following it.
+- The one-page cut removed a sentence another program's receipt depends
+  on. Nothing in the gates catches that: `readme-sentence` lives in a
+  receipt, not in a test. The walkthrough caught it, and this closing PR
+  put the sentence back under Quick Start step 3: "These three steps are
+  the core path. Everything else is kept working, not grown."
+- The walkthrough harness has no TTY, so TTY-only behaviour cannot be
+  checked by it. A brief that asks for TTY-only behaviour must say to
+  use a pseudo-terminal.
 
 A dead-export sweep merged separately as a source cleanup, trying to pay
 for the report feature's runtime lines: #656 538f6e70.
