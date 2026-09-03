@@ -46,6 +46,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.AGENT_CONFIG_SCHEMA_VERSION = void 0;
 exports.resolveCwHome = resolveCwHome;
 exports.agentConfigPath = agentConfigPath;
 exports.loadAgentConfigFile = loadAgentConfigFile;
@@ -60,6 +61,7 @@ const os = __importStar(require("node:os"));
 const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
 const agent_1 = require("./execution-backend/agent");
+exports.AGENT_CONFIG_SCHEMA_VERSION = 1;
 /** CW_HOME resolution: CW_HOME > XDG_STATE_HOME/cool-workflow > ~/.local/state/cool-workflow. */
 function resolveCwHome(env = process.env) {
     if (env.CW_HOME && String(env.CW_HOME).trim())

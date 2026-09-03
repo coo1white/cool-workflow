@@ -17,6 +17,8 @@ import { readJson, withFileLock, writeJson } from "./fs-atomic";
 import { compareQueue, RunQueueEntry, RunRegistry } from "./run-registry-io";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
 
+export const SCHEDULING_SCHEMA_VERSION = 1;
+
 export interface SchedulingPolicy {
   schemaVersion: 1;
   maxConcurrent: number;

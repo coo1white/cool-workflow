@@ -129,6 +129,8 @@ export interface RunRegistryPolicy {
   maxReclaimBytes?: number;
 }
 
+export const RUN_REGISTRY_SCHEMA_VERSION = 1 as const;
+
 export const DEFAULT_RUN_REGISTRY_POLICY: RunRegistryPolicy = {
   schemaVersion: 1,
   archiveOlderThanDays: 0,
