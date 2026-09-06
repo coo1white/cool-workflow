@@ -174,6 +174,12 @@ screenshot by hand from `cw workbench serve`.
   vendor flag the core path does not; packet A's line cap was about a
   third too small; `lifecycle` can be absent; report.html has no column
   alignment to keep. All fixed above before A and B started.
+- Dispatch: a Sonnet spawned with its own worktree was told to make a
+  second worktree and to push; its sandbox let it do neither, so
+  packet B stopped at a local commit (Fable pushed it) and packet A
+  made no edit in ten minutes and was stopped; the operator said
+  "你自己做" and Fable wrote packet A. Rule kept in memory: an
+  isolated worker works where it is and never pushes; Fable pushes.
 
 ## Architecture snapshot diff
 
@@ -186,8 +192,8 @@ panels"; the trust line and empty-state command in the README FAQ)
 | --- | --- | --- |
 | Design canvas | done | artifact 655668ba |
 | C archive two intents | PR open | #663 |
-| Intent + spec (this file) | open | |
+| Intent + spec (this file) | branch pushed; PR after #663 merges | claude/project-iteration-ui-redesign-d6579d |
 | Opus plan check | done: fix first, 7 fixes taken | above |
-| A ui/workbench | open | |
-| B report-html.ts | open | |
-| Acceptance + close | open | |
+| A ui/workbench | PR open; net +105, tests green | #665 |
+| B report-html.ts | PR open; net +16, tests green | #664 |
+| Acceptance + close | A and B looked at by hand (Fable); user merges | |
