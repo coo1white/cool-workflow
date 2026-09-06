@@ -22,6 +22,7 @@ import { stateExplosionReportLines } from "../core/format/state-explosion-text";
 import { summarizeCandidates } from "./candidate-scoring-io";
 import { summarizeTrustAudit, listTrustAuditEvents } from "./trust-audit";
 import { verifyTelemetryLedger } from "./telemetry-ledger-io";
+import { runLifecycle } from "./run-registry-io";
 import { summarizeMultiAgent } from "./multi-agent-io";
 import { summarizeBlackboard } from "./coordinator-io";
 import { operatorDigestInput } from "./multi-agent-operator-ux";
@@ -338,6 +339,7 @@ export function writeReport(run: WorkflowRun): string {
   // set by a --link/URL), so a report never shows two "- Source:" lines.
   // Every other app keeps the byte-identical "Repository:" (POLA).
   const sourceLabel = workflowApp?.metadata?.domain === "research" && !run.inputs.sourceUrl ? "Source" : "Repository";
+  const lifecycle = runLifecycle(run);
   const report = [
     `# ${run.workflow.title}`,
     "",
@@ -355,6 +357,7 @@ export function writeReport(run: WorkflowRun): string {
     `- Question: ${String(run.inputs.question || "")}`,
     `- Invariants: ${formatInputList(run.inputs.invariant)}`,
     `- Loop Stage: ${run.loopStage}`,
+    `- Verdict: ${lifecycle === "completed" ? "PASS" : lifecycle.toUpperCase()}`,
     "",
     "## Phase Status",
     "",

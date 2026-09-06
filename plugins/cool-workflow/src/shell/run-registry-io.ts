@@ -532,6 +532,9 @@ function lifecycleInputs(run: WorkflowRun): LifecycleInputs {
   };
 }
 
+/** The one lifecycle word for a run, the same one the registry derives. */
+export const runLifecycle = (run: WorkflowRun): RunLifecycleState => deriveLifecycle(lifecycleInputs(run));
+
 // ---------------------------------------------------------------------------
 // Home registry location
 // ---------------------------------------------------------------------------

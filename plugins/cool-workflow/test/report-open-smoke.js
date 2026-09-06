@@ -47,6 +47,11 @@ async function main() {
     assert.ok(html.includes(n), `converter output has ${n}`);
   }
 
+  // 1b. a Verdict line becomes the round stamp by the title, never a bullet.
+  const stamped = reportToHtml("# T\n\n- Run: x\n- Verdict: PASS\n");
+  assert.ok(stamped.includes('class="stamp pass"') && stamped.includes("<b>PASS</b>") && !stamped.includes("Verdict"), "verdict stamp, no verdict bullet");
+  assert.ok(!reportToHtml("# T\n\n- Run: x\n").includes('class="stamp'), "no verdict line, no stamp");
+
   // 2. no id picks the newest of two fixture runs.
   const runsCwd = tmpDir("runs");
   const runsDir = path.join(runsCwd, ".cw", "runs");
@@ -93,6 +98,7 @@ async function main() {
   assert.equal(ttyResult.reportOpened, true, "the foolproof step opened the report");
   assert.equal(fs.readFileSync(openLog, "utf8"), ttyResult.reportPath.replace(/\.md$/, ".html"), "opener stub got the report's html path");
   const summary = formatQuickstartHuman(ttyResult);
+  assert.match(fs.readFileSync(ttyResult.reportPath, "utf8"), /^- Verdict: [A-Z]+$/m, "report.md carries the one verdict line");
   assert.match(summary, /Report opened\. Again later: cw report --open/, "the end-of-run line");
   assert.match(summary, /cw report --show/, "the second hint");
 

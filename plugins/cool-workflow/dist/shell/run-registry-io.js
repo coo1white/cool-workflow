@@ -48,7 +48,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RunRegistry = exports.DEFAULT_RUN_REGISTRY_POLICY = exports.RUN_REGISTRY_SCHEMA_VERSION = void 0;
+exports.RunRegistry = exports.runLifecycle = exports.DEFAULT_RUN_REGISTRY_POLICY = exports.RUN_REGISTRY_SCHEMA_VERSION = void 0;
 exports.compareBytes = compareBytes;
 exports.compareRecords = compareRecords;
 exports.compareHistory = compareHistory;
@@ -301,6 +301,9 @@ function lifecycleInputs(run) {
         loopStage: run.loopStage,
     };
 }
+/** The one lifecycle word for a run, the same one the registry derives. */
+const runLifecycle = (run) => deriveLifecycle(lifecycleInputs(run));
+exports.runLifecycle = runLifecycle;
 // ---------------------------------------------------------------------------
 // Home registry location
 // ---------------------------------------------------------------------------
