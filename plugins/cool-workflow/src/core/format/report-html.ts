@@ -107,7 +107,7 @@ export function reportToHtml(markdown: string, title = "Report"): string {
     '<span class="font-display font-extrabold tracking-[.12em]">COOL WORKFLOW</span><span class="text-base-content/60">report</span></span>' +
     '<span class="font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60">static &middot; offline &middot; no network</span></div>';
   const prose =
-    "prose prose-invert mx-auto max-w-[820px] px-6 pb-14 pt-8 " +
+    "prose dark:prose-invert mx-auto max-w-[820px] px-6 pb-14 pt-8 " +
     "prose-h1:text-[34px] prose-h1:font-extrabold prose-h1:tracking-[-.01em] " +
     "prose-h2:border-b prose-h2:border-base-300 prose-h2:pb-1.5 prose-h2:font-mono prose-h2:text-[11px] prose-h2:font-semibold prose-h2:uppercase prose-h2:tracking-[.1em] prose-h2:text-base-content/60 " +
     "prose-table:font-mono prose-table:text-[13px] prose-th:font-normal prose-th:uppercase prose-th:text-[11px] prose-th:tracking-[.06em] prose-th:text-base-content/60 [&_tbody_tr:nth-child(even)]:bg-base-200 " +
