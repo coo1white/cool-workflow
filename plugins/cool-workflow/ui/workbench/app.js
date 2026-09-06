@@ -4,7 +4,7 @@
 // The UI holds NO state of its own and contains NO business logic: it fetches
 // the read-only JSON views from the localhost host and renders them. Every panel
 // is exactly one capability payload; refresh re-derives everything from disk.
-// The look is Tailwind + daisyUI classes only (app.css is built from them).
+// The look is Tailwind 4 + daisyUI 5 classes only (app.css is built from them).
 
 const PANEL_GROUPS = [
   { key: "graph", label: "Run graph", panels: ["operator", "multiAgent", "compact", "criticalPath"] },
@@ -27,14 +27,14 @@ const C = {
   label: "font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60",
   pill: "badge badge-outline badge-sm h-[22px] font-mono text-[11px] uppercase tracking-[.04em] text-base-content/60",
   cmd: "inline-block rounded-md border border-base-300 bg-base-300 px-2 font-mono text-[12px] leading-[1.6] text-base-content [overflow-wrap:anywhere]",
-  card: "card card-compact card-bordered bg-base-200 text-[13px] [&>*]:gap-1.5",
+  card: "card card-sm card-border bg-base-200 text-[13px] [&>*]:gap-1.5",
   block: "border-t border-base-300 px-3.5 py-2.5 first:border-t-0",
   title: "mb-1.5 font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60",
   items: "m-0 pl-[18px] font-mono text-[12px] leading-normal whitespace-pre-wrap [overflow-wrap:anywhere]"
 };
 const TONE = {
   present: "badge-success", valid: "badge-success", completed: "badge-success",
-  running: "badge-primary",
+  running: "badge-accent",
   absent: "badge-warning", stale: "badge-warning", blocked: "badge-warning",
   missing: "badge-error", bad: "badge-error", failed: "badge-error"
 };
@@ -120,12 +120,12 @@ function rawJson(data, label = "raw payload") {
 }
 
 // The stamp word comes from `view.lifecycle` alone; no key, no stamp.
-const STAMP = { completed: ["PASS", "border-primary text-primary"], blocked: ["BLOCKED", "border-warning text-warning"], failed: ["FAILED", "border-error text-error"], running: ["RUNNING", "border-primary text-primary"] };
+const STAMP = { completed: ["PASS", "border-accent text-accent"], blocked: ["BLOCKED", "border-warning text-warning"], failed: ["FAILED", "border-error text-error"], running: ["RUNNING", "border-accent text-accent"] };
 function stampFor(lifecycle) {
   if (!lifecycle) return null;
   const [word, tone] = STAMP[lifecycle] || [lifecycle, "border-base-content/40 text-base-content/60"];
   return el("div", {
-    class: `flex h-28 w-28 flex-none -rotate-[8deg] flex-col items-center justify-center gap-0.5 rounded-full border-[3px] font-mono uppercase [box-shadow:inset_0_0_0_5px_oklch(var(--b1)),inset_0_0_0_6px_currentColor] ${tone}`,
+    class: `flex h-28 w-28 flex-none -rotate-[8deg] flex-col items-center justify-center gap-0.5 rounded-full border-[3px] font-mono uppercase [box-shadow:inset_0_0_0_5px_var(--color-base-100),inset_0_0_0_6px_currentColor] ${tone}`,
     role: "img",
     "aria-label": `verdict ${word}`
   }, [
@@ -283,8 +283,8 @@ function renderFirstRun() {
     el("h2", { class: "text-[26px] font-extrabold leading-[1.2] tracking-[-.01em]", text: "Ask one question. Get a saved, cited report." }),
     el("p", { class: "text-base-content/60", text: "Run this in a repo. The report opens by itself when the run ends, and it shows up here." }),
     el("code", { class: `${C.cmd} block border-primary px-4 py-3 text-[14px]`, text: 'cw -q "<question>"' }),
-    el("ol", { class: "grid list-none grid-cols-4 gap-2.5 p-0" }, ["ask", "plan and dispatch", "verify", "report"].map((step, i) =>
-      el("li", { class: "card card-bordered card-compact bg-base-200 px-3.5 py-3 text-[13px] font-semibold" }, [
+    el("ol", { class: "grid list-none grid-cols-2 gap-2.5 p-0 md:grid-cols-4" }, ["ask", "plan and dispatch", "verify", "report"].map((step, i) =>
+      el("li", { class: "card card-border card-sm bg-base-200 px-3.5 py-3 text-[13px] font-semibold" }, [
         el("span", { class: `${C.label} mb-1 block`, text: String(i + 1) }),
         document.createTextNode(step)
       ])
@@ -298,17 +298,17 @@ function renderFirstRun() {
 const NEEDS_YOU = [
   ["problems", "candidate", "summary", "problems", "border-error text-error"],
   ["missingEvidence", "blackboard", "coordinator", "missing evidence", ""],
-  ["nextAction", "graph", "compact", "next action", "border-primary"]
+  ["nextAction", "graph", "compact", "next action", "border-accent"]
 ];
 function renderNeedsYou(view) {
-  const strip = el("section", { class: "grid grid-cols-3 gap-3", "aria-label": "what needs you" });
+  const strip = el("section", { class: "grid grid-cols-1 gap-3 md:grid-cols-3", "aria-label": "what needs you" });
   for (const [key, group, name, label, someTone] of NEEDS_YOU) {
     const panel = view.panels && view.panels[group] && view.panels[group][name];
     const fact = panel && panel.status === "present" ? INSPECTION.actionFacts(panel.data).find((f) => f.key === key) : null;
     const none = !fact || fact.items[0] === "none";
     const tone = key === "nextAction" ? someTone : none ? "" : someTone;
     const card = el("div", { class: `${C.card} ${tone}` });
-    const cardBody = el("div", { class: "card-body" }, [el("span", { class: `${C.label} ${key === "nextAction" ? "text-primary" : ""}`, text: label })]);
+    const cardBody = el("div", { class: "card-body" }, [el("span", { class: `${C.label} ${key === "nextAction" ? "text-accent" : ""}`, text: label })]);
     card.appendChild(cardBody);
     if (none) cardBody.appendChild(el("span", { class: "text-success", text: "none" }));
     else if (key === "nextAction") cardBody.appendChild(el("code", { class: C.cmd, text: fact.items[0] }));
@@ -347,7 +347,7 @@ function renderRun(view, options = {}) {
   }
   detail.appendChild(renderNeedsYou(view));
 
-  const tabs = el("div", { class: "tabs tabs-bordered", role: "tablist" });
+  const tabs = el("div", { class: "tabs tabs-border", role: "tablist" });
   for (const group of PANEL_GROUPS) {
     const active = state.activeTab === group.key;
     const btn = el("button", {
@@ -400,7 +400,7 @@ function renderRun(view, options = {}) {
 }
 
 function renderPanel(name, panel) {
-  const card = el("div", { class: "card card-bordered mb-3.5 overflow-hidden rounded-[10px] bg-base-200" });
+  const card = el("div", { class: "card card-border mb-3.5 overflow-hidden rounded-[10px] bg-base-200" });
   const head = el("div", { class: "flex flex-wrap items-center justify-between gap-3 border-b border-base-300 px-3.5 py-2.5" }, [
     el("span", { class: "text-[13px] font-semibold", text: `${name} — ${panel.capability}` }),
     el("span", { class: "mr-auto flex gap-2" }, [el("code", { class: C.cmd, text: panel.cli }), el("code", { class: C.cmd, text: panel.mcp })]),

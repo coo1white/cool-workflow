@@ -107,23 +107,23 @@ function reportToHtml(markdown, title = "Report") {
     // from them (npm run build:css). Bare tags (h1, table, pre) are styled by
     // the typography plugin's prose class on the wrapper, so the test's tag
     // checks hold. The band is fixed brand text; no run text goes in it.
-    const tones = { pass: "border-primary text-primary", warn: "border-warning text-warning", bad: "border-error text-error" };
+    const tones = { pass: "border-accent text-accent", warn: "border-warning text-warning", bad: "border-error text-error" };
     const toneName = { PASS: "pass", BLOCKED: "warn", FAILED: "bad" }[verdict || ""];
     const stamp = verdict
-        ? `<div class="stamp ${toneName || "dim"} float-right mb-3 ml-4 flex h-28 w-28 -rotate-[8deg] flex-col items-center justify-center gap-0.5 rounded-full border-[3px] font-mono text-[8px] uppercase tracking-[.2em] [box-shadow:inset_0_0_0_5px_oklch(var(--b1)),inset_0_0_0_6px_currentColor] ${toneName ? tones[toneName] : "border-base-content/40 text-base-content/60"}"><span>verifier-gated</span><b class="text-[22px] font-extrabold tracking-[.06em]">${escapeHtml(verdict)}</b><span>.cw/runs</span></div>`
+        ? `<div class="stamp ${toneName || "dim"} float-right mb-3 ml-4 flex h-28 w-28 -rotate-[8deg] flex-col items-center justify-center gap-0.5 rounded-full border-[3px] font-mono text-[8px] uppercase tracking-[.2em] [box-shadow:inset_0_0_0_5px_var(--color-base-100),inset_0_0_0_6px_currentColor] ${toneName ? tones[toneName] : "border-base-content/40 text-base-content/60"}"><span>verifier-gated</span><b class="text-[22px] font-extrabold tracking-[.06em]">${escapeHtml(verdict)}</b><span>.cw/runs</span></div>`
         : "";
-    const band = '<div class="flex h-[52px] items-center justify-between gap-5 bg-[#14120f] px-8 text-[12px] text-[#f2ede4]">' +
+    const band = '<div class="flex h-[52px] items-center justify-between gap-5 bg-neutral px-8 text-[12px] text-neutral-content">' +
         '<span class="flex items-center gap-2.5">' +
-        '<span class="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md bg-[#ef6c1f]">' +
-        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#14120f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+        '<span class="inline-flex h-[22px] w-[22px] items-center justify-center rounded-md bg-primary text-primary-content">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
         '<path d="M4 7h9"/><path d="M4 12h6"/><path d="M12 15l3 3 6-7"/></svg></span>' +
-        '<span class="font-extrabold tracking-[.12em]">COOL WORKFLOW</span><span class="text-base-content/60">report</span></span>' +
+        '<span class="font-display font-extrabold tracking-[.12em]">COOL WORKFLOW</span><span class="text-base-content/60">report</span></span>' +
         '<span class="font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60">static &middot; offline &middot; no network</span></div>';
-    const prose = "prose prose-stone dark:prose-invert mx-auto max-w-[820px] px-6 pb-14 pt-8 " +
+    const prose = "prose prose-invert mx-auto max-w-[820px] px-6 pb-14 pt-8 " +
         "prose-h1:text-[34px] prose-h1:font-extrabold prose-h1:tracking-[-.01em] " +
         "prose-h2:border-b prose-h2:border-base-300 prose-h2:pb-1.5 prose-h2:font-mono prose-h2:text-[11px] prose-h2:font-semibold prose-h2:uppercase prose-h2:tracking-[.1em] prose-h2:text-base-content/60 " +
         "prose-table:font-mono prose-table:text-[13px] prose-th:font-normal prose-th:uppercase prose-th:text-[11px] prose-th:tracking-[.06em] prose-th:text-base-content/60 [&_tbody_tr:nth-child(even)]:bg-base-200 " +
-        "prose-pre:rounded-lg prose-pre:bg-[#14120f] prose-pre:text-[#f2ede4] prose-code:rounded prose-code:bg-base-300 prose-code:px-1 prose-code:before:content-none prose-code:after:content-none prose-a:text-primary";
+        "prose-pre:rounded-lg prose-pre:bg-base-200 prose-code:rounded prose-code:bg-base-300 prose-code:px-1 prose-code:before:content-none prose-code:after:content-none prose-a:text-primary";
     return (`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${report_css_1.REPORT_CSS}</style></head>` +
         `<body class="bg-base-100 font-sans text-base-content">${band}<div class="${prose}">${stamp}${body.join("\n")}</div></body></html>`);
 }

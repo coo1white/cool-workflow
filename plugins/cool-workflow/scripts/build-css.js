@@ -1,4 +1,4 @@
-// build-css — Tailwind turns ui/workbench/app.src.css into ui/workbench/app.css,
+// build-css — Tailwind 4 + daisyUI 5 turns ui/workbench/app.src.css into ui/workbench/app.css,
 // then the same sheet becomes one TS string for report.html (core is pure:
 // no disk read at run time). Both outputs are committed, like dist/.
 const { execFileSync } = require("node:child_process");
