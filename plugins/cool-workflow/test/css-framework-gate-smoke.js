@@ -13,7 +13,11 @@ const os = require("node:os");
 const path = require("node:path");
 
 const PINS = { tailwindcss: "4.3.3", daisyui: "5.7.28" };
-const BANNED = /^(@mantine\/|@heroui\/|@mui\/|antd$|element-plus$|primevue$|vuetify$|bootstrap$)/;
+// Present or not, but exact when present (the workbench sub-package will list them).
+const PINS_IF_PRESENT = { react: "19.2.8", "react-dom": "19.2.8", next: "16.3.0" };
+// UI libraries from TECH-SPEC section 5, plus every HTML framework that is
+// not the one in its 6b row (React 19.2.8 + Next 16.3.0, exact pins).
+const BANNED = /^(@mantine\/|@heroui\/|@mui\/|antd$|element-plus$|primevue$|vuetify$|bootstrap$|vue$|nuxt$|svelte$|@angular\/|solid-js$|preact$)/;
 const ENTRY = path.join("ui", "workbench", "app.src.css");
 const BUILT = path.join("ui", "workbench", "app.css");
 const SKIP = new Set(["node_modules", "dist", ".git", ".cw", "tmp"]);
@@ -34,8 +38,9 @@ function gate(root) {
   const faults = [];
   const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-  for (const name of Object.keys(deps)) if (BANNED.test(name)) faults.push(`second UI library: ${name}`);
+  for (const name of Object.keys(deps)) if (BANNED.test(name)) faults.push(`UI library or HTML framework: ${name}`);
   for (const [name, pin] of Object.entries(PINS)) if (deps[name] !== pin) faults.push(`${name} is ${deps[name]}, pin is ${pin}`);
+  for (const [name, pin] of Object.entries(PINS_IF_PRESENT)) if (name in deps && deps[name] !== pin) faults.push(`${name} is ${deps[name]}, pin is ${pin}`);
   for (const f of cssFiles(root)) if (f !== ENTRY && f !== BUILT) faults.push(`css outside the entry file: ${f}`);
   const entry = fs.readFileSync(path.join(root, ENTRY), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   // A block is "<head> {"; every head must be one of the allowed at-rules.
@@ -52,10 +57,10 @@ assert.deepStrictEqual(gate(root), [], "the plugin tree must pass the CSS gate")
 // The gate must still bite: a bad copy in a temp dir goes red on all four.
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-css-gate-"));
 fs.mkdirSync(path.join(tmp, "ui", "workbench"), { recursive: true });
-fs.writeFileSync(path.join(tmp, "package.json"), JSON.stringify({ devDependencies: { tailwindcss: "4.0.0", daisyui: PINS.daisyui, "@mantine/core": "9.0.0" } }));
+fs.writeFileSync(path.join(tmp, "package.json"), JSON.stringify({ devDependencies: { tailwindcss: "4.0.0", daisyui: PINS.daisyui, "@mantine/core": "9.0.0", react: "^19" } }));
 fs.writeFileSync(path.join(tmp, ENTRY), '@import "tailwindcss";\n.btn { color: red; }\n');
 fs.writeFileSync(path.join(tmp, "ui", "extra.css"), "");
 const red = gate(tmp);
 fs.rmSync(tmp, { recursive: true, force: true });
-assert.strictEqual(red.length, 4, red.join("\n"));
+assert.strictEqual(red.length, 5, red.join("\n"));
 console.log("css-framework-gate-smoke: PASS");
