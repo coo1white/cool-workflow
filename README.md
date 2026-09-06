@@ -83,6 +83,8 @@ The report opens in your browser by itself when the run ends. Later, open it aga
 cw report --open
 ```
 
+Want to see one first? A real run's Workbench and report, rebuilt on every push: **[coo1white.github.io/cool-workflow](https://coo1white.github.io/cool-workflow/)** (the report is at [/report.html](https://coo1white.github.io/cool-workflow/report.html)).
+
 These three steps are the core path. Everything else is kept working, not grown.
 
 ## Can You Trust the Report?
