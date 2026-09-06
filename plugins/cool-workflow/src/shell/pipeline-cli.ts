@@ -593,7 +593,7 @@ export async function quickstartRun(
       ensureAndOpenReportHtml(result.reportPath);
       reportOpened = true;
     } catch {
-      /* best-effort: the terminal summary still shows without a browser */
+      /* opener missing or failed: no reportOpened, the summary still shows */
     }
   }
 
