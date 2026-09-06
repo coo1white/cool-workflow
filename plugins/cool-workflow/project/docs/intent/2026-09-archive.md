@@ -2009,3 +2009,542 @@ for the report feature's runtime lines: #656 538f6e70.
 | Open the report in one step | merged | #655 963409b1 |
 | The README is one page | merged | #658 827715ba |
 | Closing ledger, wiki publish, receipt | open | #659 |
+
+# Three gate fixes from the rot cleanup backlog
+
+Intent and spec in ONE file. Closes the three BACKLOG rows the rot
+cleanup program (`2026-09-02-rot-cleanup.md`) left behind. Operator's
+order: clear all three, fully automated, same playbook.
+
+## Intent
+
+Three gates lie a little today. The onramp contract calls a comment
+edit a code change. A release rehearsal installs without the lockfile
+that every other install uses. The dist drift check trusts a build
+cache that can skip the very files it should rebuild. Each is a gate
+that can say "ok" for the wrong reason or "stop" for no reason.
+
+## Design rules (same as the rot program)
+
+R1 files not lines in comments; R2 named paths exist; R3 net small,
+header comments <= 15 lines, this file is the only new .md; R4 one PR
+per item, Chain line + before/after in the body; R5 Basic English.
+Each PR deletes its own BACKLOG row in `project/docs/BACKLOG.md` —
+that is what "the row ships" means. The three PRs touch different
+files and may run in parallel.
+
+## PR A — the onramp contract reads the diff, not the file list
+
+Files: `src/shell/onramp.ts`, `scripts/onramp-check.js`,
+`src/shell/doctor.ts` (the `--onramp` call path),
+`test/onramp-check-smoke.js`.
+
+1. `resolveChangedFiles` gains a second output, `commentOnly:
+   string[]`: every changed `.ts`/`.js`/`.mjs` file whose diff lines
+   (`git diff -U0 <base> -- <file>`, the `+`/`-` lines, not the
+   `+++`/`---` headers) are ALL comment or blank. A comment line is
+   one whose trimmed text starts with `//`, `/*`, `*` or `*/`. An
+   untracked file is never comment-only. Any other file kind is never
+   comment-only. Put the line test in one small exported pure
+   function that takes the patch text, so the smoke can feed it a
+   string.
+2. `evaluateOnrampContract(files, { cwd, commentOnly })`: a file in
+   `commentOnly` is left out of the runtime, app, type, script and
+   surface sets. It stays in `changedFiles` and in the smoke
+   recommendations. No rule changes otherwise.
+3. `scripts/onramp-check.js` and the doctor path pass `commentOnly`
+   through. With no `commentOnly` given, behavior is exactly today's.
+4. Smoke cases: (a) a `src/shell/*.ts` change with no test change
+   fails `runtime-smoke-required`, and the same file in `commentOnly`
+   passes; (b) a surface file in `commentOnly` with no doc change
+   passes; (c) the pure function: a patch of `//` lines is comment
+   only; a patch with one code line is not; a line `"http://x"`
+   inside a string is code, not a comment; a `/* ... */` block edit
+   is comment only; a patch that removes a code line is not.
+5. If a man page describes the contract's rules today, add one
+   sentence there; if none does, add none.
+
+Budget: src net <= +60, smoke net <= +45. The header comment on
+`onramp.ts` must not grow.
+
+## PR B — the bump rehearsal installs from the lockfile
+
+File: `scripts/verify-bump-reproduction.js`. The scratch worktree is
+a checkout of a commit, and `package-lock.json` is tracked, so the
+lockfile is there. Change the install step to `npm ci
+--ignore-scripts`. Before it, fail closed with one clear line if the
+scratch worktree has no `package-lock.json`. The proof is the
+existing `test/verify-bump-reproduction-smoke.js`, which runs the
+real script end to end — quote its pass in the PR body, and also
+quote one run of the script by hand. No new assertion on the script's
+text. Budget: net <= +6.
+
+## PR C — the dist drift check builds from nothing
+
+Files: `scripts/dist-drift-check.js`, one new
+`test/dist-drift-check-smoke.js`. Today `tsc` is incremental
+(`tsBuildInfoFile: .cache/tsconfig.tsbuildinfo`): with a warm cache
+and unchanged src, the build emits nothing, so a `dist/` file edited
+by hand is not rebuilt and the check says "matches". Fix: delete
+`.cache/tsconfig.tsbuildinfo` before the rebuild (only that file),
+and say so in one stdout line. Smoke: in a copy of the package (or
+the package itself with the file put back after — the existing
+smokes show both ways), append one comment line to one `dist/*.js`
+file, run the check, assert exit 1 and that the file is named as
+`changed:`; then restore and assert exit 0. Update the header comment
+in three lines at most, no growth past 15. Budget: script net <= +12,
+smoke <= +50.
+
+## Acceptance
+
+- Manager (per PR): CI green on all platforms, CodeQL green,
+  before/after in the body, budget held, Chain line, own BACKLOG row
+  deleted, arm auto-merge only after CodeQL is green.
+- Architect (program): on main, `release:check` 18/18 and
+  `onramp:check` on a comment-only branch reports ok; `dist:check`
+  fails on a hand-edited dist file; `verify-bump-reproduction` passes
+  on the real 0.2.2 pair; BACKLOG has none of the three rows; md count
+  132/135.
+
+The half of the first BACKLOG row about test strings stays as it was:
+`citation-check` rule (c) reads `//` lines only in `test/`, by design,
+because fixture strings use fake paths. That fact lives here now, not
+in BACKLOG.
+
+## What this spec got wrong (recorded at close)
+
+1. PR A listed `src/shell/doctor.ts` as a file to change. The
+   `--onramp` call path is `buildDoctorOnramp` inside `onramp.ts`, so
+   `doctor.ts` needed no edit.
+2. PR C's 15-line header cap pushed out one true sentence: the check
+   is git-independent on purpose, and committed-vs-built drift is
+   held by the porcelain step in `.github/workflows/ci.yml`. That
+   pointer is now nowhere in the script. R3's cap is for growth; it
+   should not cut a sentence that explains a design choice.
+3. R4 said each PR deletes its own BACKLOG row, and three PRs did, on
+   three ADJACENT lines of one table. The second and third merges
+   conflicted on context. Rule from it: merge `origin/main` into the
+   open PR branch, never rebase or force-push it; or land such rows
+   one PR at a time.
+4. The spec did not say "run `test:gate`, not the sampled `npm
+   test`, before push". PR B's `npm ci` broke an existing fixture in
+   `test/verdict-signing-workflow-smoke.js` (it wrote no lockfile) and
+   the 35-smoke sample missed it; the worker found it on a direct run
+   and fixed the fixture without weakening the assertion. CI runs the
+   full gate, so it would have been caught there — but a round later.
+   Third such case in two programs: the rule now goes in every brief.
+
+## Status ledger
+
+Program COMPLETE 2026-09-02. Main `d1d683d0` after PR A.
+
+| Item | State | PR |
+|---|---|---|
+| Intent + spec (this file) | merged | #614 c9098b1a |
+| PR A onramp contract reads the diff | merged | #617 d1d683d0 |
+| PR B bump rehearsal installs from the lockfile | merged | #615 867ad21e |
+| PR C dist drift check builds from nothing | merged | #616 5f754017 |
+
+Closing numbers, measured by the architect on `d1d683d0` and by the
+manager on each head: BACKLOG 12 rows -> 9, the three program rows
+gone; `onramp:check` on a comment-only edit to `src/shell/drive.ts`
+reports ok with the file in `commentOnly`, and the same file with one
+code line still fails `runtime-smoke-required`; `dist:check` on a
+hand-edited `dist/cli.js` reports `changed: cli.js` (before: "matches");
+`verify-bump-reproduction` smoke passes on the real 0.2.2 pair;
+`release:check` 18/18; `test:gate` 265/265 (one new smoke);
+`growth:check` md 132/135, src-comments 7177 -> 7188. Budgets: A src
++47/60, smoke +28/45; B +4/6; C +2/12, smoke 45/50. Rounds 1, 1, 1.
+PR A was opened by the operator by hand: the `gh pr create` step was
+refused by the permission classifier in two agent sessions, and no
+agent routed around it. Nothing pushed to main; every PR merged on
+green CI with CodeQL.
+
+# Rot cleanup: doors that are not there
+
+Intent and spec in ONE file (size discipline: one .md for the chain).
+
+## Intent
+
+The 0.2.7 release gate was rejected by a test that still waited for a
+check that was taken out long ago (#598). The operator asked: how much
+more code "knocks on doors that are not there", and how much is rot?
+An audit on 2026-09-02 (main `dbcc635e`, read-only scan + two agents)
+gave the numbers below. Ruling from the operator: clean ALL of it, in
+the four PRs below, then put a gate on it so it cannot come back.
+
+## Findings (measured, main dbcc635e)
+
+- `src/shell/onramp.ts` `CURATED_SMOKE_MAP`: 19 of 33 path patterns
+  name files that are not in the tree (old flat names from before the
+  v2 rebuild: `src/drive.ts`, `src/capability-core.ts`,
+  `src/scheduler.ts`, `src/multi-agent`, ...). `cw doctor --onramp`
+  routes changed files to smokes by this table, so those rows never
+  fire. The header comment says the table was "fixed"; two rows were.
+  No test checks the table against the tree.
+- `test/run-all.js` `AGENT_ENV_KEYS` strips agent env from every smoke
+  child, but not `CW_RELEASE_VERDICT_PRIVKEY`. 78 of 80 smokes pass
+  `process.env` through. The same event happened before with
+  `CW_AGENT_COMMAND` (see the comment at the list); the list is the one
+  place to close it.
+- Live docs name 7 source files that are not in the tree, as bare
+  names with no directory (`capability-core.ts`,
+  `capability-dispatcher.ts`, `capability-registry.ts`,
+  `command-surface.ts`, `gc.ts`, `orphans.ts`, `run-registry.ts`).
+  `citation-check` only reads tokens that have a "/", so these pass.
+- 3 exported functions have no caller anywhere: `topologyRunShowCli`
+  (`src/shell/multi-agent-cli.ts`), `writeTrustAuditIndexPlaceholder`
+  (`src/shell/trust-audit.ts`), `declaredMcpToolsList`
+  (`src/wiring/capability-table/parity.ts`). 7 more are exported but
+  used only in their own file: `completionWords`, `mcpToolAuthority`,
+  `startToolProcessWorker`, `contentDigest`, `reconstructArtifact`,
+  `leaseComplete`, `leaseRelease`.
+- `test/multi-agent-eval-replay-harness-smoke.js` is 4 lines that
+  `require` another smoke: one test, run twice in the gate.
+- Cites of the form `path:line`: 86 in `src/`, 162 in `test/`. Most
+  name old-build files (`src/orchestrator.ts` 15, `src/drive.ts` 9,
+  `src/cli/command-surface.ts` 9, `src/capability-core.ts` 7, ...).
+  About 66 comment lines in src/scripts and 27 in test name a file that
+  is gone. 301 "old build" notes sit in 114 src files.
+- Clean, checked, no work: 0 orphan scripts (56), 0 skipped tests
+  (459), 0 doc/CLI drift over 232 capability rows, 0 documented env
+  vars that nothing reads, and the "one dead regex branch" class of
+  #598 has exactly one instance (now fixed).
+
+## Design rules (bind all four PRs)
+
+- R1. A path in a comment names a FILE, never a line. Line numbers rot
+  first; a file name or a symbol name is enough.
+- R2. Every path that code or a live doc names must exist in the tree,
+  and a gate must say so.
+- R3. Net lines for the program: negative. New .md: zero past this
+  file. Header comments <= 15 lines.
+- R4. One PR per item, no bundling. Each PR body carries the Chain
+  line and the measured before/after numbers.
+- R5. Basic English in all committed prose (the ballast rule).
+
+## PR 1 — hermetic gate + live onramp table
+
+Files: `test/run-all.js`, `src/shell/onramp.ts`,
+`test/onramp-check-smoke.js`. Runs in parallel with PR 2.
+
+- Add `CW_RELEASE_VERDICT_PRIVKEY` to the strip list in `run-all.js`;
+  update the comment above it so it names both events. Keep the
+  per-test scrub from #598 (it guards a standalone `node test/x.js`).
+- In `CURATED_SMOKE_MAP`, put each dead pattern at the file's true
+  current place (find each with `ls`/`grep`; list the old -> new map in
+  the PR body). Drop a pattern only when nothing took the old file's
+  place. Fix the header comment that says "fixed".
+- Export `CURATED_SMOKE_MAP`. In `test/onramp-check-smoke.js` assert:
+  every pattern is an existing file, or a prefix of at least one
+  existing file; every named smoke exists under `test/`. No new test
+  file.
+- Budget: net <= +40 lines.
+
+## PR 2 — dead doors: docs, dead exports, doubled smoke
+
+- Put each of the 7 bare names in live docs at the true file, WITH its
+  directory, in backticks — so `citation-check` reads it from now on.
+  Read the sentence around each to find the file that holds that code
+  now. `docs/release-history.md` and `project/docs/**` stay as they
+  are (history).
+- Delete the 3 functions with no caller. Take `export` off the 7 used
+  only in-file. Do NOT touch the 210 exported types (named shapes; out
+  of scope).
+- Delete `test/multi-agent-eval-replay-harness-smoke.js`; fix any doc
+  that names it (`docs/multi-agent-eval-replay-harness.7.md` may).
+- Run `build`, `check`, `test`, and the doc gates that `release:check`
+  runs (`gen:manifests --check`, `parity:check`, `citation:check`);
+  `sync:readme` if the README changed.
+- Budget: net negative.
+
+## PR 3 — old addresses out of comments
+
+After PR 1 and PR 2 merge. Comments only; no code change.
+
+- Every `path:line` cite in `src/` (86) and every cite on a COMMENT
+  line in `test/` (fixture trees in strings use fake paths like
+  `src/a.ts` — leave strings alone): drop the `:line` part. If the file
+  is gone, name the file that holds the code now, or the symbol, or
+  drop the cite when the sentence stands without it.
+- "old build" / "byte-exact port" wording may stay where it states a
+  constraint; the dead path and the line number go.
+- Budget: net <= 0.
+
+## PR 4 — the gate
+
+After PR 3 merges. Files: `scripts/citation-check.js`,
+`test/citation-check-smoke.js`.
+
+- Extend `citation-check` with four rules:
+  (a) live docs: a bare backtick name ending `.ts`/`.js` must match a
+  file basename under `src/`, `scripts/`, `test/`, or `apps/`;
+  (b) `src/**/*.ts` and `scripts/**/*.js`: every repo path token, with
+  or without a `:line` suffix, must exist in the tree. Token shape
+  (corrected 2026-09-02 — the first form, `(src|...|docs)/...`, matched
+  INSIDE `project/docs/rebuild/PLAN.md` and so flagged a true path):
+  take the whole path run — the longest `[A-Za-z0-9_./-]+` run that
+  ends in `.ts`, `.js`, `.mjs`, `.json` or `.md` and is not preceded by
+  a word character, `/`, `.` or `-`. It is a repo path when its first
+  segment is one of `src`, `scripts`, `test`, `apps`, `docs`,
+  `project`, `v2`, `plugins`, `.github`. Resolve it against the plugin
+  root, then the repo root (the two roots `citation-check` uses now).
+  `project/docs/rebuild/PLAN.md` is one token and resolves;
+  `docs/rebuild/PLAN.md` is one token and does not;
+  (c) `test/**/*.js`: same as (b), but only on lines that start with
+  `//`;
+  (d) a `:line` suffix in (b) or (c) is a failure by itself (R1).
+  Placeholders (`<>`, `*`), `project/docs/**`, and `release-history.md`
+  stay excluded as now.
+- One smoke case per rule, hermetic through `CW_CITATION_DOCS` /
+  `CW_CITATION_ROOT` (add one more override for a fake source tree if
+  needed).
+- It runs where `citation:check` runs now (`release:check`, and `npm
+  test` through the smoke). Run it first on main after PR 3; fix any
+  leftover in this same PR (should be small).
+- Header <= 15 lines. Budget: net <= +70.
+
+## PR 5 — TypeScript 7 install path in CI (added 2026-09-02)
+
+Operator's order: "the whole project on TS7". Checked on main: the
+package is already on TypeScript 7.0.2 (npm latest; bumped in #533),
+tsconfig is NodeNext/ES2022, the lockfile holds all 20
+`@typescript/typescript-<platform>` packages, `tsc --version` says
+7.0.2, `npm run check` is clean with no deprecation notes, no script
+uses the TypeScript JS API, and no live doc names TS 5. One thing is
+NOT on TS7 terms: TS7's compiler is a native binary picked per
+platform, but `ci.yml` (3 jobs) and `bench.yml` still install with
+`npm install --no-package-lock --ignore-scripts`, so each run asks npm
+to pick the platform package fresh. PR #601's macOS job failed in 15s
+that way ("Unable to resolve @typescript/typescript-darwin-arm64").
+`release-gate.yml` and `npm-publish.yml` already use `npm ci` and say
+in a comment not to go back.
+
+- Files: `.github/workflows/ci.yml` (lines 34, 92, 129),
+  `.github/workflows/bench.yml` (line 35) — at the REPO root, not
+  under the package.
+- Change: each `npm install --no-package-lock --ignore-scripts` becomes
+  `npm ci --ignore-scripts`. The jobs already run with
+  `working-directory: plugins/cool-workflow`, so no `--prefix`.
+- Keep `npm audit --audit-level=high` as it is.
+- Proof in the PR body: `npm ci --ignore-scripts` clean on the
+  executor's machine from a fresh `node_modules`; the CI run of the PR
+  itself green on Node 18, 22, 24 and macOS.
+- No .md, no code. May run in parallel with PR 3 / PR 4 (disjoint).
+
+## PR 6a / 6b — dead paths with no line number (added 2026-09-02)
+
+Two corrections to this spec, found by the manager while running the
+PR 4 rules as a script against the PR 3 branch:
+
+1. The PR 4 line "fix any leftover in this same PR (should be small)"
+   was wrong. PR 3 removed every `path:line` cite (86 -> 16, the 15 in
+   four surface files plus one sample string), but rules (b) and (c)
+   also flag paths with NO line number that name a file that is gone:
+   386 sites (src 280, scripts 9, test comment lines 97). 70 of them
+   are `docs/rebuild/PLAN.md`, which exists at
+   `project/docs/rebuild/PLAN.md`; most of the rest are old-build
+   provenance notes ("byte-exact port of src/drive.ts" — top:
+   `src/capability-core.ts` 16, `src/drive.ts` 10, `src/state.ts` 9,
+   `src/dispatch.ts` 9); a few are sample paths in test comments.
+   The audit's "about 66 + 27" only counted a short list of old names.
+2. The onramp contract (`release:check`, `evaluateOnrampContract`)
+   counts a comment-only edit to a surface file as a surface change
+   and demands a doc change. PR 3 hit it on four files with no honest
+   doc change to make. Ruling: no exemption door, no diff-aware
+   rewrite in this program; the surface files move to PR 4, which has
+   a true doc line of its own. The contract's limit (path strings
+   only) goes to BACKLOG at close.
+
+Ruling on the 386: the operator's order is "clean ALL of it", so all
+of them go, split by directory so that three PRs never touch the same
+file and no comment-only PR touches a surface file (the split follows
+`isSurfaceFile` in `src/shell/onramp.ts`). Gate lands last, as the
+proof of zero.
+
+- PR 6a: every dead path token in `src/**/*.ts` EXCEPT the surface
+  files (`src/cli/*`, `src/mcp/*`, `src/core/capability-table.ts`,
+  `src/core/capability-data.ts`, `src/wiring/capability-table/*`,
+  `src/shell/orchestrator.ts`). Comments only.
+- PR 6b: every dead path token in `scripts/**/*.js` (except
+  `scripts/parity-check.js`) and on `//` comment lines in
+  `test/**/*.js`. Comments only.
+- PR 4 (after 6a and 6b): the gate + all surface files' comment edits
+  (the 15 `path:line` cites and any dead no-line paths, plus
+  `scripts/parity-check.js`) + the `telemetry-demo.ts` sample string
+  (`src/server.js:18` -> `app/server.js:18`, with its two fixtures) +
+  one true doc line in the man page that describes `citation:check`,
+  saying what the gate checks now. The gate must be green on the PR's
+  own head.
+
+Rewrite rules (bind 6a, 6b, and PR 4's comment edits):
+
+1. A path whose file exists at a new place names the new place
+   (`docs/rebuild/PLAN.md` -> `project/docs/rebuild/PLAN.md`).
+2. A provenance note that names a file that is gone keeps its meaning
+   and loses the path: the module as a plain word, no directory, no
+   extension ("the old build's drive module"). No line numbers (R1).
+3. A sample path in a test comment must not look like a repo path:
+   use a root that is not src/scripts/test/apps/docs (`app/` is fine),
+   or reword.
+4. Comment lines only. A dead path in a code string is reported, not
+   changed; PR 4 owns code strings.
+5. Before push: the manager's rule script reports 0 on the partition;
+   `build`, `check`, `test` green; `growth:check` src-comments does not
+   go up. The PR body gives the count per rewrite rule and the
+   before/after totals.
+
+Budget: net <= 0 for 6a and 6b. PR 4 budget stays net <= +70 for the
+gate itself; its comment edits are net <= 0.
+
+Third correction (2026-09-02, from the manager's run of 6a): the
+onramp contract has a second path-only rule, `runtime-smoke-required`
+— a change under `src/` with no change under `test/` fails
+`release:check`. So 6a (src only) can never pass on its own, the same
+way PR 3 could not pass `surface-docs-required`. Ruling: 6a and 6b
+become ONE PR, "PR 6" (src non-surface + scripts + test comment
+lines): the test/ comment edits satisfy `runtime-smoke-required`, and
+the surface files stay out so `surface-docs-required` stays quiet.
+Same rewrite rules, one body with the counts per partition. The
+contract's two path-only rules go to BACKLOG at close as one row.
+Also: rule 1 is to be applied in its natural form
+(`project/docs/rebuild/PLAN.md`), not as a workaround phrasing — the
+corrected token shape in PR 4 makes that form resolve.
+
+## PR 7 — stale cut-over claims in test and src comments (added 2026-09-02)
+
+Found by the 6b worker in `test/remote-link-git-smoke.js`: a header
+says v2 "DROPPED the entire runtime", that every remote-source symbol
+"is ABSENT", and "leave it RED until Phase B re-lands the feature".
+Measured on main 08ba5400: `src/shell/remote-source.ts` exports all
+of them, `src/shell/pipeline-cli.ts` wires `--link` and the `-dir
+<url>` auto-detect, and the smoke passes 6/6 sections. The feature
+came back in the same cut-over commit (#334) that kept the old
+header. The assertions were right the whole time; only the words
+were wrong.
+
+The class is wider than one file. Markers `REAL-GAP`, `CUTOVER
+AUDIT`, `CUTOVER STATUS`, `CUTOVER NOTE`, `Phase B`, `left failing`,
+`leave it RED`, `do NOT weaken`, `not ported` sit on 120 lines in 60
+files (58 smokes, `src/shell/audit-cli.ts`, `src/wiring/
+capability-table/parity.ts`), plus one site the grep misses because
+the marker breaks across two lines (`src/shell/pipeline-cli.ts`,
+`quickstartCheck` note) — and `test:gate` is 265/265 green. So every "this test is RED on purpose"
+claim is false today. A reader who trusts them stops looking for the
+feature that is there. Also in scope: rule 4 of PR 6 was written for
+paths; a claim is not a path, so this class needs its own PR.
+
+Scope (one PR, comments plus the dead scaffolding around them):
+
+1. In `test/remote-link-git-smoke.js`: header block goes down to the
+   contract lines it already carries at the top; the try/catch and
+   `_remoteSourceLoadError` go, replaced by a plain `require` of
+   `dist/shell/remote-source.js`; the section-0 assertion message
+   says what it checks, not what was missing. Sections 1–5 keep every
+   assertion as is.
+2. In every other file on the list: drop the marker paragraph. When
+   the paragraph also says what the test proves, keep that sentence.
+   When a "Phase B:" line is provenance for real code (the two src
+   sites), keep the meaning and drop the label ("the audit verbs the
+   old build had, ported as thin wrappers").
+3. In `src/shell/pipeline-cli.ts`: the `quickstartCheck` note "the
+   --link/remote preflight variant is not ported" goes; the function
+   handles a remote candidate a few lines down.
+4. No assertion becomes weaker. No assertion is added. A smoke whose
+   body truly still fails is reported, not edited — expected count 0,
+   since the gate is green.
+5. Proof: a grep for the nine markers over `src/ scripts/ test/`
+   reports 0 after; `build`, `check`, `test:gate` green;
+   `growth:check` src-comments goes down. The PR body gives the
+   before/after count of marker lines and files.
+
+Gate: the PR 4 gate gets rule (e): the nine markers are forbidden in
+`src/ scripts/ test/` comment or string text. One list, one regex, no
+new script file. PR 7 lands after PR 4, so rule (e) is red on main
+for the gap between them only if PR 4 lands first — the manager runs
+PR 4 with rule (e) present but checked against PR 7's branch, or
+lands PR 7 first and adds rule (e) in PR 4. Either order; the ledger
+says which.
+
+Budget: net negative (about -100 lines). Zero new files. Touches
+src and test together, so both onramp rules stay quiet.
+
+## Acceptance
+
+- Manager (per PR): CI green on all three platforms, CodeQL green,
+  before/after numbers in the body, budget held, Chain line present.
+  Arm auto-merge only after CodeQL is green (ruling from #584).
+- Architect (program): re-run the rot scan on main. Expect: 0 dead
+  onramp patterns, 0 bare-name misses in live docs, 0 `path:line`
+  cites in src/scripts/test comments, 0 exported functions with no
+  caller, `citation:check` green, `test:gate` green, program net lines
+  negative.
+
+## PR 8 — six more export-only-internal functions (added 2026-09-02)
+
+The architect's closing scan on main aaaf238d found six functions
+still exported but used only in their own file: `requireRunTask`,
+`findRunNode`, `resolveReviewPolicy`, `sha256OfFile`,
+`isBundledSandboxProfileId`, `listWorkflowAppRecords`. PR 2's audit
+missed them because a comment or test line in another file still
+named them; PR 3, 6 and 7 rewrote those lines. Scope: take `export`
+off each (in-file callers stay), and list the six as `dead` in
+`test/dead-export-removal-guard-smoke.js` beside a live sibling, so
+the guard holds them down. Net <= 0 for src. This section landed
+AFTER #612 merged (same closing PR as the ledger): PR 8 took its
+scope from the manager's brief, and its body says so. It is the one
+PR in this chain whose authority was the brief, not this file.
+
+## What this spec got wrong (recorded at close)
+
+1. PR 2 did not say the doubled smoke was also the `eval:replay` npm
+   entry and a `version-sync-check` row; deleting it broke both and
+   cost a round. Rule from it: grep the whole repo (package.json,
+   scripts/, .github/, docs/, test/) before a delete or rename.
+2. PR 4 said the leftovers "should be small". They were 386, then 401
+   after PR 3 narrowed. Became PR 6.
+3. The first token shape matched inside `project/docs/rebuild/PLAN.md`,
+   so rule 1's natural form could never pass. Fixed in #607.
+4. The manager's counting script had a second bug — `(?:ts|js|md)`
+   with no trailing guard read `package.json` as `package.js` — and
+   my own PR 3 count command counted grep's `file:line:` prefix. Both
+   fixed before any number was written down.
+5. The marker baseline for PR 7 was case-sensitive: 120 lines / 60
+   files instead of the true 142 / 67. "Leave it RED" hid behind a
+   capital L in the very file that started PR 7.
+6. Two onramp rules read paths, not diffs, and blocked two
+   comment-only PRs (PR 3, PR 6a). Ruling: no exemption door; PR 3
+   narrowed, 6a and 6b became one PR. BACKLOG row at close.
+7. Finding "7 bare names" was 7 sites over 6 names;
+   `capability-dispatcher.ts` names code deleted in v0.1.81, so that
+   site lost its `.ts` instead of getting a made-up path.
+
+## Status ledger
+
+Program COMPLETE 2026-09-02. Main `b7487a6b` after PR 8.
+
+| Item | State | PR |
+|---|---|---|
+| Intent + spec (this file) | merged | #599, amended #602 #605 #607 #609 |
+| PR 1 hermetic gate + onramp table | merged | #600 fcbdec87 |
+| PR 2 dead doors | merged | #601 fdd6d9fd |
+| PR 3 old addresses out of comments | merged | #604 833887b6 |
+| PR 4 citation gate | merged | #610 917db2d9 |
+| PR 5 TS7 install path in CI | merged | #603 fc8ab073 |
+| PR 6 dead paths in src (non-surface) + scripts + test comments | merged | #606 5876f6da |
+| PR 7 stale cut-over claims in test and src comments | merged | #611 aaaf238d |
+| PR 8 six export-only-internal functions | merged | #612 b7487a6b |
+
+Closing numbers, re-measured by the architect on `aaaf238d` and by
+the manager on `b7487a6b`: dead onramp patterns 19/33 -> 0/35;
+bare-name doc misses 7 -> 0; `path:line` cites in src/scripts/test
+comments 248 -> 0; dead no-line paths 386 -> 0; stale cut-over
+markers 142 lines / 67 files -> 0; exported functions with no caller
+3 -> 0, exported-but-file-only 13 -> 0; `citation-check` 62 docs, 664
+source files, all resolve; `growth:check` md 130 -> 131 (this file
+only), src-comments 7210 -> 7177; `release:check` 18/18; `test:gate`
+264/264 (one local run gave 263/264 with the failing name lost to a
+short log; the re-run and CI gave 264/264 — recorded, not explained).
+Program net: 418 files, +1727 / -2343 = -616 lines (R3 held). Rounds:
+1, 2, 1, 3, 3, 1, 1, 1. Nothing pushed to main; every PR merged on
+green CI with CodeQL.
