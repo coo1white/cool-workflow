@@ -23,7 +23,8 @@ const CODE_EXTENSIONS = new Set(["js", "mjs", "cjs", "ts", "tsx", "jsx"]);
 const EXCEPT_PATHS = new Set([
   "Formula/cool-workflow.rb", // Homebrew formula must be Ruby
   "plugins/cool-workflow/ui/workbench/index.html", // served from disk by design
-  "plugins/cool-workflow/ui/workbench/app.css" // served from disk by design
+  "plugins/cool-workflow/ui/workbench/app.css", // served from disk by design
+  "plugins/cool-workflow/ui/workbench/app.src.css" // Tailwind input: three directives, no rules
 ]);
 
 // Not "code" at all -- docs, data, config, and binary assets. Fine

@@ -42,7 +42,7 @@
     "tsconfig.json"
   ],
   "scripts": {
-    "build": "npm run build:css && tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
     "dist:check": "node scripts/dist-drift-check.js",
     "purity:check": "node scripts/purity-gate.js",

@@ -1,12 +1,12 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-09-02 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-09-06 by `npm run sync:project-index`.
 
 ## Snapshot
 
 - Package: `cool-workflow`
 - Version: `0.2.7`
-- Source modules: `159`
+- Source modules: `160`
 - Workflow apps: `8`
 - Docs: `60`
 - Smoke tests: `266`
@@ -89,6 +89,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/format/completion.ts](../src/core/format/completion.ts)
 - [core/format/help.ts](../src/core/format/help.ts)
 - [core/format/recovery-hint.ts](../src/core/format/recovery-hint.ts)
+- [core/format/report-css.ts](../src/core/format/report-css.ts)
 - [core/format/report-html.ts](../src/core/format/report-html.ts)
 - [core/format/safe-json.ts](../src/core/format/safe-json.ts)
 - [core/format/state-explosion-text.ts](../src/core/format/state-explosion-text.ts)
