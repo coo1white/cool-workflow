@@ -55,6 +55,7 @@ const state_explosion_text_1 = require("../core/format/state-explosion-text");
 const candidate_scoring_io_1 = require("./candidate-scoring-io");
 const trust_audit_1 = require("./trust-audit");
 const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
+const run_registry_io_1 = require("./run-registry-io");
 const multi_agent_io_1 = require("./multi-agent-io");
 const coordinator_io_1 = require("./coordinator-io");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
@@ -351,6 +352,7 @@ function writeReport(run) {
     // set by a --link/URL), so a report never shows two "- Source:" lines.
     // Every other app keeps the byte-identical "Repository:" (POLA).
     const sourceLabel = workflowApp?.metadata?.domain === "research" && !run.inputs.sourceUrl ? "Source" : "Repository";
+    const lifecycle = (0, run_registry_io_1.runLifecycle)(run);
     const report = [
         `# ${run.workflow.title}`,
         "",
@@ -368,6 +370,7 @@ function writeReport(run) {
         `- Question: ${String(run.inputs.question || "")}`,
         `- Invariants: ${formatInputList(run.inputs.invariant)}`,
         `- Loop Stage: ${run.loopStage}`,
+        `- Verdict: ${lifecycle === "completed" ? "PASS" : lifecycle.toUpperCase()}`,
         "",
         "## Phase Status",
         "",

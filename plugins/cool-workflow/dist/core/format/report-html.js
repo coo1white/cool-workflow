@@ -33,6 +33,9 @@ function renderTable(rows) {
  *  escaped — nothing from the run or an agent's result is ever raw HTML. */
 function reportToHtml(markdown, title = "Report") {
     const lines = markdown.split("\n");
+    // The "- Verdict: WORD" line report.ts writes becomes the round stamp
+    // by the title, not a bullet. No line, no stamp (older reports).
+    const verdict = (markdown.match(/^- Verdict: (\S+)$/m) || [])[1];
     const body = [];
     let inCode = false;
     let listDepth = 0;
@@ -71,6 +74,8 @@ function reportToHtml(markdown, title = "Report") {
         }
         const bullet = line.match(/^(\s*)-\s+(.*)$/);
         if (bullet) {
+            if (bullet[2].startsWith("Verdict: "))
+                continue;
             const depth = bullet[1].length > 0 ? 2 : 1;
             while (listDepth < depth) {
                 body.push("<ul>");
@@ -106,7 +111,11 @@ function reportToHtml(markdown, title = "Report") {
         "th{text-align:left;font-weight:400;color:#7a7368;padding:6px 10px;border-bottom:1px solid #e2dcd0;font-size:11px;letter-spacing:.06em;text-transform:uppercase}" +
         "td{padding:6px 10px;border-bottom:1px solid #ece7dc}tbody tr:nth-child(even){background:#efeae0}" +
         'pre{background:#14120f;color:#f2ede4;padding:12px 14px;border-radius:8px;overflow:auto;font:13px/1.5 ui-monospace,"SF Mono",Menlo,monospace}' +
-        'code{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;background:#efeae0;border-radius:4px;padding:1px 5px}pre code{background:none;padding:0}';
+        'code{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;background:#efeae0;border-radius:4px;padding:1px 5px}pre code{background:none;padding:0}' +
+        '.stamp{float:right;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:112px;height:112px;margin:0 0 12px 16px;border-radius:50%;border:3px solid #7a7368;color:#7a7368;box-shadow:inset 0 0 0 5px #f7f4ee,inset 0 0 0 6px currentColor;transform:rotate(-8deg);font:8px/1 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.2em;text-transform:uppercase}' +
+        ".stamp b{font-size:22px;font-weight:800;letter-spacing:.06em}.stamp.pass{border-color:#ef6c1f;color:#ef6c1f}.stamp.warn{border-color:#9a6700;color:#9a6700}.stamp.bad{border-color:#c8321f;color:#c8321f}";
+    const tone = { PASS: "pass", BLOCKED: "warn", FAILED: "bad" }[verdict || ""] || "";
+    const stamp = verdict ? `<div class="stamp ${tone}"><span>verifier-gated</span><b>${escapeHtml(verdict)}</b><span>.cw/runs</span></div>` : "";
     // Fixed brand band, same on every report; no run text ever goes in it.
     const band = '<div style="display:flex;align-items:center;justify-content:space-between;gap:20px;height:52px;padding:0 32px;background:#14120f;color:#f2ede4;font-size:12px">' +
         '<span style="display:flex;align-items:center;gap:10px">' +
@@ -116,5 +125,5 @@ function reportToHtml(markdown, title = "Report") {
         '<span style="font-weight:800;letter-spacing:.12em">COOL WORKFLOW</span><span style="color:#9a938a">report</span></span>' +
         '<span style="font-family:ui-monospace,\'SF Mono\',Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9a938a">static &middot; offline &middot; no network</span></div>';
     return (`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${style}</style></head>` +
-        `<body>${band}<div style="max-width:820px;margin:0 auto;padding:32px 24px 56px">${body.join("\n")}</div></body></html>`);
+        `<body>${band}<div style="max-width:820px;margin:0 auto;padding:32px 24px 56px">${stamp}${body.join("\n")}</div></body></html>`);
 }
