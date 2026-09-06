@@ -72,6 +72,7 @@ Packet 1 (feat/workbench-next-app):
 - `workbench-host.ts` is a frozen path at 340 lines; packet 1 paid for
   its lines with a trimmed comment. Packet 2 must not grow it, or ask.
 - `out/` is 1.0 MB in 33 files; each rebuild is a diff in the PR.
+<<<<<<< HEAD
 - CI's first build of `out/` drifted from the committed one: Turbopack
   chunk names hash module paths from an inferred root (nearest
   lockfile), which differs by machine. `next.config.ts` pins
@@ -83,3 +84,34 @@ Packet 1 (feat/workbench-next-app):
   `prepack` builds it for the npm package (`npm run build:ui`). The
   Node 18 and 24 legs test the host's fallback to the old files. The
   drift check for `out/` is gone; `app.css` and `dist/` keep theirs.
+=======
+
+Packet 2 (feat/workbench-components):
+- The old `index.html`/`app.js`/`navigation.js`/`inspection.js`/`app.css`/
+  `app.src.css` files stay. Three tests (`web-desktop-workbench-smoke.js`,
+  `workbench-inspection.test.js`, `workbench-navigation.test.js`) still
+  read the first four by their path, and
+  `build-css.js`/`lang-policy-check.js`/`css-framework-gate-smoke.js`
+  still name the CSS pair as build input/output. Packet 3 (which owns the
+  test change) can remove them once the tests move to `out/`.
+  `workbench-host.ts`'s old-file fallback stays for the same reason.
+- Two small shared files the plan did not name: `src/navigation.ts`
+  (TAB_KEYS/moveTab/parseFragment/formatFragment/writeRoute, moved from
+  the old navigation.js) and `src/api.ts` (apiUrl/getJson/the
+  WorkbenchIndexView/WorkbenchRunView shapes, moved from app.js). Both
+  are needed so `run-list.tsx` and `run-panel.tsx` — two client parts
+  that each stand on their own — do not each hold a separate copy of the
+  fetch/token/route code and its fixed error text.
+- `run-list.tsx` and `run-panel.tsx` are each one client part, as asked,
+  but they sit next to each other, not one inside the other: they hold no
+  shared React state. Each one reads `location.hash` on its own and
+  listens for `popstate`; a same-tab route change (a run click, a tab
+  click) is told to the other part with a copy of the `popstate` event
+  (`pushState`/`replaceState` send no event of their own). This is the
+  same idea `web-desktop-workbench.7.md` already writes down — the page
+  address holds the state — just split across two files in place of one
+  script's shared state object. The Refresh button (in
+  `src/next-shell/shell.tsx`, part of this packet's own folder) sends a
+  `cw:refresh` window event that both parts listen for, in place of
+  `app.js`'s `refreshAll()`.
+>>>>>>> 60cf2c54 (feat(workbench): port app.js/navigation.js/inspection.js to Next parts)

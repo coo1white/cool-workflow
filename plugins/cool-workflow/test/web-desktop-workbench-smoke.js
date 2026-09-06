@@ -347,6 +347,7 @@ async function main() {
     // When the Next export is built (out/ is not committed), "/" serves it.
     const exportedPath = path.join(pluginRoot, "ui", "workbench", "out", "index.html");
     if (fs.existsSync(exportedPath)) assert.equal(ui.body, fs.readFileSync(exportedPath, "utf8"), "GET / serves ui/workbench/out/index.html");
+    if (fs.existsSync(exportedPath)) assert.ok(ui.body.includes('id="run-list"') && ui.body.includes('id="run-panel"'), "the export carries the run list and run panel");
 
     // Read-only: every write verb refused 405.
     for (const method of ["POST", "PUT", "DELETE", "PATCH"]) {

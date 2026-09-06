@@ -32,7 +32,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <p className="font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60">
               read-only · localhost · re-derived from <code className="text-base-content">.cw/</code> on every refresh
             </p>
-            <button id="refresh" type="button" className="btn btn-outline btn-sm gap-1.5 font-normal normal-case" title="Re-derive from disk">
+            {/* Both client islands (src/run-list.tsx, src/run-panel.tsx)
+                listen for "cw:refresh" and re-derive from disk on it. */}
+            <button
+              id="refresh"
+              type="button"
+              className="btn btn-outline btn-sm gap-1.5 font-normal normal-case"
+              title="Re-derive from disk"
+              onClick={() => window.dispatchEvent(new Event("cw:refresh"))}
+            >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M21 12a9 9 0 1 1-3-6.7" />
                 <path d="M21 3v6h-6" />
