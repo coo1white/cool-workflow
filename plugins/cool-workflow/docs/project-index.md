@@ -5,7 +5,7 @@ Generated from the current repository code on 2026-09-06 by `npm run sync:projec
 ## Snapshot
 
 - Package: `cool-workflow`
-- Version: `0.2.7`
+- Version: `0.2.8`
 - Source modules: `160`
 - Workflow apps: `8`
 - Docs: `60`
