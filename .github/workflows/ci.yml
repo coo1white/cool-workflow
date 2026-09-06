@@ -31,22 +31,23 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
-      - run: npm ci --ignore-scripts
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.1
+      - run: bun install --frozen-lockfile --ignore-scripts
       # Zero runtime deps means this only ever audits the 3 devDependencies
       # (typescript, @types/node, undici-types), but a high/critical advisory
       # in any of them still runs in CI and in every contributor's install —
       # fail closed rather than finding out from an external report.
-      - run: npm audit --audit-level=high
-      - run: npm run build
+      - run: bun audit --audit-level=high
+      - run: bun run build
       # The CSS is built by Tailwind and committed like dist/; a stale copy
       # fails here, not on a user's screen.
-      - run: npm run build:css && git diff --exit-code -- ui/workbench/app.css src/core/format/report-css.ts
+      - run: bun run build:css && git diff --exit-code -- ui/workbench/app.css src/core/format/report-css.ts
       # The Workbench is a Next static export, built here (out/ is not
       # committed: Turbopack chunk names differ by platform). Node 18 cannot
       # build Next 16, so this runs on the Node 22 leg only; the other legs
-      # test the host's fallback.
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
-        if: matrix.node-version == '22'
+      # test the host's fallback. bun is already set up above.
       - run: bun install --frozen-lockfile
         if: matrix.node-version == '22'
         working-directory: plugins/cool-workflow/ui/workbench
@@ -59,11 +60,11 @@ jobs:
       - run: |
           drift="$(git status --porcelain -- dist)"
           if [ -n "$drift" ]; then
-            echo "committed dist/ is stale — rebuild with 'npm run build' and commit:"
+            echo "committed dist/ is stale — rebuild with 'bun run build' and commit:"
             echo "$drift"
             exit 1
           fi
-      - run: npm run check
+      - run: bun run check
       - run: node scripts/cw.js list
       - run: node scripts/cw.js schedule list
       # Black-box regression net: the shipping cli.js must stay byte-identical
@@ -73,12 +74,12 @@ jobs:
       # `test:coverage` already runs the full smoke suite; keep release:check for
       # the remaining parity, manifest, version-sync, golden-path, canonical-apps,
       # and eval gates without running the same suite a second time.
-      - run: npm run test:coverage
+      - run: bun run test:coverage
       # Pure core/ unit tests (test/*.test.js), separate from the smoke suite
       # above — see test/run-unit.js's header. release:check --skip-tests also
       # skips this by name, so it does not run twice.
-      - run: npm run test:unit
-      - run: npm run release:check -- --skip-tests
+      - run: bun run test:unit
+      - run: bun run release:check -- --skip-tests
 
   # macOS leg: the package ships a Homebrew formula, and the runtime does
   # file locking and TMPDIR work whose semantics are OS-specific. This job
@@ -104,11 +105,14 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
-      - run: npm ci --ignore-scripts
-      - run: npm run build
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.1
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun run build
       - run: node ../../v2/conformance/run.js --bin dist/cli.js
-      - run: npm run test:gate
-      - run: npm run test:unit
+      - run: bun run test:gate
+      - run: bun run test:unit
 
   # Runs the release-reviewer smokes and the eval-replay harness smoke when
   # AGENTS.md or plugins/cool-workflow/agents/** change, since a bad agent
@@ -141,9 +145,13 @@ jobs:
         if: steps.changed.outputs.run == 'true'
         with:
           node-version: "22"
-      - run: npm ci --ignore-scripts
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        if: steps.changed.outputs.run == 'true'
+        with:
+          bun-version: 1.4.1
+      - run: bun install --frozen-lockfile --ignore-scripts
         if: steps.changed.outputs.run == 'true'
       - run: node test/run-all.js --filter 'release-flow'
         if: steps.changed.outputs.run == 'true'
-      - run: npm run eval:replay
+      - run: bun run eval:replay
         if: steps.changed.outputs.run == 'true'

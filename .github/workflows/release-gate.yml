@@ -31,18 +31,22 @@ jobs:
         with:
           node-version: "22"
 
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.1
+
       - name: Install
-        # `npm ci` (not `npm install --no-package-lock`) even though this
-        # package ships zero runtime dependencies -- that fact is about the
-        # SHIPPED artifact, not about what runs IN THIS JOB. `npm ci` still
-        # installs DEV tooling (tsc, etc), and that dev tooling is CODE that
-        # runs here, inside a job that feeds the publish job's OIDC-privileged
-        # install. Pinning it to the tracked, reviewed package-lock.json (kept
-        # in sync by scripts/version-sync-check.js) is what buys real control
-        # over what code runs in CI -- do not "fix" this back to
-        # `npm install --no-package-lock`. --ignore-scripts: a poisoned
+        # `bun install --frozen-lockfile` (not a plain `bun install`) even
+        # though this package ships zero runtime dependencies -- that fact is
+        # about the SHIPPED artifact, not about what runs IN THIS JOB. This
+        # install still installs DEV tooling (tsc, etc), and that dev tooling
+        # is CODE that runs here, inside a job that feeds the publish job's
+        # OIDC-privileged install. Pinning it to the tracked, reviewed
+        # bun.lock (kept in sync by scripts/version-sync-check.js) is what
+        # buys real control over what code runs in CI -- do not "fix" this
+        # back to a plain `bun install`. --ignore-scripts: a poisoned
         # transitive install script must not get to run here either.
-        run: npm ci --ignore-scripts --prefix plugins/cool-workflow
+        run: bun install --frozen-lockfile --ignore-scripts --cwd plugins/cool-workflow
 
       - name: Run deterministic release gate
         run: node plugins/cool-workflow/scripts/release-gate.js

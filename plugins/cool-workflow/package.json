@@ -19,6 +19,7 @@
   "engines": {
     "node": ">=18"
   },
+  "packageManager": "bun@1.4.1",
   "license": "BSD-2-Clause",
   "author": {
     "name": "COOLWHITE LLC"
@@ -42,6 +43,7 @@
     "tsconfig.json"
   ],
   "scripts": {
+    "preinstall": "node scripts/check-package-manager.js",
     "build": "tsc -p tsconfig.json",
     "build:ui": "node scripts/build-ui.js",
     "prepack": "npm run build:ui",

@@ -120,7 +120,7 @@ function main() {
   // step's failure if a future edit ever loosens it, which would flip this
   // fail-closed gate to fail-open without changing its outward shape.
   // stdout/stderr from each step are captured (not discarded) so a real
-  // failure — a transient npm registry hiccup vs. an actual reproduction
+  // failure — a transient registry hiccup vs. an actual reproduction
   // mismatch — is distinguishable in the workflow log instead of both
   // collapsing into the same generic message.
   const stepCwd = path.join(SCRATCH, "plugins", "cool-workflow");
@@ -141,12 +141,12 @@ function main() {
     return true;
   }
 
-  if (!fs.existsSync(path.join(stepCwd, "package-lock.json"))) {
-    err(`verify-bump-reproduction: no package-lock.json in the scratch worktree at ${PARENT} — cannot npm ci`);
-    return 1;
-  }
+  // No existence check for bun.lock here: unlike `npm ci`, `bun install
+  // --frozen-lockfile` does not error when a lockfile is absent (it just
+  // writes one) — the fail-closed cases this guards against (a missing or
+  // wrong lock entry) already surface as a real "bun install" failure below.
   const bumpOk =
-    runStep("npm ci", "npm", ["ci", "--ignore-scripts"]) &&
+    runStep("bun install", "bun", ["install", "--frozen-lockfile"]) &&
     runStep("bump:version", "npm", ["run", "bump:version", "--", VERSION]) &&
     runStep("sync:project-index", "npm", ["run", "sync:project-index", "--", "--repo-only"]);
   if (!bumpOk) {

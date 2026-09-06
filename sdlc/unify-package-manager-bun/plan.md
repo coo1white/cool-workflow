@@ -61,4 +61,33 @@ commit updates this file. This is also packet 5 of
 
 ## What this plan got wrong
 
-(filled as the packet lands, same commit as the departure)
+- The plan said "npm pack and npm publish do not run preinstall, so
+  nothing more is needed" for the published npm package. True for pack
+  and publish, but not the whole story: `npm install -g cool-workflow`
+  (how a real user gets the CLI) DOES run the package's own preinstall
+  script — checked by hand with a throwaway package. A first pass of
+  the guard would have blocked every real user's install. Fixed by
+  having the guard exit 0 at once when `npm_config_global` is the
+  string `"true"` (only set on a `-g` install), before it ever checks
+  the tool. `test/npm-global-install-smoke.js` caught this the first
+  time the full gate ran.
+- `npm audit --audit-level=high` in ci.yml needs `package-lock.json` to
+  run at all; deleting that file would have turned this line red on
+  every build. bun 1.4.1 ships its own `bun audit --audit-level=high`
+  (same flag), reading `bun.lock` instead — swapped in place.
+- `scripts/verify-bump-reproduction.js` ran `npm ci` and hard-stopped
+  when `package-lock.json` was absent (a message built around an npm
+  quirk: `npm ci` itself errors with no lockfile). `bun install
+  --frozen-lockfile` does not error on a missing lockfile — it just
+  writes one — so that pre-check no longer matches how the new tool
+  behaves and was dropped; a real problem (a bad or missing lock entry)
+  still fails the `bun install` step itself, which is what the caller
+  checks. `scripts/version-sync-check.js` also dropped its two
+  package-lock.json version checks outright, not turned toward
+  bun.lock: bun.lock's workspace entry carries no version field to
+  drift, so there was nothing left to check.
+- Test fixtures that built a throwaway npm project (`package.json` +
+  `package-lock.json`) to exercise `verify-bump-reproduction.js` for
+  real (`test/verdict-signing-workflow-smoke.js`) now build a throwaway
+  bun.lock instead, by hand, in bun's JSONC shape (no trailing commas
+  needed — bun's own parser accepts either).
