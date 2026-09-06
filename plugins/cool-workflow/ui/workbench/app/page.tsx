@@ -1,21 +1,20 @@
 import { Shell } from "../src/next-shell/shell";
+import { loadWorkbenchIndex } from "../src/load-index";
+import { RunList } from "../src/run-list";
+import { RunPanel } from "../src/run-panel";
 
-// The ids are the wiring points packet 2 hangs behavior on; no data code yet.
+// Server component: loads the build-time run index snapshot once (Node fs,
+// src/load-index.ts) and passes it to the run list. RunList and RunPanel
+// are the two client islands that re-fetch api/index and api/run/<id>
+// once a real host serves this page; no fetch happens for this first paint.
 export default function Page() {
+  const initialIndex = loadWorkbenchIndex();
+  const hasRuns = (initialIndex.runs.records?.length ?? 0) > 0;
   return (
     <Shell>
       <div className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)]">
-        <section id="index-panel" className="flex max-h-56 flex-col gap-2.5 overflow-y-auto border-b border-base-300 px-3 py-3.5 md:max-h-none md:border-b-0 md:border-r">
-          <div className="flex items-center justify-between px-1">
-            <h2 className="font-mono text-[11px] font-normal uppercase tracking-[.08em]">Runs</h2>
-            <div id="registry-freshness" />
-          </div>
-          <input id="filter" type="search" className="input input-sm w-full" placeholder="filter runs · app, status, text" aria-label="filter runs" />
-          <ul id="run-list" className="menu menu-sm gap-0.5 p-0" />
-        </section>
-        <section id="run-panel" className="flex flex-col gap-4 overflow-y-auto px-6 py-5">
-          <p className="text-base-content/60">Select a run to inspect its graph, blackboard, worker logs, candidate compare, and audit timeline.</p>
-        </section>
+        <RunList initialIndex={initialIndex} />
+        <RunPanel hasRuns={hasRuns} />
       </div>
     </Shell>
   );
