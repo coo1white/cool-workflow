@@ -73,7 +73,18 @@ Each cycle MUST follow this sequence. Do not skip steps.
    b. An interface/type that exists but has NO runtime implementation
       (spec debt — search plugins/cool-workflow/src/core/types/ and the
       state/contract type modules for fields never read by any module)
-   c. A gap blocking the current target use case (see # North Star)
+   c. A gap blocking the current target use case (see # Stack rule and this repo's exceptions
+The stack for every project under `~/Developer` is in
+`~/Developer/TECH-SPEC.md` (that file wins). Two exceptions here:
+- Hosting: the main copy is on GitHub (Pages and npm publish run on
+  GitHub Actions). `git.coolwhite.space/coo1white/cool-workflow` is a
+  mirror only, pushed by `node scripts/mirror-to-gitea.js` by hand or
+  from a launchd job. Never open a PR there.
+- The Workbench (`plugins/cool-workflow/ui/workbench/`) is plain HTML
+  + JS, no framework. Whether it moves to Next is the owner's call in
+  the intent PR #676 (merge = move, close = stays as a named exception).
+
+# North Star)
    Never select "add a new type/interface" as a standalone goal.
 
 2. IMPLEMENT — Write the runtime logic. A cycle's diff MUST include:
