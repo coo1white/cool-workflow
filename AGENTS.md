@@ -81,8 +81,9 @@ The stack for every project under `~/Developer` is in
   mirror only, pushed by `node scripts/mirror-to-gitea.js` by hand or
   from a launchd job. Never open a PR there.
 - The Workbench (`plugins/cool-workflow/ui/workbench/`) is plain HTML
-  + JS, no framework. Whether it moves to Next is the owner's call in
-  the intent PR #676 (merge = move, close = stays as a named exception).
+  + JS, no framework, no bundler. Owner's decision 2026-09-07 (intent
+  PR #676 closed): it does not move to Next. It keeps the page-shell
+  contract (TECH-SPEC 3b) and the framework gate.
 
 # North Star)
    Never select "add a new type/interface" as a standalone goal.
