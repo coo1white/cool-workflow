@@ -5,6 +5,13 @@ const { execFileSync } = require("node:child_process");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.resolve(__dirname, "..");
+// Tailwind 4's native module (@tailwindcss/oxide) needs Node 20+. On an
+// older Node the committed sheet stands; CI's Node 22 and 24 legs rebuild
+// it and fail on a stale copy.
+if (Number(process.versions.node.split(".")[0]) < 20) {
+  process.stdout.write("build:css: skipped, needs Node 20+; the committed sheet stands.\n");
+  process.exit(0);
+}
 const css = path.join(root, "ui", "workbench", "app.css");
 execFileSync(path.join(root, "node_modules", ".bin", "tailwindcss"), ["-i", path.join(root, "ui", "workbench", "app.src.css"), "-o", css, "--minify"], { cwd: root, stdio: "inherit" });
 fs.writeFileSync(
