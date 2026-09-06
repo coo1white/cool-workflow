@@ -1,9 +1,11 @@
 # Intent: move the Workbench to Next 16.3.0 + React 19.2.8
 
-Author: the operator (project owner), by word through the cool-tunnel
-session, 2026-09-07. Status: proposed. The owner's merge of this file
-is the yes (playbook stage 1).
-Spec: [2026-09-07-workbench-next.spec.md](2026-09-07-workbench-next.spec.md)
+Author: the operator (project owner), 2026-09-07, in the owner's own
+words: "现在请全部统一 javascript 架构: Next 16.3.0 + React 19.2.8".
+Status: proposed. Playbook stage 1: the owner merges this PR to say
+"move the Workbench to Next", or closes it to say "the Workbench stays
+plain HTML as a named exception". The spec is written only after a
+merge.
 
 ## Problem
 
@@ -55,6 +57,29 @@ the CI matrix (Node 18 leg), the docs page for the Workbench.
   18/22/24. The `next` package on this machine is 198M.
 - `report-html.ts` is a pure markdown-to-HTML function used by the
   CLI (`cw report --open`); Next cannot produce that file from a CLI.
+
+## The author's own judgment (numbers above)
+
+For this Workbench, Next is a net cost: 0 to 198M of dependencies, a
+build step where today a refresh shows the change, 21 test files to
+re-pin, and nothing a user can see changes. Next's three strengths
+(routing, server rendering, images) are not used here. The one real
+gain is the owner's: one skill set across all five projects. If that
+gain is worth the cost, merge. If not, close, and the Workbench takes
+only the page-shell contract (TECH-SPEC 3b) and the gate.
+
+## Five words, one line each
+
+- Safe: the host stays read-only localhost; the UI sub-package grows
+  the supply chain from 32 packages to some hundreds.
+- Stable: zero deps cannot break; Next has a major every 6 to 12
+  months, so upgrade work from then on.
+- Simple: 730 plain lines and a refresh, versus components, config,
+  and a build before any change shows.
+- Reliable: static export is a well-worn path; committed output with a
+  drift check is this repo's own pattern.
+- Easy to keep: one skill set across the five repos, the only real
+  gain, and it is the owner's.
 
 ## Paths weighed
 
