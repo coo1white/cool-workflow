@@ -77,3 +77,9 @@ Packet 1 (feat/workbench-next-app):
   lockfile), which differs by machine. `next.config.ts` pins
   `turbopack.root` to the plugin dir; two builds from two absolute
   paths now give a byte-identical `out/` (`diff -rq`).
+  CI still drifted after that: the names also differ by platform (macOS
+  vs Linux). So `out/` is NOT committed: `.gitignore` has it, CI builds
+  it on the Node 22 leg before the tests, the Pages job builds it, and
+  `prepack` builds it for the npm package (`npm run build:ui`). The
+  Node 18 and 24 legs test the host's fallback to the old files. The
+  drift check for `out/` is gone; `app.css` and `dist/` keep theirs.

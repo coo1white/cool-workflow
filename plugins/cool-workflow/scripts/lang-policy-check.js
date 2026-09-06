@@ -30,7 +30,7 @@ const EXCEPT_PATHS = new Set([
 
 // Generated trees committed like dist/: nobody writes these by hand, so the
 // policy has nothing to say about what they are written in.
-const EXCEPT_PREFIXES = ["plugins/cool-workflow/ui/workbench/out/"];
+const EXCEPT_PREFIXES = [];
 
 // Not "code" at all -- docs, data, config, and binary assets. Fine
 // anywhere in the tree; this policy is only about what the project is

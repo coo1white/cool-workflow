@@ -41,8 +41,10 @@ jobs:
       # The CSS is built by Tailwind and committed like dist/; a stale copy
       # fails here, not on a user's screen.
       - run: npm run build:css && git diff --exit-code -- ui/workbench/app.css src/core/format/report-css.ts
-      # The Workbench is a Next static export, committed like dist/. Node 18
-      # cannot build Next 16, so this runs on the Node 22 leg only.
+      # The Workbench is a Next static export, built here (out/ is not
+      # committed: Turbopack chunk names differ by platform). Node 18 cannot
+      # build Next 16, so this runs on the Node 22 leg only; the other legs
+      # test the host's fallback.
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         if: matrix.node-version == '22'
       - run: bun install --frozen-lockfile
@@ -51,9 +53,6 @@ jobs:
       - run: bun run build
         if: matrix.node-version == '22'
         working-directory: plugins/cool-workflow/ui/workbench
-      - run: git diff --exit-code -- plugins/cool-workflow/ui/workbench/out
-        if: matrix.node-version == '22'
-        working-directory: .
       # Committed dist/ must equal a fresh build of src/ (fail closed on drift).
       # `git status --porcelain` catches modified AND added/deleted dist files;
       # `git diff` would miss untracked ones. release:check re-verifies via dist:check.

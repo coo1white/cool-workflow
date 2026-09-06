@@ -43,6 +43,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:ui": "cd ui/workbench && bun install --frozen-lockfile && bun run build",
+    "prepack": "npm run build:ui",
     "check": "tsc -p tsconfig.json --noEmit",
     "dist:check": "node scripts/dist-drift-check.js",
     "purity:check": "node scripts/purity-gate.js",
