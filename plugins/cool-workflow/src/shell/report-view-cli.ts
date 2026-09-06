@@ -54,16 +54,17 @@ export function resolveReportRunId(args: Record<string, unknown>): string | unde
  *  or older) and opens it with the system viewer: `CW_OPENER` when set
  *  (the smoke test's stub), else `open`/`xdg-open`/`start` for macOS/
  *  Linux/Windows. Spawned argv-style, `shell: false` — never a shell
- *  string built from a path. A missing opener never throws (spawnSync's
- *  `error` field just carries it), so the caller still gets the path
- *  back and exits 0. */
+ *  string built from a path. Fail closed: an opener that is missing or
+ *  exits non-zero throws, with the html path in the message, so no
+ *  caller can record "opened" when no viewer ran. */
 export function ensureAndOpenReportHtml(mdPath: string): string {
   const htmlPath = mdPath.replace(/\.md$/, ".html");
   const mdMtime = fs.statSync(mdPath).mtimeMs;
   const htmlMtime = fs.existsSync(htmlPath) ? fs.statSync(htmlPath).mtimeMs : -1;
   if (htmlMtime < mdMtime) fs.writeFileSync(htmlPath, reportToHtml(fs.readFileSync(mdPath, "utf8")), "utf8");
   const opener = process.env.CW_OPENER || (process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open");
-  spawnSync(opener, [htmlPath], { stdio: "ignore", shell: false });
+  const r = spawnSync(opener, [htmlPath], { stdio: "ignore", shell: false });
+  if (r.error || r.status !== 0) throw new Error(`report.html is at ${htmlPath} but the opener "${opener}" failed: ${r.error ? r.error.message : `exit ${r.status}`}`);
   return htmlPath;
 }
 

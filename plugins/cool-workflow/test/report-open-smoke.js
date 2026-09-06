@@ -97,6 +97,20 @@ async function main() {
   }
   assert.equal(ttyResult.reportOpened, true, "the foolproof step opened the report");
   assert.equal(fs.readFileSync(openLog, "utf8"), ttyResult.reportPath.replace(/\.md$/, ".html"), "opener stub got the report's html path");
+  // 6b. fail closed: an opener that is not there never yields reportOpened,
+  //     and `cw report --open` throws with the html path in the message.
+  const gone = tmpDir("gone");
+  process.stdout.isTTY = true;
+  process.env.CW_OPENER = path.join(gone, "no-such-opener");
+  let goneResult;
+  try {
+    goneResult = await drive(gone);
+    assert.throws(() => ensureAndOpenReportHtml(goneResult.reportPath), /report\.html is at .*no-such-opener/, "missing opener throws with the path");
+  } finally {
+    process.stdout.isTTY = undefined;
+    delete process.env.CW_OPENER;
+  }
+  assert.equal(Object.prototype.hasOwnProperty.call(goneResult, "reportOpened"), false, "no reportOpened when the opener failed");
   const summary = formatQuickstartHuman(ttyResult);
   assert.match(fs.readFileSync(ttyResult.reportPath, "utf8"), /^- Verdict: [A-Z]+$/m, "report.md carries the one verdict line");
   assert.match(summary, /Report opened\. Again later: cw report --open/, "the end-of-run line");

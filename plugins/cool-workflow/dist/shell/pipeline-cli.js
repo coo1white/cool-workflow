@@ -619,7 +619,7 @@ async function quickstartRun(args) {
             reportOpened = true;
         }
         catch {
-            /* best-effort: the terminal summary still shows without a browser */
+            /* opener missing or failed: no reportOpened, the summary still shows */
         }
     }
     // Byte-exact to the old build's quickstart() return shape
