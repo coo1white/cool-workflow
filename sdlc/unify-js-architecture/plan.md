@@ -52,4 +52,23 @@ plan.
 
 ## What this plan got wrong
 
-(filled as packets land, same commit as the departure)
+Packet 1 (feat/workbench-next-app):
+- The `@source` line for `report-html.ts` is three levels up from
+  `app/globals.css`, not two.
+- `next.config.ts` needs a fixed `generateBuildId` ("workbench"), or
+  every build writes a new hashed directory and the drift check is red.
+- `@types/react-dom` has no 19.2.8; dropped. `@types/react` `^19.2.0`,
+  `typescript` `^5.9.3` (not pinned by the plan). bun resolved every pin;
+  `next build` itself once ran pnpm for `@types/node`, so `@types/node`
+  is listed and the pnpm lock deleted.
+- The host keeps a fallback to the old flat files under `/ui/*` until
+  packet 2 deletes them; `/ui` serves the index.
+- `test/css-framework-gate-smoke.js` (packet 3's directory) took a
+  small edit so it accepts `app/globals.css` and skips `out/` and
+  `.next/`. Packet 3 still rewrites it as the 2.9 gate.
+- `build-css.js` reads `app/globals.css`; the old `index.html` is no
+  longer scanned, so `app.css` is 74K and the old page would show
+  unstyled if reached (it is not: `out/index.html` wins at `/`).
+- `workbench-host.ts` is a frozen path at 340 lines; packet 1 paid for
+  its lines with a trimmed comment. Packet 2 must not grow it, or ask.
+- `out/` is 1.0 MB in 33 files; each rebuild is a diff in the PR.
