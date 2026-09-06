@@ -13,7 +13,9 @@ const os = require("node:os");
 const path = require("node:path");
 
 const PINS = { tailwindcss: "4.3.3", daisyui: "5.7.28" };
-const BANNED = /^(@mantine\/|@heroui\/|@mui\/|antd$|element-plus$|primevue$|vuetify$|bootstrap$)/;
+// UI libraries from TECH-SPEC section 5, plus HTML frameworks from its
+// 6b row: the workbench is the named plain-HTML exception, so none of them.
+const BANNED = /^(@mantine\/|@heroui\/|@mui\/|antd$|element-plus$|primevue$|vuetify$|bootstrap$|react$|react-dom$|next$|vue$|nuxt$|svelte$|@angular\/|solid-js$|preact$)/;
 const ENTRY = path.join("ui", "workbench", "app.src.css");
 const BUILT = path.join("ui", "workbench", "app.css");
 const SKIP = new Set(["node_modules", "dist", ".git", ".cw", "tmp"]);
@@ -34,7 +36,7 @@ function gate(root) {
   const faults = [];
   const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-  for (const name of Object.keys(deps)) if (BANNED.test(name)) faults.push(`second UI library: ${name}`);
+  for (const name of Object.keys(deps)) if (BANNED.test(name)) faults.push(`UI library or HTML framework: ${name}`);
   for (const [name, pin] of Object.entries(PINS)) if (deps[name] !== pin) faults.push(`${name} is ${deps[name]}, pin is ${pin}`);
   for (const f of cssFiles(root)) if (f !== ENTRY && f !== BUILT) faults.push(`css outside the entry file: ${f}`);
   const entry = fs.readFileSync(path.join(root, ENTRY), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
