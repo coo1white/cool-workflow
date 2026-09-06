@@ -124,7 +124,7 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/web-desktop-workbench.7.md", "Web / Desktop Workbench", checks);
   checkIncludesOwnLine("plugins/cool-workflow/docs/web-desktop-workbench.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "web-desktop-workbench.7.md", checks);
-  checkIncludes("plugins/cool-workflow/test/web-desktop-workbench-smoke.js", "web-desktop-workbench-smoke", checks);
+  checkIncludes("plugins/cool-workflow/ui/workbench/tests/web-desktop-workbench-smoke.test.js", "web-desktop-workbench-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/observability-cost-accounting.7.md", "Observability + Cost Accounting", checks);
   checkIncludesOwnLine("plugins/cool-workflow/docs/observability-cost-accounting.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "observability-cost-accounting.7.md", checks);
