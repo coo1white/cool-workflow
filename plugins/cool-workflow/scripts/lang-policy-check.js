@@ -24,8 +24,13 @@ const EXCEPT_PATHS = new Set([
   "Formula/cool-workflow.rb", // Homebrew formula must be Ruby
   "plugins/cool-workflow/ui/workbench/index.html", // served from disk by design
   "plugins/cool-workflow/ui/workbench/app.css", // served from disk by design
-  "plugins/cool-workflow/ui/workbench/app.src.css" // Tailwind input: three directives, no rules
+  "plugins/cool-workflow/ui/workbench/app.src.css", // Tailwind input: three directives, no rules
+  "plugins/cool-workflow/ui/workbench/app/globals.css" // Tailwind input for the Next app: at-rules only
 ]);
+
+// Generated trees committed like dist/: nobody writes these by hand, so the
+// policy has nothing to say about what they are written in.
+const EXCEPT_PREFIXES = ["plugins/cool-workflow/ui/workbench/out/"];
 
 // Not "code" at all -- docs, data, config, and binary assets. Fine
 // anywhere in the tree; this policy is only about what the project is
@@ -55,6 +60,7 @@ function trackedFiles() {
 
 function classify(file) {
   if (EXCEPT_PATHS.has(file)) return { ok: true };
+  if (EXCEPT_PREFIXES.some((prefix) => file.startsWith(prefix))) return { ok: true };
   const base = path.basename(file);
   if (NON_CODE_BASENAMES.has(base)) return { ok: true };
   const dot = base.lastIndexOf(".");

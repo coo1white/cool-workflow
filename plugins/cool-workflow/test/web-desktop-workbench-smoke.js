@@ -344,6 +344,9 @@ async function main() {
     const ui = await request({ ...base, path: "/", method: "GET", headers: okHeaders });
     assert.equal(ui.status, 200, "GET / serves a UI shell");
     assert.ok(/<!doctype html>/i.test(ui.body), "UI shell is HTML");
+    // The committed Next export is what "/" serves.
+    const exported = fs.readFileSync(path.join(pluginRoot, "ui", "workbench", "out", "index.html"), "utf8");
+    assert.equal(ui.body, exported, "GET / serves ui/workbench/out/index.html");
 
     // Read-only: every write verb refused 405.
     for (const method of ["POST", "PUT", "DELETE", "PATCH"]) {
