@@ -87,40 +87,59 @@ dependency, no font or byte from the network.
 
 **A. `ui/workbench/` — [sonnet] high.** Edits `app.css`, `index.html`,
 `app.js` only. `navigation.js` and `inspection.js` do not change. Keeps
-`TAB_KEYS`, the two routes, the request sequence guards, and every
-string `test/web-desktop-workbench-smoke.js` pins. What changes:
+`TAB_KEYS`, the two routes, the request sequence guards, the element ids
+`filter`, `run-list`, `registry-freshness`, `run-panel`, `refresh` (all
+stay in the DOM under those names), and every string
+`test/web-desktop-workbench-smoke.js` lines 549-574 pin. The strip and
+the stamp read panels of tabs not open; same one payload, no new
+request. What changes:
 1. Top bar: orange mark (SVG), "COOL WORKFLOW" + "Workbench", the trust
    line, one Refresh button with an icon.
 2. Run rows: dot + `appId · HH:MM` on line one, `lifecycle` and the date
    on line two; the full run id in the button's `title`; `data-runid`
-   stays. Registry freshness becomes one pill by the "Runs · N" label.
+   stays. The `<h2>Runs</h2>` stays; registry freshness becomes one pill
+   in the same bar (the `registry-freshness` element).
 3. Run header: label "run", the id in mono 20/600, pills for lifecycle
    and resolved, "as of". A CSS-only round stamp at the right whose word
    comes from `view.lifecycle`: completed → PASS (orange), blocked →
    BLOCKED (amber), failed → FAILED (red), running → RUNNING (orange),
-   else the word itself, muted.
-4. "What matters" strip above the tabs, three cards: problems, missing
-   evidence, next action, from the three payload fields named under
-   Measured facts, through `INSPECTION.actionFacts` where it already
-   fits. Empty array → "none" in green. Next action is a `<code>` chip.
+   else the word itself, muted; no `lifecycle` key at all → no stamp.
+4. A strip above the tabs, heading word "what needs you", three cards:
+   problems, missing evidence, next action. Three
+   `INSPECTION.actionFacts` calls, one per panel payload, each filtered
+   to the one `fact.key` wanted: `problems` from `candidate/summary`,
+   `missingEvidence` from `blackboard/coordinator`, `nextAction` from
+   `graph/compact` (drop the `nextAction` fact `blackboard/coordinator`
+   also returns). Empty array → "none" in green. Next action is a
+   `<code>` chip. The per-panel `renderActionSummary` block ("What
+   matters") stays as is; the test pins it. Both are string arrays.
 5. Blocked or failed: the recovery line (the pinned text) moves above
    the strip into an amber box with a warning icon.
 6. Panel cards: title + `cli` and `mcp` as two code chips + status pill;
    tables zebra with upper-case mono heads; the raw JSON `<pre>` goes
-   inside `<details>` (closed) with the summary "raw payload".
+   inside `<details>` (closed) with the summary "raw payload". Keep the
+   literal `card.appendChild(renderStructured(panel.data) || ...)` call
+   (the test pins that substring and its order); build the `<details>`
+   inside the `|| ...` fallback, and do the same for the second `<pre>`
+   in `renderEventGroups`. Never rename or wrap that call.
 7. Tabs: underline style, no boxes. Same buttons, same ARIA.
-8. Empty state: the one command `cw -q "<question>" -claude` in an
+8. Empty state: the one command `cw -q "<question>"` (no vendor flag;
+   the same line `report-open-smoke.js` pins for the CLI) in an
    orange-lined box and four words: ask, plan and dispatch, verify,
    report.
-Size: net ≤ +160 lines across the three files; app.js may not grow by
-more than 60. Comments: constraints only.
+Size: net ≤ +240 lines across the three files; app.js may not grow by
+more than 70. Comments: constraints only.
 
 **B. `src/core/format/report-html.ts` — [sonnet] high.** The style
 string becomes the light token set above plus: a dark brand band (mark,
 "COOL WORKFLOW report", trust words) before the body, `h1` 34/800, `h2`
 as an 11px mono upper-case label with a rule, zebra tables with mono
-cells and right-aligned number columns kept, `pre` dark. Pure function
-stays pure; every tag the test checks stays. Size: net ≤ +30 lines.
+cells, `pre` dark. Column alignment is out of scope for B (the rule row
+is thrown away today; keeping it is logic, not style). Pure function
+stays pure. The test checks bare tags by substring (`<h1>`, `<table>`,
+`<pre><code>`), so style by tag selector only; no class or attribute on
+`h1`, `table`, `pre`, `code`. Keep the style as long concatenated string
+lines, as today. Size: net ≤ +30 lines.
 
 **C. `project/docs/intent/` — [haiku] high.** Append the two closed
 intent files named under Measured facts to `2026-09-archive.md`, text
@@ -147,7 +166,14 @@ screenshot by hand from `cw workbench serve`.
 
 ## What this spec got wrong
 
-(filled as it happens)
+- Plan check (Opus, 2026-09-06), before any code: the strip's three
+  fields sit in three panels, not one (one `actionFacts` call does not
+  fit); a "What matters" block already exists in every panel card and
+  is pinned by the test; `<details>` around the JSON as first written
+  would delete a pinned substring; the empty-state command carried a
+  vendor flag the core path does not; packet A's line cap was about a
+  third too small; `lifecycle` can be absent; report.html has no column
+  alignment to keep. All fixed above before A and B started.
 
 ## Architecture snapshot diff
 
@@ -159,9 +185,9 @@ panels"; the trust line and empty-state command in the README FAQ)
 | Step | State | Where |
 | --- | --- | --- |
 | Design canvas | done | artifact 655668ba |
-| C archive two intents | open | |
+| C archive two intents | PR open | #663 |
 | Intent + spec (this file) | open | |
-| Opus plan check | open | |
+| Opus plan check | done: fix first, 7 fixes taken | above |
 | A ui/workbench | open | |
 | B report-html.ts | open | |
 | Acceptance + close | open | |
