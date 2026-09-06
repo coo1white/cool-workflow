@@ -49,7 +49,7 @@ async function main() {
 
   // 1b. a Verdict line becomes the round stamp by the title, never a bullet.
   const stamped = reportToHtml("# T\n\n- Run: x\n- Verdict: PASS\n");
-  assert.ok(stamped.includes('class="stamp pass"') && stamped.includes("<b>PASS</b>") && !stamped.includes("Verdict"), "verdict stamp, no verdict bullet");
+  assert.ok(stamped.includes('class="stamp pass') && stamped.includes(">PASS</b>") && !stamped.includes("Verdict"), "verdict stamp, no verdict bullet");
   assert.ok(!reportToHtml("# T\n\n- Run: x\n").includes('class="stamp'), "no verdict line, no stamp");
 
   // 2. no id picks the newest of two fixture runs.

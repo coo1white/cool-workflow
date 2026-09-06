@@ -1,0 +1,5 @@
+/* Tailwind 3.4 + daisyUI 4 input. Theme and rules live in tailwind.config.js
+   and in the class names of index.html, app.js and report-html.ts. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

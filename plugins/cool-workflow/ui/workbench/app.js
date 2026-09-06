@@ -4,6 +4,7 @@
 // The UI holds NO state of its own and contains NO business logic: it fetches
 // the read-only JSON views from the localhost host and renders them. Every panel
 // is exactly one capability payload; refresh re-derives everything from disk.
+// The look is Tailwind + daisyUI classes only (app.css is built from them).
 
 const PANEL_GROUPS = [
   { key: "graph", label: "Run graph", panels: ["operator", "multiAgent", "compact", "criticalPath"] },
@@ -20,8 +21,27 @@ if (!NAV) throw new Error("Workbench navigation helper is not available");
 const INSPECTION = globalThis.CWWorkbenchInspection;
 if (!INSPECTION) throw new Error("Workbench inspection helper is not available");
 
+// Class strings used more than once. One word each for colour: green = done
+// and checked, orange = the tool is working, amber = needs a person, red = broke.
+const C = {
+  label: "font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60",
+  pill: "badge badge-outline badge-sm h-[22px] font-mono text-[11px] uppercase tracking-[.04em] text-base-content/60",
+  cmd: "inline-block rounded-md border border-base-300 bg-base-300 px-2 font-mono text-[12px] leading-[1.6] text-base-content [overflow-wrap:anywhere]",
+  card: "card card-compact card-bordered bg-base-200 text-[13px] [&>*]:gap-1.5",
+  block: "border-t border-base-300 px-3.5 py-2.5 first:border-t-0",
+  title: "mb-1.5 font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60",
+  items: "m-0 pl-[18px] font-mono text-[12px] leading-normal whitespace-pre-wrap [overflow-wrap:anywhere]"
+};
+const TONE = {
+  present: "badge-success", valid: "badge-success", completed: "badge-success",
+  running: "badge-primary",
+  absent: "badge-warning", stale: "badge-warning", blocked: "badge-warning",
+  missing: "badge-error", bad: "badge-error", failed: "badge-error"
+};
+const DOT = { running: "bg-primary", completed: "bg-success", blocked: "bg-warning", failed: "bg-error" };
+
 // `indexSeq` is a request sequence number: the debounced filter input can
-// start a second /api/index fetch while an older one is still in flight, and
+// start a second api/index fetch while an older one is still in flight, and
 // only the NEWEST request may render (an old slow response must not
 // overwrite a new fast one). `viewFetchedAt` is when the active run's view
 // was fetched, shown as "as of HH:MM:SS" in the detail header.
@@ -51,7 +71,8 @@ function writeRoute(runId, tab, mode = "push") {
 }
 
 // Build a request URL with URLSearchParams so the token composes with any
-// other query params (e.g. the index filter's ?text=).
+// other query params (e.g. the index filter's ?text=). Paths are relative,
+// so the page works under any prefix (the host at /, a static site at /x/).
 function apiUrl(pathname, params = {}) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
@@ -92,24 +113,31 @@ function el(tag, attrs = {}, children = []) {
 }
 
 function rawJson(data, label = "raw payload") {
-  return el("details", { class: "raw" }, [el("summary", { text: label }), el("pre", { class: "json", text: JSON.stringify(data, null, 2) })]);
+  return el("details", { class: "collapse collapse-arrow rounded-none border-t border-base-300" }, [
+    el("summary", { class: "collapse-title min-h-0 px-3.5 py-2.5 text-[12px] text-base-content/60", text: label }),
+    el("div", { class: "collapse-content px-0" }, [el("pre", { class: "max-h-[460px] overflow-x-auto whitespace-pre bg-base-100 px-3.5 py-3 font-mono text-[12px] leading-normal", text: JSON.stringify(data, null, 2) })])
+  ]);
 }
 
 // The stamp word comes from `view.lifecycle` alone; no key, no stamp.
-const STAMP = { completed: ["PASS", "present"], blocked: ["BLOCKED", "absent"], failed: ["FAILED", "bad"], running: ["RUNNING", "running"] };
+const STAMP = { completed: ["PASS", "border-primary text-primary"], blocked: ["BLOCKED", "border-warning text-warning"], failed: ["FAILED", "border-error text-error"], running: ["RUNNING", "border-primary text-primary"] };
 function stampFor(lifecycle) {
   if (!lifecycle) return null;
-  const [word, tone] = STAMP[lifecycle] || [lifecycle, ""];
-  return el("div", { class: `stamp ${tone}`, role: "img", "aria-label": `verdict ${word}` }, [
-    el("span", { class: "stamp-top", text: "verifier-gated" }),
-    el("span", { class: "stamp-word", text: word }),
-    el("span", { class: "stamp-bottom", text: ".cw/runs" })
+  const [word, tone] = STAMP[lifecycle] || [lifecycle, "border-base-content/40 text-base-content/60"];
+  return el("div", {
+    class: `flex h-28 w-28 flex-none -rotate-[8deg] flex-col items-center justify-center gap-0.5 rounded-full border-[3px] font-mono uppercase [box-shadow:inset_0_0_0_5px_oklch(var(--b1)),inset_0_0_0_6px_currentColor] ${tone}`,
+    role: "img",
+    "aria-label": `verdict ${word}`
+  }, [
+    el("span", { class: "text-[8px] tracking-[.2em]", text: "verifier-gated" }),
+    el("span", { class: "text-[22px] font-extrabold leading-none tracking-[.06em]", text: word }),
+    el("span", { class: "text-[8px] tracking-[.2em]", text: ".cw/runs" })
   ]);
 }
 
 function freshnessBadge(value, title) {
   const v = String(value || "").toLowerCase();
-  const attrs = { class: `badge ${v || "absent"}`, text: value || "unknown" };
+  const attrs = { class: `${C.pill} ${TONE[v] || ""}`, text: value || "unknown" };
   if (title) attrs.title = title;
   return el("span", attrs);
 }
@@ -121,17 +149,17 @@ async function loadIndex() {
   // A loading placeholder, not a bare wipe: the same pattern the detail
   // pane uses, so the sidebar never flashes empty while the fetch runs.
   list.innerHTML = "";
-  list.appendChild(el("li", { class: "muted", text: "loading runs…", role: "status" }));
+  list.appendChild(el("li", { class: "px-3 py-2 text-[12px] text-base-content/60", text: "loading runs…", role: "status" }));
   let view;
   try {
-    view = await getJson(apiUrl("/api/index", { text: filter }));
+    view = await getJson(apiUrl("api/index", { text: filter }));
   } catch (error) {
     if (seq !== state.indexSeq) return;
     list.innerHTML = "";
-    list.appendChild(el("li", { class: "err", text: `failed to load index: ${error.message}`, role: "alert" }));
-    // Clear the stale "registry valid · scope …" line — leaving the last
-    // successful freshness next to a load error is itself a stale badge on
-    // the one panel whose whole point is freshness.
+    list.appendChild(el("li", { class: "px-3 py-2 text-[12px] text-error", text: `failed to load index: ${error.message}`, role: "alert" }));
+    // Clear the stale registry pill; leaving the last successful freshness
+    // next to a load error is itself a stale badge on the one panel whose
+    // whole point is freshness.
     const fresh = document.getElementById("registry-freshness");
     fresh.innerHTML = "";
     fresh.append(freshnessBadge("unavailable", "registry unavailable · index unreachable"));
@@ -151,9 +179,9 @@ async function loadIndex() {
   const runs = view.runs || {};
   const records = runs.records || [];
   if (!records.length) {
-    list.appendChild(el("li", { class: "muted" }, [
+    list.appendChild(el("li", { class: "px-3 py-2 text-[12px] text-base-content/60" }, [
       el("div", { text: "no runs indexed in this scope" }),
-      el("code", { class: "cmd hint", text: 'cw -q "<question>"' })
+      el("code", { class: `${C.cmd} mt-1.5`, text: 'cw -q "<question>"' })
     ]));
     if (!state.activeRunId) renderFirstRun();
     return;
@@ -163,22 +191,27 @@ async function loadIndex() {
   // than the page size silently hides the rest, and someone checking "did my
   // run get created" is misled into thinking it doesn't exist.
   if (typeof runs.total === "number" && runs.total > records.length) {
-    list.appendChild(el("li", { class: "muted hint", text: `showing latest ${records.length} of ${runs.total} runs` }));
+    list.appendChild(el("li", { class: "px-3 py-2 text-[12px] text-base-content/60", text: `showing latest ${records.length} of ${runs.total} runs` }));
   }
   // The server returns the page sorted oldest-first; show newest at the top.
   for (const record of [...records].reverse()) {
     const lifecycle = record.lifecycle || record.status || "";
     // A real <button>, not a bare <li> with a click listener: Tab reaches
     // it, Enter/Space activate it, and it gets a focus ring for free — no
-    // extra ARIA needed. Same CSS classes as before so the row/card look
-    // is unchanged (see app.css .run-list button rules).
+    // extra ARIA needed. The "active" class is what markActiveRow toggles;
+    // daisyUI's menu draws it.
     const when = record.createdAt ? new Date(record.createdAt) : null;
-    const btn = el("button", { type: "button", "data-runid": record.runId, title: `${record.runId}\n${record.repo || ""}`, class: state.activeRunId === record.runId ? "active" : "" }, [
-      el("div", { class: "rid" }, [
-        el("span", { class: `status-dot ${lifecycle}`, title: lifecycle || "unknown" }),
+    const btn = el("button", {
+      type: "button",
+      "data-runid": record.runId,
+      title: `${record.runId}\n${record.repo || ""}`,
+      class: `flex w-full flex-col items-stretch gap-[3px] rounded-lg px-3 py-2.5 text-left ${state.activeRunId === record.runId ? "active" : ""}`
+    }, [
+      el("div", { class: "flex items-center gap-2 font-mono text-[12px]" }, [
+        el("span", { class: `inline-block h-2 w-2 flex-none rounded-full ${DOT[lifecycle] || "bg-base-content/40"}`, title: lifecycle || "unknown" }),
         document.createTextNode(`${record.appId || record.workflowId || record.runId}${when ? ` · ${formatClock(when).slice(0, 5)}` : ""}`)
       ]),
-      el("div", { class: "meta" }, [el("span", { text: lifecycle || "unknown" }), el("span", { text: when ? when.toISOString().slice(0, 10) : "" })])
+      el("div", { class: "flex justify-between pl-4 text-[11px] text-base-content/60" }, [el("span", { text: lifecycle || "unknown" }), el("span", { text: when ? when.toISOString().slice(0, 10) : "" })])
     ]);
     btn.addEventListener("click", () => selectRun(record.runId));
     list.appendChild(el("li", { class: "run-entry" }, [btn]));
@@ -211,14 +244,14 @@ async function loadRunDetail(runId) {
   const seq = ++state.detailSeq;
   const detail = document.getElementById("run-panel");
   detail.innerHTML = "";
-  detail.appendChild(el("p", { class: "muted", text: `loading ${runId}…`, role: "status" }));
+  detail.appendChild(el("p", { class: "text-base-content/60", text: `loading ${runId}…`, role: "status" }));
   let view;
   try {
-    view = await getJson(apiUrl(`/api/run/${encodeURIComponent(runId)}`));
+    view = await getJson(apiUrl(`api/run/${encodeURIComponent(runId)}`));
   } catch (error) {
     if (state.activeRunId !== runId || seq !== state.detailSeq) return;
     detail.innerHTML = "";
-    detail.appendChild(el("p", { class: "err", text: `failed to load run: ${error.message}`, role: "alert" }));
+    detail.appendChild(el("p", { class: "text-error", text: `failed to load run: ${error.message}`, role: "alert" }));
     return;
   }
   // The user may have clicked another run while this fetch was in flight;
@@ -245,12 +278,17 @@ function formatClock(date) {
 function renderFirstRun() {
   const detail = document.getElementById("run-panel");
   detail.innerHTML = "";
-  detail.appendChild(el("div", { class: "first-run" }, [
-    el("span", { class: "label accent", text: "first run" }),
-    el("h2", { text: "Ask one question. Get a saved, cited report." }),
-    el("p", { class: "muted", text: "Run this in a repo. The report opens by itself when the run ends, and it shows up here." }),
-    el("code", { class: "cmd big", text: 'cw -q "<question>"' }),
-    el("ol", { class: "steps" }, ["ask", "plan and dispatch", "verify", "report"].map((step) => el("li", { text: step })))
+  detail.appendChild(el("div", { class: "mx-auto mt-[10vh] flex max-w-[620px] flex-col gap-3.5" }, [
+    el("span", { class: `${C.label} text-primary`, text: "first run" }),
+    el("h2", { class: "text-[26px] font-extrabold leading-[1.2] tracking-[-.01em]", text: "Ask one question. Get a saved, cited report." }),
+    el("p", { class: "text-base-content/60", text: "Run this in a repo. The report opens by itself when the run ends, and it shows up here." }),
+    el("code", { class: `${C.cmd} block border-primary px-4 py-3 text-[14px]`, text: 'cw -q "<question>"' }),
+    el("ol", { class: "grid list-none grid-cols-4 gap-2.5 p-0" }, ["ask", "plan and dispatch", "verify", "report"].map((step, i) =>
+      el("li", { class: "card card-bordered card-compact bg-base-200 px-3.5 py-3 text-[13px] font-semibold" }, [
+        el("span", { class: `${C.label} mb-1 block`, text: String(i + 1) }),
+        document.createTextNode(step)
+      ])
+    ))
   ]));
 }
 
@@ -258,20 +296,23 @@ function renderFirstRun() {
 // payload already fetched: no new request. Only graph's `nextAction`
 // counts; the coordinator payload carries one too and it is dropped.
 const NEEDS_YOU = [
-  ["problems", "candidate", "summary", "problems"],
-  ["missingEvidence", "blackboard", "coordinator", "missing evidence"],
-  ["nextAction", "graph", "compact", "next action"]
+  ["problems", "candidate", "summary", "problems", "border-error text-error"],
+  ["missingEvidence", "blackboard", "coordinator", "missing evidence", ""],
+  ["nextAction", "graph", "compact", "next action", "border-primary"]
 ];
 function renderNeedsYou(view) {
-  const strip = el("section", { class: "needs-you", "aria-label": "what needs you" });
-  for (const [key, group, name, label] of NEEDS_YOU) {
+  const strip = el("section", { class: "grid grid-cols-3 gap-3", "aria-label": "what needs you" });
+  for (const [key, group, name, label, someTone] of NEEDS_YOU) {
     const panel = view.panels && view.panels[group] && view.panels[group][name];
     const fact = panel && panel.status === "present" ? INSPECTION.actionFacts(panel.data).find((f) => f.key === key) : null;
     const none = !fact || fact.items[0] === "none";
-    const card = el("div", { class: `needs-card ${key} ${none ? "none" : "some"}` }, [el("span", { class: "label", text: label })]);
-    if (none) card.appendChild(el("span", { class: "ok", text: "none" }));
-    else if (key === "nextAction") card.appendChild(el("code", { class: "cmd", text: fact.items[0] }));
-    else card.appendChild(el("ul", { class: "action-items" }, fact.items.map((item) => el("li", { text: item }))));
+    const tone = key === "nextAction" ? someTone : none ? "" : someTone;
+    const card = el("div", { class: `${C.card} ${tone}` });
+    const cardBody = el("div", { class: "card-body" }, [el("span", { class: `${C.label} ${key === "nextAction" ? "text-primary" : ""}`, text: label })]);
+    card.appendChild(cardBody);
+    if (none) cardBody.appendChild(el("span", { class: "text-success", text: "none" }));
+    else if (key === "nextAction") cardBody.appendChild(el("code", { class: C.cmd, text: fact.items[0] }));
+    else cardBody.appendChild(el("ul", { class: C.items }, fact.items.map((item) => el("li", { text: item }))));
     strip.appendChild(card);
   }
   return strip;
@@ -286,29 +327,32 @@ function selectTab(tab, options = {}) {
 function renderRun(view, options = {}) {
   const detail = document.getElementById("run-panel");
   detail.innerHTML = "";
-  const facts = el("div", { class: "kv" }, [
+  const facts = el("div", { class: "flex flex-wrap items-center gap-2.5 text-[12px] text-base-content/60" }, [
     view.lifecycle ? freshnessBadge(view.lifecycle) : null,
     el("span", {}, [document.createTextNode("resolved "), freshnessBadge(view.resolved ? "valid" : "missing")])
   ]);
-  if (state.viewFetchedAt) facts.appendChild(el("span", { class: "muted", text: `as of ${formatClock(state.viewFetchedAt)}` }));
-  if (view.error) facts.appendChild(el("span", { class: "err", text: view.error }));
-  detail.appendChild(el("div", { class: "run-head" }, [
-    el("div", { class: "run-title" }, [el("span", { class: "label", text: "run" }), el("span", { class: "run-id", text: view.runId }), facts]),
+  if (state.viewFetchedAt) facts.appendChild(el("span", { text: `as of ${formatClock(state.viewFetchedAt)}` }));
+  if (view.error) facts.appendChild(el("span", { class: "text-error", text: view.error }));
+  detail.appendChild(el("div", { class: "flex items-start justify-between gap-6" }, [
+    el("div", { class: "flex flex-col gap-1.5" }, [el("span", { class: C.label, text: "run" }), el("span", { class: "font-mono text-[20px] font-semibold", text: view.runId }), facts]),
     stampFor(view.lifecycle)
   ]));
   if (view.lifecycle === "blocked" || view.lifecycle === "failed") {
     detail.appendChild(
-      el("p", { class: "recovery-hint", text: `${view.lifecycle} — run 'cw run status ${view.runId}' or 'cw doctor' for next steps` })
+      el("p", {
+        class: "alert alert-warning text-[13px]",
+        text: `${view.lifecycle} — run 'cw run status ${view.runId}' or 'cw doctor' for next steps`
+      })
     );
   }
   detail.appendChild(renderNeedsYou(view));
 
-  const tabs = el("div", { class: "tabs", role: "tablist" });
+  const tabs = el("div", { class: "tabs tabs-bordered", role: "tablist" });
   for (const group of PANEL_GROUPS) {
     const active = state.activeTab === group.key;
     const btn = el("button", {
       id: `workbench-tab-${group.key}`,
-      class: `tab ${active ? "active" : ""}`,
+      class: `tab text-[13px] font-semibold ${active ? "tab-active" : ""}`,
       text: group.label,
       role: "tab",
       "aria-controls": `workbench-panel-${group.key}`,
@@ -356,11 +400,11 @@ function renderRun(view, options = {}) {
 }
 
 function renderPanel(name, panel) {
-  const card = el("div", { class: "panel-card" });
-  const head = el("div", { class: "head" }, [
-    el("span", { class: "title", text: `${name} — ${panel.capability}` }),
-    el("span", { class: "src" }, [el("code", { class: "cmd", text: panel.cli }), el("code", { class: "cmd", text: panel.mcp })]),
-    el("span", { class: `badge ${panel.status}`, text: panel.status })
+  const card = el("div", { class: "card card-bordered mb-3.5 overflow-hidden rounded-[10px] bg-base-200" });
+  const head = el("div", { class: "flex flex-wrap items-center justify-between gap-3 border-b border-base-300 px-3.5 py-2.5" }, [
+    el("span", { class: "text-[13px] font-semibold", text: `${name} — ${panel.capability}` }),
+    el("span", { class: "mr-auto flex gap-2" }, [el("code", { class: C.cmd, text: panel.cli }), el("code", { class: C.cmd, text: panel.mcp })]),
+    el("span", { class: `${C.pill} ${TONE[panel.status] || ""}`, text: panel.status })
   ]);
   card.appendChild(head);
   if (panel.status === "present") {
@@ -368,7 +412,7 @@ function renderPanel(name, panel) {
     if (actionSummary) card.appendChild(actionSummary);
     card.appendChild(renderStructured(panel.data) || rawJson(panel.data));
   } else {
-    card.appendChild(el("div", { class: "absent-note", text: `absent — ${panel.error || "source unreadable"}` }));
+    card.appendChild(el("div", { class: "px-3.5 py-2.5 text-[12px] text-warning", text: `absent — ${panel.error || "source unreadable"}` }));
   }
   return card;
 }
@@ -376,14 +420,14 @@ function renderPanel(name, panel) {
 function renderActionSummary(data) {
   const facts = INSPECTION.actionFacts(data);
   if (facts.length === 0) return null;
-  const summary = el("section", { class: "what-matters", "aria-label": "What matters" }, [
-    el("h3", { class: "what-matters-title", text: "What matters" })
+  const summary = el("section", { class: "border-b border-base-300 bg-base-300 px-3.5 py-2.5", "aria-label": "What matters" }, [
+    el("h3", { class: C.title, text: "What matters" })
   ]);
   for (const fact of facts) {
     summary.appendChild(
-      el("div", { class: `action-fact ${fact.key}` }, [
-        el("div", { class: "action-label", text: fact.label }),
-        el("ul", { class: "action-items" }, fact.items.map((item) => el("li", { text: item })))
+      el("div", { class: "mt-1.5 grid grid-cols-[minmax(100px,140px)_1fr] gap-2.5 first-of-type:mt-0" }, [
+        el("div", { class: "text-[12px] text-base-content/60", text: fact.label }),
+        el("ul", { class: C.items }, fact.items.map((item) => el("li", { text: item })))
       ])
     );
   }
@@ -420,7 +464,7 @@ function renderStructured(data) {
 // scope="col", body rows in a <tbody> — screen readers can then associate
 // each cell with its column header.
 function structTable(headers) {
-  const table = el("table", { class: "struct-table" }, [
+  const table = el("table", { class: "table table-zebra table-xs font-mono" }, [
     el("thead", {}, [el("tr", {}, headers.map((h) => el("th", { scope: "col", text: h })))])
   ]);
   const tbody = el("tbody");
@@ -428,37 +472,36 @@ function structTable(headers) {
   return { table, tbody };
 }
 
+function row(cells) {
+  return el("tr", {}, cells.map((text) => el("td", { class: "align-top", text })));
+}
+
+function structBlock(title) {
+  return el("div", { class: C.block }, [el("div", { class: C.title, text: title })]);
+}
+
 function renderGraph(data) {
   const wrap = el("div");
-  const nodesBlock = el("div", { class: "struct-block" }, [el("div", { class: "struct-title", text: `nodes (${data.nodes.length})` })]);
+  const nodesBlock = structBlock(`nodes (${data.nodes.length})`);
   if (data.nodes.length === 0) {
-    nodesBlock.appendChild(el("div", { class: "struct-empty", text: "none" }));
+    nodesBlock.appendChild(el("div", { class: "text-[12px] text-base-content/60", text: "none" }));
   } else {
     const { table, tbody } = structTable(["id", "kind", "status", "label"]);
-    for (const node of data.nodes) {
-      tbody.appendChild(
-        el("tr", {}, [
-          el("td", { text: node.id }),
-          el("td", { text: node.kind }),
-          el("td", { text: node.status }),
-          el("td", { text: node.label })
-        ])
-      );
-    }
+    for (const node of data.nodes) tbody.appendChild(row([node.id, node.kind, node.status, node.label]));
     nodesBlock.appendChild(table);
   }
   wrap.appendChild(nodesBlock);
 
-  const edgesBlock = el("div", { class: "struct-block" }, [el("div", { class: "struct-title", text: `edges (${data.edges.length})` })]);
+  const edgesBlock = structBlock(`edges (${data.edges.length})`);
   if (data.edges.length === 0) {
-    edgesBlock.appendChild(el("div", { class: "struct-empty", text: "none" }));
+    edgesBlock.appendChild(el("div", { class: "text-[12px] text-base-content/60", text: "none" }));
   } else {
-    const list = el("ul", { class: "struct-edges" });
+    const list = el("ul", { class: "list-none p-0 font-mono text-[12px]" });
     for (const edge of data.edges) {
       list.appendChild(
-        el("li", {}, [
+        el("li", { class: "py-[3px]" }, [
           document.createTextNode(edge.from),
-          el("span", { class: "arrow", text: edge.label ? `--${edge.label}-->` : "-->" }),
+          el("span", { class: "px-1.5 text-base-content/60", text: edge.label ? `--${edge.label}-->` : "-->" }),
           document.createTextNode(edge.to)
         ])
       );
@@ -487,18 +530,10 @@ function renderEventGroups(data, confirmedEventKeys) {
   const wrap = el("div");
   for (const key of eventKeys) {
     const events = [...data[key]].sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
-    const block = el("div", { class: "struct-block" }, [el("div", { class: "struct-title", text: `${humanizeKey(key)} (${events.length})` })]);
+    const block = structBlock(`${humanizeKey(key)} (${events.length})`);
     const { table, tbody } = structTable(["time", "kind", "decision", "source", "actor"]);
     for (const event of events) {
-      tbody.appendChild(
-        el("tr", {}, [
-          el("td", { text: event.createdAt || "" }),
-          el("td", { text: event.kind || "" }),
-          el("td", { text: event.decision || "" }),
-          el("td", { text: event.source || "" }),
-          el("td", { text: event.actor || event.workerId || event.taskId || "" })
-        ])
-      );
+      tbody.appendChild(row([event.createdAt || "", event.kind || "", event.decision || "", event.source || "", event.actor || event.workerId || event.taskId || ""]));
     }
     block.appendChild(table);
     wrap.appendChild(block);
@@ -519,7 +554,7 @@ function showIndexOnly() {
   detail.innerHTML = "";
   detail.appendChild(
     el("p", {
-      class: "empty",
+      class: "text-base-content/60",
       text: "Select a run to inspect its graph, blackboard, worker logs, candidate compare, and audit timeline."
     })
   );
