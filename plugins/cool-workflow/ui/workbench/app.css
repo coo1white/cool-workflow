@@ -1,152 +1,205 @@
 /* Cool Workflow Workbench — static, dependency-light styling.
-   No framework; system fonts only; ~self-contained. */
+   No framework; system fonts only; no network. Tokens from the
+   2026-09-06 workbench-face spec; light scheme keeps the same names. */
 :root {
-  --bg: #0f1115;
-  --panel: #171a21;
-  --panel-2: #1d212a;
-  --ink: #e6e8ec;
-  --muted: #8a92a3;
-  --line: #2a2f3a;
-  --accent: #5aa9ff;
-  --present: #3fb950;
-  --absent: #d29922;
-  --bad: #f85149;
+  --bg: #14120f;
+  --panel: #1b1815;
+  --panel-2: #23201b;
+  --ink: #f2ede4;
+  --muted: #9a938a;
+  --line: #33302a;
+  --accent: #ef6c1f;
+  --present: #58b86a;
+  --absent: #d9a441;
+  --bad: #e5533f;
+  --mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f6f7f9;
+    --bg: #f7f4ee;
     --panel: #ffffff;
-    --panel-2: #eef0f4;
-    --ink: #1b1f27;
-    --muted: #5b6472;
-    --line: #d7dce4;
-    --accent: #1a6fd6;
-    --present: #1a7f37;
+    --panel-2: #efeae0;
+    --ink: #1e1b17;
+    --muted: #7a7368;
+    --line: #e2dcd0;
+    --accent: #c9540f;
+    --present: #1f8a3b;
     --absent: #9a6700;
-    --bad: #cf222e;
+    --bad: #c8321f;
   }
 }
 * { box-sizing: border-box; }
 /* The body is a flex column and main takes the leftover height (flex: 1 +
-   min-height: 0 so the inner panes can scroll) — no hardcoded header
-   height, so a header that wraps to two lines no longer pushes the panes
-   past the bottom of the window. */
+   min-height: 0 so the inner panes can scroll); no fixed header height. */
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 14px/1.45 -apple-system, system-ui, "Segoe UI", sans-serif;
   background: var(--bg);
   color: var(--ink);
-  font-size: 14px;
   display: flex;
   flex-direction: column;
   height: 100vh;
 }
-header { padding: 14px 20px; border-bottom: 1px solid var(--line); }
-header h1 { margin: 0; font-size: 18px; font-weight: 600; }
-header .muted, .muted { color: var(--muted); font-weight: 400; }
-header .trust { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-main { display: grid; grid-template-columns: 320px 1fr; flex: 1; min-height: 0; }
-.sidebar { border-right: 1px solid var(--line); overflow-y: auto; padding: 12px; }
-.bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-/* The sidebar heading is a real <h2> (document outline / screen-reader
-   navigation) styled to the size the old <strong> label had. */
-.bar h2 { margin: 0; font-size: 14px; font-weight: 600; }
+code { font-family: var(--mono); }
+.muted { color: var(--muted); font-weight: 400; }
+.err { color: var(--bad); }
+.ok { color: var(--present); }
+.label {
+  font: 11px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+}
+.label.accent { color: var(--accent); }
+
+/* Top bar: mark, brand word, trust line, one refresh button. */
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  min-height: 56px; padding: 0 20px; border-bottom: 1px solid var(--line);
+}
+header .brand { display: flex; align-items: center; gap: 12px; }
+header .mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 7px; background: var(--accent); color: var(--bg);
+}
+header h1 { margin: 0; font-size: 14px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+header h1 .muted { font-size: 13px; letter-spacing: 0; text-transform: none; }
+header .bar { display: flex; align-items: center; gap: 16px; }
+header .trust { margin: 0; font: 11px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+header .trust code { color: var(--ink); }
 button {
-  background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
-  border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px;
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 6px; cursor: pointer; font: 12px -apple-system, system-ui, sans-serif;
 }
 button:hover { border-color: var(--accent); }
+button:focus-visible, .run-list button:focus-visible, .tabs button:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+
+main { display: grid; grid-template-columns: 300px minmax(0, 1fr); flex: 1; min-height: 0; }
+
+/* Left rail: heading, registry pill, filter, run rows. */
+.sidebar { display: flex; flex-direction: column; gap: 10px; border-right: 1px solid var(--line); overflow-y: auto; padding: 14px 12px; }
+.sidebar .bar { display: flex; align-items: center; justify-content: space-between; padding: 0 4px; }
+.sidebar h2 { margin: 0; font: 11px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
 input[type="search"] {
-  width: 100%; background: var(--panel); color: var(--ink);
-  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; margin-bottom: 8px;
+  width: 100%; height: 34px; padding: 0 10px; margin: 0;
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 8px;
+  font: 13px -apple-system, system-ui, sans-serif;
 }
-.freshness { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
-.run-list { list-style: none; margin: 0; padding: 0; }
-.run-list > li { margin-bottom: 6px; }
-.run-list > li:not(.run-entry),
+.run-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.run-list > li:not(.run-entry) { padding: 8px 12px; font-size: 12px; }
 .run-list .run-entry > button {
-  padding: 8px; border: 1px solid var(--line); border-radius: 6px;
-  cursor: pointer; background: var(--panel);
+  display: flex; flex-direction: column; align-items: stretch; gap: 3px; height: auto; width: 100%;
+  padding: 10px 12px; text-align: left; font: inherit; color: inherit;
+  background: transparent; border: 1px solid transparent; border-radius: 8px;
 }
-/* Only the run-row <button> needs a plain-element reset: a <button> has
-   its own default display/width/font/color, a plain <li> (used only for
-   the error and empty-state rows) does not and must keep its own color
-   (.err red, .muted gray) — see app.js. */
-.run-list .run-entry > button {
-  display: block; width: 100%; text-align: left; font: inherit; color: inherit;
-}
-.run-list > li:not(.run-entry):hover, .run-list .run-entry > button:hover { border-color: var(--accent); }
+.run-list .run-entry > button:hover { border-color: var(--line); background: var(--panel); }
 .run-list .run-entry > button.active { border-color: var(--accent); background: var(--panel-2); }
-/* Run rows are now real <button> elements (for Tab/Enter/Space); make the
-   keyboard focus ring visible — there is no :focus-visible rule for this
-   element otherwise. */
-.run-list button:focus-visible,
-.tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.run-list .rid { font-family: ui-monospace, monospace; font-size: 12px; display: flex; align-items: center; gap: 6px; }
-.run-list .meta { color: var(--muted); font-size: 12px; margin-top: 2px; }
-.status-dot {
-  display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none;
-  background: var(--muted);
-}
+.run-list .rid { display: flex; align-items: center; gap: 8px; font: 12px var(--mono); }
+.run-list .meta { display: flex; justify-content: space-between; padding-left: 16px; font-size: 11px; color: var(--muted); }
+.run-list li .hint { margin-top: 6px; }
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--muted); }
 .status-dot.running { background: var(--accent); }
 .status-dot.completed { background: var(--present); }
-.status-dot.queued, .status-dot.archived, .status-dot.reclaimed { background: var(--muted); }
 .status-dot.blocked { background: var(--absent); }
 .status-dot.failed { background: var(--bad); }
-.detail { overflow-y: auto; padding: 16px 20px; }
-.detail .empty { color: var(--muted); }
-.tabs { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 12px; }
-.tabs button.tab { background: transparent; border: 1px solid transparent; }
-.tabs button.tab.active { border-color: var(--line); background: var(--panel-2); }
-.panel-card { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 14px; background: var(--panel); }
-.panel-card > .head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8px 12px; border-bottom: 1px solid var(--line);
+
+/* One word each: green = done and checked, orange = working,
+   amber = needs a person, red = broke. */
+.badge {
+  display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px;
+  border: 1px solid var(--line); font: 11px/1 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted);
 }
-.panel-card > .head .title { font-weight: 600; }
-.panel-card > .head .src { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; }
-.badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); }
-.badge.present { color: var(--present); border-color: var(--present); }
-.badge.absent { color: var(--absent); border-color: var(--absent); }
-.badge.stale { color: var(--absent); border-color: var(--absent); }
-.badge.valid { color: var(--present); border-color: var(--present); }
-.badge.missing, .badge.bad { color: var(--bad); border-color: var(--bad); }
-/* Lifecycle states shown as a badge in the run detail header (the other
-   lifecycle values reuse the neutral/present/absent colors above). */
-.badge.blocked { color: var(--absent); border-color: var(--absent); }
-.badge.failed { color: var(--bad); border-color: var(--bad); }
-.badge.completed { color: var(--present); border-color: var(--present); }
+.badge.present, .badge.valid, .badge.completed { color: var(--present); border-color: var(--present); }
+.badge.absent, .badge.stale, .badge.blocked { color: var(--absent); border-color: var(--absent); }
+.badge.missing, .badge.bad, .badge.failed { color: var(--bad); border-color: var(--bad); }
 .badge.running { color: var(--accent); border-color: var(--accent); }
-/* One plain next-step line under the header when a run is blocked/failed. */
-.recovery-hint { margin: 0 0 12px; font-size: 12px; color: var(--absent); }
-/* Second line of the empty-list state: the suggested next command. */
-.run-list li .hint { margin-top: 4px; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-pre.json {
-  margin: 0; padding: 12px; overflow-x: auto; font-size: 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; line-height: 1.5;
-  color: var(--ink); white-space: pre; max-height: 460px;
+
+/* Right pane: run header with stamp, the needs-you strip, tabs, cards. */
+.detail { display: flex; flex-direction: column; gap: 16px; overflow-y: auto; padding: 20px 24px; }
+.detail > p { margin: 0; }
+.detail .empty { color: var(--muted); }
+.run-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.run-title { display: flex; flex-direction: column; gap: 6px; }
+.run-id { font: 600 20px var(--mono); }
+.kv { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.stamp {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; flex: none;
+  width: 112px; height: 112px; border-radius: 50%; border: 3px solid var(--muted); color: var(--muted);
+  box-shadow: inset 0 0 0 5px var(--bg), inset 0 0 0 6px currentColor;
+  transform: rotate(-8deg); font-family: var(--mono); text-transform: uppercase;
 }
-.panel-card .absent-note { padding: 10px 12px; color: var(--absent); font-size: 12px; }
-.what-matters { padding: 10px 12px; border-top: 1px solid var(--line); background: var(--panel-2); }
-.what-matters-title { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.stamp.present, .stamp.running { border-color: var(--accent); color: var(--accent); }
+.stamp.absent { border-color: var(--absent); color: var(--absent); }
+.stamp.bad { border-color: var(--bad); color: var(--bad); }
+.stamp-top, .stamp-bottom { font-size: 8px; letter-spacing: 0.2em; }
+.stamp-word { font-size: 22px; font-weight: 800; letter-spacing: 0.06em; line-height: 1; }
+.recovery-hint {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  border: 1px solid var(--absent); border-radius: 8px; background: var(--panel); color: var(--absent); font-size: 13px;
+}
+.recovery-hint::before {
+  content: "!"; flex: none; width: 20px; height: 20px; border: 2px solid currentColor; border-radius: 50%;
+  font: 800 13px/16px var(--mono); text-align: center;
+}
+.needs-you { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.needs-card {
+  display: flex; flex-direction: column; gap: 6px; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-size: 13px;
+}
+.needs-card.some.problems { border-color: var(--bad); }
+.needs-card.some.problems .label { color: var(--bad); }
+.needs-card.nextAction { border-color: var(--accent); }
+.needs-card.nextAction .label { color: var(--accent); }
+.cmd {
+  display: inline-block; padding: 2px 8px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--panel-2); color: var(--ink); font: 12px/1.6 var(--mono); overflow-wrap: anywhere;
+}
+.cmd.big { padding: 12px 16px; border-color: var(--accent); font-size: 14px; }
+.first-run { display: flex; flex-direction: column; gap: 14px; max-width: 620px; margin: 10vh auto 0; }
+.first-run h2 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; }
+.first-run p { margin: 0; }
+.first-run .steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: step; }
+.first-run .steps li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-weight: 600; font-size: 13px; }
+.first-run .steps li::before { counter-increment: step; content: counter(step); display: block; font: 11px var(--mono); color: var(--muted); margin-bottom: 4px; }
+
+.tabs { display: flex; gap: 20px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.tabs button.tab {
+  height: 36px; padding: 0 4px; background: transparent; color: var(--muted);
+  border: 0; border-bottom: 2px solid transparent; border-radius: 0; font-weight: 600; font-size: 13px;
+}
+.tabs button.tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+.panel-card { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 14px; background: var(--panel); overflow: hidden; }
+.panel-card > .head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 10px 14px; border-bottom: 1px solid var(--line);
+}
+.panel-card > .head .title { font-weight: 600; font-size: 13px; }
+.panel-card > .head .src { display: flex; gap: 8px; margin-right: auto; }
+.panel-card .absent-note { padding: 10px 14px; color: var(--absent); font-size: 12px; }
+.what-matters { padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+.what-matters-title { margin: 0 0 8px; font: 11px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .action-fact { display: grid; grid-template-columns: minmax(100px, 140px) 1fr; gap: 10px; margin-top: 6px; }
 .action-fact:first-of-type { margin-top: 0; }
 .action-label { color: var(--muted); font-size: 12px; }
-.action-items { margin: 0; padding-left: 18px; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
-.kv { display: flex; gap: 16px; flex-wrap: wrap; padding: 8px 12px; font-size: 12px; color: var(--muted); }
-.kv b { color: var(--ink); font-weight: 600; }
-.err { color: var(--bad); }
-.struct-block { padding: 10px 12px; border-top: 1px solid var(--line); }
+.action-items { margin: 0; padding-left: 18px; font: 12px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.struct-block { padding: 10px 14px; border-top: 1px solid var(--line); }
 .struct-block:first-child { border-top: none; }
-.struct-block .struct-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-bottom: 6px; }
-.struct-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-.struct-table th, .struct-table td {
-  text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; vertical-align: top;
+.struct-title { font: 11px/1.4 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.struct-table { width: 100%; border-collapse: collapse; font: 12px/1.5 var(--mono); }
+.struct-table th {
+  text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line);
+  font-size: 11px; font-weight: 400; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
 }
-.struct-table th { color: var(--muted); font-weight: 400; }
-.struct-edges { list-style: none; margin: 0; padding: 0; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.struct-table td { padding: 6px 10px; border-bottom: 1px solid var(--panel-2); vertical-align: top; }
+.struct-table tbody tr:nth-child(even) td { background: var(--bg); }
+.struct-edges { list-style: none; margin: 0; padding: 0; font: 12px var(--mono); }
 .struct-edges li { padding: 3px 0; }
 .struct-edges .arrow { color: var(--muted); padding: 0 6px; }
 .struct-empty { color: var(--muted); font-size: 12px; }
+/* The raw JSON stays one line down, folded. */
+details.raw > summary { padding: 10px 14px; border-top: 1px solid var(--line); cursor: pointer; font-size: 12px; color: var(--muted); }
+details.raw > summary:hover { color: var(--ink); }
+pre.json {
+  margin: 0; padding: 12px 14px; overflow-x: auto; max-height: 460px;
+  font: 12px/1.5 var(--mono); color: var(--ink); white-space: pre; background: var(--bg);
+}
