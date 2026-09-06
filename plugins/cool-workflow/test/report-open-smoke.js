@@ -43,7 +43,7 @@ async function main() {
   // 1. converter: headings, table, code, link, bold present; text escaped.
   const html = reportToHtml("# T\n\n| A | B |\n| --- | ---: |\n| x <y> | **z** |\n\n```\nraw <code>\n```\n\n- one [link](http://e.co/p)\n");
   // The brand band is fixed text before the body (2026-09-06 face).
-  for (const n of ["<h1>", "<table>", "<pre><code>", '<a href="http://e.co/p">link</a>', "<strong>z</strong>", "&lt;y&gt;", "raw &lt;code&gt;", "COOL WORKFLOW", "max-width:820px"]) {
+  for (const n of ["<h1>", "<table>", "<pre><code>", '<a href="http://e.co/p">link</a>', "<strong>z</strong>", "&lt;y&gt;", "raw &lt;code&gt;", "COOL WORKFLOW", "max-width:820px", '<html lang="en" dir="ltr">', 'name="theme-color"']) {
     assert.ok(html.includes(n), `converter output has ${n}`);
   }
 
