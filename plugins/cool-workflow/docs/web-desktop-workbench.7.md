@@ -99,8 +99,18 @@ carries the lifecycle word (PASS, BLOCKED, FAILED, RUNNING); a strip above
 the tabs shows problems, missing evidence, and the next command, taken
 from panels already in the one payload; a blocked or failed run shows its
 recovery line first. Every panel's raw JSON is one line down, folded
-behind "raw payload", byte for byte the `--json` payload. System fonts,
-no framework, no network; the light scheme follows the OS.
+behind "raw payload", byte for byte the `--json` payload.
+
+The page itself is a Next 16.3.0 + React 19.2.8 static export, built in
+its own sub-package (`ui/workbench/`, bun as the installer) and read as
+plain files from `out/` (not committed; `node scripts/build-ui.js` builds
+it). Tailwind 4 + daisyUI 5 give the look; the two JSON routes below are
+unchanged, and the export ships no network call of its own. The theme
+follows the OS light/dark setting (daisyUI's `cool-dark`/`cool-light`
+pair), with a stored pick overriding it once a person picks one by hand.
+The seven tabs are unchanged: the five panels above plus Metrics & cost
+and Review & collaboration. `report.html` stays one plain, offline file,
+built by the same `report-html.ts` function as before.
 
 ## Explicit, inspectable, fail closed
 

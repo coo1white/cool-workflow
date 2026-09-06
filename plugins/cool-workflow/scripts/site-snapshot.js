@@ -1,10 +1,14 @@
 // site-snapshot — the Workbench and report.html as static files for GitHub
 // Pages: `node scripts/site-snapshot.js <outDir>` (cwd plugins/cool-workflow).
-// The two JSON routes the live host serves become files (api/index and
-// api/run/<id>), built by the SAME core entries the host calls, over the
-// runs under <repo>/.cw; the UI files are copied as they are (their paths
-// are relative). report.html is the newest run's report. Nothing here is a
-// new view: the site is one saved snapshot of what `cw workbench serve`
+// The Workbench is a Next static export at ui/workbench/out/ (built by
+// `node scripts/build-ui.js`, basePath "/ui"). Its own index.html goes to
+// the site root; the whole out/ tree also goes under ui/, so the export's
+// own "/ui/_next/..." and "/ui/icon.svg" URLs resolve. The two JSON routes
+// the live host serves become files (api/index and api/run/<id>), built by
+// the SAME core entries the host calls, over the runs under <repo>/.cw; the
+// page fetches api/index with a path relative to "/", so those files stay
+// where they are. report.html is the newest run's report. Nothing here is
+// a new view: the site is one saved snapshot of what `cw workbench serve`
 // shows, rebuilt on every push to main.
 const fs = require("node:fs");
 const path = require("node:path");
@@ -16,12 +20,16 @@ const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
 const args = { cwd: repoRoot, scope: "repo" };
 
+const nextOut = path.join(pluginRoot, "ui", "workbench", "out");
+if (!fs.existsSync(path.join(nextOut, "index.html"))) {
+  process.stderr.write("site-snapshot: ui/workbench/out/index.html is missing. Run: node scripts/build-ui.js\n");
+  process.exit(1);
+}
+
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, "api", "run"), { recursive: true });
-fs.mkdirSync(path.join(out, "ui"), { recursive: true });
-const ui = path.join(pluginRoot, "ui", "workbench");
-fs.copyFileSync(path.join(ui, "index.html"), path.join(out, "index.html"));
-for (const f of ["app.css", "app.js", "navigation.js", "inspection.js"]) fs.copyFileSync(path.join(ui, f), path.join(out, "ui", f));
+fs.cpSync(nextOut, path.join(out, "ui"), { recursive: true });
+fs.copyFileSync(path.join(nextOut, "index.html"), path.join(out, "index.html"));
 fs.writeFileSync(path.join(out, ".nojekyll"), "");
 
 const index = buildWorkbenchIndex(args);
