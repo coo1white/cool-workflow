@@ -38,6 +38,9 @@ jobs:
       # fail closed rather than finding out from an external report.
       - run: npm audit --audit-level=high
       - run: npm run build
+      # The CSS is built by Tailwind and committed like dist/; a stale copy
+      # fails here, not on a user's screen.
+      - run: npm run build:css && git diff --exit-code -- ui/workbench/app.css src/core/format/report-css.ts
       # Committed dist/ must equal a fresh build of src/ (fail closed on drift).
       # `git status --porcelain` catches modified AND added/deleted dist files;
       # `git diff` would miss untracked ones. release:check re-verifies via dist:check.
