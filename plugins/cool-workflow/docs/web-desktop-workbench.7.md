@@ -89,7 +89,18 @@ meaning as the CLI (least surprise). For run `<id>`:
    violations.
 
 The way in across runs lists/searches runs through the Run Registry (`cw registry show
---json` + `cw run list|search --json`); going into a run opens its five panels.
+--json` + `cw run list|search --json`); going into a run opens its seven tabs:
+the five panels above plus Metrics & cost and Review & collaboration.
+
+## The face (v0.2.8)
+
+One look at a run answers three questions. A round stamp by the run id
+carries the lifecycle word (PASS, BLOCKED, FAILED, RUNNING); a strip above
+the tabs shows problems, missing evidence, and the next command, taken
+from panels already in the one payload; a blocked or failed run shows its
+recovery line first. Every panel's raw JSON is one line down, folded
+behind "raw payload", byte for byte the `--json` payload. System fonts,
+no framework, no network; the light scheme follows the OS.
 
 ## Explicit, inspectable, fail closed
 

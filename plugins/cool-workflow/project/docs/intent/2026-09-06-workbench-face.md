@@ -180,20 +180,30 @@ screenshot by hand from `cw workbench serve`.
   made no edit in ten minutes and was stopped; the operator said
   "你自己做" and Fable wrote packet A. Rule kept in memory: an
   isolated worker works where it is and never pushes; Fable pushes.
+- Packet B's rule "passes with `test/` untouched" was wrong: the onramp
+  contract in CI (`npm run onramp:check`) asks for one smoke test change
+  with any `src/` change. #664 went red on that and got a one-line
+  test edit. A `ui/` change (#665) is not held to it.
 
-## Architecture snapshot diff
+## Architecture snapshot diff (filled by the closing PR)
 
-(filled by the closing PR: `docs/web-desktop-workbench.7.md` says "five
-panels"; the trust line and empty-state command in the README FAQ)
+- `docs/web-desktop-workbench.7.md` said going into a run "opens its five
+  panels"; there are seven tabs (five panels plus Metrics & cost and
+  Review & collaboration). Fixed in the closing PR, with one short part
+  "The face (v0.2.8)" that says what is on screen now.
+- README: nothing went stale; `cw report --open` and the FAQ row still
+  hold. The empty-state command in the Workbench now matches the README
+  core path (`cw -q "<question>"`).
+- The design canvas is the picture; no screenshot file was added.
 
 ## Status ledger
 
 | Step | State | Where |
 | --- | --- | --- |
 | Design canvas | done | artifact 655668ba |
-| C archive two intents | PR open | #663 |
-| Intent + spec (this file) | branch pushed; PR after #663 merges | claude/project-iteration-ui-redesign-d6579d |
+| C archive two intents | merged | #663 |
+| Intent + spec (this file) | merged | #666 |
 | Opus plan check | done: fix first, 7 fixes taken | above |
-| A ui/workbench | PR open; net +105, tests green | #665 |
-| B report-html.ts | PR open; net +16, tests green | #664 |
-| Acceptance + close | A and B looked at by hand (Fable); user merges | |
+| A ui/workbench | merged; net +105, tests green | #665 |
+| B report-html.ts | PR open, auto-merge on; net +16 + one test line | #664 |
+| Acceptance + close | A and B looked at by hand (Fable); auto-merge on green; this PR closes | |
