@@ -91,6 +91,22 @@ function el(tag, attrs = {}, children = []) {
   return node;
 }
 
+function rawJson(data, label = "raw payload") {
+  return el("details", { class: "raw" }, [el("summary", { text: label }), el("pre", { class: "json", text: JSON.stringify(data, null, 2) })]);
+}
+
+// The stamp word comes from `view.lifecycle` alone; no key, no stamp.
+const STAMP = { completed: ["PASS", "present"], blocked: ["BLOCKED", "absent"], failed: ["FAILED", "bad"], running: ["RUNNING", "running"] };
+function stampFor(lifecycle) {
+  if (!lifecycle) return null;
+  const [word, tone] = STAMP[lifecycle] || [lifecycle, ""];
+  return el("div", { class: `stamp ${tone}`, role: "img", "aria-label": `verdict ${word}` }, [
+    el("span", { class: "stamp-top", text: "verifier-gated" }),
+    el("span", { class: "stamp-word", text: word }),
+    el("span", { class: "stamp-bottom", text: ".cw/runs" })
+  ]);
+}
+
 function freshnessBadge(value, title) {
   const v = String(value || "").toLowerCase();
   const attrs = { class: `badge ${v || "absent"}`, text: value || "unknown" };
@@ -118,7 +134,7 @@ async function loadIndex() {
     // the one panel whose whole point is freshness.
     const fresh = document.getElementById("registry-freshness");
     fresh.innerHTML = "";
-    fresh.append("registry ", freshnessBadge("unavailable"), " · index unreachable");
+    fresh.append(freshnessBadge("unavailable", "registry unavailable · index unreachable"));
     return;
   }
   // Only the newest request may render (see state.indexSeq).
@@ -129,16 +145,17 @@ async function loadIndex() {
   fresh.innerHTML = "";
   const regStatus = reg.freshness && reg.freshness.status;
   const regTitle = String(regStatus || "").toLowerCase() === "absent"
-    ? "no home registry data yet — runs made in this repo still show; `cw registry refresh` builds it"
-    : undefined;
-  fresh.append("registry ", freshnessBadge(regStatus, regTitle), ` · scope ${view.scope}`);
+    ? `no home registry data yet — runs made in this repo still show; \`cw registry refresh\` builds it · scope ${view.scope}`
+    : `registry ${regStatus} · scope ${view.scope}`;
+  fresh.append(freshnessBadge(regStatus, regTitle));
   const runs = view.runs || {};
   const records = runs.records || [];
   if (!records.length) {
     list.appendChild(el("li", { class: "muted" }, [
       el("div", { text: "no runs indexed in this scope" }),
-      el("div", { class: "hint", text: 'create one with: cw quickstart <app> --repo <path> --question "..."' })
+      el("code", { class: "cmd hint", text: 'cw -q "<question>"' })
     ]));
+    if (!state.activeRunId) renderFirstRun();
     return;
   }
   // Tell the user when the page is only part of the run set (the server
@@ -155,15 +172,13 @@ async function loadIndex() {
     // it, Enter/Space activate it, and it gets a focus ring for free — no
     // extra ARIA needed. Same CSS classes as before so the row/card look
     // is unchanged (see app.css .run-list button rules).
-    const btn = el("button", { type: "button", "data-runid": record.runId, class: state.activeRunId === record.runId ? "active" : "" }, [
+    const when = record.createdAt ? new Date(record.createdAt) : null;
+    const btn = el("button", { type: "button", "data-runid": record.runId, title: `${record.runId}\n${record.repo || ""}`, class: state.activeRunId === record.runId ? "active" : "" }, [
       el("div", { class: "rid" }, [
         el("span", { class: `status-dot ${lifecycle}`, title: lifecycle || "unknown" }),
-        document.createTextNode(record.runId)
+        document.createTextNode(`${record.appId || record.workflowId || record.runId}${when ? ` · ${formatClock(when).slice(0, 5)}` : ""}`)
       ]),
-      el("div", {
-        class: "meta",
-        text: [record.appId || record.workflowId, lifecycle, record.repo].filter(Boolean).join(" · ")
-      })
+      el("div", { class: "meta" }, [el("span", { text: lifecycle || "unknown" }), el("span", { text: when ? when.toISOString().slice(0, 10) : "" })])
     ]);
     btn.addEventListener("click", () => selectRun(record.runId));
     list.appendChild(el("li", { class: "run-entry" }, [btn]));
@@ -227,6 +242,41 @@ function formatClock(date) {
   return date ? date.toTimeString().slice(0, 8) : "";
 }
 
+function renderFirstRun() {
+  const detail = document.getElementById("run-panel");
+  detail.innerHTML = "";
+  detail.appendChild(el("div", { class: "first-run" }, [
+    el("span", { class: "label accent", text: "first run" }),
+    el("h2", { text: "Ask one question. Get a saved, cited report." }),
+    el("p", { class: "muted", text: "Run this in a repo. The report opens by itself when the run ends, and it shows up here." }),
+    el("code", { class: "cmd big", text: 'cw -q "<question>"' }),
+    el("ol", { class: "steps" }, ["ask", "plan and dispatch", "verify", "report"].map((step) => el("li", { text: step })))
+  ]));
+}
+
+// The three facts a person needs first, from three panels of the one
+// payload already fetched: no new request. Only graph's `nextAction`
+// counts; the coordinator payload carries one too and it is dropped.
+const NEEDS_YOU = [
+  ["problems", "candidate", "summary", "problems"],
+  ["missingEvidence", "blackboard", "coordinator", "missing evidence"],
+  ["nextAction", "graph", "compact", "next action"]
+];
+function renderNeedsYou(view) {
+  const strip = el("section", { class: "needs-you", "aria-label": "what needs you" });
+  for (const [key, group, name, label] of NEEDS_YOU) {
+    const panel = view.panels && view.panels[group] && view.panels[group][name];
+    const fact = panel && panel.status === "present" ? INSPECTION.actionFacts(panel.data).find((f) => f.key === key) : null;
+    const none = !fact || fact.items[0] === "none";
+    const card = el("div", { class: `needs-card ${key} ${none ? "none" : "some"}` }, [el("span", { class: "label", text: label })]);
+    if (none) card.appendChild(el("span", { class: "ok", text: "none" }));
+    else if (key === "nextAction") card.appendChild(el("code", { class: "cmd", text: fact.items[0] }));
+    else card.appendChild(el("ul", { class: "action-items" }, fact.items.map((item) => el("li", { text: item }))));
+    strip.appendChild(card);
+  }
+  return strip;
+}
+
 function selectTab(tab, options = {}) {
   state.activeTab = NAV.TAB_KEYS.includes(tab) ? tab : NAV.DEFAULT_TAB;
   if (options.history !== false && state.activeRunId) writeRoute(state.activeRunId, state.activeTab);
@@ -236,23 +286,22 @@ function selectTab(tab, options = {}) {
 function renderRun(view, options = {}) {
   const detail = document.getElementById("run-panel");
   detail.innerHTML = "";
-  const header = el("div", { class: "kv" }, [
-    el("span", {}, [el("b", { text: "run " }), document.createTextNode(view.runId)]),
+  const facts = el("div", { class: "kv" }, [
+    view.lifecycle ? freshnessBadge(view.lifecycle) : null,
     el("span", {}, [document.createTextNode("resolved "), freshnessBadge(view.resolved ? "valid" : "missing")])
   ]);
-  if (view.lifecycle) {
-    header.appendChild(el("span", {}, [document.createTextNode("lifecycle "), freshnessBadge(view.lifecycle)]));
-  }
-  if (state.viewFetchedAt) {
-    header.appendChild(el("span", { class: "muted", text: `as of ${formatClock(state.viewFetchedAt)}` }));
-  }
-  if (view.error) header.appendChild(el("span", { class: "err", text: view.error }));
-  detail.appendChild(header);
+  if (state.viewFetchedAt) facts.appendChild(el("span", { class: "muted", text: `as of ${formatClock(state.viewFetchedAt)}` }));
+  if (view.error) facts.appendChild(el("span", { class: "err", text: view.error }));
+  detail.appendChild(el("div", { class: "run-head" }, [
+    el("div", { class: "run-title" }, [el("span", { class: "label", text: "run" }), el("span", { class: "run-id", text: view.runId }), facts]),
+    stampFor(view.lifecycle)
+  ]));
   if (view.lifecycle === "blocked" || view.lifecycle === "failed") {
     detail.appendChild(
       el("p", { class: "recovery-hint", text: `${view.lifecycle} — run 'cw run status ${view.runId}' or 'cw doctor' for next steps` })
     );
   }
+  detail.appendChild(renderNeedsYou(view));
 
   const tabs = el("div", { class: "tabs", role: "tablist" });
   for (const group of PANEL_GROUPS) {
@@ -310,14 +359,14 @@ function renderPanel(name, panel) {
   const card = el("div", { class: "panel-card" });
   const head = el("div", { class: "head" }, [
     el("span", { class: "title", text: `${name} — ${panel.capability}` }),
+    el("span", { class: "src" }, [el("code", { class: "cmd", text: panel.cli }), el("code", { class: "cmd", text: panel.mcp })]),
     el("span", { class: `badge ${panel.status}`, text: panel.status })
   ]);
   card.appendChild(head);
-  card.appendChild(el("div", { class: "kv" }, [el("span", { class: "src", text: panel.cli }), el("span", { class: "src", text: panel.mcp })]));
   if (panel.status === "present") {
     const actionSummary = renderActionSummary(panel.data);
     if (actionSummary) card.appendChild(actionSummary);
-    card.appendChild(renderStructured(panel.data) || el("pre", { class: "json", text: JSON.stringify(panel.data, null, 2) }));
+    card.appendChild(renderStructured(panel.data) || rawJson(panel.data));
   } else {
     card.appendChild(el("div", { class: "absent-note", text: `absent — ${panel.error || "source unreadable"}` }));
   }
@@ -458,9 +507,7 @@ function renderEventGroups(data, confirmedEventKeys) {
   const restData = {};
   for (const key of rest) restData[key] = data[key];
   if (Object.keys(restData).length > 0) {
-    const block = el("div", { class: "struct-block" }, [el("div", { class: "struct-title", text: "other fields" })]);
-    block.appendChild(el("pre", { class: "json", text: JSON.stringify(restData, null, 2) }));
-    wrap.appendChild(block);
+    wrap.appendChild(rawJson(restData, "other fields"));
   }
   return wrap;
 }
