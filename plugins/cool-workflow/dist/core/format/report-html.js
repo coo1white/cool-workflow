@@ -97,9 +97,24 @@ function reportToHtml(markdown, title = "Report") {
         body.push(`<p>${inline(line)}</p>`);
     }
     closeLists();
-    const style = "body{font:15px/1.5 -apple-system,sans-serif;max-width:860px;margin:2rem auto;padding:0 1rem;color:#1a1a1a}" +
-        "table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:.3rem .6rem;text-align:left}" +
-        "pre{background:#f4f4f4;padding:.6rem;overflow:auto}code{font-family:ui-monospace,monospace}";
+    // Light token set from the workbench-face spec (2026-09-06); the band
+    // below is fixed dark brand colour, never the page's light theme.
+    const style = 'body{margin:0;background:#f7f4ee;color:#1e1b17;font:15px/1.55 -apple-system,system-ui,"Segoe UI",sans-serif}' +
+        "a{color:#c9540f}h1{font-size:34px;font-weight:800;letter-spacing:-.01em}" +
+        'h2{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#7a7368;padding-bottom:6px;border-bottom:1px solid #e2dcd0}' +
+        'table{width:100%;border-collapse:collapse;font:13px/1.5 ui-monospace,"SF Mono",Menlo,monospace}' +
+        "th{text-align:left;font-weight:400;color:#7a7368;padding:6px 10px;border-bottom:1px solid #e2dcd0;font-size:11px;letter-spacing:.06em;text-transform:uppercase}" +
+        "td{padding:6px 10px;border-bottom:1px solid #ece7dc}tbody tr:nth-child(even){background:#efeae0}" +
+        'pre{background:#14120f;color:#f2ede4;padding:12px 14px;border-radius:8px;overflow:auto;font:13px/1.5 ui-monospace,"SF Mono",Menlo,monospace}' +
+        'code{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:13px;background:#efeae0;border-radius:4px;padding:1px 5px}pre code{background:none;padding:0}';
+    // Fixed brand band, same on every report; no run text ever goes in it.
+    const band = '<div style="display:flex;align-items:center;justify-content:space-between;gap:20px;height:52px;padding:0 32px;background:#14120f;color:#f2ede4;font-size:12px">' +
+        '<span style="display:flex;align-items:center;gap:10px">' +
+        '<span style="display:inline-flex;width:22px;height:22px;border-radius:6px;background:#ef6c1f;align-items:center;justify-content:center">' +
+        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#14120f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M4 7h9"/><path d="M4 12h6"/><path d="M12 15l3 3 6-7"/></svg></span>' +
+        '<span style="font-weight:800;letter-spacing:.12em">COOL WORKFLOW</span><span style="color:#9a938a">report</span></span>' +
+        '<span style="font-family:ui-monospace,\'SF Mono\',Menlo,monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#9a938a">static &middot; offline &middot; no network</span></div>';
     return (`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${style}</style></head>` +
-        `<body>${body.join("\n")}</body></html>`);
+        `<body>${band}<div style="max-width:820px;margin:0 auto;padding:32px 24px 56px">${body.join("\n")}</div></body></html>`);
 }
