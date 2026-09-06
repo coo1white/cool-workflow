@@ -72,3 +72,8 @@ Packet 1 (feat/workbench-next-app):
 - `workbench-host.ts` is a frozen path at 340 lines; packet 1 paid for
   its lines with a trimmed comment. Packet 2 must not grow it, or ask.
 - `out/` is 1.0 MB in 33 files; each rebuild is a diff in the PR.
+- CI's first build of `out/` drifted from the committed one: Turbopack
+  chunk names hash module paths from an inferred root (nearest
+  lockfile), which differs by machine. `next.config.ts` pins
+  `turbopack.root` to the plugin dir; two builds from two absolute
+  paths now give a byte-identical `out/` (`diff -rq`).
