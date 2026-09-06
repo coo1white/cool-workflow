@@ -95,7 +95,7 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown): void
 
 function contentTypeFor(file: string): string {
   const ext = path.extname(file).toLowerCase();
-  const map: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml" };
+  const map: Record<string, string> = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".woff2": "font/woff2", ".txt": "text/plain; charset=utf-8" };
   return map[ext] || "application/octet-stream";
 }
 
@@ -179,18 +179,15 @@ export class WorkbenchHost {
       }
 
       // Auth is checked AFTER the route is decoded, and only where run data
-      // (or environment data) can flow. Before this, a set token made the
-      // browser's own follow-up requests for /ui/app.css and /ui/app.js fail
-      // 401 — the page rendered as broken unstyled HTML with no explanation.
-      // The three shipped UI files are generic static code with no run data,
-      // so they are served without a token. Every /api/* route carries run
-      // data and stays behind the token. The "/" route is split: an
-      // INSTALLED index.html is the same generic static code (open), but the
-      // FALLBACK page embeds the serve descriptor — which carries the
-      // absolute repo root path — so a missing UI keeps "/" behind the token.
+      // can flow: /api/* stays behind the token, the static UI files do not
+      // (a token used to 401 the browser's own /ui/app.css and /ui/app.js,
+      // giving an unstyled page with no reason given). The index route is
+      // split: an INSTALLED index.html is generic static code (open), but
+      // the FALLBACK page embeds the serve descriptor with the absolute repo
+      // root path, so a missing UI keeps it behind the token.
       if (!this.checkAuth(req, url)) {
-        const uiIndexInstalled = fs.existsSync(path.resolve(workbenchUiRoot(), "index.html"));
-        if (route.startsWith("/api/") || (route === "/" && !uiIndexInstalled)) {
+        const uiIndexInstalled = fs.existsSync(path.resolve(workbenchUiRoot(), "out", "index.html")) || fs.existsSync(path.resolve(workbenchUiRoot(), "index.html"));
+        if (route.startsWith("/api/") || ((route === "/" || route === "/ui") && !uiIndexInstalled)) {
           sendJson(res, 401, { error: "unauthorized: token mismatch" });
           return;
         }
@@ -217,7 +214,7 @@ export class WorkbenchHost {
         sendJson(res, 200, buildWorkbenchRunView(runId, this.args));
         return;
       }
-      if (route === "/" || route.startsWith("/ui/")) {
+      if (route === "/" || route === "/ui" || route.startsWith("/ui/")) {
         this.serveUiAsset(route, res);
         return;
       }
@@ -229,13 +226,16 @@ export class WorkbenchHost {
 
   private serveUiAsset(pathname: string, res: http.ServerResponse): void {
     const uiRoot = workbenchUiRoot();
-    const relative = pathname === "/" ? "index.html" : pathname.replace(/^\/ui\//, "");
-    const resolved = path.resolve(uiRoot, relative);
+    const relative = pathname === "/" || pathname === "/ui" ? "index.html" : pathname.replace(/^\/ui\//, "");
+    // The Next export wins; what is not in it still comes from the old flat
+    // files. Both sit under uiRoot, so the one guard below covers both.
+    const exported = path.resolve(uiRoot, "out", relative);
+    const resolved = fs.existsSync(exported) ? exported : path.resolve(uiRoot, relative);
     if (!resolved.startsWith(path.resolve(uiRoot) + path.sep) && resolved !== path.resolve(uiRoot)) {
       sendJson(res, 403, { error: "forbidden: path traversal" });
       return;
     }
-    if (pathname === "/" && !fs.existsSync(resolved)) {
+    if (relative === "index.html" && !fs.existsSync(resolved)) {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
       res.end(fallbackIndexHtml(this.descriptor(false)));
       return;

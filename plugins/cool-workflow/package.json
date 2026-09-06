@@ -43,6 +43,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:ui": "node scripts/build-ui.js",
+    "prepack": "npm run build:ui",
     "check": "tsc -p tsconfig.json --noEmit",
     "dist:check": "node scripts/dist-drift-check.js",
     "purity:check": "node scripts/purity-gate.js",

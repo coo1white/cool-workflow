@@ -19,8 +19,11 @@ const PINS_IF_PRESENT = { react: "19.2.8", "react-dom": "19.2.8", next: "16.3.0"
 // not the one in its 6b row (React 19.2.8 + Next 16.3.0, exact pins).
 const BANNED = /^(@mantine\/|@heroui\/|@mui\/|antd$|element-plus$|primevue$|vuetify$|bootstrap$|vue$|nuxt$|svelte$|@angular\/|solid-js$|preact$)/;
 const ENTRY = path.join("ui", "workbench", "app.src.css");
+// The Next app's entry file; both stand until packet 2 drops the old one.
+const NEXT_ENTRY = path.join("ui", "workbench", "app", "globals.css");
 const BUILT = path.join("ui", "workbench", "app.css");
-const SKIP = new Set(["node_modules", "dist", ".git", ".cw", "tmp"]);
+// `out` and `.next` hold build output, like dist: not written by hand.
+const SKIP = new Set(["node_modules", "dist", ".git", ".cw", "tmp", ".next", "out"]);
 
 function cssFiles(dir, root = dir) {
   const out = [];
@@ -41,12 +44,15 @@ function gate(root) {
   for (const name of Object.keys(deps)) if (BANNED.test(name)) faults.push(`UI library or HTML framework: ${name}`);
   for (const [name, pin] of Object.entries(PINS)) if (deps[name] !== pin) faults.push(`${name} is ${deps[name]}, pin is ${pin}`);
   for (const [name, pin] of Object.entries(PINS_IF_PRESENT)) if (name in deps && deps[name] !== pin) faults.push(`${name} is ${deps[name]}, pin is ${pin}`);
-  for (const f of cssFiles(root)) if (f !== ENTRY && f !== BUILT) faults.push(`css outside the entry file: ${f}`);
-  const entry = fs.readFileSync(path.join(root, ENTRY), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  // A block is "<head> {"; every head must be one of the allowed at-rules.
-  for (const m of entry.matchAll(/([^{};]+)\{/g)) {
-    const head = m[1].trim();
-    if (!/^@(import|plugin|theme|source|layer)\b/.test(head)) faults.push(`selector block in entry file: ${head}`);
+  for (const f of cssFiles(root)) if (f !== ENTRY && f !== NEXT_ENTRY && f !== BUILT) faults.push(`css outside the entry file: ${f}`);
+  for (const name of [ENTRY, NEXT_ENTRY]) {
+    if (!fs.existsSync(path.join(root, name))) continue;
+    const entry = fs.readFileSync(path.join(root, name), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+    // A block is "<head> {"; every head must be one of the allowed at-rules.
+    for (const m of entry.matchAll(/([^{};]+)\{/g)) {
+      const head = m[1].trim();
+      if (!/^@(import|plugin|theme|source|layer)\b/.test(head)) faults.push(`selector block in entry file: ${head}`);
+    }
   }
   return faults;
 }
