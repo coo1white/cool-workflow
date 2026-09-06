@@ -6,16 +6,14 @@
 // browser package or a second UI state store.
 
 const assert = require("node:assert/strict");
-const path = require("node:path");
 
-const navigationPath = path.join(__dirname, "..", "ui", "workbench", "navigation.js");
 const {
   DEFAULT_TAB,
   TAB_KEYS,
   formatFragment,
   moveTab,
   parseFragment,
-} = require(navigationPath);
+} = require("../src/navigation.ts");
 
 assert.equal(DEFAULT_TAB, "graph");
 assert.deepEqual(TAB_KEYS, ["graph", "blackboard", "worker", "candidate", "audit", "metrics", "collaboration"]);

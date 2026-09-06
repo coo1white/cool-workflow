@@ -123,14 +123,14 @@ export function RunList({ initialIndex }: { initialIndex: WorkbenchIndexView }) 
                     data-runid={record.runId}
                     title={`${record.runId}\n${record.repo || ""}`}
                     aria-current={active ? "true" : undefined}
-                    className={`flex w-full flex-col items-stretch gap-[3px] rounded-lg px-3 py-2.5 text-left ${active ? "active" : ""}`}
+                    className={`flex w-full flex-col items-stretch gap-[3px] rounded-lg px-3 py-2.5 text-start ${active ? "active" : ""}`}
                     onClick={() => selectRun(record.runId)}
                   >
                     <div className="flex items-center gap-2 font-mono text-[12px]">
                       <span className={`inline-block h-2 w-2 flex-none rounded-full ${DOT[lifecycle] || "bg-base-content/40"}`} title={lifecycle || "unknown"} />
                       {`${record.appId || record.workflowId || record.runId}${when ? ` · ${formatClock(when).slice(0, 5)}` : ""}`}
                     </div>
-                    <div className="flex justify-between pl-4 text-[11px] text-base-content/60">
+                    <div className="flex justify-between ps-4 text-[11px] text-base-content/60">
                       <span>{lifecycle || "unknown"}</span>
                       <span>{when ? when.toISOString().slice(0, 10) : ""}</span>
                     </div>

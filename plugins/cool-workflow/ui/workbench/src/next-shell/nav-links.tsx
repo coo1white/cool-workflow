@@ -8,7 +8,7 @@ import { NAV_GROUPS } from "../next-nav-items";
 // English text so the items stay keyed from the day they are written.
 const LABELS: Record<string, string> = { "nav.group.runs": "Runs", "nav.runs": "All runs" };
 
-export function NavLinks() {
+export function AppSidebar() {
   const pathname = usePathname();
   return (
     <ul className="menu menu-sm w-full gap-0.5 p-0">

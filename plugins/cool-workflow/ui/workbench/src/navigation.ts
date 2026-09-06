@@ -15,13 +15,21 @@ function knownTab(value: string | null): TabKey {
 export interface Route {
   runId: string | null;
   tab: TabKey;
+  // true when the URL named a tab that is not a known key, so the caller
+  // should normalize the address bar (replaceState), not push a new entry.
+  replace: boolean;
 }
 
 export function parseFragment(fragment: string): Route {
   const source = fragment.startsWith("#") ? fragment.slice(1) : fragment;
   const params = new URLSearchParams(source);
   const run = params.get("run");
-  return { runId: run || null, tab: knownTab(params.get("tab")) };
+  const requestedTab = params.get("tab");
+  return {
+    runId: run || null,
+    tab: knownTab(requestedTab),
+    replace: requestedTab !== null && !(TAB_KEYS as readonly string[]).includes(requestedTab),
+  };
 }
 
 export function formatFragment(runId: string | null, tab: TabKey): string {

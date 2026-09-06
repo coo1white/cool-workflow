@@ -22,9 +22,6 @@ const CODE_EXTENSIONS = new Set(["js", "mjs", "cjs", "ts", "tsx", "jsx"]);
 // NOT silently inherit the exception.
 const EXCEPT_PATHS = new Set([
   "Formula/cool-workflow.rb", // Homebrew formula must be Ruby
-  "plugins/cool-workflow/ui/workbench/index.html", // served from disk by design
-  "plugins/cool-workflow/ui/workbench/app.css", // served from disk by design
-  "plugins/cool-workflow/ui/workbench/app.src.css", // Tailwind input: three directives, no rules
   "plugins/cool-workflow/ui/workbench/app/globals.css" // Tailwind input for the Next app: at-rules only
 ]);
 

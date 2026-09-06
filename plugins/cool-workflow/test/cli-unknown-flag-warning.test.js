@@ -8,7 +8,7 @@
 // it prints ONLY when stderr is a real TTY — a piped/scripted run stays
 // byte-silent, so no conformance case or script can ever see it.
 //
-// Fake-stream style of test/workbench-serve-tty-hint.test.js.
+// Fake-stream style of ui/workbench/tests/workbench-serve-tty-hint.test.js.
 
 const assert = require("node:assert/strict");
 const path = require("node:path");

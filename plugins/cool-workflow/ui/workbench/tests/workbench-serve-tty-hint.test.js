@@ -15,7 +15,7 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
 
-const pluginRoot = path.resolve(__dirname, "..");
+const pluginRoot = path.resolve(__dirname, "../../..");
 const host = require(path.join(pluginRoot, "dist", "shell", "workbench-host.js"));
 
 // A stream stand-in: captures writes; `isTTY` decides whether the hint prints.

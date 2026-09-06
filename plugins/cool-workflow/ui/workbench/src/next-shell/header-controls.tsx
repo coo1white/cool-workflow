@@ -13,7 +13,7 @@ function setTheme(theme: "dark" | "light") {
   }
 }
 
-export function HeaderControls() {
+export function AppHeader() {
   return (
     <div className="dropdown dropdown-end">
       <button type="button" className="btn btn-ghost btn-sm" aria-label="theme">

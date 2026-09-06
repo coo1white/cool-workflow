@@ -34,7 +34,7 @@ const os = require("node:os");
 const path = require("node:path");
 const readline = require("node:readline");
 
-const pluginRoot = path.resolve(__dirname, "..");
+const pluginRoot = path.resolve(__dirname, "../../..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
@@ -167,7 +167,7 @@ async function main() {
   // hardcode the OLD command list — we derive each panel's expected CLI command
   // from its OWN declared capability in the v2 registry (the true no-drift
   // invariant), and compare panel.data to that command byte-for-byte.
-  const { REGISTRY, findCapability } = require("../dist/core/capability-table");
+  const { REGISTRY, findCapability } = require("../../../dist/core/capability-table");
   // Build argv from a capability's declared cli.path; append --json only for
   // flag-mode capabilities (default-mode ones already print JSON).
   function argvFor(capability) {
@@ -308,7 +308,7 @@ async function main() {
       "plain GET /api/index lists the bootstrapped run"
     );
 
-    // The sidebar filter box (ui/workbench/app.js's loadIndex) sends
+    // The sidebar filter box (src/run-list.tsx's load()) sends
     // `?text=<filter>` — it must actually filter (run.search), not silently
     // re-list everything (the run.list bug this test guards against).
     const idxFiltered = await request({ ...base, path: "/api/index?text=no-such-run-matches-this", method: "GET", headers: okHeaders });
@@ -519,12 +519,17 @@ async function main() {
 
       // UI/UX audit round 2: with a token set, the static UI files (generic
       // code, no run data) and an INSTALLED "/" index.html are served WITHOUT
-      // a token — otherwise the browser's own /ui/app.css + /ui/app.js
-      // requests got 401 and the page rendered as broken unstyled HTML.
-      // Every /api/* route stays behind the token, via header OR ?token=.
-      const uiNoAuth = await request({ ...enforcedBase, path: "/ui/app.js", method: "GET", headers: enforcedHeaders });
-      assert.equal(uiNoAuth.status, 200, "static /ui/app.js is served without a token");
-      assert.ok(uiNoAuth.body.includes("Cool Workflow Workbench UI"), "served app.js carries the known marker string");
+      // a token — otherwise the browser's own asset requests got 401 and the
+      // page rendered as broken unstyled HTML. Every /api/* route stays
+      // behind the token, via header OR ?token=. The Next export's asset
+      // names are content-hashed, so pick any one chunk instead of a fixed
+      // name; only runs when out/ is built (it is not committed, see plan.md).
+      const chunkDir = path.join(pluginRoot, "ui", "workbench", "out", "_next", "static", "chunks");
+      const chunk = fs.existsSync(chunkDir) ? fs.readdirSync(chunkDir).find((f) => f.endsWith(".js")) : undefined;
+      if (chunk) {
+        const uiNoAuth = await request({ ...enforcedBase, path: `/ui/_next/static/chunks/${chunk}`, method: "GET", headers: enforcedHeaders });
+        assert.equal(uiNoAuth.status, 200, "a static Next asset chunk is served without a token");
+      }
       const rootNoAuth = await request({ ...enforcedBase, path: "/", method: "GET", headers: enforcedHeaders });
       assert.equal(rootNoAuth.status, 200, "installed / index.html is served without a token (UI is installed in-repo)");
       const goodQuery = await request({
@@ -547,35 +552,43 @@ async function main() {
 
     // Static pins on the shipped UI source: the client reads ?token= at
     // startup and tells a 401'd user exactly what to do; a blocked/failed
-    // run's detail view carries a plain next-step line. (There is no
+    // run's detail view carries a plain next-step line. app.js/navigation.js/
+    // inspection.js/index.html are gone — the same behavior now lives in
+    // ui/workbench/src/*.ts(x), so the pins move there. (There is no
     // headless-browser tooling in this repo, so the client-side behavior is
     // pinned at the source level and checked by hand — see the PR notes.)
-    const appJsSource = fs.readFileSync(path.join(pluginRoot, "ui", "workbench", "app.js"), "utf8");
-    const indexSource = fs.readFileSync(path.join(pluginRoot, "ui", "workbench", "index.html"), "utf8");
+    const wbSrc = path.join(pluginRoot, "ui", "workbench", "src");
+    const apiSource = fs.readFileSync(path.join(wbSrc, "api.ts"), "utf8");
+    const runPanelSource = fs.readFileSync(path.join(wbSrc, "run-panel.tsx"), "utf8");
+    const runListSource = fs.readFileSync(path.join(wbSrc, "run-list.tsx"), "utf8");
+    const tabsSource = fs.readFileSync(path.join(wbSrc, "tabs.tsx"), "utf8");
+    const navigationSource = fs.readFileSync(path.join(wbSrc, "navigation.ts"), "utf8");
     assert.ok(
-      appJsSource.includes("reopen as /?token=<your CW_WORKBENCH_TOKEN value>"),
-      "app.js carries the 401 what-to-do hint"
+      apiSource.includes("reopen as /?token=<your CW_WORKBENCH_TOKEN value>"),
+      "api.ts carries the 401 what-to-do hint"
     );
-    assert.ok(appJsSource.includes("or 'cw doctor' for next steps"), "app.js carries the blocked/failed recovery hint");
-    // UI/UX audit P3 fixes (client-side, no headless browser here — pinned at
-    // source): selecting a run must not rebuild the sidebar (focus/flash fix),
-    // refresh must re-derive the open run too, a failed reload must clear the
-    // freshness badge, and the sidebar must show a truncation notice.
-    assert.ok(appJsSource.includes("function markActiveRow"), "app.js updates the active row in place instead of rebuilding the list");
-    assert.ok(appJsSource.includes("function refreshAll") && appJsSource.includes('getElementById("refresh").addEventListener("click", refreshAll)'), "refresh re-derives both panes, not just the index");
-    // Predictable navigation: the pure helper loads before app.js; route
-    // history and the latest-detail sequence are explicit; tab semantics and
-    // key movement are present without a browser dependency in the test tree.
-    assert.ok(indexSource.indexOf('/ui/navigation.js') < indexSource.indexOf('/ui/inspection.js'), "navigation helper loads before the inspection helper");
-    assert.ok(indexSource.indexOf('/ui/inspection.js') < indexSource.indexOf('/ui/app.js'), "inspection helper loads before the UI app");
-    assert.ok(appJsSource.includes("history[") && appJsSource.includes('addEventListener("popstate", applyLocationRoute)'), "run/tab state uses browser history and restores on Back/Forward");
-    assert.ok(appJsSource.includes("seq !== state.detailSeq"), "an old detail response cannot replace the newest view");
-    assert.ok(appJsSource.includes('role: "tabpanel"') && appJsSource.includes('"aria-controls"'), "tabs and tab panels have linked ARIA semantics");
-    assert.ok(appJsSource.includes("NAV.moveTab") && appJsSource.includes('tabindex: active ? "0" : "-1"'), "tabs use key movement and roving focus");
-    assert.ok(appJsSource.includes("INSPECTION.actionFacts") && appJsSource.includes('text: "What matters"'), "present source facts get an action-first block");
-    assert.ok(appJsSource.indexOf("card.appendChild(actionSummary)") < appJsSource.indexOf("card.appendChild(renderStructured"), "action facts render before the full panel record");
-    assert.ok(appJsSource.includes("index unreachable"), "a failed index reload clears the stale freshness badge");
-    assert.ok(appJsSource.includes("showing latest ${records.length} of ${runs.total}"), "the sidebar shows a truncation notice when the page is capped");
+    assert.ok(runPanelSource.includes("or 'cw doctor' for next steps"), "run-panel.tsx carries the blocked/failed recovery hint");
+    // UI/UX audit P3 fixes, now structural instead of hand-written: a stable
+    // per-run `key` plus an `aria-current` flag lets React patch the active
+    // row in place instead of rebuilding the list (the old markActiveRow
+    // fix); refresh re-derives both panes over one shared "cw:refresh"
+    // event; a failed reload clears the freshness badge; the sidebar shows a
+    // truncation notice. (The old fixed script-tag load order for the pure
+    // helpers has no equivalent under a bundled import graph — module
+    // evaluation order is enforced by the import statements themselves.)
+    assert.ok(runListSource.includes("key={record.runId}") && runListSource.includes("aria-current={active"), "run-list.tsx patches the active row in place instead of rebuilding the list");
+    assert.ok(
+      runListSource.includes('addEventListener("cw:refresh"') && runPanelSource.includes('addEventListener("cw:refresh"'),
+      "both the run list and the run panel re-derive on the shared refresh event"
+    );
+    assert.ok(navigationSource.includes("history[") && runPanelSource.includes('addEventListener("popstate"'), "run/tab state uses browser history and restores on Back/Forward");
+    assert.ok(runPanelSource.includes("seq !== detailSeq.current"), "an old detail response cannot replace the newest view");
+    assert.ok(tabsSource.includes('role="tab"') && tabsSource.includes("aria-controls={"), "tabs and tab panels have linked ARIA semantics");
+    assert.ok(tabsSource.includes("moveTab(activeTab") && tabsSource.includes("tabIndex={active ? 0 : -1}"), "tabs use key movement and roving focus");
+    assert.ok(runPanelSource.includes("actionFacts(data)") && runPanelSource.includes('"What matters"'), "present source facts get an action-first block");
+    assert.ok(runPanelSource.indexOf("<ActionSummary") < runPanelSource.indexOf("renderStructured(panel.data)"), "action facts render before the full panel record");
+    assert.ok(runListSource.includes("index unreachable"), "a failed index reload clears the stale freshness badge");
+    assert.ok(runListSource.includes("showing latest ${records.length} of ${total} runs"), "the sidebar shows a truncation notice when the page is capped");
   }
 
   process.stdout.write(
