@@ -18,11 +18,11 @@
 //      genuinely-signed-shaped verdict onto a NEW commit that also smuggles
 //      in an arbitrary file, and confirm the reproduction rejects it.
 //
-// Slow by nature (git clone + npm ci against the real, non-trivial repo) —
+// Slow by nature (git clone + bun install against the real, non-trivial repo) —
 // acceptable; this is the one place that proves the real tooling integration
 // works, not just the orchestration shape.
 //
-// Portable: node + git + npm only, isolated tmpdir/clone. Never touches the
+// Portable: node + git + bun only, isolated tmpdir/clone. Never touches the
 // actual working tree.
 
 const assert = require("node:assert/strict");

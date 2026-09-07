@@ -56,14 +56,10 @@ const canonicalApps = CANONICAL_APP_IDS;
 function main() {
   const checks = [];
   checkJson("plugins/cool-workflow/package.json", "version", VERSION, checks);
-  // package-lock.json is tracked now, but the documented install still works
-  // without it (`npm install --no-package-lock`), so only validate it when
-  // present. Check BOTH version fields: the top-level one and the root-package
-  // entry packages[""].version — the second one is the field npm keeps in step
-  // with package.json on `npm install`, and it is the one that went stale
-  // (0.1.97) through the v0.2.0/v0.2.1 cuts while only the first was checked.
-  checkJsonIfPresent("plugins/cool-workflow/package-lock.json", "version", VERSION, checks);
-  checkNestedJsonIfPresent("plugins/cool-workflow/package-lock.json", ["packages", "", "version"], VERSION, checks);
+  // No lockfile check here: package-lock.json (npm) used to duplicate the
+  // version in two spots and could go stale (0.1.97 through the v0.2.0/
+  // v0.2.1 cuts) — bun.lock's workspace entry does not carry a version
+  // field at all, so there is nothing to drift and nothing to check.
   checkJson("plugins/cool-workflow/.codex-plugin/plugin.json", "version", VERSION, checks);
   checkJson("plugins/cool-workflow/server.json", "version", VERSION, checks);
   checkNestedJson("plugins/cool-workflow/server.json", ["packages", 0, "version"], VERSION, checks);
@@ -234,28 +230,6 @@ function checkNestedJson(relativePath, keyPath, expected, checks) {
   checks.push({ path: relativePath, key: keyPath.join("."), value });
 }
 
-function checkNestedJsonIfPresent(relativePath, keyPath, expected, checks) {
-  const src = readReleaseSource(relativePath);
-  if (!src.exists) {
-    checks.push({ path: relativePath, key: keyPath.join("."), skipped: "absent" });
-    return;
-  }
-  let value = JSON.parse(src.text);
-  for (const key of keyPath) value = value?.[key];
-  assert.equal(value, expected, `${relativePath}.${keyPath.join(".")} must be ${expected}`);
-  checks.push({ path: relativePath, key: keyPath.join("."), value });
-}
-
-function checkJsonIfPresent(relativePath, key, expected, checks) {
-  const src = readReleaseSource(relativePath);
-  if (!src.exists) {
-    checks.push({ path: relativePath, key, skipped: "absent" });
-    return;
-  }
-  const value = JSON.parse(src.text)[key];
-  assert.equal(value, expected, `${relativePath}.${key} must be ${expected}`);
-  checks.push({ path: relativePath, key, value });
-}
 
 function checkIncludes(relativePath, needle, checks) {
   const src = readReleaseSource(relativePath);

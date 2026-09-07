@@ -157,8 +157,8 @@ let checks = 0;
   );
   assert.match(
     job,
-    /^\s+- run: npm run eval:replay$/m,
-    "steering-config-gate must run the eval-replay harness smoke (npm run eval:replay)"
+    /^\s+- run: bun run eval:replay$/m,
+    "steering-config-gate must run the eval-replay harness smoke (bun run eval:replay)"
   );
   assert.match(
     job,
