@@ -165,5 +165,4 @@ Directory rule: this packet is the only one touching
   the three workflow names and the four named exceptions.
 - `~/Developer/UPGRADE-PLAN.md` §6 row for cool-workflow: root session.
 
-Status ledger: plan written 2026-09-07, waiting for the root session's
-review.
+Status ledger: plan written 2026-09-07; approved by the root session the same day (build-before-test, the stricter npm-publish trust, and the 0.2.9 proof all accepted; GitHub repos run in parallel with the Gitea queue, start after the ops pin table merges).
