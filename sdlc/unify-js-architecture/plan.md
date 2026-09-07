@@ -72,7 +72,6 @@ Packet 1 (feat/workbench-next-app):
 - `workbench-host.ts` is a frozen path at 340 lines; packet 1 paid for
   its lines with a trimmed comment. Packet 2 must not grow it, or ask.
 - `out/` is 1.0 MB in 33 files; each rebuild is a diff in the PR.
-<<<<<<< HEAD
 - CI's first build of `out/` drifted from the committed one: Turbopack
   chunk names hash module paths from an inferred root (nearest
   lockfile), which differs by machine. `next.config.ts` pins
@@ -84,7 +83,6 @@ Packet 1 (feat/workbench-next-app):
   `prepack` builds it for the npm package (`npm run build:ui`). The
   Node 18 and 24 legs test the host's fallback to the old files. The
   drift check for `out/` is gone; `app.css` and `dist/` keep theirs.
-=======
 
 Packet 2 (feat/workbench-components):
 - The old `index.html`/`app.js`/`navigation.js`/`inspection.js`/`app.css`/
@@ -114,4 +112,75 @@ Packet 2 (feat/workbench-components):
   `src/next-shell/shell.tsx`, part of this packet's own folder) sends a
   `cw:refresh` window event that both parts listen for, in place of
   `app.js`'s `refreshAll()`.
->>>>>>> 60cf2c54 (feat(workbench): port app.js/navigation.js/inspection.js to Next parts)
+
+Packet 3 (feat/workbench-tests):
+- This file had an unresolved git conflict (`<<<<<<< HEAD` /
+  `=======` / `>>>>>>>`) sitting in the committed text between the
+  packet 1 and packet 2 entries above — both sides were real content,
+  just merged carelessly. Fixed in this commit as a plain concatenation
+  (no content lost).
+- The port (packet 2) dropped one small piece of the old `navigation.js`
+  behavior: `parseFragment` no longer returned `replace`, so an unknown
+  tab named in the URL was never normalized back with `replaceState`.
+  `workbench-navigation.test.js`'s existing assertions already pinned
+  the old `replace` field and would not pass against the new module
+  as shipped. Restored `replace` on `navigation.ts`'s `Route` and wired
+  it into `run-panel.tsx`'s `applyRoute`, matching the old
+  `applyLocationRoute`.
+- The plan estimated "the other 14 `test/*.js` files" reading the old
+  flat files besides the seven moving tests. The real count, by
+  `grep -l`, is zero: only `web-desktop-workbench-smoke.js`,
+  `workbench-inspection.test.js` and `workbench-navigation.test.js`
+  (three of the seven) and `css-framework-gate-smoke.js` itself ever
+  read `index.html`/`app.js`/`navigation.js`/`inspection.js`/
+  `app.src.css`/`app.css`; a plain `app.js` substring search also hits
+  ~15 unrelated files that use "app.js" as a generic fixture name for
+  workflow-app tests, which is likely where the estimate came from.
+- `scripts/build-css.js` now writes only `report-css.ts` (the preferred
+  option TECH-SPEC 2b left open): the Tailwind CLI output goes to a
+  temp file, read once and deleted, so `ui/workbench/app.css` is never
+  written to the repo tree. `app.css` and `app.src.css` are deleted;
+  their `lang-policy-check.js` exceptions are dropped.
+- `.github/workflows/ci.yml` line ~46 still runs
+  `git diff --exit-code -- ui/workbench/app.css src/core/format/report-css.ts`
+  after `bun run build:css`; `ui/workbench/app.css` no longer exists,
+  so that path in the diff is now a permanent no-op. `.github/` is out
+  of this packet's scope — a follow-up should drop `app.css` from that
+  line (keep the `report-css.ts` diff).
+- `src/shell/onramp.ts`'s `CURATED_SMOKE_MAP` (frozen `src/`, out of
+  this packet's scope) hardcodes the pre-move path
+  `test/web-desktop-workbench-smoke.js` for the `ui/workbench/` pattern
+  row, and `nodeSmokeCommand()` always builds `node test/<name>`.
+  Worked around inside `test/onramp-check-smoke.js` (in scope) with a
+  small `RELOCATED_SMOKES` lookup so the existence check follows the
+  file to its real home instead of failing; the frozen map and command
+  builder still need a real fix in a packet that can touch `src/`.
+- `scripts/version-sync-check.js:127` hardcodes
+  `plugins/cool-workflow/test/web-desktop-workbench-smoke.js` as a
+  path-exists-and-includes check read from `git show HEAD:<path>`.
+  `scripts/` (beyond `build-css.js`/`lang-policy-check.js`) is out of
+  this packet's scope, so this is left red: `citation-check-smoke.js`
+  (part of `test/run-all.js`) already catches it as one dead citation.
+  This is the one known failure in the full suite (263/264 passed) —
+  a follow-up changes that one line to
+  `plugins/cool-workflow/ui/workbench/tests/web-desktop-workbench-smoke.test.js`.
+- `test/run-all.js` (`-smoke.js`) and `test/run-unit.js` (`.test.js`)
+  both discover files by scanning `test/` only, so moving the seven
+  files out needed no code change there — they simply stopped being
+  found. `bun test`'s own discovery needs `.test.`/`.spec.` in the
+  filename even for an explicit path argument, so the four smokes
+  without that marker (`cli-handler-workbench-smoke.js`,
+  `web-desktop-workbench-smoke.js`, `workbench-load-smoke.js`,
+  `workbench-port-range-smoke.js`) were renamed to `*.test.js` on the
+  move — required for the plain `"test": "bun test"` in
+  `ui/workbench/package.json` to run them at all (verified: bare
+  `bun test` silently skips a `-smoke.js`-named file with no error).
+- `run-panel.tsx`'s `StructTable` had a `<table>` with no
+  `overflow-x-auto` wrapper (TECH-SPEC 2b.7 check 8); wrapped it rather
+  than carry the exception. Four small className fixes
+  (`text-left`→`text-start`, two `pl-`→`ps-`, `mr-auto`→`me-auto` in
+  `run-list.tsx`/`classes.ts`/`run-panel.tsx`) clear check 9 the same
+  way — Tailwind's logical utilities work in an English-only tree same
+  as the physical ones, so there was no reason to carry them as debt.
+  Both checks' named-exception lists in the new gate are empty as a
+  result.

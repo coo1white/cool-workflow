@@ -1,4 +1,4 @@
-import { Shell } from "../src/next-shell/shell";
+import { AppShell } from "../src/next-shell/shell";
 import { loadWorkbenchIndex } from "../src/load-index";
 import { RunList } from "../src/run-list";
 import { RunPanel } from "../src/run-panel";
@@ -11,11 +11,11 @@ export default function Page() {
   const initialIndex = loadWorkbenchIndex();
   const hasRuns = (initialIndex.runs.records?.length ?? 0) > 0;
   return (
-    <Shell>
+    <AppShell>
       <div className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[300px_minmax(0,1fr)]">
         <RunList initialIndex={initialIndex} />
         <RunPanel hasRuns={hasRuns} />
       </div>
-    </Shell>
+    </AppShell>
   );
 }

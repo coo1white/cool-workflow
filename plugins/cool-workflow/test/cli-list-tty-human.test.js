@@ -9,7 +9,7 @@
 // (v2/conformance/cases/cli-json-mode.case.js pins those bytes end-to-end).
 //
 // Uses the same fakeStream({isTTY}) shape as
-// test/workbench-serve-tty-hint.test.js: no real terminal, no spawned CLI.
+// ui/workbench/tests/workbench-serve-tty-hint.test.js: no real terminal, no spawned CLI.
 
 const assert = require("node:assert/strict");
 const path = require("node:path");

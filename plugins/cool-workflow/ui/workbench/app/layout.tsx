@@ -25,7 +25,14 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
-export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#161b22" };
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#161b22" },
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+  ],
+};
 
 // Puts the kept theme on <html> before the first paint, so the page never
 // flashes the wrong colours. No key means the --default theme wins.

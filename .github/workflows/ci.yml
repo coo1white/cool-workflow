@@ -43,7 +43,7 @@ jobs:
       - run: bun run build
       # The CSS is built by Tailwind and committed like dist/; a stale copy
       # fails here, not on a user's screen.
-      - run: bun run build:css && git diff --exit-code -- ui/workbench/app.css src/core/format/report-css.ts
+      - run: bun run build:css && git diff --exit-code -- src/core/format/report-css.ts
       # The Workbench is a Next static export, built here (out/ is not
       # committed: Turbopack chunk names differ by platform). Node 18 cannot
       # build Next 16, so this runs on the Node 22 leg only; the other legs

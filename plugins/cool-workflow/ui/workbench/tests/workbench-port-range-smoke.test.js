@@ -21,7 +21,7 @@ const { execFileSync } = require("node:child_process");
 const http = require("node:http");
 const path = require("node:path");
 
-const pluginRoot = path.resolve(__dirname, "..");
+const pluginRoot = path.resolve(__dirname, "../../..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const node = process.execPath;
 

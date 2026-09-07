@@ -8,7 +8,7 @@ export const C = {
   card: "card card-sm card-border bg-base-200 text-[13px] [&>*]:gap-1.5",
   block: "border-t border-base-300 px-3.5 py-2.5 first:border-t-0",
   title: "mb-1.5 font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60",
-  items: "m-0 pl-[18px] font-mono text-[12px] leading-normal whitespace-pre-wrap [overflow-wrap:anywhere]",
+  items: "m-0 ps-[18px] font-mono text-[12px] leading-normal whitespace-pre-wrap [overflow-wrap:anywhere]",
 } as const;
 
 export const TONE: Record<string, string> = {

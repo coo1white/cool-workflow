@@ -60,28 +60,30 @@ function humanizeKey(key: string): string {
 // scope="col", body rows in a <tbody>.
 function StructTable({ headers, rows }: { headers: string[]; rows: (string | number)[][] }) {
   return (
-    <table className="table table-zebra table-xs font-mono">
-      <thead>
-        <tr>
-          {headers.map((h) => (
-            <th key={h} scope="col">
-              {h}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((cells, i) => (
-          <tr key={i}>
-            {cells.map((text, j) => (
-              <td key={j} className="align-top">
-                {text}
-              </td>
+    <div className="overflow-x-auto">
+      <table className="table table-zebra table-xs font-mono">
+        <thead>
+          <tr>
+            {headers.map((h) => (
+              <th key={h} scope="col">
+                {h}
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((cells, i) => (
+            <tr key={i}>
+              {cells.map((text, j) => (
+                <td key={j} className="align-top">
+                  {text}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -196,7 +198,7 @@ function PanelCard({ name, panel }: { name: string; panel: WorkbenchPanel }) {
         <span className="text-[13px] font-semibold">
           {name} — {panel.capability}
         </span>
-        <span className="mr-auto flex gap-2">
+        <span className="me-auto flex gap-2">
           <code className={C.cmd}>{panel.cli}</code>
           <code className={C.cmd}>{panel.mcp}</code>
         </span>
@@ -256,6 +258,10 @@ export function RunPanel({ hasRuns }: { hasRuns: boolean }) {
       const route = parseFragment(location.hash);
       setRunId(route.runId);
       setActiveTab(route.tab);
+      // An unknown tab in the URL falls back to the default above; also
+      // normalize the address bar so a reload or a copied link does not
+      // keep repeating the same unknown tab name.
+      if (route.replace) writeRoute(route.runId, route.tab, "replace");
     }
     applyRoute();
     window.addEventListener("popstate", applyRoute);

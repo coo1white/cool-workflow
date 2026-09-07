@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-09-06 by `npm run sync:projec
 - Source modules: `160`
 - Workflow apps: `8`
 - Docs: `60`
-- Smoke tests: `268`
+- Smoke tests: `264`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -329,7 +329,6 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [cli-handler-clones-smoke.js](../test/cli-handler-clones-smoke.js)
 - [cli-handler-eval-node-smoke.js](../test/cli-handler-eval-node-smoke.js)
 - [cli-handler-maintenance-smoke.js](../test/cli-handler-maintenance-smoke.js)
-- [cli-handler-workbench-smoke.js](../test/cli-handler-workbench-smoke.js)
 - [cli-io-smoke.js](../test/cli-io-smoke.js)
 - [cli-jsonmode-parity-smoke.js](../test/cli-jsonmode-parity-smoke.js)
 - [cli-mcp-parity-smoke.js](../test/cli-mcp-parity-smoke.js)
@@ -552,10 +551,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [verify-audit-cites-smoke.js](../test/verify-audit-cites-smoke.js)
 - [verify-bump-reproduction-smoke.js](../test/verify-bump-reproduction-smoke.js)
 - [verify-import-audit-chain-smoke.js](../test/verify-import-audit-chain-smoke.js)
-- [web-desktop-workbench-smoke.js](../test/web-desktop-workbench-smoke.js)
 - [wiring-lazy-shell-imports-smoke.js](../test/wiring-lazy-shell-imports-smoke.js)
-- [workbench-load-smoke.js](../test/workbench-load-smoke.js)
-- [workbench-port-range-smoke.js](../test/workbench-port-range-smoke.js)
 - [worker-accept-path-architecture-smoke.js](../test/worker-accept-path-architecture-smoke.js)
 - [worker-isolation-smoke.js](../test/worker-isolation-smoke.js)
 - [worker-off-target-smoke.js](../test/worker-off-target-smoke.js)

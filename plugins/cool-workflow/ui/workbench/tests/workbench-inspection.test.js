@@ -6,10 +6,7 @@
 // rank, or action.
 
 const assert = require("node:assert/strict");
-const path = require("node:path");
-
-const inspectionPath = path.join(__dirname, "..", "ui", "workbench", "inspection.js");
-const { actionFacts } = require(inspectionPath);
+const { actionFacts } = require("../src/inspection.ts");
 
 assert.deepEqual(actionFacts(null), []);
 assert.deepEqual(actionFacts({ total: 2, status: "complete" }), []);

@@ -1,10 +1,10 @@
 "use client";
 
-import { HeaderControls } from "./header-controls";
-import { NavLinks } from "./nav-links";
+import { AppHeader } from "./header-controls";
+import { AppSidebar } from "./nav-links";
 
 // The drawer checkbox is the open state, so the side panel opens with no JS.
-export function Shell({ children }: { children: React.ReactNode }) {
+export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="drawer lg:drawer-open">
       <input id="shell-drawer" type="checkbox" className="drawer-toggle" />
@@ -29,9 +29,6 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </h1>
           </div>
           <div className="flex items-center gap-4">
-            <p className="font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60">
-              read-only · localhost · re-derived from <code className="text-base-content">.cw/</code> on every refresh
-            </p>
             {/* Both client islands (src/run-list.tsx, src/run-panel.tsx)
                 listen for "cw:refresh" and re-derive from disk on it. */}
             <button
@@ -47,17 +44,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
               </svg>
               Refresh
             </button>
-            <HeaderControls />
+            <AppHeader />
           </div>
         </div>
         <main id="main" className="min-h-0 flex-1 overflow-hidden">
           {children}
         </main>
+        <footer className="border-t border-base-300 px-5 py-1.5 font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60">
+          Cool Workflow · read-only · localhost · re-derived from <code className="text-base-content">.cw/</code> on every refresh
+        </footer>
       </div>
       <div className="drawer-side">
         <label htmlFor="shell-drawer" className="drawer-overlay" aria-label="close menu" />
         <nav className="min-h-full w-56 border-r border-base-300 bg-base-200 p-3">
-          <NavLinks />
+          <AppSidebar />
         </nav>
       </div>
     </div>
