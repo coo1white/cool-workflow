@@ -17,7 +17,10 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
 ## Procedure (execute all steps, report all findings)
 
 1. Establish ground truth yourself:
-   - `git rev-parse HEAD`, `git describe --tags --abbrev=0`
+   - `git rev-parse HEAD`; the previous tag is the one named in the
+     context below. Do not use `git describe` on main: every release tag
+     is a one-hop leaf off main (the signed verdict commit), so describe
+     finds an older tag and the diff range looks cross-lineage.
    - `git diff <prev-tag>..HEAD --stat` and read the actual diff.
 
 2. The release control plane has already run the deterministic gate. Do NOT

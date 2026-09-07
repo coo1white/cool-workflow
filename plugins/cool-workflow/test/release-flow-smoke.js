@@ -71,6 +71,7 @@ const kind = process.argv[3];
 if (kind === "APPROVED") fs.writeFileSync(resultPath, "APPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
 else if (kind === "MARKDOWN") fs.writeFileSync(resultPath, "review notes\\n\\nAPPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
 else if (kind === "SEMANTIC_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. Stub finding at README.md:1.\\n");
+else if (kind === "FENCED_REJECTED") fs.writeFileSync(resultPath, "\`\`\`\\nREJECTED\\nkind: semantic-review \\n1. Stub finding at README.md:1.\\n\`\`\`\\n");
 else if (kind === "GATE_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\n1. tests failed at scripts/release-gate.js:86.\\n");
 else if (kind === "MIXED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. Stub finding at README.md:1.\\nAPPROVED wrongsha\\nshould not pass\\n");
 // NONE: write nothing (simulate an agent that produced no verdict)
@@ -1040,6 +1041,42 @@ function releaseFixtureNonAncestorPrevTag() {
   assert.equal(r.code, 0, `APPROVED stub should pass:\n${r.err}\n${r.out}`);
   assert.match(r.out, /"prevTag": "v9\.9\.8"/,
     "resolvePrevTag() must find v9.9.8 by version order, even though it is not an ancestor of HEAD");
+}
+
+// A rejection inside a code fence, with a trailing space on the kind line,
+// is still a rejection with evidence, not a "bad approval".
+{
+  const dir = fixture();
+  const stub = writeStub(dir);
+  const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} FENCED_REJECTED` });
+  assert.equal(r.code, 1, "a fenced rejection fails closed");
+  assert.match(r.err, /rejected the release with semantic evidence/, "named as a code rejection");
+}
+
+// A reviewer that hangs past the deadline is SIGKILLed and the vendor child
+// it recorded in CW_AGENT_VENDOR_PIDFILE is reaped (0.2.8: a muse orphan).
+{
+  const dir = fixture();
+  const hang = path.join(dir, "hang-agent.js");
+  fs.writeFileSync(hang, `
+const { spawn } = require("node:child_process");
+const fs = require("node:fs");
+const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+fs.writeFileSync(process.env.CW_AGENT_VENDOR_PIDFILE, String(child.pid));
+fs.writeFileSync(process.argv[2], String(child.pid));
+setInterval(() => {}, 1000);
+`);
+  const pidNote = path.join(dir, "vendor.pid");
+  const r = runFlow(dir, { agentCmd: `node ${hang} ${pidNote}`, extraEnv: { CW_AGENT_TIMEOUT_MS: "3000" } });
+  assert.equal(r.code, 1, "a hung reviewer fails closed");
+  assert.match(r.err, /ETIMEDOUT/, "the deadline is named");
+  assert.match(r.err, /vendor process was reaped/, "the vendor child is reaped");
+  const pid = Number(fs.readFileSync(pidNote, "utf8"));
+  let alive = true;
+  for (let i = 0; i < 30 && alive; i++) {
+    try { process.kill(pid, 0); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100); } catch { alive = false; }
+  }
+  assert.equal(alive, false, "the vendor child is gone after the reap");
 }
 
 process.stdout.write("release-flow-smoke: ok\n");

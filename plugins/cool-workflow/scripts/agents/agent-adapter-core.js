@@ -40,9 +40,18 @@ HARD RULES (the result is REJECTED otherwise):
 // worker contract below says it "overrides" any write-to-file instruction, so
 // appending it there made muse answer in prose plus JSON and the verdict check
 // failed closed (0.2.8 cut). Review mode gets the input as it is.
+const REVIEW_CONTRACT = `
+=== HOW TO RETURN YOUR VERDICT (overrides the 'write to this exact path' line above) ===
+Do NOT write any file: your final message is saved as the verdict file for you,
+so a file you write yourself is never read. Your final message must be ONLY the
+verdict in the form above: the first line exactly "APPROVED <the full 40-character
+HEAD sha>" followed by one capability sentence, or "REJECTED" then
+"kind: semantic-review" then the numbered findings. No prose before the first
+line, no code fence, no summary after.`;
+
 function buildPrompt(inputPath, env = process.env) {
   const input = fs.readFileSync(inputPath, "utf8");
-  return env.CW_RELEASE_REVIEW === "1" ? input : `${input}\n${RESULT_CONTRACT}`;
+  return `${input}\n${env.CW_RELEASE_REVIEW === "1" ? REVIEW_CONTRACT : RESULT_CONTRACT}`;
 }
 
 function streamEnabled(env = process.env) {
