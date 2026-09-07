@@ -7,7 +7,7 @@
 // The bug: `git rev-parse --abbrev-ref HEAD` prints the literal string "HEAD"
 // on a detached checkout. The version-branch regex (^feat/(batch-)?v?[0-9]+)
 // can never match "HEAD", so the check is a silent no-op. That matters because
-// the tag-push CI (release-gate.yml) ALWAYS checks out the tag, so HEAD is
+// the tag-push CI (release.yml) ALWAYS checks out the tag, so HEAD is
 // detached there — the one place this check is meant to be the backstop is the
 // one place it never fired.
 //

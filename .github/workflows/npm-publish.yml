@@ -23,7 +23,7 @@ name: npm-publish
 
 on:
   workflow_run:
-    workflows: ["release-gate"]
+    workflows: ["release"]
     types: [completed]
   workflow_dispatch:
     inputs:

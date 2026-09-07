@@ -87,6 +87,9 @@ The stack for every project under `~/Developer` is in
   `ui/workbench/tests/` with `bun test`. The CLI stays zero-dependency;
   `report.html` stays one offline file. bun 1.4.1 is the one developer
   installer (`sdlc/unify-package-manager-bun/`); npm stays the user's.
+- CI/CD: three workflow files, `ci.yml`, `release.yml`, `scheduled.yml`
+  (`sdlc/unify-ci-cd/`); four named exceptions stay as their own files
+  — `codeql.yml`, `gitleaks.yml`, `pages.yml`, `npm-publish.yml`.
 
 # North Star)
    Never select "add a new type/interface" as a standalone goal.
@@ -730,7 +733,7 @@ imports no model SDK. Never write the verdict file yourself. Presets:
 file is removed, along with `CHANGELOG.md`. This project no longer keeps a
 separate, hand-written changelog file; `--generate-notes` (GitHub's
 auto-generated notes from commits) is the release-notes source now, the
-same fallback `.github/workflows/github-release.yml` already used.)
+same fallback `.github/workflows/release.yml` already used.)
 
 Both `npm run` commands below run with cwd `plugins/cool-workflow/` (no root
 package.json — same convention as the VERIFY step above):
@@ -872,7 +875,7 @@ hand-written one. Set up ed25519 signing once to close that gap:
 node scripts/verdict-keygen.js --out-dir ~/.cw-keys
 # .cw-release/ lives at the REPO ROOT, not under plugins/cool-workflow (where
 # this checklist's cwd has been since the top) — anchor on the real root so
-# the public key lands where release-gate.yml/npm-publish.yml/
+# the public key lands where release.yml/npm-publish.yml/
 # block-unapproved-tag.js actually look for it, not silently under
 # plugins/cool-workflow/.cw-release/ where no verifier will ever find it.
 REPO_ROOT="$(git rev-parse --show-toplevel)"
@@ -884,7 +887,7 @@ export CW_RELEASE_VERDICT_PRIVKEY=~/.cw-keys/verdict-signing.key   # keep this O
 
 Once `.cw-release/verdict-signing.pub` is committed, `release-flow.js`
 signs every verdict it writes (a `.sig` sidecar next to the `.verdict`
-file, included in the cut's verdict commit), and `release-gate.yml`,
+file, included in the cut's verdict commit), and `release.yml`,
 `npm-publish.yml`, and the local `block-unapproved-tag.js` hook all start
 REQUIRING a valid signature on top of the existing `APPROVED` text check.
 Until that public key is committed, every check stays exactly as before

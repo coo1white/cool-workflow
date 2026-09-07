@@ -28,7 +28,7 @@
 //   2. cut         — release-flow.js --cut --version X --push (gate, live
 //                    vendor preflight, reviewer, sign, tag-only push, Release)
 //   3. record+wait — PR landing the verdict+.sig onto main (informational,
-//                    no gate implications) + poll release-gate/npm-publish +
+//                    no gate implications) + poll release/npm-publish +
 //                    confirm `npm view` shows the new version
 //
 // Resume: when the vX.Y.Z tag already exists (local or on origin), the cut
@@ -123,7 +123,7 @@ function alreadyCut() {
 // A cut tags the verdict commit LOCALLY and only then pushes the tag. If that
 // push dies (a network drop, an auth expiry) the tag is left local-only:
 // alreadyCut() still sees it and resumes at stage 3, but stage 3 would then
-// wait 45 minutes for a release-gate run CI never started, because the tag
+// wait 45 minutes for a release run CI never started, because the tag
 // never reached origin. So on resume, before the CI wait, make sure the tag is
 // actually on origin — re-push it (the same tag-only refspec cut() uses) when
 // it is only local. This keeps the tag-only-push contract: no branch is pushed,
@@ -270,7 +270,7 @@ function verdictPaths() {
 function runRecordAndWaitStage() {
   stage(3, "record on main + wait for CI + confirm npm");
   if (DRY_RUN) {
-    say("[dry-run] would: open a PR landing the verdict+.sig onto main, then poll release-gate/npm-publish/npm view.");
+    say("[dry-run] would: open a PR landing the verdict+.sig onto main, then poll release/npm-publish/npm view.");
     return;
   }
 
@@ -300,7 +300,7 @@ function runRecordAndWaitStage() {
           const commit = git(["commit", "-m", `chore(release): record the v${version} reviewer verdict on main`], { cwd: repoRoot });
           if (commit.code === 0) {
             git(["push", "-u", "--force-with-lease", "origin", branch], { cwd: repoRoot });
-            const pr = gh(["pr", "create", "--base", "main", "--head", branch, "--title", `chore(release): record the v${version} reviewer verdict on main`, "--body", `Informational — lands the tagged v${version} verdict + signature onto main for the repo's own audit trail. No gate implications (main's required checks don't include release-gate). Reviewed commit: ${reviewedParent}.`]);
+            const pr = gh(["pr", "create", "--base", "main", "--head", branch, "--title", `chore(release): record the v${version} reviewer verdict on main`, "--body", `Informational — lands the tagged v${version} verdict + signature onto main for the repo's own audit trail. No gate implications (main's required checks don't include release). Reviewed commit: ${reviewedParent}.`]);
             if (pr.code === 0) {
               say(pr.out);
               gh(["pr", "merge", branch, "--auto", "--squash"]);
@@ -317,13 +317,13 @@ function runRecordAndWaitStage() {
     say(`WARN: no verdict at ${relVerdict} in the tag commit — skipping the main-record PR (informational only, not release-blocking).`);
   }
 
-  say(`waiting for release-gate on tag v${version}...`);
+  say(`waiting for release on tag v${version}...`);
   const gate = poll({
-    label: "release-gate wait",
+    label: "release wait",
     timeoutMs: 45 * 60 * 1000,
     intervalMs: 20000,
     probe: () => {
-      const list = gh(["run", "list", "--workflow", "release-gate", "--limit", "10", "--json", "databaseId,headBranch,status,conclusion,updatedAt"]);
+      const list = gh(["run", "list", "--workflow", "release", "--limit", "10", "--json", "databaseId,headBranch,status,conclusion,updatedAt"]);
       if (list.code !== 0) return { error: true };
       let runs;
       try {
@@ -337,14 +337,14 @@ function runRecordAndWaitStage() {
         // cutoff below must key off when the gate actually finished, not off the
         // wall clock now (a resume can start long after the gate completed).
         if (gateRun.conclusion === "success") return { done: true, value: { id: gateRun.databaseId, completedMs: Date.parse(gateRun.updatedAt) } };
-        die(`release-gate FAILED — inspect: gh run view ${gateRun.databaseId} --log-failed`);
+        die(`release FAILED — inspect: gh run view ${gateRun.databaseId} --log-failed`);
       }
       return {};
     }
   });
-  say(`release-gate: SUCCESS (run ${gate.id})`);
+  say(`release: SUCCESS (run ${gate.id})`);
 
-  // npm-publish is created only AFTER release-gate completes (workflow_run
+  // npm-publish is created only AFTER release completes (workflow_run
   // trigger), so the run to wait for may not exist yet — and the newest
   // completed npm-publish run at this moment is usually the PREVIOUS
   // release's. Only accept a run created at-or-after the moment the gate
@@ -402,7 +402,7 @@ function runRecordAndWaitStage() {
 if (alreadyCut()) {
   say(`tag v${version} already exists — the cut already happened; resuming at stage 3 (CI wait + record + confirm).`);
   if (DRY_RUN) {
-    say("[dry-run] would resume at stage 3: record PR + wait for release-gate/npm-publish + npm view confirmation.");
+    say("[dry-run] would resume at stage 3: record PR + wait for release/npm-publish + npm view confirmation.");
     say("[dry-run] would first re-push refs/tags/v" + version + " if it is only local (the cut's tag push had failed).");
   } else {
     ensureTagPushedOnResume();

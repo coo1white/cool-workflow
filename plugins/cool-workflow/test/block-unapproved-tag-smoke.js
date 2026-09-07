@@ -289,7 +289,7 @@ function signVerdict(verdictPath, pem) {
 // ---- HEAD~1 tolerance: markers keyed on the PARENT sha -> ALLOW ------------
 // cut() commits the verdict ON TOP of the reviewed commit, so at tag time the
 // marker files carry HEAD~1's sha, not HEAD's — the same tolerance
-// release-gate.yml has. The pre-fix hook only ever looked at HEAD, so a
+// release.yml has. The pre-fix hook only ever looked at HEAD, so a
 // manual retag of a cut-produced commit was always blocked (v0.2.3 recovery).
 {
   clearMarkers();
