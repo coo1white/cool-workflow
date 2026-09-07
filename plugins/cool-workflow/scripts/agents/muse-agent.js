@@ -15,7 +15,7 @@
 // `payload.text`; any other terminal value (its `payload.reason` is
 // surfaced verbatim), or none at all, is a FAILURE - never fabricate a
 // result. `model` is self-reported: the id passed via --model, default
-// "muse-spark-1.2" (CW_MUSE_MODEL overrides).
+// "muse-spark-1.3-contributor" (CW_MUSE_MODEL overrides).
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -98,7 +98,9 @@ function recordJsonLine(line) {
 
 render.action(`muse: running ${modelId} (workspace)…`);
 
-const args = ["exec", "--json", "--prompt-file", promptFile, "--model", modelId, "--reasoning-effort", reasoningEffort, "--workspace", process.cwd()];
+// stdin is closed, so an approval prompt would wait for ever (the 0.2.8 cut
+// hung 30 min on a git diff). Never ask; the sandbox stays on.
+const args = ["exec", "--json", "--prompt-file", promptFile, "--model", modelId, "--reasoning-effort", reasoningEffort, "--workspace", process.cwd(), "--approval-mode", "never"];
 
 const child = spawn("muse", args, { stdio: ["ignore", "pipe", "pipe"], shell: false });
 recordVendorPid(child);
