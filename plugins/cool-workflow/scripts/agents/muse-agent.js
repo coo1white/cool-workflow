@@ -56,6 +56,7 @@ function removePromptFile() {
 
 const render = createRenderer({ env: process.env, stderr: process.stderr, label: "muse" });
 const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
+const MAX_ATTEMPTS = 3;
 let state;
 let childStderr = "";
 
@@ -134,6 +135,15 @@ child.on("close", (code) => {
   render.writeTranscript(transcriptPath);
   removePromptFile();
 
+  // A transport error is the provider's stream breaking, not the model's
+  // answer (0.2.8: the verdict was already written when the stream died, and
+  // Meta's stream broke three times in one hour). muse exits non-zero on it,
+  // so this check comes BEFORE the exit-code check. Up to three full runs;
+  // after that it fails closed as before.
+  if (attempt < MAX_ATTEMPTS && /transport error/i.test(String(state.terminalReason || ""))) {
+    process.stderr.write(`muse: ${state.terminalReason}\nmuse: running once more (${attempt + 1}/${MAX_ATTEMPTS})\n`);
+    return runMuse(attempt + 1);
+  }
   if (code !== 0) {
     const detail = buildFailureDetail({ label: "muse", code, childStderr: childStderr.trim(), partialText: state.finalText });
     persistStderr(resultPath, detail);
@@ -159,13 +169,6 @@ child.on("close", (code) => {
     const detail = state.terminalReason
       ? String(state.terminalReason)
       : `muse run terminal was "${state.terminal}", not "completed" - refusing to fabricate a result`;
-    // A transport error is the provider's stream breaking, not the model's
-    // answer (0.2.8: the verdict was already written when the stream died).
-    // One more full run; a second break fails closed as before.
-    if (attempt === 1 && /transport error/i.test(detail)) {
-      process.stderr.write(`muse: ${detail}\nmuse: running once more\n`);
-      return runMuse(2);
-    }
     persistStderr(resultPath, childStderr.trim() || detail);
     process.stderr.write(`${detail}\n`);
     process.exit(1);

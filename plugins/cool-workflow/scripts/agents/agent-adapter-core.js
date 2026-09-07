@@ -35,23 +35,15 @@ HARD RULES (the result is REJECTED otherwise):
 - The top-level "evidence" array MUST be NON-EMPTY with REAL file:line locators from this repo.
 - If you have no structured findings, use "findings": [] (empty) - never omit a finding's id.`;
 
-// A release review (CW_RELEASE_REVIEW=1) carries its own verdict format
-// (release-flow.js: APPROVED <sha> / REJECTED + kind: semantic-review). The
-// worker contract below says it "overrides" any write-to-file instruction, so
-// appending it there made muse answer in prose plus JSON and the verdict check
-// failed closed (0.2.8 cut). Review mode gets the input as it is.
-const REVIEW_CONTRACT = `
-=== HOW TO RETURN YOUR VERDICT (overrides the 'write to this exact path' line above) ===
-Do NOT write any file: your final message is saved as the verdict file for you,
-so a file you write yourself is never read. Your final message must be ONLY the
-verdict in the form above: the first line exactly "APPROVED <the full 40-character
-HEAD sha>" followed by one capability sentence, or "REJECTED" then
-"kind: semantic-review" then the numbered findings. No prose before the first
-line, no code fence, no summary after.`;
-
+// A release review (CW_RELEASE_REVIEW=1) gets the input as it is: the verdict
+// format and the "your final message is the verdict" rule live in ONE place,
+// release-flow.js buildReviewerInput(). The worker contract below says it
+// overrides any write-to-file instruction; appending it to a review made muse
+// answer in prose plus JSON (0.2.8 cut), and a second review-only contract
+// here would be a second source to drift from.
 function buildPrompt(inputPath, env = process.env) {
   const input = fs.readFileSync(inputPath, "utf8");
-  return `${input}\n${env.CW_RELEASE_REVIEW === "1" ? REVIEW_CONTRACT : RESULT_CONTRACT}`;
+  return env.CW_RELEASE_REVIEW === "1" ? input : `${input}\n${RESULT_CONTRACT}`;
 }
 
 function streamEnabled(env = process.env) {
