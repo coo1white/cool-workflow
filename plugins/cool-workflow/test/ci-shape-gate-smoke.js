@@ -33,7 +33,8 @@ const PINS = {
 };
 const LABELS = ["ubuntu-latest", "macos-latest"];
 const EXCEPTIONS = ["codeql.yml", "gitleaks.yml", "pages.yml", "npm-publish.yml"];
-const BANNED_TOKENS = ["CT_GITEA_TOKEN", "CI_VENDOR_TOKEN", "AUTOMERGE_TOKEN", "RENOVATE_TOKEN"];
+// GITHUB_TOKEN too: on Gitea it is empty in schedule and dispatch runs; write github.token.
+const BANNED_TOKENS = ["CT_GITEA_TOKEN", "CI_VENDOR_TOKEN", "AUTOMERGE_TOKEN", "RENOVATE_TOKEN", "GITHUB_TOKEN"];
 
 /** Every fault the gate finds in one .github/workflows/ directory, as strings. */
 function gate(workflowsDir, repoRoot) {

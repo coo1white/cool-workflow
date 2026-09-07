@@ -130,7 +130,9 @@ host), `EXCEPTIONS = ["codeql.yml", "gitleaks.yml", "pages.yml",
 6. no `gitea.`, no `hashFiles(` (the `ubuntu-` and `macos-latest`
    lines of spec item 6 are dropped: GitHub host);
 7. no `secrets.CT_GITEA_TOKEN`, `CI_VENDOR_TOKEN`, `AUTOMERGE_TOKEN`,
-   `RENOVATE_TOKEN`.
+   `RENOVATE_TOKEN`, and no `secrets.GITHUB_TOKEN` (spec amendment
+   2026-09-07: write `${{ github.token }}`, the same value on GitHub and
+   never empty on Gitea).
 
 Bite proof: the test copies `.github/workflows/` to a temp dir, plants
 one fault per check (seven copies), runs the check function on each,
