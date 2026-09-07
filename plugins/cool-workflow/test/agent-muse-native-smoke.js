@@ -102,6 +102,7 @@ function main() {
     assert.ok(invocation.args.includes("--prompt-file"), "muse takes the prompt from a file");
     assert.equal(invocation.args[invocation.args.indexOf("--model") + 1], "muse-spark-1.3-contributor", "default model is the owner-approved muse-spark-1.3-contributor");
     assert.ok(invocation.args.includes("--workspace"), "muse gets --workspace so its own tools root at the worker dir");
+    assert.equal(invocation.args[invocation.args.indexOf("--approval-mode") + 1], "never", "muse never waits for an approval: stdin is closed");
     assert.equal(invocation.args[invocation.args.indexOf("--reasoning-effort") + 1], "low", "default reasoning effort is low (fast delegated worker)");
     assert.ok(invocation.prompt.includes(marker), "worker input reaches muse via --prompt-file");
     assert.ok(invocation.prompt.includes("cw:result"), "cw result contract is appended");
