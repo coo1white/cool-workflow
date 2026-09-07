@@ -297,6 +297,14 @@ function extractVerdictFromStdout(stdout, resultPath) {
 // the env we hand to the reviewer child process, even though the operator's
 // own shell (this script's own process.env) may have them set.
 const REVIEWER_ENV_DENY = ["CW_RELEASE_VERDICT_PRIVKEY", "CW_AGENT_ATTEST_PRIVKEY", "CW_WORKBENCH_TOKEN"];
+function reapVendor(pidFile) {
+  try {
+    return require(path.join(pluginRoot, "dist", "shell", "execution-backend", "agent.js")).reapRecordedVendor(pidFile);
+  } catch {
+    return false;
+  }
+}
+
 function buildReviewerEnv() {
   const env = { ...process.env, CW_RELEASE_REVIEW: "1" };
   for (const key of REVIEWER_ENV_DENY) delete env[key];
@@ -362,6 +370,8 @@ function delegateReview(resultPath, inputPath) {
     // a file the reviewer wrote THIS round, never a stale or planted one.
     try { fs.unlinkSync(resultPath); } catch {}
     try { fs.unlinkSync(`${resultPath}.sig`); } catch {}
+    const vendorPidFile = path.join(repoRoot, ".cw-release", `.reviewer-vendor-${process.pid}.pid`);
+    fs.mkdirSync(path.dirname(vendorPidFile), { recursive: true });
     const r = spawnSync(bin, args, {
       cwd: repoRoot,
       // CW_RELEASE_REVIEW=1 is a vendor-agnostic signal that THIS spawn is a
@@ -372,9 +382,12 @@ function delegateReview(resultPath, inputPath) {
       // probes never set it, so they stay fast and read-only.
       // buildReviewerEnv() also strips the verdict signing key and other release
       // secrets from what the reviewer child process can see — see its comment.
-      env: buildReviewerEnv(),
+      env: { ...buildReviewerEnv(), CW_AGENT_VENDOR_PIDFILE: vendorPidFile },
       encoding: "utf8",
       timeout: cfg.timeoutMs || REVIEWER_TIMEOUT_MS,
+      // SIGKILL, not SIGTERM: a wrapper that ignores SIGTERM would keep the
+      // deadline from meaning anything.
+      killSignal: "SIGKILL",
       shell: false,
       stdio: ["ignore", "pipe", "inherit"],
       maxBuffer: 32 * 1024 * 1024
@@ -382,7 +395,13 @@ function delegateReview(resultPath, inputPath) {
     // A spawn that never started (ENOENT for a missing binary, ETIMEDOUT on the
     // deadline) sets r.error — surface its real message instead of the old
     // catch-all "(timeout/no-exit)" that hid the builtin: ENOENT for so long.
-    if (r.error) die(`reviewer agent could not be spawned (${bin}): ${r.error.message} — no verdict trusted.`);
+    if (r.error) {
+      // On the deadline spawnSync SIGKILLs the wrapper, which cannot forward
+      // the stop to its vendor child. Reap the PID the shipped wrappers record
+      // (0.2.8: a muse left this way ran on for 1.5 h).
+      const reaped = r.error.code === "ETIMEDOUT" && reapVendor(vendorPidFile);
+      die(`reviewer agent could not be spawned (${bin}): ${r.error.message}${reaped ? " (its vendor process was reaped)" : ""} — no verdict trusted.`);
+    }
     if (r.status !== 0) die(`reviewer agent exited ${r.status === null ? "(timeout/no-exit)" : r.status} — no verdict trusted.`);
     // If the agent already wrote the verdict file (backward compat), use it.
     // Otherwise extract the verdict from stdout (headless agent path).

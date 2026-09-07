@@ -1042,4 +1042,30 @@ function releaseFixtureNonAncestorPrevTag() {
     "resolvePrevTag() must find v9.9.8 by version order, even though it is not an ancestor of HEAD");
 }
 
+// A reviewer that hangs past the deadline is SIGKILLed and the vendor child
+// it recorded in CW_AGENT_VENDOR_PIDFILE is reaped (0.2.8: a muse orphan).
+{
+  const dir = fixture();
+  const hang = path.join(dir, "hang-agent.js");
+  fs.writeFileSync(hang, `
+const { spawn } = require("node:child_process");
+const fs = require("node:fs");
+const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+fs.writeFileSync(process.env.CW_AGENT_VENDOR_PIDFILE, String(child.pid));
+fs.writeFileSync(process.argv[2], String(child.pid));
+setInterval(() => {}, 1000);
+`);
+  const pidNote = path.join(dir, "vendor.pid");
+  const r = runFlow(dir, { agentCmd: `node ${hang} ${pidNote}`, extraEnv: { CW_AGENT_TIMEOUT_MS: "3000" } });
+  assert.equal(r.code, 1, "a hung reviewer fails closed");
+  assert.match(r.err, /ETIMEDOUT/, "the deadline is named");
+  assert.match(r.err, /vendor process was reaped/, "the vendor child is reaped");
+  const pid = Number(fs.readFileSync(pidNote, "utf8"));
+  let alive = true;
+  for (let i = 0; i < 30 && alive; i++) {
+    try { process.kill(pid, 0); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100); } catch { alive = false; }
+  }
+  assert.equal(alive, false, "the vendor child is gone after the reap");
+}
+
 process.stdout.write("release-flow-smoke: ok\n");
