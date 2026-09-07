@@ -184,3 +184,20 @@ Packet 3 (feat/workbench-tests):
   as the physical ones, so there was no reason to carry them as debt.
   Both checks' named-exception lists in the new gate are empty as a
   result.
+
+## Architecture snapshot diff (closing PR)
+
+Live docs whose claims got old, and where each was fixed:
+- `AGENTS.md` "Stack rule and this repo's exceptions": said the
+  Workbench is plain HTML, pending #676. Fixed in the closing PR.
+- `docs/web-desktop-workbench.7.md` "The face": said system fonts, no
+  framework, no network. Fixed in #685.
+- `project/docs/intent/2026-09-07-workbench-next.md`: status said
+  "closed, stays plain HTML" from the owner's earlier word; the later
+  word ("留 Next 16.3.0，同时保留 cli") won. Status fixed and the file
+  archived in the closing PR.
+- `README.md`: no claim about the Workbench's stack; unchanged.
+
+Status ledger: packets 0 to 5 merged as #679, #681, #682, #684, #685,
+#683 (bun). 0 open PRs. Pages serves the export from the merge of #685.
+
