@@ -180,7 +180,7 @@ export class WorkbenchHost {
 
       // Auth is checked AFTER the route is decoded, and only where run data
       // can flow: /api/* stays behind the token, the static UI files do not
-      // (a token used to 401 the browser's own /ui/app.css and /ui/app.js,
+      // (a token used to 401 the browser's own /ui/ static files,
       // giving an unstyled page with no reason given). The index route is
       // split: an INSTALLED index.html is generic static code (open), but
       // the FALLBACK page embeds the serve descriptor with the absolute repo

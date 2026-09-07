@@ -44,7 +44,7 @@ is green. Never use `--admin` to bypass CI checks. Never merge with a
 red or pending CI run.
 
 `main` has branch protection turned on: the two CI checks
-(`cool-workflow` on `ubuntu-latest`, Node 18 and 22) must be green
+(`check` on `ubuntu-latest`, Node 18 and 22) must be green
 before a merge, with `enforce_admins` on so there is no bypass, even
 for the repo owner. Force-pushes and branch deletion on `main` are
 also blocked. No required-review rule is set, since this repo has one
