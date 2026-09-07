@@ -163,7 +163,7 @@ function runVendorPreflight() {
     say("[1b/3] vendor preflight — SKIPPED via CW_SKIP_VENDOR_PREFLIGHT=1 (operator override)");
     return;
   }
-  const vendors = (process.env.CW_PREFLIGHT_VENDORS || "claude,codex,gemini,deepseek").trim();
+  const vendors = (process.env.CW_PREFLIGHT_VENDORS || "claude,codex,gemini,deepseek,muse").trim();
   const override = (process.env.CW_RELEASE_FLOW_PREFLIGHT_CMD || "").trim();
   say(`[1b/3] vendor preflight — live liveness check: ${vendors}`);
   let r;
