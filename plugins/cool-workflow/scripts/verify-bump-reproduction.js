@@ -2,7 +2,7 @@
 "use strict";
 // verify-bump-reproduction.js — closes the HEAD~1 verdict-replay bypass.
 //
-// release-gate.yml / npm-publish.yml tolerate a verdict written for the tag
+// release.yml / npm-publish.yml tolerate a verdict written for the tag
 // commit's PARENT (release-flow.js's cut() reviews content, then adds a
 // mechanical version-bump + the verdict as a NEW child commit that actually
 // gets tagged). A validly-signed verdict at the parent proves someone once

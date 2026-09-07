@@ -7,7 +7,7 @@
 //   Finding #1 (P1): a cut can leave the vX.Y.Z tag LOCAL-ONLY — `git tag`
 //     succeeds, then the tag push dies (a network drop, an auth expiry).
 //     alreadyCut() sees the local tag and resumes at stage 3, but stage 3
-//     only waits for a release-gate run that CI never started, because the
+//     only waits for a release run that CI never started, because the
 //     tag never reached origin. A resume must RE-PUSH a local-only tag before
 //     it starts the CI wait.
 //
@@ -69,7 +69,7 @@ process.exit(0);
   return stub;
 }
 
-// A stub `gh`. GH_STUB_SCENARIO picks the release-gate reply:
+// A stub `gh`. GH_STUB_SCENARIO picks the release reply:
 //   gate-fail  -> the gate run is completed+failure (fast die at the gate wait)
 //   npm-cutoff -> the gate run is completed+success with a PAST completion time,
 //                 and the npm-publish run is completed+failure created just
@@ -85,7 +85,7 @@ const a = process.argv.slice(2);
 const wi = a.indexOf("--workflow");
 const wf = wi >= 0 ? a[wi + 1] : "";
 const scenario = process.env.GH_STUB_SCENARIO || "gate-fail";
-if (a[0] === "run" && a[1] === "list" && wf === "release-gate") {
+if (a[0] === "run" && a[1] === "list" && wf === "release") {
   const conclusion = scenario === "npm-cutoff" ? "success" : "failure";
   process.stdout.write(JSON.stringify([{ databaseId: 111, headBranch: "v${VERSION}", status: "completed", conclusion, createdAt: "2020-01-01T00:00:00Z", updatedAt: "2020-01-01T00:00:00Z" }]) + "\\n");
   process.exit(0);
@@ -125,7 +125,7 @@ function run(dir, env, timeoutMs) {
   const r = run(dir, { GH_STUB_SCENARIO: "gate-fail" }, 20000);
   // Reached the resume + CI wait (both fixed and unfixed die at the failing gate).
   assert.match(r.out, /already exists — the cut already happened; resuming at stage 3/, "must announce the resume");
-  assert.match(r.err, /release-gate FAILED/, "the run must reach the release-gate wait");
+  assert.match(r.err, /release FAILED/, "the run must reach the release wait");
   // The load-bearing assertion: a local-only tag must be pushed to origin
   // BEFORE the CI wait. Absent in the unfixed code (fail-first).
   assert.match(r.rec, /(^|\n)push origin refs\/tags\/v99\.99\.99(\n|$)/,
@@ -138,7 +138,7 @@ function run(dir, env, timeoutMs) {
 {
   const dir = tmp();
   const r = run(dir, { GH_STUB_SCENARIO: "gate-fail", GIT_STUB_REMOTE_HAS_TAG: "1" }, 20000);
-  assert.match(r.err, /release-gate FAILED/, "the run must reach the release-gate wait");
+  assert.match(r.err, /release FAILED/, "the run must reach the release wait");
   assert.doesNotMatch(r.rec, /push origin refs\/tags\//,
     "a tag already on origin must not be re-pushed");
 }
@@ -153,7 +153,7 @@ function run(dir, env, timeoutMs) {
 {
   const dir = tmp();
   const r = run(dir, { GH_STUB_SCENARIO: "npm-cutoff", GIT_STUB_REMOTE_HAS_TAG: "1" }, 8000);
-  assert.match(r.out, /release-gate: SUCCESS/, "the gate wait must resolve to success first");
+  assert.match(r.out, /release: SUCCESS/, "the gate wait must resolve to success first");
   assert.match(r.err, /npm-publish FAILED/,
     "the npm-publish wait must SEE the already-completed run (cutoff from the gate's own completion, not resume-time now)");
 }

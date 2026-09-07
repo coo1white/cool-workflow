@@ -135,7 +135,7 @@ if (PREV_TAG) {
 say("[5/5] branch naming");
 // On a normal checkout `git rev-parse --abbrev-ref HEAD` is the branch name. On
 // a DETACHED HEAD it prints the literal string "HEAD" — and the tag-push CI
-// (release-gate.yml) ALWAYS checks out the tag, so HEAD is detached there. A
+// (release.yml) ALWAYS checks out the tag, so HEAD is detached there. A
 // literal "HEAD" can never match the version-branch regex below, so this check
 // would silently pass exactly where it is meant to be the backstop. Handle the
 // detached case explicitly: gather the real candidate ref name(s) — the

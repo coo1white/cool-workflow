@@ -1,8 +1,13 @@
-name: release-gate
+name: release
 # Out-of-band backstop: re-runs the deterministic gate on every tag push.
 # Local hooks can in principle be bypassed by an agent with shell access;
 # this workflow cannot. Pair with a GitHub ruleset that protects refs/tags/v*
 # so a red run blocks the release from being treated as published.
+#
+# The gate job re-checks the release; the release job (needs: gate) makes
+# the GitHub Release. Folded from release-gate.yml + github-release.yml
+# (sdlc/unify-ci-cd/plan.md packet C1) so npm-publish.yml's workflow_run
+# chain has one release run to trust, not two.
 on:
   push:
     tags:
@@ -59,3 +64,38 @@ jobs:
         # fail text out of the log of a green run (Actions prints a run:
         # step's full source before executing it).
         run: node plugins/cool-workflow/scripts/verify-release-verdict.js --context "The release flow was bypassed."
+
+  release:
+    needs: gate
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Create GitHub Release
+        # Idempotent: the gated release-flow may have already created this
+        # Release (with changelog notes) before the tag push reached CI. If so,
+        # skip — making it again is an HTTP 422 "tag_name already exists" and a
+        # false red run. Only create when no Release exists for this tag yet.
+        #
+        # REF_NAME goes through env:, not a raw ${{ }} substitution into the
+        # script text — a tag name can contain shell metacharacters ($, `, ;,
+        # (), etc; GitHub ref names forbid spaces but not those), and `${{ }}`
+        # is textual substitution, not shell-quoted. Routing it through env:
+        # and referencing "$REF_NAME" lets the shell quote it safely instead.
+        run: |
+          if gh release view "$REF_NAME" >/dev/null 2>&1; then
+            echo "Release $REF_NAME already exists — nothing to do."
+          else
+            gh release create "$REF_NAME" \
+              --title "$REF_NAME" \
+              --generate-notes \
+              --verify-tag
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REF_NAME: ${{ github.ref_name }}

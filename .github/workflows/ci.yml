@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  cool-workflow:
+  check:
     strategy:
       matrix:
         node-version: ["18", "22", "24"]

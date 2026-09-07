@@ -87,6 +87,9 @@ The stack for every project under `~/Developer` is in
   `ui/workbench/tests/` with `bun test`. The CLI stays zero-dependency;
   `report.html` stays one offline file. bun 1.4.1 is the one developer
   installer (`sdlc/unify-package-manager-bun/`); npm stays the user's.
+- CI/CD: three workflow files, `ci.yml`, `release.yml`, `scheduled.yml`
+  (`sdlc/unify-ci-cd/`); four named exceptions stay as their own files
+  — `codeql.yml`, `gitleaks.yml`, `pages.yml`, `npm-publish.yml`.
 
 # North Star)
    Never select "add a new type/interface" as a standalone goal.
@@ -730,7 +733,7 @@ imports no model SDK. Never write the verdict file yourself. Presets:
 file is removed, along with `CHANGELOG.md`. This project no longer keeps a
 separate, hand-written changelog file; `--generate-notes` (GitHub's
 auto-generated notes from commits) is the release-notes source now, the
-same fallback `.github/workflows/github-release.yml` already used.)
+same fallback `.github/workflows/release.yml` already used.)
 
 Both `npm run` commands below run with cwd `plugins/cool-workflow/` (no root
 package.json — same convention as the VERIFY step above):

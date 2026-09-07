@@ -1,4 +1,4 @@
-name: Bench
+name: scheduled
 
 # Observation, not a gate: scripts/bench existed with no workflow running
 # it, so timing drift was invisible. This runs the portable bench (node
@@ -7,6 +7,9 @@ name: Bench
 # action dependency. Timing on shared runners moves for reasons that are
 # not code, so this job never fails on a number; it fails only when the
 # bench itself cannot complete.
+#
+# Read-only: no token needed. This job only reads the repo and prints a
+# report; it never writes a branch, release, or comment.
 
 on:
   workflow_dispatch:

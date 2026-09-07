@@ -22,7 +22,7 @@ const { spawnSync } = require("node:child_process");
 // every Bash call, that would be a much bigger regression than the narrow gap
 // this closes. But say so on stderr, so it is not a SILENT open: the agent
 // (and anyone reading the transcript) can see this hook did not really check
-// anything that run. The real backstop is CI (release-gate.yml /
+// anything that run. The real backstop is CI (release.yml /
 // npm-publish.yml), which cannot be skipped this way. (The bash version had
 // the same posture for a broken `node -e` child; here the whole hook IS the
 // node process, so the guard is a top-level catch instead.)
@@ -78,7 +78,7 @@ function main(input) {
   const SHA = gitOut(["rev-parse", "HEAD"]);
   // cut() commits the verdict ON TOP of the reviewed commit, so at tag time the
   // verdict filename is keyed on HEAD~1's sha, not HEAD's — the same
-  // HEAD-or-HEAD~1 tolerance release-gate.yml uses. Without this, a manual
+  // HEAD-or-HEAD~1 tolerance release.yml uses. Without this, a manual
   // retag of a cut-produced commit was always blocked (v0.2.3 recovery).
   const PARENT = gitOut(["rev-parse", "HEAD~1"]) || "none";
   let GATE = "";

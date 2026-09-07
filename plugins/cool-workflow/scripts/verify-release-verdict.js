@@ -2,7 +2,7 @@
 "use strict";
 // verify-release-verdict.js — the one true "find a signed, committed release
 // verdict for this commit" check. Both CI workflows call it:
-//   .github/workflows/release-gate.yml   (cwd = repo root)
+//   .github/workflows/release.yml   (cwd = repo root)
 //   .github/workflows/npm-publish.yml    (cwd = plugins/cool-workflow)
 // Before this file, each workflow kept its own ~35-line bash copy of this
 // same loop, and the two copies could drift apart. Now the logic lives here

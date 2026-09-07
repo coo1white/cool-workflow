@@ -2,12 +2,12 @@
 "use strict";
 
 // verdict-signing-workflow-smoke — takes the ACTUAL `run:` text for the
-// verdict-verification steps out of .github/workflows/release-gate.yml and
+// verdict-verification steps out of .github/workflows/release.yml and
 // npm-publish.yml (byte-for-byte, not a hand copy — so this can never drift
 // from the real files) and executes it against throwaway git fixtures. The
 // verdict loop itself now lives in ONE shared script,
 // scripts/verify-release-verdict.js, which both workflows call with a
-// one-line `run:` — release-gate.yml's whole step is that one line;
+// one-line `run:` — release.yml's whole step is that one line;
 // npm-publish.yml keeps its own tag-identity bash (refs/tags existence +
 // TAG_SHA == HEAD_SHA) in front of the same one-line call. This test is the
 // ONLY automated coverage of that pipeline: it is otherwise only exercised
@@ -34,7 +34,7 @@ const { spawnSync } = require("node:child_process");
 
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const pluginRoot = path.resolve(__dirname, "..");
-const GATE_YML = path.join(repoRoot, ".github", "workflows", "release-gate.yml");
+const GATE_YML = path.join(repoRoot, ".github", "workflows", "release.yml");
 const PUBLISH_YML = path.join(repoRoot, ".github", "workflows", "npm-publish.yml");
 const VERIFY_SCRIPT = path.join(pluginRoot, "scripts", "verify-verdict-signature.js");
 const BUMP_REPRO_SCRIPT = path.join(pluginRoot, "scripts", "verify-bump-reproduction.js");
@@ -78,7 +78,7 @@ function extractRunBlock(yamlPath, stepName) {
 }
 
 /** Extracts a SINGLE-LINE `run: <command>` for the step whose `name:` line
- *  contains `stepName` — release-gate.yml's verdict step is one line now.
+ *  contains `stepName` — release.yml's verdict step is one line now.
  *  Same no-hand-copy rule as extractRunBlock. */
 function extractRunLine(yamlPath, stepName) {
   const lines = fs.readFileSync(yamlPath, "utf8").split(/\r?\n/);
@@ -99,7 +99,7 @@ const publishScript = extractRunBlock(PUBLISH_YML, "Verify the dispatched ref is
 // script — proves the extraction landed on real content, not an empty/wrong
 // block due to a future rename of the step, and pins the delegation itself
 // (the whole point of the one-script design).
-for (const [label, script] of [["release-gate.yml", gateScript], ["npm-publish.yml", publishScript]]) {
+for (const [label, script] of [["release.yml", gateScript], ["npm-publish.yml", publishScript]]) {
   assert.match(script, /verify-release-verdict\.js/, `${label}'s extracted run text must call verify-release-verdict.js`);
 }
 // npm-publish.yml's own tag-identity bash must still be there in front of the
@@ -112,7 +112,7 @@ assert.match(publishScript, /TAG_SHA/, "npm-publish.yml must still compare TAG_S
 // run on EVERY trigger. If it still had `if: github.event_name ==
 // 'workflow_dispatch'`, this whole check would be SKIPPED on the normal
 // workflow_run path (the one that fires after every real tag push) — the
-// job would then trust nothing but release-gate.yml's reported conclusion,
+// job would then trust nothing but release.yml's reported conclusion,
 // which for a tag push runs from the pushed tag's OWN, attacker-controlled
 // tree.
 {
@@ -320,7 +320,7 @@ function runScript(script, cwd, env) {
 }
 
 // ============================================================================
-// release-gate.yml — runs from the repo root (no working-directory override)
+// release.yml — runs from the repo root (no working-directory override)
 // ============================================================================
 
 // (a) no pubkey committed -> grep-only fallback, unchanged legacy behavior
@@ -500,7 +500,7 @@ function runPublishScript(fixture, env) {
   assert.notEqual(r.code, 0, "(d) a verdict edited after signing must fail closed");
 }
 
-// (e) loop continuation, same as release-gate.yml above
+// (e) loop continuation, same as release.yml above
 {
   const fixture = buildFixture({ committedPubkey: true, sigFor: "real", forgedHeadVerdict: true });
   const r = runPublishScript(fixture);
@@ -519,7 +519,7 @@ function runPublishScript(fixture, env) {
   assert.match(r.out, /does not exist/, "(f) should explain the ref does not resolve to a real tag");
 }
 
-// (g) THE ACTUAL ATTACK, same as release-gate.yml's (f) above, exercised via
+// (g) THE ACTUAL ATTACK, same as release.yml's (f) above, exercised via
 // the workflow_dispatch path with an operator-supplied TAG_REF.
 {
   const fixture = buildFixture({ committedPubkey: true, sigFor: "real" });
@@ -529,7 +529,7 @@ function runPublishScript(fixture, env) {
   assert.match(r.out, /does not reproduce as its deterministic bump/, "(g) should explain the tree mismatch");
 }
 
-// (h) BUG-1 regression, same attack as release-gate.yml's (j) above: a
+// (h) BUG-1 regression, same attack as release.yml's (j) above: a
 // verdict file byte-copied from a DIFFERENT (wrong) sha's genuine signed
 // verdict, renamed to match a NEW candidate sha, must be rejected even
 // though its signature verifies (the same bytes, same signature — just
@@ -551,7 +551,7 @@ function runPublishScript(fixture, env) {
   assert.match(r.out, /No committed APPROVED verdict/, "(h) should report no valid verdict found for the attacker commit");
 }
 
-// (i) BUG-3 regression, same as release-gate.yml's (k) above: pubkey must
+// (i) BUG-3 regression, same as release.yml's (k) above: pubkey must
 // come from origin/main, not the checked-out tree.
 {
   const fixture = buildFixture({ committedPubkey: true, sigFor: undefined });

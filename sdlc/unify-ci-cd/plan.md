@@ -157,7 +157,35 @@ Directory rule: this packet is the only one touching
 
 ## What this plan got wrong
 
-(filled in by the packet, same commit)
+- The plan named only `release-oneclick.js` and its test stub for the
+  `release-gate` → `release` name change. In fact the literal file name
+  `release-gate.yml` (not the script `release-gate.js`, which keeps its
+  name) is quoted in comments across nine more files: `scripts/block-
+  unapproved-tag.js`, `scripts/release-flow.js`, `scripts/release-gate.js`,
+  `scripts/verdict-keygen.js`, `scripts/verify-bump-reproduction.js`,
+  `scripts/verify-release-verdict.js`, `scripts/verify-verdict-
+  signature.js`, `test/block-unapproved-tag-smoke.js`, `test/release-gate-
+  detached-head-smoke.js`. All renamed to `release.yml` (the packet's own
+  grep instruction covered this once widened to all of `scripts/*.js` and
+  `test/*.js`, not just the two named files).
+- `test/verdict-signing-workflow-smoke.js` reads `.github/workflows/
+  release-gate.yml` by path (`GATE_YML`) to extract the verdict step's
+  real `run:` text. That path had to move to `release.yml` too, or the
+  test would fail closed the moment the old file was deleted — this
+  was implied by the fold but not spelled out as its own line item.
+- AGENTS.md has no clean `# Stack rule and this repo's exceptions`
+  heading — it lives as inline text inside the Iteration Loop's item
+  (c), closed later by a stray `# North Star)`. The one line landed in
+  that same block, next to the other two named exceptions (hosting,
+  Workbench), rather than under a heading that does not exist.
+- AGENTS.md also has older prose mentions of `release-gate` as a CI
+  concept and two more `release-gate.yml` path mentions (its release
+  playbook section, further down) that this packet's item 4 did not
+  name and did not touch — a separate cleanup, not in this packet's
+  scope.
+- `bench.yml`'s job id (`bench:`) was left unchanged inside the renamed
+  `scheduled.yml` — the packet said "same content" plus the `name:` and
+  a read-only comment, and did not ask for a job-id rename.
 
 ## Architecture snapshot diff (closing PR)
 
@@ -165,4 +193,4 @@ Directory rule: this packet is the only one touching
   the three workflow names and the four named exceptions.
 - `~/Developer/UPGRADE-PLAN.md` §6 row for cool-workflow: root session.
 
-Status ledger: plan written 2026-09-07; approved by the root session the same day (build-before-test, the stricter npm-publish trust, and the 0.2.9 proof all accepted; GitHub repos run in parallel with the Gitea queue, start after the ops pin table merges).
+Status ledger: plan written 2026-09-07; approved by the root session the same day (build-before-test, the stricter npm-publish trust, and the 0.2.9 proof all accepted; GitHub repos run in parallel with the Gitea queue, start after the ops pin table merges). Packet C1 done 2026-09-07 on `feat/ci-shape`: the fold, the `check` rename, the name sweep (widened per "What this plan got wrong" above), `test/ci-shape-gate-smoke.js` (green, seven bite proofs), and this file's own ledger. Full proof suite (`test/run-all.js`) green. Not done: the owner's branch-protection rename (`cool-workflow (18/22)` → `check (18/22)`), the real tag push proving `release.yml`, and the post-merge `workflow_dispatch` proving `scheduled.yml` — all named in the plan as steps outside this packet.
