@@ -103,10 +103,13 @@ trace from agent membership to verifier-gated commit.
 
 ## Console Report
 
-`cw report` still writes the Markdown report file and prints its path:
+`cw report` still writes the Markdown report file and prints its path.
+With no run id it takes the newest run under `.cw/runs/`; with no run at
+all it prints one line pointing at `cw -q "<question>"` and exits 0:
 
 ```bash
 cw report <run-id>
+cw report
 ```
 
 Use `--show` or `--summary` when the operator needs a console report that is easy to read:
@@ -115,6 +118,24 @@ Use `--show` or `--summary` when the operator needs a console report that is eas
 cw report <run-id> --show
 cw report <run-id> --summary
 ```
+
+Use `--open` to see the report in a browser. It writes `report.html`
+beside `report.md` (only when missing or older) and opens it with the
+system viewer: `CW_OPENER` when set, else `open` (macOS), `start`
+(Windows) or `xdg-open`. A missing or failing opener is an error that
+names the file, never a silent no-op:
+
+```bash
+cw report --open
+```
+
+A run started from a terminal opens the same page by itself when it
+ends. `--no-open` or `CW_NO_OPEN=1` turns that off; `--json` never opens
+anything.
+
+`report.md` carries one `- Verdict:` line in its header: `PASS` when the
+run completed, else the run lifecycle in capitals (for example
+`FAILED`). `report.html` shows the same word as a stamp.
 
 The console report gives the same high-value status panels plus active and
 pending tasks, evidence paths and locators, and resource inspection commands.

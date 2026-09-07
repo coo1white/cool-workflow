@@ -35,8 +35,14 @@ HARD RULES (the result is REJECTED otherwise):
 - The top-level "evidence" array MUST be NON-EMPTY with REAL file:line locators from this repo.
 - If you have no structured findings, use "findings": [] (empty) - never omit a finding's id.`;
 
-function buildPrompt(inputPath) {
-  return `${fs.readFileSync(inputPath, "utf8")}\n${RESULT_CONTRACT}`;
+// A release review (CW_RELEASE_REVIEW=1) carries its own verdict format
+// (release-flow.js: APPROVED <sha> / REJECTED + kind: semantic-review). The
+// worker contract below says it "overrides" any write-to-file instruction, so
+// appending it there made muse answer in prose plus JSON and the verdict check
+// failed closed (0.2.8 cut). Review mode gets the input as it is.
+function buildPrompt(inputPath, env = process.env) {
+  const input = fs.readFileSync(inputPath, "utf8");
+  return env.CW_RELEASE_REVIEW === "1" ? input : `${input}\n${RESULT_CONTRACT}`;
 }
 
 function streamEnabled(env = process.env) {
