@@ -61,7 +61,10 @@ if (${JSON.stringify(behavior)} === "transport" || ${JSON.stringify(behavior)} =
   if (${JSON.stringify(behavior)} === "transport-always" || !fs.existsSync(marker)) {
     fs.writeFileSync(marker, "1");
     emit({ payload_type: "run.terminal.failed", payload: { terminal: "failed", text: null, reason: "transport error [body-decode]: response body could not be decoded (meta stream)" } });
-    process.exit(0);
+    // Real muse exits 1 on a failed run (the 0.2.8 cut): the retry must not
+    // sit behind the exit-code check.
+    process.stderr.write("run ended with Failed\\n");
+    process.exit(1);
   }
 }
 if (${JSON.stringify(behavior)} === "failed") {
@@ -177,8 +180,9 @@ function main() {
     assert.match(t.stderr, /running once more/, "the retry is said on stderr");
     fs.rmSync(resultPath, { force: true });
     const t2 = runWrapper(shimDir("transport-always"), inputPath, resultPath);
-    assert.notEqual(t2.status, 0, "two transport errors fail closed");
-    assert.ok(!fs.existsSync(resultPath), "no result.md after two transport errors");
+    assert.notEqual(t2.status, 0, "three transport errors fail closed");
+    assert.ok(!fs.existsSync(resultPath), "no result.md after three transport errors");
+    assert.equal((t2.stderr.match(/running once more/g) || []).length, 2, "at most three runs in all");
     console.log("muse: transport error retried once OK");
 
     const noTerminal = runWrapper(shimDir("noterminal"), inputPath, resultPath);
