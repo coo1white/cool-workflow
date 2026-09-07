@@ -80,9 +80,13 @@ The stack for every project under `~/Developer` is in
   GitHub Actions). `git.coolwhite.space/coo1white/cool-workflow` is a
   mirror only, pushed by `node scripts/mirror-to-gitea.js` by hand or
   from a launchd job. Never open a PR there.
-- The Workbench (`plugins/cool-workflow/ui/workbench/`) is plain HTML
-  + JS, no framework. Whether it moves to Next is the owner's call in
-  the intent PR #676 (merge = move, close = stays as a named exception).
+- The Workbench (`plugins/cool-workflow/ui/workbench/`) is a Next
+  16.3.0 + React 19.2.8 static export (owner's decision 2026-09-07;
+  program `sdlc/unify-js-architecture/`): a bun sub-package, `out/`
+  built by `node scripts/build-ui.js` and never committed, tests under
+  `ui/workbench/tests/` with `bun test`. The CLI stays zero-dependency;
+  `report.html` stays one offline file. bun 1.4.1 is the one developer
+  installer (`sdlc/unify-package-manager-bun/`); npm stays the user's.
 
 # North Star)
    Never select "add a new type/interface" as a standalone goal.

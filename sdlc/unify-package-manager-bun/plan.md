@@ -91,3 +91,13 @@ commit updates this file. This is also packet 5 of
   real (`test/verdict-signing-workflow-smoke.js`) now build a throwaway
   bun.lock instead, by hand, in bun's JSONC shape (no trailing commas
   needed — bun's own parser accepts either).
+
+## Architecture snapshot diff (closing PR)
+
+- `AGENTS.md`: the contributor rule now names bun as the one developer
+  installer and npm as the user's. Fixed in the closing PR.
+- `README.md`: no install line for contributors; unchanged (checked in
+  packet B1).
+
+Status ledger: B1 merged as #683 on 2026-09-07 after the 15:39 window.
+
