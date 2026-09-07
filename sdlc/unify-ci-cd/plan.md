@@ -73,7 +73,9 @@ the one difference spec §5.4 allows.
 ## `ci.yml` after (spec R3)
 
 - Triggers: `push` to `main`, `pull_request`. Unchanged.
-- `concurrency` with `cancel-in-progress: true`. Unchanged.
+- `concurrency` with `cancel-in-progress: true` stays. Spec R3 (amended
+  2026-09-07) no longer asks for it; GitHub honors it, so this repo keeps
+  the block it has. The gate does not check it.
 - Job `check` (was `cool-workflow`): checkout → setup-node + setup-bun
   → `bun install --frozen-lockfile` → `bun run check` (lint +
   typecheck) → tests → `bun run build`. Today `build` runs before the
@@ -119,9 +121,9 @@ host), `EXCEPTIONS = ["codeql.yml", "gitleaks.yml", "pages.yml",
 
 1. no `.gitea/workflows/` directory;
 2. file names ⊆ {`ci.yml`, `release.yml`, `scheduled.yml`} ∪ EXCEPTIONS;
-3. `ci.yml` has `concurrency`, `cancel-in-progress: true`, a job id
-   `check`; `release.yml` and `scheduled.yml` have no
-   `cancel-in-progress: true`;
+3. `ci.yml` has a job id `check`; `release.yml` has no
+   `cancel-in-progress: true` (the npm-publish chain must never lose a
+   gate run);
 4. every `runs-on:` value ∈ LABELS;
 5. every `uses:` matches `^[^@]+@[0-9a-f]{40} # v` and the SHA is in
    the table;
