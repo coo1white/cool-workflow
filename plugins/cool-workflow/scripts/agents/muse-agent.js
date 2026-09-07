@@ -41,8 +41,10 @@ if (!inputPath || !resultPath) {
 
 const modelId = (process.env.CW_MUSE_MODEL || "").trim() || "muse-spark-1.3-contributor";
 // Reasoning effort: mirrors codex-agent.js's speed cap (muse's own default,
-// "high", is too slow for a worker). CW_MUSE_REASONING_EFFORT always wins.
-const reasoningEffort = process.env.CW_MUSE_REASONING_EFFORT || (process.env.CW_RELEASE_REVIEW === "1" ? "high" : "low");
+// "high", is too slow for a worker). A release review gets "medium": a real
+// review at "low" took 9 min (2026-09-07), and "high" risks the 30-min
+// reviewer deadline. CW_MUSE_REASONING_EFFORT always wins.
+const reasoningEffort = process.env.CW_MUSE_REASONING_EFFORT || (process.env.CW_RELEASE_REVIEW === "1" ? "medium" : "low");
 const promptFile = path.join(path.dirname(resultPath), `.muse-prompt-${process.pid}.md`);
 function removePromptFile() {
   try {
