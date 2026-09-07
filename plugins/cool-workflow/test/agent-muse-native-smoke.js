@@ -56,6 +56,14 @@ if (${JSON.stringify(behavior)} === "garbage") {
 for (const t of ["runtime.command.accepted", "session.run.linked", "turn.input.user", "run.lifecycle.started", "task.lifecycle.started"]) emit({ payload_type: t, payload: {} });
 emit({ payload_type: "run.output.delta", payload: { text: ${JSON.stringify(RESULT)} } });
 if (${JSON.stringify(behavior)} === "noterminal") { process.exit(0); }
+if (${JSON.stringify(behavior)} === "transport" || ${JSON.stringify(behavior)} === "transport-always") {
+  const marker = path.join(__dirname, "second-run");
+  if (${JSON.stringify(behavior)} === "transport-always" || !fs.existsSync(marker)) {
+    fs.writeFileSync(marker, "1");
+    emit({ payload_type: "run.terminal.failed", payload: { terminal: "failed", text: null, reason: "transport error [body-decode]: response body could not be decoded (meta stream)" } });
+    process.exit(0);
+  }
+}
 if (${JSON.stringify(behavior)} === "failed") {
   // 1.0.1: a failure is a DISTINCT payload_type, "run.terminal.failed" --
   // not "run.terminal.completed" with a varying payload.terminal.
@@ -159,6 +167,19 @@ function main() {
     assert.notEqual(failed.status, 0, "terminal !== completed must exit non-zero");
     assert.ok(!fs.existsSync(resultPath), "no result.md when terminal !== completed");
     assert.match(failed.stderr, new RegExp(`^${REASON.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n$`), "payload.reason from run.terminal.failed is the wrapper's whole error line, word for word");
+
+    // A transport error (the provider's stream broke) gets one more full run;
+    // a second one fails closed.
+    const dirT = shimDir("transport");
+    const t = runWrapper(dirT, inputPath, resultPath);
+    assert.equal(t.status, 0, `a transport error is run once more (stderr: ${t.stderr})`);
+    assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "the second run's result is persisted");
+    assert.match(t.stderr, /running once more/, "the retry is said on stderr");
+    fs.rmSync(resultPath, { force: true });
+    const t2 = runWrapper(shimDir("transport-always"), inputPath, resultPath);
+    assert.notEqual(t2.status, 0, "two transport errors fail closed");
+    assert.ok(!fs.existsSync(resultPath), "no result.md after two transport errors");
+    console.log("muse: transport error retried once OK");
 
     const noTerminal = runWrapper(shimDir("noterminal"), inputPath, resultPath);
     assert.notEqual(noTerminal.status, 0, "a run that ends with no terminal event must exit non-zero");

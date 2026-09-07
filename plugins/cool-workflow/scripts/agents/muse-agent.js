@@ -53,11 +53,10 @@ function removePromptFile() {
     /* best effort */
   }
 }
-fs.writeFileSync(promptFile, buildPrompt(inputPath), "utf8");
 
 const render = createRenderer({ env: process.env, stderr: process.stderr, label: "muse" });
 const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
-const state = { buffer: "", usage: undefined, sawTerminal: false, terminal: undefined, terminalReason: undefined, finalText: undefined };
+let state;
 let childStderr = "";
 
 // Best-effort usage: no shape is fixed for the meta provider, so accept
@@ -98,6 +97,10 @@ function recordJsonLine(line) {
   // intentionally ignored: unknown record shapes must never choke the parser.
 }
 
+function runMuse(attempt) {
+state = { buffer: "", usage: undefined, sawTerminal: false, terminal: undefined, terminalReason: undefined, finalText: undefined };
+childStderr = "";
+fs.writeFileSync(promptFile, buildPrompt(inputPath), "utf8");
 render.action(`muse: running ${modelId} (workspace)…`);
 
 // stdin is closed, so an approval prompt would wait for ever (the 0.2.8 cut
@@ -156,6 +159,13 @@ child.on("close", (code) => {
     const detail = state.terminalReason
       ? String(state.terminalReason)
       : `muse run terminal was "${state.terminal}", not "completed" - refusing to fabricate a result`;
+    // A transport error is the provider's stream breaking, not the model's
+    // answer (0.2.8: the verdict was already written when the stream died).
+    // One more full run; a second break fails closed as before.
+    if (attempt === 1 && /transport error/i.test(detail)) {
+      process.stderr.write(`muse: ${detail}\nmuse: running once more\n`);
+      return runMuse(2);
+    }
     persistStderr(resultPath, childStderr.trim() || detail);
     process.stderr.write(`${detail}\n`);
     process.exit(1);
@@ -171,3 +181,6 @@ child.on("close", (code) => {
 
   emitReport(modelId, state.usage, state.finalText);
 });
+}
+
+runMuse(1);
