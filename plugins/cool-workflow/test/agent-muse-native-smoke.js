@@ -141,7 +141,7 @@ function main() {
     const r = runWrapper(dirR, inputPath, resultPath, { CW_RELEASE_REVIEW: "1" });
     assert.equal(r.status, 0, `review mode exits 0 (stderr: ${r.stderr})`);
     assert.ok(!readInvocation(dirR).prompt.includes("cw:result"), "a release review gets no worker contract");
-    assert.ok(readInvocation(dirR).prompt.includes("your final message is saved as the verdict file"), "a release review says the final message is the verdict (muse once wrote the file and said so instead)");
+    assert.equal(readInvocation(dirR).prompt, fs.readFileSync(inputPath, "utf8"), "a release review gets the input as it is: the verdict rules live in release-flow.js only");
     console.log("muse: release review drops the cw:result contract OK");
     const child = runWrapper(shimDir("ok"), inputPath, resultPath, { CW_MUSE_MODEL: "muse-large" });
     assert.equal(child.status, 0, `custom-model muse wrapper exits 0 (stderr: ${child.stderr})`);
