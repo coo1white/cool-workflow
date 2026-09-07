@@ -19,7 +19,7 @@ export function NavLinks() {
             <ul>
               {group.items.map((item) => (
                 <li key={item.key}>
-                  <Link href={item.href} className={`min-h-11 sm:min-h-0 ${pathname === item.href ? "menu-active" : ""}`}>
+                  <Link href={item.href} prefetch={false} className={`min-h-11 sm:min-h-0 ${pathname === item.href ? "menu-active" : ""}`}>
                     <item.icon size={14} aria-hidden="true" />
                     {LABELS[item.labelKey]}
                   </Link>
