@@ -53,6 +53,7 @@ Use the normal status and report commands for the wide view:
 cw status <run-id>
 cw graph <run-id>
 cw report <run-id> --show
+cw report --open
 ```
 
 Use the focused multi-agent views when the operator needs the process table.

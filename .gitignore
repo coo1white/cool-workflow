@@ -28,3 +28,4 @@ coverage/
 # Keep runtime builds for the distributable Codex plugin.
 !plugins/cool-workflow/dist/
 !plugins/cool-workflow/dist/**/*.js
+.claude/launch.json

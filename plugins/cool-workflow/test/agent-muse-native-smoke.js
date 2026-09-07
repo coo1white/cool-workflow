@@ -129,6 +129,11 @@ function main() {
 
   {
     fs.rmSync(resultPath, { force: true });
+    const dirR = shimDir("ok");
+    const r = runWrapper(dirR, inputPath, resultPath, { CW_RELEASE_REVIEW: "1" });
+    assert.equal(r.status, 0, `review mode exits 0 (stderr: ${r.stderr})`);
+    assert.ok(!readInvocation(dirR).prompt.includes("cw:result"), "a release review gets no worker contract: the verdict format in the input wins");
+    console.log("muse: release review drops the cw:result contract OK");
     const child = runWrapper(shimDir("ok"), inputPath, resultPath, { CW_MUSE_MODEL: "muse-large" });
     assert.equal(child.status, 0, `custom-model muse wrapper exits 0 (stderr: ${child.stderr})`);
     const report = JSON.parse(child.stdout);
