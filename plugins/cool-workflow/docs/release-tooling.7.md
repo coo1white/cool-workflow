@@ -18,7 +18,7 @@ npm run bump:version -- 0.1.33
 ```
 
 One command rewrites every STRUCTURED version surface from a single source
-(`package.json`): `package.json`, `package-lock.json`, `src/core/version.ts`,
+(`package.json`): `package.json`, `src/core/version.ts`,
 `manifest/plugin.manifest.json` (then `gen:manifests` sends it on to the vendor
 manifests), every `apps/*/app.json` (top-level `version` only, never
 `compatibility.minVersion`), and the scripts/tests that fix the current
