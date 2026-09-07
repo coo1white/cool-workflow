@@ -330,7 +330,7 @@ The built-in templates are:
 --agent-command builtin:gemini-cli   # native gemini CLI (needs GEMINI_API_KEY)
 --agent-command builtin:opencode     # opencode (its configured default model)
 --agent-command builtin:deepseek     # DeepSeek via opencode (deepseek/deepseek-v4-flash)
---agent-command builtin:muse         # muse exec (native, default model "muse-spark-1.2")
+--agent-command builtin:muse         # muse exec (native, default model "muse-spark-1.3-contributor")
 ```
 
 claude, codex, and muse run their own CLIs; gemini and deepseek route through

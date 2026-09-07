@@ -39,7 +39,7 @@ if (!inputPath || !resultPath) {
   process.exit(2);
 }
 
-const modelId = (process.env.CW_MUSE_MODEL || "").trim() || "muse-spark-1.2";
+const modelId = (process.env.CW_MUSE_MODEL || "").trim() || "muse-spark-1.3-contributor";
 // Reasoning effort: mirrors codex-agent.js's speed cap (muse's own default,
 // "high", is too slow for a worker). CW_MUSE_REASONING_EFFORT always wins.
 const reasoningEffort = process.env.CW_MUSE_REASONING_EFFORT || (process.env.CW_RELEASE_REVIEW === "1" ? "high" : "low");

@@ -77,7 +77,7 @@ process.exit(0);
 function runWrapper(dir, inputPath, resultPath, extraEnv = {}) {
   return spawnSync(process.execPath, [wrapper, inputPath, resultPath], {
     encoding: "utf8",
-    env: { ...process.env, ...extraEnv, PATH: `${dir}${path.delimiter}${process.env.PATH}` },
+    env: { ...process.env, CW_MUSE_MODEL: undefined, ...extraEnv, PATH: `${dir}${path.delimiter}${process.env.PATH}` },
     timeout: 30000
   });
 }
@@ -100,7 +100,7 @@ function main() {
     const invocation = readInvocation(dir);
     assert.deepEqual(invocation.args.slice(0, 2), ["exec", "--json"], "muse runs in exec JSON mode");
     assert.ok(invocation.args.includes("--prompt-file"), "muse takes the prompt from a file");
-    assert.equal(invocation.args[invocation.args.indexOf("--model") + 1], "muse-spark-1.2", "default model is Meta's official id muse-spark-1.2, not bare spark");
+    assert.equal(invocation.args[invocation.args.indexOf("--model") + 1], "muse-spark-1.3-contributor", "default model is the owner-approved muse-spark-1.3-contributor");
     assert.ok(invocation.args.includes("--workspace"), "muse gets --workspace so its own tools root at the worker dir");
     assert.equal(invocation.args[invocation.args.indexOf("--reasoning-effort") + 1], "low", "default reasoning effort is low (fast delegated worker)");
     assert.ok(invocation.prompt.includes(marker), "worker input reaches muse via --prompt-file");
@@ -108,7 +108,7 @@ function main() {
     assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "terminal.completed text is persisted to result.md");
     assert.equal(child.stderr, "", "default piped success is silent on stderr");
     const report = JSON.parse(child.stdout);
-    assert.equal(report.model, "muse-spark-1.2", "model is self-reported: the id actually passed via --model");
+    assert.equal(report.model, "muse-spark-1.3-contributor", "model is self-reported: the id actually passed via --model");
     assert.equal(report.result, RESULT, "stdout report carries final result for CW provenance");
     console.log("muse: default prompt-file + terminal.completed + non-JSON banner tolerance OK");
   }
