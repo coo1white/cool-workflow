@@ -71,6 +71,7 @@ const kind = process.argv[3];
 if (kind === "APPROVED") fs.writeFileSync(resultPath, "APPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
 else if (kind === "MARKDOWN") fs.writeFileSync(resultPath, "review notes\\n\\nAPPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
 else if (kind === "SEMANTIC_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. Stub finding at README.md:1.\\n");
+else if (kind === "FENCED_REJECTED") fs.writeFileSync(resultPath, "\`\`\`\\nREJECTED\\nkind: semantic-review \\n1. Stub finding at README.md:1.\\n\`\`\`\\n");
 else if (kind === "GATE_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\n1. tests failed at scripts/release-gate.js:86.\\n");
 else if (kind === "MIXED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. Stub finding at README.md:1.\\nAPPROVED wrongsha\\nshould not pass\\n");
 // NONE: write nothing (simulate an agent that produced no verdict)
@@ -1040,6 +1041,16 @@ function releaseFixtureNonAncestorPrevTag() {
   assert.equal(r.code, 0, `APPROVED stub should pass:\n${r.err}\n${r.out}`);
   assert.match(r.out, /"prevTag": "v9\.9\.8"/,
     "resolvePrevTag() must find v9.9.8 by version order, even though it is not an ancestor of HEAD");
+}
+
+// A rejection inside a code fence, with a trailing space on the kind line,
+// is still a rejection with evidence, not a "bad approval".
+{
+  const dir = fixture();
+  const stub = writeStub(dir);
+  const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} FENCED_REJECTED` });
+  assert.equal(r.code, 1, "a fenced rejection fails closed");
+  assert.match(r.err, /rejected the release with semantic evidence/, "named as a code rejection");
 }
 
 // A reviewer that hangs past the deadline is SIGKILLed and the vendor child

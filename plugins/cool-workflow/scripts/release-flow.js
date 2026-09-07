@@ -460,6 +460,13 @@ function verifyVerdict(resultPath) {
   }
   if (firstLine !== `APPROVED ${HEAD}`) {
     const normalized = extractVerdictFromStdout(text, resultPath);
+    // A rejection wrapped in a code fence or a heading: judge it as a
+    // rejection, with the rejection's own reason, not as a bad approval.
+    if (normalized && isRejectedLine(normalized.split(/\r?\n/)[0])) {
+      const rejection = validateSemanticRejection(normalized.split(/\r?\n/));
+      if (!rejection.ok) die(`invalid reviewer output — ${rejection.reason}. Release remains blocked; this is not a verified code rejection.`, text.trim());
+      die("reviewer rejected the release with semantic evidence.", text.trim());
+    }
     if (normalized && normalized.split(/\r?\n/)[0] === `APPROVED ${HEAD}`) {
       fs.writeFileSync(resultPath, `${normalized}\n`);
       const normalizedLines = normalized.split(/\r?\n/);
@@ -471,7 +478,8 @@ function verifyVerdict(resultPath) {
   return cap;
 }
 
-function validateSemanticRejection(lines) {
+function validateSemanticRejection(rawLines) {
+  const lines = rawLines.map((line) => line.trim());
   if (lines[0] !== "REJECTED") {
     return { ok: false, reason: 'a rejection must start with exact "REJECTED"' };
   }
