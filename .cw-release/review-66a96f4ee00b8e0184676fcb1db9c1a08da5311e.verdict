@@ -1,0 +1,2 @@
+APPROVED 66a96f4ee00b8e0184676fcb1db9c1a08da5311e
+A user can now open a run report in a browser in one step with cw report --open, and a terminal quickstart opens it on its own at the end of the run.
