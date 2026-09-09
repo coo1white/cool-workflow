@@ -187,6 +187,13 @@ function gate(root) {
 const root = path.resolve(__dirname, "..");
 assert.deepStrictEqual(gate(root), [], "the plugin tree must pass the CSS + shell gate");
 
+// The dark ground is one value in three places: the theme block, the report
+// sheet built from it, and the two theme-color tags. They must stay in step.
+const ground = readIfExists(root, ENTRY).match(/--color-base-100:\s*(#[0-9a-f]{6})/i)[1];
+for (const f of ["src/core/format/report-css.ts", "src/core/format/report-html.ts", LAYOUT]) {
+  assert.ok(readIfExists(root, f).includes(ground), `${f} must carry the dark ground ${ground}`);
+}
+
 // The gate must still bite: a bad copy in a temp dir goes red on every fault
 // it plants (one representative case per check).
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-css-gate-"));
