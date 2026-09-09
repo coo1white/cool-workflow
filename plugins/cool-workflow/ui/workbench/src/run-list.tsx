@@ -117,7 +117,7 @@ export function RunList({ initialIndex }: { initialIndex: WorkbenchIndexView }) 
               const when = record.createdAt ? new Date(record.createdAt) : null;
               const active = activeRunId === record.runId;
               return (
-                <li key={record.runId} className="run-entry">
+                <li key={record.runId}>
                   <button
                     type="button"
                     data-runid={record.runId}

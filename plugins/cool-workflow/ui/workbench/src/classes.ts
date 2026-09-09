@@ -5,7 +5,7 @@ export const C = {
   label: "font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60",
   pill: "badge badge-outline badge-sm h-[22px] font-mono text-[11px] uppercase tracking-[.04em] text-base-content/60",
   cmd: "inline-block rounded-md border border-base-300 bg-base-300 px-2 font-mono text-[12px] leading-[1.6] text-base-content [overflow-wrap:anywhere]",
-  card: "card card-sm card-border bg-base-200 text-[13px] [&>*]:gap-1.5",
+  card: "card card-sm bg-base-200 border border-base-300 text-[13px] [&>*]:gap-1.5",
   block: "border-t border-base-300 px-3.5 py-2.5 first:border-t-0",
   title: "mb-1.5 font-mono text-[11px] uppercase tracking-[.08em] text-base-content/60",
   items: "m-0 ps-[18px] font-mono text-[12px] leading-normal whitespace-pre-wrap [overflow-wrap:anywhere]",
