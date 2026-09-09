@@ -54,6 +54,9 @@ jobs:
       - run: bun run build
         if: matrix.node-version == '22'
         working-directory: plugins/cool-workflow/ui/workbench
+      - run: bun run class-gate
+        if: matrix.node-version == '22'
+        working-directory: plugins/cool-workflow/ui/workbench
       # Committed dist/ must equal a fresh build of src/ (fail closed on drift).
       # `git status --porcelain` catches modified AND added/deleted dist files;
       # `git diff` would miss untracked ones. release:check re-verifies via dist:check.

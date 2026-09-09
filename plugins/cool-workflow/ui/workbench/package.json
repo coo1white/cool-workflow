@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "test": "bun test"
+    "test": "bun test",
+    "class-gate": "bun scripts/class-gate.ts"
   },
   "dependencies": {
     "lucide-react": "0.468.0",
@@ -18,6 +19,7 @@
     "@types/node": "26.4.1",
     "@types/react": "^19.2.0",
     "daisyui": "5.7.28",
+    "postcss": "8.5.28",
     "tailwindcss": "4.3.3",
     "typescript": "^5.9.3"
   }
