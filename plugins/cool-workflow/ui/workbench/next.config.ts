@@ -6,10 +6,12 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "export",
   basePath: "/ui",
+  // GitHub Pages serves the site under /cool-workflow/, so its build sets
+  // WORKBENCH_ASSET_PREFIX=/cool-workflow/ui; the local host leaves it unset.
+  assetPrefix: process.env.WORKBENCH_ASSET_PREFIX || undefined,
   images: { unoptimized: true },
   trailingSlash: false,
-  // out/ is committed and CI fails on drift, so the build id must not be a
-  // new random string on every build.
+  // A fixed build id keeps chunk names stable between builds.
   generateBuildId: () => Promise.resolve("workbench"),
   // Chunk names hash module paths from this root. Pinned to the plugin dir
   // (globals.css scans ../../src/core/format/report-html.ts, which must sit
