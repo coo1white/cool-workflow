@@ -2,8 +2,9 @@
 
 // Client island: re-fetches api/index (relative path — works at "/" and
 // under the "/ui" export prefix) on a debounced filter change and on the
-// shell's Refresh button. The first paint uses the server-embedded
-// `initialIndex` prop (src/load-index.ts); no fetch runs before then.
+// shell's Refresh button, and once on mount: the first paint uses the
+// server-embedded `initialIndex` prop (src/load-index.ts), which is empty
+// when the export was built before any run existed (the Pages site).
 import { useEffect, useRef, useState } from "react";
 import { apiUrl, getJson, type WorkbenchIndexView } from "./api";
 import { C, DOT, badgeClass } from "./classes";
@@ -19,7 +20,6 @@ export function RunList({ initialIndex }: { initialIndex: WorkbenchIndexView }) 
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const indexSeq = useRef(0);
-  const skipFirstFetch = useRef(true);
 
   // Highlights the selected run's row; the run panel owns the route, this
   // just follows it (real Back/Forward, and the synthetic popstate
@@ -51,15 +51,9 @@ export function RunList({ initialIndex }: { initialIndex: WorkbenchIndexView }) 
       }
     }
     window.addEventListener("cw:refresh", load);
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    if (skipFirstFetch.current) {
-      // First paint already has the server-embedded index; no fetch here.
-      skipFirstFetch.current = false;
-    } else {
-      timer = setTimeout(load, 200);
-    }
+    const timer = setTimeout(load, 200);
     return () => {
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
       window.removeEventListener("cw:refresh", load);
     };
   }, [filterText]);
