@@ -41,6 +41,8 @@ jobs:
       - run: bun run build
       - run: bun install --frozen-lockfile && bun run build
         working-directory: plugins/cool-workflow/ui/workbench
+        env:
+          WORKBENCH_ASSET_PREFIX: /cool-workflow/ui
       - run: bun run dogfood:release
       - run: node scripts/site-snapshot.js ../../site
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
