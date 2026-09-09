@@ -1,0 +1,6 @@
+# Class names the gate must let through, one `token  # reason` per line.
+# A name belongs here only when it EMITS NO RULE OF ITS OWN by design.
+# See scripts/class-gate.ts.
+
+group   # Tailwind marker: styles the CHILD (`group-hover:*`), never itself
+peer    # Tailwind marker: styles a SIBLING (`peer-checked:*`), never itself
