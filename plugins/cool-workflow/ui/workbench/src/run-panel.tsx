@@ -193,7 +193,7 @@ function ActionSummary({ data }: { data: unknown }) {
 
 function PanelCard({ name, panel }: { name: string; panel: WorkbenchPanel }) {
   return (
-    <div className="card card-border mb-3.5 overflow-hidden rounded-[10px] bg-base-200">
+    <div className="card mb-3.5 border border-base-300 overflow-hidden rounded-[10px] bg-base-200">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-base-300 px-3.5 py-2.5">
         <span className="text-[13px] font-semibold">
           {name} — {panel.capability}

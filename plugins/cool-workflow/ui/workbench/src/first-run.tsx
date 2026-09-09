@@ -14,7 +14,7 @@ export function FirstRun() {
       <code className={`${C.cmd} block border-primary px-4 py-3 text-[14px]`}>{'cw -q "<question>"'}</code>
       <ol className="grid list-none grid-cols-2 gap-2.5 p-0 md:grid-cols-4">
         {STEPS.map((step, i) => (
-          <li key={step} className="card card-border card-sm bg-base-200 px-3.5 py-3 text-[13px] font-semibold">
+          <li key={step} className="card card-sm bg-base-200 border border-base-300 px-3.5 py-3 text-[13px] font-semibold">
             <span className={`${C.label} mb-1 block`}>{i + 1}</span>
             {step}
           </li>
