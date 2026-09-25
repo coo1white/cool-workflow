@@ -493,6 +493,9 @@ short, and simple to add to. Do not use it for guesses.)
   smoke runs the moment it lands, but it bumps the smoke count in
   `plugins/cool-workflow/docs/project-index.md`, so run `npm run sync:project-index`
   or `index:check` fails.
+- **Unit tests sit in folders that mirror `src/`** (a test of
+  `src/core/state/run-paths.ts` goes in `test/core/state/`); smokes stay
+  flat at the top of `test/`. `test/test-layout-smoke.js` holds this shape.
 - **Two docs trees, different gate scope AND different distribution scope.**
   `plugins/cool-workflow/docs/` is the shipped man-page tree: `sync-project-index.js`
   indexes it (non-recursively — one directory level only), and it is in
@@ -511,6 +514,10 @@ short, and simple to add to. Do not use it for guesses.)
   between it and being shipped, and would blur an arm's-length relationship that is
   currently structural (a directory boundary), not just a convention. Do not move it
   without re-litigating this tradeoff.
+- **Every root entry is named, with its reason, in `ROOT_ENTRIES`** in
+  `plugins/cool-workflow/test/root-layout-smoke.js`; a new root file is added
+  there in the same diff. The same smoke holds the `.editorconfig` text style
+  (LF, a final newline, no tab indents) outside the byte-exact paths.
 - **Man-page sync is binding.** A shipped behavior change must update the matching
   `docs/*.7.md` in the same diff, or the reviewer rejects it.
 - **A reference grep does not find every pin.** A file can be pinned by CONTENT

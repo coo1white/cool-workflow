@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-09-07 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-09-25 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-09-07 by `npm run sync:projec
 - Source modules: `160`
 - Workflow apps: `8`
 - Docs: `60`
-- Smoke tests: `266`
+- Smoke tests: `268`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -485,6 +485,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [result-normalize-smoke.js](../test/result-normalize-smoke.js)
 - [robustness-failclosed-smoke.js](../test/robustness-failclosed-smoke.js)
 - [robustness-hardening-smoke.js](../test/robustness-hardening-smoke.js)
+- [root-layout-smoke.js](../test/root-layout-smoke.js)
 - [run-all-agent-env-hermetic-smoke.js](../test/run-all-agent-env-hermetic-smoke.js)
 - [run-all-json-summary-smoke.js](../test/run-all-json-summary-smoke.js)
 - [run-archive-intake-limits-smoke.js](../test/run-archive-intake-limits-smoke.js)
@@ -538,6 +539,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [telemetry-ledger-smoke.js](../test/telemetry-ledger-smoke.js)
 - [telemetry-metrics-coverage-smoke.js](../test/telemetry-metrics-coverage-smoke.js)
 - [telemetry-verify-signatures-smoke.js](../test/telemetry-verify-signatures-smoke.js)
+- [test-layout-smoke.js](../test/test-layout-smoke.js)
 - [token-budget-enforcement-smoke.js](../test/token-budget-enforcement-smoke.js)
 - [trust-audit-anchor-smoke.js](../test/trust-audit-anchor-smoke.js)
 - [trust-audit-append-lock-concurrency-smoke.js](../test/trust-audit-append-lock-concurrency-smoke.js)

@@ -11,7 +11,11 @@
 // stay smoke-only, byte-for-byte as before.
 //
 // Discovery is the same fail-closed contract run-all.js uses: every
-// test/*.test.js on disk runs, nothing hand-maintained to forget to wire up.
+// *.test.js under test/ on disk runs, nothing hand-maintained to forget to
+// wire up. Unit tests live in subdirectories that mirror src/ (a test of
+// src/core/state/run-paths.ts is in test/core/state/);
+// test/test-layout-smoke.js holds that shape. test/fixtures/ is data,
+// never walked.
 
 const { spawnSync } = require("node:child_process");
 const fs = require("node:fs");
@@ -20,13 +24,24 @@ const path = require("node:path");
 const testDir = __dirname;
 const SELF = path.basename(__filename);
 
-const units = fs
-  .readdirSync(testDir)
-  .filter((file) => file.endsWith(".test.js"))
-  .sort();
+function findUnits(dir, rel) {
+  const found = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const relPath = rel ? `${rel}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) {
+      if (relPath === "fixtures" || entry.name === "node_modules") continue;
+      found.push(...findUnits(path.join(dir, entry.name), relPath));
+    } else if (entry.name.endsWith(".test.js")) {
+      found.push(relPath);
+    }
+  }
+  return found;
+}
+
+const units = findUnits(testDir, "").sort();
 
 if (units.length === 0) {
-  process.stderr.write(`${SELF}: no test/*.test.js files found — refusing to pass vacuously.\n`);
+  process.stderr.write(`${SELF}: no test/**/*.test.js files found — refusing to pass vacuously.\n`);
   process.exit(1);
 }
 

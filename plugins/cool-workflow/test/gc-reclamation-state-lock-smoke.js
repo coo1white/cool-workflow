@@ -17,7 +17,7 @@
 // prepareFree's persist BLOCKS until that holder releases it, rather than
 // writing straight through. Before the fix this completes near-instantly
 // (no coordination); after the fix it waits for the lock, same idiom as the
-// "fresh-contended" case in fs-atomic-file-lock.test.js.
+// "fresh-contended" case in shell/fs-atomic-file-lock.test.js.
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
