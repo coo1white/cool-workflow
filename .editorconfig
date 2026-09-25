@@ -1,0 +1,26 @@
+# One text style for every editor, the style the tree already has.
+# plugins/cool-workflow/test/root-layout-smoke.js checks the tracked tree
+# keeps it (LF, a final newline, no tab indents).
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.md]
+# Two spaces at the end of a line are a Markdown line break.
+trim_trailing_whitespace = false
+
+[plugins/cool-workflow/dist/**]
+# tsc output; never edited by hand.
+indent_size = 4
+
+# Byte-exact files: signed release verdicts, the pinned CLI spec, and test
+# fixtures. An editor must not change a byte of them.
+[{.cw-release/**,plugins/cool-workflow/project/docs/rebuild/SPEC/**,plugins/cool-workflow/test/fixtures/**}]
+insert_final_newline = unset
+trim_trailing_whitespace = unset
