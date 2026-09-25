@@ -19,7 +19,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const PINS = { tailwindcss: "4.3.3", daisyui: "5.7.28" };
+const PINS = { tailwindcss: "4.3.3", daisyui: "5.7.42" };
 // react/react-dom/next only live in the sub-package, but pin exact when present.
 const PINS_IF_PRESENT = { react: "19.2.8", "react-dom": "19.2.8", next: "16.3.0" };
 // Second UI library (TECH-SPEC section 5) + second framework (spec.md 2.9),

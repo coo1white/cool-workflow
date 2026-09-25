@@ -89,7 +89,7 @@
     "@tailwindcss/cli": "4.3.3",
     "@tailwindcss/typography": "0.5.20",
     "@types/node": "^26.4.0",
-    "daisyui": "5.7.28",
+    "daisyui": "5.7.42",
     "tailwindcss": "4.3.3",
     "typescript": "^7.0.2"
   },
