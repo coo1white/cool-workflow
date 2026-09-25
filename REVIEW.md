@@ -9,7 +9,7 @@ code (cw's own reviewer agent, or a person):
    runtime dependency in the CLI, no path built from run text, every
    run string escaped before HTML.
 3. Compliance: the diff matches the program's `spec.md` and `plan.md`
-   (`sdlc/` and `project/docs/intent/`); a departure updates the plan
+   (`project/docs/sdlc/` and `project/docs/intent/`); a departure updates the plan
    in the same commit; the PR pastes the gates the plan names.
 
 Merge needs green CI and the reviewer's word. The agent that wrote the

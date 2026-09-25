@@ -82,13 +82,13 @@ The stack for every project under `~/Developer` is in
   from a launchd job. Never open a PR there.
 - The Workbench (`plugins/cool-workflow/ui/workbench/`) is a Next
   16.3.0 + React 19.2.8 static export (owner's decision 2026-09-07;
-  program `sdlc/unify-js-architecture/`): a bun sub-package, `out/`
+  program `project/docs/sdlc/unify-js-architecture/`): a bun sub-package, `out/`
   built by `node scripts/build-ui.js` and never committed, tests under
   `ui/workbench/tests/` with `bun test`. The CLI stays zero-dependency;
   `report.html` stays one offline file. bun 1.4.1 is the one developer
-  installer (`sdlc/unify-package-manager-bun/`); npm stays the user's.
+  installer (`project/docs/sdlc/unify-package-manager-bun/`); npm stays the user's.
 - CI/CD: three workflow files, `ci.yml`, `release.yml`, `scheduled.yml`
-  (`sdlc/unify-ci-cd/`); four named exceptions stay as their own files
+  (`project/docs/sdlc/unify-ci-cd/`); four named exceptions stay as their own files
   — `codeql.yml`, `gitleaks.yml`, `pages.yml`, `npm-publish.yml`.
 
 # North Star)
@@ -142,6 +142,9 @@ First file in this shape: `2026-09-02-backlog-six-rows.md`, now the
 first part of `2026-09-archive.md`. When a program's closing PR has
 merged, its file joins `intent/<year>-<month>-archive.md`, text kept
 as is, so the .md count does not grow with every program.
+All engineering docs live in one tree, `plugins/cool-workflow/project/docs/`,
+with `README.md` there as its map (stage 3 program plans are in its
+`sdlc/`). `test/docs-layout-smoke.js` holds the map and the file names.
 
 # North Star
 Every cycle must trace to one of these validated-use-case tracks:

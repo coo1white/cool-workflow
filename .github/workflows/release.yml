@@ -6,8 +6,8 @@ name: release
 #
 # The gate job re-checks the release; the release job (needs: gate) makes
 # the GitHub Release. Folded from release-gate.yml + github-release.yml
-# (sdlc/unify-ci-cd/plan.md packet C1) so npm-publish.yml's workflow_run
-# chain has one release run to trust, not two.
+# (project/docs/sdlc/unify-ci-cd/plan.md packet C1) so npm-publish.yml's
+# workflow_run chain has one release run to trust, not two.
 on:
   push:
     tags:
