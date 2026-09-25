@@ -68,7 +68,7 @@ const checks = [
   // (release-gate.js) forces CW_TEST_CONCURRENCY=1 to stay sequential as the
   // deterministic backstop.
   { name: "tests", command: ["npm", "run", "test:ci"] },
-  // Pure core/ unit tests (test/*.test.js) — a separate suite from the smoke
+  // Pure core/ unit tests (test/**/*.test.js) — a separate suite from the smoke
   // tests above (see test/run-unit.js's header). --skip-tests also skips
   // this one, matching "tests": ci.yml runs test:unit directly, so this
   // entry would just repeat it a second time in the release-check pass.

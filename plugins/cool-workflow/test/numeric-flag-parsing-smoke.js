@@ -18,7 +18,7 @@
 //
 // This proves the fix end-to-end through the real CLI, at every call site
 // the audit named, not just the shared parser in isolation (see
-// numericflag-requirednumberflag.test.js for that unit coverage).
+// core/util/numeric-flag-requirednumberflag.test.js for that unit coverage).
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

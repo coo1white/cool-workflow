@@ -48,6 +48,20 @@ try {
 | Assertions | `node:assert/strict` only |
 | Cleanup | `fs.rmSync(tmp, { recursive: true, force: true })` in `finally` |
 
+## Unit Tests
+
+Unit tests (`*.test.js`) test one module each. They sit in folders that mirror
+`src/`: a test of `src/core/state/run-paths.ts` is
+`test/core/state/run-paths-keys.test.js`. The file name drops the folder name,
+so it starts with the module or the thing under test. `run-unit.js`
+(`npm run test:unit`) finds every `*.test.js` under `test/` and skips
+`fixtures/`.
+
+Smokes are black-box runs and stay flat at the top of `test/`. The runner reads
+only `test/*-smoke.js`, so a smoke in a sub folder would never run.
+`test-layout-smoke.js` fails closed on that, on a unit test left at the top of
+`test/`, and on a folder with no matching `src/` folder.
+
 ## Skipping a Smoke
 
 Add `// CW_SKIP: <reason>` in the first 10 lines. The runner skips it and prints
