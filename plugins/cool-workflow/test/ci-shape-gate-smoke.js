@@ -1,7 +1,8 @@
 // ci-shape-gate-smoke — the one-CI-shape gate from
 // ~/Developer/sdlc/unify-ci-cd/spec.md section 2, as this GitHub repo's
-// version of it (sdlc/unify-ci-cd/plan.md, packet C1): plain text reads and
-// string asserts over every file in .github/workflows/, no YAML library.
+// version of it (project/docs/sdlc/unify-ci-cd/plan.md, packet C1): plain
+// text reads and string asserts over every file in .github/workflows/, no
+// YAML library.
 //
 // This repo differs from the Gitea repos in the spec in two named ways,
 // both in the gate itself, not swept under the rug: the LABELS set is
