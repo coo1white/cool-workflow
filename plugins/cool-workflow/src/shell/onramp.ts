@@ -449,7 +449,7 @@ export function evaluateOnrampContract(
   const surfaceFiles = classifiable.filter(isSurfaceFile);
   const smokeFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+-smoke\.js$/.test(file));
   // WP1.1 (#360) restored a second, parallel test layer: pure `core/`
-  // logic proven by `test/*.test.js` under `npm run test:unit`, run and
+  // logic proven by `test/**/*.test.js` under `npm run test:unit`, run and
   // gated separately from the black-box `test/*-smoke.js` suite. A cycle
   // that proves its fix with a unit test only (no smoke touched) is a
   // real, complete cycle — the gate must accept either kind, not just
@@ -458,7 +458,7 @@ export function evaluateOnrampContract(
   // The black-box conformance suite (v2/conformance/cases/*.case.js) is a
   // third, equally real proof layer — CI-gated on every push, and the one
   // North Star Track C leans on. A cycle proven end to end by a new or
-  // changed conformance case (with no test/*-smoke.js or test/*.test.js
+  // changed conformance case (with no test/*-smoke.js or test/**/*.test.js
   // touched) is a real, complete cycle too.
   const conformanceCaseFiles = normalized.filter((file) => /^v2\/conformance\/cases\/.+\.case\.js$/.test(file));
   const docFiles = normalized.filter(isDocFile);

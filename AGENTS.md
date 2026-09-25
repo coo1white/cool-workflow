@@ -493,6 +493,9 @@ short, and simple to add to. Do not use it for guesses.)
   smoke runs the moment it lands, but it bumps the smoke count in
   `plugins/cool-workflow/docs/project-index.md`, so run `npm run sync:project-index`
   or `index:check` fails.
+- **Unit tests sit in folders that mirror `src/`** (a test of
+  `src/core/state/run-paths.ts` goes in `test/core/state/`); smokes stay
+  flat at the top of `test/`. `test/test-layout-smoke.js` holds this shape.
 - **Two docs trees, different gate scope AND different distribution scope.**
   `plugins/cool-workflow/docs/` is the shipped man-page tree: `sync-project-index.js`
   indexes it (non-recursively — one directory level only), and it is in

@@ -47,19 +47,19 @@ function contract(files) {
   assert.ok(codes(report).includes("runtime-smoke-required"));
 }
 
-// Runtime behavior proven by a WP1.1-style unit test (test/*.test.js,
+// Runtime behavior proven by a WP1.1-style unit test (test/**/*.test.js,
 // no test/*-smoke.js touched) satisfies the same gate — the two test
 // layers are equally valid proof of a cycle.
 {
   const report = contract([
     "plugins/cool-workflow/src/core/util/collate.ts",
-    "plugins/cool-workflow/test/collate-stablecompare.test.js"
+    "plugins/cool-workflow/test/core/util/collate-stablecompare.test.js"
   ]);
   assert.ok(!codes(report).includes("runtime-smoke-required"), codes(report).join(", "));
 }
 
 // Runtime behavior proven by a new/changed black-box conformance case
-// (v2/conformance/cases/*.case.js, no test/*-smoke.js or test/*.test.js
+// (v2/conformance/cases/*.case.js, no test/*-smoke.js or test/**/*.test.js
 // touched) also satisfies the same gate — a third equally valid proof
 // layer.
 {

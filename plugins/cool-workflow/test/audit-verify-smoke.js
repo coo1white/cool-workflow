@@ -31,7 +31,7 @@ fs.mkdirSync(runDir, { recursive: true });
 // workflow/paths (even empty) must be present — a real run always has both
 // from creation onward; a state.json missing both, next to a run dir that
 // already has real audit content, now trips loadRunFromCwd's
-// suspected-data-loss guard (by design: see statecore-suspected-data-loss).
+// suspected-data-loss guard (by design: see core/state/suspected-data-loss.test.js).
 fs.writeFileSync(path.join(runDir, "state.json"), JSON.stringify({ id: runId, schemaVersion: 1, workflow: {}, paths: {} }));
 
 // (1) Absent chain -> nothing to prove -> present:false / verified:true / exit 0.

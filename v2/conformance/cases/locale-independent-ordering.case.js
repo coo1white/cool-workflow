@@ -25,8 +25,8 @@
 // own task/node ids happen not to contain any character cs_CZ collates
 // differently (no "ch" digraphs, no accented letters), so this specific
 // case cannot itself flip red/green on the underlying bug — that proof is
-// collate-stablecompare.test.js's job (adversarial "ch"/"h"/"i" strings,
-// two real child processes, one per locale). What this case pins is the
+// test/core/util/collate-stablecompare.test.js's job (adversarial
+// "ch"/"h"/"i" strings, two real child processes, one per locale). What this case pins is the
 // FULL pipeline: a future change that reintroduces a bare localeCompare
 // anywhere in that chain will only be caught here if it also happens to
 // touch an id shaped like this run's — the unit test is the one that

@@ -109,7 +109,7 @@ function readLines(p) {
   // workflow/paths (even empty) must be present — a real run always has
   // both from creation onward; a state.json missing both, next to a run
   // dir that already has real audit content, now trips loadRunFromCwd's
-  // suspected-data-loss guard (by design: see statecore-suspected-data-loss).
+  // suspected-data-loss guard (by design: see core/state/suspected-data-loss.test.js).
   fs.writeFileSync(path.join(runDir, "state.json"), JSON.stringify({ id: runId, schemaVersion: 1, workflow: {}, paths: {} }));
   const run = { id: runId, paths: { runDir } };
   recordTrustAuditEvent(run, { kind: "sandbox.path", decision: "allowed", source: "cw-validated", workerId: "w1" });

@@ -4,7 +4,7 @@
 // cli-io-smoke: the shared CLI io helpers extracted from command-surface.ts into
 // src/cli/io.ts. Pin their behaviour so the god-object extraction stays exact.
 // required/optionalArg/wantsJson moved to core/util/cli-args.ts
-// (architecture-review P2) — see cliargs-requiredoptionalargwantsjson.test.js
+// (architecture-review P2) — see core/util/cli-args-requiredoptionalargwantsjson.test.js
 // for their coverage. Only printJson (and styledHelp, untested here) still
 // live in cli/io.ts.
 
