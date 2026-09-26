@@ -159,9 +159,27 @@ for one minute each. There must be no error or dropped work, p95 at or under
 3. **Single concurrency level**: `autoWidth` = 2 restricts the concurrency comparison. A 6-task phase would show a meaningful speedup.
 4. **Light k6 workload**: 25 rps, no backpressure. Heavy-load tests would show queuing behavior.
 
+## The perf ratchet (in CI)
+
+The numbers above are wall-clock times, which move between runs. What
+CI holds is a set of exact counts that do not move:
+`scripts/bench/perf-counts.js` runs the journeys a person waits on (the
+cold commands, MCP `initialize`, and a 16-worker stub drive) under
+`scripts/bench/perf-count-hook.js`. It counts CW modules loaded,
+`state.json` reads, whole-state JSON round trips, fsyncs, renames and
+git processes. `test/perf-ratchet-smoke.js` fails when a count goes
+above its ceiling in `scripts/bench/perf-ceilings.json`, and also when
+it goes below: a gain is locked by lowering the ceiling in the same
+diff (`node scripts/bench/perf-counts.js --update`, which never raises
+one). Why counts and not milliseconds, and what each count costs in
+time: `project/docs/intent/2026-09-26-perf-ratchets.md`.
+
 ## Reproducing
 
 ```bash
+# the counts the ratchet holds
+node scripts/bench/perf-counts.js
+
 # ARM64 native
 node scripts/bench/run.js --arch ARM64 --agent claude --conc 4 --runs 3
 
