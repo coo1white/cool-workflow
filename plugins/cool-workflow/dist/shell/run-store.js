@@ -57,6 +57,7 @@ exports.withRunStateLock = withRunStateLock;
 exports.withDriveLock = withDriveLock;
 exports.withDriveLockAsync = withDriveLockAsync;
 exports.saveCheckpoint = saveCheckpoint;
+exports.serializeRunState = serializeRunState;
 exports.savedRunIfCurrent = savedRunIfCurrent;
 exports.compactCheckpoint = compactCheckpoint;
 exports.createRun = createRun;
@@ -385,13 +386,132 @@ function saveCheckpoint(run) {
     (0, trust_audit_1.flushPendingTrustAudit)(run);
     run.updatedAt = new Date().toISOString();
     (0, fs_atomic_1.withFileLock)(run.paths.state, () => {
-        (0, fs_atomic_1.writeJson)(run.paths.state, run, { durable: true });
+        const parts = runStateParts(run);
+        if (process.env.CW_STATE_WRITE_VERIFY === "1" && Buffer.concat(parts).toString("utf8") !== `${JSON.stringify(run, null, 2)}\n`) {
+            throw new Error(`state serialization differs from JSON.stringify for run ${run.id}`);
+        }
+        (0, fs_atomic_1.writePartsDurable)(run.paths.state, parts, { durable: true });
         const stamp = stateFileStamp(run.paths.state);
         if (stamp)
             LAST_SAVED.set(path.resolve(run.paths.state), { stamp, run });
         else
             LAST_SAVED.delete(path.resolve(run.paths.state));
     });
+}
+/** `JSON.stringify(run, null, 2)`, byte for byte (see runStateParts). */
+function serializeRunState(run) {
+    return Buffer.concat(runStateParts(run)).toString("utf8").slice(0, -1);
+}
+/** The bytes of state.json (`JSON.stringify(run, null, 2)` and a final
+ *  newline) as parts in file order, so the save can write them without
+ *  joining them first. Each element of the run's top-level arrays keeps its
+ *  encoded JSON text, reused while the element is provably the same: the
+ *  same object, the same keys in the same order, and every value the same
+ *  (===) all the way down (unchangedShape). Any edit anywhere in an
+ *  element, in place or not, makes it miss and be stringified again, so a
+ *  kept text is never stale. Elements JSON would treat specially (a Date,
+ *  NaN, a class instance, a hole) are never kept. CW_STATE_WRITE_VERIFY=1
+ *  (tests only) makes saveCheckpoint compare with JSON.stringify and throw
+ *  on any difference. */
+function runStateParts(run) {
+    const record = run;
+    const proto = Object.getPrototypeOf(record);
+    if (proto !== Object.prototype && proto !== null)
+        return [Buffer.from(`${JSON.stringify(run, null, 2)}\n`, "utf8")];
+    const parts = [];
+    for (const key of Object.keys(record)) {
+        const value = record[key];
+        if (Array.isArray(value) && value.length > 0) {
+            parts.push(Buffer.from(`${parts.length ? ",\n" : "{\n"}  ${JSON.stringify(key)}: [\n    `, "utf8"));
+            for (let i = 0; i < value.length; i++) {
+                if (i > 0)
+                    parts.push(ELEMENT_SEPARATOR);
+                parts.push(elementBytes(value[i]));
+            }
+            parts.push(ARRAY_END);
+            continue;
+        }
+        const text = JSON.stringify(value, null, 2);
+        if (text !== undefined)
+            parts.push(Buffer.from(`${parts.length ? ",\n" : "{\n"}  ${JSON.stringify(key)}: ${text.replace(/\n/g, "\n  ")}`, "utf8"));
+    }
+    parts.push(Buffer.from(parts.length ? "\n}\n" : "{}\n", "utf8"));
+    return parts;
+}
+const ELEMENT_SEPARATOR = Buffer.from(",\n    ", "utf8");
+const ARRAY_END = Buffer.from("\n  ]", "utf8");
+const ELEMENT_BYTES = new WeakMap();
+function elementBytes(element) {
+    if (element === null || typeof element !== "object")
+        return Buffer.from(JSON.stringify(element) ?? "null", "utf8");
+    const kept = ELEMENT_BYTES.get(element);
+    if (kept && unchangedShape(element, kept.shape, { at: 0 }))
+        return kept.bytes;
+    const bytes = Buffer.from((JSON.stringify(element, null, 2) ?? "null").replace(/\n/g, "\n    "), "utf8");
+    const shape = [];
+    if (shapeOf(element, shape))
+        ELEMENT_BYTES.set(element, { bytes, shape });
+    else
+        ELEMENT_BYTES.delete(element);
+    return bytes;
+}
+/** Records every object (by identity), key count, key and value of `value`
+ *  in walk order; false when it holds anything JSON would change (such an
+ *  element is never kept). */
+function shapeOf(value, out) {
+    if (value === null || value === undefined || typeof value === "string" || typeof value === "boolean") {
+        out.push(value);
+        return true;
+    }
+    if (typeof value === "number") {
+        out.push(value);
+        return Number.isFinite(value);
+    }
+    if (typeof value !== "object")
+        return false;
+    if (Array.isArray(value)) {
+        out.push(value, value.length);
+        for (let i = 0; i < value.length; i++)
+            if (!(i in value) || value[i] === undefined || !shapeOf(value[i], out))
+                return false;
+        return true;
+    }
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null)
+        return false;
+    const keys = Object.keys(value);
+    out.push(value, keys.length);
+    for (const key of keys) {
+        out.push(key);
+        if (!shapeOf(value[key], out))
+            return false;
+    }
+    return true;
+}
+/** True when `value` still matches `shape` exactly. `for...in` also sees
+ *  inherited enumerable keys; any such key only makes the count differ, and
+ *  so a miss, never a stale hit. */
+function unchangedShape(value, shape, pos) {
+    if (value === null || typeof value !== "object")
+        return shape[pos.at++] === value;
+    if (shape[pos.at++] !== value)
+        return false;
+    if (Array.isArray(value)) {
+        if (shape[pos.at++] !== value.length)
+            return false;
+        for (let i = 0; i < value.length; i++)
+            if (!unchangedShape(value[i], shape, pos))
+                return false;
+        return true;
+    }
+    const countAt = pos.at++;
+    let count = 0;
+    for (const key in value) {
+        count++;
+        if (shape[pos.at++] !== key || !unchangedShape(value[key], shape, pos))
+            return false;
+    }
+    return shape[countAt] === count;
 }
 /** The state.json this process last wrote, per state path: the file's
  *  stamp right after the save, and the run object it wrote. Any later

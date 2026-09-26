@@ -8,7 +8,7 @@
     "drive.modules": 114,
     "drive.renames": 350,
     "drive.stateReads": 3,
-    "drive.stateRoundTrips": 38,
+    "drive.stateRoundTrips": 3,
     "help.modules": 30,
     "mcp-initialize.modules": 27,
     "status-no-run.modules": 30,
