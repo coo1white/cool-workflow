@@ -4165,3 +4165,87 @@ Receipt: `project/docs/audits/audit-batches-receipt-2026-09-26.json`.
 Leading measures: 10 minutes from this intent (#718) to the first
 build PR (#719), with the operator's approval in between; every program PR (#718,
 #719, #720) green on its first push, one commit each.
+
+---
+
+<!-- archived from 2026-09-26-state-writes.md on 2026-09-26 -->
+
+# Cut the whole-state write: stopped at measurement
+
+Intent and measured facts in ONE file, in the shape `AGENTS.md` "Intent
+files (the playbook)" asks for. Source: the operator, 2026-09-26, "做，
+auto-develop" on the next goal named at the close of the audit-batches
+program: the whole-state write, measured first. The measurement found no
+path that keeps `state.json` byte-identical and leaves the frozen
+surfaces alone, so the program stops here, with no build PR, and names
+the decisions that would open one. This file went straight to the
+archive (md count unchanged); `project/docs/BACKLOG.md` carries the
+open row.
+
+## Intent
+
+**Problem.** Every checkpoint rewrites the whole `state.json`: 131
+saves at 64 workers, each a 2-space `JSON.stringify` of the whole run,
+a write, and two fsyncs (file and directory). The state grows with the
+worker count, so this cost grows with its square.
+
+**Outcome sought.** Less CW time per save, with the state file, its
+bytes and its crash promise unchanged.
+
+## Measured facts (checked by command)
+
+On `main` at `8ee7d35`, Linux, Node 22, built `dist/`, the perf fan app
+(64 workers in one serial phase, a stub agent).
+
+- The write bucket at 64 workers: stringify 384 ms (131 calls,
+  137 MB), write 207 ms, fsync 225 ms (262), open and rename 42 ms:
+  about 0.86 s of about 2.2 s of CW self time.
+- What the 1938 KB state is made of: `nodes` 46%, `workers` 24%,
+  `tasks` 18%, `commits` 6%, `dispatches` 2%.
+- Three copies of a worker's sandbox policy (about 2.4 KB each) sit in
+  its task, its worker and its result node's metadata: 456 KB of the
+  1494 KB compact state, about 30%. They differ per worker, so they are
+  not one shared object.
+- Which array elements change after their first save (a probe inside
+  `saveCheckpoint`, same object seen again with different JSON), over
+  the full smoke gate and the v2 conformance suite, 2444 saves:
+  `tasks` 3922 times, `phases` 565, `nodes` 2, `workers` 1,
+  `commits` 0, `dispatches` 0. The `nodes` changes come from
+  `runReclamation` (`src/shell/reclamation-io.ts`, a frozen surface),
+  which re-points a result node in place; the `workers` change is a
+  test that edits a worker object and saves.
+- On the 1938 KB state: 2-space stringify 7.0 ms, compact stringify
+  3.5 ms, UTF-8 encoding 1.4 ms.
+
+## Paths weighed (complexity / upkeep / cost / can it be undone)
+
+- **Cache each array element's JSON and reuse it while the element is
+  the same object:** the state bytes stay the same and about 95% of the
+  stringify could be skipped. Turned down as it stands: `nodes` and
+  `workers` are edited in place on real paths, so a cache would write
+  stale bytes; the two arrays that never change are 8% of the bytes.
+  It becomes safe only if records are replaced, never edited, and are
+  frozen when made, so an edit throws in place of writing stale bytes.
+  That needs `reclamation-io.ts` (frozen) to replace the node it
+  re-points, and every other in-place writer found the same way.
+  Estimate: about -300 ms at 64 workers (-13%).
+- **Opt-in compact state** (`CW_STATE_COMPACT=1`): half the stringify
+  and 23% fewer bytes for those who opt in; every reader parses JSON, so
+  loads work. Turned down for now: a new documented surface whose only
+  users would be people who know to set it; about -10% for them.
+- **Store each sandbox policy once and point at it** (a schema bump
+  with a migration): about 30% off every state cost, reads and export
+  included. Turned down here: a file-layout change needs its own intent
+  and the operator's yes, a migration, and a conformance update.
+- **Append-only journal:** turned down again on the numbers in the
+  state-reads part (a diff costs more than the stringify it saves); it
+  becomes cheap only after records are replaced-not-edited, as above.
+- **Fewer saves per step:** turned down; a crash between dispatch and
+  accept must still find the dispatch (the SIGKILL smokes, Track B).
+
+## Status ledger
+
+| Item | State | PR |
+|---|---|---|
+| Intent + measured facts (this file) | stopped at measurement, archived by #722 | #722 |
+| Build | not started: needs one of the operator decisions in `BACKLOG.md` | |
