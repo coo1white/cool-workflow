@@ -61,12 +61,46 @@ function normalizeCommitOptions(input: string | CommitStateOptions): CommitState
   };
 }
 
-function readGitHead(cwd: string): string | undefined {
+// HEAD's sha as `git rev-parse HEAD` gives it, read from the files on the
+// plain layout (a `.git` dir; HEAD a sha or a loose refs/heads ref). Every
+// other layout (worktree/submodule `.git` file, packed or reftable ref, GIT_*
+// discovery env, bare repo, other owner, mount boundary, no getuid) asks git.
+const SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
+const GIT_ENV = ["GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_CEILING_DIRECTORIES", "GIT_DISCOVERY_ACROSS_FILESYSTEM", "GIT_OBJECT_DIRECTORY", "GIT_NAMESPACE"];
+
+export function readGitHead(cwd: string): string | undefined {
+  const fast = readHeadFromFiles(cwd);
+  if (fast !== undefined) return fast;
   try {
     return execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000 }).trim();
   } catch {
     return undefined;
   }
+}
+
+/** The sha from the files, or undefined for "ask git". */
+export function readHeadFromFiles(cwd: string): string | undefined {
+  if (GIT_ENV.some((name) => process.env[name] !== undefined) || typeof process.getuid !== "function") return undefined;
+  try {
+    const uid = process.getuid();
+    let dir = path.resolve(cwd);
+    const device = fs.statSync(dir).dev;
+    for (let top = fs.statSync(dir); top.dev === device; dir = path.dirname(dir), top = fs.statSync(dir)) {
+      const dotGit = fs.lstatSync(path.join(dir, ".git"), { throwIfNoEntry: false });
+      if (dotGit) return dotGit.isDirectory() && dotGit.uid === uid && top.uid === uid ? shaFromHead(path.join(dir, ".git")) : undefined;
+      if (path.dirname(dir) === dir || ["HEAD", "objects", "refs"].every((name) => fs.existsSync(path.join(dir, name)))) return undefined;
+    }
+  } catch {
+    // any read error: ask git
+  }
+  return undefined;
+}
+
+function shaFromHead(gitDir: string): string | undefined {
+  const head = fs.readFileSync(path.join(gitDir, "HEAD"), "utf8").trim();
+  const ref = /^ref: (refs\/heads\/\S+)$/.exec(head)?.[1];
+  const sha = ref && !ref.split("/").some((part) => part === "" || part === "." || part === "..") ? fs.readFileSync(path.join(gitDir, ref), "utf8").trim() : head;
+  return SHA.test(sha) ? sha : undefined;
 }
 
 function findNode(run: WorkflowRun, nodeId: string): StateNode | undefined {
