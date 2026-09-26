@@ -33,10 +33,10 @@
 // concurrent path) -- so this test's exact-equality assertions actually
 // discriminate a partial regression, not just a gross one.
 //
-// state-reads program, PR 1 (project/docs/intent/2026-09-26-state-reads.md):
-// the progress line after each round now uses the run the round just
-// saved instead of reading state.json back, so every count below is one
-// lower than it was (4 -> 3).
+// state-reads program, PR 1 (project/docs/intent/2026-09-archive.md, the
+// state-reads part): the progress line after each round now uses the run
+// the round just saved instead of reading state.json back, so every count
+// below is one lower than it was (4 -> 3).
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");

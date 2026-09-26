@@ -1,0 +1,57 @@
+{
+  "program": "2026-09-26-state-reads",
+  "commit": "1fafa5d83be5ef58d13db4748f2d608785d75a0b",
+  "startedAt": "2026-09-26T14:27:18Z",
+  "finishedAt": "2026-09-26T15:39:43Z",
+  "machine": "Linux, Node 22, built dist/, a stub agent that writes its result at once",
+  "counts": {
+    "command": "node scripts/bench/perf-counts.js",
+    "before": { "drive.stateReads": 36, "drive.stateRoundTrips": 71 },
+    "after": { "drive.stateReads": 3, "drive.stateRoundTrips": 38 },
+    "byPR": [
+      { "pr": "#715", "drive.stateReads": "36 -> 19", "drive.stateRoundTrips": "71 -> 54" },
+      { "pr": "#716", "drive.stateReads": "19 -> 3", "drive.stateRoundTrips": "54 -> 38" }
+    ],
+    "note": "No other count moved; drive.modules stays 114."
+  },
+  "buckets": {
+    "command": "a --require hook that times each fs call and each JSON.parse/stringify over 20 KB, grouped by caller from the stack; the 64-worker fan app",
+    "stateReadMs": { "before": 412, "after": 8, "loadsBefore": 132, "loadsAfter": 3 },
+    "stateWriteMs": { "before": 961, "note": "not in this program's target; unchanged in kind (131 whole-state saves at 64 workers)" }
+  },
+  "checks": [
+    {
+      "id": "cw-self-time-10-percent",
+      "pass": true,
+      "command": "9 alternating pairs of the 64-worker stub drive, main at e2e57a0 (before the program) against #715 + #716",
+      "seen": "CW self time median 2961 -> 2611 ms (-11.8%). At 16 workers 654 -> 659 ms, inside the noise: the state there is small and a read costs little.",
+      "note": "#715 alone, 5 pairs: 2961 -> 2769 ms at 64 workers."
+    },
+    {
+      "id": "reuse-equals-load",
+      "pass": true,
+      "command": "the full smoke gate and the v2 conformance suite, with the reuse check forced on in dist (not committed)",
+      "seen": "#715: 616 rounds, the round's run equal to a fresh load at every progress point. #716: 414 reuses, every one isDeepStrictEqual to a fresh load.",
+      "note": "The first #716 sweep found every reuse off by undefined-valued keys (a load never has them); jsonShaped was added and the sweep run again."
+    },
+    {
+      "id": "byte-identical-drive",
+      "pass": true,
+      "command": "a pinned stub drive with CW_DRIVE_PROGRESS=1 (time via scripts/fake-date-for-reproduction.js, pid pinned, one fixed root) on main and on each PR, then a byte diff of the run folders and stderr",
+      "seen": "fan app 0 of 128 files differ; architecture-review 0 of 167 differ after normalizing the plugin-root path; stderr progress lines the same.",
+      "note": "Checked for #715 and for #715 + #716."
+    },
+    {
+      "id": "other-writers-seen",
+      "pass": true,
+      "command": "node test/shell/drive-state-reuse.test.js",
+      "seen": "drive-state-reuse: ok",
+      "note": "A tmp + rename write and a same-size in-place edit between two rounds are both kept. The test fails with the stamp check taken out (the other-writer case) and with the undefined-key walk taken out (the verify case)."
+    }
+  ],
+  "leadingMeasures": {
+    "intentToFirstBuildPR": "#714 (intent) opened 14:27Z; #715 (first build PR) opened 14:46Z: 19 minutes, with the operator's approval in between.",
+    "firstPassCI": "3 of 3 build and plan PRs green on the first push: #714, #715 and #716, one commit each."
+  },
+  "verdict": "pass"
+}
