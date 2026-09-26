@@ -41,6 +41,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
 const cli_args_1 = require("../../core/util/cli-args");
 const state_explosion_text_1 = require("../../core/format/state-explosion-text");
+const recovery_hint_1 = require("../../core/format/recovery-hint");
 // This file is required at startup for every command. Loading these shell
 // modules only when their handler runs, not at import time, keeps that
 // load cost out of commands that never touch reporting/status/graph.
@@ -100,9 +101,9 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("status").cli = {
         // (positionals[0] only), so a bogus id given via --run and a real one
         // looked identical ("No run selected" for both).
         const runId = (0, cli_args_1.optionalArg)(args.positionals[0]) || (0, cli_args_1.optionalArg)(args.options.run) || (0, cli_args_1.optionalArg)(args.options.runId);
-        const reportViewCli = loadReportViewCli();
         if (!runId)
-            return { json: reportViewCli.statusCli(undefined, args.options), text: `No run selected\n\nNext Action\n${adviseNoRunLines()}` };
+            return { json: { runId: null, nextActions: (0, recovery_hint_1.adviseNoRun)() }, text: `No run selected\n\nNext Action\n${adviseNoRunLines()}` };
+        const reportViewCli = loadReportViewCli();
         if (args.options.summary || args.options.brief) {
             return { json: reportViewCli.statusCli(runId, args.options), text: `${reportViewCli.statusSummaryText(runId, args.options)}\n` };
         }

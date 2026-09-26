@@ -39,6 +39,7 @@ import type {
   Capability,
 } from "../../core/capability-data";
 import { required } from "../../core/util/cli-args";
+import { adviseNoRun } from "../../core/format/recovery-hint";
 
 // Every capability-table module (this file plus each domain slice) is
 // required unconditionally at CLI/MCP startup, for every single command
@@ -128,12 +129,11 @@ export function listBundledSandboxProfiles(): SandboxProfileSummary[] {
  *  shape exactly (`{runId:null, nextActions}`); a real run id resolves to
  *  `summarizeRun`'s payload (MILESTONE 11, reporting/observability). */
 export function statusPayload(runId: string | undefined, cwd?: string): unknown {
-  const operatorUx = loadOperatorUx();
   if (!runId) {
-    return { runId: null, nextActions: operatorUx.adviseNoRun() };
+    return { runId: null, nextActions: adviseNoRun() };
   }
   const run = loadRunStore().loadRunFromCwd(runId, cwd || process.cwd());
-  return operatorUx.summarizeRun(run);
+  return loadOperatorUx().summarizeRun(run);
 }
 
 // ---------------------------------------------------------------------

@@ -22,3 +22,16 @@ export function recoveryHint(message: string): string | undefined {
   if (m.includes("missing required input") && m.includes("question")) return 'cw -q "<question>"';
   return undefined;
 }
+
+/** The fixed next step when no run is selected (`cw status` with no id).
+ *  Kept here, in a module every command already loads, so that answer
+ *  does not pull in the run-reading modules. */
+export function adviseNoRun(): { command: string; reason: string; priority: "high" }[] {
+  return [
+    {
+      command: "cw plan <workflow-id> --repo <path>",
+      reason: "No run id is available yet; create a workflow run before dispatching or recording evidence.",
+      priority: "high",
+    },
+  ];
+}

@@ -33,6 +33,7 @@ exports.declaredMcpTools = declaredMcpTools;
 exports.findCapabilityByMcpTool = findCapabilityByMcpTool;
 const capability_data_1 = require("../../core/capability-data");
 const cli_args_1 = require("../../core/util/cli-args");
+const recovery_hint_1 = require("../../core/format/recovery-hint");
 // Every capability-table module (this file plus each domain slice) is
 // required unconditionally at CLI/MCP startup, for every single command
 // (index.ts's whole point is to populate REGISTRY before dispatch can
@@ -95,12 +96,11 @@ function listBundledSandboxProfiles() {
  *  shape exactly (`{runId:null, nextActions}`); a real run id resolves to
  *  `summarizeRun`'s payload (MILESTONE 11, reporting/observability). */
 function statusPayload(runId, cwd) {
-    const operatorUx = loadOperatorUx();
     if (!runId) {
-        return { runId: null, nextActions: operatorUx.adviseNoRun() };
+        return { runId: null, nextActions: (0, recovery_hint_1.adviseNoRun)() };
     }
     const run = loadRunStore().loadRunFromCwd(runId, cwd || process.cwd());
-    return operatorUx.summarizeRun(run);
+    return loadOperatorUx().summarizeRun(run);
 }
 // ---------------------------------------------------------------------
 // Public table-derived API

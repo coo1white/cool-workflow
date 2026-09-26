@@ -94,17 +94,9 @@ export function summarizeRun(run: WorkflowRun): RunSummary {
   };
 }
 
-/** `cw status` with no run id: the fixed advice (byte-exact to the old
- *  build's adviseNoRun). */
-export function adviseNoRun(): OperatorRecommendation[] {
-  return [
-    {
-      command: "cw plan <workflow-id> --repo <path>",
-      reason: "No run id is available yet; create a workflow run before dispatching or recording evidence.",
-      priority: "high",
-    },
-  ];
-}
+// `cw status` with no run id: the fixed advice, now in a core module every
+// command loads; re-exported so existing importers keep working.
+export { adviseNoRun } from "../core/format/recovery-hint";
 
 export interface OperatorPhaseSummary {
   id: string;

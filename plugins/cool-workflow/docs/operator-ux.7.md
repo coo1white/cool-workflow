@@ -28,6 +28,12 @@ cw status <run-id> --format json
 `CoolWorkflowRunner.status()` and MCP `cw_status` still give back structured
 status data for integrations.
 
+With no run id (no `<run-id>` and no `--run <id>`), `cw status` prints
+`No run selected` and one next action, `cw plan <workflow-id> --repo
+<path>`, and exits 0. `--json` gives `{"runId": null, "nextActions":
+[...]}` with that same one action. This path reads no run files, so it
+starts as fast as `cw version`.
+
 In v0.1.13, MCP also gives JSON-native operator tools:
 `cw_operator_status`, `cw_operator_graph`, `cw_operator_report`,
 `cw_worker_summary`, `cw_candidate_summary`, `cw_feedback_summary`, and
