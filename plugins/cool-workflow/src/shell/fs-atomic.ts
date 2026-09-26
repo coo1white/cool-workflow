@@ -31,7 +31,7 @@ export interface WriteJsonOptions {
  *  reader always sees either the old bytes or the new bytes, never a torn
  *  file. On a rename failure the temp file is removed (best-effort) and
  *  the error is rethrown — the old bytes at `file` are never touched. */
-function writeBytesAtomic(file: string, contents: string, durable: boolean): void {
+function writeBytesAtomic(file: string, contents: string | readonly Buffer[], durable: boolean): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.tmp.${process.pid}.${atomicWriteCounter++}`;
   // 0o600: this is run/ledger/registry state, not a file meant to be shared
@@ -39,7 +39,8 @@ function writeBytesAtomic(file: string, contents: string, durable: boolean): voi
   // this covers the final file too.
   const fd = fs.openSync(tmp, "w", 0o600);
   try {
-    fs.writeFileSync(fd, contents, "utf8");
+    if (typeof contents === "string") fs.writeFileSync(fd, contents, "utf8");
+    else writeAllParts(fd, contents);
     if (durable) fs.fsyncSync(fd);
   } finally {
     fs.closeSync(fd);
@@ -65,7 +66,20 @@ function writeBytesAtomic(file: string, contents: string, durable: boolean): voi
     } catch {
       /* directory fsync is best-effort (not supported on every platform) */
     }
-    recordPerfDurableWrite(Buffer.byteLength(contents, "utf8"));
+    recordPerfDurableWrite(typeof contents === "string" ? Buffer.byteLength(contents, "utf8") : contents.reduce((sum, part) => sum + part.length, 0));
+  }
+}
+
+/** Writes every byte of `parts`, in order, with as few writev calls as the
+ *  kernel allows (a short write resumes where it stopped). */
+function writeAllParts(fd: number, parts: readonly Buffer[]): void {
+  let queue = parts.filter((part) => part.length > 0);
+  while (queue.length > 0) {
+    const batch = queue.slice(0, 1024);
+    let written = fs.writevSync(fd, batch);
+    let used = 0;
+    while (used < batch.length && written >= batch[used].length) written -= batch[used++].length;
+    queue = used < batch.length ? [batch[used].subarray(written), ...batch.slice(used + 1), ...queue.slice(batch.length)] : queue.slice(batch.length);
   }
 }
 
@@ -80,6 +94,12 @@ export function writeJson(file: string, value: unknown, options: WriteJsonOption
  *  trust-audit event log) where the caller already has the final bytes. */
 export function writeTextDurable(file: string, text: string, options: WriteJsonOptions = {}): void {
   writeBytesAtomic(file, text, Boolean(options.durable));
+}
+
+/** Same contract again, for bytes already cut into parts (written in order
+ *  with writev, never joined into one string first). */
+export function writePartsDurable(file: string, parts: readonly Buffer[], options: WriteJsonOptions = {}): void {
+  writeBytesAtomic(file, parts, Boolean(options.durable));
 }
 
 /** Read + JSON.parse a file. Throws `File not found: <file>` when absent,

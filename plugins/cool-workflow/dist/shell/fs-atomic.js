@@ -42,6 +42,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.writeJson = writeJson;
 exports.writeTextDurable = writeTextDurable;
+exports.writePartsDurable = writePartsDurable;
 exports.readJson = readJson;
 exports.safeFileName = safeFileName;
 exports.assertSafeRunId = assertSafeRunId;
@@ -73,7 +74,10 @@ function writeBytesAtomic(file, contents, durable) {
     // this covers the final file too.
     const fd = fs.openSync(tmp, "w", 0o600);
     try {
-        fs.writeFileSync(fd, contents, "utf8");
+        if (typeof contents === "string")
+            fs.writeFileSync(fd, contents, "utf8");
+        else
+            writeAllParts(fd, contents);
         if (durable)
             fs.fsyncSync(fd);
     }
@@ -105,7 +109,20 @@ function writeBytesAtomic(file, contents, durable) {
         catch {
             /* directory fsync is best-effort (not supported on every platform) */
         }
-        (0, perf_trace_1.recordPerfDurableWrite)(Buffer.byteLength(contents, "utf8"));
+        (0, perf_trace_1.recordPerfDurableWrite)(typeof contents === "string" ? Buffer.byteLength(contents, "utf8") : contents.reduce((sum, part) => sum + part.length, 0));
+    }
+}
+/** Writes every byte of `parts`, in order, with as few writev calls as the
+ *  kernel allows (a short write resumes where it stopped). */
+function writeAllParts(fd, parts) {
+    let queue = parts.filter((part) => part.length > 0);
+    while (queue.length > 0) {
+        const batch = queue.slice(0, 1024);
+        let written = fs.writevSync(fd, batch);
+        let used = 0;
+        while (used < batch.length && written >= batch[used].length)
+            written -= batch[used++].length;
+        queue = used < batch.length ? [batch[used].subarray(written), ...batch.slice(used + 1), ...queue.slice(batch.length)] : queue.slice(batch.length);
     }
 }
 /** Atomic, optionally-durable JSON write — see `writeBytesAtomic`. */
@@ -118,6 +135,11 @@ function writeJson(file, value, options = {}) {
  *  trust-audit event log) where the caller already has the final bytes. */
 function writeTextDurable(file, text, options = {}) {
     writeBytesAtomic(file, text, Boolean(options.durable));
+}
+/** Same contract again, for bytes already cut into parts (written in order
+ *  with writev, never joined into one string first). */
+function writePartsDurable(file, parts, options = {}) {
+    writeBytesAtomic(file, parts, Boolean(options.durable));
 }
 /** Read + JSON.parse a file. Throws `File not found: <file>` when absent,
  *  `Invalid JSON in <file>: <message>` on a parse error. */
