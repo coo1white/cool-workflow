@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // drive-audit-batches — audit-batches program, PR 2
-// (project/docs/intent/2026-09-26-audit-batches.md).
+// (project/docs/intent/2026-09-archive.md, the audit-batches part).
 //
 // 1. A serial drive writes each worker's trust-audit events in 3 durable
 //    appends (dispatch group, accept group, agent-env), not one per event,

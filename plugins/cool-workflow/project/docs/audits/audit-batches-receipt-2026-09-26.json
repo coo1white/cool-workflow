@@ -1,0 +1,57 @@
+{
+  "program": "2026-09-26-audit-batches",
+  "commit": "52c82bc746699335ee1e687742eca54d90a7d9cb",
+  "startedAt": "2026-09-26T16:50:59Z",
+  "finishedAt": "2026-09-26T17:16:54Z",
+  "machine": "Linux, Node 22, built dist/, a stub agent that writes its result at once",
+  "counts": {
+    "command": "node scripts/bench/perf-counts.js",
+    "before": { "drive.fsyncs": 238, "drive.renames": 430 },
+    "after": { "drive.fsyncs": 158, "drive.renames": 350 },
+    "byPR": [
+      { "pr": "#719", "note": "no count moved: no counted journey throws inside a batch" },
+      { "pr": "#720", "drive.fsyncs": "238 -> 158", "drive.renames": "430 -> 350" }
+    ],
+    "note": "The ratchet's stub returns no evidence, so each worker writes 8 events there (a worker.capture-warning too); 5 fewer appends a worker. No other count moved; drive.modules stays 114."
+  },
+  "auditAppends": {
+    "command": "a --require hook counting fsyncs per file, the fan app at 16 workers",
+    "eventsJsonlFsyncs": { "before": 112, "after": 48, "perWorkerBefore": 7, "perWorkerAfter": 3 },
+    "fsTimeAt64Workers": { "before": "406 ms in recordTrustAuditEvent (448 locked appends)" }
+  },
+  "checks": [
+    {
+      "id": "cw-self-time-8-percent",
+      "pass": true,
+      "command": "9 alternating pairs of the stub drive, main at 2ca747b (before the program) against #719 + #720",
+      "seen": "CW self time median 2582 -> 2193 ms at 64 workers (-15.1%), 624 -> 532 ms at 16 (-14.7%).",
+      "note": "The plan's prototype (7 pairs, dist patch) had shown -11.5% and -16%."
+    },
+    {
+      "id": "byte-identical-drive",
+      "pass": true,
+      "command": "a pinned stub drive with CW_DRIVE_PROGRESS=1 (time via scripts/fake-date-for-reproduction.js, pid pinned, one fixed root) on main and on each PR, then a byte diff of the run folders and stderr",
+      "seen": "#719: fan app 0 of 128 files differ. #720: fan app 0 of 128, architecture-review 0 of 167 after normalizing the plugin-root path; audit/events.jsonl included.",
+      "note": "Every event is still written, in the same order, with the same ids and hash links."
+    },
+    {
+      "id": "throw-keeps-events",
+      "pass": true,
+      "command": "node test/shell/trust-audit-batch-throw.test.js",
+      "seen": "trust-audit-batch-throw: ok",
+      "note": "Fails on main: a batch body that records two events and throws left none on disk."
+    },
+    {
+      "id": "three-appends-and-audit-first",
+      "pass": true,
+      "command": "node test/shell/drive-audit-batches.test.js",
+      "seen": "drive-audit-batches: ok",
+      "note": "Fails on main (28 appends for 28 worker events) and with the flushPendingTrustAudit call taken out of saveCheckpoint (the state is replaced before the batch's event is on disk)."
+    }
+  ],
+  "leadingMeasures": {
+    "intentToFirstBuildPR": "#718 (intent) opened 16:50Z; #719 (first build PR) opened 17:01Z: 10 minutes, with the operator's approval in between.",
+    "firstPassCI": "3 of 3 plan and build PRs green on the first push: #718, #719 and #720, one commit each."
+  },
+  "verdict": "pass"
+}
