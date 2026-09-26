@@ -340,7 +340,59 @@ export function saveCheckpoint(run: WorkflowRun): void {
   run.updatedAt = new Date().toISOString();
   withFileLock(run.paths.state, () => {
     writeJson(run.paths.state, run, { durable: true });
+    const stamp = stateFileStamp(run.paths.state);
+    if (stamp) LAST_SAVED.set(path.resolve(run.paths.state), { stamp, run });
+    else LAST_SAVED.delete(path.resolve(run.paths.state));
   });
+}
+
+/** The state.json this process last wrote, per state path: the file's
+ *  stamp right after the save, and the run object it wrote. Any later
+ *  write by anyone (another process, a hand edit, a restore) replaces the
+ *  file by rename or rewrites it, so the stamp no longer matches. */
+const LAST_SAVED = new Map<string, { stamp: string; run: WorkflowRun }>();
+
+function stateFileStamp(file: string): string | undefined {
+  try {
+    const s = fs.statSync(file, { bigint: true });
+    return `${s.dev}:${s.ino}:${s.size}:${s.mtimeNs}:${s.ctimeNs}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The run object this process's last saveCheckpoint wrote to
+ *  `statePath`, when the file on disk is still exactly the one it wrote
+ *  and the object is in the shape a load gives back (jsonShaped); else
+ *  undefined (the caller reads from disk). It is the caller's job to know
+ *  the object has not changed since that save. */
+export function savedRunIfCurrent(statePath: string): WorkflowRun | undefined {
+  const saved = LAST_SAVED.get(path.resolve(statePath));
+  return saved && stateFileStamp(statePath) === saved.stamp && jsonShaped(saved.run) ? saved.run : undefined;
+}
+
+/** True when `value` is already what `JSON.parse(JSON.stringify(value))`
+ *  gives, once its undefined-valued keys are deleted (JSON drops them, so
+ *  a load never has them; a spread over a present-but-undefined key acts
+ *  differently from a missing one). Anything JSON would change instead
+ *  (NaN, a Date, toJSON, a class instance, a hole or undefined in an
+ *  array) is a false: read from disk. */
+function jsonShaped(value: unknown): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value !== "object") return false;
+  if (Array.isArray(value)) {
+    for (let i = 0; i < value.length; i++) if (!(i in value) || value[i] === undefined || !jsonShaped(value[i])) return false;
+    return true;
+  }
+  const proto = Object.getPrototypeOf(value);
+  if ((proto !== Object.prototype && proto !== null) || typeof (value as { toJSON?: unknown }).toJSON === "function") return false;
+  const record = value as Record<string, unknown>;
+  for (const key of Object.keys(record)) {
+    if (record[key] === undefined) delete record[key];
+    else if (!jsonShaped(record[key])) return false;
+  }
+  return true;
 }
 
 const OPTIONAL_EMPTY_ARRAY_KEYS = ["nodes", "contracts", "feedback", "workers", "sandboxProfiles", "candidates", "candidateSelections"];

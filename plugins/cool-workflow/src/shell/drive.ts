@@ -15,6 +15,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { WorkflowRun } from "../core/state/types";
 import {
   DEFAULT_SCHEDULING_POLICY,
@@ -50,7 +51,7 @@ import {
   ResultEnvelopeLike,
 } from "../core/pipeline/loop-expansion";
 import { firstRunnablePhase, updatePhaseStatuses } from "../core/pipeline/dispatch";
-import { loadRunFromCwd, saveCheckpoint, withDriveLock, withDriveLockAsync, resolveRunDir } from "./run-store";
+import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir } from "./run-store";
 import { createDispatchManifest } from "./dispatch";
 import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope } from "./worker-isolation";
 import { createStateNode } from "../core/state/state-node";
@@ -172,6 +173,10 @@ interface DriveContext {
    *  DriveOptions.policy override) — read by handleHop's retryOrPark call
    *  and by drive()'s maxIterations call. */
   policy: SchedulingPolicy;
+  /** The run the last round of THIS drive call ended with (driveOneRound).
+   *  The next round starts from it only while state.json is still the
+   *  file its last save wrote (seedRun); a new drive call starts empty. */
+  lastRoundRun?: WorkflowRun;
 }
 
 // A concurrent round runs many dispatch/accept steps against ONE shared
@@ -204,12 +209,30 @@ function loadRun(ctx: DriveContext): WorkflowRun {
  *  from under an enclosing scope. */
 function withRoundCache<T>(ctx: DriveContext, fn: () => T): T {
   const alreadyActive = roundCache.has(ctx.runId);
-  if (!alreadyActive) roundCache.set(ctx.runId, loadRunFromCwd(ctx.runId, ctx.cwd));
+  if (!alreadyActive) roundCache.set(ctx.runId, seedRun(ctx));
   try {
     return fn();
   } finally {
     if (!alreadyActive) roundCache.delete(ctx.runId);
   }
+}
+
+/** The run a new round starts from. When the last round's run is still
+ *  exactly what state.json holds (this process's last save wrote that
+ *  very object, and the file's stamp has not moved since, so no other
+ *  writer has touched it), the round goes on with it instead of reading
+ *  back what it just wrote. Anything else reads from disk, as before.
+ *  CW_STATE_REUSE_VERIFY=1 (tests only) also reads from disk and throws
+ *  on any difference. */
+function seedRun(ctx: DriveContext): WorkflowRun {
+  const previous = ctx.lastRoundRun;
+  if (previous && savedRunIfCurrent(path.join(ctx.cwd, ".cw", "runs", ctx.runId, "state.json")) === previous) {
+    if (process.env.CW_STATE_REUSE_VERIFY === "1" && !isDeepStrictEqual(previous, loadRunFromCwd(ctx.runId, ctx.cwd))) {
+      throw new Error(`state reuse differs from state.json for run ${ctx.runId}`);
+    }
+    return previous;
+  }
+  return loadRunFromCwd(ctx.runId, ctx.cwd);
 }
 
 function resultCachePath(run: WorkflowRun, task: { id: string; phase: string; prompt: string; resultCache?: { mode?: string; keyInput?: string; includeCompletedResults?: string } }, promptDigest: string, incremental: boolean, delegationDigest: string): string | undefined {
@@ -1041,6 +1064,7 @@ function driveOneRound(ctx: DriveContext, options: DriveOptions, steps: DriveSte
     return { roundSteps: stepsOfRound, roundRun: loadRun(ctx) };
   }));
   for (const stepResult of roundSteps) steps.push(stepResult);
+  ctx.lastRoundRun = roundRun;
   // Brew-style progress lines: after each round, announce a newly-active
   // phase and any phase that just finished. Uses the run the round just
   // advanced and saved, not a second read of the file it wrote; goes to

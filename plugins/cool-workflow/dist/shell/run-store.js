@@ -57,6 +57,7 @@ exports.withRunStateLock = withRunStateLock;
 exports.withDriveLock = withDriveLock;
 exports.withDriveLockAsync = withDriveLockAsync;
 exports.saveCheckpoint = saveCheckpoint;
+exports.savedRunIfCurrent = savedRunIfCurrent;
 exports.compactCheckpoint = compactCheckpoint;
 exports.createRun = createRun;
 const fs = __importStar(require("node:fs"));
@@ -383,7 +384,66 @@ function saveCheckpoint(run) {
     run.updatedAt = new Date().toISOString();
     (0, fs_atomic_1.withFileLock)(run.paths.state, () => {
         (0, fs_atomic_1.writeJson)(run.paths.state, run, { durable: true });
+        const stamp = stateFileStamp(run.paths.state);
+        if (stamp)
+            LAST_SAVED.set(path.resolve(run.paths.state), { stamp, run });
+        else
+            LAST_SAVED.delete(path.resolve(run.paths.state));
     });
+}
+/** The state.json this process last wrote, per state path: the file's
+ *  stamp right after the save, and the run object it wrote. Any later
+ *  write by anyone (another process, a hand edit, a restore) replaces the
+ *  file by rename or rewrites it, so the stamp no longer matches. */
+const LAST_SAVED = new Map();
+function stateFileStamp(file) {
+    try {
+        const s = fs.statSync(file, { bigint: true });
+        return `${s.dev}:${s.ino}:${s.size}:${s.mtimeNs}:${s.ctimeNs}`;
+    }
+    catch {
+        return undefined;
+    }
+}
+/** The run object this process's last saveCheckpoint wrote to
+ *  `statePath`, when the file on disk is still exactly the one it wrote
+ *  and the object is in the shape a load gives back (jsonShaped); else
+ *  undefined (the caller reads from disk). It is the caller's job to know
+ *  the object has not changed since that save. */
+function savedRunIfCurrent(statePath) {
+    const saved = LAST_SAVED.get(path.resolve(statePath));
+    return saved && stateFileStamp(statePath) === saved.stamp && jsonShaped(saved.run) ? saved.run : undefined;
+}
+/** True when `value` is already what `JSON.parse(JSON.stringify(value))`
+ *  gives, once its undefined-valued keys are deleted (JSON drops them, so
+ *  a load never has them; a spread over a present-but-undefined key acts
+ *  differently from a missing one). Anything JSON would change instead
+ *  (NaN, a Date, toJSON, a class instance, a hole or undefined in an
+ *  array) is a false: read from disk. */
+function jsonShaped(value) {
+    if (value === null || typeof value === "string" || typeof value === "boolean")
+        return true;
+    if (typeof value === "number")
+        return Number.isFinite(value);
+    if (typeof value !== "object")
+        return false;
+    if (Array.isArray(value)) {
+        for (let i = 0; i < value.length; i++)
+            if (!(i in value) || value[i] === undefined || !jsonShaped(value[i]))
+                return false;
+        return true;
+    }
+    const proto = Object.getPrototypeOf(value);
+    if ((proto !== Object.prototype && proto !== null) || typeof value.toJSON === "function")
+        return false;
+    const record = value;
+    for (const key of Object.keys(record)) {
+        if (record[key] === undefined)
+            delete record[key];
+        else if (!jsonShaped(record[key]))
+            return false;
+    }
+    return true;
 }
 const OPTIONAL_EMPTY_ARRAY_KEYS = ["nodes", "contracts", "feedback", "workers", "sandboxProfiles", "candidates", "candidateSelections"];
 /** Strip the 7 top-level optional-array keys when each is an empty array
