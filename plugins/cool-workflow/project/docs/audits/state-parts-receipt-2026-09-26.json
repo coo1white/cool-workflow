@@ -1,0 +1,55 @@
+{
+  "program": "2026-09-26-state-parts",
+  "commit": "aba4c00569cb83e07bdcde08c9fb738070387004",
+  "startedAt": "2026-09-26T18:27:16Z",
+  "finishedAt": "2026-09-26T18:38:51Z",
+  "machine": "Linux, Node 22, built dist/, a stub agent that writes its result at once",
+  "counts": {
+    "command": "node scripts/bench/perf-counts.js",
+    "before": { "drive.stateRoundTrips": 38 },
+    "after": { "drive.stateRoundTrips": 3 },
+    "byPR": [
+      { "pr": "#724", "drive.stateRoundTrips": "38 -> 3" }
+    ],
+    "note": "No other count moved: drive.fsyncs 158, drive.renames 350 and drive.stateReads 3 stay, since every save still writes the whole file durably. The count is calls, not bytes; the saving is in the time below."
+  },
+  "buckets": {
+    "command": "a --require hook that times each fs call and each JSON.parse/stringify over 20 KB, grouped by caller from the stack; the 64-worker fan app",
+    "stateWriteMs": { "stringifyBefore": 384, "stringifyAfter": 0, "writeBefore": 207, "writeAfter": "under 60", "fsyncBefore": 225, "note": "the fsync and rename are the atomic contract and stay" }
+  },
+  "checks": [
+    {
+      "id": "cw-self-time-10-percent",
+      "pass": true,
+      "command": "9 alternating pairs of the 64-worker and 16-worker stub drive, main at 8ee7d35 and 2ebcebb against the #724 build",
+      "seen": "CW self time median 2216 -> 1852 ms (-16.4%) at 64 workers; 528 -> 479 ms (-9.3%) at 16 workers.",
+      "note": "A first build that joined the kept texts into one string was slower (2204 -> 2352 ms at 64 workers); the parts written with writev are the build that shipped."
+    },
+    {
+      "id": "byte-identical-saves",
+      "pass": true,
+      "command": "the full smoke gate and the v2 conformance suite, with the CW_STATE_WRITE_VERIFY check forced on in dist (not committed)",
+      "seen": "2444 saves, every one byte-identical to JSON.stringify(run, null, 2) plus a newline.",
+      "note": "The in-place edits the state-writes record found (runReclamation re-pointing a node, tests editing workers) are misses: that element is stringified again."
+    },
+    {
+      "id": "serializer-test-teeth",
+      "pass": true,
+      "command": "node test/shell/run-state-serializer.test.js",
+      "seen": "run-state-serializer: ok",
+      "note": "The test fails with the unchanged check taken out and with the short-write loop taken out."
+    },
+    {
+      "id": "ratchet",
+      "pass": true,
+      "command": "node test/perf-ratchet-smoke.js",
+      "seen": "perf-ratchet-smoke: ok with drive.stateRoundTrips at 3",
+      "note": "Green on check (18), check (22) and check (24) for #724."
+    }
+  ],
+  "leadingMeasures": {
+    "intentToFirstBuildPR": "#723 (intent) opened 18:27Z; #724 (build PR) opened 18:33Z: 6 minutes, the gates approved ahead of time (auto-develop).",
+    "firstPassCI": "2 of 2 program PRs green on the first push: #723 and #724, one commit each."
+  },
+  "verdict": "pass"
+}

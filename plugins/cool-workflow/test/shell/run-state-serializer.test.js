@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // run-state-serializer — state-parts program, PR 1
-// (project/docs/intent/2026-09-26-state-parts.md). saveCheckpoint writes state.json
+// (project/docs/intent/2026-09-archive.md, the state-parts part). saveCheckpoint writes state.json
 // from parts, reusing each array element's JSON text while the element is
 // provably unchanged. The bytes must equal `JSON.stringify(run, null, 2)`
 // plus a newline after ANY edit, in place or not, and a short writev must
