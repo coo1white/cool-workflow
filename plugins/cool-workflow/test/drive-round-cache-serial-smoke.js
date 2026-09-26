@@ -24,7 +24,7 @@
 // Proven with a deterministic read-count (not wall-clock — see cycle
 // P1-2's own note on why: this repo's full test suite runs many smokes
 // concurrently, and timing assertions are flaky under that load). The
-// exact counts below (4, 4, 4-per-round) are all specific to a round
+// exact counts below (3, 3, 3-per-round) are all specific to a round
 // where the dispatched task starts "pending" (a fresh dispatch, which
 // triggers processSelectedTask's post-dispatch reload) -- an adversarial
 // review confirmed these numbers by direct measurement, and separately
@@ -32,6 +32,11 @@
 // both reverted, 5 with only the re-entrancy guard reverted on the
 // concurrent path) -- so this test's exact-equality assertions actually
 // discriminate a partial regression, not just a gross one.
+//
+// state-reads program, PR 1 (project/docs/intent/2026-09-26-state-reads.md):
+// the progress line after each round now uses the run the round just
+// saved instead of reading state.json back, so every count below is one
+// lower than it was (4 -> 3).
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -92,8 +97,9 @@ const cwd0 = process.cwd();
     assert.equal(result.steps[0].status, "ok", "the task is accepted in this one round, unaffected by the cache change");
     // Measured live: 7 reads before this fix (1 pre-loop + 4 in-round + 1
     // emitPhaseProgress + 1 post-loop), 4 after (1 pre-loop + 1 in-round,
-    // shared + 1 emitPhaseProgress + 1 post-loop).
-    assert.equal(count, 4, `one serial round read state.json ${count} times, expected exactly 4 (was 7 before this fix)`);
+    // shared + 1 emitPhaseProgress + 1 post-loop), 3 once the progress
+    // line stopped reading (1 pre-loop + 1 in-round + 1 post-loop).
+    assert.equal(count, 3, `one serial round read state.json ${count} times, expected exactly 3 (was 7 before the round cache, 4 before the progress line stopped reading)`);
   } finally {
     process.chdir(cwd0);
     fs.rmSync(work, { recursive: true, force: true });
@@ -109,7 +115,7 @@ const cwd0 = process.cwd();
 //    without either re-seeding or clearing early. Measured live: 5 reads
 //    with the re-entrancy guard alone reverted (driveConcurrentRound's
 //    inner call re-seeds from disk instead of reusing the outer seed),
-//    4 with it in place.
+//    3 with it in place (4 before the progress line stopped reading).
 // ---------------------------------------------------------------------
 {
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-drive-roundcache-conc-")));
@@ -136,7 +142,7 @@ const cwd0 = process.cwd();
       ["ok", "ok"],
       "both tasks accepted in this one round"
     );
-    assert.equal(count, 4, `one concurrent round of 2 tasks read state.json ${count} times, expected exactly 4 (was 5 with only the re-entrancy guard reverted)`);
+    assert.equal(count, 3, `one concurrent round of 2 tasks read state.json ${count} times, expected exactly 3 (5 with only the re-entrancy guard reverted)`);
   } finally {
     process.chdir(cwd0);
     fs.rmSync(work, { recursive: true, force: true });
@@ -146,7 +152,7 @@ const cwd0 = process.cwd();
 // ---------------------------------------------------------------------
 // 3. Cache correctly resets BETWEEN rounds: a 2-phase, 2-task serial app
 //    driven by 2 separate once:true calls must each read state.json
-//    exactly 4 times AND correctly select the phase's OWN still-pending
+//    exactly 3 times AND correctly select the phase's OWN still-pending
 //    task, not a stale or leaked-across-rounds cache entry.
 // ---------------------------------------------------------------------
 {
@@ -169,8 +175,8 @@ const cwd0 = process.cwd();
 
     assert.equal(round1.result.steps[0].taskId, "t1", "round 1 selects PhaseA's task");
     assert.equal(round2.result.steps[0].taskId, "t2", "round 2's freshly re-seeded cache correctly selects PhaseB's task, not a stale round-1 view");
-    assert.equal(round1.count, 4, `round 1 read state.json ${round1.count} times, expected exactly 4`);
-    assert.equal(round2.count, 4, `round 2 read state.json ${round2.count} times, expected exactly 4 -- a leaked-across-rounds cache would read fewer or select the wrong task`);
+    assert.equal(round1.count, 3, `round 1 read state.json ${round1.count} times, expected exactly 3`);
+    assert.equal(round2.count, 3, `round 2 read state.json ${round2.count} times, expected exactly 3 -- a leaked-across-rounds cache would read fewer or select the wrong task`);
   } finally {
     process.chdir(cwd0);
     fs.rmSync(work, { recursive: true, force: true });
