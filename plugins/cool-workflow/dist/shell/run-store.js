@@ -100,8 +100,11 @@ function hashArtifactFile(artifact) {
 }
 /** Dry-run load + migrate a state.json at an explicit path. */
 function loadRunStateFile(statePath, options = {}) {
+    // readJson hands back a fresh parse nothing else holds, so the
+    // migration works on it in place: one JSON pass per load, not three.
     return (0, migrations_1.migrateRunState)((0, fs_atomic_1.readJson)(statePath), {
         statePath,
+        owned: true,
         dryRun: options.dryRun === undefined ? true : options.dryRun,
     });
 }

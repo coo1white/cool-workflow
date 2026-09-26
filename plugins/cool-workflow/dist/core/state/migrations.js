@@ -125,6 +125,10 @@ function findMigrationPath(steps, fromVersion, toVersion) {
 function computeSuspectedDataLoss(input) {
     return !("workflow" in input) || !("paths" in input);
 }
+/** `owned: true` says the caller hands over an object nothing else holds
+ *  (a fresh JSON.parse of state.json), so the migration may work on it in
+ *  place instead of on a deep copy. The result is the same either way; only
+ *  the caller's object is left untouched when `owned` is absent. */
 function migrateRunState(input, options = {}) {
     const report = {
         status: "current",
@@ -148,14 +152,14 @@ function migrateRunState(input, options = {}) {
     if (report.detectedSchemaVersion < version_1.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
         report.status = "unsupported";
         report.errors.push(`Unsupported run-state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)}.`);
-        return { run: clone(input), report };
+        return { run: take(input, options.owned), report };
     }
     if (report.detectedSchemaVersion > version_1.CURRENT_RUN_STATE_SCHEMA_VERSION) {
         report.status = "unsupported";
         report.errors.push(`Run state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)} is newer than this CW runtime (${version_1.CURRENT_RUN_STATE_SCHEMA_VERSION}).`);
-        return { run: clone(input), report };
+        return { run: take(input, options.owned), report };
     }
-    const state = clone(input);
+    const state = take(input, options.owned);
     const context = { statePath: options.statePath, changes: report.changes, errors: report.errors };
     const resolved = findMigrationPath(exports.RUN_STATE_MIGRATIONS, report.detectedSchemaVersion, version_1.CURRENT_RUN_STATE_SCHEMA_VERSION);
     if (!resolved.reachable) {
@@ -479,6 +483,9 @@ function isLoopStage(value) {
 }
 function isRecord(value) {
     return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+function take(value, owned) {
+    return owned ? value : clone(value);
 }
 function clone(value) {
     return JSON.parse(JSON.stringify(value));
