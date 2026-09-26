@@ -61,6 +61,7 @@ exports.trustAuditHead = trustAuditHead;
 exports.verifyTrustAudit = verifyTrustAudit;
 exports.repairTrustAuditTornTail = repairTrustAuditTornTail;
 exports.recordTrustAuditEvent = recordTrustAuditEvent;
+exports.flushPendingTrustAudit = flushPendingTrustAudit;
 exports.withTrustAuditBatch = withTrustAuditBatch;
 exports.recordSandboxPathDecision = recordSandboxPathDecision;
 exports.normalizeEvidence = normalizeEvidence;
@@ -530,6 +531,15 @@ function flushTrustAuditBatch(batch) {
         return;
     (0, fs_atomic_1.durableAppendFileSync)(batch.audit.eventLogPath, batch.lines.join(""));
     writeAuditTailCache(tailCachePathFor(batch.audit.eventLogPath), { schemaVersion: 1, logBytes: batch.currentBytes, count: batch.count, lastHash: batch.lastHash });
+    batch.lines = [];
+}
+/** Write now the events an open batch for `run` holds, and keep the batch
+ *  open. saveCheckpoint calls it first, so a checkpoint never reaches disk
+ *  ahead of audit events recorded before it. No open batch: nothing. */
+function flushPendingTrustAudit(run) {
+    const batch = ACTIVE_AUDIT_BATCHES.get(path.resolve(trustAuditPaths(run).eventLogPath));
+    if (batch)
+        flushTrustAuditBatch(batch);
 }
 /** Run a short, synchronous mutation group under one audit lock and append its
  *  exact NDJSON lines with one durable write before the caller checkpoints.

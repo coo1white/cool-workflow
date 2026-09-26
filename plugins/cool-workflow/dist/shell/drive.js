@@ -293,7 +293,9 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     let workerId = selected.workerId;
     let dispatched = false;
     if (selected.status === "pending") {
-        const manifest = (0, dispatch_2.createDispatchManifest)(run, 1, { backendId: selected.agentType || "agent" });
+        // One audit lock and one durable write for the dispatch's events, as the
+        // concurrent round does; flushed before the dispatch checkpoint below.
+        const manifest = (0, trust_audit_1.withTrustAuditBatch)(run, () => (0, dispatch_2.createDispatchManifest)(run, 1, { backendId: selected.agentType || "agent" }));
         // Advance the RUN-level lifecycle stage on dispatch, exactly as the old
         // build's orchestrator dispatch() wrapper did (run.loopStage = "act").
         // The operator status "Stage:" line reads run.loopStage; v2's shell/
@@ -340,32 +342,34 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
         try {
             fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
-            // Not gated by requireAttestedTelemetry here: the underlying result was
-            // already gated (attested or explicitly overridden) at its FIRST
-            // acceptance, before it was cached. Re-blocking a cache hit would only
-            // punish the operator for their own earlier, already-audited accept.
-            // Still made visible, not silent: when the operator requires attested
-            // telemetry, record that this particular accept came from the cache
-            // rather than a freshly re-verified hop.
-            (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
-            if (ctx.config.requireAttestedTelemetry) {
-                (0, trust_audit_1.recordTrustAuditEvent)(run, {
-                    kind: "telemetry.cache-accept",
-                    decision: "recorded",
-                    source: "cw-validated",
-                    workerId,
-                    taskId: selected.id,
-                    metadata: { reason: "result-cache hit; original attestation gate applied at first acceptance, not re-verified here" },
-                });
-            }
-            // Advance the run lifecycle stage on accept, as the old build's
-            // recordWorkerOutput wrapper did (run.loopStage = "observe").
-            run.loopStage = "observe";
-            // Bounded dynamic loops: after a round's tasks complete, evaluate the
-            // predicate and either append the next round or mark the loop done —
-            // folded into this same worker:<id>:result checkpoint, exactly as the
-            // old build's recordWorkerOutput wrapper did (no-op for non-loop runs).
-            maybeExpandLoop(run);
+            (0, trust_audit_1.withTrustAuditBatch)(run, () => {
+                // Not gated by requireAttestedTelemetry here: the underlying result was
+                // already gated (attested or explicitly overridden) at its FIRST
+                // acceptance, before it was cached. Re-blocking a cache hit would only
+                // punish the operator for their own earlier, already-audited accept.
+                // Still made visible, not silent: when the operator requires attested
+                // telemetry, record that this particular accept came from the cache
+                // rather than a freshly re-verified hop.
+                (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
+                if (ctx.config.requireAttestedTelemetry) {
+                    (0, trust_audit_1.recordTrustAuditEvent)(run, {
+                        kind: "telemetry.cache-accept",
+                        decision: "recorded",
+                        source: "cw-validated",
+                        workerId,
+                        taskId: selected.id,
+                        metadata: { reason: "result-cache hit; original attestation gate applied at first acceptance, not re-verified here" },
+                    });
+                }
+                // Advance the run lifecycle stage on accept, as the old build's
+                // recordWorkerOutput wrapper did (run.loopStage = "observe").
+                run.loopStage = "observe";
+                // Bounded dynamic loops: after a round's tasks complete, evaluate the
+                // predicate and either append the next round or mark the loop done —
+                // folded into this same worker:<id>:result checkpoint, exactly as the
+                // old build's recordWorkerOutput wrapper did (no-op for non-loop runs).
+                maybeExpandLoop(run);
+            });
             // Byte-exact to the old build's orchestrator recordWorkerOutput()
             // wrapper: an accepted result is its own checkpoint commit (reason
             // `worker:<worker-id>:result`), not just a bare saveCheckpoint.
@@ -410,25 +414,29 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         return handleHop(ctx, selected, workerId, "agent produced no result.md", deferPersist, deferPersist ? run : undefined);
     }
     try {
-        (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath, {
-            agentDelegation: {
-                handle: handle,
-                model: reportedModel,
-                promptDigest,
-                command: handle?.metadata?.command,
-                args: handle?.metadata?.args || [],
-                exitCode: (0, drive_decide_1.exitCodeFromEvidence)(envelope.evidence),
-                reportedUsage,
-                usageSignature,
-                usageTrustPublicKey: ctx.config.attestPublicKey,
-            },
-            requireAttestedTelemetry: ctx.config.requireAttestedTelemetry,
+        // One audit lock and one durable write for the accept's events, flushed
+        // before the result checkpoint below (and before any save inside it).
+        (0, trust_audit_1.withTrustAuditBatch)(run, () => {
+            (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath, {
+                agentDelegation: {
+                    handle: handle,
+                    model: reportedModel,
+                    promptDigest,
+                    command: handle?.metadata?.command,
+                    args: handle?.metadata?.args || [],
+                    exitCode: (0, drive_decide_1.exitCodeFromEvidence)(envelope.evidence),
+                    reportedUsage,
+                    usageSignature,
+                    usageTrustPublicKey: ctx.config.attestPublicKey,
+                },
+                requireAttestedTelemetry: ctx.config.requireAttestedTelemetry,
+            });
+            // Advance the run lifecycle stage on accept (old build: "observe").
+            run.loopStage = "observe";
+            // Bounded dynamic loops: same round-boundary evaluation the old build's
+            // recordWorkerOutput wrapper performed, folded into this checkpoint.
+            maybeExpandLoop(run);
         });
-        // Advance the run lifecycle stage on accept (old build: "observe").
-        run.loopStage = "observe";
-        // Bounded dynamic loops: same round-boundary evaluation the old build's
-        // recordWorkerOutput wrapper performed, folded into this checkpoint.
-        maybeExpandLoop(run);
         if (!deferPersist) {
             (0, commit_1.commitState)(run, `worker:${workerId}:result`);
             (0, run_store_1.saveCheckpoint)(run);

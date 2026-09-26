@@ -67,6 +67,7 @@ const run_paths_1 = require("../core/state/run-paths");
 Object.defineProperty(exports, "createRunPaths", { enumerable: true, get: function () { return run_paths_1.createRunPaths; } });
 const migrations_1 = require("../core/state/migrations");
 const hash_1 = require("../core/hash");
+const trust_audit_1 = require("./trust-audit");
 /** `mkdirSync` (recursive) every always-written directory. `artifacts`,
  *  `feedback`, `candidates`, `multi-agent`, `blackboard`, and `topologies`
  *  are made on first use instead, each by its own writer in shell/. */
@@ -381,6 +382,7 @@ async function withDriveLockAsync(runDir, runId, fn) {
 /** state.json is the single source of truth — set `updatedAt`, then write
  *  it DURABLY with a lock so concurrent processes never lose an update. */
 function saveCheckpoint(run) {
+    (0, trust_audit_1.flushPendingTrustAudit)(run);
     run.updatedAt = new Date().toISOString();
     (0, fs_atomic_1.withFileLock)(run.paths.state, () => {
         (0, fs_atomic_1.writeJson)(run.paths.state, run, { durable: true });

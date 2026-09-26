@@ -668,6 +668,15 @@ function flushTrustAuditBatch(batch: TrustAuditBatch): void {
   if (!batch.lines.length) return;
   durableAppendFileSync(batch.audit.eventLogPath, batch.lines.join(""));
   writeAuditTailCache(tailCachePathFor(batch.audit.eventLogPath), { schemaVersion: 1, logBytes: batch.currentBytes, count: batch.count, lastHash: batch.lastHash });
+  batch.lines = [];
+}
+
+/** Write now the events an open batch for `run` holds, and keep the batch
+ *  open. saveCheckpoint calls it first, so a checkpoint never reaches disk
+ *  ahead of audit events recorded before it. No open batch: nothing. */
+export function flushPendingTrustAudit(run: WorkflowRun): void {
+  const batch = ACTIVE_AUDIT_BATCHES.get(path.resolve(trustAuditPaths(run).eventLogPath));
+  if (batch) flushTrustAuditBatch(batch);
 }
 
 /** Run a short, synchronous mutation group under one audit lock and append its
