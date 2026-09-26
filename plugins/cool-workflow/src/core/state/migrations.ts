@@ -167,9 +167,13 @@ function computeSuspectedDataLoss(input: Record<string, unknown>): boolean {
   return !("workflow" in input) || !("paths" in input);
 }
 
+/** `owned: true` says the caller hands over an object nothing else holds
+ *  (a fresh JSON.parse of state.json), so the migration may work on it in
+ *  place instead of on a deep copy. The result is the same either way; only
+ *  the caller's object is left untouched when `owned` is absent. */
 export function migrateRunState(
   input: unknown,
-  options: { statePath?: string; dryRun?: boolean } = {}
+  options: { statePath?: string; dryRun?: boolean; owned?: boolean } = {}
 ): StateMigrationResult {
   const report: StateMigrationReport = {
     status: "current",
@@ -198,17 +202,17 @@ export function migrateRunState(
     report.errors.push(
       `Unsupported run-state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)}.`
     );
-    return { run: clone(input) as unknown as WorkflowRun, report };
+    return { run: take(input, options.owned) as unknown as WorkflowRun, report };
   }
   if (report.detectedSchemaVersion > CURRENT_RUN_STATE_SCHEMA_VERSION) {
     report.status = "unsupported";
     report.errors.push(
       `Run state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)} is newer than this CW runtime (${CURRENT_RUN_STATE_SCHEMA_VERSION}).`
     );
-    return { run: clone(input) as unknown as WorkflowRun, report };
+    return { run: take(input, options.owned) as unknown as WorkflowRun, report };
   }
 
-  const state = clone(input) as Record<string, unknown>;
+  const state = take(input, options.owned) as Record<string, unknown>;
   const context: StateMigrationContext = { statePath: options.statePath, changes: report.changes, errors: report.errors };
   const resolved = findMigrationPath(RUN_STATE_MIGRATIONS, report.detectedSchemaVersion, CURRENT_RUN_STATE_SCHEMA_VERSION);
   if (!resolved.reachable) {
@@ -570,6 +574,10 @@ function isLoopStage(value: unknown): value is LoopStage {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function take<T>(value: T, owned: boolean | undefined): T {
+  return owned ? value : clone(value);
 }
 
 function clone<T>(value: T): T {
