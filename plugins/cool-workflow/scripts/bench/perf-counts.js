@@ -2,7 +2,7 @@
 "use strict";
 
 // bench/perf-counts.js — the perf ratchet (intent:
-// project/docs/intent/2026-09-26-perf-ratchets.md). Consumer:
+// project/docs/intent/2026-09-archive.md, the perf-ratchets part). Consumer:
 // test/perf-ratchet-smoke.js, which runs `--check` on every PR.
 //
 // Runs the journeys a person waits on, each under perf-count-hook.js, and
