@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 // drive-state-reuse — state-reads program, PR 2
-// (project/docs/intent/2026-09-26-state-reads.md). A new drive round starts
-// from the run the last round saved, instead of reading state.json back,
-// but only while the file is still exactly the one that save wrote. Any
+// (project/docs/intent/2026-09-archive.md, the state-reads part). A new
+// drive round starts from the run the last round saved, instead of reading
+// state.json back, but only while the file is still exactly the one that
+// save wrote. Any
 // other write between two rounds must be seen, and
 // CW_STATE_REUSE_VERIFY=1 must catch a reused run that is not what the
 // file holds.
