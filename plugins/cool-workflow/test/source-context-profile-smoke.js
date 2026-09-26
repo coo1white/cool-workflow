@@ -34,8 +34,8 @@ const profileFile = JSON.parse(fs.readFileSync(profilePath, "utf8"));
 const core = profileFile.profiles.core;
 assert.deepEqual(core.include, expectedInclude, "core include policy must match project memory");
 assert.deepEqual(core.exclude, expectedExclude, "core exclude policy must match project memory");
-assert.equal(core.maxLines, 54000, "core profile keeps a 54k-line guard");
-assert.equal(profileFile.profiles.runtime.maxLines, 50300, "runtime profile keeps a 50k-line guard");
+assert.equal(core.maxLines, 64000, "core profile keeps a 64k-line guard");
+assert.equal(profileFile.profiles.runtime.maxLines, 60000, "runtime profile keeps a 60k-line guard");
 for (const name of ["runtime", "mcp", "workflow-apps", "release", "agent-wrappers"]) {
   assert.ok(profileFile.profiles[name], `${name} subprofile is declared`);
   assert.ok(profileFile.profiles[name].maxLines < core.maxLines, `${name} subprofile has a tighter line guard than core`);

@@ -55,6 +55,7 @@ exports.driveAsync = driveAsync;
 exports.drivePreview = drivePreview;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const node_util_1 = require("node:util");
 const drive_decide_1 = require("../core/pipeline/drive-decide");
 const loop_expansion_1 = require("../core/pipeline/loop-expansion");
 const dispatch_1 = require("../core/pipeline/dispatch");
@@ -165,7 +166,7 @@ function loadRun(ctx) {
 function withRoundCache(ctx, fn) {
     const alreadyActive = roundCache.has(ctx.runId);
     if (!alreadyActive)
-        roundCache.set(ctx.runId, (0, run_store_1.loadRunFromCwd)(ctx.runId, ctx.cwd));
+        roundCache.set(ctx.runId, seedRun(ctx));
     try {
         return fn();
     }
@@ -173,6 +174,23 @@ function withRoundCache(ctx, fn) {
         if (!alreadyActive)
             roundCache.delete(ctx.runId);
     }
+}
+/** The run a new round starts from. When the last round's run is still
+ *  exactly what state.json holds (this process's last save wrote that
+ *  very object, and the file's stamp has not moved since, so no other
+ *  writer has touched it), the round goes on with it instead of reading
+ *  back what it just wrote. Anything else reads from disk, as before.
+ *  CW_STATE_REUSE_VERIFY=1 (tests only) also reads from disk and throws
+ *  on any difference. */
+function seedRun(ctx) {
+    const previous = ctx.lastRoundRun;
+    if (previous && (0, run_store_1.savedRunIfCurrent)(path.join(ctx.cwd, ".cw", "runs", ctx.runId, "state.json")) === previous) {
+        if (process.env.CW_STATE_REUSE_VERIFY === "1" && !(0, node_util_1.isDeepStrictEqual)(previous, (0, run_store_1.loadRunFromCwd)(ctx.runId, ctx.cwd))) {
+            throw new Error(`state reuse differs from state.json for run ${ctx.runId}`);
+        }
+        return previous;
+    }
+    return (0, run_store_1.loadRunFromCwd)(ctx.runId, ctx.cwd);
 }
 function resultCachePath(run, task, promptDigest, incremental, delegationDigest) {
     let digest;
@@ -950,6 +968,7 @@ function driveOneRound(ctx, options, steps, emitPhaseProgress) {
     }));
     for (const stepResult of roundSteps)
         steps.push(stepResult);
+    ctx.lastRoundRun = roundRun;
     // Brew-style progress lines: after each round, announce a newly-active
     // phase and any phase that just finished. Uses the run the round just
     // advanced and saved, not a second read of the file it wrote; goes to
