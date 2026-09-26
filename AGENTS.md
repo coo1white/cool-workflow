@@ -499,6 +499,11 @@ short, and simple to add to. Do not use it for guesses.)
 - **Unit tests sit in folders that mirror `src/`** (a test of
   `src/core/state/run-paths.ts` goes in `test/core/state/`); smokes stay
   flat at the top of `test/`. `test/test-layout-smoke.js` holds this shape.
+- **CW's own work is held by a count ratchet.** `test/perf-ratchet-smoke.js`
+  fails when a count in `scripts/bench/perf-ceilings.json` (modules loaded,
+  state reads, whole-state JSON round trips, fsyncs, git processes) goes up,
+  and also when it goes down: lock a gain by lowering the ceiling in the same
+  diff (`node scripts/bench/perf-counts.js --update`, which never raises one).
 - **Two docs trees, different gate scope AND different distribution scope.**
   `plugins/cool-workflow/docs/` is the shipped man-page tree: `sync-project-index.js`
   indexes it (non-recursively — one directory level only), and it is in

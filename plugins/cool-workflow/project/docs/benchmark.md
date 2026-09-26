@@ -59,7 +59,7 @@ A configurable stub agent (`scripts/bench/agent-stub.js`) that simulates LLM lat
 
 ### Framework Overhead
 
-`overhead_ms` ≈ 2500ms across all runs. This is CW's internal overhead per run: dispatch, result validation, evidence check, checkpoint writing. It's **constant** relative to agent delay — CW adds ~2.5s regardless of how long the agent takes.
+`overhead_ms` ≈ 2500ms across all runs. This is CW's internal overhead per run: dispatch, result validation, evidence check, checkpoint writing. It's **constant** relative to agent delay — CW adds ~2.5s regardless of how long the agent takes. It is not constant in the number of workers: every worker step rewrites the whole `state.json`, so bytes written grow with the square of the worker count (1.0 MB at 4 workers, 141 MB at 64; measured 2026-09-26, see "The perf ratchet" below).
 
 ## Workflow Overhead Baseline
 
@@ -172,7 +172,8 @@ above its ceiling in `scripts/bench/perf-ceilings.json`, and also when
 it goes below: a gain is locked by lowering the ceiling in the same
 diff (`node scripts/bench/perf-counts.js --update`, which never raises
 one). Why counts and not milliseconds, and what each count costs in
-time: `project/docs/intent/2026-09-26-perf-ratchets.md`.
+time: `project/docs/intent/2026-09-archive.md`
+(the perf-ratchets part).
 
 ## Reproducing
 

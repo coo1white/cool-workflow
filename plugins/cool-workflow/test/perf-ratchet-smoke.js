@@ -3,7 +3,7 @@
 
 // perf-ratchet-smoke — holds CW's own work to the counts in
 // scripts/bench/perf-ceilings.json (intent:
-// project/docs/intent/2026-09-26-perf-ratchets.md).
+// project/docs/intent/2026-09-archive.md, the perf-ratchets part).
 //
 // 1. positive: the real counts equal the ceilings. A count above its ceiling
 //    is a slowdown; a count below it is a gain that must be locked by

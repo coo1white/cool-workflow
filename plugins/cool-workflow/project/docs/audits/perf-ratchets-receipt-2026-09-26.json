@@ -1,0 +1,110 @@
+{
+  "program": "2026-09-26-perf-ratchets",
+  "commit": "de16a5d4d22f3acadd623364e6c1c8f8e165c6a1",
+  "startedAt": "2026-09-26T13:05:15Z",
+  "finishedAt": "2026-09-26T14:10:59Z",
+  "machine": "Linux, Node 22, built dist/, a stub agent that writes its result at once",
+  "counts": {
+    "command": "node scripts/bench/perf-counts.js",
+    "before": {
+      "app-list.modules": 46,
+      "doctor.modules": 45,
+      "drive.fsyncs": 238,
+      "drive.gitProcesses": 34,
+      "drive.modules": 114,
+      "drive.renames": 430,
+      "drive.stateReads": 36,
+      "drive.stateRoundTrips": 143,
+      "help.modules": 30,
+      "mcp-initialize.modules": 27,
+      "status-no-run.modules": 92,
+      "version.modules": 30
+    },
+    "after": {
+      "app-list.modules": 46,
+      "doctor.modules": 45,
+      "drive.fsyncs": 238,
+      "drive.gitProcesses": 0,
+      "drive.modules": 114,
+      "drive.renames": 430,
+      "drive.stateReads": 36,
+      "drive.stateRoundTrips": 71,
+      "help.modules": 30,
+      "mcp-initialize.modules": 27,
+      "status-no-run.modules": 30,
+      "version.modules": 30
+    },
+    "note": "before = the first ceilings (#709); after = scripts/bench/perf-ceilings.json at this commit. No count went up."
+  },
+  "timeByCount": [
+    {
+      "count": "drive.stateRoundTrips",
+      "change": "143 -> 71 (#710)",
+      "wallClock": "CW self time, median of 5: 822 -> 702 ms at 16 workers, 3896 -> 3358 ms at 64"
+    },
+    {
+      "count": "drive.gitProcesses",
+      "change": "34 -> 0 (#711)",
+      "wallClock": "about 2.6 ms per git process (CPU profile at 64 workers); with #710, CW self time median of 5: 783 -> 638 ms at 16 workers, 4017 -> 3076 ms at 64"
+    },
+    {
+      "count": "status-no-run.modules",
+      "change": "92 -> 30 (#712)",
+      "wallClock": "`cw status` with no run, median of 21: 95 -> 47 ms, the same as `cw version`"
+    }
+  ],
+  "scaleTest": {
+    "command": "an app with N workers in one serial phase, `cw run <app> --drive`; median of 3 sweeps per side",
+    "columns": ["N", "wallMs", "agentWaitMs", "cwSelfMs", "durableWrites", "bytesWrittenMB", "stateKB"],
+    "before": [
+      [4, 445, 127, 318, 47, 1.0, 137],
+      [8, 741, 241, 474, 87, 3.0, 256],
+      [16, 1270, 493, 789, 167, 10.1, 496],
+      [32, 2424, 955, 1480, 327, 36.9, 977],
+      [64, 5187, 1796, 3391, 647, 140.7, 1938]
+    ],
+    "after": [
+      [4, 372, 109, 267, 47, 1.0, 137],
+      [8, 630, 238, 392, 87, 3.0, 256],
+      [16, 1062, 442, 620, 167, 10.1, 496],
+      [32, 2364, 953, 1338, 327, 36.9, 977],
+      [64, 5124, 2036, 3088, 647, 140.7, 1938]
+    ],
+    "note": "Durable writes, bytes written and state size do not change: every step still rewrites the whole state.json (N squared). That is the next step, not this program's."
+  },
+  "checks": [
+    {
+      "id": "ratchet-in-ci",
+      "pass": true,
+      "command": "node test/perf-ratchet-smoke.js",
+      "seen": "perf-ratchet-smoke: ok",
+      "note": "Added by #709. Green on every CI leg, macOS too, so the counts are the same on both systems."
+    },
+    {
+      "id": "cw-self-time-20-percent",
+      "pass": true,
+      "command": "9 alternating pairs of the 64-worker stub drive, main at #709 against this program's head",
+      "seen": "CW self time median 3904 -> 3017 ms (-23%); range 3645-4319 -> 2779-3122 ms, no overlap. At 16 workers: 815 -> 710 ms (-13%).",
+      "note": "Paired, not against the fixed 3340 ms in the spec: unpaired runs of one build moved from 3340 to 4017 ms on this machine."
+    },
+    {
+      "id": "byte-identical-drive",
+      "pass": true,
+      "command": "a pinned stub drive (time via scripts/fake-date-for-reproduction.js, pid pinned, one fixed root) on main and on each speed PR, then a byte diff of the run folders",
+      "seen": "#710 and #711: 0 files differ; the fan app (127 files) and architecture-review (166 files), with all 52 recorded gitHead values the same.",
+      "note": "Two runs of main differ from each other unless the pid and root are pinned too: the run id hashes the pid."
+    },
+    {
+      "id": "byte-identical-status",
+      "pass": true,
+      "command": "cw status, cw status --json, and their exit codes with no run, on main and on #712",
+      "seen": "same bytes, same exit code; test/core/format/advise-no-run.test.js pins the payload on every path.",
+      "note": "The v2 conformance suite gives the same result on main and on #712."
+    }
+  ],
+  "leadingMeasures": {
+    "intentToFirstBuildPR": "#708 (intent) opened 13:05Z; #709 (first build PR) opened 13:25Z: 20 minutes, with the operator's approval in between.",
+    "firstPassCI": "4 of 5: #708, #709, #710 and #711 were green on their first push; #712 failed the onramp contract (a capability-table change with no shipped doc) and was green on its second."
+  },
+  "verdict": "pass"
+}
