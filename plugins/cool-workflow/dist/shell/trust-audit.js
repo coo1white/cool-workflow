@@ -532,7 +532,10 @@ function flushTrustAuditBatch(batch) {
     writeAuditTailCache(tailCachePathFor(batch.audit.eventLogPath), { schemaVersion: 1, logBytes: batch.currentBytes, count: batch.count, lastHash: batch.lastHash });
 }
 /** Run a short, synchronous mutation group under one audit lock and append its
- *  exact NDJSON lines with one durable write before the caller checkpoints. */
+ *  exact NDJSON lines with one durable write before the caller checkpoints.
+ *  When `fn` throws, the events it recorded before the throw are still
+ *  written (one-at-a-time appends would have written them), then the error
+ *  goes on; a failed write never hides that first error. */
 function withTrustAuditBatch(run, fn) {
     const audit = ensureTrustAudit(run);
     const key = path.resolve(audit.eventLogPath);
@@ -550,10 +553,23 @@ function withTrustAuditBatch(run, fn) {
             lines: [],
         };
         ACTIVE_AUDIT_BATCHES.set(key, batch);
+        let flushing = false;
         try {
             const result = fn();
+            flushing = true;
             flushTrustAuditBatch(batch);
             return result;
+        }
+        catch (error) {
+            if (!flushing) {
+                try {
+                    flushTrustAuditBatch(batch);
+                }
+                catch {
+                    // the error from fn() is the one the caller needs
+                }
+            }
+            throw error;
         }
         finally {
             ACTIVE_AUDIT_BATCHES.delete(key);
