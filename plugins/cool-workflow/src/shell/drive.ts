@@ -337,7 +337,9 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
   let workerId = selected.workerId as string | undefined;
   let dispatched = false;
   if (selected.status === "pending") {
-    const manifest = createDispatchManifest(run, 1, { backendId: (selected.agentType as string) || "agent" });
+    // One audit lock and one durable write for the dispatch's events, as the
+    // concurrent round does; flushed before the dispatch checkpoint below.
+    const manifest = withTrustAuditBatch(run, () => createDispatchManifest(run, 1, { backendId: (selected.agentType as string) || "agent" }));
     // Advance the RUN-level lifecycle stage on dispatch, exactly as the old
     // build's orchestrator dispatch() wrapper did (run.loopStage = "act").
     // The operator status "Stage:" line reads run.loopStage; v2's shell/
@@ -392,6 +394,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
     emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
     try {
       fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
+      withTrustAuditBatch(run, () => {
       // Not gated by requireAttestedTelemetry here: the underlying result was
       // already gated (attested or explicitly overridden) at its FIRST
       // acceptance, before it was cached. Re-blocking a cache hit would only
@@ -418,6 +421,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
       // folded into this same worker:<id>:result checkpoint, exactly as the
       // old build's recordWorkerOutput wrapper did (no-op for non-loop runs).
       maybeExpandLoop(run);
+      });
       // Byte-exact to the old build's orchestrator recordWorkerOutput()
       // wrapper: an accepted result is its own checkpoint commit (reason
       // `worker:<worker-id>:result`), not just a bare saveCheckpoint.
@@ -465,6 +469,9 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
     return handleHop(ctx, selected, workerId, "agent produced no result.md", deferPersist, deferPersist ? run : undefined);
   }
   try {
+    // One audit lock and one durable write for the accept's events, flushed
+    // before the result checkpoint below (and before any save inside it).
+    withTrustAuditBatch(run, () => {
     recordWorkerOutput(run, workerId, manifest.resultPath, {
       agentDelegation: {
         handle: handle!,
@@ -484,6 +491,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
     // Bounded dynamic loops: same round-boundary evaluation the old build's
     // recordWorkerOutput wrapper performed, folded into this checkpoint.
     maybeExpandLoop(run);
+    });
     if (!deferPersist) {
       commitState(run, `worker:${workerId}:result`);
       saveCheckpoint(run);

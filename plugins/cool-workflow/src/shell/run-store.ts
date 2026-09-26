@@ -17,6 +17,7 @@ import { createRunPaths } from "../core/state/run-paths";
 import { migrateRunState, StateMigrationResult } from "../core/state/migrations";
 import { WorkflowRun, StateArtifact, RunPaths } from "../core/state/types";
 import { sha256 } from "../core/hash";
+import { flushPendingTrustAudit } from "./trust-audit";
 
 export { createRunPaths };
 
@@ -337,6 +338,7 @@ export async function withDriveLockAsync<T>(runDir: string, runId: string, fn: (
 /** state.json is the single source of truth — set `updatedAt`, then write
  *  it DURABLY with a lock so concurrent processes never lose an update. */
 export function saveCheckpoint(run: WorkflowRun): void {
+  flushPendingTrustAudit(run);
   run.updatedAt = new Date().toISOString();
   withFileLock(run.paths.state, () => {
     writeJson(run.paths.state, run, { durable: true });

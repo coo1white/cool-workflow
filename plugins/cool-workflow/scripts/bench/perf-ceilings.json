@@ -3,10 +3,10 @@
   "ceilings": {
     "app-list.modules": 46,
     "doctor.modules": 45,
-    "drive.fsyncs": 238,
+    "drive.fsyncs": 158,
     "drive.gitProcesses": 0,
     "drive.modules": 114,
-    "drive.renames": 430,
+    "drive.renames": 350,
     "drive.stateReads": 3,
     "drive.stateRoundTrips": 38,
     "help.modules": 30,
