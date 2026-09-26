@@ -1030,20 +1030,22 @@ function driveOneRound(ctx: DriveContext, options: DriveOptions, steps: DriveSte
   // re-read+re-parse state.json even though nothing on disk changed
   // between them — reads that only reflect the mutations THIS round's
   // own steps make, which the shared in-memory object already carries.
-  const roundSteps = withPerfTraceGroup("round", () => withRoundCache(ctx, () => {
+  const { roundSteps, roundRun } = withPerfTraceGroup("round", () => withRoundCache(ctx, () => {
     const width = roundWidth(loadRun(ctx), options.concurrency);
     // width>1 (an explicit --concurrency>1, or an auto-width parallel
     // phase) runs the whole round through driveConcurrentRound — one or
     // more steps recorded in deterministic batch order, one flush at round
     // end. `--once` still stops after this ONE round even though a round
     // can yield multiple steps.
-    return width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
+    const stepsOfRound = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
+    return { roundSteps: stepsOfRound, roundRun: loadRun(ctx) };
   }));
   for (const stepResult of roundSteps) steps.push(stepResult);
   // Brew-style progress lines: after each round, announce a newly-active
-  // phase and any phase that just finished. Cheap — reuses the run we just
-  // advanced; goes to stderr so stdout stays clean.
-  emitPhaseProgress(loadRun(ctx));
+  // phase and any phase that just finished. Uses the run the round just
+  // advanced and saved, not a second read of the file it wrote; goes to
+  // stderr so stdout stays clean.
+  emitPhaseProgress(roundRun);
   const last = roundSteps[roundSteps.length - 1];
   if (options.once) return false;
   if (last && (last.status === "complete" || last.status === "parked" || last.status === "blocked")) return false;
