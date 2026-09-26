@@ -49,8 +49,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.adviseNoRun = void 0;
 exports.summarizeRun = summarizeRun;
-exports.adviseNoRun = adviseNoRun;
 exports.summarizeCandidateOperatorRecords = summarizeCandidateOperatorRecords;
 exports.summarizeOperatorRun = summarizeOperatorRun;
 exports.buildOperatorGraph = buildOperatorGraph;
@@ -106,17 +106,10 @@ function summarizeRun(run) {
         workers: workerSummary,
     };
 }
-/** `cw status` with no run id: the fixed advice (byte-exact to the old
- *  build's adviseNoRun). */
-function adviseNoRun() {
-    return [
-        {
-            command: "cw plan <workflow-id> --repo <path>",
-            reason: "No run id is available yet; create a workflow run before dispatching or recording evidence.",
-            priority: "high",
-        },
-    ];
-}
+// `cw status` with no run id: the fixed advice, now in a core module every
+// command loads; re-exported so existing importers keep working.
+var recovery_hint_1 = require("../core/format/recovery-hint");
+Object.defineProperty(exports, "adviseNoRun", { enumerable: true, get: function () { return recovery_hint_1.adviseNoRun; } });
 function summarizePhases(run) {
     return run.phases.map((phase) => {
         const taskIds = new Set(phase.taskIds);

@@ -8,6 +8,7 @@ import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "
 import { required, optionalArg, wantsJson } from "../../core/util/cli-args";
 import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-data";
 import { formatStateExplosionReport } from "../../core/format/state-explosion-text";
+import { adviseNoRun } from "../../core/format/recovery-hint";
 // This file is required at startup for every command. Loading these shell
 // modules only when their handler runs, not at import time, keeps that
 // load cost out of commands that never touch reporting/status/graph.
@@ -72,8 +73,8 @@ REGISTRY_BY_CAPABILITY.get("status")!.cli = {
     // (positionals[0] only), so a bogus id given via --run and a real one
     // looked identical ("No run selected" for both).
     const runId = optionalArg(args.positionals[0]) || optionalArg(args.options.run) || optionalArg(args.options.runId);
+    if (!runId) return { json: { runId: null, nextActions: adviseNoRun() }, text: `No run selected\n\nNext Action\n${adviseNoRunLines()}` };
     const reportViewCli = loadReportViewCli();
-    if (!runId) return { json: reportViewCli.statusCli(undefined, args.options), text: `No run selected\n\nNext Action\n${adviseNoRunLines()}` };
     if (args.options.summary || args.options.brief) {
       return { json: reportViewCli.statusCli(runId, args.options), text: `${reportViewCli.statusSummaryText(runId, args.options)}\n` };
     }

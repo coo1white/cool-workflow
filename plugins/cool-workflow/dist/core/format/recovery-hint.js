@@ -14,6 +14,7 @@
 // rather than a wrong guess when no pattern matches.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.recoveryHint = recoveryHint;
+exports.adviseNoRun = adviseNoRun;
 function recoveryHint(message) {
     const m = message.toLowerCase();
     if (m.startsWith("unknown command"))
@@ -29,4 +30,16 @@ function recoveryHint(message) {
     if (m.includes("missing required input") && m.includes("question"))
         return 'cw -q "<question>"';
     return undefined;
+}
+/** The fixed next step when no run is selected (`cw status` with no id).
+ *  Kept here, in a module every command already loads, so that answer
+ *  does not pull in the run-reading modules. */
+function adviseNoRun() {
+    return [
+        {
+            command: "cw plan <workflow-id> --repo <path>",
+            reason: "No run id is available yet; create a workflow run before dispatching or recording evidence.",
+            priority: "high",
+        },
+    ];
 }
