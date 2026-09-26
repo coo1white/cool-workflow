@@ -86,7 +86,10 @@ A later profile found 39 trust-audit durable appends in one six-worker drive.
 They took about 169ms. The current work joins the short dispatch and settlement
 groups one at a time, before their present checkpoints. It does not cover the
 agent wait. Do not take out a checkpoint, change a report time, or add a
-default cache only to meet a time goal.
+default cache only to meet a time goal. Since 2026-09-26 the serial drive path
+batches its dispatch and accept groups the same way: 3 durable audit appends
+a worker in place of 7, and `saveCheckpoint` writes any open batch's events
+first, so a checkpoint never reaches disk ahead of its audit events.
 
 On the same five-run form after this change, median cold drive was 828ms and
 median total was 979ms. The cold drive is faster than the 994ms baseline, but
