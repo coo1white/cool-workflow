@@ -35,7 +35,6 @@
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
 const {
   buildPrompt,
   createRenderer,
@@ -44,6 +43,7 @@ const {
   parseJsonLines,
   persistStderr,
   recordVendorPid,
+  spawnVendor,
   writeResult
 } = require("./agent-adapter-core");
 
@@ -130,10 +130,10 @@ const args = [
   "-"
 ];
 
-const child = spawn("codex", args, {
+const child = spawnVendor("codex", "codex", args, {
   stdio: ["pipe", "pipe", "pipe"],
   shell: false
-});
+}, resultPath, () => render.finishLive());
 // Record the vendor PID so cw can reap this codex process if it SIGKILLs the
 // wrapper on a timeout (see agent-adapter-core recordVendorPid).
 recordVendorPid(child);

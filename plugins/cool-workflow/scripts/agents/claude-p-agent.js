@@ -29,12 +29,12 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { spawn, spawnSync } = require("node:child_process");
+const { spawnSync } = require("node:child_process");
 // Share the ONE canonical result contract with the codex/gemini/opencode
 // wrappers instead of carrying a private copy. A drifted inline copy (ASCII
 // hyphens silently became em-dashes here) meant claude was sent a different
 // instruction text than the other providers for the same contract.
-const { buildPrompt, createRenderer, persistStderr, toolLabel, summarizeToolResult, buildFailureDetail, recordVendorPid } = require("./agent-adapter-core");
+const { buildPrompt, createRenderer, persistStderr, spawnVendor, toolLabel, summarizeToolResult, buildFailureDetail, recordVendorPid } = require("./agent-adapter-core");
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
@@ -43,6 +43,10 @@ if (!inputPath || !resultPath) {
   process.exit(2);
 }
 
+// The prompt goes to `claude -p` on STDIN, never as an argument: Linux takes
+// at most 131072 bytes in one argument (macOS about 1 MB for all of them), and
+// a Verdict prompt, which carries every earlier result, passes that on real
+// runs (spawn E2BIG). stdin has no such limit.
 const prompt = buildPrompt(inputPath);
 const streamEnabled = process.env.CW_AGENT_STREAM !== "0" && process.env.CW_NO_STREAM !== "1";
 const traceEnabled = streamEnabled && Boolean(process.stderr.isTTY);
@@ -50,7 +54,8 @@ const traceEnabled = streamEnabled && Boolean(process.stderr.isTTY);
 if (!streamEnabled) {
   // Legacy default: --output-format json and verbatim stdout forwarding. This is
   // the public wrapper contract existing users already scripted against.
-  const child = spawnSync("claude", ["-p", prompt, "--output-format", "json", "--allowedTools", "Read,Grep,Glob"], {
+  const child = spawnSync("claude", ["-p", "--output-format", "json", "--allowedTools", "Read,Grep,Glob"], {
+    input: prompt,
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,
     shell: false
@@ -98,11 +103,17 @@ const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
 // stream-json so claude emits incremental NDJSON events we render live. We CAPTURE claude's
 // own stderr (do NOT inherit) so it can never corrupt the live region; it's surfaced only on a
 // non-zero exit.
-const child = spawn(
+const child = spawnVendor(
   "claude",
-  ["-p", prompt, "--output-format", "stream-json", "--verbose", "--allowedTools", "Read,Grep,Glob"],
-  { stdio: ["ignore", "pipe", "pipe"] }
+  "claude",
+  ["-p", "--output-format", "stream-json", "--verbose", "--allowedTools", "Read,Grep,Glob"],
+  { stdio: ["pipe", "pipe", "pipe"] },
+  resultPath
 );
+// A claude that exits before reading all of stdin gives EPIPE here; its exit
+// code and stderr are what the close handler below reports.
+child.stdin.on("error", () => {});
+child.stdin.end(prompt);
 // Record the vendor PID so cw can reap this claude process if it SIGKILLs the
 // wrapper on a timeout (see agent-adapter-core recordVendorPid).
 recordVendorPid(child);

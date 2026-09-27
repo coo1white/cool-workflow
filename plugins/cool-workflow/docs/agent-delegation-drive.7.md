@@ -353,6 +353,17 @@ run). Each wrapper now also drops the failed child's stderr to
 `<run>/workers/<worker>/logs/agent-stderr.log`, so the reason is readable after
 the fact without changing the recorded, byte-stable evidence.
 
+The prompt is the worker's input.md plus the result contract, and a later
+phase's input carries every earlier result: a Verdict prompt can pass 128 KB
+on a small repo. Linux takes at most 131072 bytes in one argument (macOS about
+1 MB for all of them), so a prompt passed as an argument can make the spawn
+fail with `E2BIG`. The claude wrapper gives the prompt to `claude -p` on
+stdin, which has no such limit (codex also reads stdin; muse reads a prompt
+file). The gemini and opencode wrappers still pass it as an argument. A spawn
+that fails this way, or any other way that throws before a process exists, is
+written to `agent-stderr.log` like any other spawn failure, with the reason in
+plain words, and the hop fails closed with exit 1.
+
 ## Compatibility
 
 Agent Delegation Drive comes in first in CW v0.1.38. Adding the `agent` row leaves

@@ -152,6 +152,27 @@ function main() {
   }
 
   {
+    // A prompt past the system's argument limit (1.2 MB: over Linux's 131072
+    // bytes for one argument and macOS's 1 MB for all of them) makes spawn
+    // THROW E2BIG. The wrapper must still fail closed with the reason on disk,
+    // not die with a bare exit 1 and no log.
+    fs.rmSync(resultPath, { force: true });
+    const logPath = path.join(work, "logs", "agent-stderr.log");
+    fs.rmSync(logPath, { force: true });
+    const bigInput = path.join(work, "big-input.md");
+    fs.writeFileSync(bigInput, `# Worker w-big\n\n${"earlier phase result line\n".repeat(48000)}`, "utf8");
+    const big = runWrapper(shimDir("ok"), bigInput, resultPath);
+    assert.equal(big.status, 1, "a spawn that throws E2BIG ends the hop with exit 1");
+    assert.ok(!fs.existsSync(resultPath), "no result.md when gemini could not be started");
+    assert.ok(fs.existsSync(logPath), "agent-stderr.log persisted for a spawn that threw");
+    const log = fs.readFileSync(logPath, "utf8");
+    assert.match(log, /gemini spawn failed: .*E2BIG/, "the log names the spawn failure");
+    assert.match(log, /too large to pass as an argument/, "the log says why, in plain words");
+    assert.match(big.stderr, /gemini spawn failed: .*E2BIG/, "stderr carries the same reason");
+    console.log("gemini: a spawn that throws E2BIG is logged, fail closed OK");
+  }
+
+  {
     // v2 moved agent-config under dist/shell/.
     const { resolveAgentConfig } = require(path.join(pluginRoot, "dist", "shell", "agent-config.js"));
     // builtin:gemini now routes through opencode (where the user's key lives);
