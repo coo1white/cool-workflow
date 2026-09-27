@@ -1,0 +1,35 @@
+{
+  "program": "2026-09-27-resume-parked",
+  "commit": "6cfe2e0",
+  "startedAt": "2026-09-27T17:59:50Z",
+  "finishedAt": "2026-09-27T18:06:42Z",
+  "machine": "Linux, Node 22, built dist/ at the #729 merge, the real claude CLI as the agent, a clone of the Express repository as the project",
+  "checks": [
+    {
+      "id": "real-agent-park-then-resume",
+      "pass": true,
+      "command": "cw -q \"How does routing work end-to-end here?\" with CW_AGENT_COMMAND set to a command that does not exist; then, as the hint said, cw --resume --run <id> -claude",
+      "seen": "First run: parked in under 1 s, 6 of 14 workers parked (the whole Map phase, 3 tries each), 0 done. Its hint ended with \"fix the cause, then: cw --resume --run <id>\". The resume: complete in 412 s, 14 of 14 workers done, reopenedWorkers the 6 Map task ids, resumedFrom the run id, Verdict: PASS, a cited answer (lib/router/index.js, lib/router/route.js).",
+      "note": "The 6 Map workers kept the dispatches they had when they parked (dispatch ...-0001 to -0006, all at 17:59:50Z); the reopen made no new dispatch. The two dispatch: commits are the serial Verify and Verdict phases."
+    },
+    {
+      "id": "park-kept-on-record",
+      "pass": true,
+      "command": "read state.json and audit/events.jsonl of the resumed run",
+      "seen": "6 park feedback records, all resolved by the verifier node of their worker, 0 open feedback; 6 failure nodes kept; 6 worker.reopen audit events."
+    },
+    {
+      "id": "run-still-verifies",
+      "pass": true,
+      "command": "cw audit verify <id> --json; cw state check <id> --json",
+      "seen": "failedChecks [] and status current."
+    },
+    {
+      "id": "tests-and-conformance",
+      "pass": true,
+      "command": "node test/run-all.js; the v2 conformance suite (both on the #729 head)",
+      "seen": "test/resume-parked-smoke.js and test/core/pipeline/drivedecide-reopenparked.test.js fail on main and pass with #729. Full suite 270/271, conformance 103/106, with pipeline-park-vs-block, pipeline-retry-accounting and pipeline-phase-gate-blocked passing.",
+      "note": "The failures are the ones this sandbox has on main as well: verify-bump-reproduction-smoke (a shallow clone), and the conformance cases report-doctor, report-fix and cli-argv-parsing. CI on #729 was green."
+    }
+  ]
+}
