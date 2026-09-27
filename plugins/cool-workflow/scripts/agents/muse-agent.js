@@ -19,7 +19,6 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { spawn } = require("node:child_process");
 const {
   buildFailureDetail,
   buildPrompt,
@@ -29,6 +28,7 @@ const {
   parseJsonLines,
   persistStderr,
   recordVendorPid,
+  spawnVendor,
   writeResult
 } = require("./agent-adapter-core");
 
@@ -108,7 +108,10 @@ render.action(`muse: running ${modelId} (workspace)…`);
 // hung 30 min on a git diff). Never ask; the sandbox stays on.
 const args = ["exec", "--json", "--prompt-file", promptFile, "--model", modelId, "--reasoning-effort", reasoningEffort, "--workspace", process.cwd(), "--approval-mode", "never"];
 
-const child = spawn("muse", args, { stdio: ["ignore", "pipe", "pipe"], shell: false });
+const child = spawnVendor("muse", "muse", args, { stdio: ["ignore", "pipe", "pipe"], shell: false }, resultPath, () => {
+  render.finishLive();
+  removePromptFile();
+});
 recordVendorPid(child);
 
 child.stdout.setEncoding("utf8");

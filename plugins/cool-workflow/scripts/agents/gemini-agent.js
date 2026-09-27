@@ -15,7 +15,6 @@
 // stderr: optional live trace when CW_AGENT_STREAM=1 and attached to a TTY.
 
 const path = require("node:path");
-const { spawn } = require("node:child_process");
 const {
   buildFailureDetail,
   buildPrompt,
@@ -25,6 +24,7 @@ const {
   parseJsonLines,
   persistStderr,
   recordVendorPid,
+  spawnVendor,
   writeResult
 } = require("./agent-adapter-core");
 
@@ -68,10 +68,10 @@ const args = [
   "plan"
 ];
 
-const child = spawn("gemini", args, {
+const child = spawnVendor("gemini", "gemini", args, {
   stdio: ["ignore", "pipe", "pipe"],
   shell: false
-});
+}, resultPath, () => render.finishLive());
 // Record the vendor PID so cw can reap this gemini process if it SIGKILLs the
 // wrapper on a timeout (see agent-adapter-core recordVendorPid).
 recordVendorPid(child);

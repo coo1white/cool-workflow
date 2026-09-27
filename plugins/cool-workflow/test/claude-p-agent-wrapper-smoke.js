@@ -13,6 +13,8 @@
 // Hermetic: a PATH-shimmed fake `claude` binary stands in for the real CLI (CI
 // has no live agent). Proves:
 //   1. the wrapper delivers the WORKER'S FULL input.md content as the -p prompt
+//      ON STDIN, never as an argument (a Verdict prompt passes Linux's 131072-
+//      byte limit for one argument: spawn E2BIG), a 1.2 MB input included
 //      (plus the cw:result contract), runs claude with READ-ONLY allowedTools
 //      (no Write — the readonly sandbox profile stays honest), and requests
 //      --output-format json by default;
@@ -67,6 +69,7 @@ function shimDir(behavior) {
       "const path = require('node:path');",
       "const args = process.argv.slice(2);",
       "fs.writeFileSync(path.join(__dirname, 'invocation.json'), JSON.stringify(args));",
+      "fs.writeFileSync(path.join(__dirname, 'stdin.txt'), fs.readFileSync(0));",
       "const format = args[args.indexOf('--output-format') + 1];",
       "if (format !== 'stream-json') { process.stdout.write(JSON.stringify({ result: '# Analysis\\n\\nstub markdown answer', model: 'claude-shim-model', usage: { input_tokens: 11, output_tokens: 7 }, extra: 'legacy-verbatim' })); process.exit(0); }",
       "const emit = (o) => process.stdout.write(JSON.stringify(o) + '\\n');",
@@ -113,10 +116,10 @@ function main() {
     assert.equal(child.status, 0, `wrapper exits 0 (stderr: ${child.stderr})`);
 
     const argv = JSON.parse(fs.readFileSync(path.join(dir, "invocation.json"), "utf8"));
-    const pIndex = argv.indexOf("-p");
-    assert.ok(pIndex >= 0, "claude invoked with -p");
-    const prompt = argv[pIndex + 1];
-    assert.ok(prompt.includes(INPUT_MARKER), "the worker's FULL input.md content reaches the prompt");
+    assert.ok(argv.includes("-p"), "claude invoked with -p");
+    const prompt = fs.readFileSync(path.join(dir, "stdin.txt"), "utf8");
+    assert.ok(prompt.includes(INPUT_MARKER), "the worker's FULL input.md content reaches the prompt, on stdin");
+    assert.ok(!argv.some((arg) => arg.includes(INPUT_MARKER)), "the prompt is never passed as an argument");
     assert.ok(prompt.includes("cw:result"), "the cw:result contract is appended to the prompt");
     // No per-provider drift: claude must receive the SHARED canonical contract
     // verbatim (the old inline copy had swapped ASCII hyphens for em-dashes, so
@@ -183,6 +186,23 @@ function main() {
     assert.ok(!/\x1b\[/.test(child.stderr), "verbose non-TTY trace still carries NO ANSI/cursor escapes");
     assert.ok(child.stderr.includes("stub markdown answer"), "CW_VERBOSE=1 surfaces the full model narration inline");
     console.log("wrapper: --verbose surfaces narration; default compact hides it ok");
+  }
+
+  // ---- 3c: a prompt past the argument limit still reaches claude, both paths ----
+  {
+    const bigInput = path.join(work, "big-input.md");
+    const BIG_MARKER = "end of a 1.2 MB worker input (marker-9e4).";
+    fs.writeFileSync(bigInput, `# Worker w-big\n\n${"earlier phase result line\n".repeat(48000)}\n${BIG_MARKER}\n`, "utf8");
+    for (const env of [{}, { CW_AGENT_STREAM: "0" }]) {
+      fs.rmSync(resultPath, { force: true });
+      const dir = shimDir("ok");
+      const child = runWrapper(dir, bigInput, resultPath, env);
+      assert.equal(child.status, 0, `a 1.2 MB prompt completes (${JSON.stringify(env)}; stderr: ${child.stderr.slice(0, 300)})`);
+      const prompt = fs.readFileSync(path.join(dir, "stdin.txt"), "utf8");
+      assert.ok(prompt.length > 1200000 && prompt.includes(BIG_MARKER), "the whole 1.2 MB prompt arrives on stdin");
+      assert.equal(fs.readFileSync(resultPath, "utf8"), "# Analysis\n\nstub markdown answer", "result.md written for the big prompt");
+    }
+    console.log("wrapper: a 1.2 MB prompt reaches claude on stdin (stream and legacy json paths) ok");
   }
 
   // ---- 4: fail closed --------------------------------------------------------

@@ -3,6 +3,7 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { spawn } = require("node:child_process");
 
 const RESULT_CONTRACT = `
 === HOW TO RETURN YOUR ANSWER (overrides any 'write to result.md' instruction above) ===
@@ -522,6 +523,30 @@ function recordVendorPid(child, env = process.env) {
   return child;
 }
 
+// Start a vendor CLI. `spawn` THROWS (it does not emit "error") when no process
+// can be made at all; E2BIG, a command line past the system's limit, is the
+// one seen on real runs, since a Verdict prompt carries every earlier result
+// and Linux takes at most 131072 bytes in ONE argument. Uncaught, that throw
+// left a bare `failed (exit 1)` and no log. Here it is written to
+// logs/agent-stderr.log like any other spawn failure, then the wrapper exits 1
+// (a failed hop, never a fabricated one). `cleanup` runs first (restore the
+// terminal, remove a prompt file).
+function spawnVendor(label, command, args, options, resultPath, cleanup) {
+  try {
+    return spawn(command, args, options);
+  } catch (error) {
+    if (typeof cleanup === "function") cleanup();
+    let message = `${label} spawn failed: ${error && error.message}`;
+    if (error && error.code === "E2BIG") {
+      const bytes = args.reduce((sum, arg) => sum + Buffer.byteLength(String(arg)) + 1, 0);
+      message += ` (the command line holds ${bytes} bytes of arguments, more than this system allows; the prompt is too large to pass as an argument)`;
+    }
+    persistStderr(resultPath, message);
+    process.stderr.write(`${message}\n`);
+    process.exit(1);
+  }
+}
+
 module.exports = {
   RESULT_CONTRACT,
   recordVendorPid, // write the vendor child's PID to CW_AGENT_VENDOR_PIDFILE so cw can reap it on a timeout
@@ -537,6 +562,7 @@ module.exports = {
   flushJsonLines,
   writeResult,
   emitReport,
+  spawnVendor, // spawn a vendor CLI; a spawn that throws (E2BIG) is logged like any spawn failure
   persistStderr, // save a failed agent's stderr to <workerDir>/logs/agent-stderr.log (shared by all wrappers)
   buildFailureDetail // fold in parsed partial stdout text when real stderr is empty (shared by all wrappers)
 };

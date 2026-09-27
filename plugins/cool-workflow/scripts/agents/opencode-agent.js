@@ -20,7 +20,6 @@
 // flag, prefer that here.
 
 const path = require("node:path");
-const { spawn } = require("node:child_process");
 const {
   buildFailureDetail,
   buildPrompt,
@@ -30,6 +29,7 @@ const {
   parseJsonLines,
   persistStderr,
   recordVendorPid,
+  spawnVendor,
   writeResult
 } = require("./agent-adapter-core");
 
@@ -121,10 +121,10 @@ const args = [
   prompt
 ];
 
-const child = spawn("opencode", args, {
+const child = spawnVendor("opencode", "opencode", args, {
   stdio: ["ignore", "pipe", "pipe"],
   shell: false
-});
+}, resultPath, () => render.finishLive());
 // Record the vendor PID so cw can reap this opencode process (also used by the
 // deepseek wrapper, which re-exports this file) if it SIGKILLs the wrapper on a
 // timeout (see agent-adapter-core recordVendorPid).
