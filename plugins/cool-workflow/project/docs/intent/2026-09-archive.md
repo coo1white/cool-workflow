@@ -4491,3 +4491,65 @@ On `main` at `7a3951e`, Linux, Node 22, built `dist/`, the perf fan app
 |---|---|---|
 | Intent + measured facts (this file) | stopped at measurement, archived by the PR that adds it | |
 | Build | not started: the saving is under the bar; the row in `BACKLOG.md` says what would reopen it | |
+
+# A real-agent Track A run: what stopped a new user
+
+A record, not a program: no intent to build, so it goes straight to
+the archive (md count unchanged). Source: the operator, 2026-09-27,
+"用真实 agent 跑一次 Track A 的 5 分钟上手流程，找真实的卡点": walk the
+README's first steps as a new user would, with a real agent, and write
+down each place the walk stopped or went slow. Two of the six findings
+were fixed at once (PR #727); `project/docs/BACKLOG.md` carries a row
+for each of the others.
+
+## How it was run
+
+On `main` at `5e8183c` (CW 0.2.8), Linux, Node 22: the package packed
+and installed with `npm i -g` into a clean prefix, a clone of the
+Express repository as the project, the real `claude` CLI as the agent
+(`-claude`), and the question "How does routing work end-to-end here?"
+through `cw -q`. Times are wall clock.
+
+## Measured facts
+
+- `npm i -g` of the packed package: 0.8 s. `cw doctor`: 84 ms.
+  `cw demo tamper`: 96 ms. The steps before a real agent is in the
+  loop are not where a new user waits.
+- First `cw -q` run: 281 s, then BLOCKED. 13 of 14 workers done; the
+  one Verdict worker parked after 3 attempts, each `exit 1` with no
+  `agent-stderr.log` and an error feedback of severity `low`,
+  classification `unknown`. The cause, found by hand: the Verdict
+  input is 137035 bytes, and the claude wrapper gave it to `claude -p`
+  as one argument. Linux takes at most 131072 bytes in one argument
+  (`MAX_ARG_STRLEN`), so `spawn` threw `E2BIG` before claude started.
+- `cw --resume --run <id>` on the blocked run gave back `blocked`: a
+  parked worker is not tried again, and no command un-parks it. The
+  README's "Run stopped before the end" row says `cw --resume` "takes
+  it to the end". The only way on was a new run.
+- Second `cw -q` run, with the wrapper giving the prompt on stdin (the
+  #727 change, put in the installed copy by hand): 409 s (about
+  6.8 min), Verdict PASS. The same 137035-byte Verdict input went
+  through in 75 s. The answer was right and cited
+  (`lib/router/index.js:136-331`, `lib/router/route.js:101-154`).
+- The question was planned as the full 14-worker `architecture-review`
+  app: Map workers for `web-client`, `db-security`, `deploy-config` and
+  `jobs-operators` ran on a framework with none of these, and each wrote
+  that it had nothing to map.
+- `report.md` is 1594 lines. The first lines are run facts (paths,
+  phases, commits, sandbox, audit); results start at line 125, and the
+  answer to the question is inside the first Map worker's result at
+  line 143. The one-line summary a person asked for is not at the top.
+- North Star Track A (`AGENTS.md`) is "runnable by an external user in
+  <5 minutes from README". The complete run took 6.8 min, and the
+  first try did not complete.
+
+## Findings
+
+| # | Finding | Where it stands |
+|---|---|---|
+| 1 | A prompt over the argument limit makes the claude, gemini and opencode (with deepseek through it) wrappers fail with `E2BIG` | claude fixed: prompt on stdin (#727). gemini and opencode: a clear logged error now, the stdin switch is a `BACKLOG.md` row |
+| 2 | A `spawn` that throws left no `agent-stderr.log` and no reason | fixed: every wrapper logs it, with the byte count on `E2BIG` (#727) |
+| 3 | A parked worker cannot be resumed; the README says resume takes a run to the end | `BACKLOG.md` row; needs an intent (a behavior change) |
+| 4 | A narrow question is planned as the full 14-worker review, with domains the repo does not have | `BACKLOG.md` row |
+| 5 | The complete run took 6.8 min, over the Track A 5 minutes | `BACKLOG.md` row |
+| 6 | The answer is deep inside a 1594-line report | `BACKLOG.md` row |
