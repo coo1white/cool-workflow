@@ -4404,3 +4404,90 @@ Receipt: `project/docs/audits/state-parts-receipt-2026-09-26.json`.
 Leading measures: 6 minutes from this intent (#723) to the build PR
 (#724), the gates approved ahead of time (auto-develop); every program
 PR (#723, #724) green on its first push, one commit each.
+
+---
+
+<!-- written straight to the archive on 2026-09-27 -->
+
+# Store each sandbox policy once: stopped at measurement
+
+Intent and measured facts in ONE file, in the shape `AGENTS.md` "Intent
+files (the playbook)" asks for. Source: the operator, 2026-09-27, "第 1
+条": the first of the two ways left open in the `BACKLOG.md` row for
+the whole-state write, "store each worker's sandbox policy once and
+point at it". The measurement, taken before any design, found the
+saving far smaller than the row said, now that the state-parts program
+(above) has taken the stringify out of each save. The operator then
+chose to stop here, with no build PR. This file went straight to the
+archive (md count unchanged); `project/docs/BACKLOG.md` carries the
+row.
+
+## Intent
+
+**Problem.** Each worker's resolved sandbox policy is kept three times
+in `state.json`: in its task, in its worker record and in the metadata
+of its dispatch node. Every save writes all three.
+
+**Outcome sought.** A smaller `state.json` and less CW time per save,
+by keeping one copy and pointing at it: a schema bump with a migration,
+so a file-layout change the operator has to say yes to.
+
+## Measured facts (checked by command)
+
+On `main` at `7a3951e`, Linux, Node 22, built `dist/`, the perf fan app
+(64 workers in one serial phase, a stub agent), one 1938 KB state.
+
+- The 192 copies hold 64 different policies, not one: each is resolved
+  per worker and carries that worker's paths (`readPaths`, `metadata`
+  with its worker, input, result, artifacts and logs paths). What can
+  go is the repeat inside a worker (task, worker, dispatch node, the
+  same content), not a policy shared by the run.
+  (The state-writes part above says the third copy is in the result
+  node; it is in the dispatch node, `src/shell/dispatch.ts`, one a
+  worker on the serial path.)
+- The state file with one copy a worker (task and node pointing at the
+  worker's): 1984327 -> 1595327 bytes, -19.6%. With the worker's copy
+  cut further to the profile id plus its own paths: 1512831 bytes,
+  -23.8%.
+- What those bytes cost now: 131 atomic durable writes growing to the
+  full size, the way a drive saves (write, fsync, rename, directory
+  fsync), median of 7: 295 ms at full size, 261 ms at 80%, 222 ms at
+  74%. So about 35 to 70 ms at 64 workers, 2 to 4% of CW self time
+  (1852 ms in the state-parts pairs). Before the state-parts program
+  the stringify would have shrunk too; it is gone from the save now.
+- Readers of the copies: `formatDispatchTask`
+  (`src/core/pipeline/dispatch.ts`) reads `task.sandboxPolicy`;
+  `src/shell/audit-cli.ts` reads `worker.sandboxPolicy`;
+  `docs/worker-isolation.7.md` says worker records hold
+  `sandboxPolicy`. The dispatch manifest's copy, which the man pages
+  and the v2 conformance case `exec-sandbox-readonly-boundary` read,
+  is its own file and would not change.
+- Where the rest of CW self time at 64 workers is now (the same hook,
+  grouped by the function that made each call): the state fsyncs
+  285 ms (262); the audit batch fsyncs about 107 ms; the lock files of
+  `audit/events.jsonl` about 115 ms (192 locks); the audit tail cache
+  about 60 ms; the telemetry ledger append about 110 ms. No one bucket
+  is near the 10% bar.
+
+## Paths weighed
+
+- **Schema 2, one copy a worker, the run in memory unchanged** (load
+  puts the copies back, save takes them out): -19.6% bytes, 2 to 4%
+  time. Turned down: a migration and a new schema version, a
+  `state check` report that changes, and a run saved by it can no
+  longer be read by an older CW ("newer than this runtime"), so an
+  export restored on a machine with an older CW fails (Track B), all
+  for a saving under the 10% the other programs were held to. It can
+  be undone only by a second migration.
+- **Also cut the worker's copy to the profile id and its paths:**
+  -23.8% bytes; the same costs, and the resolved policy would have to
+  be rebuilt from the profile on every load. Turned down with the
+  first.
+- **Stop here:** chosen. No file layout changes, no build PR.
+
+## Status ledger
+
+| Item | State | PR |
+|---|---|---|
+| Intent + measured facts (this file) | stopped at measurement, archived by the PR that adds it | |
+| Build | not started: the saving is under the bar; the row in `BACKLOG.md` says what would reopen it | |
