@@ -83,7 +83,7 @@ CW uses explicit states instead of silent promotion:
 | `unattested` | Usage exists but cannot be verified as signed by the expected key. |
 | `absent` | No usage was reported. |
 | `blocked` | Work could not proceed, for example because no agent is configured. |
-| `parked` | A worker failed or retried to a stop point rather than being fabricated. |
+| `parked` | A worker failed or retried to a stop point rather than being fabricated. Fix the cause, then `cw --resume --run <run-id>` runs it again. |
 
 ## The Single-Party Limit
 

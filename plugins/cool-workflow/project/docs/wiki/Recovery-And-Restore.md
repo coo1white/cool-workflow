@@ -89,6 +89,21 @@ With the env set, archives missing the top-level integrity block are refused
 before restore writes. Without it, legacy integrity-less archives keep their
 historical behavior.
 
+## Resume A Parked Run
+
+A worker whose agent keeps failing (a wrong agent command, a lost login, a
+prompt too large) parks the run after 3 tries. Fix the cause, then resume the
+same run; the parked worker is run again with 3 fresh tries, and the work that
+was already done is kept:
+
+```bash
+cw --resume --run <run-id>
+```
+
+`cw run resume <run-id> --drive` does the same. The park stays on the record
+(its failure, feedback, and audit events), and the reopen is an audit event of
+its own. A worker stopped by a sandbox or boundary violation is not run again.
+
 ## Rerun A Failed Run
 
 ```bash
