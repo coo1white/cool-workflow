@@ -205,13 +205,13 @@ All CLI JSON goes to stdout via `JSON.stringify(value, null, 2)` plus a newline.
 }
 ```
 
-`resumedFrom`, `bundle`, and `remote` keys are present ONLY on their paths, so the default payload stays byte-identical. `status` is one of `"complete" | "parked" | "blocked" | "in-progress"`. (src/capability-core.ts:811-838, src/types/drive.ts:69-112)
+`resumedFrom`, `reopenedWorkers`, `bundle`, and `remote` keys are present ONLY on their paths, so the default payload stays byte-identical. `status` is one of `"complete" | "parked" | "blocked" | "in-progress"`. (src/capability-core.ts:811-838, src/types/drive.ts:69-112)
 
 Quickstart hint strings, byte-exact:
 
 ```text
 agent backend not configured — set CW_AGENT_COMMAND (e.g. "claude -p") or pass --agent-command, then re-run. The one command DELEGATES worker execution to YOUR agent; it never executes a model itself.
-a worker parked past its retry budget — inspect: cw run show <run-id>
+a worker parked past its retry budget — inspect: cw run show <run-id>; fix the cause, then: cw --resume --run <run-id>
 the drive is blocked — inspect: cw run drive <run-id>
 one step advanced — continue: cw quickstart <app-id> --run <run-id> --resume
 one step advanced (--once) — continue: cw quickstart <app-id> --run <run-id> --once

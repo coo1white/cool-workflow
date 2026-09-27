@@ -166,7 +166,8 @@ the same round. An unconfigured agent still refuses (it is never a fake pass).
   completion.
 - **Park.** In the drive loop, a worker whose agent hop keeps failing uses up its
   scheduling retry budget and lands **parked** (reuse v0.1.37 `retryOrPark`) — the
-  drive stops; it is never quietly re-driven forever.
+  drive stops; it is never quietly re-driven forever. Only a resume runs it
+  again, with one fresh budget each time (see `--resume` below).
 
 ## Replay determinism (bound to node-snapshot)
 
@@ -228,6 +229,22 @@ the run is complete; the continue line keeps `--bundle` so the second command
 finishes and seals the report. The bare `--resume --run <run-id>` form above
 needs the cwd inside the project, or `--repo <path>`, since it looks up the
 run under `.cw/runs/<run-id>/` from there.
+
+A resume also takes on a **parked** worker. `--resume --run <run-id>` and
+`run resume <run-id> --drive` (or `--once`) first put each worker parked past
+its retry budget back to where it was between two tries: the task and worker
+are `running` again, on the same dispatch and the same `input.md`, with a
+fresh retry budget (3 more tries by default). The payload then lists those
+task ids in `reopenedWorkers` (the key is absent when there were none). Fix
+the cause first (a wrong agent command, a lost login, a prompt too large);
+if the agent still fails, the worker parks again after the fresh budget, so a
+resume never loops. Only the retry-budget park (`agent-delegation-parked`) is
+reopened: a worker stopped by a sandbox or boundary violation or a turned-down
+result stays failed. Nothing of the park is lost: its failure node, feedback
+and audit events stay, and each reopen adds a `worker.reopen` audit event.
+When the worker's new result is verified, its open park feedback is resolved
+by that verifier node, so the run's verdict can be PASS. Plain
+`run --drive --run <run-id>` does not reopen: a parked run stays blocked there.
 
 For faster first results, use the opt-in fast app in place of changing the full
 review contract:

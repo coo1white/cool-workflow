@@ -215,7 +215,7 @@ async function runResumeCli(runId, options = {}) {
     });
     if (!options.drive && !options.once)
         return base;
-    const drive = await (0, pipeline_cli_1.runDriveStep)({ ...options, runId: base.runId, repo: base.repo, once: Boolean(options.once) });
+    const drive = await (0, pipeline_cli_1.runDriveStep)({ ...options, runId: base.runId, repo: base.repo, once: Boolean(options.once) }, { reopenParked: true });
     return { ...base, drive };
 }
 function runArchiveCli(runId, options = {}) {

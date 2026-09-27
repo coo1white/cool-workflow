@@ -158,7 +158,7 @@ export async function runResumeCli(runId: string, options: Record<string, unknow
     limit: requiredNumberFlag(options.limit, "--limit"),
   });
   if (!options.drive && !options.once) return base as unknown as Record<string, unknown>;
-  const drive = await runDriveStep({ ...options, runId: base.runId, repo: base.repo, once: Boolean(options.once) });
+  const drive = await runDriveStep({ ...options, runId: base.runId, repo: base.repo, once: Boolean(options.once) }, { reopenParked: true });
   return { ...base, drive };
 }
 export function runArchiveCli(runId: string | undefined, options: Record<string, unknown> = {}) {

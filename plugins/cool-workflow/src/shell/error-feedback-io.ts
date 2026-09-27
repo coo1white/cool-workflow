@@ -147,6 +147,25 @@ function updateFeedback(run: WorkflowRun, record: ErrorFeedbackRecord): void {
   writeFeedbackIndex(run);
 }
 
+/** A parked worker that a resume ran again, now with a verified result: each
+ *  open park feedback of that worker is resolved by the verifier node, the
+ *  same proof `feedback resolve` asks for. No other feedback is touched. */
+export function resolveParkFeedback(run: WorkflowRun, workerId: string, verifierNodeId: string): void {
+  for (const record of ensureFeedbackState(run)) {
+    if (record.status !== "open" && record.status !== "tasked") continue;
+    if (record.code !== "agent-delegation-parked" || stringMetadata(record.metadata, "workerId") !== workerId) continue;
+    const now = new Date().toISOString();
+    updateFeedback(run, {
+      ...record,
+      updatedAt: now,
+      status: "resolved",
+      resolvedByNodeId: verifierNodeId,
+      resolvedAt: now,
+      resolutionNote: "resume ran the worker again and its result was verified",
+    });
+  }
+}
+
 export function listFeedback(run: WorkflowRun, options: ListFeedbackOptions = {}): ErrorFeedbackRecord[] {
   ensureFeedbackState(run);
   return (run.feedback as ErrorFeedbackRecord[] | undefined || []).filter((record) => {
