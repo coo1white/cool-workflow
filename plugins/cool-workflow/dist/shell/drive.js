@@ -1039,7 +1039,7 @@ function yieldToEventLoop() {
  *  fold the interrupted/exhausted-iterations signal into the right
  *  "blocked" step, then assemble the DriveResult. Shared so the two
  *  loops can never report status differently for the same outcome. */
-function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterationsAtLoopExit, interruptedBy) {
+function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterationsAtLoopExit, interruptedBy, reopened = []) {
     let exhaustedMaxIterations = exhaustedMaxIterationsAtLoopExit;
     const run = loadRun(ctx);
     const completedWorkers = (0, drive_decide_1.countCompleted)(run);
@@ -1087,7 +1087,24 @@ function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhau
         reportPath: run.paths.report,
         statePath: run.paths.state,
         agentConfigured: agentConfigured(ctx.config),
+        ...(reopened.length ? { reopenedWorkers: reopened } : {}),
     };
+}
+/** Under the drive lock, before the first round: put each task parked past
+ *  its retry budget back to running (reopenParkedWorker) and save once.
+ *  Gives back the task ids, in run order. */
+function reopenParked(ctx) {
+    const run = loadRun(ctx);
+    const taskIds = (0, drive_decide_1.reopenableParkedTaskIds)(run);
+    if (!taskIds.length)
+        return [];
+    (0, trust_audit_1.withTrustAuditBatch)(run, () => {
+        for (const taskId of taskIds) {
+            (0, worker_isolation_1.reopenParkedWorker)(run, String(run.tasks.find((task) => task.id === taskId).workerId));
+        }
+    });
+    (0, run_store_1.saveCheckpoint)(run);
+    return taskIds;
 }
 /** Drive a run: `--once` advances exactly one step; otherwise run to
  *  completion, park, or a blocked stop. Fully synchronous, byte-identical
@@ -1105,6 +1122,7 @@ function drive(runId, cwd, options = {}) {
     // own probe-before-lock.
     const runDir = (0, run_store_1.resolveRunDir)(runId, cwd);
     return (0, run_store_1.withDriveLock)(runDir, runId, () => {
+        const reopened = options.reopenParked ? reopenParked(ctx) : [];
         const steps = [];
         const run0 = loadRun(ctx);
         const plannedWorkers = run0.tasks.length;
@@ -1126,7 +1144,7 @@ function drive(runId, cwd, options = {}) {
         finally {
             stopSignal.remove();
         }
-        return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy());
+        return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy(), reopened);
     });
 }
 /** Same contract and same DriveResult as drive() -- but actually
@@ -1158,6 +1176,7 @@ async function driveAsync(runId, cwd, options = {}) {
     // Resolve the run dir before the mutex — see drive() above.
     const runDir = (0, run_store_1.resolveRunDir)(runId, cwd);
     return (0, run_store_1.withDriveLockAsync)(runDir, runId, async () => {
+        const reopened = options.reopenParked ? reopenParked(ctx) : [];
         const steps = [];
         const run0 = loadRun(ctx);
         const plannedWorkers = run0.tasks.length;
@@ -1180,7 +1199,7 @@ async function driveAsync(runId, cwd, options = {}) {
         finally {
             stopSignal.remove();
         }
-        return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy());
+        return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy(), reopened);
     });
 }
 function drivePreview(runId, cwd, args = {}) {

@@ -30,6 +30,7 @@ import {
   makeStep,
   maxIterations,
   priorAttempts,
+  reopenableParkedTaskIds,
   retryOrPark,
   roundWidth,
   selectDriveTask,
@@ -53,7 +54,7 @@ import {
 import { firstRunnablePhase, updatePhaseStatuses } from "../core/pipeline/dispatch";
 import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir } from "./run-store";
 import { createDispatchManifest } from "./dispatch";
-import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope } from "./worker-isolation";
+import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope, reopenParkedWorker } from "./worker-isolation";
 import { createStateNode } from "../core/state/state-node";
 import { appendRunNode } from "./node-store";
 import { runPipelineStage } from "../core/pipeline/runner";
@@ -128,6 +129,11 @@ export interface DriveOptions {
    *  DEFAULT_SCHEDULING_POLICY; unset fields keep the default. Byte-exact
    *  port of the old build's drive module DriveOptions.policy. */
   policy?: Partial<SchedulingPolicy>;
+  /** A resume (`cw --resume --run`, `cw run resume --drive`): before the
+   *  first round, run each worker parked past its retry budget again, with
+   *  a fresh budget. Plain `run --drive` never sets it: a parked run stays
+   *  blocked there. */
+  reopenParked?: boolean;
 }
 
 export interface DriveResult {
@@ -143,6 +149,8 @@ export interface DriveResult {
   reportPath: string;
   statePath: string;
   agentConfigured: boolean;
+  /** Task ids a resume ran again after a park; absent when there were none. */
+  reopenedWorkers?: string[];
 }
 
 function agentConfigured(config: AgentDelegationConfig): boolean {
@@ -1141,7 +1149,8 @@ function finalizeDriveResult(
   plannedWorkers: number,
   maxIter: number,
   exhaustedMaxIterationsAtLoopExit: boolean,
-  interruptedBy: NodeJS.Signals | undefined
+  interruptedBy: NodeJS.Signals | undefined,
+  reopened: string[] = []
 ): DriveResult {
   let exhaustedMaxIterations = exhaustedMaxIterationsAtLoopExit;
   const run = loadRun(ctx);
@@ -1190,7 +1199,24 @@ function finalizeDriveResult(
     reportPath: run.paths.report,
     statePath: run.paths.state,
     agentConfigured: agentConfigured(ctx.config),
+    ...(reopened.length ? { reopenedWorkers: reopened } : {}),
   };
+}
+
+/** Under the drive lock, before the first round: put each task parked past
+ *  its retry budget back to running (reopenParkedWorker) and save once.
+ *  Gives back the task ids, in run order. */
+function reopenParked(ctx: DriveContext): string[] {
+  const run = loadRun(ctx);
+  const taskIds = reopenableParkedTaskIds(run);
+  if (!taskIds.length) return [];
+  withTrustAuditBatch(run, () => {
+    for (const taskId of taskIds) {
+      reopenParkedWorker(run, String(run.tasks.find((task) => task.id === taskId)!.workerId));
+    }
+  });
+  saveCheckpoint(run);
+  return taskIds;
 }
 
 /** Drive a run: `--once` advances exactly one step; otherwise run to
@@ -1209,6 +1235,7 @@ export function drive(runId: string, cwd: string, options: DriveOptions = {}): D
   // own probe-before-lock.
   const runDir = resolveRunDir(runId, cwd);
   return withDriveLock(runDir, runId, () => {
+    const reopened = options.reopenParked ? reopenParked(ctx) : [];
     const steps: DriveStep[] = [];
     const run0 = loadRun(ctx);
     const plannedWorkers = run0.tasks.length;
@@ -1230,7 +1257,7 @@ export function drive(runId: string, cwd: string, options: DriveOptions = {}): D
       stopSignal.remove();
     }
 
-    return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy());
+    return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy(), reopened);
   });
 }
 
@@ -1263,6 +1290,7 @@ export async function driveAsync(runId: string, cwd: string, options: DriveOptio
   // Resolve the run dir before the mutex — see drive() above.
   const runDir = resolveRunDir(runId, cwd);
   return withDriveLockAsync(runDir, runId, async () => {
+    const reopened = options.reopenParked ? reopenParked(ctx) : [];
     const steps: DriveStep[] = [];
     const run0 = loadRun(ctx);
     const plannedWorkers = run0.tasks.length;
@@ -1285,7 +1313,7 @@ export async function driveAsync(runId: string, cwd: string, options: DriveOptio
       stopSignal.remove();
     }
 
-    return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy());
+    return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy(), reopened);
   });
 }
 

@@ -261,9 +261,10 @@ function runDrivePreview(args) {
  *  the plain synchronous drive()) so a live multi-round run actually
  *  responds to Ctrl-C/SIGTERM instead of silently ignoring it — see
  *  shell/drive.ts's driveAsync doc comment. */
-async function runDriveStep(args) {
+async function runDriveStep(args, extra = {}) {
     const existingRunId = String(args.runId || args.run || "");
     const options = {
+        ...extra,
         once: Boolean(args.once),
         now: typeof args.now === "string" ? args.now : undefined,
         args,
@@ -533,6 +534,9 @@ async function quickstartRun(args) {
         args,
         concurrency: args.concurrency !== undefined ? Number(args.concurrency) : undefined,
         incremental: Boolean(args.incremental),
+        // `--resume --run <id>` takes the run to the end: a worker parked past
+        // its retry budget is run again (plain `--run` without --resume is not).
+        ...(resumeRunId ? { reopenParked: true } : {}),
     };
     let run;
     if (existingRunId) {
@@ -591,7 +595,7 @@ async function quickstartRun(args) {
             "agent backend not configured — set CW_AGENT_COMMAND (e.g. \"claude -p\") or pass --agent-command, then re-run. The one command DELEGATES worker execution to YOUR agent; it never executes a model itself.";
     }
     else if (result.status === "parked") {
-        hint = `a worker parked past its retry budget — inspect: cw run show ${result.runId}`;
+        hint = `a worker parked past its retry budget — inspect: cw run show ${result.runId}; fix the cause, then: cw --resume --run ${result.runId}`;
     }
     else if (result.status === "blocked") {
         hint = `the drive is blocked — inspect: cw run drive ${result.runId}`;

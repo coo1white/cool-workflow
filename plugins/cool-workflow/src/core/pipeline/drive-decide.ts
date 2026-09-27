@@ -59,6 +59,24 @@ export function countParked(run: WorkflowRun): number {
   return run.tasks.filter((task) => task.status === "failed").length;
 }
 
+/** The error code handleHop records when a worker's agent hop fails past
+ *  its retry budget. */
+export const AGENT_PARKED_CODE = "agent-delegation-parked";
+
+/** The tasks a resume may run again: failed tasks whose worker's LAST
+ *  error is the retry-budget park. A worker stopped for any other reason
+ *  (a sandbox or boundary violation, a rejected result) stays failed. */
+export function reopenableParkedTaskIds(run: WorkflowRun): string[] {
+  const workers = (run.workers as Array<{ id?: string; errors?: Array<{ code?: string }> }> | undefined) || [];
+  return run.tasks
+    .filter((task) => {
+      if (task.status !== "failed" || !task.workerId) return false;
+      const errors = workers.find((worker) => worker.id === task.workerId)?.errors || [];
+      return errors.length > 0 && errors[errors.length - 1].code === AGENT_PARKED_CODE;
+    })
+    .map((task) => task.id);
+}
+
 /** The completed verdict/synthesis task's verifierNodeId, if any. */
 export function verdictVerifierNodeId(run: WorkflowRun): string | undefined {
   const verdict = run.tasks.find((task) => /^verdict[:/]|^synthesis[:/]/i.test(task.id) && task.status === "completed");

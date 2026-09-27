@@ -46,6 +46,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.recordFeedback = recordFeedback;
 exports.getFeedback = getFeedback;
+exports.resolveParkFeedback = resolveParkFeedback;
 exports.listFeedback = listFeedback;
 exports.collectRunErrors = collectRunErrors;
 exports.createCorrectionTask = createCorrectionTask;
@@ -140,6 +141,26 @@ function updateFeedback(run, record) {
     run.feedback = records.map((candidate) => (candidate.id === record.id ? record : candidate));
     (0, fs_atomic_1.writeJson)(feedbackPath(run, record.id), record);
     writeFeedbackIndex(run);
+}
+/** A parked worker that a resume ran again, now with a verified result: each
+ *  open park feedback of that worker is resolved by the verifier node, the
+ *  same proof `feedback resolve` asks for. No other feedback is touched. */
+function resolveParkFeedback(run, workerId, verifierNodeId) {
+    for (const record of ensureFeedbackState(run)) {
+        if (record.status !== "open" && record.status !== "tasked")
+            continue;
+        if (record.code !== "agent-delegation-parked" || stringMetadata(record.metadata, "workerId") !== workerId)
+            continue;
+        const now = new Date().toISOString();
+        updateFeedback(run, {
+            ...record,
+            updatedAt: now,
+            status: "resolved",
+            resolvedByNodeId: verifierNodeId,
+            resolvedAt: now,
+            resolutionNote: "resume ran the worker again and its result was verified",
+        });
+    }
 }
 function listFeedback(run, options = {}) {
     ensureFeedbackState(run);

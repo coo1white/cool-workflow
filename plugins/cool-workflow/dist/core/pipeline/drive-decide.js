@@ -13,11 +13,12 @@
 // internals a rebuild must copy", "`--incremental` and the result
 // cache".
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_SCHEDULING_POLICY = exports.MAX_SUB_WORKFLOW_DEPTH = exports.DRIVE_SCHEMA_VERSION = void 0;
+exports.DEFAULT_SCHEDULING_POLICY = exports.AGENT_PARKED_CODE = exports.MAX_SUB_WORKFLOW_DEPTH = exports.DRIVE_SCHEMA_VERSION = void 0;
 exports.makeStep = makeStep;
 exports.selectDriveTask = selectDriveTask;
 exports.countCompleted = countCompleted;
 exports.countParked = countParked;
+exports.reopenableParkedTaskIds = reopenableParkedTaskIds;
 exports.verdictVerifierNodeId = verdictVerifierNodeId;
 exports.exitCodeFromEvidence = exitCodeFromEvidence;
 exports.hasTerminalCommit = hasTerminalCommit;
@@ -54,6 +55,23 @@ function countCompleted(run) {
 }
 function countParked(run) {
     return run.tasks.filter((task) => task.status === "failed").length;
+}
+/** The error code handleHop records when a worker's agent hop fails past
+ *  its retry budget. */
+exports.AGENT_PARKED_CODE = "agent-delegation-parked";
+/** The tasks a resume may run again: failed tasks whose worker's LAST
+ *  error is the retry-budget park. A worker stopped for any other reason
+ *  (a sandbox or boundary violation, a rejected result) stays failed. */
+function reopenableParkedTaskIds(run) {
+    const workers = run.workers || [];
+    return run.tasks
+        .filter((task) => {
+        if (task.status !== "failed" || !task.workerId)
+            return false;
+        const errors = workers.find((worker) => worker.id === task.workerId)?.errors || [];
+        return errors.length > 0 && errors[errors.length - 1].code === exports.AGENT_PARKED_CODE;
+    })
+        .map((task) => task.id);
 }
 /** The completed verdict/synthesis task's verifierNodeId, if any. */
 function verdictVerifierNodeId(run) {

@@ -57,6 +57,7 @@ exports.validateWorkerBoundary = validateWorkerBoundary;
 exports.recordWorkerOutput = recordWorkerOutput;
 exports.recordWorkerFailure = recordWorkerFailure;
 exports.recordWorkerRetryAttempt = recordWorkerRetryAttempt;
+exports.reopenParkedWorker = reopenParkedWorker;
 exports.showWorkerManifest = showWorkerManifest;
 exports.listWorkerScopes = listWorkerScopes;
 exports.summarizeWorkers = summarizeWorkers;
@@ -860,6 +861,9 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         metadata: { taskId: task.id, workerId, resultNodeId: resultNode.id, sandboxProfileId: scope.sandboxProfileId },
     }, { persist: false, persistNode: node_store_1.appendRunNode, pathExists: fs.existsSync });
     task.verifierNodeId = verifierResult.outputNodeId;
+    // A parked worker a resume ran again: its verified result resolves the park.
+    if (verifierResult.status === "advanced")
+        (0, error_feedback_io_1.resolveParkFeedback)(run, workerId, verifierResult.outputNodeId);
     // Step 5: completion — persist the worker scope with the verify-derived status.
     const output = { workerId, taskId: task.id, resultPath: absoluteResultPath, recordedAt: new Date().toISOString(), stateNodeId: resultNode.id, verifierNodeId: task.verifierNodeId, auditEventIds: [pathAudit.id, acceptedAudit.id] };
     const reportedModel = agentDelegationMeta && agentDelegationMeta.model && agentDelegationMeta.model !== "unreported" ? agentDelegationMeta.model : undefined;
@@ -974,6 +978,31 @@ function recordWorkerRetryAttempt(run, workerId, attempts, reason) {
         metadata: { ...(scope.metadata || {}), agentDelegationAttempts: attempts, agentDelegationLastFailure: reason },
     });
     writeWorkerManifest(run, updated);
+    return updated;
+}
+/** A resume runs a parked worker again. Task and worker go back to the
+ *  state they hold between two tries of one hop (running, same dispatch,
+ *  same input.md), with a fresh retry budget. The failure node, the
+ *  feedback and the audit events of the park stay; the reopen is its own
+ *  audit event. */
+function reopenParkedWorker(run, workerId) {
+    const scope = requireWorkerScope(run, workerId);
+    const task = requireWorkerTask(run, scope);
+    const last = scope.errors[scope.errors.length - 1];
+    task.status = "running";
+    task.loopStage = "act";
+    const updated = upsertWorkerScope(run, { ...scope, updatedAt: new Date().toISOString(), status: "running", retryCount: 0 });
+    (0, trust_audit_1.recordTrustAuditEvent)(run, {
+        kind: "worker.reopen",
+        decision: "allowed",
+        source: "operator-recorded",
+        workerId,
+        taskId: task.id,
+        feedbackIds: scope.feedbackIds,
+        metadata: { reason: "resume runs a worker parked past its retry budget again", priorAttempts: scope.retryCount, parkedReason: last?.message },
+    });
+    writeWorkerManifest(run, updated);
+    writeWorkerIndex(run);
     return updated;
 }
 function showWorkerManifest(run, workerId) {
