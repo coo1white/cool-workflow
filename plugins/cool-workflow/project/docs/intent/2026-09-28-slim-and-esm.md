@@ -176,6 +176,8 @@ last.
 | D5 | Full ESM, in the order below. | yes, after D4 |
 | D6 | App files keep the `module.exports` form (user contract); the loader reads them through `createRequire`; `apps/` gets a one-line `package.json` with `"type": "commonjs"`. | keep |
 
+Answered by the operator on 2026-09-28: yes to all six, D1 to D6.
+
 ## Rules for every PR in this program
 
 Same as the last programs: one PR per step below, a Plan with measured
@@ -210,7 +212,10 @@ records it in "What this spec got wrong" in the same commit.
 7. **Delete the multi-agent core and the wiring slice** (code). The
    `multi-agent-*` release-check items are gone by now; the
    `pdca-blackboard-loop` app goes with it or is rewritten, as its plan
-   step shows.
+   step shows. `AGENTS.md` "Product Direction & Moat" names the
+   blackboard as an asset to use more; that line and the "blackboard
+   exists but is not used" row change in this PR to say it was removed
+   and why.
 8. **Comment and helper sweep** (code): `2026-09-04-compress-src.md` as
    written, its numbers re-measured on the smaller tree first. Its file
    stays the spec for this step.
@@ -262,14 +267,32 @@ under 48; new files only the three temporary `package.json`s
 
 ## What this spec got wrong (recorded at close)
 
-(filled at close)
+Found before step 1, by reading the capability table's wiring:
+
+- D1 removes 75 capabilities and 75 MCP tools (198 to 123), not "about
+  107": the prefix split counted scheduling, routines, queue and
+  reclamation tools, which D2 keeps. None of the 12 core tools goes.
+- `contract.show` (`cw_contract_show`, "Show a run's pipeline
+  contract") is wired through `multi-agent-cli.ts` but reads the run's
+  own contract. It stays; the step that deletes `multi-agent-cli.ts`
+  moves it first.
+- D1 also takes: `handoff` (run and task owner change, in the
+  collaboration part of `multi-agent-cli.ts`) and five multi-agent audit
+  views: `audit.multi-agent`, `audit.policy`, `audit.role`,
+  `audit.judge`, `audit.blackboard`. `cw ledger` (the cross-agent
+  ledger) is a different surface and stays.
+- `commit` keeps its evidence check (`core/trust/evidence-grounding`)
+  and its verifier gate; it loses the review gate (step 5) and the
+  candidate and selection gate options (step 4).
+
+(the rest filled at close)
 
 ## Status ledger
 
 | Item | State | PR |
 |---|---|---|
 | Intent + spec (this file) | open | |
-| D1-D6 answered | | |
+| D1-D6 answered | yes, all six (operator, 2026-09-28) | #751 |
 | 1 Cut the core-path hooks | | |
 | 2 Delete orchestrator + evidence reasoning | | |
 | 3 Delete coordinator + topology | | |
