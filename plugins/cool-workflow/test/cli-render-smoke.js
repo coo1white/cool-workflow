@@ -2,13 +2,10 @@
 "use strict";
 
 // cli-render-smoke -- the calm terminal presentation layer (v0.1.91): the cw-side Reporter
-// (src/shell/reporter.ts) and the zero-dep term primitives (truncate / findings table / color-env).
+// (src/shell/reporter.ts) and the zero-dep term primitives (truncate / color-env).
 //
 // Asserts the Step-3 constraints directly, deterministically, with NO live model:
-//   * Reporter renders on a TTY (findings table + report path + status + transcript + next hint),
-//     and is SILENT on a non-TTY (the human summary never pollutes piped/--json stdout).
 //   * progress() is a thin write — the line is emitted verbatim (already styled by the caller).
-//   * a blocked no-agent run points at `cw doctor`.
 //   * truncate is width-aware; color honors NO_COLOR / CW_NO_COLOR / FORCE_COLOR (the --no-color
 //     flag sets CW_NO_COLOR), independent of isTTY.
 
@@ -136,59 +133,6 @@ function testMachineChannelByteExactUnderForceColor() {
   console.log("cli-render: --json machine channel stays byte-exact under FORCE_COLOR OK");
 }
 
-function testFindingsTable() {
-  assert.equal(term.formatFindingsSummary([]), "", "no findings -> empty (caller prints nothing)");
-  const rows = [
-    { id: "F1", severity: "P1", classification: "real" },
-    { id: "F2", severity: "P1", classification: "real" },
-    { id: "F3", severity: "P2", classification: "conditional" }
-  ];
-  const out = plain(term.formatFindingsSummary(rows, { isTTY: false }));
-  assert.match(out, /Findings:\s*3/, "headline counts total findings");
-  assert.match(out, /2×P1/, "headline aggregates by severity");
-  assert.match(out, /1×P2/, "headline aggregates the second severity");
-  for (const r of rows) assert.ok(out.includes(r.id), `table lists ${r.id}`);
-  assert.ok(!ANSI.test(term.formatFindingsSummary(rows, { isTTY: false })), "piped findings table carries no ANSI");
-  console.log("cli-render: findings table OK");
-}
-
-function testReporterTty() {
-  const findings = [{ id: "F1", severity: "P1", classification: "real" }, { id: "F2", severity: "P2", classification: "conditional" }];
-  const s = fakeStream(true);
-  createReporter(s).runSummary({
-    runId: "RUN1",
-    reportPath: "/tmp/run/report.md",
-    status: "complete",
-    completedWorkers: 2,
-    plannedWorkers: 2,
-    findings,
-    runDir: "/tmp/run/.cw/runs/RUN1"
-  });
-  const out = plain(s.text);
-  assert.match(out, /Report:\s*\/tmp\/run\/report\.md/, "prints the report path");
-  assert.match(out, /Status:\s*complete/, "prints status");
-  assert.match(out, /2\/2/, "prints worker counts");
-  assert.match(out, /Findings:\s*2/, "prints the compact findings headline");
-  assert.ok(out.includes("F1") && out.includes("F2"), "lists each finding id");
-  assert.match(out, /Transcript:.*\/tmp\/run\/\.cw\/runs\/RUN1/, "points at the run dir (per-worker transcripts)");
-  assert.match(out, /cw report RUN1 --show/, "offers the next command");
-  console.log("cli-render: reporter TTY summary OK");
-}
-
-function testReporterNonTtySilent() {
-  const s = fakeStream(false);
-  createReporter(s).runSummary({
-    runId: "RUN1",
-    reportPath: "/tmp/run/report.md",
-    status: "complete",
-    completedWorkers: 1,
-    plannedWorkers: 1,
-    findings: [{ id: "F1", severity: "P1", classification: "real" }]
-  });
-  assert.equal(s.text, "", "the human summary is SILENT on a non-TTY (never pollutes piped/--json stdout)");
-  console.log("cli-render: reporter non-TTY silence OK");
-}
-
 function testProgressThinWrite() {
   for (const isTTY of [true, false]) {
     const s = fakeStream(isTTY);
@@ -196,21 +140,6 @@ function testProgressThinWrite() {
     assert.equal(s.text, "[drive] ==> Map ✓ (6/6)\n", "progress writes the (already-styled) line verbatim + newline");
   }
   console.log("cli-render: progress thin-write OK");
-}
-
-function testBlocked() {
-  const blocked = fakeStream(true);
-  createReporter(blocked).runSummary({
-    runId: "RUN3",
-    reportPath: "/tmp/run/report.md",
-    status: "blocked",
-    agentConfigured: false,
-    findings: []
-  });
-  const blockedOut = plain(blocked.text);
-  assert.match(blockedOut, /Status:\s*blocked/, "surfaces the blocked status");
-  assert.match(blockedOut, /cw doctor/, "no-agent blocked run points at the one recovery command");
-  console.log("cli-render: blocked-no-agent recovery OK");
 }
 
 function testCursorHygiene() {
@@ -329,11 +258,7 @@ function main() {
   testTruncateAndWidth();
   testColorEnv();
   testMachineChannelByteExactUnderForceColor();
-  testFindingsTable();
-  testReporterTty();
-  testReporterNonTtySilent();
   testProgressThinWrite();
-  testBlocked();
   testCursorHygiene();
   testRollingWindowFold();
   testResultTreeLines();

@@ -5,10 +5,7 @@
 // Homebrew-grade UX surfaces added in 0.1.90, and — critically — that they NEVER leak
 // into the data channel:
 //
-//   1. term.ts house style (unit): printSuccessSummary writes a clean Report:/Status:/
-//      Next: block on a TTY, a `Try: cw doctor` recovery line when no agent is configured,
-//      and is SILENT on a non-TTY stream (so piped/--json stdout can never be polluted).
-//      phaseProgressLine renders `==> Map ✓ (6/6)` / `==> Assess ⇉ (3/6)`.
+//   1. term.ts house style (unit): phaseProgressLine renders `==> Map ✓ (6/6)` / `==> Assess ⇉ (3/6)`.
 //   2. live phase progress (integration): a real drive with a deterministic STUB agent
 //      emits `==> <Phase>` boundary lines on stderr, while `--json` stdout stays byte-clean
 //      (parses; zero `==>` / `Report:` / ANSI-escape leakage).
@@ -25,8 +22,7 @@ const path = require("node:path");
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 // v2 moved term.ts into src/shell/ → dist/shell/term.js (exports + signatures
-// are byte-identical: printSuccessSummary(fields, stream), phaseProgressLine(
-// name, done, total, mode, stream)). cli.js stays at dist/cli.js.
+// are byte-identical: phaseProgressLine(name, done, total, mode, stream)). cli.js stays at dist/cli.js.
 const term = require(path.join(pluginRoot, "dist", "shell", "term.js"));
 const cleanups = [];
 
@@ -35,45 +31,8 @@ function fakeStream(isTTY) {
   const buf = [];
   return { isTTY, write: (s) => (buf.push(String(s)), true), text: () => buf.join("") };
 }
-// On a TTY the labels are ANSI-styled; strip codes so assertions match the human text.
-const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, "");
 
-// ===== 1a. printSuccessSummary on a TTY: clean Report:/Status:/Next: for a complete run =====
-{
-  const s = fakeStream(true);
-  term.printSuccessSummary(
-    { runId: "r-123", reportPath: "/tmp/p/report.md", status: "complete", completedWorkers: 14, plannedWorkers: 14 },
-    s
-  );
-  const out = strip(s.text());
-  assert.match(out, /Report: \/tmp\/p\/report\.md/, "complete run shows the report path");
-  assert.match(out, /Status:.*complete.*14\/14/, "complete run shows status + N/N worker counts");
-  assert.match(out, /Next: cw report r-123 --show/, "complete run points at the report verb");
-  console.log("summary: complete run renders Report/Status/Next ok");
-}
-
-// ===== 1b. printSuccessSummary: a no-agent blocked run gets the `Try: cw doctor` recovery =====
-{
-  const s = fakeStream(true);
-  term.printSuccessSummary(
-    { runId: "r-9", reportPath: "/tmp/p/report.md", status: "blocked", completedWorkers: 0, plannedWorkers: 14, agentConfigured: false },
-    s
-  );
-  const out = strip(s.text());
-  assert.match(out, /Status:.*blocked.*0\/14/, "blocked run shows the blocked status + counts");
-  assert.match(out, /Try: cw doctor/, "no agent configured => brew-style `Try: cw doctor` recovery");
-  console.log("summary: no-agent blocked run renders `Try: cw doctor` ok");
-}
-
-// ===== 1c. printSuccessSummary is SILENT on a non-TTY stream (pipe/--json safety) =====
-{
-  const s = fakeStream(false);
-  term.printSuccessSummary({ runId: "r-1", reportPath: "/tmp/p/report.md", status: "complete", completedWorkers: 1, plannedWorkers: 1 }, s);
-  assert.equal(s.text(), "", "summary writes NOTHING when the stream is not a TTY (never pollutes a pipe)");
-  console.log("summary: silent on a non-TTY stream ok");
-}
-
-// ===== 1d. phaseProgressLine renders the brew-style boundary line =====
+// ===== 1. phaseProgressLine renders the brew-style boundary line =====
 {
   const plain = fakeStream(false); // non-TTY => no ANSI, easy to assert
   assert.equal(term.phaseProgressLine("Map", 6, 6, "parallel", plain), "==> Map ✓ (6/6)", "finished phase => ✓ + N/N");

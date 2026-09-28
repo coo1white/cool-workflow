@@ -59,7 +59,7 @@ export function formatServeHint(boundPort: number): string {
 
 /** Prints the human hint line to STDERR only, and only on a real
  *  interactive terminal — the same TTY-gated-nicety pattern as
- *  term.ts's printSuccessSummary: silent when the stream is not a TTY, so
+ *  the cw -q end summary: silent when the stream is not a TTY, so
  *  a piped/non-interactive run (and the existing STDOUT descriptor line)
  *  never changes at all. */
 export function printServeHint(boundPort: number, stream: NodeJS.WriteStream = process.stderr): void {

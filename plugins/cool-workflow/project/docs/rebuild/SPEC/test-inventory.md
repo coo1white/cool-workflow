@@ -213,7 +213,7 @@ Each line: what the file pins. The file itself is the evidence (header comment, 
 - `cli-mcp-parity-smoke.js` — CLI and MCP surfaces are two renderings of ONE data source (the capability registry).
 - `cli-progress-summary-smoke.js` — progress/summary UX lines never leak into the stdout data channel.
 - `cli-recoverable-errors-smoke.js` — a typo'd command gets `Did you mean: <closest>?` plus a `Try: cw help` recovery line; every failure hands a next move.
-- `cli-render-smoke.js` — the Reporter (`src/reporter.ts`) and zero-dep term primitives (truncate / findings table / color-env).
+- `cli-render-smoke.js` — the Reporter (`src/reporter.ts`) and zero-dep term primitives (truncate / color-env).
 - `cw-help-per-command-smoke.js` — `cw help <verb>` and `cw <verb> --help` render subcommand lists from `CAPABILITY_REGISTRY`.
 - `doctor-smoke.js` — `cw doctor`: report shape; read-only (no `.cw/`/`$CW_HOME` writes); missing agent is WARN exit 0; unwritable home handled.
 - `headline-commands-smoke.js` — the EXACT documented commands a new user types (`cw -q "question"`, vendor flags, demo/doctor/help/version/fix) work as typed.

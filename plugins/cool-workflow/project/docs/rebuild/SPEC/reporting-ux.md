@@ -45,8 +45,8 @@ A registry keyword (`drive`, `search`, `list`, `show`, `resume`, `archive`, `rer
 
 ### Exported functions (module surface)
 
-- `src/reporter.ts`: `createReporter(stream)`, the `reporter` singleton over `process.stderr`, `Reporter` (`progress(line)`, `runSummary(fields)`), `RunSummaryFields` (reporter.ts:19-84).
-- `src/term.ts`: `bold/dim/green/yellow/red/cyan(text, stream?)`, `doctorGlyph(status)`, `indent(text, spaces=2)`, `nextHint(cmd)`, `tryHint(cmd)`, `sectionHeader(title)`, `phaseProgressLine(name, done, total, mode?)`, `printSuccessSummary(fields, stream?)`, `stripAnsi`, `visibleWidth`, `truncate(text, maxWidth)`, `formatFindingsSummary(rows)`, types `TermSeverity`, `FindingRow`.
+- `src/reporter.ts`: `createReporter(stream)`, the `reporter` singleton over `process.stderr`, `Reporter` (`progress(line)`), `formatQuickstartSummary(fields, opened)`, `RunSummaryFields` (reporter.ts:19-84).
+- `src/term.ts`: `bold/dim/green/yellow/red/cyan(text, stream?)`, `doctorGlyph(status)`, `indent(text, spaces=2)`, `nextHint(cmd)`, `tryHint(cmd)`, `sectionHeader(title)`, `phaseProgressLine(name, done, total, mode?)`, `stripAnsi`, `visibleWidth`, `truncate(text, maxWidth)`, type `TermSeverity`.
 - `src/doctor.ts`: `runDoctor(args, env, cwd) -> DoctorReport`, `formatDoctorReport`, `formatDoctorFixes`.
 - `src/observability.ts`: `METRICS_SCHEMA_VERSION = 1`, `fingerprintMetricsSource`, `deriveUsageTotals`, `deriveAttestationCoverage`, `deriveCost`, `deriveFailureRate`, `deriveVerifierPassRate`, `deriveCandidateAcceptanceRate`, `deriveMetricsReport`, `deriveCollaborationMetrics`, `metricsDir`, `loadPersistedMetricsFingerprint`, `showMetricsReport`, `deriveMetricsSummary`; re-exports `loadCostPolicy`, `parseUsageFromArgs` (from `observability/intake.ts`) and `formatMetricsReport`, `formatMetricsSummary` (from `observability/format.ts`) so the old import path keeps working (observability.ts:813,821).
 - `src/operator-ux.ts`: `summarizeOperatorRun`, `adviseNoRun`, `summarizeOperatorWorkers`, `summarizeOperatorCandidates`, `summarizeOperatorFeedback`, `summarizeOperatorCommits`, `buildOperatorGraph`; re-exports the eleven `format*` functions from `operator-ux/format.ts` (operator-ux.ts:776-788).
@@ -114,29 +114,7 @@ Sections in this order, joined with `"\n"` and written with `fs.writeFileSync(ru
 
 ### The Rule of Silence (TTY view vs pipes)
 
-- `Reporter.runSummary` writes NOTHING when the stream is not a TTY (`if (!isTTY(this.s)) return;`, src/reporter.ts:53). `printSuccessSummary` does the same (src/term.ts:128). Piped or `--json` stdout carries only the data.
-- On a TTY, stderr gets (src/reporter.ts:57-71):
-
-```text
-
-<findings table>            (only when there are findings, then one empty line)
-✓ Report: <reportPath>
-  ✓ Status: complete — <completed>/<planned>
-  Transcript: <runDir>      (dim; only when runDir is known)
-  Next: cw report <runId> --show
-```
-
-For a non-complete run:
-
-```text
-  ! Status: <status> — <n>/<n>
-  Try: cw doctor            (only when agentConfigured === false)
-  Next: cw status <runId>   (otherwise)
-```
-
-(`--full`, which added the report text after this, was taken out on 2026-09-28.)
-- The findings table (src/term.ts:185-210): head line `Findings: <n> — <k>×<sev>, …` with severity order `P0, P1, P2, P3, none`; a dim column head `  SEVERITY  CLASS  ID` where the severity column is padded to at least 8 and the class column to at least 5; one row per finding `  <severity>  <class>  <id>` with the id cut at 60 columns with `…`. Returns `""` when there are no findings.
-- Findings come from re-parsing each completed worker's `result.md` `cw:result` block; a bad file or a run that does not load is skipped, never fatal (src/capability-core.ts:646-665).
+- The end-of-run summary is printed only on a TTY and never with `--json` (see the `cw -q` end summary below). Piped or `--json` stdout carries only the data. (`Reporter.runSummary`, `printSuccessSummary` and the findings table had no caller and were taken out on 2026-09-28.)
 - Drive progress lines go through `reporter.progress` with the prefix `[drive] `; on only when stderr is a TTY or `CW_DRIVE_PROGRESS=1`; off when `CW_DRIVE_PROGRESS=0` (src/drive.ts:136-142). Line shapes: `[drive] → <label> (<phase>) — dispatched, spawning agent, may take minutes…` (drive.ts:307), `[drive] ↺ <label> (<phase>) — accepting cached result` (drive.ts:284), `[drive] ⇉ concurrent round: <n> agent(s) spawning in parallel, may take minutes…` (drive.ts:598), `[drive] ⧉ <label> (<phase>) — sub-workflow <appId>…` (drive.ts:703), numbered step lines `[drive] <n>. <action> <status> <taskId> model=<m> — <reason>` (drive.ts:855-864).
 - Phase boundary lines: `phaseProgressLine` gives `==> <Name> ✓ (6/6)` when done, `==> <Name> ⇉ (3/6)` for a parallel phase in flight, `==> <Name> … (3/6)` for a serial one (src/term.ts:104-109, drive.ts:822-848). `==>` is bold; `✓` green.
 - Color rule: `NO_COLOR`/`CW_NO_COLOR` win over all; then `FORCE_COLOR` (non-`"0"`) forces on; then `TERM=dumb` turns it off; else color only when the stream is a TTY (src/term.ts colorEnabled). ANSI codes used: reset `\x1b[0m`, bold `\x1b[1m`, dim `\x1b[2m`, green `\x1b[32m`, yellow `\x1b[33m`, red `\x1b[31m`, cyan `\x1b[36m` (src/term.ts:27-35).
@@ -324,12 +302,12 @@ keeps its report-only chain result.
 
 ## Evidence
 
-Every claim above carries its pointer inline. Chief anchors: src/reporter.ts:42-72 (summary + silence); src/term.ts:19-23,104-143,185-210 (color gate, phase line, success summary, findings table); src/doctor.ts:82-216 (checks, render, fixes); src/cli/command-surface.ts:126-131,170-177 (fix/doctor wiring + exit); src/orchestrator/report.ts:24-170 (report.md shape); src/observability.ts:110-115,276-355,463-529,599-612 (rates, cost, report, snapshot); src/observability/format.ts:27-71 (human metrics); src/observability/intake.ts:15-62 (policy + usage intake); src/operator-ux.ts:179-230,351-426,434-577 (summaries, graph, advice); src/operator-ux/format.ts:26-132 (status/report/graph text); src/run-export.ts:109-226,229-316,321-378,438-636,825-858 (export, import, verify, inspect, bundle, digests); src/capability-core.ts:285-432,646-665,1116-1145 (core entries); src/workbench.ts:41-224 and src/workbench-host.ts:39-210 (workbench); src/version.ts:1-5; src/compare.ts:13-15; src/cli.ts:5-29.
+Every claim above carries its pointer inline. Chief anchors: src/shell/reporter.ts (progress + `cw -q` end summary); src/shell/term.ts (color gate, phase line); src/doctor.ts:82-216 (checks, render, fixes); src/cli/command-surface.ts:126-131,170-177 (fix/doctor wiring + exit); src/orchestrator/report.ts:24-170 (report.md shape); src/observability.ts:110-115,276-355,463-529,599-612 (rates, cost, report, snapshot); src/observability/format.ts:27-71 (human metrics); src/observability/intake.ts:15-62 (policy + usage intake); src/operator-ux.ts:179-230,351-426,434-577 (summaries, graph, advice); src/operator-ux/format.ts:26-132 (status/report/graph text); src/run-export.ts:109-226,229-316,321-378,438-636,825-858 (export, import, verify, inspect, bundle, digests); src/capability-core.ts:285-432,646-665,1116-1145 (core entries); src/workbench.ts:41-224 and src/workbench-host.ts:39-210 (workbench); src/version.ts:1-5; src/compare.ts:13-15; src/cli.ts:5-29.
 
 ## Pinned by tests
 
 - `test/doctor-smoke.js` — doctor report shape, read-only, warn-vs-fail exits, `--json` vs human, `--onramp`.
-- `test/cli-progress-summary-smoke.js` — `printSuccessSummary` TTY render + non-TTY silence, `Try: cw doctor` recovery, `==>` phase lines, `--json` stdout stays byte-clean of `==>`/`Report:`/ANSI.
+- `test/cli-progress-summary-smoke.js` — `==>` phase lines, `--json` stdout stays byte-clean of `==>`/`Report:`/ANSI.
 - `test/cli-render-smoke.js` — Reporter TTY/non-TTY paths, `progress()` verbatim write, truncate, `NO_COLOR`/`CW_NO_COLOR`/`FORCE_COLOR`/`TERM=dumb`.
 - `test/cli-io-smoke.js`, `test/cli-format-smoke.js`, `test/cli-command-surface-smoke.js`, `test/cli-jsonmode-parity-smoke.js`, `test/cli-mcp-parity-smoke.js` — printJson, workbench human text, dispatch wiring, CLI-MCP payload parity.
 - `test/observability-cost-accounting-smoke.js`, `test/telemetry-metrics-coverage-smoke.js` — derived durations, `n/a` rates, attested vs estimated cost, deterministic report over injected now, metrics CLI-MCP parity.
