@@ -85,18 +85,14 @@ cw quickstart architecture-review \
   --resume
 ```
 
-Go on with the same run:
-
-```bash
-cw quickstart architecture-review --run <run-id> --resume
-```
-
-Or, from the project's own folder (or with `--repo <path>`), the shorter
-bare flag form:
+Go on with the same run, from the project's own folder (or with
+`--repo <path>`):
 
 ```bash
 cw --resume --run <run-id>
 ```
+
+This is the one command CW itself prints wherever a run stops.
 
 You can also resume through the registry:
 

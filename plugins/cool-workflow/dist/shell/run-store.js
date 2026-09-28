@@ -304,7 +304,7 @@ function acquireDriveLock(runDir, runId) {
     const pid = process.pid;
     const body = `${pid}@${new Date().toISOString()}\n`;
     const refuse = (ownerPid) => new Error(`Run ${runId} is already being driven by another process (pid ${ownerPid || "unknown"}). ` +
-        `Wait for it to finish, or if it has crashed remove ${lock}, then resume: cw run resume ${runId} --drive`);
+        `Wait for it to finish, or if it has crashed remove ${lock}, then resume: cw --resume --run ${runId}`);
     let acquired = false;
     // A live owner refuses at once; only a stealable (dead-owner / own-leak) lock
     // loops to re-acquire, so this never hot-spins for a genuinely busy run.

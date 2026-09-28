@@ -248,8 +248,7 @@ written, and the path is not made
 (`<path> is missing: there is no such folder. Pass --repo <path> to a project folder.`).
 
 `quickstart --resume` with no `--run` drives a single step and prints a
-copy-pasteable `cw quickstart --run <id> --resume` continue line; run it again with
-the `--run <id>` to finish. The continuing invocation echoes `resumedFrom: <id>`,
+copy-pasteable `cw --resume --run <id>` continue line; run it to finish. The continuing invocation echoes `resumedFrom: <id>`,
 and its `appId` is the app the run was planned with (so a continued
 `architecture-review-fast` run says so, and is not told to add `--fast`).
 Bare `quickstart` (no `--resume`) is unchanged — it drives straight to the end.

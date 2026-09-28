@@ -1148,7 +1148,7 @@ function createStopSignalController(runId: string): { install: () => void; remov
     stopSignalHits += 1;
     if (stopSignalHits === 1) {
       interruptedBy = signal;
-      emitProgress(`received ${signal} — stopping after the current step (resume: cw run resume ${runId} --drive)`);
+      emitProgress(`received ${signal} — stopping after the current step (resume: cw --resume --run ${runId})`);
       return;
     }
     // A second signal means the caller wants out right now, not a graceful stop.
@@ -1205,10 +1205,10 @@ function finalizeDriveResult(
   if (interruptedBy) {
     exhaustedMaxIterations = false;
     if (!alreadyComplete) {
-      steps.push(makeStep("blocked", "blocked", { runId: ctx.runId, reason: `drive interrupted by ${interruptedBy} — resume: cw run resume ${ctx.runId} --drive` }));
+      steps.push(makeStep("blocked", "blocked", { runId: ctx.runId, reason: `drive interrupted by ${interruptedBy} — resume: cw --resume --run ${ctx.runId}` }));
     }
   } else if (exhaustedMaxIterations) {
-    steps.push(makeStep("blocked", "blocked", { runId: ctx.runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state — resume: cw run resume ${ctx.runId} --drive` }));
+    steps.push(makeStep("blocked", "blocked", { runId: ctx.runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state — resume: cw --resume --run ${ctx.runId}` }));
   }
   const statusInputs: DriveResultStatusInputs = {
     once: Boolean(options.once),

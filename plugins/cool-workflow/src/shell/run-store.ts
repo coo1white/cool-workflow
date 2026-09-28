@@ -262,7 +262,7 @@ function acquireDriveLock(runDir: string, runId: string): () => void {
   const refuse = (ownerPid: number): Error =>
     new Error(
       `Run ${runId} is already being driven by another process (pid ${ownerPid || "unknown"}). ` +
-        `Wait for it to finish, or if it has crashed remove ${lock}, then resume: cw run resume ${runId} --drive`
+        `Wait for it to finish, or if it has crashed remove ${lock}, then resume: cw --resume --run ${runId}`
     );
 
   let acquired = false;

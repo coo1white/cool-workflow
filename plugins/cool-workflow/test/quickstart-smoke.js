@@ -142,7 +142,7 @@ async function main() {
       assert.ok(step1.completedWorkers < step1.plannedWorkers, "one resume step leaves work pending");
       assert.ok(!step1.commitId, "an in-progress resume step has not committed");
       assert.equal(Object.prototype.hasOwnProperty.call(step1, "resumedFrom"), false, "a fresh resume step carries no resumedFrom");
-      assert.ok(step1.hint && /--run .* --resume/.test(step1.hint), "hint is a copy-pasteable --resume continue line");
+      assert.ok(step1.hint && step1.hint.endsWith(`continue: cw --resume --run ${step1.runId}`), "hint is the one copy-pasteable resume command");
       assert.ok(!/--once/.test(step1.hint), "the resume hint uses --resume, not --once");
       // (b) --resume --run <id>: continue THAT run to completion.
       const done = await quickstartRun({ appId: FAST_APP, repo: work, question: "risks?", agentCommand, resume: true, run: step1.runId });

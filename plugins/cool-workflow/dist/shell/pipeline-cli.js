@@ -634,7 +634,7 @@ async function quickstartRun(args) {
     }
     else if (result.status === "in-progress") {
         hint = resume
-            ? `one step advanced — continue: cw quickstart ${appId} --run ${result.runId} --resume${wantsBundle ? " --bundle" : ""}`
+            ? `one step advanced — continue: cw --resume --run ${result.runId}${wantsBundle ? " --bundle" : ""}`
             : `one step advanced (--once) — continue: cw quickstart ${appId} --run ${result.runId} --once`;
     }
     // --bundle on a run that did not complete is a NO-OP, not silence: tell the
