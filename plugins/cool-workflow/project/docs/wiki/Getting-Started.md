@@ -63,6 +63,13 @@ first agent on your `PATH` by itself. Want a specific agent? Add a flag:
 cw -q "What are the security risks?" -claude     # or -codex / -gemini / -deepseek / -muse
 ```
 
+One focused question? Add `--fast`: 6 workers in place of 14, about 4 minutes
+in place of 7 on a real repo.
+
+```bash
+cw -q "How does routing work end-to-end here?" --fast
+```
+
 As it runs you get a calm **live view** — a small rolling window of the
 agent's tool calls that updates in place, in the style of Claude Code:
 
