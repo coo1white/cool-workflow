@@ -5201,15 +5201,15 @@ here?"), the real claude CLI, `cw -q ... -claude --json`.
 | Run | Wall | Map + Assess round | Verify | Verdict | Status |
 |---|---|---|---|---|---|
 | 1 | 259 s | 135 s | 74 s | 50 s | complete, 14/14, PASS |
-| 2 | RUN2 |
+| 2 | 233 s | 79 s | 93 s | 61 s | complete, 14/14, PASS |
 
-- Map workers wrote their results in 22–68 s (before: 36–192 s); the
-  absent-area mappers took 22 s and 46 s. The round now ends with the
-  slowest Assess worker.
-- The answer holds: run 1 has 106 findings and 172 evidence refs over all
-  workers (the 419 s run before: 116 and 222); the verdict has 21
-  findings and 19 refs (before: 17 and 27), and names the same routing
-  chain.
+- In run 1, Map workers wrote their results in 22–68 s (before: 36–192
+  s); the absent-area mappers took 22 s and 46 s. The round now ends with
+  the slowest Assess worker.
+- The answer holds: runs 1 and 2 have 106 and 125 findings, 172 and
+  157 evidence refs over all workers (the 419 s run before: 116 and 222);
+  their verdicts have 21 and 23 findings, 19 and 18 refs (before: 17 and
+  27), and name the same routing chain.
 
 ## What this spec got wrong (recorded at close)
 
