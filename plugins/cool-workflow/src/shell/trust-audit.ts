@@ -21,7 +21,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { eventHashInput, sha256, stableHash, stableStringify } from "../core/hash";
+import { eventHashInput, sha256, stableHash } from "../core/hash";
 import { durableAppendFileSync, logEndsWithNewline, safeFileName, withFileLock, writeJson, writeTextDurable } from "./fs-atomic";
 import { StateEvidence, WorkflowRun } from "../core/state/types";
 
@@ -157,7 +157,6 @@ export function trustAuditGenesis(runId: string): string {
  *  hashes. */
 function computeEventHash(event: TrustAuditEvent): string {
   const { eventHash, ...rest } = event;
-  void eventHash;
   return sha256(eventHashInput(rest));
 }
 
@@ -738,23 +737,6 @@ export function recordSandboxPathDecision(
   });
 }
 
-export interface EvidenceProvenance {
-  schemaVersion: 1;
-  runId: string;
-  source: string;
-  workerId?: string;
-  taskId?: string;
-  resultNodeId?: string;
-  verifierNodeId?: string;
-  candidateId?: string;
-  scoreId?: string;
-  selectionId?: string;
-  commitId?: string;
-  parentEvidenceIds: string[];
-  auditEventIds: string[];
-  note?: string;
-}
-
 /** normalizeEvidence — GROUNDING-ONLY provenance. Never carries the
  *  agent's command/args/model/handle (those live ONLY in
  *  node.metadata.agentDelegation) — this is the exact hygiene split
@@ -1063,7 +1045,6 @@ export function summarizeTrustAudit(run: WorkflowRun, options: { persist?: boole
   // only the ON-DISK bytes may keep the previous call's `generatedAt` when
   // nothing else changed.
   const { generatedAt: _generatedAt, ...summaryForFingerprint } = summary;
-  void _generatedAt;
   const fingerprintPath = summaryFingerprintPathFor(audit.summaryPath);
   const freshFingerprint = stableHash({ summary: summaryForFingerprint, index });
   const priorFingerprint = readSummaryFingerprint(fingerprintPath);

@@ -180,8 +180,8 @@ function main() {
   checkIncludes("plugins/cool-workflow/src/shell/workbench.ts", "buildWorkbenchRunView", checks);
   checkIncludes("plugins/cool-workflow/dist/shell/workbench.js", "buildWorkbenchRunView", checks);
   checkIncludes("plugins/cool-workflow/src/wiring/capability-table/reporting.ts", "workbench.view", checks);
-  checkIncludes("plugins/cool-workflow/src/shell/execution-backend/registry.ts", "ExecutionBackend", checks);
-  checkIncludes("plugins/cool-workflow/dist/shell/execution-backend/registry.js", "ExecutionBackend", checks);
+  checkIncludes("plugins/cool-workflow/src/shell/execution-backend/registry.ts", "export function runBackend", checks);
+  checkIncludes("plugins/cool-workflow/dist/shell/execution-backend/registry.js", "function runBackend", checks);
   checkIncludes("plugins/cool-workflow/src/wiring/capability-table/exec-backend.ts", "backend.list", checks);
   checkIncludes("plugins/cool-workflow/src/shell/run-registry-io.ts", "RunRegistry", checks);
   checkIncludes("plugins/cool-workflow/dist/shell/run-registry-io.js", "RunRegistry", checks);

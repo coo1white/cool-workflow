@@ -2,8 +2,8 @@
 // Split out of core/capability-table.ts, byte-for-byte (extracted with
 // sed, not retyped).
 
-import { REGISTRY, declaredMcpTools, findCapabilityByMcpTool } from "./registry-core";
-import type { Capability, CliBinding, McpBinding } from "../../core/capability-data";
+import { REGISTRY, declaredMcpTools } from "./registry-core";
+import type { Capability } from "../../core/capability-data";
 
 // CLI <-> MCP parity planning + report. Ported from the old flat build's
 // capability-registry module (its single source of parity data) onto this
@@ -306,11 +306,6 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS: Array<{ reason: string; capabilities: strin
     ],
   },
 ];
-
-/** Required MCP argument groups for a registry-declared tool. */
-export function mcpRequiredArgsForTool(tool: string): string[] {
-  return findCapabilityByMcpTool(tool)?.mcp?.requiredArgs ?? [];
-}
 
 /** The CLI `case` tokens this registry declares (deduped). */
 export function declaredCliTokens(): string[] {

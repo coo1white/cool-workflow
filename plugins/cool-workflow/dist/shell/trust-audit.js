@@ -111,7 +111,6 @@ function trustAuditGenesis(runId) {
  *  hashes. */
 function computeEventHash(event) {
     const { eventHash, ...rest } = event;
-    void eventHash;
     return (0, hash_1.sha256)((0, hash_1.eventHashInput)(rest));
 }
 const ACTIVE_AUDIT_BATCHES = new Map();
@@ -860,7 +859,6 @@ function summarizeTrustAudit(run, options = {}) {
     // only the ON-DISK bytes may keep the previous call's `generatedAt` when
     // nothing else changed.
     const { generatedAt: _generatedAt, ...summaryForFingerprint } = summary;
-    void _generatedAt;
     const fingerprintPath = summaryFingerprintPathFor(audit.summaryPath);
     const freshFingerprint = (0, hash_1.stableHash)({ summary: summaryForFingerprint, index });
     const priorFingerprint = readSummaryFingerprint(fingerprintPath);

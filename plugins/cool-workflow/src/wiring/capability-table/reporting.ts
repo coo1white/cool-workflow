@@ -4,9 +4,8 @@
 // core/capability-table.ts, byte-for-byte (extracted with sed, not
 // retyped).
 
-import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
+import { attachCliBinding, REGISTRY_BY_CAPABILITY } from "./registry-core";
 import { required, optionalArg, wantsJson } from "../../core/util/cli-args";
-import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-data";
 import { formatStateExplosionReport } from "../../core/format/state-explosion-text";
 import { adviseNoRun } from "../../core/format/recovery-hint";
 // This file is required at startup for every command. Loading these shell
@@ -33,8 +32,7 @@ function loadReportViewCli(): typeof import("../../shell/report-view-cli") {
 function loadOperatorUxText(): typeof import("../../shell/operator-ux-text") {
   return require("../../shell/operator-ux-text") as typeof import("../../shell/operator-ux-text");
 }
-import type { OperatorCandidateSummary, OperatorFeedbackSummary, OperatorRunSummary } from "../../shell/operator-ux";
-type MultiAgentSummaryText = OperatorRunSummary["multiAgent"];
+import type { OperatorFeedbackSummary } from "../../shell/operator-ux";
 
 attachCliBinding("report", {
   path: ["report"],
@@ -370,9 +368,6 @@ REGISTRY_BY_CAPABILITY.get("workbench.serve")!.reason =
 
 function loadAuditCli(): typeof import("../../shell/audit-cli") {
   return require("../../shell/audit-cli") as typeof import("../../shell/audit-cli");
-}
-function loadEvalText(): typeof import("../../shell/eval-text") {
-  return require("../../shell/eval-text") as typeof import("../../shell/eval-text");
 }
 
 attachCliBinding("audit.summary", {

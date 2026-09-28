@@ -35,12 +35,10 @@ import {
   roundWidth,
   selectDriveTask,
   terminalOrConfigStep,
-  verdictVerifierNodeId,
   incrementalCacheKey,
   incrementalDelegationDigest,
   defaultCacheKey,
   cacheFileName,
-  DRIVE_SCHEMA_VERSION,
   MAX_SUB_WORKFLOW_DEPTH,
 } from "../core/pipeline/drive-decide";
 import {
@@ -463,7 +461,6 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
     delegation: { command: ctx.config.command, args: ctx.config.args, endpoint: ctx.config.endpoint, model: (selected.model as string) || ctx.config.model },
     ...(preparedOutcome ? { preparedAgentOutcome: preparedOutcome } : {}),
   });
-  void dispatched;
 
   const handle = envelope.provenance.handle;
   const reportedModel = (handle?.metadata?.reportedModel as string) || "unreported";
@@ -1157,7 +1154,6 @@ function finalizeDriveResult(
   const completedWorkers = countCompleted(run);
   const parkedWorkers = countParked(run);
   const committed = hasTerminalCommit(run);
-  const last = steps[steps.length - 1];
   // A signal can land on the very last step (the terminal commit itself) --
   // the run is already fully done, same "complete" check the `once` branch
   // of finalDriveStatus below already uses. Reporting "blocked" here anyway
@@ -1181,8 +1177,6 @@ function finalizeDriveResult(
     exhaustedMaxIterations,
     parkedWorkers,
   };
-  void last;
-  void verdictVerifierNodeId;
   const status = finalDriveStatus(statusInputs);
   const committedCommit = (run.commits || []).find((c) => c.reason && c.reason.startsWith("agent-delegation-drive"));
 

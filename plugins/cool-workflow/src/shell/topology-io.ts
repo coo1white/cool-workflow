@@ -9,7 +9,6 @@
 // Evidence: SPEC/multi-agent.md section B; the old build's topology
 // module (byte-exact source for the wiring sequence).
 
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { writeJson } from "./fs-atomic";
 import { WorkflowRun } from "../core/state/types";

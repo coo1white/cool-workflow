@@ -402,7 +402,6 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         delegation: { command: ctx.config.command, args: ctx.config.args, endpoint: ctx.config.endpoint, model: selected.model || ctx.config.model },
         ...(preparedOutcome ? { preparedAgentOutcome: preparedOutcome } : {}),
     });
-    void dispatched;
     const handle = envelope.provenance.handle;
     const reportedModel = handle?.metadata?.reportedModel || "unreported";
     const reportedUsage = handle?.metadata?.reportedUsage;
@@ -1045,7 +1044,6 @@ function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhau
     const completedWorkers = (0, drive_decide_1.countCompleted)(run);
     const parkedWorkers = (0, drive_decide_1.countParked)(run);
     const committed = (0, drive_decide_1.hasTerminalCommit)(run);
-    const last = steps[steps.length - 1];
     // A signal can land on the very last step (the terminal commit itself) --
     // the run is already fully done, same "complete" check the `once` branch
     // of finalDriveStatus below already uses. Reporting "blocked" here anyway
@@ -1070,8 +1068,6 @@ function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhau
         exhaustedMaxIterations,
         parkedWorkers,
     };
-    void last;
-    void drive_decide_1.verdictVerifierNodeId;
     const status = (0, drive_decide_1.finalDriveStatus)(statusInputs);
     const committedCommit = (run.commits || []).find((c) => c.reason && c.reason.startsWith("agent-delegation-drive"));
     return {

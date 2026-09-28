@@ -4737,3 +4737,122 @@ Receipt: `project/docs/audits/resume-parked-receipt-2026-09-27.json`.
 | Intent + measured facts (this file) | done | #729 |
 | Build: reopen on resume, resolve the park on accept, tests, man page | merged | #729 |
 | Close: real-agent receipt, wiki, archive, `BACKLOG.md` row removed | this PR | |
+
+# Take out dead code, and keep it out
+
+Intent and measured facts in ONE file, in the shape `AGENTS.md` "Intent
+files (the playbook)" asks for. One PR builds and closes it, so this
+file went straight to the archive (md count unchanged). Source: the operator, 2026-09-28,
+"过期过时的腐烂代码：删除/替换", then "做，清理完开 PR". A tree clean-up,
+so its own PR, apart from any fault fix (`AGENTS.md`, "Current Work
+Direction"). Frozen surfaces are touched only by deletion, which their
+rule allows.
+
+## Part 1 — Intent
+
+**Problem.** Code nothing uses stays in the tree: imports no line reads,
+exported names no file names, a function no caller calls, and
+`void x;` lines whose only work is to quiet the compiler about them.
+Each one costs a reader time and looks like a live part of CW.
+
+**Outcome.** The dead parts gone, no output changed, and the compiler
+refusing new unused locals from now on, so it does not grow back.
+
+## Measured facts (checked by command before the change)
+
+On `main` at `828a6b7` plus #731, `plugins/cool-workflow/`.
+
+- `tsc --noEmit --noUnusedLocals`: 20 errors — 16 imported names no
+  line reads (among them `DRIVE_SCHEMA_VERSION` in `shell/drive.ts` and
+  `formatCompactGraph` in `wiring/capability-table/state.ts`), 2 import
+  lines with nothing used, 1 type alias no line uses
+  (`MultiAgentSummaryText`), and 1 function no one calls (`loadEvalText`
+  in `wiring/capability-table/reporting.ts`). Taking those out left 3
+  more that only they had kept alive (`last` in `shell/drive.ts`, the
+  `OperatorRunSummary` and `findCapabilityByMcpTool` imports); they go
+  too.
+- With `--noUnusedParameters` too: 6 more, all positional parameters or
+  handler signatures (`run`, `args`, `nodes`, `replayRunPath`). Taking
+  those out changes call sites; not done here.
+- A scan of every `export` in `src/` against every `.ts`/`.js` file in
+  the repository (tests, scripts, apps and `v2/` included, `dist/` not):
+  14 exported names used nowhere, not even in their own file. 3 of them
+  are the `*BoundaryWeld` aliases in `core/types/boundary.ts`: they are
+  compile-time guards, kept on purpose and checked by
+  `test/one-way-boundary-smoke.js`, so they stay. Five more are
+  `*_SCHEMA_VERSION` constants that no code imports but
+  `scripts/validate-run-state-schema.js` reads as TEXT: each is the one
+  definition of its domain in `schema-version-inventory.json`. They stay
+  (see "What this spec got wrong"). The other 6 go: the types
+  `CompletionShell`, `LedgerEntryKind`, `WorkflowAppRunMetadataFull`,
+  `EvidenceProvenance`, and the functions `createExecutionBackend` and
+  `mcpRequiredArgsForTool`.
+- 341 more exports are used only inside their own file. The code is
+  live; only the word `export` is extra. Not changed here.
+- `void x;` statements: 6. Four quiet a name that is no longer needed
+  (`dispatched` is read a few lines above its `void`; `last` and
+  `verdictVerifierNodeId` are read by nothing else; `context` is a
+  parameter, which `noUnusedLocals` does not check). Two drop a field
+  next to a rest element, which TypeScript already allows unused.
+- Scripts no npm script, CI step, test or doc names: 0. Test fixtures
+  nothing reads: 0. The File Lifecycle rules are holding there.
+- Docs that name a removed symbol: `docs/evidence-adoption-reasoning-chain.7.md`
+  (shipped) names `EvidenceProvenance` as if it were a record type; the
+  real data is each evidence ref's `provenance`, written by
+  `normalizeEvidence`. The rest are in `project/docs/rebuild/SPEC/`,
+  which records the OLD build's surface by its old file and line
+  (`src/node-snapshot.ts:43` and the like); it is a record, not a claim
+  about this code, and stays as written.
+
+## Paths weighed
+
+- **Also take `export` off the 341 file-local names:** a large diff of
+  live code for no reader gain today, and a name may be exported for a
+  test to come. Not now.
+- **A lint tool (an ESLint rule, a dead-export finder):** a new
+  dependency or a new script to keep. `noUnusedLocals` is one line in
+  `tsconfig.json`, costs nothing at run time, and fails the build the
+  moment a dead local lands. Chosen.
+
+## Part 2 — Spec
+
+- Delete the 23 unused locals and imports, the 6 unused exports, and
+  the 6 `void` lines above. `dist/` is rebuilt; only removals.
+- `tsconfig.json` gains `"noUnusedLocals": true`, and
+  `test/no-unused-locals-smoke.js` proves it has teeth: an unused import
+  and a function no one calls fail with TS6133 under the project's own
+  setting, a used import and a field dropped beside a rest element
+  compile, and `src/` compiles clean.
+- The man page names the real provenance field.
+- No output, file layout, exit code or flag changes. The perf ratchet
+  counts stay the same.
+
+## What this spec got wrong (recorded at close)
+
+- The export scan counted names only in `.ts`/`.js` files. The first
+  build also took out the five `*_SCHEMA_VERSION` constants, and
+  `release:check` failed closed on them: `validate-run-state-schema.js`
+  checks each domain of `schema-version-inventory.json` against its one
+  constant in the source text. They were put back before the PR. This is
+  the pin `AGENTS.md` warns of ("A reference grep does not find every
+  pin"); a later scan also greps JSON, docs and scripts as text.
+- `scripts/version-sync-check.js` checked that
+  `shell/execution-backend/registry.ts` (and its `dist/` twin) holds the
+  text `ExecutionBackend`, and only the dead `createExecutionBackend`
+  held it. The marker now names the live entry point
+  (`function runBackend`) instead of keeping dead code for a check.
+
+## Architecture snapshot diff
+
+- `docs/evidence-adoption-reasoning-chain.7.md` named `EvidenceProvenance`
+  as if it were a record type; it now names the `provenance` of each
+  evidence ref. Fixed in this PR.
+- `project/docs/rebuild/SPEC/` still names some removed symbols with the
+  OLD build's file and line; it records that build and stays as written.
+
+## Status ledger
+
+| Item | State | PR |
+|---|---|---|
+| Measure, delete, `noUnusedLocals`, man page (this file) | done | this PR |
+| Unused parameters, file-local exports | not planned; see Paths weighed | |

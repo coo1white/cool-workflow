@@ -17,7 +17,6 @@
 import { ledgerStableStringify, sha256 } from "../hash";
 import { stableCompare } from "../util/collate";
 
-export type LedgerEntryKind = "proposal" | "review";
 export type LedgerVerdict = "APPROVED" | "REJECTED";
 
 export interface LedgerProposal {

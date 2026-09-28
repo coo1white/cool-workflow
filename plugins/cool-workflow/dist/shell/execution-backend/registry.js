@@ -22,7 +22,6 @@ exports.attestSandbox = attestSandbox;
 exports.sandboxGuaranteeLabels = sandboxGuaranteeLabels;
 exports.probeBackend = probeBackend;
 exports.runBackend = runBackend;
-exports.createExecutionBackend = createExecutionBackend;
 exports.backendListPayload = backendListPayload;
 exports.backendShowPayload = backendShowPayload;
 exports.backendProbePayload = backendProbePayload;
@@ -328,7 +327,6 @@ function probeBackend(id, context = {}) {
     // the local probes (node/bun/shell/container) ignore their arg. Pass
     // process.env, NOT the {cwd} context — otherwise the context object shadows
     // process.env and a configured agent always reads back "unverified".
-    void context;
     const body = driver?.probe ? driver.probe(process.env) : { checks: [], readiness: descriptor.readiness };
     return {
         schemaVersion: 1,
@@ -406,14 +404,6 @@ function runBackend(request) {
         return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "no-command", `Backend ${descriptor.id} requires a command to execute`, attestation);
     }
     return (0, local_1.executeLocal)(descriptor, request, label, attestation, getBackendDriver(descriptor.id)?.spawnStyle);
-}
-function createExecutionBackend(id) {
-    const descriptor = getBackendDescriptor(id);
-    return {
-        descriptor,
-        probe: (context) => probeBackend(id, context),
-        run: (request) => runBackend({ ...request, backendId: id }),
-    };
 }
 // ---- inspection payloads ---------------------------------------------------
 function backendListPayload() {

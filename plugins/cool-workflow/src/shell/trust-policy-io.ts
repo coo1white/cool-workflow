@@ -13,7 +13,7 @@
 
 import { WorkflowRun } from "../core/state/types";
 import { AgentGroup, AgentMembership, AgentRole, MultiAgentPolicy, MultiAgentPolicyOperation, getAgentGroup, getAgentMembership, getAgentRole } from "../core/multi-agent/runtime";
-import { evaluateMultiAgentAction, policyForGroup, policyForRole, resolvePolicy } from "../core/multi-agent/trust-policy";
+import { evaluateMultiAgentAction, policyForRole, resolvePolicy } from "../core/multi-agent/trust-policy";
 import { listTrustAuditEvents, recordTrustAuditEvent, TrustAuditEvent } from "./trust-audit";
 import { sha256 } from "../core/hash";
 

@@ -33,7 +33,7 @@ import {
   validateSandboxWrite,
 } from "./sandbox-profile";
 import { ModelProvenanceLabel, ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types";
-import { attestSandbox, getBackendDescriptor, resolveBackendSelection } from "./execution-backend/registry";
+import { attestSandbox, getBackendDescriptor } from "./execution-backend/registry";
 import { recordFeedback, resolveParkFeedback } from "./error-feedback-io";
 import { saveCheckpoint } from "./run-store";
 import { recordMultiAgentWorkerOutput } from "./multi-agent-io";
