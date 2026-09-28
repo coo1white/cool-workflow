@@ -1,0 +1,29 @@
+{
+  "program": "2026-09-28-quickstart-fast",
+  "commit": "0c2bbee",
+  "startedAt": "2026-09-28T06:22:22Z",
+  "finishedAt": "2026-09-28T06:26:10Z",
+  "machine": "Linux, Node 22, built dist/ at the #731 merge (plus #732, removals only), the real claude CLI as the agent, a clone of the Express repository as the project",
+  "checks": [
+    {
+      "id": "readme-fast-under-5-minutes",
+      "pass": true,
+      "command": "cw -q \"How does routing work end-to-end here?\" --fast -claude --json, run from inside the project as the README says",
+      "seen": "appId architecture-review-fast, complete in 228 s, 6 of 6 workers, Verdict: PASS, 14 findings and 21 evidence refs, citing lib/router/index.js, lib/router/route.js and lib/router/layer.js; run.inputs has no fast key.",
+      "note": "The measurement before the build ran the same app on the same question in 230 s. The default 14-worker review took 409 s and 412 s there."
+    },
+    {
+      "id": "default-unchanged",
+      "pass": true,
+      "command": "test/quickstart-fast-smoke.js; the v2 conformance cases cli-quickstart-redirect and multiagent-app-list",
+      "seen": "Without --fast, cw -q plans architecture-review with 14 workers and the same payload; both conformance cases pass unchanged."
+    },
+    {
+      "id": "tests-and-conformance",
+      "pass": true,
+      "command": "node test/run-all.js; the v2 conformance suite (on the #731 head)",
+      "seen": "test/quickstart-fast-smoke.js fails on main and passes with #731. Full suite 271/272, conformance 103/106.",
+      "note": "The failures are the ones this sandbox has on main as well: verify-bump-reproduction-smoke (a shallow clone), and the conformance cases report-doctor, report-fix and cli-argv-parsing. CI on #731 was green."
+    }
+  ]
+}

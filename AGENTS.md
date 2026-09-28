@@ -156,7 +156,7 @@ Every cycle must trace to one of these validated-use-case tracks:
 If a proposed change serves none of these tracks, log it to
 plugins/cool-workflow/project/docs/BACKLOG.md instead of implementing it.
 
-**Core path:** `cw`, `cw help`, `cw doctor`, `cw demo tamper`, `cw app list`, `cw -q "<question>" -claude`, `cw --resume --run <id>`, `cw run resume <id> --drive --repo <path>`, `cw doctor --onramp`, and reading `.cw/runs/<id>/report.md`.
+**Core path:** `cw`, `cw help`, `cw doctor`, `cw demo tamper`, `cw app list`, `cw -q "<question>" -claude` (add `--fast` for one focused question), `cw --resume --run <id>`, `cw run resume <id> --drive --repo <path>`, `cw doctor --onramp`, and reading `.cw/runs/<id>/report.md`.
 The `cw -q` path: `src/cli/entry.ts` → `src/shell/pipeline-cli.ts` → `pipeline.ts`, `dispatch.ts`, `drive.ts`, `worker-isolation.ts`, `run-store.ts`, `report.ts`, `commit.ts`, `node-store.ts`, `trust-audit.ts`, `observability.ts`, `onramp.ts`, `agent-config.ts`, `workflow-app-loader.ts`, `sandbox-profile.ts`, `fs-atomic.ts`; resume adds `registry-cli.ts`, `run-registry-io.ts`.
 Proof: `plugins/cool-workflow/project/docs/audits/four-fixes-receipt-2026-09-02.json`, `plugins/cool-workflow/project/docs/audits/run-folder-receipt-2026-09-02.json`.
 **Frozen surfaces** — fixes and deletions only; growth needs the operator's yes in an intent; `growth:check` holds the ceiling.
