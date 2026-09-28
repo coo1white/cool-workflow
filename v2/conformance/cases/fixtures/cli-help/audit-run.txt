@@ -10,3 +10,4 @@ cw audit-run — alias of cw quickstart
       --with-trust-key KEY  Add a public key to the bundle for a strict check.
       --resume              Move a stopped run forward one step, or to the end with --run ID.
       --link URL            Review a remote repo by its URL.
+      --fast                Answer one question with 6 workers in place of 14.

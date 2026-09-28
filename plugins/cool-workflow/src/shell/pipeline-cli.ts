@@ -35,6 +35,9 @@ import { recordTrustAuditEvent } from "./trust-audit";
 import { reportBundleCli, ReportBundleResult } from "./report-cli";
 
 const QUICKSTART_DEFAULT_APP = "architecture-review";
+// `--fast`: the 6-worker review for one focused question (Map and Assess
+// two workers each), in place of the default 14.
+const QUICKSTART_FAST_APP = "architecture-review-fast";
 
 /** True when `value` is a truthy CLI flag (present, or "true"/"1"/"yes"/"on"). */
 function truthyFlag(value: unknown): boolean {
@@ -84,6 +87,7 @@ const RUNTIME_KEYS = new Set([
   "agentCommand", "agent-command", "agentArgs", "agent-args", "agentEndpoint", "agent-endpoint",
   "agentModel", "agent-model", "agentTimeoutMs", "agent-timeout-ms", "resume", "incremental",
   "concurrency", "link", "ref", "branch", "refresh", "check", "app", "appId", "workflowId", "question", "repo",
+  "fast",
 ]);
 
 /** Byte-exact port of the old build's `normalizeInputs`:
@@ -420,7 +424,14 @@ async function promptForQuestion(): Promise<string | undefined> {
 export async function quickstartRun(
   args: Record<string, unknown>
 ): Promise<QuickstartResult | QuickstartCheckResult | ReturnType<typeof drivePreview>> {
-  const appId = String(args.appId || args.app || args.workflowId || QUICKSTART_DEFAULT_APP);
+  const namedApp = args.appId || args.app || args.workflowId;
+  const fast = truthyFlag(args.fast);
+  // `--fast` only picks the default app; next to another named app it is a
+  // contradiction, so refuse it rather than drop one of the two quietly.
+  if (fast && namedApp && String(namedApp) !== QUICKSTART_FAST_APP) {
+    throw new Error(`--fast runs ${QUICKSTART_FAST_APP}; it cannot be used with the app ${String(namedApp)}. Drop --fast or the app name.`);
+  }
+  const appId = String(namedApp || (fast ? QUICKSTART_FAST_APP : QUICKSTART_DEFAULT_APP));
   // Remote source: a `--link <url>` — or a URL passed to `--repo`/`-dir` — is
   // materialized to a LOCAL checkout HERE (capability/shell layer). Cloning is
   // non-deterministic network I/O and must never enter the replay-deterministic
@@ -635,7 +646,7 @@ export function formatQuickstartHuman(json: unknown): string {
   if (typeof r.runId !== "string" || typeof r.status !== "string" || typeof r.reportPath !== "string") {
     return safeJsonStringify(json);
   }
-  return formatQuickstartSummary(
+  const summary = formatQuickstartSummary(
     {
       runId: r.runId,
       reportPath: r.reportPath,
@@ -646,6 +657,9 @@ export function formatQuickstartHuman(json: unknown): string {
     },
     Boolean(r.reportOpened)
   );
+  // A finished default review on a terminal: say once that one focused
+  // question has a faster way (TTY only, like the rest of this summary).
+  return r.appId === QUICKSTART_DEFAULT_APP && r.status === "complete" ? `${summary}\n  Faster for one question: add --fast (6 workers in place of 14)` : summary;
 }
 
 export function dispatchRun(args: Record<string, unknown>): Record<string, unknown> {

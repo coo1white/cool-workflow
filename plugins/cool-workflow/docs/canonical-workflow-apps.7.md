@@ -30,7 +30,8 @@ cw plan architecture-review \
 
 `architecture-review-fast`
 
-Run a shorter architecture review for a fast first result. The app keeps the
+Run a shorter architecture review for a fast first result: `cw -q "<question>"
+--fast` runs it. The app keeps the
 full `architecture-review` contract open under its first id, but uses two
 parallel Map workers, two parallel Assess workers, one verifier, and one verdict
 worker. Operators may give a pinned JSONL source context and send

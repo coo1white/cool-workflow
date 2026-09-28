@@ -246,8 +246,22 @@ When the worker's new result is verified, its open park feedback is resolved
 by that verifier node, so the run's verdict can be PASS. Plain
 `run --drive --run <run-id>` does not reopen: a parked run stays blocked there.
 
-For faster first results, use the opt-in fast app in place of changing the full
-review contract:
+For one focused question, add `--fast` to the one command:
+
+```text
+cw -q "How does routing work end-to-end here?" --fast
+```
+
+`--fast` runs `architecture-review-fast` (six workers) in place of the default
+`architecture-review` (fourteen). On a real repository with the real claude CLI
+(2026-09-27, Express, that question) the default took 409 and 412 s and `--fast`
+230 s, with the same answer and citations. Without `--fast`, `cw -q` is the full
+review, as before; `--fast` next to another named app is refused. A finished
+default review's terminal summary names `--fast` once; `--json` and piped
+output do not change.
+
+For faster first results with a pinned source context and model routing, use
+the fast app's wrapper in place of changing the full review contract:
 
 ```text
 node scripts/architecture-review-fast.js --repo /path/to/repo --question "Is the design sound?" --fast-model gpt-5.5-high --strong-model gpt-5.5-extra-high --metrics --schedule-full

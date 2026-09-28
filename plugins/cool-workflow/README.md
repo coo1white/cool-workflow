@@ -76,6 +76,8 @@ cw -q "How does auth work end-to-end here?"
 
 CW uses the current repo and the first agent it finds on your `PATH`. Want a specific agent? Add a flag from the table above, such as `-claude`.
 
+One focused question? Add `--fast`: 6 workers in place of 14, about 4 minutes in place of 7 on a real repo.
+
 ### 3 · Open the report
 
 The report opens in your browser by itself when the run ends. Later, open it again with:
