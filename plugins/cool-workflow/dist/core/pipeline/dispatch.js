@@ -10,6 +10,7 @@
 // Evidence: SPEC/pipeline-run.md "Dispatch — dispatch module".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.firstRunnablePhase = firstRunnablePhase;
+exports.runnableTaskIds = runnableTaskIds;
 exports.updatePhaseStatuses = updatePhaseStatuses;
 exports.formatDispatchTask = formatDispatchTask;
 exports.nextDispatchTasks = nextDispatchTasks;
@@ -36,6 +37,21 @@ function firstRunnablePhase(run) {
             return null;
     }
     return null;
+}
+/** `runnableTaskIds(run)` — the task ids of the first runnable phase, plus
+ *  those of each phase right after it that declares `overlapPrevious`; the
+ *  chain stops at the first phase that does not. With no such phase this is
+ *  the first runnable phase's own task ids, as before. */
+function runnableTaskIds(run) {
+    const first = firstRunnablePhase(run);
+    if (!first)
+        return new Set();
+    const ids = new Set(first.taskIds);
+    for (let i = run.phases.indexOf(first) + 1; i < run.phases.length && run.phases[i].overlapPrevious; i += 1) {
+        for (const id of run.phases[i].taskIds)
+            ids.add(id);
+    }
+    return ids;
 }
 /** `updatePhaseStatuses(run)` — completed when every task is completed,
  *  running when some task is running or completed, else pending. */
@@ -77,7 +93,7 @@ function formatDispatchTask(task) {
     };
 }
 /** `nextDispatchTasks(run, limit?)` — pending tasks of the first runnable
- *  phase, capped, mapped through formatDispatchTask. `??`, not `||`: an
+ *  phase (and of any phase that overlaps it), capped, mapped through formatDispatchTask. `??`, not `||`: an
  *  explicit `limit: 0` (or a configured `maxConcurrentAgents: 0`) means
  *  "dispatch nothing", not "no limit was given" — `0 || fallback` used to
  *  silently replace a real zero with the fallback. Negative numbers are
@@ -85,13 +101,12 @@ function formatDispatchTask(task) {
  *  negative end index as "drop that many from the end" instead of "cap at
  *  this many". */
 function nextDispatchTasks(run, limit) {
-    const runnablePhase = firstRunnablePhase(run);
-    if (!runnablePhase)
+    const taskIds = runnableTaskIds(run);
+    if (!taskIds.size)
         return [];
     const max = Math.max(0, Math.floor(limit ?? run.workflow.limits.maxConcurrentAgents ?? 4));
-    const runnableTaskIds = new Set(runnablePhase.taskIds);
     return run.tasks
-        .filter((task) => task.status === "pending" && runnableTaskIds.has(task.id))
+        .filter((task) => task.status === "pending" && taskIds.has(task.id))
         .slice(0, max)
         .map(formatDispatchTask);
 }

@@ -41,12 +41,12 @@ function makeStep(action, status, fields) {
     return { schemaVersion: 1, action, status, ...fields };
 }
 /** The task the next drive step would advance: a running task first,
- *  else the next pending task of the first runnable phase. */
+ *  else the next pending task of the first runnable phase (and of any
+ *  phase that overlaps it). */
 function selectDriveTask(run) {
-    const phase = (0, dispatch_1.firstRunnablePhase)(run);
-    if (!phase)
+    const taskIds = (0, dispatch_1.runnableTaskIds)(run);
+    if (!taskIds.size)
         return undefined;
-    const taskIds = new Set(phase.taskIds);
     const phaseTasks = run.tasks.filter((task) => taskIds.has(task.id));
     return phaseTasks.find((task) => task.status === "running") || phaseTasks.find((task) => task.status === "pending");
 }
@@ -162,7 +162,7 @@ function autoWidth(run) {
     if (!phase || phase.mode !== "parallel")
         return 1;
     const cap = Math.max(1, Math.floor(run.workflow.limits?.maxConcurrentAgents || 1));
-    return Math.max(1, Math.min(cap, phase.taskIds.length));
+    return Math.max(1, Math.min(cap, (0, dispatch_1.runnableTaskIds)(run).size));
 }
 function roundWidth(run, concurrency) {
     return concurrency && concurrency > 1 ? concurrency : autoWidth(run);

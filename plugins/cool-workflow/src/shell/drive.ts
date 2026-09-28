@@ -49,7 +49,7 @@ import {
   LoopPredicateContext,
   ResultEnvelopeLike,
 } from "../core/pipeline/loop-expansion";
-import { firstRunnablePhase, updatePhaseStatuses } from "../core/pipeline/dispatch";
+import { runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch";
 import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir } from "./run-store";
 import { createDispatchManifest } from "./dispatch";
 import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope, reopenParkedWorker } from "./worker-isolation";
@@ -935,9 +935,8 @@ function driveConcurrentRound(ctx: DriveContext, limit: number): DriveStep[] {
     const gate = terminalOrConfigStep(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
     if (gate.kind === "commit" || gate.step) return [driveStep(ctx)];
 
-    const phase = firstRunnablePhase(run);
     const width = Math.max(1, Math.floor(limit) || 1);
-    const phaseTaskIds = new Set(phase!.taskIds);
+    const phaseTaskIds = runnableTaskIds(run);
     const batch = run.tasks
       .filter((task) => phaseTaskIds.has(task.id) && (task.status === "pending" || task.status === "running"))
       .slice(0, width)

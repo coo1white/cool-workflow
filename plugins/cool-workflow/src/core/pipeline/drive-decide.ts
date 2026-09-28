@@ -13,7 +13,7 @@
 // cache".
 
 import { RunTask, WorkflowRun } from "../state/types";
-import { firstRunnablePhase } from "./dispatch";
+import { firstRunnablePhase, runnableTaskIds } from "./dispatch";
 import { stableStringify, sha256 } from "../hash";
 
 export const DRIVE_SCHEMA_VERSION = 1;
@@ -42,11 +42,11 @@ export function makeStep(action: DriveStepAction, status: DriveStepStatus, field
 }
 
 /** The task the next drive step would advance: a running task first,
- *  else the next pending task of the first runnable phase. */
+ *  else the next pending task of the first runnable phase (and of any
+ *  phase that overlaps it). */
 export function selectDriveTask(run: WorkflowRun): RunTask | undefined {
-  const phase = firstRunnablePhase(run);
-  if (!phase) return undefined;
-  const taskIds = new Set(phase.taskIds);
+  const taskIds = runnableTaskIds(run);
+  if (!taskIds.size) return undefined;
   const phaseTasks = run.tasks.filter((task) => taskIds.has(task.id));
   return phaseTasks.find((task) => task.status === "running") || phaseTasks.find((task) => task.status === "pending");
 }
@@ -210,7 +210,7 @@ export function autoWidth(run: WorkflowRun): number {
   const phase = firstRunnablePhase(run);
   if (!phase || phase.mode !== "parallel") return 1;
   const cap = Math.max(1, Math.floor(run.workflow.limits?.maxConcurrentAgents || 1));
-  return Math.max(1, Math.min(cap, phase.taskIds.length));
+  return Math.max(1, Math.min(cap, runnableTaskIds(run).size));
 }
 
 export function roundWidth(run: WorkflowRun, concurrency: number | undefined): number {

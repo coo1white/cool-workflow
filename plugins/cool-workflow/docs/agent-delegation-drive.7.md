@@ -152,6 +152,28 @@ agent (`CW_AGENT_ENDPOINT`) POSTs all N delegations at once through the HTTP
 batch delegate child. A cache-hit task still settles on the serial path inside
 the same round. An unconfigured agent still refuses (it is never a fake pass).
 
+## Overlapping phases (`overlapPrevious`)
+
+Phases run one after another: a phase starts only when every task of the
+phase before it is completed. A phase that reads nothing the phase before it
+writes may say so with `overlapPrevious: true`
+(`parallel("Assess", [...], { overlapPrevious: true })`). Its tasks are then
+dispatched in the same round as the tasks of the phase before it, up to
+`limits.maxConcurrentAgents`. The phases, their task ids, and the order of
+settlement stay as declared. A failed task in the earlier phase still blocks
+every phase after it, and a phase without the option keeps its old start, so
+an app that does not use it runs byte-for-byte as before.
+
+`cw app validate` refuses the option (issue `workflow-phase-overlap`) on the
+first phase, on a `loop()` phase, when it is not a boolean, and on a phase
+with a task that reads earlier results
+(`resultCache.includeCompletedResults: "previous-phases"`), since those
+results do not exist yet when the phase starts.
+
+The default `architecture-review` app uses it: its Assess workers read the
+repository, not the Map results (only Verify and Verdict read those), so the 6
+Map and 6 Assess workers run at the same time, 12 in one round.
+
 ## Fail closed — probe vs refusal vs park
 
 - **Probe.** `backend probe agent` reports `readiness: "ready"` iff a

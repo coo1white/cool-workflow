@@ -28,7 +28,9 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
     summary: "Map a repository architecture, assess risks, verify important findings, and synthesize an evidence-backed verdict.",
     limits: {
       maxAgents: 40,
-      maxConcurrentAgents: 6
+      // Map and Assess run at the same time (Assess overlaps Map), so one
+      // round holds all 12 of their workers.
+      maxConcurrentAgents: 12
     },
     inputs,
     sandboxProfiles: ["readonly"],
@@ -36,39 +38,41 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
       parallel("Map", [
         agent(
           "map:server-api",
-          "Map server/API entrypoints, request flows, service boundaries, auth surfaces, and owned state in {{repo}} for {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return inspected files, dependencies, invariants, and candidate risks.",
+          "Map server/API entrypoints, request flows, service boundaries, auth surfaces, and owned state in {{repo}} for {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return inspected files, dependencies, invariants, and candidate risks. If this area is absent from {{repo}}, say so after one short look (a file listing and one search) and stop there.",
           { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "map:web-client",
-          "Map web/client/UI boundaries, local state, backend dependencies, build/runtime assumptions, and candidate risks in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return exact files and commands that informed the map.",
+          "Map web/client/UI boundaries, local state, backend dependencies, build/runtime assumptions, and candidate risks in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return exact files and commands that informed the map. If this area is absent from {{repo}}, say so after one short look (a file listing and one search) and stop there.",
           { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "map:db-security",
-          "Map database, persistence, migrations, secrets, auth, permissions, and security-sensitive paths in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return candidate risks with file paths, config names, and uncertainty boundaries.",
+          "Map database, persistence, migrations, secrets, auth, permissions, and security-sensitive paths in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return candidate risks with file paths, config names, and uncertainty boundaries. If this area is absent from {{repo}}, say so after one short look (a file listing and one search) and stop there.",
           { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "map:deploy-config",
-          "Map deployment, CI, package scripts, Docker or compose files, reverse proxies, environment config, supervision, and operational assumptions in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return concrete files and release or runtime risks.",
+          "Map deployment, CI, package scripts, Docker or compose files, reverse proxies, environment config, supervision, and operational assumptions in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Return concrete files and release or runtime risks. If this area is absent from {{repo}}, say so after one short look (a file listing and one search) and stop there.",
           { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "map:jobs-operators",
-          "Map background jobs, admin/operator surfaces, queues, scheduled work, generated files, state transitions, and failure recovery paths in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Identify missing or non-applicable areas explicitly.",
+          "Map background jobs, admin/operator surfaces, queues, scheduled work, generated files, state transitions, and failure recovery paths in {{repo}} as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Identify missing or non-applicable areas explicitly. If this area is absent from {{repo}}, say so after one short look (a file listing and one search) and stop there.",
           { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
           "map:transport-core",
-          "Map protocol, daemon, transport, rendering, networking, worker isolation, or core engine boundaries when present in {{repo}}, as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. If absent, explain why with inspected evidence.",
+          "Map protocol, daemon, transport, rendering, networking, worker isolation, or core engine boundaries when present in {{repo}}, as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. If this area is absent from {{repo}}, say so after one short look (a file listing and one search) and stop there.",
           { sandboxProfileId: "readonly", reviewsRepo: true }
         )
       ]),
+      // Assess reads the repository, not the Map results (only Verify and
+      // Verdict read those), so it need not wait for Map.
       parallel("Assess", [
         agent(
           "assess:security",
-          "Assess mapper findings through a security lens as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Separate real, conditional, non-issue, and unknown risks with evidence, falsifiers, and exact files or config keys.",
+          "Assess {{repo}} through a security lens as they relate to {{question}}. Focus: {{focus}}. Invariants: {{invariant}}. Separate real, conditional, non-issue, and unknown risks with evidence, falsifiers, and exact files or config keys.",
           { sandboxProfileId: "readonly", reviewsRepo: true }
         ),
         agent(
@@ -96,7 +100,7 @@ module.exports = ({ workflow, phase, parallel, agent, artifact, input }) => {
           "Assess domain-specific risks implied by {{question}}, {{focus}}, and the invariants {{invariant}}. Include abuse, misuse, or compatibility concerns only when supported by repository evidence.",
           { sandboxProfileId: "readonly", reviewsRepo: true }
         )
-      ]),
+      ], { overlapPrevious: true }),
       phase("Verify", [
         agent(
           "verify:p0-p2-risks",

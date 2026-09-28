@@ -156,6 +156,7 @@ export function plan(app: LoadedWorkflowApp, options: Record<string, unknown>): 
       taskIds: phase.tasks.map((t: WorkflowTaskDefinition) => t.id),
       ...(phase.mode ? { mode: phase.mode } : {}),
       ...(phase.loop ? { loop: phase.loop, loopRound: 1 } : {}),
+      ...(phase.overlapPrevious ? { overlapPrevious: true } : {}),
     })),
     tasks,
     dispatches: [],

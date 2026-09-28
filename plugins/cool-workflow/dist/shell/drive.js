@@ -836,9 +836,8 @@ function driveConcurrentRound(ctx, limit) {
         const gate = (0, drive_decide_1.terminalOrConfigStep)(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
         if (gate.kind === "commit" || gate.step)
             return [driveStep(ctx)];
-        const phase = (0, dispatch_1.firstRunnablePhase)(run);
         const width = Math.max(1, Math.floor(limit) || 1);
-        const phaseTaskIds = new Set(phase.taskIds);
+        const phaseTaskIds = (0, dispatch_1.runnableTaskIds)(run);
         const batch = run.tasks
             .filter((task) => phaseTaskIds.has(task.id) && (task.status === "pending" || task.status === "running"))
             .slice(0, width)
