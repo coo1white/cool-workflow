@@ -338,7 +338,7 @@ Exit codes: this module surface throws or gives back envelopes; process exits be
 | `.cw/runs/<run>/workers/<worker>/input.md` | `writeWorkerInput` | the fixed markdown described above (src/worker-isolation.ts:548-584) |
 | `.cw/runs/<run>/workers/<worker>/result.md` | the EXTERNAL agent (or CW as transport for an endpoint agent) | the worker's markdown result with a ```cw:result fence (src/execution-backend.ts:1049-1058; scripts/agents/agent-adapter-core.js:7-35) |
 | `.cw/runs/<run>/workers/<worker>/artifacts/`, `logs/` | made at allocation | dirs (src/worker-isolation.ts:121-122) |
-| `.cw/runs/<run>/workers/<worker>/logs/agent-stderr.log` | wrapper scripts on a failed hop | plain text, secret-redacted (docs/agent-delegation-drive.7.md:310-314) |
+| `.cw/runs/<run>/workers/<worker>/logs/agent-stderr.log` | wrapper scripts on a failed hop; for any other agent command, `persistAgentStderr` in shell/execution-backend/agent.ts (last 4096 bytes, same redaction, never over a wrapper log) | plain text, secret-redacted (docs/agent-delegation-drive.7.md:310-314) |
 | `.cw/runs/<run>/workers/<worker>/transcript.md` | wrapper scripts (stream mode) | full narration + tool I/O (scripts/agents/claude-p-agent.js:96, :180) |
 | `.cw/runs/<run>/workers/index.json` | `writeWorkerIndex` | `{ schemaVersion: 1, runId, workers: [{ id, taskId, dispatchId, status, workerDir, manifestPath, resultPath, sandboxProfileId, backendId, multiAgent, feedbackIds }] }` (src/worker-isolation.ts:606-625) |
 | `<run.paths.resultsDir>/<safeTaskId>.md` | `acceptWorkerResult` (copy of result.md) | markdown (src/worker-accept/acceptance.ts:27-29) |

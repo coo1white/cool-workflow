@@ -649,6 +649,33 @@ export async function quickstartRun(
   };
 }
 
+/** Why a parked or blocked run stopped, for the TTY summary: the last
+ *  stop step's reason, then the last line of that worker's
+ *  logs/agent-stderr.log when there is one (the agent's own words). Reads
+ *  only; any missing piece is left out. */
+function stopWhy(r: Record<string, unknown>): string[] | undefined {
+  if (r.status !== "parked" && r.status !== "blocked") return undefined;
+  const steps = Array.isArray(r.steps) ? (r.steps as Array<Record<string, unknown>>) : [];
+  const stop = [...steps].reverse().find((step) => step && (step.status === "parked" || step.status === "blocked"));
+  if (!stop) return undefined;
+  const why: string[] = [];
+  if (typeof stop.reason === "string" && stop.reason.trim()) why.push(stop.reason.trim());
+  if (typeof stop.taskId === "string" && typeof r.statePath === "string") {
+    try {
+      const workersDir = path.join(path.dirname(r.statePath), "workers");
+      const prefix = `worker-${stop.taskId}-`;
+      const workerId = typeof stop.workerId === "string" ? stop.workerId : fs.readdirSync(workersDir).filter((name) => name.startsWith(prefix)).sort().pop();
+      if (!workerId) throw new Error("no worker");
+      const log = fs.readFileSync(path.join(workersDir, workerId, "logs", "agent-stderr.log"), "utf8");
+      const last = log.split("\n").map((line) => line.trim()).filter(Boolean).pop();
+      if (last) why.push(last.length > 200 ? `${last.slice(0, 199)}…` : last);
+    } catch {
+      /* no log for this worker */
+    }
+  }
+  return why.length ? why : undefined;
+}
+
 /** The `cw quickstart`/`cw -q` TTY human projection, wired via
  *  wiring/capability-table/pipeline.ts's `humanRender` — called ONLY on a
  *  real terminal with no `--json` (cli/dispatch.ts's shouldRenderHuman).
@@ -668,6 +695,7 @@ export function formatQuickstartHuman(json: unknown): string {
       completedWorkers: r.completedWorkers as number | undefined,
       plannedWorkers: r.plannedWorkers as number | undefined,
       agentConfigured: r.agentConfigured as boolean | undefined,
+      why: stopWhy(r),
     },
     Boolean(r.reportOpened)
   );
