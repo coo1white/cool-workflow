@@ -427,7 +427,7 @@ On a terminal, a `cw -q` run that parks or blocks with an agent set ends like
 this:
 
 ```text
-  ! Status: parked — 0/6
+  ! Status: parked — 0/6 workers
   Why: agent hop failed: map:runtime-surface: failed (exit 3) (attempt 3/3)
        ENOTFOUND api.example.test
   Try: cw report --open

@@ -43,7 +43,7 @@ itself and prints the path plus one line for later:
 
 ```text
 ✓ Report: /path/to/project/.cw/runs/<run-id>/report.md
-  ✓ Status: complete — 14/14
+  ✓ Status: complete — 14/14 workers
   ✓ Report opened. Again later: cw report --open
   Try: cw report --show
 ```
