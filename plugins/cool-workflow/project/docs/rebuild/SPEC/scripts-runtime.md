@@ -80,13 +80,13 @@ Contract for every wrapper: `argv[2]` = worker `input.md` path (`{{input}}`), `a
 
 ### 6. Vendor wrapper: `scripts/agents/gemini-agent.js` (native CLI path, alias `builtin:gemini-cli`)
 
-- Spawns `gemini -p <prompt> --output-format stream-json --approval-mode plan` (scripts/agents/gemini-agent.js:60-72).
+- Spawns `gemini --output-format stream-json --approval-mode plan` with the prompt on STDIN (no `-p`; a piped stdin puts gemini in headless mode). A prompt over 8 MiB (8388608 bytes, all gemini reads from stdin) is refused before the spawn: the reason goes to `logs/agent-stderr.log` and stderr, exit 1 (scripts/agents/gemini-agent.js).
 - Result build: the last `ev.result` string wins; else all `ev.text` / `ev.delta` fragments joined with `"\n\n"` (scripts/agents/gemini-agent.js:41-56,109).
 - Non-JSON stdout line → refuse; empty result text → refuse; both exit 1 (scripts/agents/gemini-agent.js:102-115).
 
 ### 7. Vendor wrapper: `scripts/agents/opencode-agent.js`
 
-- Spawns `opencode run --format json --dangerously-skip-permissions [--model <m>] <prompt>` — the prompt is the POSITIONAL last arg (scripts/agents/opencode-agent.js:109-125).
+- Spawns `opencode run --format json --dangerously-skip-permissions [--model <m>]` with the prompt on STDIN and no positional message; `opencode run` takes the whole piped stdin as the message (scripts/agents/opencode-agent.js).
 - Variant env: `CW_OPENCODE_LABEL` (display label, default `opencode`) and `CW_OPENCODE_MODEL` (adds `--model`; also recorded as the provenance model since opencode JSON has no model field) (scripts/agents/opencode-agent.js:44-45,53-54).
 - JSONL shapes (>=1.x): `{type:"text", part:{text, messageID}}` — text grouped by `messageID`; the LAST message's text is the answer. `{type:"step_finish", part:{tokens:{input,output}}}` — summed into `usage.input_tokens`/`usage.output_tokens`. Older shapes (`ev.result`, `ev.text`, `ev.delta`) still accepted (scripts/agents/opencode-agent.js:63-105).
 - Result pick order: `state.finalResult || state.lastMessageText || state.textFragments.join("\n\n")` (scripts/agents/opencode-agent.js:162). Non-JSON line or empty result → refuse, exit 1.

@@ -3,6 +3,11 @@
 
 // opencode-agent-wrapper-smoke -- the OpenCode builtin agent adapter works with
 // a PATH shim. No live OpenCode API key needed.
+//
+// The prompt goes to `opencode run` on STDIN, never as an argument or a
+// positional message: `opencode run --format json --dangerously-skip-permissions
+// [--model X]` carries no prompt in argv, and the wrapper writes the whole
+// prompt to the child's stdin.
 
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
@@ -34,6 +39,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
 fs.writeFileSync(path.join(__dirname, "invocation.json"), JSON.stringify(args));
+fs.writeFileSync(path.join(__dirname, "stdin.txt"), fs.readFileSync(0));
 if (${JSON.stringify(behavior)} === "crash") {
   process.stderr.write("opencode shim boom");
   process.exit(3);
@@ -48,6 +54,12 @@ if (${JSON.stringify(behavior)} === "auth-error") {
   // stderr — the shape that used to collapse to a bare "opencode exited 1"
   // with no reason at all.
   process.stdout.write(JSON.stringify({ result: "OpenCode auth error: session expired" }) + "\\n");
+  process.exit(1);
+}
+if (${JSON.stringify(behavior)} === "error-event") {
+  // Real opencode 1.18 reports an API failure (a blocked host, a 403) as a
+  // { type: "error" } JSONL event on STDOUT and exits 1 with empty stderr.
+  process.stdout.write(JSON.stringify({ type: "error", sessionID: "ses_shim", error: { name: "APIError", data: { message: "Forbidden: request blocked for host api.example.test", statusCode: 403 } } }) + "\\n");
   process.exit(1);
 }
 // Mirror real opencode (>=1.x) --format json: { type, part } JSONL events.
@@ -90,14 +102,14 @@ function main() {
     const child = runWrapper(dir, inputPath, resultPath);
     assert.equal(child.status, 0, `opencode wrapper exits 0 (stderr: ${child.stderr})`);
     const invocation = readInvocation(dir);
-    assert.deepEqual(invocation.slice(0, 3), ["run", "--format", "json"], "opencode runs with --format json");
-    assert.ok(invocation.includes("--dangerously-skip-permissions"), "passes --dangerously-skip-permissions");
-    // `opencode run` takes the message as a positional arg; there is no --prompt flag.
-    // A --prompt flag would leave the positional [message..] empty (prompt never reaches opencode).
+    assert.deepEqual(invocation, ["run", "--format", "json", "--dangerously-skip-permissions"], "opencode argv carries ONLY the fixed flags, no prompt (plain opencode requests no --model)");
+    // `opencode run` takes no positional prompt and no --prompt flag; the
+    // message is delivered on stdin only.
     assert.ok(!invocation.includes("--prompt"), "opencode run must NOT use a --prompt flag (it does not exist)");
-    const prompt = invocation[invocation.length - 1];
-    assert.ok(prompt.includes(marker), "worker input reaches opencode as the positional message");
+    const prompt = fs.readFileSync(path.join(dir, "stdin.txt"), "utf8");
+    assert.ok(prompt.includes(marker), "worker input reaches opencode on stdin");
     assert.ok(prompt.includes("cw:result"), "cw result contract is appended");
+    assert.ok(!invocation.some((arg) => arg.includes(marker)), "the prompt is never passed as an argument");
     assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "final message persisted to result.md");
     assert.equal(child.stderr, "", "default piped success is silent on stderr");
     const report = JSON.parse(child.stdout);
@@ -106,7 +118,7 @@ function main() {
     assert.equal(report.model, undefined, "plain opencode carries no model field");
     assert.equal(report.usage.input_tokens, 12, "usage summed from step_finish token events");
     assert.equal(report.result, RESULT, "stdout report carries final result for CW provenance");
-    console.log("opencode: default --format json + result persistence + provenance OK");
+    console.log("opencode: default --format json + stdin prompt delivery + result persistence + provenance OK");
   }
 
   {
@@ -142,6 +154,36 @@ function main() {
     const log = fs.readFileSync(logPath, "utf8");
     assert.ok(log.includes("OpenCode auth error: session expired"), "persisted log carries the PARSED stdout result");
     console.log("opencode: empty-stderr failure surfaces parsed stdout result (auth-style) OK");
+  }
+
+  {
+    fs.rmSync(resultPath, { force: true });
+    const errEvent = runWrapper(shimDir("error-event"), inputPath, resultPath);
+    assert.equal(errEvent.status, 1, "an error-event shim exits 1");
+    assert.ok(!fs.existsSync(resultPath), "no result.md when opencode reports an error event");
+    assert.ok(errEvent.stderr.includes("APIError: Forbidden: request blocked for host api.example.test"), "stderr names the error event's reason, not a bare exit code");
+    const log = fs.readFileSync(path.join(work, "logs", "agent-stderr.log"), "utf8");
+    assert.ok(log.includes("APIError: Forbidden: request blocked for host api.example.test"), "the log names the error event's reason");
+    console.log("opencode: a { type: \"error\" } event names the failure OK");
+  }
+
+  {
+    // A 1.2 MB prompt is WELL past Linux's 131072-byte argument limit (and
+    // macOS's ~1 MB for all arguments combined), but since the prompt never
+    // goes on argv or as a positional message — it goes on stdin — this just
+    // works: no E2BIG, the whole prompt reaches opencode.
+    fs.rmSync(resultPath, { force: true });
+    const bigInput = path.join(work, "big-input.md");
+    const BIG_MARKER = "end of a 1.2 MB worker input (marker-9e4).";
+    fs.writeFileSync(bigInput, `# Worker w-big\n\n${"earlier phase result line\n".repeat(48000)}\n${BIG_MARKER}\n`, "utf8");
+    const dir = shimDir("ok");
+    const child = runWrapper(dir, bigInput, resultPath);
+    assert.equal(child.status, 0, `a 1.2 MB prompt completes (stderr: ${child.stderr.slice(0, 300)})`);
+    const stdinBytes = fs.readFileSync(path.join(dir, "stdin.txt"));
+    assert.ok(stdinBytes.length >= 1200000, "the whole 1.2 MB prompt arrives on stdin (byte length at least matches the input)");
+    assert.ok(stdinBytes.toString("utf8").includes(BIG_MARKER), "the big prompt's tail marker reaches opencode on stdin");
+    assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "result.md written for the big prompt");
+    console.log("opencode: a 1.2 MB prompt goes on stdin, no E2BIG OK");
   }
 
   {

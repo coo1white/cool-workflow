@@ -4,6 +4,9 @@
 // gemini-opencode-agent-wrapper-smoke -- the Gemini (via opencode) builtin adapter
 // selects a google/gemini model and reaches the shared opencode runner. A PATH
 // shim stands in for `opencode`, so no live Gemini key is needed.
+//
+// The prompt goes to `opencode run` on STDIN, never as an argument or a
+// positional message: argv carries only the fixed flags plus --model.
 
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
@@ -35,6 +38,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
 fs.writeFileSync(path.join(__dirname, "invocation.json"), JSON.stringify(args));
+fs.writeFileSync(path.join(__dirname, "stdin.txt"), fs.readFileSync(0));
 const emit = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
 emit({ type: "step_start", part: { type: "step-start", messageID: "msg_a" } });
 emit({ type: "text", part: { type: "text", messageID: "msg_a", text: "reading repo..." } });
@@ -70,15 +74,16 @@ function main() {
     const child = runWrapper(dir, inputPath, resultPath);
     assert.equal(child.status, 0, `gemini-opencode wrapper exits 0 (stderr: ${child.stderr})`);
     const invocation = readInvocation(dir);
-    assert.deepEqual(invocation.slice(0, 3), ["run", "--format", "json"], "runs opencode with --format json");
-    assert.ok(invocation.includes("--dangerously-skip-permissions"), "passes --dangerously-skip-permissions");
+    assert.deepEqual(invocation, ["run", "--format", "json", "--dangerously-skip-permissions", "--model", "google/gemini-3.7-flash"], "runs opencode with the fixed flags + --model, no prompt in argv");
     assert.equal(modelOf(invocation), "google/gemini-3.7-flash", "default Gemini model is selected via --model");
-    assert.ok(!invocation.includes("--prompt"), "message is positional; there is no --prompt flag");
-    assert.ok(invocation[invocation.length - 1].includes(marker), "worker input reaches opencode as the positional message");
+    assert.ok(!invocation.includes("--prompt"), "message is delivered on stdin; there is no --prompt flag");
+    const prompt = fs.readFileSync(path.join(dir, "stdin.txt"), "utf8");
+    assert.ok(prompt.includes(marker), "worker input reaches opencode on stdin");
+    assert.ok(!invocation.some((arg) => arg.includes(marker)), "the prompt is never passed as an argument");
     assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "final message persisted to result.md");
     const report = JSON.parse(child.stdout);
     assert.equal(report.model, "google/gemini-3.7-flash", "provenance records the requested Gemini model");
-    console.log("gemini-opencode: default model selection + result persistence OK");
+    console.log("gemini-opencode: default model selection + stdin prompt delivery + result persistence OK");
   }
 
   {
@@ -97,6 +102,25 @@ function main() {
     assert.equal(child.status, 0, `stream wrapper exits 0 (stderr: ${child.stderr})`);
     assert.match(child.stderr, /→ gemini: reading/, "live trace is labelled gemini, not opencode");
     console.log("gemini-opencode: live trace labelled gemini OK");
+  }
+
+  {
+    // A 1.2 MB prompt is WELL past Linux's 131072-byte argument limit, but
+    // since the prompt never goes on argv or as a positional message — it
+    // goes on stdin — this just works: no E2BIG, the whole prompt reaches
+    // opencode.
+    fs.rmSync(resultPath, { force: true });
+    const bigInput = path.join(work, "big-input.md");
+    const BIG_MARKER = "end of a 1.2 MB worker input (marker-9e4).";
+    fs.writeFileSync(bigInput, `# Worker w-big\n\n${"earlier phase result line\n".repeat(48000)}\n${BIG_MARKER}\n`, "utf8");
+    const dir = shimDir();
+    const child = runWrapper(dir, bigInput, resultPath);
+    assert.equal(child.status, 0, `a 1.2 MB prompt completes (stderr: ${child.stderr.slice(0, 300)})`);
+    const stdinBytes = fs.readFileSync(path.join(dir, "stdin.txt"));
+    assert.ok(stdinBytes.length >= 1200000, "the whole 1.2 MB prompt arrives on stdin (byte length at least matches the input)");
+    assert.ok(stdinBytes.toString("utf8").includes(BIG_MARKER), "the big prompt's tail marker reaches opencode on stdin");
+    assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "result.md written for the big prompt");
+    console.log("gemini-opencode: a 1.2 MB prompt goes on stdin, no E2BIG OK");
   }
 
   {

@@ -3,6 +3,13 @@
 
 // gemini-agent-wrapper-smoke -- the Gemini builtin agent adapter works without
 // a live Gemini login. A PATH shim stands in for `gemini`.
+//
+// The prompt goes to gemini on STDIN, never as an argument: gemini is run
+// headless with NO -p and no positional prompt (`--output-format stream-json
+// --approval-mode plan` only), and the wrapper writes the whole prompt to the
+// child's stdin. Before spawning, a prompt over 8 MiB is refused outright
+// (gemini itself would cut anything past that many stdin bytes), so the
+// wrapper never starts gemini on a prompt it would silently truncate.
 
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
@@ -35,12 +42,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const args = process.argv.slice(2);
 fs.writeFileSync(path.join(__dirname, "invocation.json"), JSON.stringify(args));
+fs.writeFileSync(path.join(__dirname, "stdin.txt"), fs.readFileSync(0));
 if (${JSON.stringify(behavior)} === "crash") {
   process.stderr.write("gemini shim boom");
   process.exit(3);
 }
-const formatFlag = args.indexOf("--output-format");
-const format = formatFlag >= 0 ? args[formatFlag + 1] : "text";
 if (${JSON.stringify(behavior)} === "garbage") {
   process.stdout.write("not-json\\n");
   process.exit(0);
@@ -56,10 +62,6 @@ if (${JSON.stringify(behavior)} === "auth-error") {
   process.exit(1);
 }
 const emit = (o) => process.stdout.write(JSON.stringify(o) + "\\n");
-if (format !== "stream-json" && format !== "json") {
-  process.stdout.write(${JSON.stringify(RESULT)});
-  process.exit(0);
-}
 emit({ type: "system", subtype: "init" });
 emit({ type: "assistant", message: { model: "gemini-shim-model", content: "reading repo..." } });
 emit({ type: "tool_call", name: "Read", args: { file_path: "README.md" } });
@@ -97,23 +99,19 @@ function main() {
     const child = runWrapper(dir, inputPath, resultPath);
     assert.equal(child.status, 0, `gemini wrapper exits 0 (stderr: ${child.stderr})`);
     const invocation = readInvocation(dir);
-    assert.ok(invocation.includes("-p"), "gemini runs with -p");
-    const pIndex = invocation.indexOf("-p");
-    const prompt = invocation[pIndex + 1];
-    assert.ok(prompt.includes(marker), "worker input reaches gemini stdin");
+    assert.ok(!invocation.includes("-p"), "gemini runs with NO -p (headless stdin mode)");
+    assert.deepEqual(invocation, ["--output-format", "stream-json", "--approval-mode", "plan"], "gemini argv carries ONLY the fixed flags, no prompt");
+    const prompt = fs.readFileSync(path.join(dir, "stdin.txt"), "utf8");
+    assert.ok(prompt.includes(marker), "worker input reaches gemini on stdin");
     assert.ok(prompt.includes("cw:result"), "cw result contract is appended");
-    const formatIdx = invocation.indexOf("--output-format");
-    assert.deepEqual(invocation.slice(formatIdx, formatIdx + 2), ["--output-format", "stream-json"]);
-    assert.ok(invocation.includes("--approval-mode"), "gemini runs in approval mode");
-    const approvalIdx = invocation.indexOf("--approval-mode");
-    assert.equal(invocation[approvalIdx + 1], "plan", "approval-mode plan = read-only");
+    assert.ok(!invocation.some((arg) => arg.includes(marker)), "the prompt is never passed as an argument");
     assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "final message persisted to result.md");
     assert.equal(child.stderr, "", "default piped success is silent on stderr");
     const report = JSON.parse(child.stdout);
     assert.equal(report.model, "gemini-shim-model", "model extracted from JSONL events");
     assert.equal(report.usage.input_tokens, 15, "usage extracted from JSONL events");
     assert.equal(report.result, RESULT, "stdout report carries final result for CW provenance");
-    console.log("gemini: default prompt + stream-json + approval-mode plan + result persistence OK");
+    console.log("gemini: default stdin prompt delivery + stream-json + approval-mode plan + result persistence OK");
   }
 
   {
@@ -152,24 +150,45 @@ function main() {
   }
 
   {
-    // A prompt past the system's argument limit (1.2 MB: over Linux's 131072
-    // bytes for one argument and macOS's 1 MB for all of them) makes spawn
-    // THROW E2BIG. The wrapper must still fail closed with the reason on disk,
-    // not die with a bare exit 1 and no log.
+    // A 1.2 MB prompt is WELL past Linux's 131072-byte argument limit (and
+    // macOS's ~1 MB for all arguments combined), but since the prompt never
+    // goes on argv anymore — it goes on stdin — this now just works: no
+    // E2BIG, no refusal, the whole prompt reaches gemini.
+    fs.rmSync(resultPath, { force: true });
+    const bigInput = path.join(work, "big-input.md");
+    const BIG_MARKER = "end of a 1.2 MB worker input (marker-9e4).";
+    fs.writeFileSync(bigInput, `# Worker w-big\n\n${"earlier phase result line\n".repeat(48000)}\n${BIG_MARKER}\n`, "utf8");
+    const dir = shimDir("ok");
+    const child = runWrapper(dir, bigInput, resultPath);
+    assert.equal(child.status, 0, `a 1.2 MB prompt completes (stderr: ${child.stderr.slice(0, 300)})`);
+    const stdinBytes = fs.readFileSync(path.join(dir, "stdin.txt"));
+    assert.ok(stdinBytes.length >= 1200000, "the whole 1.2 MB prompt arrives on stdin (byte length at least matches the input)");
+    assert.ok(stdinBytes.toString("utf8").includes(BIG_MARKER), "the big prompt's tail marker reaches gemini on stdin");
+    assert.equal(fs.readFileSync(resultPath, "utf8"), RESULT, "result.md written for the big prompt");
+    console.log("gemini: a 1.2 MB prompt goes on stdin, no E2BIG OK");
+  }
+
+  {
+    // gemini itself reads at most 8 MiB (8388608 bytes) of stdin and silently
+    // cuts the rest. A prompt over that limit is refused BEFORE gemini is
+    // ever spawned — never a silently truncated prompt.
     fs.rmSync(resultPath, { force: true });
     const logPath = path.join(work, "logs", "agent-stderr.log");
     fs.rmSync(logPath, { force: true });
-    const bigInput = path.join(work, "big-input.md");
-    fs.writeFileSync(bigInput, `# Worker w-big\n\n${"earlier phase result line\n".repeat(48000)}`, "utf8");
-    const big = runWrapper(shimDir("ok"), bigInput, resultPath);
-    assert.equal(big.status, 1, "a spawn that throws E2BIG ends the hop with exit 1");
-    assert.ok(!fs.existsSync(resultPath), "no result.md when gemini could not be started");
-    assert.ok(fs.existsSync(logPath), "agent-stderr.log persisted for a spawn that threw");
+    const hugeInput = path.join(work, "huge-input.md");
+    const HUGE_LINE_BYTES = Buffer.byteLength("earlier phase result line\n", "utf8");
+    const repeatCount = Math.ceil((9 * 1024 * 1024) / HUGE_LINE_BYTES);
+    fs.writeFileSync(hugeInput, `# Worker w-huge\n\n${"earlier phase result line\n".repeat(repeatCount)}`, "utf8");
+    const dir = shimDir("ok");
+    const child = runWrapper(dir, hugeInput, resultPath);
+    assert.equal(child.status, 1, "a prompt over 8 MiB is refused with exit 1");
+    assert.ok(!fs.existsSync(resultPath), "no result.md when the prompt is refused");
+    assert.ok(!fs.existsSync(path.join(dir, "invocation.json")), "gemini is never spawned for an over-limit prompt");
+    assert.ok(fs.existsSync(logPath), "agent-stderr.log persisted for the refused hop");
     const log = fs.readFileSync(logPath, "utf8");
-    assert.match(log, /gemini spawn failed: .*E2BIG/, "the log names the spawn failure");
-    assert.match(log, /too large to pass as an argument/, "the log says why, in plain words");
-    assert.match(big.stderr, /gemini spawn failed: .*E2BIG/, "stderr carries the same reason");
-    console.log("gemini: a spawn that throws E2BIG is logged, fail closed OK");
+    assert.ok(log.includes("8388608 bytes gemini reads from stdin"), "the log names gemini's exact 8 MiB stdin limit");
+    assert.ok(child.stderr.includes("8388608 bytes gemini reads from stdin"), "stderr carries the same reason");
+    console.log("gemini: a prompt over 8 MiB is refused before gemini starts, fail closed OK");
   }
 
   {
