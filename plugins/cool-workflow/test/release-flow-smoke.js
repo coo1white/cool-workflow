@@ -666,7 +666,9 @@ function releaseFixtureNonAncestorPrevTag() {
   assert.match(notes, /Ungated body/, "still carries the CHANGELOG body");
 }
 
-// ---- Case: --cut runs the live vendor preflight and HARD-BLOCKS on failure ----
+// ---- Case: by default --cut runs NO live vendor preflight ----
+// The reviewer run is the one live vendor call a cut needs; other vendors are
+// support tier 2, so a cut never waits on their keys or tokens.
 {
   const dir = fixture();
   const stub = writeStub(dir);
@@ -674,25 +676,22 @@ function releaseFixtureNonAncestorPrevTag() {
   const env = {
     ...process.env,
     CW_RELEASE_FLOW_GATE_CMD: "true",
-    CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // stub: a promised vendor is not live
-    // Cleared, not just left to ...process.env: an operator's shell may itself have
-    // CW_SKIP_VENDOR_PREFLIGHT=1 set (e.g. mid-incident, overriding a real --cut
-    // elsewhere) and this nested simulated cut must not inherit it — that would
-    // silently turn the stubbed-FAIL preflight into a pass and false-green this
-    // exact "hard-blocks" assertion.
+    CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // would fail if it ran
+    // Cleared, not left to ...process.env: an operator shell may set either.
     CW_SKIP_VENDOR_PREFLIGHT: "",
+    CW_PREFLIGHT_VENDORS: "",
     STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
     CW_NO_AUTO_AGENT: "1", CW_HOME: home, XDG_STATE_HOME: home,
     CW_AGENT_COMMAND: `node ${stub} {{result}} APPROVED`
   };
   const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, env);
-  assert.equal(r.code, 1, "a failing vendor preflight blocks the cut");
-  assert.match(r.err, /vendor preflight FAILED/, "operator is told which step blocked");
-  assert.match(r.out, /\[1b\/3\] vendor preflight — live/, "preflight runs in cut mode");
-  assert.doesNotMatch(r.out, /\[2\/3\] reviewer/, "blocks BEFORE the reviewer step");
+  assert.equal(r.code, 0, `default cut needs only the reviewer:\n${r.err}\n${r.out}`);
+  assert.match(r.out, /\[1b\/3\] vendor preflight — skipped \(the reviewer run is the live check/, "default cut runs no live vendor check");
+  assert.doesNotMatch(r.out, /vendor preflight — live/, "no live vendor call by default");
+  assert.match(r.out, /"verdict": "APPROVED"/, "flow completes through the reviewer");
 }
 
-// ---- Case: --cut with a green preflight proceeds past it to the reviewer ----
+// ---- Case: CW_PREFLIGHT_VENDORS opts in; a failure warns and does NOT block ----
 {
   const dir = fixture();
   const stub = writeStub(dir);
@@ -700,18 +699,18 @@ function releaseFixtureNonAncestorPrevTag() {
   const env = {
     ...process.env,
     CW_RELEASE_FLOW_GATE_CMD: "true",
-    CW_RELEASE_FLOW_PREFLIGHT_CMD: "true", // stub: all vendors live
-    // See the "hard-blocks" case above: clear an inherited CW_SKIP_VENDOR_PREFLIGHT
-    // so this asserts the LIVE-preflight path, not a coincidentally-skipped one.
+    CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // stub: a tier-2 vendor is not live
     CW_SKIP_VENDOR_PREFLIGHT: "",
+    CW_PREFLIGHT_VENDORS: "codex,gemini",
     STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
     CW_NO_AUTO_AGENT: "1", CW_HOME: home, XDG_STATE_HOME: home,
     CW_AGENT_COMMAND: `node ${stub} {{result}} APPROVED`
   };
   const r = run("node", [FLOW, "--cut", "--version", "9.9.9", "--dry-run"], dir, env);
-  assert.equal(r.code, 0, `green preflight + APPROVED proceeds:\n${r.err}\n${r.out}`);
-  assert.match(r.out, /\[1b\/3\] vendor preflight — live/, "preflight runs in cut mode");
-  assert.match(r.out, /"verdict": "APPROVED"/, "flow completes through the reviewer");
+  assert.equal(r.code, 0, `a failing opt-in preflight does not block:\n${r.err}\n${r.out}`);
+  assert.match(r.out, /\[1b\/3\] vendor preflight — live liveness check: codex,gemini/, "opt-in preflight runs");
+  assert.match(r.err, /warning: vendor preflight — not every vendor in codex,gemini is live/, "failure is a stderr warning");
+  assert.match(r.out, /"verdict": "APPROVED"/, "flow goes on through the reviewer");
 }
 
 // ---- Case: CW_SKIP_VENDOR_PREFLIGHT=1 overrides the live check on --cut ----

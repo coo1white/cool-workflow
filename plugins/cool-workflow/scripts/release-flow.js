@@ -148,11 +148,14 @@ function runGate() {
   if (r.status !== 0) die("deterministic gate FAILED — fix findings in normal cycles, do not retry the release here.");
 }
 
-// ---- 1b. vendor liveness preflight (cut only) ------------------------------
-// CW promises claude/codex/gemini/deepseek all work; this proves it before a cut.
-// LIVE: spends real tokens on each vendor, so it runs on --cut (release machine
-// has the keys), not on --check. HARD-BLOCK: any vendor not green stops the cut.
-// Escape hatch CW_SKIP_VENDOR_PREFLIGHT=1 (emergencies/offline). Test seam
+// ---- 1b. vendor liveness preflight (cut only, opt-in, never blocks) --------
+// The reviewer run below is the one live vendor call a cut needs: if that
+// vendor is not live, the review fails and the cut stops (fail closed). The
+// other builtin vendors are support tier 2 (wrapper + offline smoke, see
+// agent-delegation-drive(7) "Support tiers"), so a release never waits on
+// their keys or spends tokens on them. An operator who wants live numbers
+// names them in CW_PREFLIGHT_VENDORS; a failure there is a warning on
+// stderr, not a stop. CW_SKIP_VENDOR_PREFLIGHT=1 still skips it. Test seam
 // CW_RELEASE_FLOW_PREFLIGHT_CMD overrides the command (smoke stubs it).
 function runVendorPreflight() {
   if (!MODE_CUT) {
@@ -163,7 +166,11 @@ function runVendorPreflight() {
     say("[1b/3] vendor preflight — SKIPPED via CW_SKIP_VENDOR_PREFLIGHT=1 (operator override)");
     return;
   }
-  const vendors = (process.env.CW_PREFLIGHT_VENDORS || "claude,codex,gemini,deepseek,muse").trim();
+  const vendors = (process.env.CW_PREFLIGHT_VENDORS || "").trim();
+  if (!vendors) {
+    say("[1b/3] vendor preflight — skipped (the reviewer run is the live check; set CW_PREFLIGHT_VENDORS to check other vendors, never blocking)");
+    return;
+  }
   const override = (process.env.CW_RELEASE_FLOW_PREFLIGHT_CMD || "").trim();
   say(`[1b/3] vendor preflight — live liveness check: ${vendors}`);
   let r;
@@ -178,7 +185,7 @@ function runVendorPreflight() {
     });
   }
   if (r.status !== 0) {
-    die("vendor preflight FAILED — a promised vendor is not live (missing CLI/key or broken). Users must not be limited to one vendor; fix before cutting, or set CW_SKIP_VENDOR_PREFLIGHT=1 to override.");
+    process.stderr.write(`release-flow: warning: vendor preflight — not every vendor in ${vendors} is live; they are support tier 2, so the cut goes on.\n`);
   }
 }
 
