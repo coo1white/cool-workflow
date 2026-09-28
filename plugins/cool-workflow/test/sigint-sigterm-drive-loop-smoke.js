@@ -241,7 +241,7 @@ function testGracefulSingleSignal(signal) {
     // ACTUAL, copy-pasteable resume command (with this run's real id), not
     // just vague "run again" prose a user has to translate themselves.
     assert.ok(
-      (last.reason || "").includes(`cw run resume ${p.id} --drive`),
+      (last.reason || "").includes(`cw --resume --run ${p.id}`),
       `blocked reason must contain the literal resume command (got: ${last.reason})`
     );
 
@@ -380,7 +380,7 @@ function testConcurrentRoundInterruptGranularity(signal) {
     const last = result.steps[result.steps.length - 1];
     assert.match(last.reason || "", new RegExp(`drive interrupted by ${signal}`));
     assert.ok(
-      (last.reason || "").includes(`cw run resume ${p.id} --drive`),
+      (last.reason || "").includes(`cw --resume --run ${p.id}`),
       `blocked reason must contain the literal resume command (got: ${last.reason})`
     );
 

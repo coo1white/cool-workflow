@@ -213,7 +213,7 @@ Quickstart hint strings, byte-exact:
 agent backend not configured — set CW_AGENT_COMMAND (e.g. "claude -p") or pass --agent-command, then re-run. The one command DELEGATES worker execution to YOUR agent; it never executes a model itself.
 a worker parked past its retry budget — inspect: cw run show <run-id>; fix the cause, then: cw --resume --run <run-id>
 the drive is blocked — inspect: cw run drive <run-id>
-one step advanced — continue: cw quickstart <app-id> --run <run-id> --resume
+one step advanced — continue: cw --resume --run <run-id>
 one step advanced (--once) — continue: cw quickstart <app-id> --run <run-id> --once
 --bundle skipped: the run did not complete (status=<status>); no bundle was sealed.
 ```

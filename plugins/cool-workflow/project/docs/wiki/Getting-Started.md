@@ -149,7 +149,7 @@ Runs are saved, so you can stop and go on later — or move a run to another
 machine:
 
 ```bash
-cw quickstart architecture-review --run <run-id> --resume
+cw --resume --run <run-id>
 cw run export <run-id> --output run.cw-archive.json
 cw run import run.cw-archive.json --target /path/to/restored-repo
 ```

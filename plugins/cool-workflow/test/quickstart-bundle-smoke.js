@@ -187,7 +187,7 @@ clearAgentEnv();
     });
     assert.equal(first.status, "in-progress", "fresh --resume advances one step");
     assert.equal(Object.prototype.hasOwnProperty.call(first, "bundle"), false, "fresh resume does not seal a partial run");
-    assert.match(first.hint || "", /--run .* --resume --bundle/, "continue hint keeps the bundle intent");
+    assert.match(first.hint || "", /continue: cw --resume --run \S+ --bundle/, "continue hint keeps the bundle intent");
     assert.match(first.hint || "", /--bundle skipped/, "the skip is explicit");
 
     const done = await quickstart(runner, {

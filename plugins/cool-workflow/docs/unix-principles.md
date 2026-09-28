@@ -286,7 +286,7 @@ Every state has one screen. Each ends with one next command.
 | 11 | Too long: a 76 KB report | the terminal stays short; the length goes to the file | yes |
 | 12 | Color: `NO_COLOR`, piped, `TERM=dumb` | no escape bytes | yes |
 | 13 | Narrow (40 columns), screen reader | lines only, added at the end, no redraw | yes |
-| 14 | Ctrl-C | stops after the worker in hand, keeps done work, names the resume command | yes; the resume command has a second spelling |
+| 14 | Ctrl-C | stops after the worker in hand, keeps done work, names the resume command | yes |
 
 ### D2. The CLI scale
 
