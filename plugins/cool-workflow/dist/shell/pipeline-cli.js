@@ -197,6 +197,21 @@ function assertGitProject(repo) {
     if (!(0, onramp_1.isGitWorkTree)(repo))
         throw new Error(`${repo} is not a git project. Run cw inside a project, or pass --repo <path>.`);
 }
+/** Refuses an explicit local --repo/--dir that names no folder, before
+ *  anything is planned: a mistyped path must not be made on disk and run. */
+function assertRepoFolder(repo) {
+    let stat;
+    try {
+        stat = fs.statSync(repo);
+    }
+    catch {
+        stat = undefined;
+    }
+    if (!stat)
+        throw new Error(`${repo} is missing: there is no such folder. Pass --repo <path> to a project folder.`);
+    if (!stat.isDirectory())
+        throw new Error(`${repo} is not a folder. Pass --repo <path> to a project folder.`);
+}
 /** Resolve a workflow app for `plan`/`run --drive` over the SAME surface `cw
  *  list` shows — bundled apps AND legacy `<name>.workflow.js` files. The old
  *  build's plan() resolved via loadWorkflowAppById (full discovery over both the
@@ -472,6 +487,8 @@ async function quickstartRun(args) {
     // An existing --run <id> never plans a fresh run, so it skips this check.
     if (repoFromCwd && !(args.runId || args.run))
         assertGitProject(args.repo);
+    if (!repoFromCwd && !remoteCandidate && repoArgRaw && !(args.runId || args.run))
+        assertRepoFolder(path.resolve(repoArgRaw));
     // `--resume`: a discoverability flag over the existing continuation. With no
     // `--run`, advance exactly ONE step (reuse the `--once` path) and print a
     // copy-pasteable continue line; with `--run <id>`, continue that run to
