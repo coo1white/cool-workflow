@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-09-28 by `npm run sync:projec
 - Source modules: `160`
 - Workflow apps: `8`
 - Docs: `60`
-- Smoke tests: `274`
+- Smoke tests: `275`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -453,6 +453,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [path-containment-smoke.js](../test/path-containment-smoke.js)
 - [pdca-blackboard-loop-smoke.js](../test/pdca-blackboard-loop-smoke.js)
 - [perf-ratchet-smoke.js](../test/perf-ratchet-smoke.js)
+- [phase-overlap-smoke.js](../test/phase-overlap-smoke.js)
 - [pii-redaction-smoke.js](../test/pii-redaction-smoke.js)
 - [pipeline-auto-advance-smoke.js](../test/pipeline-auto-advance-smoke.js)
 - [pipeline-runner-smoke.js](../test/pipeline-runner-smoke.js)
