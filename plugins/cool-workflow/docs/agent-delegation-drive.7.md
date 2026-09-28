@@ -242,6 +242,11 @@ question, agent config, and (with `--bundle`) the trust-key shape, then gives th
 next command to run. A blocked check exits non-zero, so scripts may use it as a
 gate before a real run.
 
+A fresh `quickstart` (so `cw -q`) with a local `--repo` or `-dir` that names
+no folder, or names a file, is refused before it plans: exit 1, nothing
+written, and the path is not made
+(`<path> is missing: there is no such folder. Pass --repo <path> to a project folder.`).
+
 `quickstart --resume` with no `--run` drives a single step and prints a
 copy-pasteable `cw quickstart --run <id> --resume` continue line; run it again with
 the `--run <id>` to finish. The continuing invocation echoes `resumedFrom: <id>`.

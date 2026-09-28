@@ -282,7 +282,7 @@ Every state has one screen. Each ends with one next command.
 | 7 | Offline | as 6, with the network error named | **gap**: as 6 |
 | 8 | Slow | as 4 | **gap**: as 4 |
 | 9 | Missing input: no question on a TTY | `Question: ` prompt on stderr; Ctrl-D stops it | yes |
-| 10 | Missing input: `--repo` names no folder | `cw: <path> does not exist`, exit 1, nothing made | **gap**: CW makes the folder and runs |
+| 10 | Missing input: `--repo` names no folder | `cw: <path> does not exist`, exit 1, nothing made | yes |
 | 11 | Too long: a 76 KB report | the terminal stays short; the length goes to the file | yes |
 | 12 | Color: `NO_COLOR`, piped, `TERM=dumb` | no escape bytes | yes for `NO_COLOR` and piped; **gap** for `TERM=dumb` |
 | 13 | Narrow (40 columns), screen reader | lines only, added at the end, no redraw | yes |

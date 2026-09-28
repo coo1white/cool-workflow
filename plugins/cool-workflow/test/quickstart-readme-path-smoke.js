@@ -117,6 +117,22 @@ try {
   assert.match(refused.stderr, /is not a git project\. Run cw inside a project, or pass --repo <path>\./, "the refusal names the fix");
   assert.equal(fs.existsSync(path.join(notAProject, ".cw")), false, "the refused run wrote no .cw state");
 
+  // A --repo that names no folder is refused before it plans, and the path
+  // is never made on disk (it used to be made, with a full .cw run tree).
+  const missingRepo = path.join(notAProject, "no-such-project");
+  const missing = spawnSync(process.execPath, [cli, "-q", "x", "--repo", missingRepo], { cwd: notAProject, encoding: "utf8" });
+  assert.equal(missing.status, 1, "cw -q --repo <missing path> exits 1");
+  assert.match(missing.stderr, /no-such-project is missing: there is no such folder\. Pass --repo <path> to a project folder\./, "the refusal names the path and the fix");
+  assert.match(missing.stderr, /Try: cw -q "<question>" -dir <project-folder>/, "the refusal names one next command");
+  assert.equal(missing.stdout, "", "the refusal writes nothing to stdout");
+  assert.equal(fs.existsSync(missingRepo), false, "the missing --repo path is not made");
+
+  const fileRepo = path.join(notAProject, "a-file.txt");
+  fs.writeFileSync(fileRepo, "not a folder\n");
+  const notFolder = spawnSync(process.execPath, [cli, "-q", "x", "--repo", fileRepo], { cwd: notAProject, encoding: "utf8" });
+  assert.equal(notFolder.status, 1, "cw -q --repo <file> exits 1");
+  assert.match(notFolder.stderr, /a-file\.txt is not a folder\. Pass --repo <path> to a project folder\./, "a file given as --repo is refused");
+
   const proceeds = runJson(["quickstart", "architecture-review", "--repo", gitProject, "--check"], {
     cwd: notAProject,
     status: 1,

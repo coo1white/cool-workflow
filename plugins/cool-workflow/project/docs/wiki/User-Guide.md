@@ -63,6 +63,15 @@ Before the fix it said nothing and reviewed everything under the folder,
 including its own files, for three minutes. Now it refuses in well under a
 second and writes nothing.
 
+A `--repo` (or `-dir`) that names no folder is stopped in the same way:
+
+```text
+cw: <path> is missing: there is no such folder. Pass --repo <path> to a project folder.
+Try: cw -q "<question>" -dir <project-folder>
+```
+
+Before, CW made that folder and ran in it.
+
 ## If the run stops before the end
 
 A run can stop when one worker gives back a bad result. Two things are
