@@ -265,7 +265,7 @@ an answer with `file:line` evidence (the `## Answer` part of
 |---|---|---|---|
 | Start | the process is up (`cw --version`, `cw help`) | 0.1 s | 55 ms |
 | Plan | first `[drive] ==> <Phase> (<done>/<total>)` line on stderr (TTY only) | 1 s | 0.2 s |
-| Each wait | a new line at least every 10 s while a worker runs | 10 s | **gap**: no line for the full wait (3, 8, 15 s) |
+| Each wait | a new line at least every 10 s while a worker runs | 10 s | yes: `[drive]   … <Phase> still working — 10s` |
 | End | `✓ Report: <path>`, `✓ Status: complete — N/N`, `Next:` | 5 min | 233 s and 259 s (real agents, default review) |
 | Read | `## Answer` with evidence, one file read away | — | yes |
 
@@ -276,11 +276,11 @@ Every state has one screen. Each ends with one next command.
 | 1 | First use: bare `cw`, `cw help` | the short front page, exit 0 | yes |
 | 2 | No agent set | `blocked`, `Try: cw doctor`; JSON names `CW_AGENT_COMMAND` | yes; the live count (`0/6`) and the end count (`0/14`) do not agree |
 | 3 | Empty: `cw report` with no run | `No run yet. Try: cw -q "<question>"` | yes |
-| 4 | Loading | a line when each worker starts and ends, and a line at least every 10 s between | **gap**: silent between |
+| 4 | Loading | a line when each worker starts and ends, and a line at least every 10 s between | yes for the 10 s line; **gap**: in a concurrent round, each worker’s `spawning agent` line comes only after the round ends |
 | 5 | Success | report path, status, one `Next:` line | yes |
 | 6 | A worker fails | why (the agent's own words), and `Next: cw --resume --run <id>` | **gap**: TTY shows neither; the reason is cut to `failed (exit N)` |
 | 7 | Offline | as 6, with the network error named | **gap**: as 6 |
-| 8 | Slow | as 4 | **gap**: as 4 |
+| 8 | Slow | as 4 | as 4 |
 | 9 | Missing input: no question on a TTY | `Question: ` prompt on stderr; Ctrl-D stops it | yes |
 | 10 | Missing input: `--repo` names no folder | `cw: <path> does not exist`, exit 1, nothing made | yes |
 | 11 | Too long: a 76 KB report | the terminal stays short; the length goes to the file | yes |
