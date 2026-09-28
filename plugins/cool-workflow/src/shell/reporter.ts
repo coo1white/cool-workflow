@@ -4,18 +4,13 @@
 //
 // MILESTONE 11 (reporting/observability). Everything here goes to
 // STDERR; stdout (the machine payload) carries NO term styling ever, so
-// it stays byte-exact under any color env — this is gate point #1 of the
-// Rule of Silence's three gate points (SPEC/reporting-ux.md rebuild risk
-// #1): `Reporter.runSummary` writes nothing when the stream is not a TTY.
+// it stays byte-exact under any color env. The end-of-run summary
+// (formatQuickstartSummary) is printed only on a real terminal.
 //
 // Evidence: SPEC/reporting-ux.md "The Rule of Silence (TTY view vs
 // pipes)".
 
-import { dim, green, yellow, nextHint, tryHint, formatFindingsSummary, FindingRow } from "./term";
-
-function isTTY(stream: NodeJS.WriteStream): boolean {
-  return Boolean(stream.isTTY);
-}
+import { dim, green, yellow, nextHint, tryHint } from "./term";
 
 export interface RunSummaryFields {
   runId: string;
@@ -24,8 +19,6 @@ export interface RunSummaryFields {
   completedWorkers?: number;
   plannedWorkers?: number;
   agentConfigured?: boolean;
-  findings?: FindingRow[];
-  runDir?: string;
   /** Why a run that did not complete stopped: the stop reason, then (when
    *  there is one) the last line of the agent's own stderr. */
   why?: string[];
@@ -33,7 +26,6 @@ export interface RunSummaryFields {
 
 export interface Reporter {
   progress(line: string): void;
-  runSummary(fields: RunSummaryFields): void;
 }
 
 class StderrReporter implements Reporter {
@@ -41,24 +33,6 @@ class StderrReporter implements Reporter {
 
   progress(line: string): void {
     this.s.write(`${line}\n`);
-  }
-
-  runSummary(f: RunSummaryFields): void {
-    if (!isTTY(this.s)) return;
-    const s = this.s;
-    const counts = typeof f.completedWorkers === "number" && typeof f.plannedWorkers === "number" ? ` — ${f.completedWorkers}/${f.plannedWorkers}` : "";
-    s.write("\n");
-    if (f.findings && f.findings.length) s.write(`${formatFindingsSummary(f.findings, s)}\n\n`);
-    s.write(`${green("✓", s)} Report: ${f.reportPath}\n`);
-    if (f.status === "complete") {
-      s.write(`  ${green("✓", s)} Status: complete${counts}\n`);
-      if (f.runDir) s.write(`  ${dim(`Transcript: ${f.runDir}`, s)}\n`);
-      s.write(`  ${nextHint(`cw report ${f.runId} --show`, s)}\n`);
-    } else {
-      s.write(`  ${yellow("!", s)} Status: ${f.status}${counts}\n`);
-      if (f.agentConfigured === false) s.write(`  ${tryHint("cw doctor", s)}\n`);
-      else s.write(`  ${nextHint(`cw status ${f.runId}`, s)}\n`);
-    }
   }
 }
 

@@ -375,14 +375,13 @@ never polluted.
 - **Transcript always on disk.** Regardless of verbosity — even when the screen
   view is silent or compact — the wrapper writes the COMPLETE narration + tool I/O
   to `transcript.md` next to that worker's `result.md`. The end-of-run summary
-  prints the run dir where the transcripts live, so nothing is ever lost to a
+  prints the report path, inside the run dir where the transcripts live, so nothing is ever lost to a
   compact view.
 - **Color control.** `NO_COLOR` / `CW_NO_COLOR` (the `--no-color` flag sets the
   latter) disable ANSI; `FORCE_COLOR` forces it even when piped; `TERM=dumb`
   turns it off; otherwise color follows isTTY. Honored identically by cw (`term.ts`) and every wrapper.
-- **End-of-run summary (cw side).** A COMPACT findings table — id / severity /
-  classification + counts, re-parsed from each completed worker's `cw:result` —
-  plus the report path, status, and run dir. NOT the full prose (that stays in
+- **End-of-run summary (cw side).** The report path, the status with the
+  run's worker count, and the next command. NOT the full prose (that stays in
   `report.md` + the transcript; `cw report --show` prints it).
 - **Determinism intact.** The backend evidence triple hashes stdout only, so the
   live stderr view never changes recorded evidence or replay.

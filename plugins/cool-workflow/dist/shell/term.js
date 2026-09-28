@@ -5,9 +5,8 @@
 // ANSI formatting, so a piped run (every conformance case pipes with
 // NO_COLOR=1) prints plain text. EXTENDED at MILESTONE 11 (reporting/
 // observability) with the rest of the old build's term module: indent,
-// sectionHeader, phaseProgressLine, printSuccessSummary, stripAnsi,
-// visibleWidth, truncate, formatFindingsSummary, FindingRow — byte-exact
-// port of the old build's term module.
+// sectionHeader, phaseProgressLine, stripAnsi, visibleWidth, truncate —
+// byte-exact port of the old build's term module.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.bold = bold;
 exports.dim = dim;
@@ -20,11 +19,9 @@ exports.nextHint = nextHint;
 exports.indent = indent;
 exports.sectionHeader = sectionHeader;
 exports.phaseProgressLine = phaseProgressLine;
-exports.printSuccessSummary = printSuccessSummary;
 exports.stripAnsi = stripAnsi;
 exports.visibleWidth = visibleWidth;
 exports.truncate = truncate;
-exports.formatFindingsSummary = formatFindingsSummary;
 function isTTY(stream = process.stderr) {
     return Boolean(stream.isTTY);
 }
@@ -104,26 +101,6 @@ function phaseProgressLine(name, done, total, mode, stream) {
     const count = total > 0 ? ` (${done}/${total})` : "";
     return `${sectionHeader(name, stream)} ${glyph}${count}`;
 }
-/** Print a success summary to stderr (TTY-gated). Silent when stderr is
- *  not a TTY, so it never pollutes piped/`--json` stdout. */
-function printSuccessSummary(fields, stream) {
-    if (!isTTY(stream))
-        return;
-    const s = stream || process.stderr;
-    const counts = typeof fields.completedWorkers === "number" && typeof fields.plannedWorkers === "number" ? ` — ${fields.completedWorkers}/${fields.plannedWorkers}` : "";
-    s.write(`\n${green("✓", s)} Report: ${fields.reportPath}\n`);
-    if (fields.status === "complete") {
-        s.write(`  ${green("✓", s)} Status: complete${counts}\n`);
-        s.write(`  ${nextHint(`cw report ${fields.runId} --show`, s)}\n`);
-    }
-    else {
-        s.write(`  ${yellow("!", s)} Status: ${fields.status}${counts}\n`);
-        if (fields.agentConfigured === false)
-            s.write(`  ${tryHint("cw doctor", s)}\n`);
-        else
-            s.write(`  ${nextHint(`cw status ${fields.runId}`, s)}\n`);
-    }
-}
 // ---- width-aware truncation (zero-dep) ----
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 /** Strip ANSI SGR codes (for measuring visible width). */
@@ -148,34 +125,4 @@ function truncate(text, maxWidth) {
     if (maxWidth === 1)
         return "…";
     return `${chars.slice(0, maxWidth - 1).join("")}…`;
-}
-// ---- findings summary table (end-of-run, compact) ----
-const SEVERITY_ORDER = ["P0", "P1", "P2", "P3", "none"];
-/** Render a compact findings summary assembled from the run's `cw:result`
- *  blocks: a one-line count headline plus a small id/severity/class
- *  table. Returns "" when there are no findings. */
-function formatFindingsSummary(findings, stream) {
-    if (!findings.length)
-        return "";
-    const bySev = new Map();
-    for (const f of findings)
-        bySev.set(f.severity || "none", (bySev.get(f.severity || "none") || 0) + 1);
-    const order = (s) => {
-        const i = SEVERITY_ORDER.indexOf(s);
-        return i === -1 ? SEVERITY_ORDER.length : i;
-    };
-    const counts = [...bySev.entries()]
-        .sort((a, b) => order(a[0]) - order(b[0]))
-        .map(([sev, n]) => `${n}×${sev}`)
-        .join(", ");
-    const rows = [...findings].sort((a, b) => order(a.severity) - order(b.severity));
-    const sevW = Math.max(8, ...rows.map((r) => (r.severity || "none").length));
-    const clsW = Math.max(5, ...rows.map((r) => (r.classification || "unknown").length));
-    const lines = [`${bold("Findings:", stream)} ${findings.length} — ${counts}`, dim(`  ${"SEVERITY".padEnd(sevW)}  ${"CLASS".padEnd(clsW)}  ID`, stream)];
-    for (const r of rows) {
-        const sev = (r.severity || "none").padEnd(sevW);
-        const cls = (r.classification || "unknown").padEnd(clsW);
-        lines.push(`  ${sev}  ${cls}  ${truncate(r.id || "(unnamed)", 60)}`);
-    }
-    return lines.join("\n");
 }

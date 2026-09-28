@@ -305,32 +305,9 @@ With matches: bold `N workflow(s) matching "<kw>"` headline, then `  <id> — <t
 
 Missing keyword throws: `Missing search keyword.\n  Tip: cw search architecture to find workflows about architecture.` (src/cli/command-surface.ts:137). `man` with a bad topic throws: `Man page not found: <topic>.\n  Tip: cw list for workflow topics, or browse docs/ for manuals.` (src/cli/command-surface.ts:158).
 
-### End-of-run summary (stderr, TTY only; reporter.runSummary)
+### End-of-run summary
 
-Written only when stderr is a TTY (src/reporter.ts:53). Shape (src/reporter.ts:52-72):
-
-```
-
-Findings: 3 — 2×P1, 1×P2
-  SEVERITY  CLASS        ID
-  P1        real         F1
-  P1        real         F2
-  P2        conditional  F3
-
-✓ Report: /path/report.md
-  ✓ Status: complete — 2/2
-  Transcript: /repo/.cw/runs/RUN1
-  Next: cw report RUN1 --show
-```
-
-Non-complete run:
-
-```
-  ! Status: blocked — 0/14
-  Try: cw doctor
-```
-
-The `Try: cw doctor` line appears when `agentConfigured === false`; otherwise `Next: cw status <run-id>` (src/reporter.ts:64-67). Findings block only when non-empty. (`--full`, which printed the report body after it, was taken out on 2026-09-28.) The findings headline is `Findings: <n> — <count>×<sev>, ...` with severities ordered `P0 P1 P2 P3 none`; the column widths pad to at least 8 (`SEVERITY`) and 5 (`CLASS`); ids are cut at 60 columns with `…`; empty severity reads `none`, empty class `unknown`, empty id `(unnamed)` (src/term.ts:173-210).
+The one end-of-run summary is the `cw -q` / `cw quickstart` one, `formatQuickstartSummary` (src/shell/reporter.ts), described in SPEC/reporting-ux.md. `Reporter.runSummary`, `printSuccessSummary` and the findings table (`formatFindingsSummary`) had no caller and were taken out on 2026-09-28.
 
 ### Phase progress lines (stderr; term.phaseProgressLine)
 
@@ -340,21 +317,6 @@ The `Try: cw doctor` line appears when `agentConfigured === false`; otherwise `N
 ==> Verdict … (0/1)
 ```
 Finished phase → green `✓`; running parallel phase → `⇉`; running sequential → `…`; the `(done/total)` part is absent when total is 0 (src/term.ts:104-109). `reporter.progress(line)` writes the given line + `\n` as-is on both TTY and non-TTY (src/reporter.ts:45-50).
-
-### `printSuccessSummary` (stderr, TTY only; term.ts:116-143)
-
-```
-
-✓ Report: <reportPath>
-  ✓ Status: complete — 14/14
-  Next: cw report <runId> --show
-```
-or, not complete:
-```
-  ! Status: <status> — 0/14
-  Try: cw doctor
-```
-(the `Try` line only when `agentConfigured === false`, else `Next: cw status <runId>`). Silent when the stream is not a TTY.
 
 ### `clones` human output (src/cli/format.ts:19-41)
 
@@ -523,8 +485,8 @@ Every claim above carries its pointer inline. Key anchors: src/cli.ts:5-29; src/
 - `test/cli-recoverable-errors-smoke.js` — typo → `Did you mean` + `Try: cw help`; no-agent quickstart/drive block closed with `agentConfigured:false` and a copy-ready hint; missing-repo error points at `-dir`; nothing leaks to stdout on error.
 - `test/cli-jsonmode-parity-smoke.js` — every probed verb obeys its registry `cli.jsonMode` (`flag` vs `default`).
 - `test/cli-mcp-parity-smoke.js` — CLI dispatch tokens ↔ capability registry ↔ MCP tool list; `--json` payloads equal MCP payloads.
-- `test/cli-render-smoke.js` — color env matrix (NO_COLOR/CW_NO_COLOR/FORCE_COLOR), `--json` byte-exact under `FORCE_COLOR`, findings table, reporter TTY/non-TTY, blocked-run `cw doctor` hint, truncate.
-- `test/cli-progress-summary-smoke.js` — `printSuccessSummary` shapes, `phaseProgressLine` exact strings, `==>` progress on stderr with clean `--json` stdout.
+- `test/cli-render-smoke.js` — color env matrix (NO_COLOR/CW_NO_COLOR/FORCE_COLOR), `--json` byte-exact under `FORCE_COLOR`, `reporter.progress` thin write, truncate.
+- `test/cli-progress-summary-smoke.js` — `phaseProgressLine` exact strings, `==>` progress on stderr with clean `--json` stdout.
 - `test/cli-handler-clones-smoke.js`, `test/cli-handler-eval-node-smoke.js`, `test/cli-handler-maintenance-smoke.js`, `test/cli-handler-workbench-smoke.js` — dispatcher→handler routing, usage strings, `required` wiring, `workbench serve --once` descriptor, `demo bundle --json` proven.
 
 ## Rebuild risks
@@ -533,7 +495,7 @@ Every claim above carries its pointer inline. Key anchors: src/cli.ts:5-29; src/
 2. **Exit-code sites.** 25+ separate fail-closed exits with different conditions (`--strict` only, `reclaimed && !verified`, two sites in `eval gate`, absent-vs-corrupt in `audit verify`/`telemetry verify`). Merging or "cleaning up" any one changes behavior.
 3. **Channel split.** Human chrome on stderr, TTY-gated; data on stdout, never styled, byte-exact under `FORCE_COLOR`; the summary fully off under `--json`. Any styled write to stdout breaks the parity and render tests.
 4. **JSON-mode per verb.** Which verbs are always-JSON, flag-gated, or human-only is registry-declared and test-enforced; hand-copying it wrongly for even one verb trips `cli-jsonmode-parity-smoke`.
-5. **Exact strings.** Usage lines say `cw ...` (every family, including `ledger`); the help text, `Try:`/`Next:` lines, `Missing <label>.` tip, and clones/findings tables are byte-pinned by tests and by the parity help-token parser (2-space rule).
+5. **Exact strings.** Usage lines say `cw ...` (every family, including `ledger`); the help text, `Try:`/`Next:` lines, `Missing <label>.` tip, and the clones table are byte-pinned by tests and by the parity help-token parser (2-space rule).
 6. **The `run` verb's two faces.** The `--drive` intercept must NOT fire when the first positional is a registry keyword; and `run drive <id>` is a preview unless `--step`.
 7. **Shorthand and precedence.** `-dir` works because unknown single-dash names keep their name; `--repo` beats `dir`; `-q` as the COMMAND consumes its positional; vendor flags rewrite `agent-command`.
 8. **Ledger byte fidelity.** The proposal `--diff` must pass through untrimmed, and bad-JSON input must yield the exact refusal objects with exit 1, not a crash.
