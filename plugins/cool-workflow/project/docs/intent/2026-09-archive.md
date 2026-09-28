@@ -5012,3 +5012,100 @@ Receipt: `project/docs/audits/quickstart-fast-receipt-2026-09-28.json`.
 | Intent + measured facts (this file) | done | #731 |
 | Build: `--fast`, help, summary line, docs, smoke | merged | #731 |
 | Close: real-agent receipt, wiki, `AGENTS.md`, archive, `BACKLOG.md` | this PR | |
+
+# The answer first: `## Answer` at the top of report.md
+
+Intent, measured facts and spec in ONE file, in the shape `AGENTS.md`
+"Intent files (the playbook)" asks for. One PR builds and closes it, so
+this file went straight to the archive (md count unchanged). Source:
+the operator, 2026-09-28, "做 #6：把答案放到 report.md 最上面" (finding
+#6 of the real-agent Track A run, the Track A run part above), then,
+asked whether to add a section to the default report or only a new
+`cw report --answer`, "默认加 ## Answer". A default output changes, so
+this file is the record of the operator's yes.
+
+## Part 1 — Intent
+
+**Problem.** The one thing a person asked for is the answer, and
+report.md hides it: in the Track A run (1594 lines) the answer sat in the
+first Map worker's result at line 143; in the `--fast` receipt run (838
+lines) the verdict's own summary sits at the bottom, under `## Results`.
+Twelve sections of run facts (phases, commits, workers, sandbox, audit)
+come first.
+
+**Outcome.** A report whose run has a finished verdict opens with the
+answer: the verdict task's summary and its evidence refs, right under the
+header lines.
+
+**North Star.** Track A: a new user asks one question and sees the
+answer, not the plumbing.
+
+## Measured facts (checked before the build)
+
+On `main` at `4bc0bed`, Linux, Node 22.
+
+- `writeReport` (`src/shell/report.ts`) writes the header bullets, then
+  12 fixed sections, then `## Results` with each completed task as
+  `### <id>` / `Result: <path>` / body.
+- Code that reads report.md text, found by a scan of `src/`, `ui/`,
+  `scripts/`, tests and `v2/`: `reportSectionEmbedsResult`
+  (`src/shell/run-export.ts`, bundle verify) searches for
+  `### <taskId>\n` anywhere and checks the `Result:` shape after it — not
+  tied to the start of the file or to `## Phase Status`; `reportToHtml`
+  (`src/core/format/report-html.ts`) renders headings and lists line by
+  line and finds `- Verdict:` anywhere. The Workbench does not read
+  report.md. Nothing digests the whole file or counts its lines.
+- Tests: the v2 case `report-md-shape` checks that the 13 named sections
+  are there IN ORDER, not that `## Phase Status` is the first; every
+  other assertion is a presence match. No golden report.md file exists.
+- `normalizeResultEnvelope` (`src/core/pipeline/result-normalize.ts`)
+  already gives a result's `summary` and `evidence`; the verdict task is
+  the one the terminal commit gate uses (`/^verdict[:/]|^synthesis[:/]/`).
+  Four shipped apps have one: `architecture-review`,
+  `architecture-review-fast`, `release-cut`, `research-synthesis`.
+- Re-rendered with the change, the `--fast` receipt run (Express, real
+  claude) opens with `## Answer` at line 15: the summary, 20 `file:line`
+  refs, and a pointer to the full result.
+
+## Paths weighed
+
+- **Only a new `cw report <id> --answer`:** report.md bytes unchanged
+  (strict POLA), but a person who opens the report still scrolls, and has
+  to know the flag. Turned down by the operator.
+- **Move `## Results` up:** shows every worker's full result first — the
+  1594-line problem moved, not solved — and breaks the section order the
+  v2 case pins. Turned down.
+- **Chosen:** one new section, present only when there is a finished
+  verdict with a result file. Undone by taking the section out.
+
+## Part 2 — Spec
+
+- When the run has a completed verdict/synthesis task whose result file
+  exists and whose summary is not empty, report.md has, after the header
+  bullets and before `## Phase Status`:
+  `## Answer`, the summary, `Evidence:` with one `- <ref>` a line (only
+  when there is evidence), and `Full result: ## Results, ### <task id>`.
+- Otherwise there is no `## Answer`, and report.md is byte-identical to
+  before (every run without a verdict task: the golden path, a run still
+  going, a parked run).
+- Nothing is made up: no verdict result, no answer.
+- The full result stays under `## Results` in the same shape, so bundle
+  verify is unchanged.
+
+## What this spec got wrong (recorded at close)
+
+- Nothing found at close. The measurement was done by a delegated
+  read-only survey and checked against the two parsers named above.
+
+## Architecture snapshot diff
+
+- `project/docs/rebuild/SPEC/reporting-ux.md` listed the report sections
+  from `## Phase Status` on; it now names `## Answer`. The man page on
+  report.md names it too. Fixed in this PR.
+- The `BACKLOG.md` row "Put the answer at the top of report.md" is gone.
+
+## Status ledger
+
+| Item | State | PR |
+|---|---|---|
+| Measure, `## Answer`, smoke, docs (this file) | done | this PR |

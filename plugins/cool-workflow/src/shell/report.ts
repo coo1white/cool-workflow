@@ -27,6 +27,7 @@ import { summarizeMultiAgent } from "./multi-agent-io";
 import { summarizeBlackboard } from "./coordinator-io";
 import { operatorDigestInput } from "./multi-agent-operator-ux";
 import { stableCompare } from "../core/util/collate";
+import { normalizeResultEnvelope } from "../core/pipeline/result-normalize";
 
 interface SandboxProfileLike {
   id: string;
@@ -307,6 +308,22 @@ function renderPendingTasks(run: WorkflowRun): string[] {
  *  when `run.links` is non-empty (see writeReport below) — a run with no
  *  links never gains a "## Links" header, so an empty run's report.md
  *  stays byte-identical to before this field existed. */
+/** The answer first: the completed verdict/synthesis task's own summary and
+ *  evidence, above the run facts, so a reader does not scroll past them to
+ *  find it. Nothing when the run has no completed verdict task or its
+ *  result file is gone; the full result stays under ## Results. The same
+ *  task-id rule as the terminal commit gate (drive-decide.ts). */
+function renderAnswer(run: WorkflowRun): string[] {
+  const verdict = run.tasks.find((task) => /^verdict[:/]|^synthesis[:/]/i.test(task.id) && task.status === "completed");
+  if (!verdict || !verdict.resultPath || !fs.existsSync(verdict.resultPath)) return [];
+  const envelope = normalizeResultEnvelope(fs.readFileSync(verdict.resultPath, "utf8"));
+  if (!envelope.summary.trim()) return [];
+  const lines = ["## Answer", "", envelope.summary.trim(), ""];
+  if (envelope.evidence.length) lines.push("Evidence:", "", ...envelope.evidence.map((ref) => `- ${ref}`), "");
+  lines.push(`Full result: ## Results, ### ${verdict.id}`, "");
+  return lines;
+}
+
 function renderLinks(run: WorkflowRun): string[] {
   const links = run.links || [];
   return links.map((link) => `- [${link.kind}] ${link.url}${link.note ? ` — ${link.note}` : ""} (added ${link.addedAt} by ${link.actor})`);
@@ -359,6 +376,7 @@ export function writeReport(run: WorkflowRun): string {
     `- Loop Stage: ${run.loopStage}`,
     `- Verdict: ${lifecycle === "completed" ? "PASS" : lifecycle.toUpperCase()}`,
     "",
+    ...renderAnswer(run),
     "## Phase Status",
     "",
     "| Phase | Status | Completed | Total |",

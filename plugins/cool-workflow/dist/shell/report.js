@@ -60,6 +60,7 @@ const multi_agent_io_1 = require("./multi-agent-io");
 const coordinator_io_1 = require("./coordinator-io");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const collate_1 = require("../core/util/collate");
+const result_normalize_1 = require("../core/pipeline/result-normalize");
 function formatInputList(value) {
     if (Array.isArray(value))
         return value.join("; ");
@@ -322,6 +323,24 @@ function renderPendingTasks(run) {
  *  when `run.links` is non-empty (see writeReport below) — a run with no
  *  links never gains a "## Links" header, so an empty run's report.md
  *  stays byte-identical to before this field existed. */
+/** The answer first: the completed verdict/synthesis task's own summary and
+ *  evidence, above the run facts, so a reader does not scroll past them to
+ *  find it. Nothing when the run has no completed verdict task or its
+ *  result file is gone; the full result stays under ## Results. The same
+ *  task-id rule as the terminal commit gate (drive-decide.ts). */
+function renderAnswer(run) {
+    const verdict = run.tasks.find((task) => /^verdict[:/]|^synthesis[:/]/i.test(task.id) && task.status === "completed");
+    if (!verdict || !verdict.resultPath || !fs.existsSync(verdict.resultPath))
+        return [];
+    const envelope = (0, result_normalize_1.normalizeResultEnvelope)(fs.readFileSync(verdict.resultPath, "utf8"));
+    if (!envelope.summary.trim())
+        return [];
+    const lines = ["## Answer", "", envelope.summary.trim(), ""];
+    if (envelope.evidence.length)
+        lines.push("Evidence:", "", ...envelope.evidence.map((ref) => `- ${ref}`), "");
+    lines.push(`Full result: ## Results, ### ${verdict.id}`, "");
+    return lines;
+}
 function renderLinks(run) {
     const links = run.links || [];
     return links.map((link) => `- [${link.kind}] ${link.url}${link.note ? ` — ${link.note}` : ""} (added ${link.addedAt} by ${link.actor})`);
@@ -372,6 +391,7 @@ function writeReport(run) {
         `- Loop Stage: ${run.loopStage}`,
         `- Verdict: ${lifecycle === "completed" ? "PASS" : lifecycle.toUpperCase()}`,
         "",
+        ...renderAnswer(run),
         "## Phase Status",
         "",
         "| Phase | Status | Completed | Total |",

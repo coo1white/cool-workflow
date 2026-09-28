@@ -108,6 +108,13 @@ The POLICY is fail-closed and self-describing:
   has no `report.md` (or the write fails), that is a failure, not a silent no-op:
   a `extract-report` / `report-md-unavailable` check is recorded and `ok` is
   false — so a producer never ships a green verdict with no report attached.
+- When the run has a done verdict or synthesis task, `report.md` opens with a
+  `## Answer` part: that task's own short answer, plus its evidence refs, with a
+  line that points at the full result under `## Results`. A run with no such
+  task, or one whose result is gone, gets no `## Answer` part at all. Bundle
+  verify does not change for this: it still checks the full result at that
+  task's own `### <taskId>` part under `## Results`, not the short `## Answer`
+  text.
 
 ## Fail closed
 
