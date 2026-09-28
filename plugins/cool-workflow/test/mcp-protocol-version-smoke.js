@@ -39,7 +39,7 @@ function initialize(params) {
   const line = initialize({ protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "smoke", version: "0.0.0" } });
   assert.ok(!line.error, `initialize must not error: ${JSON.stringify(line.error)}`);
   assert.equal(line.result.protocolVersion, "2024-11-05", "a supported requested version must be echoed back");
-  assert.deepEqual(line.result.capabilities, { tools: {} }, "capabilities shape must be unchanged");
+  assert.deepEqual(line.result.capabilities, { tools: {}, resources: {} }, "capabilities: tools, and run reports as resources");
   assert.equal(line.result.serverInfo.name, "cool-workflow", "serverInfo shape must be unchanged");
 }
 

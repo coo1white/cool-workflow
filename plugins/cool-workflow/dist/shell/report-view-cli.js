@@ -44,6 +44,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reportWriteCli = reportWriteCli;
+exports.reportMcp = reportMcp;
 exports.resolveReportRunId = resolveReportRunId;
 exports.ensureAndOpenReportHtml = ensureAndOpenReportHtml;
 exports.reportOpenCli = reportOpenCli;
@@ -76,6 +77,24 @@ function optionalString(value) {
 function reportWriteCli(runId, args) {
     const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
     return { path: (0, report_1.writeReport)(run) };
+}
+/** MCP `cw_report`: the same `{ path }` as the CLI's --json, plus two
+ *  keys only when asked, so a model gets the answer in one call without
+ *  a second file read. `answer: true` adds `answer` ({ taskId, summary,
+ *  evidence } or null); `markdown: true` adds `markdown`, the text of
+ *  report.md. With neither, the result is byte-identical to before. */
+function reportMcp(runId, args) {
+    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const result = { path: (0, report_1.writeReport)(run) };
+    if (mcpFlag(args.answer))
+        result.answer = (0, report_1.reportAnswer)(run);
+    if (mcpFlag(args.markdown))
+        result.markdown = fs.readFileSync(result.path, "utf8");
+    return result;
+}
+// MCP scalars reach a handler as strings (mcp/dispatch.ts coerceScalarArgs).
+function mcpFlag(value) {
+    return value === true || value === "true";
 }
 /** `cw report` with no run id: the newest run under this repo's
  *  `.cw/runs/`. Run ids sort chronologically (checked on three real

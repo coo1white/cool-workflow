@@ -13,7 +13,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 import { loadRunFromCwd } from "./run-store";
-import { writeReport } from "./report";
+import { reportAnswer, writeReport } from "./report";
 import { adviseNoRun, buildOperatorGraph, summarizeOperatorRun, summarizeRun } from "./operator-ux";
 import { formatOperatorGraph, formatOperatorReport, formatOperatorStatus, formatOperatorSummary } from "./operator-ux-text";
 import { reportToHtml } from "../core/format/report-html";
@@ -32,6 +32,24 @@ function optionalString(value: unknown): string | undefined {
 export function reportWriteCli(runId: string, args: Record<string, unknown>): { path: string } {
   const run = loadRunFromCwd(runId, invocationCwd(args));
   return { path: writeReport(run) };
+}
+
+/** MCP `cw_report`: the same `{ path }` as the CLI's --json, plus two
+ *  keys only when asked, so a model gets the answer in one call without
+ *  a second file read. `answer: true` adds `answer` ({ taskId, summary,
+ *  evidence } or null); `markdown: true` adds `markdown`, the text of
+ *  report.md. With neither, the result is byte-identical to before. */
+export function reportMcp(runId: string, args: Record<string, unknown>): { path: string; answer?: ReturnType<typeof reportAnswer>; markdown?: string } {
+  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const result: { path: string; answer?: ReturnType<typeof reportAnswer>; markdown?: string } = { path: writeReport(run) };
+  if (mcpFlag(args.answer)) result.answer = reportAnswer(run);
+  if (mcpFlag(args.markdown)) result.markdown = fs.readFileSync(result.path, "utf8");
+  return result;
+}
+
+// MCP scalars reach a handler as strings (mcp/dispatch.ts coerceScalarArgs).
+function mcpFlag(value: unknown): boolean {
+  return value === true || value === "true";
 }
 
 /** `cw report` with no run id: the newest run under this repo's

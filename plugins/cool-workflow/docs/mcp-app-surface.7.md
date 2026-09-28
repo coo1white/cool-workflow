@@ -253,6 +253,34 @@ These tools give back JSON summaries in place of console text. `cw_operator_repo
 refreshes the Markdown report the same way the CLI renderer does; the rest are
 read-only inspection tools.
 
+## Run Reports
+
+`cw_report` renders a run's report and gives back `{ path }`, the same
+JSON as `cw report <run-id> --json`. Two MCP-only arguments give a model
+the answer in one call, with no second file read:
+
+- `answer: true` adds `answer`: `{ taskId, summary, evidence }`, the
+  report's "## Answer" part, or `null` when the run has no completed
+  verdict or synthesis task yet.
+- `markdown: true` adds `markdown`, the full text of report.md.
+
+With neither, the result is byte-identical to before they existed.
+
+The server also gives run reports as MCP resources, and `initialize`
+declares `capabilities: { tools: {}, resources: {} }`:
+
+- `resources/list` names every run under `<server cwd>/.cw/runs/` that has a
+  report.md, as `cw://runs/<run-id>/report.md` (`text/markdown`), oldest
+  run first.
+- `resources/read` with that URI gives the file's text as it is on disk.
+  It never renders a report; `cw_report` does that.
+
+These fail closed: a URI of any other form or with an unsafe run id is
+error -32602, a run with no report.md (or one that is not a plain file) is
+-32002 with a `Try: cw_report` line, and a `CW_MCP_ENABLED_TOOLS` /
+`CW_MCP_DISABLED_TOOLS` policy that turns `cw_report` off turns both
+methods off (-32601).
+
 ## CLI/MCP Parity
 
 The CLI is still the easiest way for people to drive a run. MCP is the steady

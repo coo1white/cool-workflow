@@ -17,9 +17,11 @@ This covers the MCP stdio JSON-RPC server, its 196 tools, the one CLI<->MCP capa
 
 | Method | Takes | Gives back |
 | --- | --- | --- |
-| `initialize` | anything (params not read) | `{ protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "cool-workflow", version: CURRENT_COOL_WORKFLOW_VERSION } }` |
+| `initialize` | anything (params not read) | `{ protocolVersion: "2024-11-05", capabilities: { tools: {}, resources: {} }, serverInfo: { name: "cool-workflow", version: CURRENT_COOL_WORKFLOW_VERSION } }` |
 | `tools/list` | anything (params not read) | `{ tools: [ ...196 tool definitions... ] }` |
 | `tools/call` | `params.name` (string, must be present), `params.arguments` (object; null/absent becomes `{}`) | `{ content: [ { type: "text", text: JSON.stringify(coreResult, null, 2) } ] }` |
+| `resources/list` | anything (params not read) | `{ resources: [ { uri: "cw://runs/<run-id>/report.md", name: "<run-id> report", mimeType: "text/markdown" }, ... ] }`, one per run under the server cwd with a report.md; `-32601` when a tool policy turns `cw_report` off |
+| `resources/read` | `params.uri` = `cw://runs/<run-id>/report.md` | `{ contents: [ { uri, mimeType: "text/markdown", text } ] }`; `-32602` for any other URI or an unsafe run id, `-32002` when that run has no report.md |
 | any other method | — | error `-32601` if the request has an `id` key; nothing at all if it does not |
 
 ### Exported functions
@@ -266,7 +268,7 @@ All server output is one JSON object per line on stdout: `process.stdout.write(J
 ### `initialize` (src/mcp-server.ts:53-60)
 
 ```json
-{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"cool-workflow","version":"0.1.98"}}}
+{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{},"resources":{}},"serverInfo":{"name":"cool-workflow","version":"0.1.98"}}}
 ```
 
 The version string is `CURRENT_COOL_WORKFLOW_VERSION` from `src/version.ts:1` (`"0.1.98"` at this snapshot).

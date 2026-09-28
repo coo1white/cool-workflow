@@ -59,6 +59,10 @@ function stringProperty(name) {
  *  win over `COMMON_PROPERTY_TYPES` below, since each is a one-off shape
  *  tied to its own tool, not a shape shared by the property name at large. */
 exports.PROPERTY_OVERRIDES = {
+    cw_report: {
+        answer: { type: "boolean", description: "Also return the report's answer: { taskId, summary, evidence }, or null when the run has none yet" },
+        markdown: { type: "boolean", description: "Also return the text of report.md" },
+    },
     cw_commit: {
         allowUnverifiedCheckpoint: {
             type: "boolean",
@@ -509,7 +513,7 @@ exports.MCP_TOOL_DATA = [
     { tool: "cw_backend_agent_config_set", capability: "backend.agent.config.set", requiredArgs: [], properties: ["cwd", "agentCommand", "agentEndpoint", "agentModel"], description: "Set the durable agent delegation config (command-template/endpoint/model; API keys never written)." },
     { tool: "cw_result", capability: "result", requiredArgs: ["runId"], properties: ["runId", "taskId", "resultPath", "cwd"], description: "Record a subagent result file against a task." },
     { tool: "cw_commit", capability: "commit", requiredArgs: ["runId"], properties: ["runId", "reason", "verifier", "verifierNode", "candidate", "selection", "allowUnverifiedCheckpoint", "cwd"], description: "Create a verifier-gated commit or checkpoint." },
-    { tool: "cw_report", capability: "report", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Render a run report and return its canonical descriptor." },
+    { tool: "cw_report", capability: "report", requiredArgs: ["runId"], properties: ["runId", "cwd", "answer", "markdown"], description: "Render a run report and return its canonical descriptor. answer: true also returns the report's answer (summary and evidence); markdown: true also returns the report.md text." },
     { tool: "cw_app_list", capability: "app.list", requiredArgs: [], properties: ["cwd"], description: "List CW workflow apps." },
     { tool: "cw_app_show", capability: "app.show", requiredArgs: [], properties: ["cwd", "appId"], description: "Show a CW workflow app contract." },
     { tool: "cw_app_validate", capability: "app.validate", requiredArgs: [], properties: ["cwd", "target"], description: "Validate an app by path or id." },

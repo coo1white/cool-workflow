@@ -57,7 +57,7 @@ attachCliBinding("report", {
     return { json: result, text: `${result.path}\n` };
   },
 });
-REGISTRY_BY_CAPABILITY.get("report")!.mcp!.handler = (args) => loadReportViewCli().reportWriteCli(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("report")!.mcp!.handler = (args) => loadReportViewCli().reportMcp(required(optionalArg(args.runId), "run id"), args);
 
 // `status` already carries a milestone-2 CLI binding (`attachCliBinding("status", ...)`
 // above); replace its handler here with the real run-id-aware body while
