@@ -171,7 +171,7 @@ last.
 |---|---|---|
 | D1 | Delete the multi-agent family: multi-agent (6,927), coordinator + topology (1,008), candidates + eval (1,121), `collaboration-io.ts` (259), evidence reasoning (749), orchestrator (230), state explosion (1,852), the wiring multi-agent slice (709). About 12,855 src lines; the exact tool count per block is in each PR's plan. `report.md` loses its multi-agent, blackboard, candidate and state-explosion parts; `cw commit` loses the review gate. | yes, block by block (a no on one block keeps it and its hooks) |
 | D2 | Keep: Workbench files (owner decision of 2026-09-07), scheduling and routines (`--schedule-full`), reclamation (disk bound for `.cw/runs/`), telemetry demo (`cw demo tamper`), observability intake (core path). | keep; the operator can flip any one to delete |
-| D3 | Release tooling: `dogfood-release.js` stops making a candidate and score; `release-check.js`, `release-gate.js`, `release-flow.js` drop multi-agent, candidate and judge items; `AGENTS.md` "Required manual review" steps 5 to 10 and `eval:replay` go. This is release code, so it needs its own yes. | yes, in the PR that deletes candidates + eval |
+| D3 | Release tooling: `dogfood-release.js` stops making a candidate and score; `release-check.js`, `release-gate.js`, `release-flow.js` drop multi-agent, candidate and judge items; `AGENTS.md` "Required manual review" steps 5 to 10 and `eval:replay` go. This is release code, so it needs its own yes. | yes, in step 1, its own PR |
 | D4 | Raise `engines.node` from `>=18` to `>=22.x` (minor pinned by measurement); CI matrix 22 and 24; branch protection's required checks change from `check (18)` + `check (22)` to `check (22)` + `check (24)` (a GitHub settings step only the operator can do); Homebrew formula and docs say the new floor. | yes |
 | D5 | Full ESM, in the order below. | yes, after D4 |
 | D6 | App files keep the `module.exports` form (user contract); the loader reads them through `createRequire`; `apps/` gets a one-line `package.json` with `"type": "commonjs"`. | keep |
@@ -194,60 +194,65 @@ records it in "What this spec got wrong" in the same commit.
 
 ## Steps (one PR each, in this order)
 
-1. **Cut the core-path hooks** (code). `dispatch.ts`,
-   `worker-isolation.ts`, `commit.ts`, `report.ts`, `operator-ux*.ts`,
-   `trust-policy-io.ts` and `core/state/validation.ts` stop calling the
-   blocks D1 deletes. State files written by an older version with
-   multi-agent fields still load (migration test with a saved state).
-   Proof: the core-path receipts' commands still pass; the four hook
-   names no longer appear outside the D1 blocks.
-2. **Delete the leaf blocks** (code): orchestrator and evidence
-   reasoning. Capability rows, wiring, tests, man pages, parity doc.
-3. **Delete coordinator + topology** (code), same shape.
-4. **Delete candidates + eval, with D3** (code + release tooling).
-   `dogfood-release` still ends with `ready-dry-run`.
-5. **Delete collaboration-io** (code): the commit review gate goes;
-   `commit` docs say so.
-6. **Delete state explosion** (code), with its text formatter.
-7. **Delete the multi-agent core and the wiring slice** (code). The
-   `multi-agent-*` release-check items are gone by now; the
-   `pdca-blackboard-loop` app goes with it or is rewritten, as its plan
-   step shows. `AGENTS.md` "Product Direction & Moat" names the
-   blackboard as an asset to use more; that line and the "blackboard
-   exists but is not used" row change in this PR to say it was removed
-   and why.
-8. **Comment and helper sweep** (code): `2026-09-04-compress-src.md` as
+The D1 blocks are one import cycle (see "What this spec got wrong"), so
+they go in one PR, and each hook is cut in that same PR. Release
+tooling is cut loose first, in its own PR, since it is release code.
+
+1. **Release tooling off the family** (D3; release code). 
+   `dogfood-release.js` stops registering, scoring and selecting a
+   candidate and still ends with `ready-dry-run`; `release-check.js`,
+   `release-gate.js` and `release-flow.js` drop the multi-agent,
+   candidate, judge and `eval:replay` items; `AGENTS.md` "Required
+   manual review" steps 5 to 10 go. The D1 code is still there and still
+   works; only the release path stops needing it. Proof: `release:check`
+   and `dogfood:release` pass; `release-flow` and `release-oneclick`
+   smokes pass.
+2. **Delete the D1 family and cut its hooks** (code). One PR: the files
+   in D1, the wiring multi-agent slice, their capability rows, tests and
+   man pages; the hooks in `dispatch.ts`, `worker-isolation.ts`,
+   `commit.ts`, `report.ts`, `operator-ux.ts`, `operator-ux-text.ts`,
+   `trust-policy-io.ts` and `core/state/validation.ts`; `contract.show`
+   moved out of `multi-agent-cli.ts` first; the `pdca-blackboard-loop`
+   app deleted or rewritten, as the plan step shows. A state file written
+   by an older version, with multi-agent, blackboard or candidate fields,
+   still loads (a saved-state test). `AGENTS.md`: the frozen rows D1
+   empties go, and "Product Direction & Moat" stops naming the
+   blackboard as an asset to use more, saying it was removed and why.
+   Proof: the core-path receipts' commands still pass; parity doc and
+   project index regenerated; every number in `growth-budget.json` and
+   `perf-ceilings.json` it touches goes down.
+3. **Comment and helper sweep** (code): `2026-09-04-compress-src.md` as
    written, its numbers re-measured on the smaller tree first. Its file
    stays the spec for this step.
-9. **Node floor** (config, docs, CI; D4). Measure and pin the lowest
+4. **Node floor** (config, docs, CI; D4). Measure and pin the lowest
    22.x minor where `require(esm)` is on by default and a test loads an
    ES module `dist/` with no warning on stderr.
-10. **ESM `src/` and `dist/`** (code). `"type": "module"`; `.js` on every
-    relative import (codemod, then read); one `createRequire` per file
-    that lazy-loads; `import.meta.dirname` for `__dirname`;
-    `tool-process.ts` main check by URL; `test/`, `scripts/` and
-    `v2/conformance/` each get a one-line `{"type": "commonjs"}`
-    `package.json` until their own step removes it. Proof: perf ratchet
-    counts unchanged; `cw version` wall time before and after in the PR.
-11. **Scripts to `.mjs`** (code). 63 files; `bin` paths and the
-    Homebrew formula follow; `scripts/package.json` goes.
-12. **Tests to `.mjs`** (code). 470 files less the deleted ones;
-    `run-all.js` and `run-unit.js` discover `.mjs`;
-    `test-layout-smoke.js` follows; `test/package.json` goes.
-13. **Conformance to `.mjs`** (code). Still shares no code with the
-    package; `v2/conformance/package.json` goes.
-14. **Closing ledger and receipt** (docs). Receipt at
-    `project/docs/audits/slim-and-esm-receipt-<date>.json` with checks:
-    `src-lines-down` (before 50,282; after), `mcp-tools-down` (before
-    198; after), `core-path-green` (the two 2026-09-02 receipts' commands
-    re-run), `one-module-form` (no `require(` outside `createRequire`
-    lines and app loading, no CJS file outside `apps/`),
-    `node-floor` (engines, CI matrix, required checks),
-    `frozen-tightened-only`. `verdict` pass only if all pass. Then this
-    file and `2026-09-04-compress-src.md` join `2026-09-archive.md`.
+5. **ESM `src/` and `dist/`** (code). `"type": "module"`; `.js` on every
+   relative import (codemod, then read); one `createRequire` per file
+   that lazy-loads; `import.meta.dirname` for `__dirname`;
+   `tool-process.ts` main check by URL; `test/`, `scripts/` and
+   `v2/conformance/` each get a one-line `{"type": "commonjs"}`
+   `package.json` until their own step removes it. Proof: perf ratchet
+   counts unchanged; `cw version` wall time before and after in the PR.
+6. **Scripts to `.mjs`** (code). 63 files; `bin` paths and the
+   Homebrew formula follow; `scripts/package.json` goes.
+7. **Tests to `.mjs`** (code). 470 files less the deleted ones;
+   `run-all.js` and `run-unit.js` discover `.mjs`;
+   `test-layout-smoke.js` follows; `test/package.json` goes.
+8. **Conformance to `.mjs`** (code). Still shares no code with the
+   package; `v2/conformance/package.json` goes.
+9. **Closing ledger and receipt** (docs). Receipt at
+   `project/docs/audits/slim-and-esm-receipt-<date>.json` with checks:
+   `src-lines-down` (before 50,282; after), `mcp-tools-down` (before
+   198; after), `core-path-green` (the two 2026-09-02 receipts' commands
+   re-run), `one-module-form` (no `require(` outside `createRequire`
+   lines and app loading, no CJS file outside `apps/`),
+   `node-floor` (engines, CI matrix, required checks),
+   `frozen-tightened-only`. `verdict` pass only if all pass. Then this
+   file and `2026-09-04-compress-src.md` join `2026-09-archive.md`.
 
 Budget (whole program, to check at close): src at or under 36,000
-lines (50,282 less about 12,855 from D1 and about 1,750 from step 8);
+lines (50,282 less about 12,855 from D1 and about 1,750 from step 3);
 MCP tools at or under 130; test files at or under 440; man pages at or
 under 48; new files only the three temporary `package.json`s
 (each removed by its step), `apps/package.json`, and the receipt.
@@ -282,8 +287,20 @@ Found before step 1, by reading the capability table's wiring:
   `audit.judge`, `audit.blackboard`. `cw ledger` (the cross-agent
   ledger) is a different surface and stays.
 - `commit` keeps its evidence check (`core/trust/evidence-grounding`)
-  and its verifier gate; it loses the review gate (step 5) and the
-  candidate and selection gate options (step 4).
+  and its verifier gate; it loses the review gate and the candidate and
+  selection gate options (step 2).
+- The first plan had "cut the core-path hooks" as its own step before
+  six block-by-block deletions. That does not work: each hook is how a
+  D1 feature is joined to the run (dispatch attaches to the multi-agent
+  run, worker output is recorded into it, the commit review gate is the
+  collaboration feature, report and operator-ux sum up each block), so
+  cutting them first leaves every D1 command half broken for five PRs.
+  And the D1 blocks are one import cycle: `multi-agent-cli.ts` wires all
+  of them, and `core/multi-agent/` holds candidate scoring,
+  collaboration, coordinator, topology and eval replay; every other
+  block imports the multi-agent block back. So D1 goes in one PR with
+  its hooks, after the release tooling is cut loose. Fourteen steps
+  became nine.
 
 (the rest filled at close)
 
@@ -293,17 +310,12 @@ Found before step 1, by reading the capability table's wiring:
 |---|---|---|
 | Intent + spec (this file) | open | |
 | D1-D6 answered | yes, all six (operator, 2026-09-28) | #751 |
-| 1 Cut the core-path hooks | | |
-| 2 Delete orchestrator + evidence reasoning | | |
-| 3 Delete coordinator + topology | | |
-| 4 Delete candidates + eval (D3) | | |
-| 5 Delete collaboration-io | | |
-| 6 Delete state explosion | | |
-| 7 Delete multi-agent core + wiring slice | | |
-| 8 Comment and helper sweep (compress-src) | | |
-| 9 Node floor (D4) | | |
-| 10 ESM src + dist | | |
-| 11 Scripts to .mjs | | |
-| 12 Tests to .mjs | | |
-| 13 Conformance to .mjs | | |
-| 14 Closing ledger and receipt | | |
+| 1 Release tooling off the family (D3) | | |
+| 2 Delete the D1 family and cut its hooks | | |
+| 3 Comment and helper sweep (compress-src) | | |
+| 4 Node floor (D4) | | |
+| 5 ESM src + dist | | |
+| 6 Scripts to .mjs | | |
+| 7 Tests to .mjs | | |
+| 8 Conformance to .mjs | | |
+| 9 Closing ledger and receipt | | |
