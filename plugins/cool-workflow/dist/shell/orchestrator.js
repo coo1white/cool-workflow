@@ -6,7 +6,7 @@
 // `new CoolWorkflowRunner({ pluginRoot }).<verb>(...)`.
 //
 // v2 dismantled the old wide facade into core/shell functions, so this module
-// restores ONLY the ~15 verbs those two scripts call, each a thin
+// restores ONLY the ~12 verbs those two scripts call, each a thin
 // `loadRun -> delegate` over an EXISTING v2 shell function (mostly the
 // `*Cli(args)` byte-behavior ports, which already replicate the old build's
 // option-key normalization). It is a standalone tooling module: it is NOT wired
@@ -61,7 +61,6 @@ const run_store_2 = require("./run-store");
 const trust_audit_1 = require("./trust-audit");
 const audit_provenance_1 = require("./audit-provenance");
 const audit_cli_1 = require("./audit-cli");
-const multi_agent_cli_1 = require("./multi-agent-cli");
 const commit_1 = require("./commit");
 const report_1 = require("./report");
 class CoolWorkflowRunner {
@@ -91,7 +90,7 @@ class CoolWorkflowRunner {
         return this.baseDir || process.cwd();
     }
     /** Load a run from the runner's baseDir (or process.cwd()). Public because
-     *  dogfood-architecture-review calls `runner.loadRun(run.id)`. */
+     *  dogfood-architecture-review and dogfood-release call `runner.loadRun(...)`. */
     loadRun(runId) {
         return (0, run_store_1.loadRunFromCwd)(runId, this.cwd());
     }
@@ -161,19 +160,6 @@ class CoolWorkflowRunner {
      *  fail-closed feedback + checkpoint). */
     recordAuditDecision(runId, workerId, options = {}) {
         return (0, audit_cli_1.auditDecisionCli)(runId, workerId, { ...options, runId, cwd: this.cwd() });
-    }
-    /** `registerCandidate` — register a candidate from a worker/manual source.
-     *  Delegates to candidateRegisterCli (old worker-scope read + persist). */
-    registerCandidate(runId, options = {}) {
-        return (0, multi_agent_cli_1.candidateRegisterCli)({ ...options, runId, cwd: this.cwd() });
-    }
-    /** `scoreCandidate` — score a candidate. Delegates to candidateScoreCli. */
-    scoreCandidate(runId, candidateId, options = {}) {
-        return (0, multi_agent_cli_1.candidateScoreCli)({ ...options, runId, cwd: this.cwd() }, candidateId);
-    }
-    /** `selectCandidate` — select a candidate. Delegates to candidateSelectCli. */
-    selectCandidate(runId, candidateId, options = {}) {
-        return (0, multi_agent_cli_1.candidateSelectCli)({ ...options, runId, cwd: this.cwd() }, candidateId);
     }
     /** `commit` — verifier-gated (or explicit-checkpoint) state commit. Returns
      *  `{ runId, commit }` to match the old orchestrator's shape (the scripts

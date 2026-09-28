@@ -32,9 +32,8 @@ assert.ok(fs.existsSync(summary.statePath), "dogfood state must exist");
 assert.ok(fs.existsSync(summary.reportPath), "dogfood report must exist");
 assert.ok(fs.existsSync(summary.auditSummaryPath), "audit summary must exist");
 assert.ok(fs.existsSync(summary.summaryPath), "machine summary must exist");
-assert.equal(summary.candidateId, "dogfood-release-0.2.8");
-assert.ok(summary.scoreId);
-assert.ok(summary.selectionId);
+assert.match(summary.verifierNodeId, /:verifier:verdict:release$/, "commit is gated on the verdict task's verifier node");
+for (const key of ["candidateId", "scoreId", "selectionId"]) assert.equal(key in summary, false, `summary has no ${key}`);
 assert.ok(summary.commitId);
 assert.equal(summary.checkpointId, null);
 assert.equal(summary.releaseVerdict, "ready-dry-run");
@@ -55,40 +54,23 @@ assert.ok(state.tasks.every((task) => task.status === "completed"), "all release
 assert.ok(state.tasks.every((task) => task.workerId), "all tasks must be tied to workers");
 assert.ok(state.tasks.every((task) => task.verifierNodeId), "all tasks must have verifier nodes");
 
-const candidate = state.candidates.find((entry) => entry.id === summary.candidateId);
-assert.ok(candidate, "release candidate must be registered");
-assert.equal(candidate.status, "verified");
-assert.ok(candidate.scores.includes(summary.scoreId), "candidate score must be linked");
-assert.ok(candidate.evidence.length > 0, "candidate must preserve evidence");
-
-const selection = state.candidateSelections.find((entry) => entry.id === summary.selectionId);
-assert.ok(selection, "candidate selection must exist");
-assert.equal(selection.candidateId, summary.candidateId);
-assert.ok(selection.acceptanceRationale);
-assert.equal(selection.acceptanceRationale.selectedCandidateId, summary.candidateId);
-assert.equal(selection.acceptanceRationale.commitGateResult, "passed");
+assert.equal((state.candidates || []).length, 0, "the release path registers no candidate");
 
 const commit = state.commits.find((entry) => entry.id === summary.commitId);
 assert.ok(commit, "verifier-gated commit must exist");
 assert.equal(commit.verifierGated, true);
 assert.equal(commit.checkpoint, false);
-assert.equal(commit.selectionId, summary.selectionId);
-assert.equal(commit.candidateId, summary.candidateId);
+assert.equal(commit.verifierNodeId, summary.verifierNodeId);
 assert.ok(commit.evidence.length > 0, "commit must preserve evidence");
 
 const audit = JSON.parse(fs.readFileSync(summary.auditSummaryPath, "utf8"));
 assert.ok(audit.eventCount >= state.workers.length, "trust audit records must be durable");
 assert.ok(audit.byKind["worker.sandbox-profile"] >= state.workers.length);
-assert.ok(audit.byKind["candidate.score"] >= 1);
-assert.ok(audit.byKind["candidate.selection"] >= 1);
 assert.ok(audit.byKind["commit.gate"] >= 1);
 
 const report = fs.readFileSync(summary.reportPath, "utf8");
 assert.match(report, /Workflow App: release-cut@0\.2\.8/);
-assert.match(report, /## Candidates/);
 assert.match(report, /## Trust Audit/);
-assert.match(report, /## Acceptance Rationale/);
-assert.match(report, /dogfood-release-0\.2\.8/);
 
 assert.ok(summary.commandResults.some((entry) => entry.id === "npm-pack-dry-run" && entry.status === 0));
 assert.ok(summary.commandResults.some((entry) => entry.id === "app-validate-release-cut" && entry.status === 0));

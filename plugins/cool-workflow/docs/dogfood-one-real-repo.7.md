@@ -2,9 +2,8 @@
 
 CW v0.1.16 tests the release workflow against the real Cool Workflow
 repository. The test uses the canonical `release-cut` app, keeps a record of
-separate worker outputs, scores a release candidate, picks it only with verifier
-evidence, makes a verifier-gated CW state commit, and shows trust audit
-provenance.
+separate worker outputs, makes a CW state commit gated on the release verdict
+task's verifier node, and shows trust audit provenance.
 
 ## Dry-Run Command
 
@@ -24,8 +23,8 @@ branch, and `dryRun=true`. It writes a machine-readable summary to:
 ```
 
 The summary has the run id, report path, audit summary path, provenance
-counts, worker ids, candidate id, score id, selection id, commit or checkpoint
-id, command log paths, and the release verdict.
+counts, worker ids, the verifier node id the commit is gated on, commit or
+checkpoint id, command log paths, and the release verdict.
 
 ## Real Evidence
 
@@ -46,8 +45,8 @@ npm pack --dry-run --json
 
 Each command log is written under the worker `logs/` directory and named in the
 worker `cw:result` evidence array. The release verdict worker takes the full
-set of command locators into the release candidate, score, selection, and
-commit/checkpoint provenance.
+set of command locators into its result, and the commit is gated on that
+task's verifier node.
 
 ## Inspect The Run
 
@@ -58,7 +57,6 @@ cw status <run-id>
 cw graph <run-id>
 cw report <run-id> --show
 cw worker summary <run-id>
-cw candidate summary <run-id>
 cw feedback summary <run-id>
 cw commit summary <run-id>
 ```
@@ -68,20 +66,17 @@ Inspect trust records:
 ```bash
 cw audit summary <run-id>
 cw audit provenance <run-id>
-cw audit provenance <run-id> --candidate dogfood-release-0.1.18
 cw audit provenance <run-id> --commit <commit-id>
 ```
 
-The report tells why the candidate is trusted by showing sandbox profiles,
-host attestations, evidence provenance, candidate scoring, acceptance reasons,
-and the verifier-gated commit.
+The report tells why the release is trusted by showing sandbox profiles,
+host attestations, evidence provenance, and the verifier-gated commit.
 
 The dogfood command stays a local release-engineering script and not a new
 MCP tool because it is built from existing first-class CW capabilities: `release-cut`
-planning, dispatch, worker manifests/output, candidate scoring/selection,
-commits, reports, and audit/provenance. MCP parity is kept for the
-inspectable state through the existing worker, candidate, commit, operator
-report, and audit tools.
+planning, dispatch, worker manifests/output, commits, reports, and
+audit/provenance. MCP parity is kept for the inspectable state through the
+existing worker, commit, operator report, and audit tools.
 
 ## Smoke Mode
 
@@ -94,7 +89,7 @@ node test/dogfood-architecture-review-smoke.js
 
 The smoke test runs `scripts/dogfood-release.js --smoke --json`. It still
 uses the real repository, `release-cut`, worker manifests, trust audit records,
-candidate scoring, selection, verifier-gated commit, and a report, but keeps the
+a verifier-gated commit, and a report, but keeps the
 command set smaller so it does not do recursive release checking. Smoke mode
 does not run `canonical-apps` or `golden-path`; `npm test` runs those checks as
 separate smokes.
@@ -126,12 +121,11 @@ target-version confirmation.
 
 ## Safety Gates
 
-The dogfood command holds the candidate and writes a clear checkpoint if
+The dogfood command holds the release and writes a clear checkpoint if
 any evidence command fails, version sync is not complete, release docs are
 missing, audit records are not there, or verifier evidence is not present. A
-selected candidate needs score evidence and a verified verifier node; a
-verifier-gated commit needs the selected candidate, score, evidence, sandbox
-profile, worker, and acceptance reasons.
+verifier-gated commit needs the verdict task's accepted verifier node, its
+evidence, sandbox profile, and worker.
 
 This is release engineering made dull on purpose: local-first, inspectable,
 scriptable, and fail-closed.

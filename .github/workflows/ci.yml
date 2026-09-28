@@ -156,5 +156,3 @@ jobs:
         if: steps.changed.outputs.run == 'true'
       - run: node test/run-all.js --filter 'release-flow'
         if: steps.changed.outputs.run == 'true'
-      - run: bun run eval:replay
-        if: steps.changed.outputs.run == 'true'

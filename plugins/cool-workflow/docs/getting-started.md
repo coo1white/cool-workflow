@@ -110,7 +110,6 @@ npm run test:fast
 npm test                    # slow serial backstop
 npm run canonical-apps
 npm run golden-path
-npm run eval:replay
 npm run fixture-compat
 ```
 
