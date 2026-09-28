@@ -16,6 +16,7 @@ const pluginRoot = path.resolve(__dirname, "..");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-mcp-app-surface-"));
 const server = spawn(process.execPath, [path.join(pluginRoot, "dist/mcp-server.js")], {
   cwd: pluginRoot,
+  env: { ...process.env, CW_MCP_TOOLS: "full" },
   stdio: ["pipe", "pipe", "pipe"]
 });
 const lines = readline.createInterface({ input: server.stdout });

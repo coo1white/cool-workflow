@@ -394,7 +394,7 @@ function runFail(args) {
 
 function readMcp(runId, snapshotPath) {
   void snapshotPath;
-  const server = spawn(node, [mcpServer], { cwd: pluginRoot, stdio: ["pipe", "pipe", "pipe"] });
+  const server = spawn(node, [mcpServer], { cwd: pluginRoot, env: { ...process.env, CW_MCP_TOOLS: "full" }, stdio: ["pipe", "pipe", "pipe"] });
   const lines = readline.createInterface({ input: server.stdout });
   const pending = new Map();
   let nextId = 1;

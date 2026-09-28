@@ -296,6 +296,7 @@ function runFail(args) {
 async function readMcpSummary(runId) {
   const server = spawn(node, [path.join(pluginRoot, "dist", "mcp-server.js")], {
     cwd: pluginRoot,
+    env: { ...process.env, CW_MCP_TOOLS: "full" },
     stdio: ["pipe", "pipe", "pipe"]
   });
   const lines = readline.createInterface({ input: server.stdout });

@@ -59,6 +59,8 @@ function runCli(argv, cwd) {
 function liveMcpTools() {
   const result = execFileSync(node, [mcpServer], {
     cwd: pluginRoot,
+    // The whole list, not the default core profile (see MCP_CORE_TOOLS).
+    env: { ...process.env, CW_MCP_TOOLS: "full" },
     input: `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} })}\n`,
     encoding: "utf8"
   });

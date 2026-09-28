@@ -281,6 +281,19 @@ error -32602, a run with no report.md (or one that is not a plain file) is
 `CW_MCP_DISABLED_TOOLS` policy that turns `cw_report` off turns both
 methods off (-32601).
 
+## Tool Profile
+
+`tools/list` gives only the `core` profile by default: `cw_app_list`,
+`cw_app_show`, `cw_app_run`, `cw_run_drive_step`, `cw_status`, `cw_report`,
+`cw_run_resume`, `cw_run_list`, `cw_audit_verify`, `cw_backend_probe`,
+`cw_run_export`, `cw_run_restore`. These take a client from picking an app
+to a checked, saved report, and keep the list small (about 6.7 KB in place of
+about 104 KB). Start the server with `CW_MCP_TOOLS=full` to list every tool;
+any other value stops server start. The profile is not a permission: every
+tool this page names can still be called with `tools/call`. A
+`CW_MCP_ENABLED_TOOLS` / `CW_MCP_DISABLED_TOOLS` policy, when set, decides the
+list in place of the profile. See cli-mcp-parity(7), "MCP Tool Profile".
+
 ## CLI/MCP Parity
 
 The CLI is still the easiest way for people to drive a run. MCP is the steady

@@ -14,7 +14,8 @@ const CW_BIN = process.env.CW_BIN;
 caseMain(async () => {
   const serverPath = serverPathFor(CW_BIN);
   const home = freshDir("mcp-home");
-  const client = startServer(serverPath, { home });
+  // The whole list: by default tools/list shows only the core profile.
+  const client = startServer(serverPath, { home, env: { CW_MCP_TOOLS: "full" } });
   try {
     client.send({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} });
     client.send({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} });

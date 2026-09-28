@@ -97,13 +97,44 @@ and any other request falls back to the newest supported entry (see
 `SUPPORTED_PROTOCOL_VERSIONS` in `src/mcp/server.ts`). With today's
 one-entry list the reply bytes are unchanged.
 
+## MCP Tool Profile
+
+By default `tools/list` gives only the `core` profile: twelve tools, in this
+order:
+
+```text
+cw_app_list cw_app_show cw_app_run cw_run_drive_step cw_status cw_report
+cw_run_resume cw_run_list cw_audit_verify cw_backend_probe cw_run_export
+cw_run_restore
+```
+
+The full list is about 104 KB (about 30k tokens) that every client session
+takes into its context; the core twelve are about 6.7 KB (measured
+2026-09-28). The list is data: `MCP_CORE_TOOLS` in
+`src/core/capability-data.ts`.
+
+`CW_MCP_TOOLS` picks the profile:
+
+- unset or `core`: the core twelve;
+- `full`: every tool, in registry order, as before this profile came in;
+- any other value: server start stops with a stderr diagnostic
+  (`MCP tool policy CW_MCP_TOOLS must be core or full: <value>`) and a
+  non-zero exit, before any JSON-RPC output.
+
+The profile decides only what is listed. It is not a permission:
+`tools/call` still takes every known tool name, so a script, a test, or
+`scripts/parity-check.js` that calls a tool by name works the same under
+either profile. When `CW_MCP_ENABLED_TOOLS` or `CW_MCP_DISABLED_TOOLS` is set,
+that policy decides the list and the profile is not used. To get the old
+list back, start the server with `CW_MCP_TOOLS=full`.
+
 ## MCP Tool Authority
 
 `CW_MCP_ENABLED_TOOLS` and `CW_MCP_DISABLED_TOOLS` are optional comma lists of
 exact MCP tool names. Space at either end of a name is taken out, and a second
 name has no effect. The enabled list is an allowlist. The disabled list is then
-applied, so deny has the last word. With both values unset, the server keeps its
-full `tools/list` output and present tool access.
+applied, so deny has the last word. With both values unset, every tool may be
+called and `tools/list` follows the tool profile above.
 
 An empty name or a name not in the live registry stops server start with a
 stderr diagnostic and a non-zero exit. Under a good policy, `tools/list` keeps

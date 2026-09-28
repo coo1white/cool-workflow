@@ -12,7 +12,8 @@
 //     falls back to the newest supported entry otherwise (with today's
 //     one-entry list this is byte-identical to the old fixed reply);
 //   - `tools/list` -> { tools: [...] } from core/capability-table.ts via
-//     mcp/dispatch.ts, ignoring params (mcp.md:20,271-277);
+//     mcp/dispatch.ts, ignoring params (mcp.md:20,271-277); by default
+//     only the CW_MCP_TOOLS `core` profile is listed (see toolProfile);
 //   - `tools/call` -> { content: [{ type: "text", text: <2-space pretty
 //     JSON string> }] } (mcp.md:21,279-285); a handful of tools whose
 //     result carries worker/agent-authored stored text (UNTRUSTED_RESULT_FIELDS
@@ -66,6 +67,7 @@ import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version";
 import { recoveryHint } from "../core/format/recovery-hint";
 import { toolDefinitions } from "./dispatch";
 import { ToolProcessExecutor } from "./tool-process";
+import { MCP_CORE_TOOLS } from "../core/capability-data";
 import type { McpToolDefinition } from "../core/capability-table";
 
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
@@ -80,22 +82,39 @@ const SUPPORTED_PROTOCOL_VERSIONS = ["2024-11-05"];
 
 interface McpToolAuthority {
   allowed?: ReadonlySet<string>;
+  /** The tool profile's names, in list order. It decides only what
+   *  tools/list shows, never what tools/call takes. */
+  listed?: readonly string[];
 }
 
-/** Read the optional server-side tool policy. When both values are unset, the
- * full present tool list and access stay unchanged. An enabled list is an
- * allowlist; disabled names are then removed. */
+/** Read the optional server-side tool policy. An enabled list is an
+ * allowlist; disabled names are then removed. When either is set, that
+ * policy alone decides the list. When both are unset, CW_MCP_TOOLS picks the
+ * listed profile: unset or `core` lists MCP_CORE_TOOLS, `full` lists every
+ * tool, and any other value fails closed. */
 function mcpToolAuthority(
   definitions: readonly McpToolDefinition[] = toolDefinitions(),
   environment: Record<string, string | undefined> = process.env
 ): McpToolAuthority {
   const known = new Set(definitions.map((definition) => definition.name));
+  const profile = toolProfile(environment, known);
   const enabled = configuredToolNames("CW_MCP_ENABLED_TOOLS", environment, known);
   const disabled = configuredToolNames("CW_MCP_DISABLED_TOOLS", environment, known);
-  if (!enabled && !disabled) return {};
+  if (!enabled && !disabled) return profile ? { listed: profile } : {};
   const allowed = enabled ? new Set(enabled) : new Set(known);
   for (const name of disabled ?? []) allowed.delete(name);
   return { allowed };
+}
+
+/** The CW_MCP_TOOLS list profile: the core names, or undefined for `full`. */
+function toolProfile(environment: Record<string, string | undefined>, known: ReadonlySet<string>): readonly string[] | undefined {
+  const value = environment.CW_MCP_TOOLS;
+  if (value === "full") return undefined;
+  if (value !== undefined && value !== "core") throw new Error(`MCP tool policy CW_MCP_TOOLS must be core or full: ${value}`);
+  for (const tool of MCP_CORE_TOOLS) {
+    if (!known.has(tool)) throw new Error(`MCP tool policy CW_MCP_TOOLS=core names an unknown tool: ${tool}`);
+  }
+  return MCP_CORE_TOOLS;
 }
 
 function configuredToolNames(name: string, environment: Record<string, string | undefined>, known: ReadonlySet<string>): Set<string> | undefined {
@@ -112,6 +131,10 @@ function configuredToolNames(name: string, environment: Record<string, string | 
 
 function permittedToolDefinitions(authority: McpToolAuthority): McpToolDefinition[] {
   const definitions = toolDefinitions();
+  if (authority.listed) {
+    const byName = new Map(definitions.map((definition) => [definition.name, definition]));
+    return authority.listed.map((name) => byName.get(name)!);
+  }
   return authority.allowed ? definitions.filter((definition) => authority.allowed?.has(definition.name)) : definitions;
 }
 

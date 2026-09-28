@@ -18,7 +18,7 @@ This covers the MCP stdio JSON-RPC server, its 196 tools, the one CLI<->MCP capa
 | Method | Takes | Gives back |
 | --- | --- | --- |
 | `initialize` | anything (params not read) | `{ protocolVersion: "2024-11-05", capabilities: { tools: {}, resources: {} }, serverInfo: { name: "cool-workflow", version: CURRENT_COOL_WORKFLOW_VERSION } }` |
-| `tools/list` | anything (params not read) | `{ tools: [ ...196 tool definitions... ] }` |
+| `tools/list` | anything (params not read) | `{ tools: [ ... ] }`: by default the 12-tool `core` profile (`MCP_CORE_TOOLS` in `src/core/capability-data.ts`, in that order); every tool definition in registry order with `CW_MCP_TOOLS=full`; any other `CW_MCP_TOOLS` value stops server start. A set `CW_MCP_ENABLED_TOOLS` / `CW_MCP_DISABLED_TOOLS` policy decides the list in place of the profile. The profile is not a permission: `tools/call` takes every known tool |
 | `tools/call` | `params.name` (string, must be present), `params.arguments` (object; null/absent becomes `{}`) | `{ content: [ { type: "text", text: JSON.stringify(coreResult, null, 2) } ] }` |
 | `resources/list` | anything (params not read) | `{ resources: [ { uri: "cw://runs/<run-id>/report.md", name: "<run-id> report", mimeType: "text/markdown" }, ... ] }`, one per run under the server cwd with a report.md; `-32601` when a tool policy turns `cw_report` off |
 | `resources/read` | `params.uri` = `cw://runs/<run-id>/report.md` | `{ contents: [ { uri, mimeType: "text/markdown", text } ] }`; `-32602` for any other URI or an unsafe run id, `-32002` when that run has no report.md |
@@ -279,6 +279,8 @@ The version string is `CURRENT_COOL_WORKFLOW_VERSION` from `src/version.ts:1` (`
 ```
 
 The array order is the source order of `toolDefinitions()` — `cw_list` first, `cw_history` last (src/mcp/tool-definitions.ts:5,1007).
+
+That is the `CW_MCP_TOOLS=full` reply. By default (`CW_MCP_TOOLS` unset or `core`) the array is the 12 `MCP_CORE_TOOLS` definitions in their listed order, `cw_app_list` first and `cw_run_restore` last, each byte-equal to its entry in the full list.
 
 ### `tools/call` (src/mcp-server.ts:65-73)
 
