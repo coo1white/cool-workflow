@@ -379,8 +379,8 @@ never polluted.
   prints the run dir where the transcripts live, so nothing is ever lost to a
   compact view.
 - **Color control.** `NO_COLOR` / `CW_NO_COLOR` (the `--no-color` flag sets the
-  latter) disable ANSI; `FORCE_COLOR` forces it even when piped; otherwise color
-  follows isTTY. Honored identically by cw (`term.ts`) and every wrapper.
+  latter) disable ANSI; `FORCE_COLOR` forces it even when piped; `TERM=dumb`
+  turns it off; otherwise color follows isTTY. Honored identically by cw (`term.ts`) and every wrapper.
 - **End-of-run summary (cw side).** A COMPACT findings table — id / severity /
   classification + counts, re-parsed from each completed worker's `cw:result` —
   plus the report path, status, and run dir. NOT the full prose (that stays in

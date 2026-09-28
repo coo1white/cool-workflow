@@ -33,6 +33,9 @@ function colorEnabled(stream, env = process.env) {
         return false;
     if (env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== "" && env.FORCE_COLOR !== "0")
         return true;
+    // A terminal that says it cannot show escapes gets none.
+    if (env.TERM === "dumb")
+        return false;
     return isTTY(stream);
 }
 const ansi = {
