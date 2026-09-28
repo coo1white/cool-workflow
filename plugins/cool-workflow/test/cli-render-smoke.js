@@ -8,7 +8,7 @@
 //   * Reporter renders on a TTY (findings table + report path + status + transcript + next hint),
 //     and is SILENT on a non-TTY (the human summary never pollutes piped/--json stdout).
 //   * progress() is a thin write — the line is emitted verbatim (already styled by the caller).
-//   * --full appends the report inline; a blocked no-agent run points at `cw doctor`.
+//   * a blocked no-agent run points at `cw doctor`.
 //   * truncate is width-aware; color honors NO_COLOR / CW_NO_COLOR / FORCE_COLOR (the --no-color
 //     flag sets CW_NO_COLOR), independent of isTTY.
 
@@ -177,21 +177,7 @@ function testProgressThinWrite() {
   console.log("cli-render: progress thin-write OK");
 }
 
-function testFullAndBlocked() {
-  const full = fakeStream(true);
-  createReporter(full).runSummary({
-    runId: "RUN2",
-    reportPath: "/tmp/run/report.md",
-    status: "complete",
-    completedWorkers: 1,
-    plannedWorkers: 1,
-    findings: [],
-    fullReport: "# Report\n\nFULL PROSE BODY"
-  });
-  const fullOut = plain(full.text);
-  assert.match(fullOut, /full report/, "--full prints an inline-report divider");
-  assert.ok(fullOut.includes("FULL PROSE BODY"), "--full prints the report body inline");
-
+function testBlocked() {
   const blocked = fakeStream(true);
   createReporter(blocked).runSummary({
     runId: "RUN3",
@@ -203,7 +189,7 @@ function testFullAndBlocked() {
   const blockedOut = plain(blocked.text);
   assert.match(blockedOut, /Status:\s*blocked/, "surfaces the blocked status");
   assert.match(blockedOut, /cw doctor/, "no-agent blocked run points at the one recovery command");
-  console.log("cli-render: --full inline + blocked-no-agent recovery OK");
+  console.log("cli-render: blocked-no-agent recovery OK");
 }
 
 function testCursorHygiene() {
@@ -326,7 +312,7 @@ function main() {
   testReporterTty();
   testReporterNonTtySilent();
   testProgressThinWrite();
-  testFullAndBlocked();
+  testBlocked();
   testCursorHygiene();
   testRollingWindowFold();
   testResultTreeLines();

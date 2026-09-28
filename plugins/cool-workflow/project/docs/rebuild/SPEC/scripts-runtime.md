@@ -54,7 +54,7 @@ Renderer env vars (scripts/agents/agent-adapter-core.js:63-67,96-102):
 
 - `CW_AGENT_STREAM` — `0` = off; `1` = also turn on plain append-only lines when stderr is not a TTY (non-TTY default is silent).
 - `CW_NO_STREAM=1` — off.
-- `CW_VERBOSE=1|true` or `CW_OUTPUT=full` — model narration text shown inline.
+- `CW_VERBOSE=1|true` — model narration text shown inline.
 - `NO_COLOR` / `CW_NO_COLOR` (non-empty = no color), `FORCE_COLOR` (set, not `""`/`"0"` = force color), else color iff TTY.
 - `CW_LIVE_ROWS` — rolling window size, clamped 0..20, default 4.
 

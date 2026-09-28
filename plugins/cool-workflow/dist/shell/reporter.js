@@ -49,9 +49,6 @@ class StderrReporter {
             else
                 s.write(`  ${(0, term_1.nextHint)(`cw status ${f.runId}`, s)}\n`);
         }
-        if (typeof f.fullReport === "string" && f.fullReport.trim()) {
-            s.write(`\n${(0, term_1.dim)("──── full report ────", s)}\n${f.fullReport.trim()}\n`);
-        }
     }
 }
 /** Build a reporter over an explicit stream. */

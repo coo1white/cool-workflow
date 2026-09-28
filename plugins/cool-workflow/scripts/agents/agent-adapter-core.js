@@ -102,7 +102,7 @@ function createRenderer(opts = {}) {
   // Non-TTY default stays SILENT (CW's Rule of Silence). Plain append-only logging in non-TTY
   // is an explicit opt-in for CI debuggability — `CW_AGENT_STREAM=1`, mirroring CW_DRIVE_PROGRESS=1.
   const plain = streamEnabled(env) && !stderr.isTTY && env.CW_AGENT_STREAM === "1";
-  const verbose = env.CW_VERBOSE === "1" || env.CW_VERBOSE === "true" || env.CW_OUTPUT === "full";
+  const verbose = env.CW_VERBOSE === "1" || env.CW_VERBOSE === "true";
   const color = colorOn(env, stderr);
   const paint = (code, text) => (color ? `${code}${text}${ANSI.reset}` : text);
 

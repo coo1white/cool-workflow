@@ -30,16 +30,16 @@ caseMain(() => {
   assert.equal(asJson.stderr, "");
   assert.equal(JSON.parse(asJson.stdout).status, "complete");
 
-  // --- --full changes the intent (asks for the report inline on a TTY),
-  // but off a TTY it changes NOTHING observable: still silent stderr, still
-  // clean stdout. The inline full-report text only exists behind isTTY.
+  // --- --full is gone (2026-09-28: it never did what its help said).
+  // A script that still passes it gets the same run: silent stderr off a
+  // TTY, clean stdout, and no inline report.
   const repo3 = gitRepo({ "a.txt": "hello\n" });
   const full = run(["run", "end-to-end-golden-path", "--drive", "--question", "q", "--repo", repo3, "--full"], {
     env: stubAgentEnv("a.txt:1"),
   });
   assert.equal(full.status, 0);
-  assert.equal(full.stderr, "", "--full does not defeat the Rule of Silence off a TTY");
-  assert.ok(!full.stdout.includes("──── full report ────"), "the inline full report is TTY-only chrome");
+  assert.equal(full.stderr, "", "an old --full does not defeat the Rule of Silence off a TTY");
+  assert.ok(!full.stdout.includes("──── full report ────"), "an old --full prints no inline report");
 
   // --- the one documented escape hatch: CW_DRIVE_PROGRESS=1 forces the
   // drive's own progress lines onto stderr even though this is not a TTY.

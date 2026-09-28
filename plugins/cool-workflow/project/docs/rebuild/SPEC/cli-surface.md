@@ -30,7 +30,7 @@ The npm package puts two names on the path, both pointing at `scripts/cw.js` (wh
 - Vendor short flags map to `--agent-command`: `-claude` → `builtin:claude`, `-codex` → `builtin:codex`, `-gemini` → `builtin:gemini`, `-deepseek` → `builtin:deepseek` (src/cli/command-surface.ts:59-62).
 - `-dir` / `--dir` / `-d` is a second name for `--repo`; a given `--repo` wins over `dir` (src/cli/command-surface.ts:65).
 - `quickstart` (so `cw -q`) with a local `--repo` that names no folder refuses before it plans, with exit 1 and nothing written: `<path> is missing: there is no such folder. Pass --repo <path> to a project folder.` (or `<path> is not a folder.` for a file). A URL `--repo` and a `--run <id>` go on as before (src/shell/pipeline-cli.ts assertRepoFolder).
-- Presentation flags set env vars before any agent spawn, so the out-of-process wrapper gets them: `--verbose` → `CW_VERBOSE=1`; `--no-color` → `CW_NO_COLOR=1`; `--full` → `CW_OUTPUT=full`; `--quiet` → `CW_DRIVE_PROGRESS=0` (src/cli/command-surface.ts:73-75; src/cli/entry.ts).
+- Presentation flags set env vars before any agent spawn, so the out-of-process wrapper gets them: `--verbose` → `CW_VERBOSE=1`; `--no-color` → `CW_NO_COLOR=1`; `--quiet` → `CW_DRIVE_PROGRESS=0` (src/cli/command-surface.ts:73-75; src/cli/entry.ts).
 - `cw -q "text"` or `cw --question "text"` as the FIRST token: the positional is taken off and stored as `options.question` (only when `options.question` is not set), then the command becomes `quickstart` (src/cli/command-surface.ts:88-93). `cw --question=...` with no command also becomes `quickstart` (src/cli/command-surface.ts:91-93).
 - `quickstart` / `audit-run` with no `--question` on a TTY: the CLI asks `Question: ` on stderr through readline and waits (src/cli/command-surface.ts:435-445).
 
@@ -172,7 +172,6 @@ The runner is made with `pluginRoot: path.resolve(__dirname, "../..")`; `Schedul
 | `CW_NO_COLOR` (non-empty) | same as `NO_COLOR`; set by the `--no-color` flag | src/term.ts:20, src/cli/command-surface.ts:74 |
 | `FORCE_COLOR` (set, not `""`, not `"0"`) | forces color on human output even when piped; the machine channels stay clean because they use no styling | src/term.ts:21, src/reporter.ts:8-11 |
 | `CW_VERBOSE=1` | set by `--verbose`; full agent narration inline (read by the agent wrapper) | src/cli/command-surface.ts:73 |
-| `CW_OUTPUT=full` | set by `--full`; stream full narration and print the report inline at run end | src/cli/command-surface.ts:75 |
 | `CW_DRIVE_PROGRESS=0` | set by `--quiet`; suppresses drive progress lines (src/drive.ts's emitProgress) — does not touch the end-of-run summary or any other Rule of Silence gate point | src/cli/entry.ts |
 
 Cross-subsystem vars the CLI tests lean on (owned elsewhere): `CW_AGENT_COMMAND`, `CW_AGENT_ENDPOINT`, `CW_NO_AUTO_AGENT`, `CW_DRIVE_PROGRESS`, `CW_HOME`, `XDG_STATE_HOME` (test/cli-recoverable-errors-smoke.js:26, test/cli-progress-summary-smoke.js:115, test/cli-handler-clones-smoke.js:19).
@@ -256,7 +255,6 @@ Flags
   -gemini                Use Gemini (via opencode)
   -deepseek              Use DeepSeek (via opencode)
   --verbose              Show full agent narration live (default: compact)
-  --full                 Verbose, plus the report printed inline at the end
   --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)
   --json                 Print JSON for commands that support it
   --quiet                Suppress [drive] progress lines (not agent output)
@@ -332,14 +330,7 @@ Non-complete run:
   Try: cw doctor
 ```
 
-The `Try: cw doctor` line appears when `agentConfigured === false`; otherwise `Next: cw status <run-id>` (src/reporter.ts:64-67). Findings block only when non-empty. Under `--full` the report body follows:
-
-```
-
-──── full report ────
-<report text, trimmed>
-```
-(src/reporter.ts:69-71). The findings headline is `Findings: <n> — <count>×<sev>, ...` with severities ordered `P0 P1 P2 P3 none`; the column widths pad to at least 8 (`SEVERITY`) and 5 (`CLASS`); ids are cut at 60 columns with `…`; empty severity reads `none`, empty class `unknown`, empty id `(unnamed)` (src/term.ts:173-210).
+The `Try: cw doctor` line appears when `agentConfigured === false`; otherwise `Next: cw status <run-id>` (src/reporter.ts:64-67). Findings block only when non-empty. (`--full`, which printed the report body after it, was taken out on 2026-09-28.) The findings headline is `Findings: <n> — <count>×<sev>, ...` with severities ordered `P0 P1 P2 P3 none`; the column widths pad to at least 8 (`SEVERITY`) and 5 (`CLASS`); ids are cut at 60 columns with `…`; empty severity reads `none`, empty class `unknown`, empty id `(unnamed)` (src/term.ts:173-210).
 
 ### Phase progress lines (stderr; term.phaseProgressLine)
 
@@ -479,11 +470,10 @@ Exit 0 on success. `process.exitCode = 1` (not a hard `process.exit`) at every o
 The CLI surface itself reads and writes little; state files belong to other parts. What it touches directly:
 
 - `docs/<topic>.7.md` / `docs/<topic>.md` / `docs/<topic>` — read by `cw man <topic>`; raw bytes to stdout (command-surface.ts:150-159).
-- `<reportPath>` — read under `--full` to print the report inline (src/cli/run-summary.ts:36-38).
 - `<repo>/.cw/runs/<run-id>/` — the run dir; the summary derives it as `path.dirname(statePath)` and the repo base as three levels up; per-worker `transcript.md` files live there (src/cli/run-summary.ts:31-32; docs pointer in the `Transcript:` line).
 - `--file <path>` or stdin (fd 0) — the ledger entry read by `ledger verify|apply` (handlers/ledger.ts:69, 94).
 - `<payload-file>` — JSON read by `routine fire <kind> <file>` (handlers/scheduling.ts:91).
-- `process.env` — presentation flags become `CW_VERBOSE`, `CW_NO_COLOR`, `CW_OUTPUT` for the child agent wrapper (command-surface.ts:73-75).
+- `process.env` — presentation flags become `CW_VERBOSE`, `CW_NO_COLOR` for the child agent wrapper (command-surface.ts:73-75).
 
 ## Invariants and error behavior
 
@@ -533,7 +523,7 @@ Every claim above carries its pointer inline. Key anchors: src/cli.ts:5-29; src/
 - `test/cli-recoverable-errors-smoke.js` — typo → `Did you mean` + `Try: cw help`; no-agent quickstart/drive block closed with `agentConfigured:false` and a copy-ready hint; missing-repo error points at `-dir`; nothing leaks to stdout on error.
 - `test/cli-jsonmode-parity-smoke.js` — every probed verb obeys its registry `cli.jsonMode` (`flag` vs `default`).
 - `test/cli-mcp-parity-smoke.js` — CLI dispatch tokens ↔ capability registry ↔ MCP tool list; `--json` payloads equal MCP payloads.
-- `test/cli-render-smoke.js` — color env matrix (NO_COLOR/CW_NO_COLOR/FORCE_COLOR), `--json` byte-exact under `FORCE_COLOR`, findings table, reporter TTY/non-TTY, `--full` inline report, blocked-run `cw doctor` hint, truncate.
+- `test/cli-render-smoke.js` — color env matrix (NO_COLOR/CW_NO_COLOR/FORCE_COLOR), `--json` byte-exact under `FORCE_COLOR`, findings table, reporter TTY/non-TTY, blocked-run `cw doctor` hint, truncate.
 - `test/cli-progress-summary-smoke.js` — `printSuccessSummary` shapes, `phaseProgressLine` exact strings, `==>` progress on stderr with clean `--json` stdout.
 - `test/cli-handler-clones-smoke.js`, `test/cli-handler-eval-node-smoke.js`, `test/cli-handler-maintenance-smoke.js`, `test/cli-handler-workbench-smoke.js` — dispatcher→handler routing, usage strings, `required` wiring, `workbench serve --once` descriptor, `demo bundle --json` proven.
 
