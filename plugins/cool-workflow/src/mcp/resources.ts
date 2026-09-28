@@ -23,6 +23,7 @@ export interface McpResource {
 export class ResourceError extends Error {
   constructor(readonly code: number, message: string) {
     super(message);
+    this.name = "ResourceError";
   }
 }
 

@@ -69,7 +69,6 @@ const version_1 = require("../core/version");
 const recovery_hint_1 = require("../core/format/recovery-hint");
 const dispatch_1 = require("./dispatch");
 const tool_process_1 = require("./tool-process");
-const resources_1 = require("./resources");
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
 /** Protocol versions this server can speak, oldest first. `initialize`
  *  echoes the client's `params.protocolVersion` when it is in this list,
@@ -222,10 +221,13 @@ async function handleRequest(message, tools, authority) {
                 // Run reports as resources (mcp/resources.ts). They show the same
                 // text cw_report makes, so a policy that turns cw_report off turns
                 // these off too.
+                // Loaded here, not at the top: initialize and tools/list stay under
+                // the perf ratchet's module ceiling (scripts/bench/perf-ceilings.json).
+                const resources = require("./resources");
                 if (!toolPermitted("cw_report", authority))
-                    throw new resources_1.ResourceError(-32601, `MCP ${message.method} disabled by policy: cw_report`);
+                    throw new resources.ResourceError(-32601, `MCP ${message.method} disabled by policy: cw_report`);
                 const params = (message.params ?? {});
-                const result = message.method === "resources/list" ? { resources: (0, resources_1.listReportResources)() } : (0, resources_1.readReportResource)(params.uri);
+                const result = message.method === "resources/list" ? { resources: resources.listReportResources() } : resources.readReportResource(params.uri);
                 writeMessage(resultMessage(id, result));
                 return;
             }
@@ -286,8 +288,12 @@ async function handleRequest(message, tools, authority) {
     }
     catch (error) {
         const text = error instanceof Error ? error.message : String(error);
-        writeMessage(errorMessage(id, error instanceof resources_1.ResourceError ? error.code : -32000, text));
+        writeMessage(errorMessage(id, resourceErrorCode(error) ?? -32000, text));
     }
+}
+/** The JSON-RPC code a mcp/resources.ts ResourceError carries, else undefined. */
+function resourceErrorCode(error) {
+    return error instanceof Error && error.name === "ResourceError" ? error.code : undefined;
 }
 /** Parses a raw stdin line without writing. This lets a valid ping use the
  * control path while parse errors keep their old place in the work queue. */

@@ -66,7 +66,6 @@ import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version";
 import { recoveryHint } from "../core/format/recovery-hint";
 import { toolDefinitions } from "./dispatch";
 import { ToolProcessExecutor } from "./tool-process";
-import { listReportResources, readReportResource, ResourceError } from "./resources";
 import type { McpToolDefinition } from "../core/capability-table";
 
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
@@ -242,9 +241,12 @@ async function handleRequest(message: JsonRpcRequest, tools: ToolProcessExecutor
         // Run reports as resources (mcp/resources.ts). They show the same
         // text cw_report makes, so a policy that turns cw_report off turns
         // these off too.
-        if (!toolPermitted("cw_report", authority)) throw new ResourceError(-32601, `MCP ${message.method} disabled by policy: cw_report`);
+        // Loaded here, not at the top: initialize and tools/list stay under
+        // the perf ratchet's module ceiling (scripts/bench/perf-ceilings.json).
+        const resources = require("./resources") as typeof import("./resources");
+        if (!toolPermitted("cw_report", authority)) throw new resources.ResourceError(-32601, `MCP ${message.method} disabled by policy: cw_report`);
         const params = (message.params ?? {}) as Record<string, unknown>;
-        const result = message.method === "resources/list" ? { resources: listReportResources() } : readReportResource(params.uri);
+        const result = message.method === "resources/list" ? { resources: resources.listReportResources() } : resources.readReportResource(params.uri);
         writeMessage(resultMessage(id, result));
         return;
       }
@@ -299,8 +301,13 @@ async function handleRequest(message: JsonRpcRequest, tools: ToolProcessExecutor
     }
   } catch (error: unknown) {
     const text = error instanceof Error ? error.message : String(error);
-    writeMessage(errorMessage(id, error instanceof ResourceError ? error.code : -32000, text));
+    writeMessage(errorMessage(id, resourceErrorCode(error) ?? -32000, text));
   }
+}
+
+/** The JSON-RPC code a mcp/resources.ts ResourceError carries, else undefined. */
+function resourceErrorCode(error: unknown): number | undefined {
+  return error instanceof Error && error.name === "ResourceError" ? (error as Error & { code: number }).code : undefined;
 }
 
 type ParsedLine = { message: JsonRpcRequest } | { error: { code: number; message: string } };
