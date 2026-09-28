@@ -553,7 +553,7 @@
  {
   "kind": "behavior",
   "id": "test:cli-render",
-  "behavior": "[cli-surface] Reporter (src/reporter.ts) + zero-dep term primitives: truncate, findings table, color-env",
+  "behavior": "[cli-surface] Reporter (src/reporter.ts) + zero-dep term primitives: truncate, color-env",
   "evidence": "test/cli-render-smoke.js:1",
   "tests": [
    "test/cli-render-smoke.js"

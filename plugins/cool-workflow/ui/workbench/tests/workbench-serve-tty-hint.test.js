@@ -5,8 +5,8 @@
 // line at all, even on a real interactive terminal: the only output was the
 // one JSON descriptor line on STDOUT (the data channel, unchanged by this
 // test). This pins the small additive fix: a "workbench serving at ..." line
-// on STDERR, gated the SAME way term.ts's printSuccessSummary is (silent on
-// a non-TTY stream so a piped/agent run never gets extra chrome).
+// on STDERR, TTY-gated (silent on a non-TTY stream so a piped/agent run
+// never gets extra chrome).
 //
 // Uses the same fakeStream({isTTY, write, text()}) shape as
 // test/cli-progress-summary-smoke.js so this stays fast (no real terminal,

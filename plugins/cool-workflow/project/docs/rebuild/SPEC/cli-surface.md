@@ -485,7 +485,7 @@ Every claim above carries its pointer inline. Key anchors: src/cli.ts:5-29; src/
 - `test/cli-recoverable-errors-smoke.js` — typo → `Did you mean` + `Try: cw help`; no-agent quickstart/drive block closed with `agentConfigured:false` and a copy-ready hint; missing-repo error points at `-dir`; nothing leaks to stdout on error.
 - `test/cli-jsonmode-parity-smoke.js` — every probed verb obeys its registry `cli.jsonMode` (`flag` vs `default`).
 - `test/cli-mcp-parity-smoke.js` — CLI dispatch tokens ↔ capability registry ↔ MCP tool list; `--json` payloads equal MCP payloads.
-- `test/cli-render-smoke.js` — color env matrix (NO_COLOR/CW_NO_COLOR/FORCE_COLOR), `--json` byte-exact under `FORCE_COLOR`, `reporter.progress` thin write, truncate.
+- `test/cli-render-smoke.js` — color env matrix (NO_COLOR/CW_NO_COLOR/FORCE_COLOR), `--json` byte-exact under `FORCE_COLOR`, `reporter.progress` thin write, blocked-run `cw doctor` hint in `formatQuickstartSummary`, truncate.
 - `test/cli-progress-summary-smoke.js` — `phaseProgressLine` exact strings, `==>` progress on stderr with clean `--json` stdout.
 - `test/cli-handler-clones-smoke.js`, `test/cli-handler-eval-node-smoke.js`, `test/cli-handler-maintenance-smoke.js`, `test/cli-handler-workbench-smoke.js` — dispatcher→handler routing, usage strings, `required` wiring, `workbench serve --once` descriptor, `demo bundle --json` proven.
 
