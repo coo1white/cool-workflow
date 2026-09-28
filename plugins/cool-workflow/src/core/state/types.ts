@@ -299,6 +299,7 @@ export interface RunPhase {
   loopOrigin?: string;
   loopRound?: number;
   loopDone?: boolean;
+  overlapPrevious?: boolean;
 }
 
 export interface ResultEnvelope {

@@ -5109,3 +5109,126 @@ On `main` at `4bc0bed`, Linux, Node 22.
 | Item | State | PR |
 |---|---|---|
 | Measure, `## Answer`, smoke, docs (this file) | done | this PR |
+
+# The default review under five minutes: Assess overlaps Map
+
+Intent, measured facts and spec in ONE file, in the shape `AGENTS.md`
+"Intent files (the playbook)" asks for. One PR builds and closes it, so
+this file went straight to the archive (md count unchanged). Source:
+the operator, 2026-09-28, "做 #5：默认 review 压到 5 分钟内" (finding #5
+of the real-agent Track A run), then, shown the measured facts and four
+paths, "两个一起做": let Assess start with Map, and bound a Map worker
+whose area is absent. The default app's schedule and prompts change, so
+this file is the record of the operator's yes.
+
+## Part 1 — Intent
+
+**Problem.** `cw -q "<question>"` runs the 14-worker
+`architecture-review`. On Express with the real claude CLI it took 409 s,
+412 s and 419 s — over the Track A 5 minutes. `--fast` (#731) is under 5
+minutes, but only for one focused question.
+
+**Outcome.** The default review, same 14 workers, same 4 phases, same
+answer shape, under 300 s on the same repository.
+
+**North Star.** Track A: a new user runs the README path in under 5
+minutes.
+
+## Measured facts (checked before the build)
+
+On `main` at `8649fdf`, Linux, Node 22, three earlier default runs on a
+clone of Express (state.json task times, result-file mtimes).
+
+- Phase spans: Map 152–192 s, Assess 86–87 s, Verify 73–121 s, Verdict
+  57–59 s. A phase ends when its slowest worker ends.
+- Inside Map, five workers wrote their result in 36–81 s; one took 152 s
+  or 192 s. The slow one was each time a mapper of an area Express does
+  not have (`map:transport-core`, `map:web-client`), searching to prove
+  it absent.
+- Assess workers get no Map results: `assess:security`'s input.md is
+  2409 bytes, the task and the boundary only. Only Verify and Verdict
+  declare `resultCache.includeCompletedResults: "previous-phases"`, and
+  only they read earlier results. So Assess waited ~150–190 s for
+  results it never reads.
+- `firstRunnablePhase` (`src/core/pipeline/dispatch.ts`) gives one phase
+  at a time; `nextDispatchTasks`, `selectDriveTask`, `autoWidth` and the
+  concurrent round in `drive.ts` all take their tasks from it. The v2
+  case `multiagent-app-list` pins the app's 4 phases and 6/6/1/1 tasks.
+
+## Paths weighed
+
+- **Only overlap Map and Assess:** by the numbers above, 320–330 s; the
+  slow mapper still sets the round. Not enough alone.
+- **Only bound the absent-area mappers:** 300–350 s; four serial phases
+  stay. Not enough alone.
+- **Fold Map and Assess into one phase in the app:** no kernel change,
+  but the 4-phase shape the v2 case pins and the report's Phase Status
+  change. Turned down.
+- **Fewer workers:** `--fast` already is that path. Turned down for the
+  default.
+- **Chosen (operator):** both levers. A kernel mechanism, a phase option
+  `overlapPrevious`, that the app sets as policy; phases, task ids and
+  settlement order stay as declared. Undone by taking the option off the
+  app (the kernel path is then unused).
+
+## Part 2 — Spec
+
+- A phase may set `overlapPrevious: true`. `runnableTaskIds(run)` is the
+  first runnable phase's task ids plus those of each phase right after it
+  with the option (the chain stops at the first phase without it). The
+  dispatch, the task choice, the auto width and the concurrent round use
+  that set. A failed task in the earlier phase still blocks every later
+  phase. With no phase using the option, all four give exactly what they
+  gave before.
+- `cw app validate` refuses the option (`workflow-phase-overlap`) when it
+  is not a boolean, on the first phase, on a `loop` phase, and on a phase
+  with a task that reads earlier results — those results do not exist
+  when the phase starts.
+- `architecture-review`: Assess sets `overlapPrevious`;
+  `maxConcurrentAgents` goes from 6 to 12, so the 12 Map and Assess
+  workers are one round. Each Map prompt ends with "If this area is absent
+  from {{repo}}, say so after one short look (a file listing and one
+  search) and stop there." `assess:security` no longer says it assesses
+  "mapper findings" it never gets. Verify and Verdict are unchanged and
+  still read all 12 earlier results.
+- Other apps, `architecture-review-fast` among them, are unchanged.
+
+## Result (measured after the build)
+
+Same clone of Express, same question ("How does routing work end-to-end
+here?"), the real claude CLI, `cw -q ... -claude --json`.
+
+| Run | Wall | Map + Assess round | Verify | Verdict | Status |
+|---|---|---|---|---|---|
+| 1 | 259 s | 135 s | 74 s | 50 s | complete, 14/14, PASS |
+| 2 | 233 s | 79 s | 93 s | 61 s | complete, 14/14, PASS |
+
+- In run 1, Map workers wrote their results in 22–68 s (before: 36–192
+  s); the absent-area mappers took 22 s and 46 s. The round now ends with
+  the slowest Assess worker.
+- The answer holds: runs 1 and 2 have 106 and 125 findings, 172 and
+  157 evidence refs over all workers (the 419 s run before: 116 and 222);
+  their verdicts have 21 and 23 findings, 19 and 18 refs (before: 17 and
+  27), and name the same routing chain.
+
+## What this spec got wrong (recorded at close)
+
+- Nothing found at close.
+
+## Architecture snapshot diff
+
+- `project/docs/rebuild/SPEC/pipeline-run.md` said `autoWidth` counts
+  the first runnable phase's tasks and named only `firstRunnablePhase`;
+  it now names `runnableTaskIds`. `SPEC/workflow-apps.md` and its
+  surface file list the new validation. Fixed in this PR.
+- `docs/agent-delegation-drive.7.md` has a new "Overlapping phases"
+  part; `docs/canonical-workflow-apps.7.md` and the wiki's
+  Workflow-Apps page say Map and Assess run at the same time.
+- The `BACKLOG.md` row "Get the default full `cw -q` review under the
+  Track A 5 minutes" is gone.
+
+## Status ledger
+
+| Item | State | PR |
+|---|---|---|
+| Measure, `overlapPrevious`, app, tests, docs (this file) | done | this PR |

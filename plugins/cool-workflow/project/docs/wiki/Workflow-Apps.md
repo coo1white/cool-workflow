@@ -34,7 +34,7 @@ list` also shows two older workflow-file wrappers, ten in all.
 
 | App | Use it when | Notes |
 | --- | --- | --- |
-| `architecture-review` | You want the full repository architecture and risk review. | 14 tasks across Map, Assess, Verify, and Verdict (13 agent workers plus the Verdict artifact); readonly sandbox. |
+| `architecture-review` | You want the full repository architecture and risk review. | 14 tasks across Map, Assess, Verify, and Verdict (13 agent workers plus the Verdict artifact); Map and Assess run at the same time; readonly sandbox. |
 | `architecture-review-fast` | You want faster first results before a deeper background review. | 6 tasks; supports source-context inputs; readonly sandbox. |
 | `pr-review-fix-ci` | You want PR review and CI diagnosis. | 7 tasks; can use readonly or workspace-write profiles depending on mode. |
 | `research-synthesis` | You want evidence-backed synthesis from sources. | 6 tasks; uses readonly and locked-down profiles. |

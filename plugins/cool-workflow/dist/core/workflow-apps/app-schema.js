@@ -377,7 +377,7 @@ function validateTask(taskDefinition, issues, pathName, seenTaskIds, options) {
         }
     }
 }
-function validatePhase(phaseDefinition, issues, pathName, seenPhaseIds) {
+function validatePhase(phaseDefinition, issues, pathName, seenPhaseIds, phaseIndex) {
     if (!isRecord(phaseDefinition)) {
         issues.push(issue("workflow-phase", "Workflow phase must be an object", pathName));
         return;
@@ -397,6 +397,26 @@ function validatePhase(phaseDefinition, issues, pathName, seenPhaseIds) {
     }
     if (!Array.isArray(phaseValue.tasks) || !phaseValue.tasks.length) {
         issues.push(issue("workflow-phase-tasks", `Workflow phase ${String(phaseValue.id || phaseValue.name || "")} must have tasks`, joinPath(pathName, "tasks")));
+    }
+    if (phaseValue.overlapPrevious !== undefined) {
+        if (typeof phaseValue.overlapPrevious !== "boolean") {
+            issues.push(issue("workflow-phase-overlap", "overlapPrevious must be a boolean", joinPath(pathName, "overlapPrevious")));
+        }
+        else if (phaseValue.overlapPrevious) {
+            if (phaseIndex === 0) {
+                issues.push(issue("workflow-phase-overlap", "The first phase has no phase before it to overlap", joinPath(pathName, "overlapPrevious")));
+            }
+            if (phaseValue.loop !== undefined) {
+                issues.push(issue("workflow-phase-overlap", "A loop phase cannot overlap the phase before it", joinPath(pathName, "overlapPrevious")));
+            }
+            // A task that reads earlier results cannot start before they exist.
+            const reader = Array.isArray(phaseValue.tasks)
+                ? phaseValue.tasks.find((t) => isRecord(t) && isRecord(t.resultCache) && t.resultCache.includeCompletedResults === "previous-phases")
+                : undefined;
+            if (reader) {
+                issues.push(issue("workflow-phase-overlap", `Task ${String(reader.id)} reads previous-phase results, so its phase cannot overlap the phase before it`, joinPath(pathName, "overlapPrevious")));
+            }
+        }
     }
     if (phaseValue.loop !== undefined) {
         const loopValue = phaseValue.loop;
@@ -427,7 +447,7 @@ function validatePhases(phases, limits, issues, pathName, options) {
     let taskCount = 0;
     for (const [phaseIndex, phaseDefinition] of phases.entries()) {
         const phasePath = joinPath(pathName, String(phaseIndex));
-        validatePhase(phaseDefinition, issues, phasePath, seenPhaseIds);
+        validatePhase(phaseDefinition, issues, phasePath, seenPhaseIds, phaseIndex);
         if (!isRecord(phaseDefinition) || !Array.isArray(phaseDefinition.tasks))
             continue;
         for (const [taskIndex, taskDefinition] of phaseDefinition.tasks.entries()) {

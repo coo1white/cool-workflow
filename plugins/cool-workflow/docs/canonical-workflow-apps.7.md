@@ -18,7 +18,11 @@ metadata.
 `architecture-review`
 
 Map out a repository architecture, weigh the risks, check the important
-findings, and put together an evidence-backed verdict.
+findings, and put together an evidence-backed verdict. Six Map workers and six
+Assess workers run at the same time (the Assess phase has `overlapPrevious`,
+see agent-delegation-drive(7)); then one verifier reads all twelve results, and
+one verdict worker writes the answer. A Map worker whose area is not in the
+repository says so after one short look.
 
 ```bash
 cw plan architecture-review \
