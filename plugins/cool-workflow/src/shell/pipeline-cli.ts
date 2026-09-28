@@ -444,7 +444,7 @@ export async function quickstartRun(
   if (fast && namedApp && String(namedApp) !== QUICKSTART_FAST_APP) {
     throw new Error(`--fast runs ${QUICKSTART_FAST_APP}; it cannot be used with the app ${String(namedApp)}. Drop --fast or the app name.`);
   }
-  const appId = String(namedApp || (fast ? QUICKSTART_FAST_APP : QUICKSTART_DEFAULT_APP));
+  let appId = String(namedApp || (fast ? QUICKSTART_FAST_APP : QUICKSTART_DEFAULT_APP));
   // Remote source: a `--link <url>` — or a URL passed to `--repo`/`-dir` — is
   // materialized to a LOCAL checkout HERE (capability/shell layer). Cloning is
   // non-deterministic network I/O and must never enter the replay-deterministic
@@ -542,6 +542,9 @@ export async function quickstartRun(
   let run: WorkflowRun;
   if (existingRunId) {
     run = loadRunFromCwd(existingRunId, existingRunCwd(args));
+    // A continued run names its own app: with no app and no --fast given,
+    // appId is the app the run was planned with, not the default review.
+    if (!namedApp && !fast) appId = run.workflow.id;
   } else {
     run = plan(resolveWorkflowAppForPlan(appId), planInputsFor(args));
   }
@@ -628,7 +631,9 @@ export async function quickstartRun(
 
   // Byte-exact to the old build's quickstart() return shape
   // (capability-core module): `appId` is the resolved app id (the
-  // argument, or its architecture-review default), distinct from
+  // argument, or its architecture-review default; for a continued
+  // --run <id> with no app and no --fast, the app the run was planned
+  // with), distinct from
   // `workflowId` which is the driven run's own workflow id (equal for a
   // top-level run, different for a sub-workflow hop). `remote` is present only
   // for a --link/URL source, so a local-repo run stays byte-identical.

@@ -154,6 +154,9 @@ try {
     assert.deepEqual(done.reopenedWorkers, ["map:operator-surface"]);
     assert.equal(done.completedWorkers, done.plannedWorkers);
     assert.equal(done.resumedFrom, parked.runId);
+    assert.equal(done.appId, "architecture-review-fast", "a continued run names the app it was planned with, not the default review");
+    const { formatQuickstartHuman } = require(path.join(pluginRoot, "dist", "shell", "pipeline-cli.js"));
+    assert.ok(!formatQuickstartHuman(done).includes("add --fast"), "a continued --fast run is not told to add --fast");
     assert.equal(verdictLine(state(dir, parked.runId)), "- Verdict: PASS");
     console.log("resume-parked: parallel phase — the parked map worker finishes, the rest follow OK");
   }
