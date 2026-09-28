@@ -240,3 +240,81 @@ goes over the gate.
 
 A change that goes against any rule in this section is turned down in review even if
 the capability it ships is in other ways wanted.
+
+## 8. The First Five Minutes and the CLI Scale
+
+Section 7 says how the code is made. This section says what a person has in
+front of them. D1 is the one moment CW is for; D2 is the small scale every
+command keeps to. The numbers are measured, not hoped for: the 2026-09-28
+measure ran `cw -q` through each state below with stub agents, on a TTY and
+piped. A row marked **gap** is a known failure, fixed one change at a time.
+
+### D1. The soul moment
+
+A person in a git project types:
+
+```text
+cw -q "<question>" -claude
+```
+
+and in five minutes or less, with no setup file and no choices to make, has
+an answer with `file:line` evidence (the `## Answer` part of
+`.cw/runs/<id>/report.md`) and one line naming what to do next.
+
+| Step | What the person sees | Bar | Measured |
+|---|---|---|---|
+| Start | the process is up (`cw --version`, `cw help`) | 0.1 s | 55 ms |
+| Plan | first `[drive] ==> <Phase> (<done>/<total>)` line on stderr (TTY only) | 1 s | 0.2 s |
+| Each wait | a new line at least every 10 s while a worker runs | 10 s | **gap**: no line for the full wait (3, 8, 15 s) |
+| End | `✓ Report: <path>`, `✓ Status: complete — N/N`, `Next:` | 5 min | 233 s and 259 s (real agents, default review) |
+| Read | `## Answer` with evidence, one file read away | — | yes |
+
+Every state has one screen. Each ends with one next command.
+
+| # | State | What it must show | Measured |
+|---|---|---|---|
+| 1 | First use: bare `cw`, `cw help` | the short front page, exit 0 | yes |
+| 2 | No agent set | `blocked`, `Try: cw doctor`; JSON names `CW_AGENT_COMMAND` | yes; the live count (`0/6`) and the end count (`0/14`) do not agree |
+| 3 | Empty: `cw report` with no run | `No run yet. Try: cw -q "<question>"` | yes |
+| 4 | Loading | a line when each worker starts and ends, and a line at least every 10 s between | **gap**: silent between |
+| 5 | Success | report path, status, one `Next:` line | yes |
+| 6 | A worker fails | why (the agent's own words), and `Next: cw --resume --run <id>` | **gap**: TTY shows neither; the reason is cut to `failed (exit N)` |
+| 7 | Offline | as 6, with the network error named | **gap**: as 6 |
+| 8 | Slow | as 4 | **gap**: as 4 |
+| 9 | Missing input: no question on a TTY | `Question: ` prompt on stderr; Ctrl-D stops it | yes |
+| 10 | Missing input: `--repo` names no folder | `cw: <path> does not exist`, exit 1, nothing made | **gap**: CW makes the folder and runs |
+| 11 | Too long: a 76 KB report | the terminal stays short; the length goes to the file | yes |
+| 12 | Color: `NO_COLOR`, piped, `TERM=dumb` | no escape bytes | yes for `NO_COLOR` and piped; **gap** for `TERM=dumb` |
+| 13 | Narrow (40 columns), screen reader | lines only, added at the end, no redraw | yes |
+| 14 | Ctrl-C | stops after the worker in hand, keeps done work, names the resume command | yes; the resume command has a second spelling |
+
+### D2. The CLI scale
+
+One page. A new verb, flag, or line of output keeps to all of it.
+
+1. **Streams.** stdout is data: the JSON result when piped or with `--json`.
+   stderr is for the person: `[drive]` lines (TTY only), prompts, errors. A
+   piped run that goes well writes nothing to stderr; piped output has no
+   escape bytes and no `\r`.
+2. **Line forms.** Progress: `[drive] ==> <Phase> (<done>/<total>)`. End:
+   `✓ Report: <path>`, then `✓ Status: <state> — <done>/<total>` (`!` in place
+   of `✓` when the run is not complete), then `Next: <command>`. An error:
+   `cw: <what went wrong>`, then `Try: <command>`. Every stop names one next
+   command, and a thing has one spelling: to go on with a run it is
+   `cw --resume --run <id>`.
+3. **Exit codes.** `0`: CW did its work and the state is saved, which takes in
+   a run that is `blocked` or `parked` (the JSON `status` says which). `1`: CW
+   said no or could not start (bad input, no such run, not a git project).
+   No other code comes from the top level.
+4. **Color.** Only on a TTY. Off with `NO_COLOR`, `CW_NO_COLOR`, or
+   `--no-color`; on by force with `FORCE_COLOR`. Color is never the only sign:
+   `✓` and `!` say the same thing without it.
+5. **Lines, not redraws.** Output is added at the end, line by line: no
+   spinner, no cursor moves. A sign of life is a new line.
+6. **Speed.** `cw --version` and `cw help` come back in under 100 ms.
+7. **The front page.** `cw help` gives at most five entries before
+   "More commands". A new one goes on only when an old one comes off.
+8. **The Homebrew test.** Before a new flag or verb, the change says:
+   would `brew` do this? Can a verb, flag, or env var that is here now do it
+   (if yes, no new flag)? Is the default output the same to the byte? What
+   does `cw help` look like after?
