@@ -83,6 +83,8 @@ Sections in this order, joined with `"\n"` and written with `fs.writeFileSync(ru
 - Invariants: <list joined with "; ">
 - Loop Stage: <stage>
 
+## Answer                                     (only when a completed verdict/synthesis task has a readable result with a summary)
+
 ## Phase Status
 
 | Phase | Status | Completed | Total |
@@ -103,6 +105,7 @@ Sections in this order, joined with `"\n"` and written with `fs.writeFileSync(ru
 ## Results
 ```
 
+- `## Answer` holds the completed verdict/synthesis task's own summary, its evidence refs (when any), and a `Full result: ## Results, ### <taskId>` pointer to the full body — so a reader gets the answer first, above the run facts, without scrolling to `## Results`. When the run has no completed task whose id matches `verdict:*`/`synthesis:*`, its result file is missing, or its summary is empty, the whole section is left out and the report is unchanged from before (report.ts's `renderAnswer`).
 - The first meta line label is `- Source:` in place of `- Repository:` ONLY when the app metadata `domain` is `"research"` AND `run.inputs.sourceUrl` is not set (report.ts:32-33,47).
 - Each empty section has a fixed line: `No state commits yet.`, `No feedback records.`, `No worker scopes yet.`, `No multi-agent runtime records yet.`, `No blackboard records yet.`, `No sandbox profiles selected yet.`, `No accepted candidate or verifier-gated commit rationale yet.`, `No candidates yet.`, `No pending tasks.`, `No completed results yet.` (report.ts:154,158,174,182,196,219,246,279,290,373).
 - `## Results`: for each completed task, exactly `### <taskId>`, empty line, `Result: <resultPath>`, empty line, then the result file body trimmed, then an empty line. When the file is not on this host: `_Result file is not present on this host; state metadata remains inspectable._` (report.ts:157-170). The bundle cross-check depends on this exact shape (run-export.ts:424-436).
