@@ -26,7 +26,6 @@ export interface RunSummaryFields {
   agentConfigured?: boolean;
   findings?: FindingRow[];
   runDir?: string;
-  fullReport?: string;
   /** Why a run that did not complete stopped: the stop reason, then (when
    *  there is one) the last line of the agent's own stderr. */
   why?: string[];
@@ -59,9 +58,6 @@ class StderrReporter implements Reporter {
       s.write(`  ${yellow("!", s)} Status: ${f.status}${counts}\n`);
       if (f.agentConfigured === false) s.write(`  ${tryHint("cw doctor", s)}\n`);
       else s.write(`  ${nextHint(`cw status ${f.runId}`, s)}\n`);
-    }
-    if (typeof f.fullReport === "string" && f.fullReport.trim()) {
-      s.write(`\n${dim("──── full report ────", s)}\n${f.fullReport.trim()}\n`);
     }
   }
 }

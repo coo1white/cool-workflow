@@ -37,7 +37,6 @@ A registry keyword (`drive`, `search`, `list`, `show`, `resume`, `archive`, `rer
 - `FORCE_COLOR` — non-empty and not `"0"` forces color on for human text even when piped; machine payloads use no styling at all (src/term.ts:21, src/reporter.ts:9-11).
 - `CW_DRIVE_PROGRESS` — `"0"` forces drive progress off, `"1"` forces it on; unset means "on only when stderr is a TTY" (src/drive.ts:136-142). Set to `"0"` by the `--quiet` flag (src/cli/entry.ts) — this is the only Rule of Silence gate point a flag can force; the end-of-run summary's own TTY check has no override.
 - `CW_VERBOSE=1` — set by `--verbose`; presentation only, passed to the agent wrapper (src/cli/command-surface.ts:73).
-- `CW_OUTPUT=full` — set by `--full`; also prints the report inline at run end (src/cli/command-surface.ts:75, src/cli/run-summary.ts:35-38).
 - `CW_HOME` — home registry root for the doctor check; default `$HOME/.local/state/cool-workflow` (src/doctor.ts:134-136).
 - `CW_AGENT_ATTEST_PUBKEY` — default trust key for `run export` / bundle verify (src/capability-core.ts:291, src/run-export.ts:488-491).
 - `CW_REQUIRE_ARCHIVE_INTEGRITY` — `1|true|yes|on` (case-free) makes import refuse, and inspect fail, an archive with no `integrity` block (src/run-export.ts:361-363,831-833).
@@ -135,7 +134,7 @@ For a non-complete run:
   Next: cw status <runId>   (otherwise)
 ```
 
-Under `--full`, then: `\n──── full report ────\n<report text trimmed>\n` (src/reporter.ts:69-71).
+(`--full`, which added the report text after this, was taken out on 2026-09-28.)
 - The findings table (src/term.ts:185-210): head line `Findings: <n> — <k>×<sev>, …` with severity order `P0, P1, P2, P3, none`; a dim column head `  SEVERITY  CLASS  ID` where the severity column is padded to at least 8 and the class column to at least 5; one row per finding `  <severity>  <class>  <id>` with the id cut at 60 columns with `…`. Returns `""` when there are no findings.
 - Findings come from re-parsing each completed worker's `result.md` `cw:result` block; a bad file or a run that does not load is skipped, never fatal (src/capability-core.ts:646-665).
 - Drive progress lines go through `reporter.progress` with the prefix `[drive] `; on only when stderr is a TTY or `CW_DRIVE_PROGRESS=1`; off when `CW_DRIVE_PROGRESS=0` (src/drive.ts:136-142). Line shapes: `[drive] → <label> (<phase>) — dispatched, spawning agent, may take minutes…` (drive.ts:307), `[drive] ↺ <label> (<phase>) — accepting cached result` (drive.ts:284), `[drive] ⇉ concurrent round: <n> agent(s) spawning in parallel, may take minutes…` (drive.ts:598), `[drive] ⧉ <label> (<phase>) — sub-workflow <appId>…` (drive.ts:703), numbered step lines `[drive] <n>. <action> <status> <taskId> model=<m> — <reason>` (drive.ts:855-864).
@@ -327,7 +326,7 @@ Every claim above carries its pointer inline. Chief anchors: src/reporter.ts:42-
 
 - `test/doctor-smoke.js` — doctor report shape, read-only, warn-vs-fail exits, `--json` vs human, `--onramp`.
 - `test/cli-progress-summary-smoke.js` — `printSuccessSummary` TTY render + non-TTY silence, `Try: cw doctor` recovery, `==>` phase lines, `--json` stdout stays byte-clean of `==>`/`Report:`/ANSI.
-- `test/cli-render-smoke.js` — Reporter TTY/non-TTY paths, `progress()` verbatim write, `--full` inline report, truncate, `NO_COLOR`/`CW_NO_COLOR`/`FORCE_COLOR`.
+- `test/cli-render-smoke.js` — Reporter TTY/non-TTY paths, `progress()` verbatim write, truncate, `NO_COLOR`/`CW_NO_COLOR`/`FORCE_COLOR`.
 - `test/cli-io-smoke.js`, `test/cli-format-smoke.js`, `test/cli-command-surface-smoke.js`, `test/cli-jsonmode-parity-smoke.js`, `test/cli-mcp-parity-smoke.js` — printJson, workbench human text, dispatch wiring, CLI-MCP payload parity.
 - `test/observability-cost-accounting-smoke.js`, `test/telemetry-metrics-coverage-smoke.js` — derived durations, `n/a` rates, attested vs estimated cost, deterministic report over injected now, metrics CLI-MCP parity.
 - `test/run-export-import-smoke.js`, `test/run-export-cross-machine-smoke.js`, `test/run-export-restore-rerun-smoke.js`, `test/run-export-restore-resume-smoke.js`, `test/run-import-path-traversal-smoke.js`, `test/run-import-tamper-failclosed-smoke.js`, `test/run-inspect-archive-smoke.js`, `test/run-restore-failclosed-smoke.js`, `test/verify-import-audit-chain-smoke.js` — the whole archive family and its fail-closed exits.

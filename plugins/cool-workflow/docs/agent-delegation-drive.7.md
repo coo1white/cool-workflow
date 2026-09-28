@@ -370,8 +370,9 @@ never polluted.
   `CW_DRIVE_TICK_MS` sets the time between lines; `0` turns them off.
 - **Verbosity.** Default is compact: the current action + folded tool lines, with
   the model's narration/reasoning HIDDEN. `--verbose` (sets `CW_VERBOSE=1`)
-  surfaces the full narration inline; `--full` (sets `CW_OUTPUT=full`) implies
-  verbose AND prints the report inline at run end.
+  surfaces the full narration inline. (`--full` was taken out on 2026-09-28: it
+  never printed the report inline as its help said. `cw report --show` prints
+  the report.)
 - **Transcript always on disk.** Regardless of verbosity — even when the screen
   view is silent or compact — the wrapper writes the COMPLETE narration + tool I/O
   to `transcript.md` next to that worker's `result.md`. The end-of-run summary
@@ -383,7 +384,7 @@ never polluted.
 - **End-of-run summary (cw side).** A COMPACT findings table — id / severity /
   classification + counts, re-parsed from each completed worker's `cw:result` —
   plus the report path, status, and run dir. NOT the full prose (that stays in
-  `report.md` + the transcript); `--full` also prints the report inline.
+  `report.md` + the transcript; `cw report --show` prints it).
 - **Determinism intact.** The backend evidence triple hashes stdout only, so the
   live stderr view never changes recorded evidence or replay.
 

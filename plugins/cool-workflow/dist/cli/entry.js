@@ -80,13 +80,11 @@ async function runCli(argv = process.argv.slice(2)) {
         process.env.CW_VERBOSE = "1";
     if (args.options["no-color"])
         process.env.CW_NO_COLOR = "1";
-    if (args.options.full)
-        process.env.CW_OUTPUT = "full";
     // --quiet is a documented CLI spelling of the existing CW_DRIVE_PROGRESS=0
     // env var (shell/drive.ts's emitProgress) — it only silences the terse
     // "[drive] " progress lines, not the end-of-run summary or any other
     // Rule of Silence gate point (SPEC/reporting-ux.md's 3 gate points are
-    // each independent; --verbose/--full don't touch them either). It also
+    // each independent; --verbose doesn't touch them either). It also
     // does NOT reach two OTHER TTY-gated narration channels a user might
     // reasonably expect it to quiet: live raw agent stderr streaming
     // (shell/execution-backend/agent.ts's shouldStreamAgentStderr, gated by

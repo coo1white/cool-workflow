@@ -27,7 +27,7 @@ exports.warnUnknownFlags = warnUnknownFlags;
  *   - cli/entry.ts: `version`/`v`, `help`/`h`, the vendor shorthands
  *     `claude`/`codex`/`gemini`/`deepseek`/`muse` (each sets `agent-command`),
  *     `repo`/`dir` (`--dir`/`-d` is a global alias for `--repo`),
- *     `verbose`, `no-color`, `full`, `quiet`, `question` (`-q`), and the
+ *     `verbose`, `no-color`, `quiet`, `question` (`-q`), and the
  *     `--resume --run <id>` continuation pair;
  *   - cli/dispatch.ts + core/util/cli-args.ts's wantsJson: `json`,
  *     `format`;
@@ -44,7 +44,6 @@ exports.GLOBAL_CLI_FLAGS = [
     "deepseek",
     "dir",
     "format",
-    "full",
     "gemini",
     "h",
     "help",
