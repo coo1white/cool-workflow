@@ -168,7 +168,7 @@ REGISTRY_BY_CAPABILITY.get("node.replay.verify")!.mcp!.handler = (args) => loadS
 // "flag" — text by default, JSON under --json/--format json).
 // ---------------------------------------------------------------------
 
-import { formatStateExplosionReport, formatCompactGraph } from "../../core/format/state-explosion-text";
+import { formatStateExplosionReport } from "../../core/format/state-explosion-text";
 import { wantsJson } from "../../core/util/cli-args";
 
 attachCliBinding("summary.refresh", {

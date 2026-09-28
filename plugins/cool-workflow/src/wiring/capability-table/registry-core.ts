@@ -29,13 +29,10 @@ import {
 } from "../../core/capability-data";
 import type {
   ParitySurface,
-  CliJsonMode,
   McpPropertySchema,
   McpToolDefinition,
-  CliHandlerResult,
   CliBinding,
   McpBinding,
-  CapabilityCliArgs,
   Capability,
 } from "../../core/capability-data";
 import { required } from "../../core/util/cli-args";

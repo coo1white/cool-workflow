@@ -14,7 +14,6 @@
 // constant), H; the old build's run-registry module and its
 // derive/policy/queue helper modules (byte-exact source).
 
-import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -128,8 +127,6 @@ export interface RunRegistryPolicy {
   maxReclaimRuns?: number;
   maxReclaimBytes?: number;
 }
-
-export const RUN_REGISTRY_SCHEMA_VERSION = 1 as const;
 
 export const DEFAULT_RUN_REGISTRY_POLICY: RunRegistryPolicy = {
   schemaVersion: 1,

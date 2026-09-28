@@ -9,7 +9,7 @@
 //
 // Evidence: SPEC/execution-backend.md "The driver registry".
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.hasExecutable = exports.BackendError = exports.SANDBOX_DIMENSIONS = exports.DEFAULT_BACKEND_ID = exports.EXECUTION_BACKEND_SCHEMA_VERSION = void 0;
+exports.hasExecutable = exports.BackendError = exports.SANDBOX_DIMENSIONS = exports.DEFAULT_BACKEND_ID = void 0;
 exports.registerBackend = registerBackend;
 exports.getBackendDriver = getBackendDriver;
 exports.listBackendDescriptors = listBackendDescriptors;
@@ -22,7 +22,6 @@ exports.attestSandbox = attestSandbox;
 exports.sandboxGuaranteeLabels = sandboxGuaranteeLabels;
 exports.probeBackend = probeBackend;
 exports.runBackend = runBackend;
-exports.createExecutionBackend = createExecutionBackend;
 exports.backendListPayload = backendListPayload;
 exports.backendShowPayload = backendShowPayload;
 exports.backendProbePayload = backendProbePayload;
@@ -35,7 +34,6 @@ const remote_1 = require("./remote");
 const ci_1 = require("./ci");
 const agent_1 = require("./agent");
 const collate_1 = require("../../core/util/collate");
-exports.EXECUTION_BACKEND_SCHEMA_VERSION = 1;
 exports.DEFAULT_BACKEND_ID = "node";
 exports.SANDBOX_DIMENSIONS = ["read", "write", "command", "network", "env"];
 class BackendError extends Error {
@@ -328,7 +326,6 @@ function probeBackend(id, context = {}) {
     // the local probes (node/bun/shell/container) ignore their arg. Pass
     // process.env, NOT the {cwd} context — otherwise the context object shadows
     // process.env and a configured agent always reads back "unverified".
-    void context;
     const body = driver?.probe ? driver.probe(process.env) : { checks: [], readiness: descriptor.readiness };
     return {
         schemaVersion: 1,
@@ -406,14 +403,6 @@ function runBackend(request) {
         return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "no-command", `Backend ${descriptor.id} requires a command to execute`, attestation);
     }
     return (0, local_1.executeLocal)(descriptor, request, label, attestation, getBackendDriver(descriptor.id)?.spawnStyle);
-}
-function createExecutionBackend(id) {
-    const descriptor = getBackendDescriptor(id);
-    return {
-        descriptor,
-        probe: (context) => probeBackend(id, context),
-        run: (request) => runBackend({ ...request, backendId: id }),
-    };
 }
 // ---- inspection payloads ---------------------------------------------------
 function backendListPayload() {

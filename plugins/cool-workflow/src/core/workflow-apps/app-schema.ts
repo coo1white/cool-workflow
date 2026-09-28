@@ -316,19 +316,6 @@ export interface WorkflowAppValidationResult {
   summary?: WorkflowAppSummary;
 }
 
-export interface WorkflowAppRunMetadataFull {
-  schemaVersion: number;
-  id: string;
-  title: string;
-  summary?: string;
-  version: string;
-  author?: WorkflowAppAuthor;
-  compatibility?: WorkflowAppCompatibility;
-  sandboxProfiles?: string[];
-  source?: WorkflowAppSource;
-  metadata?: Record<string, unknown>;
-}
-
 export class WorkflowAppValidationError extends Error {
   issues: WorkflowAppValidationIssue[];
 

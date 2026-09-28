@@ -30,8 +30,9 @@ makes the following traceable and machine-readable, per gate:
 - DECISION - what was adopted/rejected and at which gate (`fanin`,
   `candidate-score`, `selection`, `verifier`, or `commit`).
 - BASIS - the concrete evidence refs, provenance source, parent evidence ids,
-  and audit event ids that the decision is grounded on. These link to existing
-  `EvidenceProvenance` and trust-audit records; they are not copied.
+  and audit event ids that the decision is grounded on. These link to the
+  existing `provenance` of each evidence ref (written by `normalizeEvidence`)
+  and to trust-audit records; they are not copied.
 - AUTHORITY - which role / membership / worker / scorer / verifier made the call,
   and the role `policyRef` under which it was let through. Links to existing
   trust / policy / audit records.
@@ -141,7 +142,7 @@ loadable.
 
 ```
 worker result / blackboard / coordinator decision
-  -> EvidenceProvenance + trust-audit event        (BASIS)
+  -> evidence provenance + trust-audit event       (BASIS)
   -> role / membership / worker + role policyRef    (AUTHORITY)
   -> fanin coverage / score notes+verdict / selection reason
      / verifier gate / commit reason / judge rationale  (RATIONALE)

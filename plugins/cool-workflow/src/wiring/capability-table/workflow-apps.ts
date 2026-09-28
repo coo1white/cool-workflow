@@ -6,7 +6,6 @@
 
 import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
 import { required, optionalArg } from "../../core/util/cli-args";
-import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-data";
 
 // This whole module is required unconditionally at startup for EVERY
 // command (see wiring/capability-table/index.ts) — loading `next`'s and

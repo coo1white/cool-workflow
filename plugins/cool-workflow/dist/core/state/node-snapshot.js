@@ -26,7 +26,7 @@
 // replay", "Raw vs. normalized fingerprints", "Snapshot freshness
 // fail-closed".
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.NodeSnapshotError = exports.NODE_SNAPSHOT_SCHEMA_VERSION = void 0;
+exports.NodeSnapshotError = void 0;
 exports.sourceFingerprint = sourceFingerprint;
 exports.snapshotNode = snapshotNode;
 exports.loadNodeSnapshot = loadNodeSnapshot;
@@ -35,7 +35,6 @@ exports.replayNodeSnapshot = replayNodeSnapshot;
 exports.verifyNodeReplay = verifyNodeReplay;
 const hash_1 = require("../hash");
 const node_projection_1 = require("./node-projection");
-exports.NODE_SNAPSHOT_SCHEMA_VERSION = 1;
 /** Structured fail-closed error (mirrors PipelineContractError's shape). */
 class NodeSnapshotError extends Error {
     code;
