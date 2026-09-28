@@ -6,6 +6,7 @@
 //
 // Asserts the Step-3 constraints directly, deterministically, with NO live model:
 //   * progress() is a thin write — the line is emitted verbatim (already styled by the caller).
+//   * a blocked no-agent run's `cw -q` end summary (formatQuickstartSummary) points at `cw doctor`.
 //   * truncate is width-aware; color honors NO_COLOR / CW_NO_COLOR / FORCE_COLOR (the --no-color
 //     flag sets CW_NO_COLOR), independent of isTTY.
 
@@ -16,7 +17,7 @@ const path = require("node:path");
 const pluginRoot = path.resolve(__dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 // v2 moved the terminal presentation layer under dist/shell/ (was flat dist/).
-const { createReporter } = require(path.join(pluginRoot, "dist", "shell", "reporter.js"));
+const { createReporter, formatQuickstartSummary } = require(path.join(pluginRoot, "dist", "shell", "reporter.js"));
 const term = require(path.join(pluginRoot, "dist", "shell", "term.js"));
 const { createRenderer, truncate: coreTruncate, toolLabel, summarizeToolResult } = require(path.join(pluginRoot, "scripts", "agents", "agent-adapter-core.js"));
 
@@ -142,6 +143,18 @@ function testProgressThinWrite() {
   console.log("cli-render: progress thin-write OK");
 }
 
+function testBlocked() {
+  const blockedOut = plain(formatQuickstartSummary({
+    runId: "RUN3",
+    reportPath: "/tmp/run/report.md",
+    status: "blocked",
+    agentConfigured: false
+  }, false));
+  assert.match(blockedOut, /Status:\s*blocked/, "surfaces the blocked status");
+  assert.match(blockedOut, /Try: cw doctor/, "no-agent blocked run points at the one recovery command");
+  console.log("cli-render: blocked-no-agent recovery OK");
+}
+
 function testCursorHygiene() {
   // The live AGENT renderer (agent-adapter-core) on an interactive (TTY) stream: hide the cursor
   // when the spinner starts, ALWAYS restore it when the live region stops. finishLive() routes
@@ -259,6 +272,7 @@ function main() {
   testColorEnv();
   testMachineChannelByteExactUnderForceColor();
   testProgressThinWrite();
+  testBlocked();
   testCursorHygiene();
   testRollingWindowFold();
   testResultTreeLines();

@@ -70,7 +70,6 @@ Task options carried through the plan: `requiresEvidence`, `sandboxProfileId`, `
   - `--bundle` — only after `status === "complete"`, seals the run via `reportBundle` (export + offline self-verify). Output paths resolve against the caller's cwd. On a not-complete run nothing is sealed and the hint says so. (src/capability-core.ts:764-790, 806-809)
   - With no `--repo`/`--cwd`/`--link`, the repo defaults to the caller's cwd. (src/capability-core.ts:677-681)
   - The report is always (re)written, even when the drive blocked or parked; the run's own repo is resolved from `statePath` (`<repo>/.cw/runs/<id>/state.json` → three directories up). (src/capability-core.ts:733-743)
-- `collectRunFindings(runner, runId, baseDir?)` — best-effort compact findings rows re-parsed from each completed worker's `result.md` `cw:result` block; feeds the stderr run summary only. (src/capability-core.ts:646-665)
 - CLI wiring: the question is asked on a TTY when `--question` is missing (`Question: ` on stderr); `--check` with `ok: false` and a `--bundle` result with `bundle.ok === false` both set exit code 1. (src/cli/command-surface.ts:212-249, 434-445)
 - Vendor shorthand flags map to `--agent-command`: `-claude` → `builtin:claude`, `-codex` → `builtin:codex`, `-gemini` → `builtin:gemini`, `-deepseek` → `builtin:deepseek`. `-dir`/`--dir`/`-d` is an alias for `--repo` (explicit `--repo` wins). (src/cli/command-surface.ts:58-65)
 
@@ -318,7 +317,6 @@ Exit codes: `0` on success. `1` when `app validate` gives `valid: false`; when `
 - Loop expansion appends round phases with ids `<origin>@r<N>` and task ids `<task>@r<N>`, records one `loop-control` node per round boundary, expands at most one loop boundary per accept, and caps at `maxRounds`. `budget-target` loops stop when recorded attested tokens reach the target. (src/orchestrator/lifecycle-operations.ts:499-604)
 - `CAPABILITY_REGISTRY` dedupes by id with last-declaration-wins, so there is no load-order registration step that can go dead. (src/capability-registry.ts:588-594)
 - `quickstart` result keys `resumedFrom`/`bundle`/`remote` use conditional spread so the default JSON has no `null`/absent-key noise. (src/capability-core.ts:826-838)
-- `collectRunFindings` skips a garbled or missing `result.md` and an unloadable run without failing — the stderr summary just loses rows. (src/capability-core.ts:646-665)
 
 ## Evidence
 
