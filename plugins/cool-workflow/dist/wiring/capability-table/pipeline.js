@@ -282,6 +282,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
         { name: "--with-trust-key KEY", summary: "Add a public key to the bundle for a strict check." },
         { name: "--resume", summary: "Move a stopped run forward one step, or to the end with --run ID." },
         { name: "--link URL", summary: "Review a remote repo by its URL." },
+        { name: "--fast", summary: "Answer one question with 6 workers in place of 14." },
     ],
 }, "quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer). `audit-run` is a CLI-only alias of the same wrapper.", "quickstart");
 (0, registry_core_1.attachCliBinding)("dispatch", {

@@ -74,6 +74,9 @@ const onramp_1 = require("./onramp");
 const trust_audit_1 = require("./trust-audit");
 const report_cli_1 = require("./report-cli");
 const QUICKSTART_DEFAULT_APP = "architecture-review";
+// `--fast`: the 6-worker review for one focused question (Map and Assess
+// two workers each), in place of the default 14.
+const QUICKSTART_FAST_APP = "architecture-review-fast";
 /** True when `value` is a truthy CLI flag (present, or "true"/"1"/"yes"/"on"). */
 function truthyFlag(value) {
     if (value === true)
@@ -127,6 +130,7 @@ const RUNTIME_KEYS = new Set([
     "agentCommand", "agent-command", "agentArgs", "agent-args", "agentEndpoint", "agent-endpoint",
     "agentModel", "agent-model", "agentTimeoutMs", "agent-timeout-ms", "resume", "incremental",
     "concurrency", "link", "ref", "branch", "refresh", "check", "app", "appId", "workflowId", "question", "repo",
+    "fast",
 ]);
 /** Byte-exact port of the old build's `normalizeInputs`:
  *  repeated `--arg
@@ -444,7 +448,14 @@ async function promptForQuestion() {
  *  continues a named run to completion (--run <id>) — both ported byte-for-
  *  byte from the old build's capability-core module quickstart(). */
 async function quickstartRun(args) {
-    const appId = String(args.appId || args.app || args.workflowId || QUICKSTART_DEFAULT_APP);
+    const namedApp = args.appId || args.app || args.workflowId;
+    const fast = truthyFlag(args.fast);
+    // `--fast` only picks the default app; next to another named app it is a
+    // contradiction, so refuse it rather than drop one of the two quietly.
+    if (fast && namedApp && String(namedApp) !== QUICKSTART_FAST_APP) {
+        throw new Error(`--fast runs ${QUICKSTART_FAST_APP}; it cannot be used with the app ${String(namedApp)}. Drop --fast or the app name.`);
+    }
+    const appId = String(namedApp || (fast ? QUICKSTART_FAST_APP : QUICKSTART_DEFAULT_APP));
     // Remote source: a `--link <url>` — or a URL passed to `--repo`/`-dir` — is
     // materialized to a LOCAL checkout HERE (capability/shell layer). Cloning is
     // non-deterministic network I/O and must never enter the replay-deterministic
@@ -659,7 +670,7 @@ function formatQuickstartHuman(json) {
     if (typeof r.runId !== "string" || typeof r.status !== "string" || typeof r.reportPath !== "string") {
         return (0, safe_json_1.safeJsonStringify)(json);
     }
-    return (0, reporter_1.formatQuickstartSummary)({
+    const summary = (0, reporter_1.formatQuickstartSummary)({
         runId: r.runId,
         reportPath: r.reportPath,
         status: r.status,
@@ -667,6 +678,9 @@ function formatQuickstartHuman(json) {
         plannedWorkers: r.plannedWorkers,
         agentConfigured: r.agentConfigured,
     }, Boolean(r.reportOpened));
+    // A finished default review on a terminal: say once that one focused
+    // question has a faster way (TTY only, like the rest of this summary).
+    return r.appId === QUICKSTART_DEFAULT_APP && r.status === "complete" ? `${summary}\n  Faster for one question: add --fast (6 workers in place of 14)` : summary;
 }
 function dispatchRun(args) {
     const runId = String(args.runId);
