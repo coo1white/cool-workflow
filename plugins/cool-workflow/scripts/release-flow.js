@@ -149,11 +149,11 @@ function runGate() {
 }
 
 // ---- 1b. vendor liveness preflight (cut only, opt-in, never blocks) --------
-// The reviewer run below is the one live vendor call a cut needs: if that
-// vendor is not live, the review fails and the cut stops (fail closed). The
-// other builtin vendors are support tier 2 (wrapper + offline smoke, see
-// agent-delegation-drive(7) "Support tiers"), so a release never waits on
-// their keys or spends tokens on them. An operator who wants live numbers
+// The reviewer run below is the one live vendor call a cut needs, and the
+// reviewer is whatever agent the operator configures (any vendor): if it is
+// not live, the review fails and the cut stops (fail closed). Every other
+// vendor has a wrapper + offline smoke only (agent-delegation-drive(7)
+// "Support tiers"), so a release never waits on their keys or tokens. An operator who wants live numbers
 // names them in CW_PREFLIGHT_VENDORS; a failure there is a warning on
 // stderr, not a stop. CW_SKIP_VENDOR_PREFLIGHT=1 still skips it. Test seam
 // CW_RELEASE_FLOW_PREFLIGHT_CMD overrides the command (smoke stubs it).
@@ -185,7 +185,7 @@ function runVendorPreflight() {
     });
   }
   if (r.status !== 0) {
-    process.stderr.write(`release-flow: warning: vendor preflight — not every vendor in ${vendors} is live; they are support tier 2, so the cut goes on.\n`);
+    process.stderr.write(`release-flow: warning: vendor preflight — not every vendor in ${vendors} is live; a cut waits only on its reviewer, so the cut goes on.\n`);
   }
 }
 

@@ -667,8 +667,8 @@ function releaseFixtureNonAncestorPrevTag() {
 }
 
 // ---- Case: by default --cut runs NO live vendor preflight ----
-// The reviewer run is the one live vendor call a cut needs; other vendors are
-// support tier 2, so a cut never waits on their keys or tokens.
+// The reviewer run (any vendor the operator configures) is the one live
+// vendor call a cut needs, so a cut never waits on other vendors' keys or tokens.
 {
   const dir = fixture();
   const stub = writeStub(dir);
@@ -699,7 +699,7 @@ function releaseFixtureNonAncestorPrevTag() {
   const env = {
     ...process.env,
     CW_RELEASE_FLOW_GATE_CMD: "true",
-    CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // stub: a tier-2 vendor is not live
+    CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // stub: an opted-in vendor is not live
     CW_SKIP_VENDOR_PREFLIGHT: "",
     CW_PREFLIGHT_VENDORS: "codex,gemini",
     STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),

@@ -405,15 +405,15 @@ GLM stays an external agent command or HTTP endpoint. CW still imports no model
 SDK. The same headline shortcuts pick these builtins on the top-level CLI:
 `cw -q "..." -claude` / `-codex` / `-gemini` / `-deepseek` / `-muse`.
 
-Support tiers. `builtin:claude` is tier 1: every release is reviewed through
-it, so a release proves it live. The other builtins are tier 2: each has a
-wrapper and an offline smoke that checks the wrapper's shape with stand-in
-commands, but no release waits on a live call to them, and a change in a
-vendor's own CLI can break a tier-2 wrapper before a smoke sees it. To check
-tier 2 live, run `node scripts/vendor-preflight.js --vendors codex,gemini`
-(it spends tokens on each), or set `CW_PREFLIGHT_VENDORS` for a release cut,
-where a failure is a warning, not a stop. Reports of a broken tier-2 wrapper
-are welcome.
+Support tiers. A release is reviewed through whatever agent the operator
+configures (`CW_AGENT_COMMAND` or `CW_AGENT_ENDPOINT`, any vendor), so that one
+is proven live by the release. Every builtin has a wrapper and an offline
+smoke that checks the wrapper's shape with stand-in commands, but no release
+waits on a live call to any other vendor, and a change in a vendor's own CLI
+can break its wrapper before a smoke sees it. To check vendors live, run
+`node scripts/vendor-preflight.js --vendors codex,gemini` (it spends tokens on
+each), or set `CW_PREFLIGHT_VENDORS` for a release cut, where a failure is a
+warning, not a stop. Reports of a broken wrapper are welcome.
 
 The codex wrapper caps codex's reasoning effort for CW runs so a heavy
 `model_reasoning_effort = "high"` in the user's `~/.codex/config.toml` does not
