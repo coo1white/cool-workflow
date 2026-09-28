@@ -266,7 +266,7 @@ an answer with `file:line` evidence (the `## Answer` part of
 | Start | the process is up (`cw --version`, `cw help`) | 0.1 s | 55 ms |
 | Plan | first `[drive] ==> <Phase> (<done>/<total>)` line on stderr (TTY only) | 1 s | 0.2 s |
 | Each wait | a new line at least every 10 s while a worker runs | 10 s | yes: `[drive]   … <Phase> still working — 10s` |
-| End | `✓ Report: <path>`, `✓ Status: complete — N/N`, `Next:` | 5 min | 233 s and 259 s (real agents, default review) |
+| End | `✓ Report: <path>`, `✓ Status: complete — N/N workers`, `Next:` | 5 min | 233 s and 259 s (real agents, default review) |
 | Read | `## Answer` with evidence, one file read away | — | yes |
 
 Every state has one screen. Each ends with one next command.
@@ -274,7 +274,7 @@ Every state has one screen. Each ends with one next command.
 | # | State | What it must show | Measured |
 |---|---|---|---|
 | 1 | First use: bare `cw`, `cw help` | the short front page, exit 0 | yes |
-| 2 | No agent set | `blocked`, `Try: cw doctor`; JSON names `CW_AGENT_COMMAND` | yes; the live count (`0/6`) and the end count (`0/14`) do not agree |
+| 2 | No agent set | `blocked`, `Try: cw doctor`; JSON names `CW_AGENT_COMMAND` | yes; the phase line counts the phase (`Map (0/6)`), the end line the run (`0/14 workers`) |
 | 3 | Empty: `cw report` with no run | `No run yet. Try: cw -q "<question>"` | yes |
 | 4 | Loading | a line when each worker starts and ends, and a line at least every 10 s between | yes for the 10 s line; **gap**: in a concurrent round, each worker’s `spawning agent` line comes only after the round ends |
 | 5 | Success | report path, status, one `Next:` line | yes |
@@ -297,7 +297,7 @@ One page. A new verb, flag, or line of output keeps to all of it.
    piped run that goes well writes nothing to stderr; piped output has no
    escape bytes and no `\r`.
 2. **Line forms.** Progress: `[drive] ==> <Phase> (<done>/<total>)`. End:
-   `✓ Report: <path>`, then `✓ Status: <state> — <done>/<total>` (`!` in place
+   `✓ Report: <path>`, then `✓ Status: <state> — <done>/<total> workers` (`!` in place
    of `✓` when the run is not complete), then `Next: <command>`. An error:
    `cw: <what went wrong>`, then `Try: <command>`. Every stop names one next
    command, and a thing has one spelling: to go on with a run it is

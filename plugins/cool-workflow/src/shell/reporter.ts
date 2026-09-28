@@ -80,7 +80,9 @@ export const reporter: Reporter = createReporter(process.stderr);
  *  happened. */
 export function formatQuickstartSummary(f: RunSummaryFields, opened: boolean): string {
   const out = process.stdout;
-  const counts = typeof f.completedWorkers === "number" && typeof f.plannedWorkers === "number" ? ` — ${f.completedWorkers}/${f.plannedWorkers}` : "";
+  // "workers": this is the whole run's count, so it does not read as the
+  // same number as a phase line's "(done/total)" (D1 in unix-principles.md).
+  const counts = typeof f.completedWorkers === "number" && typeof f.plannedWorkers === "number" ? ` — ${f.completedWorkers}/${f.plannedWorkers} workers` : "";
   const lines = [`${green("✓", out)} Report: ${f.reportPath}`];
   if (f.status === "complete") {
     lines.push(`  ${green("✓", out)} Status: complete${counts}`);

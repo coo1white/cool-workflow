@@ -5345,3 +5345,135 @@ input.md (the size that used to throw `E2BIG`), no keys, an empty HOME:
 | Item | State | PR |
 |---|---|---|
 | Read both CLIs, switch both wrappers, smokes, docs (this file) | done | this PR |
+
+# The first five minutes: D1, D2 and the eight gaps they found
+
+Intent, measured facts and spec in ONE file, in the shape `AGENTS.md`
+"Intent files (the playbook)" asks for. Nine PRs build and close it,
+this file written by the last. Source: the operator, 2026-09-28: "我对
+cli有一个要求：要和homebrew一样简单好用，不能为了复杂而复杂", then the
+design handbook (D1 soul moment, D2 small design system), then "同意，按
+1→8 修，--full 删掉".
+
+## Part 1 — Intent
+
+**Problem.** CW had rules for its code (§7 of `docs/unix-principles.md`)
+but no written bar for what a person sees: how fast, which stream, which
+line forms, what each state looks like, when a new flag may come in.
+Without the bar, "is this simple?" had no answer to check against.
+
+**Outcome.** A written D1 (the one moment CW is for, step by step, with
+times, and one screen per state) and D2 (a one-page CLI scale), each row
+measured, then every measured gap fixed or named.
+
+**North Star.** Track A (a new user gets a cited answer in five minutes,
+from the README).
+
+## Measured facts (checked before the build)
+
+`cw -q` driven through 14 states with stub agents, on a TTY (`script`)
+and piped, 2026-09-28:
+
+- Start: `cw --version` and `cw help` 55 ms median; first `[drive]` line
+  at 0.2 s on a TTY; a piped run that goes well writes nothing to stderr.
+- A wait printed nothing for its whole length: gaps of 3.1, 8.1 and
+  15 s with 0 bytes in between.
+- `--repo /nope` made `/nope` and ran in it.
+- A parked run's TTY summary gave neither the reason nor the resume
+  command; a raw agent's stderr ("boom", "ENOTFOUND …") was kept nowhere.
+- `cw --resume --run <id>` on a `--fast` run said `appId:
+  architecture-review` and told the person to add `--fast`.
+- `--full` set `CW_OUTPUT=full`, and nothing in `src/` read it.
+- `TERM=dumb` still got 30 escape bytes.
+- Three spellings of the resume command were printed.
+- The phase line said `(0/6)` and the end line `0/14` seconds later.
+- Measured and found fine: `NO_COLOR`, 40 columns, Ctrl-C (stops after
+  the worker in hand, keeps done work), a 76 KB report (the terminal
+  stays short), the first-use and empty states.
+- Found wrong by a re-check: "`cw -q` with no question hangs on a TTY".
+  The capture was lost when the process was killed; run again, CW asks
+  `Question: ` on stderr and stops on Ctrl-D.
+
+## Paths weighed
+
+- **A new doc for D1/D2:** turned down; the md count is at its budget,
+  and §8 of `docs/unix-principles.md` sits next to the §7 code rules.
+- **Fix 3 by adding the agent's stderr to the recorded `reason`:**
+  turned down. `reason` is in `state.json`, and the v2 conformance
+  pins its bytes. Chosen: a log file (`logs/agent-stderr.log`, the
+  place the wrappers already use) and a TTY-only `Why:` line.
+- **Fix 2 by printing from the drive process:** not possible, as every
+  agent wait is a `spawnSync`. Chosen: a small ticker process per round,
+  only when `[drive]` progress is on.
+- **`--full`: build it or take it out:** the operator took it out;
+  `cw report --show` already prints the report.
+- **Fix 8 by making the two counts the same number:** turned down;
+  `plannedWorkers` is pinned as the whole-run count in many tests.
+  Chosen: the end line says `workers`.
+
+## Part 2 — Spec
+
+D1 and D2 are §8 of `docs/unix-principles.md` (#737). The fixes, one PR
+each:
+
+1. A local `--repo` that names no folder (or a file) is refused before
+   the plan: exit 1, nothing made.
+2. `[drive]   … <Phase> still working — <n>s` on stderr every
+   `CW_DRIVE_TICK_MS` (10000) while a round waits; only when `[drive]`
+   progress is on; `0` turns it off.
+3. A failed agent's stderr tail goes to `<workerDir>/logs/agent-stderr.log`
+   for any agent command (serial and concurrent path, redacted, never
+   over a wrapper's own log); the parked/blocked TTY summary shows
+   `Why:` and ends with `Next: cw --resume --run <id>`.
+4. A continued `--run` with no app and no `--fast` takes `appId` from the
+   run.
+5. `--full` taken out; a script that passes it gets the same run.
+6. `TERM=dumb` turns color off (cw and the wrappers' renderer);
+   `FORCE_COLOR` still forces it, `NO_COLOR` still wins.
+7. Every printed "go on with this run" says `cw --resume --run <id>`.
+8. The `cw -q` end line says `— <done>/<planned> workers`.
+
+The recorded `reason`, `state.json` and every `--json` payload keep
+their bytes, except `appId` for fix 4's case (wrong before, pinned
+nowhere) and the interrupted / iteration-limit reasons' resume spelling
+(fix 7).
+
+## What this spec got wrong (recorded at close)
+
+- One measured "gap" (no question on a TTY) was a lost capture, not a
+  bug; a second look at the raw bytes caught it before any code moved.
+- Fix 7's targeted smokes passed, and the full suite then caught a
+  third pin of the old spelling (`quickstart-bundle-smoke`); run the
+  full suite before a push, even for a string change.
+- Found while fixing 2 and not fixed here: in a concurrent round, each
+  worker's `spawning agent` line prints only after the round ends. It
+  is a gap in D1 row 4 and a row in `BACKLOG.md`.
+- `Reporter.runSummary`, `printSuccessSummary` and the findings table
+  have no caller (an older `BACKLOG.md` row already says so); left for
+  the operator to wire or remove.
+
+## Architecture snapshot diff
+
+- `docs/unix-principles.md` had no user-facing bar; §8 now holds D1 and
+  D2, and each row names its measured value.
+- `docs/agent-delegation-drive.7.md` said `--full` prints the report
+  inline and that only the wrappers keep a failed agent's stderr; both
+  fixed. It now names the still-working line, `TERM=dumb`, the parked
+  summary and the one resume spelling.
+- SPEC `reporting-ux.md` had no description of the `cw -q` end summary;
+  added. `cli-surface`, `pipeline-run`, `execution-backend`,
+  `scripts-runtime` and the surface JSON follow the eight fixes.
+
+## Status ledger
+
+| Item | State | PR |
+|---|---|---|
+| D1/D2 written and measured | done | #737 |
+| 1. `--repo` that names no folder | done | #738 |
+| 2. still-working line | done | #739 |
+| 3. `Why:` and the resume command; agent stderr kept | done | #740 |
+| 4. `appId` of a continued run | done | #741 |
+| 5. `--full` taken out | done | #742 |
+| 6. no color under `TERM=dumb` | done | #743 |
+| 7. one resume spelling | done | #744 |
+| 8. `workers` on the end line; this record | done | this PR |

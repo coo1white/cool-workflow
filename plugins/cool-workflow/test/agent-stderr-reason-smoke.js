@@ -105,6 +105,7 @@ try {
     const lines = text.split("\n");
     assert.match(text, /\n {2}Why: agent hop failed: map:[a-z-]+: failed \(exit 3\) \(attempt 3\/3\)\n {7}ENOTFOUND api\.example\.test marker-5c1 toke\*\*\*\[REDACTED\]\n/, "Why: names the reason, then the agent's last line");
     assert.equal(lines[lines.length - 1], `  Next: cw --resume --run ${result.runId}`, "the last line is the one resume command");
+    assert.equal(lines[1], "  ! Status: parked — 0/6 workers", "the run-wide count says it counts workers, not a phase");
     assert.ok(!text.includes("Try: cw report --show"), "one Next, not a second Try");
     console.log("agent-stderr: parked terminal summary shows Why and Next OK");
   }

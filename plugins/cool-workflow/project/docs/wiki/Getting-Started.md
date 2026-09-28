@@ -85,7 +85,7 @@ When it is done, CW opens the report in your browser by itself and prints:
 
 ```text
 ✓ Report: /path/to/project/.cw/runs/<run-id>/report.md
-  ✓ Status: complete — 6/6
+  ✓ Status: complete — 6/6 workers
   ✓ Report opened. Again later: cw report --open
   Try: cw report --show
 ```
