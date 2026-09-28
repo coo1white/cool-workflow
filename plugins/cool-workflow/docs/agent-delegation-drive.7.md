@@ -415,7 +415,26 @@ When an agent hop fails, CW core keeps only the child's stdout + exit code, so a
 bare `failed (exit 1)` hid the real cause (a relay 5xx, an auth error, a killed
 run). Each wrapper now also drops the failed child's stderr to
 `<run>/workers/<worker>/logs/agent-stderr.log`, so the reason is readable after
-the fact without changing the recorded, byte-stable evidence.
+the fact without changing the recorded, byte-stable evidence. For any other
+`CW_AGENT_COMMAND` that exits non-zero, CW writes the same file itself, from the
+last 4096 bytes of the command's stderr, with the same secret redaction. This
+works on both the serial and the concurrent path, and a log the wrapper wrote is
+never replaced. The recorded `reason` and the `--json` payload do not change.
+
+On a terminal, a `cw -q` run that parks or blocks with an agent set ends like
+this:
+
+```text
+  ! Status: parked — 0/6
+  Why: agent hop failed: map:runtime-surface: failed (exit 3) (attempt 3/3)
+       ENOTFOUND api.example.test
+  Try: cw report --open
+  Next: cw --resume --run <run-id>
+```
+
+`Why:` gives the stop reason, then the last line of that worker's
+`agent-stderr.log`. A piped or `--json` run keeps its payload, and the
+`hint` field is unchanged.
 
 The prompt is the worker's input.md plus the result contract, and a later
 phase's input carries every earlier result: a Verdict prompt can pass 128 KB

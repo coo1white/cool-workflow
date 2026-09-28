@@ -10,15 +10,16 @@
 // the agent's own credentials resolve; CW never reads them), per-job SIGTERM at
 // timeoutMs + SIGKILL at +5s, caps each captured stdout at 32MB RAW and each
 // written NDJSON line at 33MB SERIALIZED (see LINE_CAP below). Streams ONE
-// NDJSON line per job — `{i, spawnError?, exitCode, stdout}\n` — the INSTANT
+// NDJSON line per job — `{i, spawnError?, exitCode, stdout, stderr?}\n` — the INSTANT
 // that job settles (not once at the end): the parent's spawnSync call has its
 // own combined-output cap, so writing incrementally means a job whose line
 // already flushed keeps its real outcome even if a LATER job's output pushes
 // the combined stream over that cap and the whole child gets killed. `i` is
 // the job's index (settle order is concurrent, not submission order — the
 // parent cannot infer which line belongs to which job without it). stderr is
-// drained (a full pipe must never wedge a child). A kill yields exitCode null
-// — the no-exit-code refusal.
+// drained (a full pipe must never wedge a child); a job that exits non-zero
+// also sends the last 8 KB of it back as `stderr` on its line. A kill yields
+// exitCode null — the no-exit-code refusal.
 //
 // THE RED LINE: this child only `spawn`s the operator-resolved agent binary with
 // shell:false. It imports NO model SDK and reads NO credentials.
@@ -101,6 +102,7 @@ process.stdin.on("end", () => {
   // batch. LINE_CAP bounds the SERIALIZED line itself, held under the
   // parent's 34MB per-job grant with a small safety margin.
   const LINE_CAP = 33 * 1024 * 1024;
+  const STDERR_TAIL = 8192;
   jobs.forEach((job, i) => {
     let stdout = "";
     let stdoutBytes = 0;
@@ -176,7 +178,15 @@ process.stdin.on("end", () => {
       stdout += decoder.write(chunk);
       appendedBytes += chunk.length;
     });
-    child.stderr.on("data", () => {});
+    // Drained always; only the last STDERR_TAIL bytes are kept, and only a
+    // failed job (non-zero exit) sends them back, as `stderr` on its line,
+    // so the parent can save the reason to logs/agent-stderr.log.
+    let stderrTail = "";
+    const stderrDecoder = new StringDecoder("utf8");
+    child.stderr.on("data", (d) => {
+      const text = Buffer.isBuffer(d) ? stderrDecoder.write(d) : String(d);
+      stderrTail = (stderrTail + text).slice(-STDERR_TAIL);
+    });
     child.on("error", (error) => {
       clearTimeout(term); clearTimeout(kill);
       children.delete(child);
@@ -197,7 +207,8 @@ process.stdin.on("end", () => {
         return;
       }
       flushDecoder();
-      settle({ exitCode: typeof code === "number" ? code : null, stdout });
+      const failedTail = typeof code === "number" && code !== 0 && stderrTail.trim() ? { stderr: stderrTail } : {};
+      settle({ exitCode: typeof code === "number" ? code : null, stdout, ...failedTail });
     });
   });
 });

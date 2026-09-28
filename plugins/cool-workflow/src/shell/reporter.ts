@@ -27,6 +27,9 @@ export interface RunSummaryFields {
   findings?: FindingRow[];
   runDir?: string;
   fullReport?: string;
+  /** Why a run that did not complete stopped: the stop reason, then (when
+   *  there is one) the last line of the agent's own stderr. */
+  why?: string[];
 }
 
 export interface Reporter {
@@ -88,6 +91,15 @@ export function formatQuickstartSummary(f: RunSummaryFields, opened: boolean): s
   } else {
     lines.push(`  ${yellow("!", out)} Status: ${f.status}${counts}`);
     if (f.agentConfigured === false) lines.push(`  ${tryHint("cw doctor", out)}`);
+    else if (f.status === "parked" || f.status === "blocked") {
+      // A stop with an agent set: say why, and name the one command that
+      // goes on from here (D2 in docs/unix-principles.md).
+      const why = (f.why || []).filter((line) => line.trim());
+      why.forEach((line, index) => lines.push(`  ${index === 0 ? `${dim("Why:", out)} ` : "     "}${line}`));
+      lines.push(opened ? `  ${green("✓", out)} Report opened. Again later: cw report --open` : `  ${tryHint("cw report --open", out)}`);
+      lines.push(`  ${nextHint(`cw --resume --run ${f.runId}`, out)}`);
+      return lines.join("\n");
+    }
   }
   lines.push(opened ? `  ${green("✓", out)} Report opened. Again later: cw report --open` : `  ${nextHint("cw report --open", out)}`);
   lines.push(`  ${dim("Try:", out)} cw report --show`);

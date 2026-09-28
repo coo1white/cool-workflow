@@ -278,8 +278,8 @@ Every state has one screen. Each ends with one next command.
 | 3 | Empty: `cw report` with no run | `No run yet. Try: cw -q "<question>"` | yes |
 | 4 | Loading | a line when each worker starts and ends, and a line at least every 10 s between | yes for the 10 s line; **gap**: in a concurrent round, each worker’s `spawning agent` line comes only after the round ends |
 | 5 | Success | report path, status, one `Next:` line | yes |
-| 6 | A worker fails | why (the agent's own words), and `Next: cw --resume --run <id>` | **gap**: TTY shows neither; the reason is cut to `failed (exit N)` |
-| 7 | Offline | as 6, with the network error named | **gap**: as 6 |
+| 6 | A worker fails | why (the agent's own words), and `Next: cw --resume --run <id>` | yes: `Why:` gives the reason and the agent’s last stderr line; the last line is `Next: cw --resume --run <id>` |
+| 7 | Offline | as 6, with the network error named | as 6 |
 | 8 | Slow | as 4 | as 4 |
 | 9 | Missing input: no question on a TTY | `Question: ` prompt on stderr; Ctrl-D stops it | yes |
 | 10 | Missing input: `--repo` names no folder | `cw: <path> does not exist`, exit 1, nothing made | yes |

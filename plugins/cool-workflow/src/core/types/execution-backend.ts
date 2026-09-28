@@ -265,6 +265,10 @@ export interface AgentChildOutcome {
   spawnError?: string;
   exitCode: number | null;
   stdout: string;
+  /** The tail of the agent process's own stderr, kept only when it failed
+   *  (non-zero exit). Written to <workerDir>/logs/agent-stderr.log for the
+   *  person to read; never part of the recorded evidence. */
+  stderr?: string;
 }
 
 export interface ExecutionProvenance {

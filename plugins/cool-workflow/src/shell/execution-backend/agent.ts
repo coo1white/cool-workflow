@@ -410,6 +410,7 @@ interface BatchDelegateLine {
   spawnError?: string;
   exitCode?: number | null;
   stdout?: string;
+  stderr?: string;
 }
 
 /** Parse the delegate child's NDJSON stdout and reconcile it against `jobs`
@@ -438,6 +439,7 @@ export function reconcileBatchOutcomes(
     byIndex.set(parsed.i, {
       ...(parsed.spawnError ? { spawnError: parsed.spawnError } : {}),
       exitCode: typeof parsed.exitCode === "number" ? parsed.exitCode : null,
+      ...(typeof parsed.stderr === "string" && parsed.stderr ? { stderr: parsed.stderr } : {}),
       stdout: String(parsed.stdout || ""),
     });
   }
@@ -518,6 +520,30 @@ export function shouldStreamAgentStderr(env: NodeJS.ProcessEnv, isTTY: boolean):
 
 // Same package-root depth fix as BATCH_DELEGATE_CHILD_SCRIPT above.
 const HTTP_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");
+
+/** Keep a failed agent's own stderr beside its result.md, at
+ *  <workerDir>/logs/agent-stderr.log, so the reason is readable after the
+ *  fact (the shipped wrappers already do this themselves through
+ *  agent-adapter-core's persistStderr; this covers any other
+ *  CW_AGENT_COMMAND). A log the wrapper wrote wins: it is never replaced.
+ *  Same redaction and 4096-byte cap as the wrappers'. Advisory only: never
+ *  throws, never touches the recorded evidence. */
+function persistAgentStderr(resultPath: string, stderr: string): void {
+  let text = stderr.trim();
+  if (!text || !resultPath) return;
+  try {
+    const dir = path.join(path.dirname(resultPath), "logs");
+    const file = path.join(dir, "agent-stderr.log");
+    if (fs.existsSync(file)) return;
+    text = text.replace(/\b(sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|xox[bprs]-[A-Za-z0-9-]{20,}|Bearer\s+\S+|Authorization:\s*\S+|api[_-]?key[=:]\s*\S+|token[=:]\s*\S+)/gi, (match) => match.slice(0, 4) + "***[REDACTED]");
+    const cap = 4096;
+    if (text.length > cap) text = text.slice(text.length - cap) + `\n  [cut to the last ${cap} of ${text.length} bytes]`;
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, `${text}\n`, "utf8");
+  } catch {
+    /* advisory only — diagnostics must never break the run */
+  }
+}
 
 /** agent — spawns an EXTERNAL agent process per worker argv-style
  *  (shell:false), or POSTs the manifest to a configured HTTP agent
@@ -602,8 +628,10 @@ export function runAgentProcess(
         ...(child.error ? { spawnError: messageOf(child.error) } : {}),
         exitCode: typeof child.status === "number" ? child.status : null,
         stdout: String(child.stdout || ""),
+        ...(typeof child.status === "number" && child.status !== 0 && typeof child.stderr === "string" && child.stderr.trim() ? { stderr: child.stderr } : {}),
       };
     }
+    if (outcome.exitCode !== 0 && outcome.stderr) persistAgentStderr(subst.result, outcome.stderr);
     if (outcome.spawnError) {
       const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
       return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process failed to spawn: ${outcome.spawnError}`, {
