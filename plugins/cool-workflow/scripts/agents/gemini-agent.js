@@ -4,7 +4,7 @@
 // gemini-agent.js - Gemini CLI adapter for CW Agent Delegation Drive.
 //
 // This is a CONFIG wrapper, not a CW runtime dependency. CW spawns this script
-// out-of-process; this script spawns `gemini -p` out-of-process. Vendor NDJSON
+// out-of-process; this script spawns `gemini` out-of-process. Vendor NDJSON
 // parsing stays here in userland policy.
 //
 // Contract:
@@ -35,7 +35,21 @@ if (!inputPath || !resultPath) {
   process.exit(2);
 }
 
+// The prompt goes to gemini on STDIN, never as an argument: Linux takes at
+// most 131072 bytes in one argument (macOS about 1 MB for all of them), and a
+// Verdict prompt, which carries every earlier result, passes that on real runs
+// (spawn E2BIG). A piped stdin puts gemini in headless mode with no -p.
+// gemini reads at most 8 MiB of stdin and cuts the rest with only a warning,
+// so a longer prompt is refused here: never a silent half prompt.
+const GEMINI_STDIN_MAX_BYTES = 8 * 1024 * 1024;
 const prompt = buildPrompt(inputPath);
+const promptBytes = Buffer.byteLength(prompt, "utf8");
+if (promptBytes > GEMINI_STDIN_MAX_BYTES) {
+  const message = `gemini prompt is ${promptBytes} bytes, more than the ${GEMINI_STDIN_MAX_BYTES} bytes gemini reads from stdin; not started, as gemini would cut the prompt`;
+  persistStderr(resultPath, message);
+  process.stderr.write(`${message}\n`);
+  process.exit(1);
+}
 const render = createRenderer({ env: process.env, stderr: process.stderr, label: "gemini" });
 const transcriptPath = path.join(path.dirname(resultPath), "transcript.md");
 const state = { provider: "gemini", buffer: "", model: undefined, usage: undefined, textFragments: [], finalResult: undefined, renderer: render };
@@ -60,8 +74,6 @@ function recordJsonLine(line) {
 render.action("gemini: reading the repo (read-only)…");
 
 const args = [
-  "-p",
-  prompt,
   "--output-format",
   "stream-json",
   "--approval-mode",
@@ -69,9 +81,13 @@ const args = [
 ];
 
 const child = spawnVendor("gemini", "gemini", args, {
-  stdio: ["ignore", "pipe", "pipe"],
+  stdio: ["pipe", "pipe", "pipe"],
   shell: false
 }, resultPath, () => render.finishLive());
+// A gemini that exits before reading all of stdin gives EPIPE here; its exit
+// code and stderr are what the close handler below reports.
+child.stdin.on("error", () => {});
+child.stdin.end(prompt);
 // Record the vendor PID so cw can reap this gemini process if it SIGKILLs the
 // wrapper on a timeout (see agent-adapter-core recordVendorPid).
 recordVendorPid(child);

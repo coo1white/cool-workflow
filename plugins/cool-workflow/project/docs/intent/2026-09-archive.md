@@ -5232,3 +5232,116 @@ here?"), the real claude CLI, `cw -q ... -claude --json`.
 | Item | State | PR |
 |---|---|---|
 | Measure, `overlapPrevious`, app, tests, docs (this file) | done | this PR |
+
+# Every wrapper gives the prompt on stdin: gemini and opencode
+
+Intent, measured facts and spec in ONE file, in the shape `AGENTS.md`
+"Intent files (the playbook)" asks for. One PR builds and closes it, so
+this file went straight to the archive (md count unchanged). Source:
+the operator, 2026-09-28, "做 gemini/opencode 改用 stdin" — the BACKLOG
+row opened by the real-agent Track A run. The wrappers' vendor argv
+changes; CW's own output does not.
+
+## Part 1 — Intent
+
+**Problem.** The gemini and opencode wrappers (and the deepseek and
+gemini-through-opencode wrappers built on opencode) pass the whole prompt
+as one argument. Linux takes at most 131072 bytes in one argument (macOS
+about 1 MB for all), and a Verify or Verdict prompt carries every earlier
+result, so on a real repository the spawn can fail with `E2BIG`. Since
+#727 it fails closed with the reason on disk, but it still fails. The
+claude wrapper moved to stdin in #727.
+
+**Outcome.** No bundled wrapper puts the prompt in argv; a 1.2 MB prompt
+reaches gemini and opencode.
+
+**North Star.** Track A (a late phase must not fail on size) and Track C
+(more than one real client runs CW work).
+
+## Measured facts (checked before the build)
+
+Read from the published code, not from memory.
+
+- `@google/gemini-cli` 0.61.0 (npm latest), `readStdin.ts` and the entry
+  point: when stdin is not a TTY it is read and put BEFORE any `-p` text;
+  `isHeadlessMode()` is true for a non-TTY stdin alone, so `-p` is not
+  needed. `--output-format` and `--approval-mode` are plain options that
+  apply the same way. stdin is capped at 8 MiB (8388608 bytes): past it
+  the rest is cut with only a warning.
+- `opencode-ai` 1.18.33 (npm latest; the package is a binary launcher, so
+  the source was read at the `sst/opencode` tag `v1.18.33`),
+  `packages/opencode/src/cli/cmd/run.ts`: when stdin is not a TTY,
+  `Bun.stdin.text()` is read; with no positional message it is the whole
+  message. No size cap in the CLI. `--format`, `--model` and the
+  permission flag apply the same way.
+- Tests pinned the prompt in argv: `test/gemini-agent-wrapper-smoke.js`
+  read it after `-p`, and its 1.2 MB case expected `E2BIG`.
+
+## Paths weighed
+
+- **A prompt file** (`--prompt-file`-style): neither CLI has one for this
+  mode. Turned down.
+- **Keep argv, cap the prompt size:** fails the same late phases. Turned
+  down.
+- **Chosen:** stdin, as the claude wrapper does. Undone by putting the
+  prompt back in argv.
+
+## Part 2 — Spec
+
+- gemini: `gemini --output-format stream-json --approval-mode plan`, the
+  prompt on stdin, no `-p`. A prompt over 8388608 bytes is refused before
+  the spawn (reason in `agent-stderr.log` and stderr, exit 1), since
+  gemini would cut it: never a silent half prompt.
+- opencode (and deepseek, gemini through opencode): `opencode run
+  --format json --dangerously-skip-permissions [--model <m>]`, the prompt
+  on stdin, no positional message.
+- A child that exits before reading all of stdin: the write error is
+  dropped, and the exit code and stderr are reported as before.
+- The wrappers' stdout report, result.md and fail-closed paths are
+  unchanged.
+- Found by the real-binary check below and fixed here: opencode reports
+  an API failure as a `{ "type": "error" }` JSONL event on stdout and
+  exits 1 with empty stderr, and the wrapper said only "opencode exited
+  1". It now keeps the event's `name: data.message` and names it in the
+  failure detail (`agent-stderr.log` and stderr).
+
+## Real-binary check (after the build)
+
+The two wrappers, unchanged from this PR, run against the real CLIs
+(gemini 0.61.0, opencode 1.18.33, installed from npm) with a 1248015-byte
+input.md (the size that used to throw `E2BIG`), no keys, an empty HOME:
+
+- gemini: the prompt got past input: gemini stopped at auth ("Please set
+  an Auth method ... GEMINI_API_KEY"), not at "No input provided via
+  stdin"; exit 41, the reason in `agent-stderr.log`.
+- opencode: with the prompt only on stdin it opened a session and sent
+  the model request (stopped by this sandbox's network: "request blocked
+  ... api.githubcopilot.com", 403); with no stdin and no message it says
+  "You must provide a message or a command". Through the wrapper the
+  failure now reads "APIError: Forbidden: request blocked ...".
+
+## What this spec got wrong (recorded at close)
+
+- The spec did not see the opencode error event; the real-binary check
+  did, and it is fixed in this PR.
+- Not proven here: a full model answer through gemini or opencode (no
+  keys in this sandbox). The published code, the real binaries taking the
+  prompt from stdin, and the shims in the smokes are the evidence.
+- Seen, not in scope: gemini prints 'Approval mode overridden to
+  "default" because the current folder is not trusted' when the project
+  folder is not in its trusted list, so `--approval-mode plan` may not
+  hold there. Logged in `BACKLOG.md`.
+
+## Architecture snapshot diff
+
+- `docs/agent-delegation-drive.7.md` said "The gemini and opencode
+  wrappers still pass it as an argument"; it now says every bundled
+  wrapper uses stdin and names gemini's 8 MiB refusal.
+  `project/docs/rebuild/SPEC/scripts-runtime.md` had both argv forms;
+  fixed. The `BACKLOG.md` row is gone.
+
+## Status ledger
+
+| Item | State | PR |
+|---|---|---|
+| Read both CLIs, switch both wrappers, smokes, docs (this file) | done | this PR |

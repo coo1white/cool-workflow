@@ -66,6 +66,8 @@ let childStderr = "";
 // opencode (>=1.x) --format json emits JSONL events of shape { type, part }:
 //   type:"text"        -> part.text         assistant text, grouped by part.messageID
 //   type:"step_finish" -> part.tokens       { input, output, ... } per step
+//   type:"error"       -> error.data.message why the run failed (an API error,
+//                         a blocked host); kept so a failed hop names its reason
 // The final answer is the LAST message's text (earlier "text" parts are mid-run
 // narration). Older opencode shapes (ev.result / ev.text / ev.delta) are still
 // accepted as a fallback so the wrapper is not pinned to one CLI version.
@@ -78,6 +80,12 @@ function recordJsonLine(line) {
     return;
   }
   const part = ev && typeof ev.part === "object" && ev.part ? ev.part : {};
+  if (ev && ev.type === "error" && ev.error && typeof ev.error === "object") {
+    const data = ev.error.data && typeof ev.error.data === "object" ? ev.error.data : {};
+    const reason = [ev.error.name, data.message || ev.error.message].filter((v) => typeof v === "string" && v).join(": ");
+    if (reason) state.errorText = reason;
+    return;
+  }
 
   if (ev.type === "text" && typeof part.text === "string") {
     const mid = typeof part.messageID === "string" ? part.messageID : "";
@@ -108,8 +116,11 @@ function recordJsonLine(line) {
 
 render.action(`${label}: reading the repo…`);
 
-// `opencode run` takes the message as a POSITIONAL arg ("opencode run [message..]");
-// there is no --prompt flag. Pass the prompt last, as the positional message.
+// The prompt goes to `opencode run` on STDIN, never as an argument: Linux
+// takes at most 131072 bytes in one argument (macOS about 1 MB for all of
+// them), and a Verdict prompt, which carries every earlier result, passes that
+// on real runs (spawn E2BIG). With no positional message, `opencode run` takes
+// the whole piped stdin as the message.
 // --model (provider/model, e.g. deepseek/deepseek-v4-flash) is added only when a
 // variant requests it; otherwise opencode uses its configured default model.
 const args = [
@@ -117,14 +128,17 @@ const args = [
   "--format",
   "json",
   "--dangerously-skip-permissions",
-  ...(requestedModel ? ["--model", requestedModel] : []),
-  prompt
+  ...(requestedModel ? ["--model", requestedModel] : [])
 ];
 
 const child = spawnVendor("opencode", "opencode", args, {
-  stdio: ["ignore", "pipe", "pipe"],
+  stdio: ["pipe", "pipe", "pipe"],
   shell: false
 }, resultPath, () => render.finishLive());
+// An opencode that exits before reading all of stdin gives EPIPE here; its
+// exit code and stderr are what the close handler below reports.
+child.stdin.on("error", () => {});
+child.stdin.end(prompt);
 // Record the vendor PID so cw can reap this opencode process (also used by the
 // deepseek wrapper, which re-exports this file) if it SIGKILLs the wrapper on a
 // timeout (see agent-adapter-core recordVendorPid).
@@ -155,7 +169,7 @@ child.on("close", (code) => {
   if (code !== 0) {
     // opencode's real failure reason is often only in the JSONL text/result
     // fragments already parsed into `state`, not in raw OS-level stderr.
-    const partial = state.finalResult || state.lastMessageText || state.textFragments.join("\n\n");
+    const partial = state.errorText || state.finalResult || state.lastMessageText || state.textFragments.join("\n\n");
     const detail = buildFailureDetail({ label: "opencode", code, childStderr: childStderr.trim(), partialText: partial });
     persistStderr(resultPath, detail);
     process.stderr.write(`${detail}\n`);
