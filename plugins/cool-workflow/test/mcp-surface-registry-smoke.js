@@ -33,6 +33,7 @@ const surface = require(path.join(pluginRoot, "dist", "mcp", "dispatch.js"));
 function liveMcpTools() {
   const out = execFileSync(process.execPath, [distServer], {
     cwd: pluginRoot,
+    env: { ...process.env, CW_MCP_TOOLS: "full" },
     input: `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} })}\n`,
     encoding: "utf8"
   });

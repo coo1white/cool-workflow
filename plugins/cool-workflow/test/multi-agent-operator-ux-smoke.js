@@ -282,6 +282,7 @@ function runFail(args) {
 function readMcp(runId) {
   const server = spawn(node, [mcpServer], {
     cwd: pluginRoot,
+    env: { ...process.env, CW_MCP_TOOLS: "full" },
     stdio: ["pipe", "pipe", "pipe"]
   });
   const lines = readline.createInterface({ input: server.stdout });

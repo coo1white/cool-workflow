@@ -40,6 +40,7 @@ const { cliHelpTokens, cliReachabilityIssues } = require(path.join(pluginRoot, "
 function liveMcpToolDefinitions() {
   const out = execFileSync(node, [mcpServer], {
     cwd: pluginRoot,
+    env: { ...process.env, CW_MCP_TOOLS: "full" },
     input: `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} })}\n`,
     encoding: "utf8"
   });

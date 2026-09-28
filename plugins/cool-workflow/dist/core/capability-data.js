@@ -33,7 +33,7 @@
 // capability is APPENDED after the transcript's last row (never inserted),
 // so every existing position keeps its pinned order.
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MCP_TOOL_DATA = exports.MCP_TOOL_ANNOTATIONS = exports.COMMON_PROPERTY_TYPES = exports.PROPERTY_OVERRIDES = exports.CapabilityNotImplementedError = void 0;
+exports.MCP_TOOL_DATA = exports.MCP_CORE_TOOLS = exports.MCP_TOOL_ANNOTATIONS = exports.COMMON_PROPERTY_TYPES = exports.PROPERTY_OVERRIDES = exports.CapabilityNotImplementedError = void 0;
 exports.notYetImplemented = notYetImplemented;
 exports.stringProperty = stringProperty;
 /** Thrown by every not-yet-wired MCP tool handler. Never hit by this
@@ -403,6 +403,26 @@ exports.MCP_TOOL_ANNOTATIONS = {
     cw_clones_gc: { readOnlyHint: false, destructiveHint: true },
     cw_orphans_gc: { readOnlyHint: false, destructiveHint: true },
 };
+/** The MCP `core` tool profile: what `tools/list` shows when
+ *  CW_MCP_TOOLS is unset or `core` (mcp/server.ts), in this order.
+ *  `CW_MCP_TOOLS=full` lists every tool. The profile decides only what is
+ *  listed; `tools/call` still takes every known tool name. It keeps a
+ *  client's context small: the full list was about 104 KB, these twelve
+ *  about 6.7 KB (measured 2026-09-28). */
+exports.MCP_CORE_TOOLS = [
+    "cw_app_list",
+    "cw_app_show",
+    "cw_app_run",
+    "cw_run_drive_step",
+    "cw_status",
+    "cw_report",
+    "cw_run_resume",
+    "cw_run_list",
+    "cw_audit_verify",
+    "cw_backend_probe",
+    "cw_run_export",
+    "cw_run_restore",
+];
 exports.MCP_TOOL_DATA = [
     { tool: "cw_list", capability: "list", requiredArgs: [], properties: [], description: "List bundled CW workflows." },
     { tool: "cw_plan", capability: "plan", requiredArgs: ["workflowId"], properties: ["workflowId", "repo", "question"], description: "Create a CW run and return its canonical plan summary." },

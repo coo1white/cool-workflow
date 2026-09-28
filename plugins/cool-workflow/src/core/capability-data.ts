@@ -575,6 +575,27 @@ export const MCP_TOOL_ANNOTATIONS: Record<string, McpToolAnnotations> = {
   cw_orphans_gc: { readOnlyHint: false, destructiveHint: true },
 };
 
+/** The MCP `core` tool profile: what `tools/list` shows when
+ *  CW_MCP_TOOLS is unset or `core` (mcp/server.ts), in this order.
+ *  `CW_MCP_TOOLS=full` lists every tool. The profile decides only what is
+ *  listed; `tools/call` still takes every known tool name. It keeps a
+ *  client's context small: the full list was about 104 KB, these twelve
+ *  about 6.7 KB (measured 2026-09-28). */
+export const MCP_CORE_TOOLS: readonly string[] = [
+  "cw_app_list",
+  "cw_app_show",
+  "cw_app_run",
+  "cw_run_drive_step",
+  "cw_status",
+  "cw_report",
+  "cw_run_resume",
+  "cw_run_list",
+  "cw_audit_verify",
+  "cw_backend_probe",
+  "cw_run_export",
+  "cw_run_restore",
+];
+
 /** Literal transcription of SPEC/mcp.md's "All 196 MCP tools" table, in
  *  its exact source order (`cw_list` first, `cw_history` last in that
  *  transcript — the array order IS the `tools/list` order, per that

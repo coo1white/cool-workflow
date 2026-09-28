@@ -13,7 +13,8 @@
 //     falls back to the newest supported entry otherwise (with today's
 //     one-entry list this is byte-identical to the old fixed reply);
 //   - `tools/list` -> { tools: [...] } from core/capability-table.ts via
-//     mcp/dispatch.ts, ignoring params (mcp.md:20,271-277);
+//     mcp/dispatch.ts, ignoring params (mcp.md:20,271-277); by default
+//     only the CW_MCP_TOOLS `core` profile is listed (see toolProfile);
 //   - `tools/call` -> { content: [{ type: "text", text: <2-space pretty
 //     JSON string> }] } (mcp.md:21,279-285); a handful of tools whose
 //     result carries worker/agent-authored stored text (UNTRUSTED_RESULT_FIELDS
@@ -69,6 +70,7 @@ const version_1 = require("../core/version");
 const recovery_hint_1 = require("../core/format/recovery-hint");
 const dispatch_1 = require("./dispatch");
 const tool_process_1 = require("./tool-process");
+const capability_data_1 = require("../core/capability-data");
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
 /** Protocol versions this server can speak, oldest first. `initialize`
  *  echoes the client's `params.protocolVersion` when it is in this list,
@@ -77,19 +79,35 @@ const MAX_LINE_BYTES = 16 * 1024 * 1024;
  *  behavior-identical to the old hard-coded reply (mechanism first; a
  *  second version is a one-line append here). */
 const SUPPORTED_PROTOCOL_VERSIONS = ["2024-11-05"];
-/** Read the optional server-side tool policy. When both values are unset, the
- * full present tool list and access stay unchanged. An enabled list is an
- * allowlist; disabled names are then removed. */
+/** Read the optional server-side tool policy. An enabled list is an
+ * allowlist; disabled names are then removed. When either is set, that
+ * policy alone decides the list. When both are unset, CW_MCP_TOOLS picks the
+ * listed profile: unset or `core` lists MCP_CORE_TOOLS, `full` lists every
+ * tool, and any other value fails closed. */
 function mcpToolAuthority(definitions = (0, dispatch_1.toolDefinitions)(), environment = process.env) {
     const known = new Set(definitions.map((definition) => definition.name));
+    const profile = toolProfile(environment, known);
     const enabled = configuredToolNames("CW_MCP_ENABLED_TOOLS", environment, known);
     const disabled = configuredToolNames("CW_MCP_DISABLED_TOOLS", environment, known);
     if (!enabled && !disabled)
-        return {};
+        return profile ? { listed: profile } : {};
     const allowed = enabled ? new Set(enabled) : new Set(known);
     for (const name of disabled ?? [])
         allowed.delete(name);
     return { allowed };
+}
+/** The CW_MCP_TOOLS list profile: the core names, or undefined for `full`. */
+function toolProfile(environment, known) {
+    const value = environment.CW_MCP_TOOLS;
+    if (value === "full")
+        return undefined;
+    if (value !== undefined && value !== "core")
+        throw new Error(`MCP tool policy CW_MCP_TOOLS must be core or full: ${value}`);
+    for (const tool of capability_data_1.MCP_CORE_TOOLS) {
+        if (!known.has(tool))
+            throw new Error(`MCP tool policy CW_MCP_TOOLS=core names an unknown tool: ${tool}`);
+    }
+    return capability_data_1.MCP_CORE_TOOLS;
 }
 function configuredToolNames(name, environment, known) {
     const value = environment[name];
@@ -107,6 +125,10 @@ function configuredToolNames(name, environment, known) {
 }
 function permittedToolDefinitions(authority) {
     const definitions = (0, dispatch_1.toolDefinitions)();
+    if (authority.listed) {
+        const byName = new Map(definitions.map((definition) => [definition.name, definition]));
+        return authority.listed.map((name) => byName.get(name));
+    }
     return authority.allowed ? definitions.filter((definition) => authority.allowed?.has(definition.name)) : definitions;
 }
 function toolPermitted(name, authority) {
