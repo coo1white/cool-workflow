@@ -302,6 +302,20 @@ Found before step 1, by reading the capability table's wiring:
   its hooks, after the release tooling is cut loose. Fourteen steps
   became nine.
 
+Found in step 1:
+
+- `shell/orchestrator.ts` is not part of the multi-agent family. It is
+  the `CoolWorkflowRunner` facade that `scripts/dogfood-release.js`,
+  `scripts/dogfood-architecture-review.js` and three tests load; its
+  header calls it an intentional keep. The fan-in table counted only
+  importers under `src/`, so it missed the scripts. It stays; step 1
+  took out its three candidate verbs, its one tie to D1.
+- The word "candidate" in `release-gate.js` and `release-flow.js` means a
+  git branch or a release candidate, not the D1 candidate store. Only
+  `dogfood-release.js`, `release-check.js`, `version-sync-check.js`,
+  `package.json` (`eval:replay`) and the CI `steering-config-gate` job
+  tied release tooling to D1.
+
 (the rest filled at close)
 
 ## Status ledger
@@ -310,7 +324,7 @@ Found before step 1, by reading the capability table's wiring:
 |---|---|---|
 | Intent + spec (this file) | open | |
 | D1-D6 answered | yes, all six (operator, 2026-09-28) | #751 |
-| 1 Release tooling off the family (D3) | | |
+| 1 Release tooling off the family (D3) | open | |
 | 2 Delete the D1 family and cut its hooks | | |
 | 3 Comment and helper sweep (compress-src) | | |
 | 4 Node floor (D4) | | |
