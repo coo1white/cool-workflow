@@ -71,6 +71,8 @@ const ANSI_RE = /\x1b\[[0-9;]*m/g;
 function colorOn(env, stderr) {
   if ((env.NO_COLOR ?? "") !== "" || (env.CW_NO_COLOR ?? "") !== "") return false;
   if (env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== "" && env.FORCE_COLOR !== "0") return true;
+  // A terminal that says it cannot show escapes gets none (same as src/shell/term.ts).
+  if (env.TERM === "dumb") return false;
   return Boolean(stderr.isTTY);
 }
 // Behaviorally IDENTICAL to src/shell/term.ts truncate() — the two copies exist only because the wrapper

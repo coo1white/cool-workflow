@@ -284,7 +284,7 @@ Every state has one screen. Each ends with one next command.
 | 9 | Missing input: no question on a TTY | `Question: ` prompt on stderr; Ctrl-D stops it | yes |
 | 10 | Missing input: `--repo` names no folder | `cw: <path> does not exist`, exit 1, nothing made | yes |
 | 11 | Too long: a 76 KB report | the terminal stays short; the length goes to the file | yes |
-| 12 | Color: `NO_COLOR`, piped, `TERM=dumb` | no escape bytes | yes for `NO_COLOR` and piped; **gap** for `TERM=dumb` |
+| 12 | Color: `NO_COLOR`, piped, `TERM=dumb` | no escape bytes | yes |
 | 13 | Narrow (40 columns), screen reader | lines only, added at the end, no redraw | yes |
 | 14 | Ctrl-C | stops after the worker in hand, keeps done work, names the resume command | yes; the resume command has a second spelling |
 
@@ -306,8 +306,8 @@ One page. A new verb, flag, or line of output keeps to all of it.
    a run that is `blocked` or `parked` (the JSON `status` says which). `1`: CW
    said no or could not start (bad input, no such run, not a git project).
    No other code comes from the top level.
-4. **Color.** Only on a TTY. Off with `NO_COLOR`, `CW_NO_COLOR`, or
-   `--no-color`; on by force with `FORCE_COLOR`. Color is never the only sign:
+4. **Color.** Only on a TTY. Off with `NO_COLOR`, `CW_NO_COLOR`,
+   `--no-color`, or `TERM=dumb`; on by force with `FORCE_COLOR`. Color is never the only sign:
    `✓` and `!` say the same thing without it.
 5. **Lines, not redraws.** Output is added at the end, line by line: no
    spinner, no cursor moves. A sign of life is a new line.

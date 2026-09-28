@@ -98,7 +98,28 @@ function testColorEnv() {
   withEnv({ NO_COLOR: undefined, CW_NO_COLOR: undefined, FORCE_COLOR: undefined }, () => {
     assert.ok(!ANSI.test(term.green("x", { isTTY: false })), "default: no color when piped");
   });
-  console.log("cli-render: color honors NO_COLOR / CW_NO_COLOR / FORCE_COLOR OK");
+  // TERM=dumb: a terminal that cannot show escapes gets no color, even on a
+  // TTY; FORCE_COLOR still wins, and NO_COLOR wins over everything.
+  withEnv({ NO_COLOR: undefined, CW_NO_COLOR: undefined, FORCE_COLOR: undefined, TERM: "dumb" }, () => {
+    assert.equal(term.green("x", { isTTY: true }), "x", "TERM=dumb disables color on a TTY");
+  });
+  withEnv({ NO_COLOR: undefined, CW_NO_COLOR: undefined, FORCE_COLOR: undefined, TERM: "xterm-256color" }, () => {
+    assert.ok(/\x1b\[32m/.test(term.green("x", { isTTY: true })), "a normal TERM on a TTY keeps color");
+  });
+  withEnv({ NO_COLOR: undefined, CW_NO_COLOR: undefined, FORCE_COLOR: "1", TERM: "dumb" }, () => {
+    assert.ok(/\x1b\[32m/.test(term.green("x", { isTTY: true })), "FORCE_COLOR wins over TERM=dumb");
+  });
+  const SGR_COLOR = /\x1b\[(?:2|3\d)m/;
+  const paintedLive = (env) => {
+    const s = fakeStream(true);
+    s.columns = 80;
+    const render = createRenderer({ env, stderr: s });
+    try { render.action("reading the repo…"); } finally { render.finishLive(); }
+    return s.text;
+  };
+  assert.ok(SGR_COLOR.test(paintedLive({ TERM: "xterm-256color" })), "the wrapper renderer colors on a normal TTY");
+  assert.ok(!SGR_COLOR.test(paintedLive({ TERM: "dumb" })), "the wrapper renderer gives no color under TERM=dumb");
+  console.log("cli-render: color honors NO_COLOR / CW_NO_COLOR / FORCE_COLOR / TERM=dumb OK");
 }
 
 function testMachineChannelByteExactUnderForceColor() {

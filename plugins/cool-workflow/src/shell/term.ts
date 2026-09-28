@@ -17,6 +17,8 @@ function isTTY(stream: NodeJS.WriteStream = process.stderr): boolean {
 function colorEnabled(stream?: NodeJS.WriteStream, env: NodeJS.ProcessEnv = process.env): boolean {
   if ((env.NO_COLOR ?? "") !== "" || (env.CW_NO_COLOR ?? "") !== "") return false;
   if (env.FORCE_COLOR !== undefined && env.FORCE_COLOR !== "" && env.FORCE_COLOR !== "0") return true;
+  // A terminal that says it cannot show escapes gets none.
+  if (env.TERM === "dumb") return false;
   return isTTY(stream);
 }
 
