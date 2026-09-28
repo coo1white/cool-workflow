@@ -6,10 +6,10 @@ Generated from the current repository code on 2026-09-28 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.2.8`
-- Source modules: `160`
+- Source modules: `161`
 - Workflow apps: `8`
 - Docs: `60`
-- Smoke tests: `277`
+- Smoke tests: `278`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -128,6 +128,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/util/collate.ts](../src/core/util/collate.ts)
 - [core/util/numeric-flag.ts](../src/core/util/numeric-flag.ts)
 - [mcp/dispatch.ts](../src/mcp/dispatch.ts)
+- [mcp/resources.ts](../src/mcp/resources.ts)
 - [mcp/server.ts](../src/mcp/server.ts)
 - [mcp/tool-process.ts](../src/mcp/tool-process.ts)
 - [shell/agent-config.ts](../src/shell/agent-config.ts)
@@ -414,6 +415,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [mcp-ping-and-arg-coercion-smoke.js](../test/mcp-ping-and-arg-coercion-smoke.js)
 - [mcp-protocol-version-smoke.js](../test/mcp-protocol-version-smoke.js)
 - [mcp-queue-epipe-smoke.js](../test/mcp-queue-epipe-smoke.js)
+- [mcp-report-resources-smoke.js](../test/mcp-report-resources-smoke.js)
 - [mcp-surface-registry-smoke.js](../test/mcp-surface-registry-smoke.js)
 - [mcp-tool-authority-policy-smoke.js](../test/mcp-tool-authority-policy-smoke.js)
 - [mcp-tool-call-coverage-smoke.js](../test/mcp-tool-call-coverage-smoke.js)

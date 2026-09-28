@@ -66,6 +66,7 @@ import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version";
 import { recoveryHint } from "../core/format/recovery-hint";
 import { toolDefinitions } from "./dispatch";
 import { ToolProcessExecutor } from "./tool-process";
+import { listReportResources, readReportResource, ResourceError } from "./resources";
 import type { McpToolDefinition } from "../core/capability-table";
 
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
@@ -226,7 +227,7 @@ async function handleRequest(message: JsonRpcRequest, tools: ToolProcessExecutor
         writeMessage(
           resultMessage(id, {
             protocolVersion: negotiateProtocolVersion(params.protocolVersion),
-            capabilities: { tools: {} },
+            capabilities: { tools: {}, resources: {} },
             serverInfo: { name: "cool-workflow", version: CURRENT_COOL_WORKFLOW_VERSION },
           })
         );
@@ -234,6 +235,17 @@ async function handleRequest(message: JsonRpcRequest, tools: ToolProcessExecutor
       }
       case "tools/list": {
         writeMessage(resultMessage(id, { tools: permittedToolDefinitions(authority) }));
+        return;
+      }
+      case "resources/list":
+      case "resources/read": {
+        // Run reports as resources (mcp/resources.ts). They show the same
+        // text cw_report makes, so a policy that turns cw_report off turns
+        // these off too.
+        if (!toolPermitted("cw_report", authority)) throw new ResourceError(-32601, `MCP ${message.method} disabled by policy: cw_report`);
+        const params = (message.params ?? {}) as Record<string, unknown>;
+        const result = message.method === "resources/list" ? { resources: listReportResources() } : readReportResource(params.uri);
+        writeMessage(resultMessage(id, result));
         return;
       }
       case "ping": {
@@ -287,7 +299,7 @@ async function handleRequest(message: JsonRpcRequest, tools: ToolProcessExecutor
     }
   } catch (error: unknown) {
     const text = error instanceof Error ? error.message : String(error);
-    writeMessage(errorMessage(id, -32000, text));
+    writeMessage(errorMessage(id, error instanceof ResourceError ? error.code : -32000, text));
   }
 }
 

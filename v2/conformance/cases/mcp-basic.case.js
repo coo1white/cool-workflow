@@ -27,7 +27,7 @@ caseMain(async () => {
     assert.equal(init.jsonrpc, "2.0");
     assert.equal(init.id, 1);
     assert.deepEqual(init.result.protocolVersion, "2024-11-05");
-    assert.deepEqual(init.result.capabilities, { tools: {} });
+    assert.deepEqual(init.result.capabilities, { tools: {}, resources: {} });
     assert.equal(init.result.serverInfo.name, "cool-workflow");
     assert.match(init.result.serverInfo.version, /^\d+\.\d+\.\d+$/);
 

@@ -69,6 +69,7 @@ const version_1 = require("../core/version");
 const recovery_hint_1 = require("../core/format/recovery-hint");
 const dispatch_1 = require("./dispatch");
 const tool_process_1 = require("./tool-process");
+const resources_1 = require("./resources");
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
 /** Protocol versions this server can speak, oldest first. `initialize`
  *  echoes the client's `params.protocolVersion` when it is in this list,
@@ -207,13 +208,25 @@ async function handleRequest(message, tools, authority) {
                 const params = (message.params ?? {});
                 writeMessage(resultMessage(id, {
                     protocolVersion: negotiateProtocolVersion(params.protocolVersion),
-                    capabilities: { tools: {} },
+                    capabilities: { tools: {}, resources: {} },
                     serverInfo: { name: "cool-workflow", version: version_1.CURRENT_COOL_WORKFLOW_VERSION },
                 }));
                 return;
             }
             case "tools/list": {
                 writeMessage(resultMessage(id, { tools: permittedToolDefinitions(authority) }));
+                return;
+            }
+            case "resources/list":
+            case "resources/read": {
+                // Run reports as resources (mcp/resources.ts). They show the same
+                // text cw_report makes, so a policy that turns cw_report off turns
+                // these off too.
+                if (!toolPermitted("cw_report", authority))
+                    throw new resources_1.ResourceError(-32601, `MCP ${message.method} disabled by policy: cw_report`);
+                const params = (message.params ?? {});
+                const result = message.method === "resources/list" ? { resources: (0, resources_1.listReportResources)() } : (0, resources_1.readReportResource)(params.uri);
+                writeMessage(resultMessage(id, result));
                 return;
             }
             case "ping": {
@@ -273,7 +286,7 @@ async function handleRequest(message, tools, authority) {
     }
     catch (error) {
         const text = error instanceof Error ? error.message : String(error);
-        writeMessage(errorMessage(id, -32000, text));
+        writeMessage(errorMessage(id, error instanceof resources_1.ResourceError ? error.code : -32000, text));
     }
 }
 /** Parses a raw stdin line without writing. This lets a valid ping use the

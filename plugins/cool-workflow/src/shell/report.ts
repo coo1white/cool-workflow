@@ -314,14 +314,23 @@ function renderPendingTasks(run: WorkflowRun): string[] {
  *  result file is gone; the full result stays under ## Results. The same
  *  task-id rule as the terminal commit gate (drive-decide.ts). */
 function renderAnswer(run: WorkflowRun): string[] {
-  const verdict = run.tasks.find((task) => /^verdict[:/]|^synthesis[:/]/i.test(task.id) && task.status === "completed");
-  if (!verdict || !verdict.resultPath || !fs.existsSync(verdict.resultPath)) return [];
-  const envelope = normalizeResultEnvelope(fs.readFileSync(verdict.resultPath, "utf8"));
-  if (!envelope.summary.trim()) return [];
-  const lines = ["## Answer", "", envelope.summary.trim(), ""];
-  if (envelope.evidence.length) lines.push("Evidence:", "", ...envelope.evidence.map((ref) => `- ${ref}`), "");
-  lines.push(`Full result: ## Results, ### ${verdict.id}`, "");
+  const answer = reportAnswer(run);
+  if (!answer) return [];
+  const lines = ["## Answer", "", answer.summary, ""];
+  if (answer.evidence.length) lines.push("Evidence:", "", ...answer.evidence.map((ref) => `- ${ref}`), "");
+  lines.push(`Full result: ## Results, ### ${answer.taskId}`, "");
   return lines;
+}
+
+/** The report's "## Answer" as data: the completed verdict/synthesis
+ *  task's id, summary and evidence, or null when report.md has no Answer
+ *  part. MCP's cw_report gives it back when asked (`answer: true`). */
+export function reportAnswer(run: WorkflowRun): { taskId: string; summary: string; evidence: string[] } | null {
+  const verdict = run.tasks.find((task) => /^verdict[:/]|^synthesis[:/]/i.test(task.id) && task.status === "completed");
+  if (!verdict || !verdict.resultPath || !fs.existsSync(verdict.resultPath)) return null;
+  const envelope = normalizeResultEnvelope(fs.readFileSync(verdict.resultPath, "utf8"));
+  if (!envelope.summary.trim()) return null;
+  return { taskId: verdict.id, summary: envelope.summary.trim(), evidence: envelope.evidence };
 }
 
 function renderLinks(run: WorkflowRun): string[] {

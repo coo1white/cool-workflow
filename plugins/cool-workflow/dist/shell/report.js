@@ -46,6 +46,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.reportAnswer = reportAnswer;
 exports.writeReport = writeReport;
 const fs = __importStar(require("node:fs"));
 const dispatch_1 = require("../core/pipeline/dispatch");
@@ -329,17 +330,26 @@ function renderPendingTasks(run) {
  *  result file is gone; the full result stays under ## Results. The same
  *  task-id rule as the terminal commit gate (drive-decide.ts). */
 function renderAnswer(run) {
+    const answer = reportAnswer(run);
+    if (!answer)
+        return [];
+    const lines = ["## Answer", "", answer.summary, ""];
+    if (answer.evidence.length)
+        lines.push("Evidence:", "", ...answer.evidence.map((ref) => `- ${ref}`), "");
+    lines.push(`Full result: ## Results, ### ${answer.taskId}`, "");
+    return lines;
+}
+/** The report's "## Answer" as data: the completed verdict/synthesis
+ *  task's id, summary and evidence, or null when report.md has no Answer
+ *  part. MCP's cw_report gives it back when asked (`answer: true`). */
+function reportAnswer(run) {
     const verdict = run.tasks.find((task) => /^verdict[:/]|^synthesis[:/]/i.test(task.id) && task.status === "completed");
     if (!verdict || !verdict.resultPath || !fs.existsSync(verdict.resultPath))
-        return [];
+        return null;
     const envelope = (0, result_normalize_1.normalizeResultEnvelope)(fs.readFileSync(verdict.resultPath, "utf8"));
     if (!envelope.summary.trim())
-        return [];
-    const lines = ["## Answer", "", envelope.summary.trim(), ""];
-    if (envelope.evidence.length)
-        lines.push("Evidence:", "", ...envelope.evidence.map((ref) => `- ${ref}`), "");
-    lines.push(`Full result: ## Results, ### ${verdict.id}`, "");
-    return lines;
+        return null;
+    return { taskId: verdict.id, summary: envelope.summary.trim(), evidence: envelope.evidence };
 }
 function renderLinks(run) {
     const links = run.links || [];

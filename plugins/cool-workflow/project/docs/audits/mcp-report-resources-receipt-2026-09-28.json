@@ -1,0 +1,16 @@
+{
+  "receipt": "mcp-report-resources",
+  "date": "2026-09-28",
+  "baseCommit": "d5de1a2",
+  "claim": "A real MCP client gets a run's answer in one cw_report call (answer: true) and reads report.md as an MCP resource.",
+  "client": { "name": "Claude Code CLI", "version": "2.1.283", "flags": ["-p", "--mcp-config <cw mcp-server.js>", "--strict-mcp-config", "--allowedTools mcp__cw__cw_report ListMcpResourcesTool ReadMcpResourceTool"], "model": "a small Claude model" },
+  "setup": "A new git repo with one README.md; `cw -q \"what is in the readme\" --fast` driven to status complete by a stub agent whose result summary is \"e2e answer: the README has one heading\" with evidence README.md:1.",
+  "steps": [
+    { "call": "tools/call cw_report { runId, answer: true }", "got": "answer.summary = \"e2e answer: the README has one heading\"" },
+    { "call": "resources/list", "got": ["cw://runs/<run-id>/report.md"] },
+    { "call": "resources/read cw://runs/<run-id>/report.md", "got": "first line \"# Architecture Review Fast\"" }
+  ],
+  "turns": 5,
+  "costUsd": 0.04,
+  "result": "pass"
+}

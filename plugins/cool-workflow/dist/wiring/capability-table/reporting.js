@@ -88,7 +88,7 @@ function loadOperatorUxText() {
         return { json: result, text: `${result.path}\n` };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("report").mcp.handler = (args) => loadReportViewCli().reportWriteCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
+registry_core_1.REGISTRY_BY_CAPABILITY.get("report").mcp.handler = (args) => loadReportViewCli().reportMcp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
 // `status` already carries a milestone-2 CLI binding (`attachCliBinding("status", ...)`
 // above); replace its handler here with the real run-id-aware body while
 // keeping the same row/path (no reshape needed — see byte-compat item 5).
