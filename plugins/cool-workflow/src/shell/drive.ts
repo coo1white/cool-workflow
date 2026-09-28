@@ -15,6 +15,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { spawn, ChildProcess } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
 import { WorkflowRun } from "../core/state/types";
 import {
@@ -49,7 +50,7 @@ import {
   LoopPredicateContext,
   ResultEnvelopeLike,
 } from "../core/pipeline/loop-expansion";
-import { runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch";
+import { firstRunnablePhase, runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch";
 import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir } from "./run-store";
 import { createDispatchManifest } from "./dispatch";
 import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope, reopenParkedWorker } from "./worker-isolation";
@@ -160,10 +161,44 @@ function agentConfigured(config: AgentDelegationConfig): boolean {
  *  =1 forces on. This is gate point #2 of the Rule of Silence's three
  *  gate points (SPEC/reporting-ux.md rebuild risk #1) — byte-exact port
  *  of the old build's drive module's emitProgress. */
-function emitProgress(message: string): void {
+function progressEnabled(): boolean {
   const forcedOff = process.env.CW_DRIVE_PROGRESS === "0";
   const forcedOn = process.env.CW_DRIVE_PROGRESS === "1";
-  if ((Boolean(process.stderr.isTTY) && !forcedOff) || forcedOn) reporter.progress(`[drive] ${message}`);
+  return (Boolean(process.stderr.isTTY) && !forcedOff) || forcedOn;
+}
+
+function emitProgress(message: string): void {
+  if (progressEnabled()) reporter.progress(`[drive] ${message}`);
+}
+
+// A sign of life while a round waits on its agents: every agent wait is a
+// spawnSync, so this process cannot print until the round ends. A small
+// separate process (scripts/children/drive-ticker.js) prints
+// `[drive]   … <Phase> still working — 20s` to the inherited stderr every
+// CW_DRIVE_TICK_MS (default 10000) and is stopped when the round ends. Only
+// when [drive] progress is on (a TTY, or CW_DRIVE_PROGRESS=1), so a piped
+// run's bytes do not change; CW_DRIVE_TICK_MS=0 turns it off.
+const DRIVE_TICKER_SCRIPT = path.resolve(__dirname, "..", "..", "scripts", "children", "drive-ticker.js");
+
+function withDriveTicker<T>(label: string, fn: () => T): T {
+  const rawInterval = process.env.CW_DRIVE_TICK_MS;
+  const intervalMs = rawInterval === undefined || rawInterval === "" ? 10000 : Number(rawInterval);
+  if (!progressEnabled() || !Number.isFinite(intervalMs) || intervalMs <= 0) return fn();
+  let ticker: ChildProcess | undefined;
+  try {
+    ticker = spawn(process.execPath, [DRIVE_TICKER_SCRIPT, label, String(Math.floor(intervalMs)), String(process.pid)], {
+      stdio: ["ignore", "ignore", "inherit"],
+    });
+    ticker.on("error", () => {});
+    ticker.unref();
+  } catch {
+    ticker = undefined;
+  }
+  try {
+    return fn();
+  } finally {
+    try { ticker?.kill("SIGTERM"); } catch { /* already gone */ }
+  }
 }
 
 interface DriveContext {
@@ -1024,6 +1059,14 @@ function buildDriveContext(runId: string, cwd: string, options: DriveOptions): D
 // build's drive module emitPhaseProgress. term.phaseProgressLine renders
 // the line; the returned closure decides WHEN to emit each boundary.
 // Shared by drive() and driveAsync() so the two never drift apart.
+/** The name the ticker line gives the round: the first runnable phase,
+ *  written the way the phase progress lines write it. */
+function roundPhaseLabel(run: WorkflowRun): string {
+  const phase = firstRunnablePhase(run);
+  const name = phase ? phase.name || phase.id : "";
+  return name ? name.charAt(0).toUpperCase() + name.slice(1) : "";
+}
+
 function createPhaseProgressEmitter(): (run: WorkflowRun) => void {
   const announcedPhaseComplete = new Set<string>();
   let activePhaseId: string | undefined;
@@ -1065,7 +1108,7 @@ function driveOneRound(ctx: DriveContext, options: DriveOptions, steps: DriveSte
   // re-read+re-parse state.json even though nothing on disk changed
   // between them — reads that only reflect the mutations THIS round's
   // own steps make, which the shared in-memory object already carries.
-  const { roundSteps, roundRun } = withPerfTraceGroup("round", () => withRoundCache(ctx, () => {
+  const { roundSteps, roundRun } = withPerfTraceGroup("round", () => withRoundCache(ctx, () => withDriveTicker(roundPhaseLabel(loadRun(ctx)), () => {
     const width = roundWidth(loadRun(ctx), options.concurrency);
     // width>1 (an explicit --concurrency>1, or an auto-width parallel
     // phase) runs the whole round through driveConcurrentRound — one or
@@ -1074,7 +1117,7 @@ function driveOneRound(ctx: DriveContext, options: DriveOptions, steps: DriveSte
     // can yield multiple steps.
     const stepsOfRound = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
     return { roundSteps: stepsOfRound, roundRun: loadRun(ctx) };
-  }));
+  })));
   for (const stepResult of roundSteps) steps.push(stepResult);
   ctx.lastRoundRun = roundRun;
   // Brew-style progress lines: after each round, announce a newly-active

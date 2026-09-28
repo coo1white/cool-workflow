@@ -179,7 +179,15 @@ run --drive requires an app id (or --run <run-id> to continue)
 [drive] ==> <Phase title> ✓ (done/total)
 [drive] ==> <Phase title> ⇉ (done/total)     # active parallel phase
 [drive] ==> <Phase title> … (done/total)     # active sequential phase
+[drive]   … <Phase title> still working — <n>s   # every CW_DRIVE_TICK_MS (10000) while a round waits
 ```
+
+The still-working line comes from a separate process,
+`scripts/children/drive-ticker.js`. drive.ts `withDriveTicker` starts it at the
+start of each round, only when progress is on, and stops it with SIGTERM when
+the round ends; it also stops by itself once the drive process has gone. The
+drive process cannot print this line itself, because its agent waits are
+`spawnSync`. `CW_DRIVE_TICK_MS=0` turns it off.
 
 (src/drive.ts:139-142, 284, 307, 598, 703, 856-867; src/term.ts:100-109)
 

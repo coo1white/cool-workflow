@@ -360,6 +360,12 @@ never polluted.
 - **Non-TTY stays SILENT by default** (the Rule of Silence). `CW_AGENT_STREAM=1`
   opts a CI/piped run into a **plain append-only** trace (`→ …` / `✓ … (Xs)`
   lines, zero ANSI/cursor bytes) for debuggability — mirroring `CW_DRIVE_PROGRESS=1`.
+- **A sign of life while a round waits.** Every 10 s that a drive round waits
+  on its agents, one line is added to stderr:
+  `[drive]   … <Phase> still working — 20s`. This happens only when `[drive]`
+  progress is on (a TTY, or `CW_DRIVE_PROGRESS=1`), so a piped run's bytes do
+  not change, and `--quiet` turns it off with the other `[drive]` lines.
+  `CW_DRIVE_TICK_MS` sets the time between lines; `0` turns them off.
 - **Verbosity.** Default is compact: the current action + folded tool lines, with
   the model's narration/reasoning HIDDEN. `--verbose` (sets `CW_VERBOSE=1`)
   surfaces the full narration inline; `--full` (sets `CW_OUTPUT=full`) implies

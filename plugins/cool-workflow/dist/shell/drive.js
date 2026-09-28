@@ -55,6 +55,7 @@ exports.driveAsync = driveAsync;
 exports.drivePreview = drivePreview;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const node_child_process_1 = require("node:child_process");
 const node_util_1 = require("node:util");
 const drive_decide_1 = require("../core/pipeline/drive-decide");
 const loop_expansion_1 = require("../core/pipeline/loop-expansion");
@@ -130,11 +131,48 @@ function agentConfigured(config) {
  *  =1 forces on. This is gate point #2 of the Rule of Silence's three
  *  gate points (SPEC/reporting-ux.md rebuild risk #1) — byte-exact port
  *  of the old build's drive module's emitProgress. */
-function emitProgress(message) {
+function progressEnabled() {
     const forcedOff = process.env.CW_DRIVE_PROGRESS === "0";
     const forcedOn = process.env.CW_DRIVE_PROGRESS === "1";
-    if ((Boolean(process.stderr.isTTY) && !forcedOff) || forcedOn)
+    return (Boolean(process.stderr.isTTY) && !forcedOff) || forcedOn;
+}
+function emitProgress(message) {
+    if (progressEnabled())
         reporter_1.reporter.progress(`[drive] ${message}`);
+}
+// A sign of life while a round waits on its agents: every agent wait is a
+// spawnSync, so this process cannot print until the round ends. A small
+// separate process (scripts/children/drive-ticker.js) prints
+// `[drive]   … <Phase> still working — 20s` to the inherited stderr every
+// CW_DRIVE_TICK_MS (default 10000) and is stopped when the round ends. Only
+// when [drive] progress is on (a TTY, or CW_DRIVE_PROGRESS=1), so a piped
+// run's bytes do not change; CW_DRIVE_TICK_MS=0 turns it off.
+const DRIVE_TICKER_SCRIPT = path.resolve(__dirname, "..", "..", "scripts", "children", "drive-ticker.js");
+function withDriveTicker(label, fn) {
+    const rawInterval = process.env.CW_DRIVE_TICK_MS;
+    const intervalMs = rawInterval === undefined || rawInterval === "" ? 10000 : Number(rawInterval);
+    if (!progressEnabled() || !Number.isFinite(intervalMs) || intervalMs <= 0)
+        return fn();
+    let ticker;
+    try {
+        ticker = (0, node_child_process_1.spawn)(process.execPath, [DRIVE_TICKER_SCRIPT, label, String(Math.floor(intervalMs)), String(process.pid)], {
+            stdio: ["ignore", "ignore", "inherit"],
+        });
+        ticker.on("error", () => { });
+        ticker.unref();
+    }
+    catch {
+        ticker = undefined;
+    }
+    try {
+        return fn();
+    }
+    finally {
+        try {
+            ticker?.kill("SIGTERM");
+        }
+        catch { /* already gone */ }
+    }
 }
 // A concurrent round runs many dispatch/accept steps against ONE shared
 // in-memory run object, deferring every disk write to a single flush at
@@ -921,6 +959,13 @@ function buildDriveContext(runId, cwd, options) {
 // build's drive module emitPhaseProgress. term.phaseProgressLine renders
 // the line; the returned closure decides WHEN to emit each boundary.
 // Shared by drive() and driveAsync() so the two never drift apart.
+/** The name the ticker line gives the round: the first runnable phase,
+ *  written the way the phase progress lines write it. */
+function roundPhaseLabel(run) {
+    const phase = (0, dispatch_1.firstRunnablePhase)(run);
+    const name = phase ? phase.name || phase.id : "";
+    return name ? name.charAt(0).toUpperCase() + name.slice(1) : "";
+}
 function createPhaseProgressEmitter() {
     const announcedPhaseComplete = new Set();
     let activePhaseId;
@@ -962,7 +1007,7 @@ function driveOneRound(ctx, options, steps, emitPhaseProgress) {
     // re-read+re-parse state.json even though nothing on disk changed
     // between them — reads that only reflect the mutations THIS round's
     // own steps make, which the shared in-memory object already carries.
-    const { roundSteps, roundRun } = (0, perf_trace_1.withPerfTraceGroup)("round", () => withRoundCache(ctx, () => {
+    const { roundSteps, roundRun } = (0, perf_trace_1.withPerfTraceGroup)("round", () => withRoundCache(ctx, () => withDriveTicker(roundPhaseLabel(loadRun(ctx)), () => {
         const width = (0, drive_decide_1.roundWidth)(loadRun(ctx), options.concurrency);
         // width>1 (an explicit --concurrency>1, or an auto-width parallel
         // phase) runs the whole round through driveConcurrentRound — one or
@@ -971,7 +1016,7 @@ function driveOneRound(ctx, options, steps, emitPhaseProgress) {
         // can yield multiple steps.
         const stepsOfRound = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
         return { roundSteps: stepsOfRound, roundRun: loadRun(ctx) };
-    }));
+    })));
     for (const stepResult of roundSteps)
         steps.push(stepResult);
     ctx.lastRoundRun = roundRun;
