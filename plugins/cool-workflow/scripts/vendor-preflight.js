@@ -3,10 +3,11 @@
 
 // vendor-preflight.js — opt-in live check of the builtin agent vendors.
 //
-// Support tiers (agent-delegation-drive(7)): claude is tier 1, checked live on
-// every release by the reviewer run itself; the other builtins are tier 2, with
-// a wrapper and an offline smoke but no live check a release waits on. Run this
-// script when you want live numbers for tier 2: it runs EACH named builtin
+// Support tiers (agent-delegation-drive(7)): a release is checked live only
+// through its reviewer, which is whatever agent the operator configures (any
+// vendor); every builtin has a wrapper and an offline smoke, with no other live
+// check a release waits on. Run this script when you want live numbers: it runs
+// EACH named builtin
 // wrapper against a tiny throwaway git repo with a trivial question and checks
 // the wrapper returns a real, non-empty result.
 //
