@@ -249,7 +249,9 @@ written, and the path is not made
 
 `quickstart --resume` with no `--run` drives a single step and prints a
 copy-pasteable `cw quickstart --run <id> --resume` continue line; run it again with
-the `--run <id>` to finish. The continuing invocation echoes `resumedFrom: <id>`.
+the `--run <id>` to finish. The continuing invocation echoes `resumedFrom: <id>`,
+and its `appId` is the app the run was planned with (so a continued
+`architecture-review-fast` run says so, and is not told to add `--fast`).
 Bare `quickstart` (no `--resume`) is unchanged — it drives straight to the end.
 When `--bundle` is present on the fresh resume step, no bundle is sealed until
 the run is complete; the continue line keeps `--bundle` so the second command
