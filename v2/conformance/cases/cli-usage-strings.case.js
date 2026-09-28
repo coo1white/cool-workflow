@@ -32,7 +32,7 @@ caseMain(() => {
     ["demo", "cw demo tamper|bundle [--json]"],
     ["multi-agent", "cw multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]"],
     ["node", "cw node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]"],
-    ["sandbox", "cw sandbox list|show|validate|choose|resolve [profile-id|profile-file]"],
+    ["sandbox", "cw sandbox list|show|validate|choose [profile-id|profile-file]"],
     ["backend", "cw backend list|show|probe [backend-id]  |  cw backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]"],
     ["contract", "cw contract show <run-id> [contract-id]"],
     ["migration", "cw migration list|check|prove [target] [--contract run-state|workflow-app]"],

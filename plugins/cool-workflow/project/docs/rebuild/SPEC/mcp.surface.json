@@ -981,16 +981,6 @@
   },
   {
     "kind": "mcp_tool",
-    "id": "cw_sandbox_resolve",
-    "behavior": "Alias of sandbox.choose. Required args: (none). Payload identical to cw sandbox resolve --json.",
-    "evidence": "src/capability-registry.ts:417",
-    "tests": [
-      "test/mcp-surface-registry-smoke.js",
-      "test/cli-mcp-parity-smoke.js"
-    ]
-  },
-  {
-    "kind": "mcp_tool",
     "id": "cw_backend_list",
     "behavior": "List available execution backends and their capabilities. Required args: (none). Payload identical to cw backend list --json.",
     "evidence": "src/capability-registry.ts:420",

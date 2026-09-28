@@ -115,12 +115,12 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
 // only ever reached when no 2-token real row for that family matched.
 // `hiddenFromHelp` keeps each off its own `cw help <verb>` line.
 // ---------------------------------------------------------------------
-(0, registry_core_1.addCliOnlyCapability)("sandbox.usage", "cw sandbox list|show|validate|choose|resolve [profile-id|profile-file]", {
+(0, registry_core_1.addCliOnlyCapability)("sandbox.usage", "cw sandbox list|show|validate|choose [profile-id|profile-file]", {
     path: ["sandbox"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw sandbox list|show|validate|choose|resolve [profile-id|profile-file]");
+        throw new Error("Usage: cw sandbox list|show|validate|choose [profile-id|profile-file]");
     },
 }, "sandbox.usage exists only to own the fixed usage-error text for an unrecognized sandbox subcommand; every real sandbox.* action is its own capability row above.");
 (0, registry_core_1.addCliOnlyCapability)("state.usage", "cw state check <run-id> [--state PATH] [--write]", {

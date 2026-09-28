@@ -36,11 +36,10 @@ function loadExecBackendCli() {
     handler: (args) => ({ json: loadExecBackendCli().listSandboxProfilesCli(args.options) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.list").mcp.handler = (args) => loadExecBackendCli().listSandboxProfilesCli(args);
-// GAP #24: cw_sandbox_choose / cw_sandbox_resolve + cw_app_run were declared
+// GAP #24: cw_sandbox_choose + cw_app_run were declared
 // MCP-only rows with the notYetImplemented placeholder handler. Wire them to
 // the ported shell bodies (both are MCP-only in the old build — no CLI path).
 registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.choose").mcp.handler = (args) => loadAppRunCli().sandboxChooseCli(args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.resolve").mcp.handler = (args) => loadAppRunCli().sandboxChooseCli(args);
 registry_core_1.REGISTRY_BY_CAPABILITY.get("app.run").mcp.handler = (args) => loadAppRunCli().appRunCli(args);
 (0, registry_core_1.attachCliBinding)("sandbox.show", {
     path: ["sandbox", "show"],
@@ -57,20 +56,15 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.show").mcp.handler = (args) 
     },
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.validate").mcp.handler = (args) => loadExecBackendCli().validateSandboxProfileCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.profileFile), "profile file"), args);
-// PARITY: `sandbox.choose`/`sandbox.resolve` are BOTH-surface capabilities
-// per SPEC/mcp.md (old build cli.path ["sandbox","choose"]/["sandbox",
-// "resolve"]) — they were left MCP-only at GAP #24 (see the comment
+// PARITY: `sandbox.choose` is a BOTH-surface capability per SPEC/mcp.md
+// (old build cli.path ["sandbox","choose"]). Its pure alias
+// `sandbox.resolve` was taken out on 2026-09-28. It was left MCP-only at GAP #24 (see the comment
 // above sandboxChooseCli's mcp.handler wiring). Attach the same, already-
 // working shell body as the cli.handler too, so the CLI front door and
 // the parity payload probe both reach it (no new business logic, same
 // function both surfaces already call over MCP).
 (0, registry_core_1.attachCliBinding)("sandbox.choose", {
     path: ["sandbox", "choose"],
-    jsonMode: "default",
-    handler: (args) => ({ json: loadAppRunCli().sandboxChooseCli(args.options) }),
-});
-(0, registry_core_1.attachCliBinding)("sandbox.resolve", {
-    path: ["sandbox", "resolve"],
     jsonMode: "default",
     handler: (args) => ({ json: loadAppRunCli().sandboxChooseCli(args.options) }),
 });

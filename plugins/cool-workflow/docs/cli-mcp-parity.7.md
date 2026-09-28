@@ -119,7 +119,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 244 capabilities, 201 MCP tools.
+machine-complete by design: 241 capabilities, 198 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -224,7 +224,6 @@ machine-complete by design: 244 capabilities, 201 MCP tools.
 | `sandbox.show` | `cw sandbox show` | `cw_sandbox_show` | `sandbox.show` | both | identical |
 | `sandbox.validate` | `cw sandbox validate` | `cw_sandbox_validate` | `sandbox.validate` | both | identical |
 | `sandbox.choose` | `cw sandbox choose` | `cw_sandbox_choose` | `sandbox.choose` | both | identical |
-| `sandbox.resolve` | `cw sandbox resolve` | `cw_sandbox_resolve` | `sandbox.resolve` | both | identical |
 | `backend.list` | `cw backend list` | `cw_backend_list` | `backend.list` | both | identical |
 | `backend.show` | `cw backend show` | `cw_backend_show` | `backend.show` | both | identical |
 | `backend.probe` | `cw backend probe` | `cw_backend_probe` | `backend.probe` | both | identical |
@@ -324,8 +323,6 @@ machine-complete by design: 244 capabilities, 201 MCP tools.
 | `history` | `cw history` | `cw_history` | `history` | both | identical |
 | `audit.head` | `cw audit head` | `cw_audit_head` | `audit.head` | both | identical |
 | `run.link` | `cw run link` | `cw_run_link` | `run.link` | both | identical |
-| `bands.check` | `cw bands check` | `cw_bands_check` | `bands.check` | both | identical |
-| `bands.record` | `cw bands record` | `cw_bands_record` | `bands.record` | both | identical |
 | `version` | `cw version` | `—` | `version` | cli-only | cli-only |
 | `completion` | `cw completion` | `—` | `completion` | cli-only | cli-only |
 | `search` | `cw search` | `—` | `search` | cli-only | cli-only |
@@ -374,7 +371,8 @@ machine-complete by design: 244 capabilities, 201 MCP tools.
 v0.1.27 closed the old gaps. It added MCP peers `cw_init`, `cw_next`,
 `cw_state_check`, `cw_contract_show`, `cw_node_list`, `cw_node_show`, and
 `cw_node_graph`; and CLI peers `app run`, `operator status`, `operator report`,
-`sandbox choose`, `sandbox resolve`, and `report --json`. All the rest is on
+`sandbox choose`, and `report --json` (the alias `sandbox resolve` was taken
+out on 2026-09-28). All the rest is on
 both surfaces.
 
 ## Surface-Specific Capabilities

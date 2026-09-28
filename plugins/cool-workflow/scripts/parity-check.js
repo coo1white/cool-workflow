@@ -471,8 +471,7 @@ const RUNLESS_SCENARIOS = new Set([
   "topology.validate",
   "sandbox.show",
   "sandbox.validate",
-  "sandbox.choose",
-  "sandbox.resolve"
+  "sandbox.choose"
 ]);
 
 const TOPOLOGY_SCENARIOS = new Set(["topology.apply", "topology.summary", "topology.graph"]);
@@ -623,8 +622,6 @@ function runScenarioCli(capability, workspace, runId, context = {}) {
       return runCli(["sandbox", "validate", sandboxProfileFile(workspace)], workspace);
     case "sandbox.choose":
       return runCli(["sandbox", "choose", "readonly"], workspace);
-    case "sandbox.resolve":
-      return runCli(["sandbox", "resolve", "readonly"], workspace);
     case "approve":
       return runCli(["approve", "run", runId, runId, "--actor", "parity-operator", "--role", "reviewer", "--rationale", "scenario approval"], workspace);
     case "reject":
@@ -727,8 +724,6 @@ async function runScenarioMcp(capability, mcp, workspace, runId, context = {}) {
       return mcp.tool("cw_sandbox_validate", { cwd: workspace, profileFile: sandboxProfileFile(workspace) });
     case "sandbox.choose":
       return mcp.tool("cw_sandbox_choose", { cwd: workspace, profileId: "readonly" });
-    case "sandbox.resolve":
-      return mcp.tool("cw_sandbox_resolve", { cwd: workspace, profileId: "readonly" });
     case "approve":
       return mcp.tool("cw_approve", { cwd: workspace, runId, targetKind: "run", targetId: runId, actor: "parity-operator", role: "reviewer", rationale: "scenario approval" });
     case "reject":

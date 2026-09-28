@@ -39,5 +39,4 @@ require("./multi-agent");
 require("./scheduling-registry");
 require("./reporting");
 require("./workflow-apps");
-require("./bands");
 __exportStar(require("./parity"), exports);

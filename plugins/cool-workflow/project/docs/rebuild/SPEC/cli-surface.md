@@ -110,7 +110,7 @@ The runner is made with `pluginRoot: path.resolve(__dirname, "../..")`; `Schedul
 
 **`coordinator summary|decision <run-id>`** (blackboard.ts:75-87): always JSON.
 
-**`sandbox list|show|validate|choose|resolve`** (src/cli/handlers/operational.ts:18-40): always JSON; `validate` exits 1 when `!valid`; `resolve` is one name with `choose`.
+**`sandbox list|show|validate|choose`** (src/cli/handlers/operational.ts:18-40): always JSON; `validate` exits 1 when `!valid`. (`resolve`, a pure alias of `choose`, was taken out on 2026-09-28.)
 
 **`backend list|show|probe [id]` and `backend agent config [show|set]`** (operational.ts:43-68): always JSON; `config` with no `set` is the read path.
 
@@ -371,7 +371,7 @@ Usage: cw telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]
 Usage: cw demo tamper|bundle [--json]
 Usage: cw multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]
 Usage: cw node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]
-Usage: cw sandbox list|show|validate|choose|resolve [profile-id|profile-file]
+Usage: cw sandbox list|show|validate|choose [profile-id|profile-file]
 Usage: cw backend list|show|probe [backend-id]  |  cw backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]
 Usage: cw contract show <run-id> [contract-id]
 Usage: cw migration list|check|prove [target] [--contract run-state|workflow-app]

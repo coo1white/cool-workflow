@@ -165,7 +165,6 @@ Proof: `plugins/cool-workflow/project/docs/audits/four-fixes-receipt-2026-09-02.
 - candidates and eval: `src/shell/candidate-scoring-io.ts`, `eval-io.ts`, `eval-text.ts`
 - scheduling: `src/shell/scheduler-io.ts`, `scheduling-io.ts`
 - collaboration and workbench: `src/shell/collaboration-io.ts`, `workbench.ts`, `workbench-host.ts`, `workbench-text.ts`
-- bands: `src/shell/bands-io.ts`
 - state explosion: `src/shell/state-explosion-cli.ts`, `src/core/state/state-explosion/`
 - orchestrator: `src/shell/orchestrator.ts`
 - telemetry demo: `src/shell/telemetry-demo.ts`

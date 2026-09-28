@@ -20,7 +20,7 @@ const { COMMON_PROPERTY_TYPES } = require("../../dist/core/capability-data");
 // inputSchema:{type:"object", properties, additionalProperties:true}.
 {
   const defs = mcpToolDefinitions();
-  assert.equal(defs.length, 201, "mcpToolDefinitions() must return exactly 201 entries");
+  assert.equal(defs.length, 198, "mcpToolDefinitions() must return exactly 198 entries");
   for (const def of defs) {
     assert.equal(typeof def.name, "string", `${def.name}: name must be a string`);
     assert.equal(typeof def.description, "string", `${def.name}: description must be a string`);
@@ -230,9 +230,7 @@ const { COMMON_PROPERTY_TYPES } = require("../../dist/core/capability-data");
 }
 
 // "When to use which" cross-references: each of the four status-family
-// descriptions names at least one sibling status tool, and
-// cw_sandbox_resolve's description says it is an alias and names the
-// preferred tool. A drift guard so a later description edit keeps the
+// descriptions names at least one sibling status tool. A drift guard so a later description edit keeps the
 // cross-references.
 {
   const defs = mcpToolDefinitions();
@@ -246,9 +244,6 @@ const { COMMON_PROPERTY_TYPES } = require("../../dist/core/capability-data");
       `${name}'s description must name at least one sibling status tool (got: ${description})`
     );
   }
-  const resolveDescription = byName.get("cw_sandbox_resolve").description;
-  assert.ok(/alias/i.test(resolveDescription), "cw_sandbox_resolve's description must say it is an alias");
-  assert.ok(resolveDescription.includes("cw_sandbox_choose"), "cw_sandbox_resolve's description must name cw_sandbox_choose");
 }
 
 process.stdout.write("captable-mcp-tool-definitions: ok\n");
