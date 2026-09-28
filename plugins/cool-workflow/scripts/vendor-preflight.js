@@ -1,20 +1,22 @@
 #!/usr/bin/env node
 "use strict";
 
-// vendor-preflight.js — pre-release liveness gate for ALL agent vendors.
+// vendor-preflight.js — opt-in live check of the builtin agent vendors.
 //
-// CW promises that claude, codex, gemini, and deepseek all work. This gate
-// proves it before a release: it runs EACH builtin wrapper against a tiny
-// throwaway git repo with a trivial question and checks the wrapper returns a
-// real, non-empty result. It is the enforcement behind that promise.
+// Support tiers (agent-delegation-drive(7)): claude is tier 1, checked live on
+// every release by the reviewer run itself; the other builtins are tier 2, with
+// a wrapper and an offline smoke but no live check a release waits on. Run this
+// script when you want live numbers for tier 2: it runs EACH named builtin
+// wrapper against a tiny throwaway git repo with a trivial question and checks
+// the wrapper returns a real, non-empty result.
 //
-// HARD-BLOCK policy (operator chose this): a vendor that does not return a valid
-// result — missing CLI, auth error, empty/garbage output — counts as FAIL and
-// the gate exits nonzero. There is no "skip"; an unconfigured vendor blocks.
+// Exit code: a vendor that does not return a valid result — missing CLI, auth
+// error, empty/garbage output — counts as FAIL and this script exits nonzero.
+// release-flow.js runs it only when CW_PREFLIGHT_VENDORS names vendors, and
+// then treats a failure as a warning, never a stop.
 //
-// This is a LIVE gate: it spends real tokens on each configured vendor. It is
-// meant for the release machine (where all keys/logins exist), NOT the offline
-// CI test suite. The offline smoke (test/vendor-preflight-smoke.js) exercises
+// This is a LIVE check: it spends real tokens on each named vendor. It is
+// meant for a machine with those keys/logins, NOT the offline CI test suite. The offline smoke (test/vendor-preflight-smoke.js) exercises
 // this script's LOGIC with PATH shims, no keys.
 //
 // Zero runtime dependency: node + git only. stdout is data (the matrix), stderr
