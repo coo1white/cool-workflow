@@ -192,10 +192,8 @@ function main() {
   checkIncludes("plugins/cool-workflow/src/wiring/capability-table/registry-core.ts", "export const REGISTRY", checks);
   checkIncludes("plugins/cool-workflow/src/shell/pipeline-cli.ts", "planSummary", checks);
   checkIncludes("plugins/cool-workflow/dist/core/capability-table.js", "REGISTRY", checks);
-  checkIncludes("plugins/cool-workflow/docs/multi-agent-runtime-core.7.md", "Multi-Agent Runtime Core", checks);
   checkIncludes("plugins/cool-workflow/docs/dogfood-one-real-repo.7.md", "Dogfood One Real Repo", checks);
   checkIncludes("plugins/cool-workflow/docs/getting-started.md", "npm run release:check", checks);
-  checkIncludes("plugins/cool-workflow/package.json", "eval:replay", checks);
   checkIncludes("plugins/cool-workflow/docs/trust-audit-anchor.7.md", "Trust Audit Anchor", checks);
   checkIncludesOwnLine("plugins/cool-workflow/docs/trust-audit-anchor.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "trust-audit-anchor.7.md", checks);

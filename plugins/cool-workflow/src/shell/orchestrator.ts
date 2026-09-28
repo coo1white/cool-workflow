@@ -5,7 +5,7 @@
 // `new CoolWorkflowRunner({ pluginRoot }).<verb>(...)`.
 //
 // v2 dismantled the old wide facade into core/shell functions, so this module
-// restores ONLY the ~15 verbs those two scripts call, each a thin
+// restores ONLY the ~12 verbs those two scripts call, each a thin
 // `loadRun -> delegate` over an EXISTING v2 shell function (mostly the
 // `*Cli(args)` byte-behavior ports, which already replicate the old build's
 // option-key normalization). It is a standalone tooling module: it is NOT wired
@@ -26,7 +26,6 @@ import { saveCheckpoint, withRunStateLock } from "./run-store";
 import { summarizeTrustAudit } from "./trust-audit";
 import { evidenceProvenance } from "./audit-provenance";
 import { auditAttestCli, auditDecisionCli } from "./audit-cli";
-import { candidateRegisterCli, candidateScoreCli, candidateSelectCli } from "./multi-agent-cli";
 import { commitState } from "./commit";
 import { writeReport } from "./report";
 
@@ -65,7 +64,7 @@ export class CoolWorkflowRunner {
   }
 
   /** Load a run from the runner's baseDir (or process.cwd()). Public because
-   *  dogfood-architecture-review calls `runner.loadRun(run.id)`. */
+   *  dogfood-architecture-review and dogfood-release call `runner.loadRun(...)`. */
   loadRun(runId: string): WorkflowRun {
     return loadRunFromCwd(runId, this.cwd());
   }
@@ -142,22 +141,6 @@ export class CoolWorkflowRunner {
    *  fail-closed feedback + checkpoint). */
   recordAuditDecision(runId: string, workerId: string, options: Record<string, unknown> = {}): ReturnType<typeof auditDecisionCli> {
     return auditDecisionCli(runId, workerId, { ...options, runId, cwd: this.cwd() });
-  }
-
-  /** `registerCandidate` — register a candidate from a worker/manual source.
-   *  Delegates to candidateRegisterCli (old worker-scope read + persist). */
-  registerCandidate(runId: string, options: Record<string, unknown> = {}): ReturnType<typeof candidateRegisterCli> {
-    return candidateRegisterCli({ ...options, runId, cwd: this.cwd() });
-  }
-
-  /** `scoreCandidate` — score a candidate. Delegates to candidateScoreCli. */
-  scoreCandidate(runId: string, candidateId: string, options: Record<string, unknown> = {}): ReturnType<typeof candidateScoreCli> {
-    return candidateScoreCli({ ...options, runId, cwd: this.cwd() }, candidateId);
-  }
-
-  /** `selectCandidate` — select a candidate. Delegates to candidateSelectCli. */
-  selectCandidate(runId: string, candidateId: string, options: Record<string, unknown> = {}): ReturnType<typeof candidateSelectCli> {
-    return candidateSelectCli({ ...options, runId, cwd: this.cwd() }, candidateId);
   }
 
   /** `commit` — verifier-gated (or explicit-checkpoint) state commit. Returns

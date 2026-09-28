@@ -800,8 +800,8 @@ version synchronization.
 `npm run dogfood:release` also does no harm by default. It runs the
 canonical `release-cut` workflow against the real repository and writes
 `.cw/runs/<run-id>/dogfood-summary.json` with the run id, report path, audit
-paths, candidate id, score id, selection id, commit/checkpoint id, command
-logs, and release verdict.
+paths, the verifier node id the commit is gated on, commit/checkpoint id,
+command logs, and release verdict.
 
 ### Required manual review
 
@@ -816,37 +816,15 @@ logs, and release verdict.
    manual edit or checksum step is needed — it is a git-tag formula with no
    sha256.
 4. Make sure generated `plugins/cool-workflow/dist/` output is committed.
-5. Make sure topology docs and smoke coverage are present:
-   `docs/multi-agent-topologies.7.md` and
-   `test/multi-agent-topologies-{map-reduce,debate,judge-panel}-smoke.js`.
-6. Make sure Multi-Agent CLI + MCP Surface docs and smoke coverage are
-   present: `docs/multi-agent-cli-mcp-surface.7.md` and
-   `test/multi-agent-cli-mcp-surface-smoke.js`.
-7. Make sure Multi-Agent Operator UX docs and smoke coverage are present:
-   `docs/multi-agent-operator-ux.7.md` and
-   `test/multi-agent-operator-ux-smoke.js`.
-8. Make sure Multi-Agent Trust / Policy / Audit docs and smoke coverage are
-   present: `docs/multi-agent-trust-policy-audit.7.md` and
-   `test/multi-agent-trust-policy-audit-smoke.js`.
-9. Make sure Multi-Agent Eval & Replay Harness docs and smoke coverage are
-   present: `docs/multi-agent-eval-replay-harness.7.md` and
-   `test/multi-agent-eval-replay-smoke.js`.
-10. Make sure `npm run eval:replay` passes and have a look at
-    `.cw/evals/<suite-id>/` artifacts: `snapshot.json`, `replay-run.json`,
-    `comparison.json`, `score.json`, `findings.json`, `gate.json`, and
-    `report.md`.
-11. Make sure `npm run dogfood:release` reports `ready-dry-run` and have a
-    look at the run with `status`, `graph`, `report --show`, `candidate
-    summary`, `commit summary`, `multi-agent dependencies`, `multi-agent
-    failures`, `multi-agent evidence`, `audit summary`, `audit provenance`,
-    `audit multi-agent`, `audit policy`, `audit blackboard`, and `audit
-    judge`.
-12. Make sure the reviewer verdict is committed:
-    `.cw-release/review-<FULLSHA>.verdict` must exist in the tag's commit
-    history and its first line must be `APPROVED <FULLSHA>`. Run `node
-    scripts/release-flow.js --cut --version x.y.z` to auto-create it and
-    commit it, then `git push`. The `release-gate` CI workflow will verify
-    this file is present at the tag commit.
+5. Make sure `npm run dogfood:release` reports `ready-dry-run` and have a
+   look at the run with `status`, `graph`, `report --show`, `commit
+   summary`, `audit summary`, and `audit provenance`.
+6. Make sure the reviewer verdict is committed:
+   `.cw-release/review-<FULLSHA>.verdict` must exist in the tag's commit
+   history and its first line must be `APPROVED <FULLSHA>`. Run `node
+   scripts/release-flow.js --cut --version x.y.z` to auto-create it and
+   commit it, then `git push`. The `release-gate` CI workflow will verify
+   this file is present at the tag commit.
 
 ### Version surfaces
 

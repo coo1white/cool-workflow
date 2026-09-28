@@ -18,18 +18,11 @@ const checks = [
         "docs/getting-started.md",
         "docs/release-history.md",
         "docs/release-and-migration.7.md",
-        "docs/multi-agent-cli-mcp-surface.7.md",
-        "docs/multi-agent-operator-ux.7.md",
-        "docs/multi-agent-trust-policy-audit.7.md",
-        "docs/multi-agent-eval-replay-harness.7.md",
-        "docs/state-explosion-management.7.md",
-        "docs/evidence-adoption-reasoning-chain.7.md",
         "docs/cli-mcp-parity.7.md",
         "docs/run-registry-control-plane.7.md",
         "docs/execution-backends.7.md",
         "docs/web-desktop-workbench.7.md",
         "docs/observability-cost-accounting.7.md",
-        "docs/team-collaboration.7.md",
         "docs/release-tooling.7.md",
         "docs/real-execution-backends.7.md",
         "docs/node-snapshot-diff-replay.7.md",
@@ -52,7 +45,7 @@ const checks = [
   // kept below are the ones NOT covered by `npm test`: the build/typecheck, the
   // app/script runners (canonical-apps, golden-path), and the dedicated gates
   // (parity, manifest drift, version sync). `npm test` already runs every smoke,
-  // including eval-replay-harness, fixture-compat, dogfood, security, and the
+  // including fixture-compat, dogfood, security, and the
   // per-feature smokes.
   // `dist:check` builds from src/ AND fails closed if the committed dist/ drifted
   // from that fresh build — strictly stronger than a bare `npm run build`.

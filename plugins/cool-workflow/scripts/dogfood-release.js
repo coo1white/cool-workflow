@@ -51,38 +51,17 @@ function main() {
     runTask(context, taskId);
   }
 
-  const verdictWorkerId = context.taskWorkers["verdict:release"];
   const allPassed = context.commandResults.every((result) => result.status === 0);
-  const candidateId = `dogfood-release-${TARGET_VERSION}`;
-  const evidence = compactEvidence(context.commandResults.map((result) => result.locator));
+  // The commit is gated on the release verdict task's own verifier node.
+  const verdictTask = runner.loadRun(context.runId).tasks.find((task) => task.id === "verdict:release");
+  const verifierNodeId = verdictTask && verdictTask.verifierNodeId;
+  if (!verifierNodeId) throw new Error("verdict:release has no verifier node");
 
-  const candidate = runner.registerCandidate(context.runId, { worker: verdictWorkerId, id: candidateId, kind: "release" });
-
-  const score = runner.scoreCandidate(context.runId, candidateId, {
-    criterion: [
-      `correctness=${allPassed ? 10 : 0}`,
-      `completeness=${requiredEvidencePresent(context) ? 10 : 0}`,
-      `releaseSafety=${dryRun && context.externalActions.length === 0 ? 10 : 0}`,
-      `auditability=${context.workerIds.length >= 6 ? 10 : 0}`,
-      `reproducibility=${allPassed ? 10 : 4}`
-    ],
-    maxTotal: 50,
-    verdict: allPassed ? "pass" : "fail",
-    notes: allPassed
-      ? "Dogfood release candidate accepted: all real dry-run evidence commands passed."
-      : "Dogfood release candidate held: at least one real evidence command failed.",
-    evidence: evidence.slice(0, 20)
-  });
-
-  let selection = null;
   let commit = null;
   let releaseVerdict = "hold";
   if (allPassed) {
-    selection = runner.selectCandidate(context.runId, candidateId, {
-      reason: `Dogfood release ${TARGET_VERSION} selected after verifier-backed dry-run evidence.`
-    });
     const commitResult = runner.commit(context.runId, {
-      selection: selection.id,
+      verifier: verifierNodeId,
       reason: `Dogfood One Real Repo ${TARGET_VERSION} verifier-gated checkpoint`
     });
     commit = commitResult.commit;
@@ -112,9 +91,7 @@ function main() {
     provenanceEvidenceCount: provenance.evidence.length,
     provenanceEventCount: provenance.events.length,
     workerIds: context.workerIds,
-    candidateId: candidate.id,
-    scoreId: score.id,
-    selectionId: selection ? selection.id : null,
+    verifierNodeId,
     commitId: commit ? commit.id : null,
     checkpointId: commit && commit.checkpoint ? commit.id : null,
     releaseVerdict,
@@ -148,8 +125,7 @@ function main() {
         `run: ${summary.runId}`,
         `report: ${summary.reportPath}`,
         `audit: ${summary.auditSummaryPath}`,
-        `candidate: ${summary.candidateId}`,
-        `selection: ${summary.selectionId || "held"}`,
+        `verifier: ${summary.verifierNodeId}`,
         `commit/checkpoint: ${summary.commitId || summary.checkpointId}`,
         `summary: ${summary.summaryPath}`,
         ""
@@ -463,27 +439,6 @@ function renderWorkerResult({ task, manifest, commandResults, findings, evidence
     "```",
     ""
   ].join("\n");
-}
-
-function requiredEvidencePresent(context) {
-  const required = context.options.smoke
-    ? ["git-status", "version-sync", "release-docs", "npm-pack-dry-run", "app-validate-release-cut"]
-    : [
-        "git-status",
-        "version-sync",
-        "release-docs",
-        "build",
-        "check",
-        "test",
-        "fixture-compat",
-        "canonical-apps",
-        "golden-path",
-        "release-check",
-        "cw-audit-summary",
-        "cw-audit-provenance"
-      ];
-  const passed = new Set(context.commandResults.filter((result) => result.status === 0).map((result) => result.id));
-  return required.every((id) => passed.has(id));
 }
 
 function enforceReleaseActionGate(options, dryRun) {

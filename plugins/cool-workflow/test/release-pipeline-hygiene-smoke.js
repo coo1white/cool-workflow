@@ -155,10 +155,10 @@ let checks = 0;
     /^\s+- run: node test\/run-all\.js --filter 'release-flow'$/m,
     "steering-config-gate must run the release-reviewer smokes via test/run-all.js --filter"
   );
-  assert.match(
+  assert.doesNotMatch(
     job,
-    /^\s+- run: bun run eval:replay$/m,
-    "steering-config-gate must run the eval-replay harness smoke (bun run eval:replay)"
+    /eval:replay/,
+    "steering-config-gate no longer runs eval:replay (the multi-agent eval harness is not release tooling)"
   );
   assert.match(
     job,

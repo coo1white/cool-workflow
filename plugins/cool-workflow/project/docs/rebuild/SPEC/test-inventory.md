@@ -59,7 +59,6 @@ Stripped (deleted from the child env so ambient operator config can never leak i
 | `test:fast` | `npm run build --if-present && ... node test/run-all.js --concurrency auto` (package.json:68) |
 | `test:ci` | `npm run build && ... node test/run-all.js --sample 55` (package.json:69) |
 | `test:coverage` | `... node scripts/coverage-gate.js --concurrency auto` (package.json:70) |
-| `eval:replay` | `tsc -p tsconfig.json && node test/multi-agent-eval-replay-harness-smoke.js` (package.json:71) |
 | `fixture-compat` | `node test/run-fixture-compat-smoke.js` (package.json:49) |
 | `manifest:load-check` | `node test/vendor-manifest-load-smoke.js` (package.json:60) |
 

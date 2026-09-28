@@ -248,9 +248,8 @@ npm run canonical-apps   # validate + plan the official app matrix (no network)
 npm run golden-path      # release regression for the full public chain
 npm run dogfood:release  # real-repo release-cut dry-run against this repo
 npm run fixture-compat   # check old run fixtures still load
-npm run eval:replay      # deterministic multi-agent eval/replay harness
 npm run version:sync     # verify version synchronization across surfaces
-npm run release:check    # dry-run release gate (build, types, tests, replay, dogfood)
+npm run release:check    # dry-run release gate (build, types, tests, dogfood)
 ```
 
 `golden-path` exercises `workflow app -> plan -> dispatch -> isolated worker ->
