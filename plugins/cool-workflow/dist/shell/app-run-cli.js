@@ -1,5 +1,5 @@
 "use strict";
-// shell/app-run-cli.ts — `cw_app_run` and `cw_sandbox_choose`/`cw_sandbox_resolve`.
+// shell/app-run-cli.ts — `cw_app_run` and `cw_sandbox_choose`.
 //
 // GAP #24 port: v2 declared the cw_app_run + cw_sandbox_choose/resolve MCP
 // tool rows but left their handlers as notYetImplemented. This restores the
@@ -38,7 +38,7 @@ function sandboxProfileIdFrom(args) {
 function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-/** `cw_sandbox_choose` / `cw_sandbox_resolve` — resolve + validate a profile
+/** `cw_sandbox_choose` — resolve + validate a profile
  *  choice. Byte-exact port of the old build's `sandboxChoose`
  *  (capability-core module): defaults to "readonly", returns the resolved
  *  profile object under `profile`. */

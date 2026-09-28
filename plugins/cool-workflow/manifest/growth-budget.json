@@ -28,7 +28,6 @@
     { "path": "plugins/cool-workflow/src/shell/workbench.ts", "measuredAt": "2026-09-03", "measured": 269, "maxLines": 269 },
     { "path": "plugins/cool-workflow/src/shell/workbench-host.ts", "measuredAt": "2026-09-03", "measured": 340, "maxLines": 340 },
     { "path": "plugins/cool-workflow/src/shell/workbench-text.ts", "measuredAt": "2026-09-03", "measured": 18, "maxLines": 18 },
-    { "path": "plugins/cool-workflow/src/shell/bands-io.ts", "measuredAt": "2026-09-03", "measured": 97, "maxLines": 97 },
     { "path": "plugins/cool-workflow/src/shell/state-explosion-cli.ts", "measuredAt": "2026-09-03", "measured": 193, "maxLines": 193 },
     { "path": "plugins/cool-workflow/src/shell/orchestrator.ts", "measuredAt": "2026-09-03", "measured": 229, "maxLines": 229 },
     { "path": "plugins/cool-workflow/src/shell/telemetry-demo.ts", "measuredAt": "2026-09-03", "measured": 410, "maxLines": 410 },

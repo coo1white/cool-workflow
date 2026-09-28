@@ -134,13 +134,13 @@ addCliOnlyCapability(
 
 addCliOnlyCapability(
   "sandbox.usage",
-  "cw sandbox list|show|validate|choose|resolve [profile-id|profile-file]",
+  "cw sandbox list|show|validate|choose [profile-id|profile-file]",
   {
     path: ["sandbox"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-      throw new Error("Usage: cw sandbox list|show|validate|choose|resolve [profile-id|profile-file]");
+      throw new Error("Usage: cw sandbox list|show|validate|choose [profile-id|profile-file]");
     },
   },
   "sandbox.usage exists only to own the fixed usage-error text for an unrecognized sandbox subcommand; every real sandbox.* action is its own capability row above."

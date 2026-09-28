@@ -160,7 +160,6 @@ Every input schema is `{ type: "object", properties: <below>, additionalProperti
 | `cw_sandbox_show` | `sandbox.show` | `profileId` | `cwd` `profileId` | Show a resolved sandbox profile. |
 | `cw_sandbox_validate` | `sandbox.validate` | `profileFile` | `cwd` `profileFile` | Validate a sandbox profile JSON file. |
 | `cw_sandbox_choose` | `sandbox.choose` | (none) | `cwd` `profileId` `sandbox` `sandboxProfile` `sandboxProfileId` | Resolve and validate a sandbox profile choice. |
-| `cw_sandbox_resolve` | `sandbox.resolve` | (none) | `cwd` `profileId` `sandbox` `sandboxProfile` `sandboxProfileId` | Alias of sandbox.choose: a pure alias with the same input and the same output. Prefer cw_sandbox_choose. |
 | `cw_backend_list` | `backend.list` | (none) | `cwd` | List available execution backends and their capabilities. |
 | `cw_backend_show` | `backend.show` | (none) | `cwd` `backendId` | Show one execution backend descriptor. |
 | `cw_backend_probe` | `backend.probe` | (none) | `cwd` `backendId` | Probe execution backend readiness (live, deterministic). |
@@ -330,11 +329,11 @@ Core errors (bad run id, gate refusals, and so on) come through the same `-32000
     "payloadProbeInvalidClassifications": [],
     "registryLint": []
   },
-  "payload": { "ok": true, "runId": "<bootstrap run id>", "checked": 74, "capabilities": ["..."], "mismatches": [] }
+  "payload": { "ok": true, "runId": "<bootstrap run id>", "checked": 73, "capabilities": ["..."], "mismatches": [] }
 }
 ```
 
-The payload report has 74 targets. With `--check` and drift, stderr starts
+The payload report has 73 targets. With `--check` and drift, stderr starts
 `CLI <-> MCP parity drift detected (release-blocking):`, lists each gap as
 `  - <rule>: <names>`, ends with `Reconcile src/wiring/capability-table,
 src/cli, and src/mcp so both surfaces render one data source.\n`, and exits 1

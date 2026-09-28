@@ -292,7 +292,6 @@ export const COMMON_PROPERTY_TYPES: Record<string, McpPropertySchema> = {
   commit: { type: "string", description: "the commit's id" },
   commitId: { type: "string", description: "the commit's id" },
   concurrency: { type: "number", description: "the largest number of steps to run at once" },
-  config: { type: "string", description: "the file path to a bands config" },
   contract: { type: "string", description: "the pipeline contract's id" },
   contractId: { type: "string", description: "the pipeline contract's id" },
   criteria: { type: "array", description: "the list of scoring criteria" },
@@ -331,7 +330,6 @@ export const COMMON_PROPERTY_TYPES: Record<string, McpPropertySchema> = {
   id: { type: "string", description: "the id of this item" },
   includeArchived: { type: "boolean", description: "when true, also list archived runs" },
   includeRejected: { type: "boolean", description: "when true, also list rejected candidates" },
-  input: { type: "string", description: "the file path to a bands metrics input" },
   inputs: { type: "object", description: "the structured input values for the app" },
   intervalMinutes: { type: "number", description: "how often, in minutes, the task should repeat" },
   judgeCount: { type: "number", description: "the number of judge agents to use" },
@@ -692,7 +690,6 @@ export const MCP_TOOL_DATA: McpToolRow[] = [
   { tool: "cw_sandbox_show", capability: "sandbox.show", requiredArgs: ["profileId"], properties: ["cwd", "profileId"], description: "Show a resolved sandbox profile." },
   { tool: "cw_sandbox_validate", capability: "sandbox.validate", requiredArgs: ["profileFile"], properties: ["cwd", "profileFile"], description: "Validate a sandbox profile JSON file." },
   { tool: "cw_sandbox_choose", capability: "sandbox.choose", requiredArgs: [], properties: ["cwd", "profileId", "sandbox", "sandboxProfile", "sandboxProfileId"], description: "Resolve and validate a sandbox profile choice." },
-  { tool: "cw_sandbox_resolve", capability: "sandbox.resolve", requiredArgs: [], properties: ["cwd", "profileId", "sandbox", "sandboxProfile", "sandboxProfileId"], description: "Alias of sandbox.choose: a pure alias with the same input and the same output. Prefer cw_sandbox_choose." },
   { tool: "cw_backend_list", capability: "backend.list", requiredArgs: [], properties: ["cwd"], description: "List available execution backends and their capabilities." },
   { tool: "cw_backend_show", capability: "backend.show", requiredArgs: [], properties: ["cwd", "backendId"], description: "Show one execution backend descriptor." },
   { tool: "cw_backend_probe", capability: "backend.probe", requiredArgs: [], properties: ["cwd", "backendId"], description: "Probe execution backend readiness (live, deterministic)." },
@@ -793,6 +790,4 @@ export const MCP_TOOL_DATA: McpToolRow[] = [
   // --- post-rebuild additions (appended; see the header note above) ---
   { tool: "cw_audit_head", capability: "audit.head", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the trust-audit chain head anchor (event count + head hash) for a later truncation-proof audit.verify." },
   { tool: "cw_run_link", capability: "run.link", requiredArgs: ["runId", "url"], properties: ["runId", "cwd", "scope", "url", "kind", "note", "actor"], description: "Add an append-only link (PR/issue/ticket url) to a run record; no network call. A repeat of the same url is an idempotent no-op." },
-  { tool: "cw_bands_check", capability: "bands.check", requiredArgs: ["config", "input"], properties: ["cwd", "config", "input"], description: "Read a bands config and a metrics input file; work out the breached tier (none|1|2|3); write nothing. Deterministic; a breach is a normal result, not an error." },
-  { tool: "cw_bands_record", capability: "bands.record", requiredArgs: ["config", "input"], properties: ["cwd", "config", "input", "queue"], description: "Run the same check as bands.check; on tier 2 or 3 write an intent file under .cw/intents/; on tier 3, also add it to the run queue when --queue is given." },
 ];

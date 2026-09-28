@@ -129,8 +129,8 @@ The sandbox tools that are already there stay:
 - `cw_sandbox_show`
 - `cw_sandbox_validate`
 
-v0.1.13 adds `cw_sandbox_choose` and `cw_sandbox_resolve` as read-only helpers
-that check and work out `sandbox`, `sandboxProfile`, `sandboxProfileId`, or
+v0.1.13 adds `cw_sandbox_choose` as a read-only helper
+that checks and work out `sandbox`, `sandboxProfile`, `sandboxProfileId`, or
 `profileId` without sending out work. `cw_dispatch` takes all three sandbox
 field spellings so it works with different hosts.
 

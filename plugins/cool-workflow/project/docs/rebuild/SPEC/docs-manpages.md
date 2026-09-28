@@ -79,7 +79,7 @@ The docs do not run code. But they bind the code to a public surface. The list b
 
 ### sandbox-profiles.7.md — `cw sandbox *`
 
-- [ ] Verbs: `sandbox list|show|validate`; dispatch takes `--sandbox <id>` (docs/sandbox-profiles.7.md:9-15). Plus `sandbox choose|resolve` (docs/cli-mcp-parity.7.md:200-201).
+- [ ] Verbs: `sandbox list|show|validate`; dispatch takes `--sandbox <id>` (docs/sandbox-profiles.7.md:9-15). Plus `sandbox choose` (docs/cli-mcp-parity.7.md:200-201).
 - [ ] Bundled profiles: `default`, `readonly`, `workspace-write`, `locked-down` (docs/sandbox-profiles.7.md:53-71).
 - [ ] Profile file schema version `1` with keys `readPaths`, `writePaths`, `workerOutput`, `execute`, `network`, `env`; path tokens `$cwd`, `$runDir`, `$workerDir`, `$inputPath`, `$resultPath`, `$artifactsDir`, `$logsDir`; `..` traversal is rejected (docs/sandbox-profiles.7.md:73-95).
 - [ ] `execute.mode`/`network.mode` are `none`, `allowlist`, or `any` (docs/sandbox-profiles.7.md:96).
