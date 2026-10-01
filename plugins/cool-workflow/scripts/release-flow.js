@@ -410,7 +410,16 @@ function delegateReview(resultPath, inputPath) {
       const reaped = r.error.code === "ETIMEDOUT" && reapVendor(vendorPidFile);
       die(`reviewer agent could not be spawned (${bin}): ${r.error.message}${reaped ? " (its vendor process was reaped)" : ""} — no verdict trusted.`);
     }
-    if (r.status !== 0) die(`reviewer agent exited ${r.status === null ? "(timeout/no-exit)" : r.status} — no verdict trusted.`);
+    if (r.status !== 0) {
+      // stdout is piped (to read a verdict from it), so a vendor CLI that puts
+      // its error there (claude -p: not logged in, a usage limit, a bad flag)
+      // would otherwise fail with only an exit code. Show its last lines.
+      const tail = String(r.stdout || "").trim().split(/\r?\n/).slice(-20).join("\n").trim();
+      die(
+        `reviewer agent exited ${r.status === null ? "(timeout/no-exit)" : r.status} — no verdict trusted.`,
+        tail ? `reviewer stdout (last 20 lines):\n${tail}` : "reviewer wrote nothing to stdout."
+      );
+    }
     // If the agent already wrote the verdict file (backward compat), use it.
     // Otherwise extract the verdict from stdout (headless agent path).
     if (fs.existsSync(resultPath)) return;
