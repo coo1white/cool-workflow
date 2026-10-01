@@ -75,11 +75,11 @@ cw -q "How does auth work end-to-end here?"
 
 CW uses the current repo and the first agent it finds on your `PATH`. Want a specific agent? Add a flag from the table above, such as `-claude`.
 
-One focused question? Add `--fast`: 6 workers in place of 14, about 4 minutes in place of 7 on a real repo.
+A full review takes about 4 minutes on a real repo (14 workers; the Map and Assess stages run at the same time). One focused question? Add `--fast`: 6 workers in place of 14, the same cited answer for fewer agent calls.
 
 ### 3 · Open the report
 
-The report opens in your browser by itself when the run ends. Later, open it again with:
+The report opens in your browser by itself when the run ends. It starts with the answer, then the evidence behind it. Later, open it again with:
 
 ```bash
 cw report --open
@@ -102,7 +102,7 @@ CW does not run the model — it keeps the books. Your agent signs its findings 
 | `claude: command not found` | Install Claude Code and run again |
 | Where is my report? | `<repo>/.cw/runs/<id>/report.md`, or run `cw report --open` |
 | `Missing required input: question` | Add `-q "<question>"` |
-| Run stopped before the end | `cw --resume --run <id>` takes it to the end (inside the project, or add `--repo <path>`) |
+| Run stopped before the end | Fix the cause, then `cw --resume --run <id>` takes it to the end; a worker that stopped gets fresh tries (inside the project, or add `--repo <path>`) |
 | `... is not a git project` | Run it inside the project, or pass `--repo` |
 
 ## Learn more

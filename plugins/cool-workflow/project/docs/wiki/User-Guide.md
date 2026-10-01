@@ -49,7 +49,13 @@ itself and prints the path plus one line for later:
 ```
 
 A full run on a small project takes some minutes. The test's second run
-used 14 workers in four stages and took about eleven minutes.
+used 14 workers in four stages and took about eleven minutes. Since then
+the Map and Assess stages run at the same time, and two later runs on a
+real repository took 259 s and 233 s. For one focused question, add
+`--fast` (6 workers in place of 14).
+
+The report opens with a `## Answer` part: the final answer and the
+evidence it points to. The full results come after it.
 
 ## If you are not inside a project
 

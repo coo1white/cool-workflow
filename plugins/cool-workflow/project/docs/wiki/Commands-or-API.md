@@ -89,7 +89,9 @@ they do not prove.
 
 ## MCP
 
-MCP tools use `cw_` names and route through the same runtime entries. Examples:
+MCP tools use `cw_` names and route through the same runtime entries.
+`tools/list` gives 12 core tools by default; start the server with
+`CW_MCP_TOOLS=full` to list every tool. Examples:
 
 - `cw_app_list`
 - `cw_run_resume`
