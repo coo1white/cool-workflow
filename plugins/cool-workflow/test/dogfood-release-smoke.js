@@ -42,9 +42,9 @@ assert.equal(summary.releaseActions.skipped, true);
 const state = JSON.parse(fs.readFileSync(summary.statePath, "utf8"));
 assert.equal(state.workflow.id, "release-cut");
 assert.equal(state.workflow.app.id, "release-cut");
-assert.equal(state.workflow.app.version, "0.2.8");
+assert.equal(state.workflow.app.version, "0.3.0");
 assert.equal(state.inputs.repo, repoRoot);
-assert.equal(state.inputs.version, "0.2.8");
+assert.equal(state.inputs.version, "0.3.0");
 assert.equal(state.inputs.previousVersion, "0.1.31");
 assert.equal(state.inputs.dryRun, "true");
 
@@ -69,7 +69,7 @@ assert.ok(audit.byKind["worker.sandbox-profile"] >= state.workers.length);
 assert.ok(audit.byKind["commit.gate"] >= 1);
 
 const report = fs.readFileSync(summary.reportPath, "utf8");
-assert.match(report, /Workflow App: release-cut@0\.2\.8/);
+assert.match(report, /Workflow App: release-cut@0\.3\.0/);
 assert.match(report, /## Trust Audit/);
 
 assert.ok(summary.commandResults.some((entry) => entry.id === "npm-pack-dry-run" && entry.status === 0));
