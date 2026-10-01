@@ -36,7 +36,7 @@ const ROOT_ENTRIES = {
   "README.md": "the landing page",
   "REVIEW.md": "how a PR is reviewed",
   "plugins": "the package, at the path the marketplace entries name",
-  "scripts": "repo-level tooling that does not ship (mirror-to-gitea.js)",
+  "scripts": "repo-level tooling that does not ship (mirror-to-gitea.js, download-stats.js)",
   "v2": "conformance suite, kept outside the package it judges",
 };
 
