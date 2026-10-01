@@ -265,6 +265,12 @@ fixes this; Read/Bash (which the review itself needs) keep working. The reviewer
 CLI must also be logged in (`claude auth login` / `claude auth status` →
 `loggedIn: true`) — a fresh shell or CI runner is not.
 
+When the reviewer exits non-zero, the flow stops with `reviewer agent exited
+<code> — no verdict trusted.` and then prints the last 20 lines the reviewer
+wrote to stdout (or says it wrote nothing). A vendor CLI such as `claude -p`
+puts its own error there — not logged in, a usage limit, a bad flag — so that
+line is the reason for the stop.
+
 `{{input}}` is put in place of the reviewer prompt file path. Gemini and OpenCode
 also get generated MCP manifests (`.gemini-plugin/`, `.opencode-plugin/`) so the
 `cw_*` tools are there as MCP tools in those hosts. The verdict path

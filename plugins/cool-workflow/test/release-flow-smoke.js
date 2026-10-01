@@ -247,6 +247,26 @@ process.exit(0);
   assert.match(r.err, /no verdict|fail closed/i, "should explain the missing verdict");
 }
 
+// ---- Case 3a: reviewer exits non-zero → its stdout is shown, no verdict ----
+// stdout is piped to read verdicts, so a vendor CLI's own error (claude -p
+// prints "not logged in" there) used to vanish behind "exited 1".
+{
+  const dir = fixture();
+  const stub = path.join(dir, "fail-stub.js");
+  fs.writeFileSync(stub, 'process.stdout.write("Invalid API key - please run /login\\n"); process.exit(1);\n');
+  const r = runFlow(dir, { agentCmd: `node ${stub}` });
+  assert.equal(r.code, 1, "a reviewer that exits 1 must fail the flow");
+  assert.match(r.err, /reviewer agent exited 1 — no verdict trusted/, "names the exit code");
+  assert.match(r.err, /reviewer stdout \(last 20 lines\):\nInvalid API key - please run \/login/, "shows the reviewer's own error");
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  assert.ok(!fs.existsSync(path.join(dir, ".cw-release", `review-${sha}.verdict`)), "no verdict is written");
+  const silent = path.join(dir, "silent-stub.js");
+  fs.writeFileSync(silent, "process.exit(2);\n");
+  const q = runFlow(dir, { agentCmd: `node ${silent}` });
+  assert.equal(q.code, 1, "a silent failing reviewer must fail the flow");
+  assert.match(q.err, /reviewer wrote nothing to stdout/, "says the reviewer printed nothing");
+}
+
 // ---- Case 3b: stdout-only APPROVED agent (v0.1.88 — verdict-from-stdout) ----
 // A headless agent that CANNOT write files prints APPROVED to stdout.
 // The flow captures it and persists the verdict file itself.
