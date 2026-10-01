@@ -103,6 +103,10 @@ cw run resume <run-id> --drive
 The default `run resume` view is read-only. Adding `--drive` hands the waiting
 work to the existing agent delegation loop.
 
+A worker that stopped after its 3 tries (a "parked" worker) is run again with
+3 fresh tries on a resume, so fix the cause and resume the same run; you do
+not need a new one.
+
 ## From A Source Checkout
 
 ```bash

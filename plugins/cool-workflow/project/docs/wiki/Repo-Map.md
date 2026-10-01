@@ -1,7 +1,8 @@
 # Repo Map
 
 What every top-level folder and file is for, one line each — most are fixed
-by a tool, a test, or the release chain.
+by a tool, a test, or the release chain. `test/root-layout-smoke.js` holds
+this list: a new root entry is named there with its reason in the same diff.
 
 | Place | What it is |
 |---|---|
@@ -14,4 +15,8 @@ by a tool, a test, or the release chain.
 | `.cw-release/` | Append-only release trust records: gate markers, signed reviewer verdicts. Never edit or delete by hand |
 | `.github/` | CI workflows: build/test matrix, conformance, CodeQL, gitleaks, release gate, npm publish |
 | `.claude-plugin/`, `.agents/plugins/` | Plugin/marketplace manifests so LLM clients can discover CW |
+| `.claude/` | Claude Code project settings |
+| `.editorconfig`, `.gitattributes` | One text style for every editor: LF line ends, a final newline, no tab indents; binary files and Linguist hints |
+| [`REVIEW.md`](https://github.com/coo1white/cool-workflow/blob/main/REVIEW.md) | How a PR is reviewed |
+| [`scripts/`](https://github.com/coo1white/cool-workflow/blob/main/scripts/) | Repo-level tooling that does not ship (`mirror-to-gitea.js`) |
 | [`AGENTS.md`](https://github.com/coo1white/cool-workflow/blob/main/AGENTS.md) | The binding rules for coding agents working ON this repo; the one source of truth (also carries product direction/moat, long-term build memory, and the release runbook merged in from the former `DIRECTION.md`, `CLAUDE.md`, `PROJECT_MEMORY.md`, and `RELEASE.md`) |

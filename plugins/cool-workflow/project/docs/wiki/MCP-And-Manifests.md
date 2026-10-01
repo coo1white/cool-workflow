@@ -94,8 +94,43 @@ VS Code uses a `servers` key. Add this to `.vscode/mcp.json` in your project
 ```
 </details>
 
-Once connected, your agent sees the `cw_*` tools — `cw_plan`, `cw_status`,
-`cw_report`, and the rest — the same registry the CLI uses, parity-checked.
+Once connected, your agent sees the `cw_*` tools — the same registry the CLI
+uses, parity-checked.
+
+### Tool profile: 12 tools by default
+
+`tools/list` gives a small **core profile** by default, so an MCP client does
+not take about 30k tokens of tool text into every session (about 6.7 KB in
+place of about 104 KB):
+
+`cw_app_list`, `cw_app_show`, `cw_app_run`, `cw_run_drive_step`, `cw_status`,
+`cw_report`, `cw_run_resume`, `cw_run_list`, `cw_audit_verify`,
+`cw_backend_probe`, `cw_run_export`, `cw_run_restore`.
+
+| Setting | Effect |
+| --- | --- |
+| (not set) or `CW_MCP_TOOLS=core` | List the 12 core tools. |
+| `CW_MCP_TOOLS=full` | List every tool, as before. |
+| any other value | The server does not start (`MCP tool policy` error). |
+
+The profile decides only what is listed: `tools/call` still takes every known
+tool name. A set `CW_MCP_ENABLED_TOOLS` / `CW_MCP_DISABLED_TOOLS` policy decides
+the list in place of the profile. Full rules: `cw man cli-mcp-parity`.
+
+### The answer in one call
+
+`cw_report` takes two MCP-only arguments:
+
+- `answer: true` adds `answer`: `{ taskId, summary, evidence }`, the report's
+  `## Answer` part.
+- `markdown: true` adds the `report.md` text.
+
+With neither, the result is the same bytes as `cw report <id> --json`.
+
+The server also answers `resources/list` and `resources/read` for
+`cw://runs/<run-id>/report.md`, so a client can read a run's report as a
+resource. Bad URIs, unsafe run ids and missing reports are refused. Full rules:
+`cw man mcp-app-surface`.
 
 ## Generated Vendor Targets
 
