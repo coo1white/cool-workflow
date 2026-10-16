@@ -62,6 +62,13 @@ const coordinator_io_1 = require("./coordinator-io");
 const multi_agent_operator_ux_1 = require("./multi-agent-operator-ux");
 const collate_1 = require("../core/util/collate");
 const result_normalize_1 = require("../core/pipeline/result-normalize");
+/** One report head line: every control character (newline, CR, ESC and the
+ *  rest of C0, and DEL; not tab) becomes a space, so a value from state.json
+ *  such as `workflow.title` cannot start a new line in report.md. A value
+ *  with no control character comes back byte-identical. */
+function oneLine(value) {
+    return value.replace(/[\u0000-\u0008\u000a-\u001f\u007f]/g, " ");
+}
 function formatInputList(value) {
     if (Array.isArray(value))
         return value.join("; ");
@@ -383,21 +390,21 @@ function writeReport(run) {
     const sourceLabel = workflowApp?.metadata?.domain === "research" && !run.inputs.sourceUrl ? "Source" : "Repository";
     const lifecycle = (0, run_registry_io_1.runLifecycle)(run);
     const report = [
-        `# ${run.workflow.title}`,
+        `# ${oneLine(String(run.workflow.title))}`,
         "",
         `- Run: ${run.id}`,
-        `- Workflow: ${run.workflow.id}`,
+        `- Workflow: ${oneLine(String(run.workflow.id))}`,
         ...(workflowApp
-            ? [`- Workflow App: ${workflowApp.id}@${workflowApp.version}`, `- Workflow App Source: ${workflowApp.source?.manifestPath || workflowApp.source?.entrypointPath || workflowApp.source?.path || ""}`]
+            ? [`- Workflow App: ${oneLine(`${workflowApp.id}@${workflowApp.version}`)}`, `- Workflow App Source: ${oneLine(String(workflowApp.source?.manifestPath || workflowApp.source?.entrypointPath || workflowApp.source?.path || ""))}`]
             : []),
         `- Created: ${run.createdAt}`,
         `- Updated: ${run.updatedAt}`,
-        `- ${sourceLabel}: ${String(run.inputs.repo || run.cwd)}`,
+        `- ${sourceLabel}: ${oneLine(String(run.inputs.repo || run.cwd))}`,
         ...(run.inputs.sourceUrl
-            ? [`- Source: ${String(run.inputs.sourceUrl)}${run.inputs.sourceCommit ? `@${String(run.inputs.sourceCommit)}` : ""}`]
+            ? [`- Source: ${oneLine(`${String(run.inputs.sourceUrl)}${run.inputs.sourceCommit ? `@${String(run.inputs.sourceCommit)}` : ""}`)}`]
             : []),
-        `- Question: ${String(run.inputs.question || "")}`,
-        `- Invariants: ${formatInputList(run.inputs.invariant)}`,
+        `- Question: ${oneLine(String(run.inputs.question || ""))}`,
+        `- Invariants: ${oneLine(formatInputList(run.inputs.invariant))}`,
         `- Loop Stage: ${run.loopStage}`,
         `- Verdict: ${lifecycle === "completed" ? "PASS" : lifecycle.toUpperCase()}`,
         "",

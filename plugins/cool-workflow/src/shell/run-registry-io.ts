@@ -18,7 +18,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { assertSafeRunId, readJson, withFileLock, writeJson } from "./fs-atomic";
-import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store";
+import { assertNotSuspectedDataLoss, loadRunStateFile, rebindRunPaths } from "./run-store";
 import { fingerprintStrings } from "../core/hash";
 import { LoopStage, RunLinkAnnotation, WorkflowRun } from "../core/state/types";
 
@@ -1093,6 +1093,8 @@ export class RunRegistry {
     if (result.report.status === "unsupported") {
       throw new Error(`Unsupported run state for ${runId}: ${result.report.errors.join("; ")}`);
     }
+    // Stored paths are never trusted as write targets (see loadRunFromCwd).
+    rebindRunPaths(result.run, path.resolve(path.dirname(statePath)));
     assertNotSuspectedDataLoss(runId, result);
     return result.run;
   }

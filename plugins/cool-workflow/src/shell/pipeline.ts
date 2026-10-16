@@ -19,7 +19,7 @@ import { appendRunNode as pureAppendRunNode, createStateNode, upsertRunContract 
 import { createDefaultPipelineContract } from "../core/pipeline/contract";
 import { runPipelineStage } from "../core/pipeline/runner";
 import { LoadedWorkflowApp, workflowAppRunMetadata, WorkflowTaskDefinition } from "../core/workflow-apps/app-schema";
-import { writeJson } from "./fs-atomic";
+import { assertSafeRunId, writeJson } from "./fs-atomic";
 import { appendRunNode, writeRunNode } from "./node-store";
 import { ensureRunDirs, saveCheckpoint } from "./run-store";
 import { writeTaskFiles } from "./harness";
@@ -114,6 +114,9 @@ export function plan(app: LoadedWorkflowApp, options: Record<string, unknown>): 
   const cwd = path.resolve(String(inputs.cwd || inputs.repo || process.cwd()));
   const injectedRunId = typeof options.runId === "string" && (options.runId as string).trim() ? (options.runId as string).trim() : undefined;
   delete inputs.runId;
+  // An injected id (`--arg runId=...`, MCP `arg`) names a folder under
+  // .cw/runs: refuse anything but one safe path segment (fail closed).
+  if (injectedRunId !== undefined) assertSafeRunId(injectedRunId);
   const runId = injectedRunId || createRunId(app.workflow.id);
   const runDir = path.join(cwd, ".cw", "runs", runId);
   const paths = createRunPaths(runDir);

@@ -13,13 +13,49 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { assertSafeRunId, readJson, withFileLock, writeJson, writePartsDurable } from "./fs-atomic";
-import { createRunPaths } from "../core/state/run-paths";
+import { createRunPaths, rebindRunPaths as rebindRunPathsCore } from "../core/state/run-paths";
 import { migrateRunState, StateMigrationResult } from "../core/state/migrations";
 import { WorkflowRun, StateArtifact, RunPaths } from "../core/state/types";
 import { sha256 } from "../core/hash";
 import { flushPendingTrustAudit } from "./trust-audit";
 
 export { createRunPaths };
+
+/** The real place an absolute, normalized path names: realpath of the path
+ *  when it is there, else realpath of its nearest existing parent plus the
+ *  rest of the segments. undefined for a relative or not-normalized path
+ *  (a `..` cannot be followed lexically across a symlink) or on any error. */
+function realLocation(value: string): string | undefined {
+  if (!path.isAbsolute(value) || path.normalize(value) !== value) return undefined;
+  try {
+    let existing = value;
+    const rest: string[] = [];
+    while (!fs.existsSync(existing)) {
+      const parent = path.dirname(existing);
+      if (parent === existing) return undefined;
+      rest.unshift(path.basename(existing));
+      existing = parent;
+    }
+    return path.join(fs.realpathSync.native(existing), ...rest);
+  } catch {
+    return undefined;
+  }
+}
+
+/** SameLocation for rebindRunPaths: the two paths name one real place
+ *  (the same file or folder through a symlink). Fails closed: a path whose
+ *  real place cannot be found is never the same. */
+export function sameRealLocation(stored: string, rebuilt: string): boolean {
+  const a = realLocation(stored);
+  return a !== undefined && a === realLocation(rebuilt);
+}
+
+/** rebindRunPaths with the symlink-aware sameRealLocation: stored paths
+ *  that name the run's real folder are kept byte for byte (POLA for
+ *  printed paths); any other stored path is replaced. */
+export function rebindRunPaths<T extends Parameters<typeof rebindRunPathsCore>[0]>(run: T, runDir: string): T {
+  return rebindRunPathsCore(run, runDir, sameRealLocation);
+}
 
 /** `mkdirSync` (recursive) every always-written directory. `artifacts`,
  *  `feedback`, `candidates`, `multi-agent`, `blackboard`, and `topologies`
@@ -152,7 +188,9 @@ export function assertNotSuspectedDataLoss(runId: string, result: StateMigration
  *  refuses a state.json that lost its core fields (workflow, paths) while
  *  the run dir still has real content next to it, rather than silently
  *  returning it as a fresh empty run; else returns the migrated
- *  WorkflowRun in memory. */
+ *  WorkflowRun in memory, its `paths` and audit paths made again from the
+ *  run dir it was found in (`rebindRunPaths`) — stored paths are never
+ *  trusted as write targets. */
 export function loadRunFromCwd(runId: string, cwd = process.cwd()): WorkflowRun {
   if (!runId) throw new Error("Missing run id");
   assertSafeRunId(runId);
@@ -162,6 +200,7 @@ export function loadRunFromCwd(runId: string, cwd = process.cwd()): WorkflowRun 
   if (result.report.status === "unsupported") {
     throw new Error(`Unsupported CW run state: ${result.report.errors.join("; ")}`);
   }
+  rebindRunPaths(result.run, path.resolve(path.dirname(statePath)));
   assertNotSuspectedDataLoss(runId, result);
   return result.run;
 }

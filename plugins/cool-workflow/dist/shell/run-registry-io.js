@@ -816,6 +816,8 @@ class RunRegistry {
         if (result.report.status === "unsupported") {
             throw new Error(`Unsupported run state for ${runId}: ${result.report.errors.join("; ")}`);
         }
+        // Stored paths are never trusted as write targets (see loadRunFromCwd).
+        (0, run_store_1.rebindRunPaths)(result.run, path.resolve(path.dirname(statePath)));
         (0, run_store_1.assertNotSuspectedDataLoss)(runId, result);
         return result.run;
     }
