@@ -153,9 +153,15 @@ export function runShowCli(runId: string, options: Record<string, unknown> = {})
  *  `--drive`/`--once` the SAME run (nothing re-planned) is handed to the
  *  real drive loop and the payload gains a `drive: DriveResult` field. */
 export async function runResumeCli(runId: string, options: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
+  // A folder named with --cwd/--repo (and no explicit --scope) holds the
+  // lookup to that folder: no quiet registry-wide fallback. With no folder
+  // named, or with --scope home given, resume finds the run by id across the
+  // registry as before.
+  const namedBy = options.scope === undefined ? (optionalString(options.cwd) ? "--cwd" : optionalString(options.repo) ? "--repo" : undefined) : undefined;
   const base = new RunRegistry(resolveCwd(options)).resume(runId, {
     scope: scopeOf(options, "home"),
     limit: requiredNumberFlag(options.limit, "--limit"),
+    namedBy,
   });
   if (!options.drive && !options.once) return base as unknown as Record<string, unknown>;
   const drive = await runDriveStep({ ...options, runId: base.runId, repo: base.repo, once: Boolean(options.once) }, { reopenParked: true });

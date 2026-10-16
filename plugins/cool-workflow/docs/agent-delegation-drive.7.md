@@ -290,6 +290,15 @@ stored folder's run is never quietly driven in its place. To take a run to a
 new place, use `cw run export` and `cw run import`, which keep the stored
 folder true.
 
+When the folder named with `--repo` or `--cwd` does not hold the run at all,
+`run resume <run-id>` (with or without `--drive`/`--once`) is refused too:
+exit 1, nothing is written, and the error names the folder the registry
+finds the run in (`Cannot resume: run <run-id> is not in <named> (the folder
+named by --repo); the registry finds it in <owner> (fail closed; nothing was
+resumed). ...`). Before 0.4.0 it quietly drove the run in that other folder.
+Add `--scope home` to look across the registry on purpose; see
+`run-registry-control-plane(7)`.
+
 A resume also takes on a **parked** worker. `--resume --run <run-id>` and
 `run resume <run-id> --drive` (or `--once`) first put each worker parked past
 its retry budget back to where it was between two tries: the task and worker

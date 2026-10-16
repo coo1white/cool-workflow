@@ -209,9 +209,15 @@ function runShowCli(runId, options = {}) {
  *  `--drive`/`--once` the SAME run (nothing re-planned) is handed to the
  *  real drive loop and the payload gains a `drive: DriveResult` field. */
 async function runResumeCli(runId, options = {}) {
+    // A folder named with --cwd/--repo (and no explicit --scope) holds the
+    // lookup to that folder: no quiet registry-wide fallback. With no folder
+    // named, or with --scope home given, resume finds the run by id across the
+    // registry as before.
+    const namedBy = options.scope === undefined ? (optionalString(options.cwd) ? "--cwd" : optionalString(options.repo) ? "--repo" : undefined) : undefined;
     const base = new run_registry_io_1.RunRegistry(resolveCwd(options)).resume(runId, {
         scope: scopeOf(options, "home"),
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
+        namedBy,
     });
     if (!options.drive && !options.once)
         return base;

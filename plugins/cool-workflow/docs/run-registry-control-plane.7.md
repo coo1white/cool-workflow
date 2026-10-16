@@ -115,6 +115,16 @@ cwd — loads its durable state, and gives back the next runnable tasks and next
 actions for the host to run. Resume is read-only over source: it never
 changes `state.json` and never un-archives a run.
 
+When you name a folder with `--repo` or `--cwd` (and give no `--scope`),
+resume looks only in that folder. If the run is not there, resume is
+refused with exit 1 and nothing is written; the error names the folder the
+registry finds the run in, and the fix:
+`Cannot resume: run <run-id> is not in <named> (the folder named by --repo); the registry finds it in <owner> (fail closed; nothing was resumed). Run again with --repo <owner>, or add --scope home to look across the registry.`
+Give `--scope home` with the folder to look across the registry as before.
+With no folder named, resume still finds the run by id across the
+registry. (New default in 0.4.0; before, a named folder that did not hold
+the run was quietly passed over for the folder that did.)
+
 `run resume <run-id> --drive` (or `--once` for a single step) hands the found
 run straight to the agent-delegation drive loop that is already there — it plans nothing again and
 picks up the pending/running tasks deterministically from durable state — and
@@ -296,7 +306,7 @@ cw registry show [--scope repo|home] [--json]
 cw run search [--app ID] [--status STATE] [--text Q] [--repo PATH] [--since ISO] [--until ISO] [--limit N] [--offset N] [--scope repo|home] [--json]
 cw run list [--scope repo|home] [--json]
 cw run show <run-id> [--scope repo|home] [--json]
-cw run resume <run-id> [--limit N] [--drive [--once]] [--json]
+cw run resume <run-id> [--repo PATH | --cwd PATH] [--scope repo|home] [--limit N] [--drive [--once]] [--json]
 cw run archive <run-id> [--reason TEXT] [--unarchive]
 cw run archive --older-than-days N [--state completed --state failed]
 cw run rerun <run-id> [--reason TEXT]
