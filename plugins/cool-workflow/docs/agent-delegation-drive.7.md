@@ -277,6 +277,19 @@ finishes and seals the report. The bare `--resume --run <run-id>` form above
 needs the cwd inside the project, or `--repo <path>`, since it looks up the
 run under `.cw/runs/<run-id>/` from there.
 
+The folder named there (`--cwd`, then `--repo`, then the cwd) has to be the
+folder the run was made for (the `cwd` kept in its `state.json`). They are
+compared as real paths, so a symlink, or macOS `/var` against `/private/var`,
+is the same folder and works as before. When they are different folders (for
+example a copied or moved repo), `--resume --run <run-id>`,
+`run resume <run-id> --drive` (or `--once`) and `run --drive --run <run-id>`
+are refused before anything is written: exit 1, and the error names the two
+folders (`Run <run-id> was made for <stored>, not <given>; refusing to resume
+it from here (fail closed). ...`). The flag is never quietly used, and the
+stored folder's run is never quietly driven in its place. To take a run to a
+new place, use `cw run export` and `cw run import`, which keep the stored
+folder true.
+
 A resume also takes on a **parked** worker. `--resume --run <run-id>` and
 `run resume <run-id> --drive` (or `--once`) first put each worker parked past
 its retry budget back to where it was between two tries: the task and worker
