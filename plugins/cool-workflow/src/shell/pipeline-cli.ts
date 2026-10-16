@@ -24,7 +24,7 @@ import { commitState } from "./commit";
 import { recordWorkerOutput, showWorkerManifest, getWorkerScope } from "./worker-isolation";
 import { parseUsageFromArgs } from "./observability";
 import { validateSandboxWrite } from "./sandbox-profile";
-import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store";
+import { loadRunFromCwd, sameRealLocation, saveCheckpoint, withRunStateLock } from "./run-store";
 import { writeReport } from "./report";
 import { ensureAndOpenReportHtml } from "./report-view-cli";
 import { formatQuickstartSummary } from "./reporter";
@@ -142,6 +142,22 @@ function existingRunCwd(args: Record<string, unknown>): string {
   return process.cwd();
 }
 
+/** Loads an EXISTING run from the folder the caller named (existingRunCwd)
+ *  and refuses, fail-closed, when the run says it was made for a different
+ *  real folder (`state.cwd`). The drive goes on at `run.cwd`, so without
+ *  this a `--repo`/`--cwd` naming a copied or moved repo would silently
+ *  drive the stored folder's run instead. The same real folder (a symlink,
+ *  or macOS /var vs /private/var) is not a mismatch and works as before. */
+function loadExistingRunAt(runId: string, cwd: string): WorkflowRun {
+  const run = loadRunFromCwd(runId, cwd);
+  if (typeof run.cwd === "string" && run.cwd !== cwd && !sameRealLocation(run.cwd, cwd)) {
+    throw new Error(
+      `Run ${runId} was made for ${run.cwd}, not ${cwd}; refusing to resume it from here (fail closed). Pass --repo ${run.cwd}, or move the run with cw run export and cw run import.`
+    );
+  }
+  return run;
+}
+
 /** True for a value that counts as "not supplied" — byte-exact to the old
  *  build's cli-options.isMissing (undefined / null / empty string). */
 function isMissingInput(value: unknown): boolean {
@@ -247,7 +263,7 @@ export async function runDriveStep(args: Record<string, unknown>, extra: Pick<Dr
   };
   if (existingRunId) {
     const cwd = existingRunCwd(args);
-    const run = loadRunFromCwd(existingRunId, cwd);
+    const run = loadExistingRunAt(existingRunId, cwd);
     return driveAsync(existingRunId, run.cwd, options);
   }
   const appId = String(args.appId || args.app || args.positionalApp || "");
@@ -542,7 +558,7 @@ export async function quickstartRun(
   };
   let run: WorkflowRun;
   if (existingRunId) {
-    run = loadRunFromCwd(existingRunId, existingRunCwd(args));
+    run = loadExistingRunAt(existingRunId, existingRunCwd(args));
     // A continued run names its own app: with no app and no --fast given,
     // appId is the app the run was planned with, not the default review.
     if (!namedApp && !fast) appId = run.workflow.id;

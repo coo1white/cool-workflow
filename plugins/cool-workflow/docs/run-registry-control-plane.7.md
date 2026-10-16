@@ -122,6 +122,9 @@ adds the drive outcome to the result under a `drive` field. The default (no
 `--drive`) payload and `nextActions` stay byte-identical. An unconfigured agent
 gives `drive.status="blocked"` (fail-closed, never a made-up completion); CW
 hands worker execution to your agent and never runs a model itself.
+If the run found in the folder you name has a different stored `cwd` (a
+copied or moved repo; real paths are compared), `--drive`/`--once` is refused
+with exit 1 and nothing is written; see `agent-delegation-drive(7)`.
 
 Human output with `--drive` or `--once` prints the drive status, worker counts,
 each drive step, and the terminal commit id when there is one. This makes a
