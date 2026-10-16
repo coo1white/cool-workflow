@@ -1,0 +1,2 @@
+APPROVED 51c619df7e8d01a573d6f04b01a60564f5662b4f
+A user can run `cw -q "<question>"` (add `--fast` for one focused question) and get a cited `## Answer` at the top of report.md in under five minutes, resume a parked worker to the end with `cw --resume --run <id>`, and an MCP client sees a 12-tool core list by default plus the run report as a resource.
