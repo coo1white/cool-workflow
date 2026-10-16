@@ -62,6 +62,13 @@ if (${JSON.stringify(behavior)} === "error-event") {
   process.stdout.write(JSON.stringify({ type: "error", sessionID: "ses_shim", error: { name: "APIError", data: { message: "Forbidden: request blocked for host api.example.test", statusCode: 403 } } }) + "\\n");
   process.exit(1);
 }
+if (${JSON.stringify(behavior)} === "error-event-exit0") {
+  // opencode can print some text, then report an API failure as a
+  // { type: "error" } event, and still exit 0. The text is not a result.
+  process.stdout.write(JSON.stringify({ type: "text", part: { type: "text", messageID: "msg_a", text: "reading repo..." } }) + "\\n");
+  process.stdout.write(JSON.stringify({ type: "error", sessionID: "ses_shim", error: { name: "APIError", data: { message: "Rate limited for host api.example.test", statusCode: 429 } } }) + "\\n");
+  process.exit(0);
+}
 // Mirror real opencode (>=1.x) --format json: { type, part } JSONL events.
 // type:"text" -> part.text (grouped by part.messageID); the LAST message is the
 // final answer. type:"step_finish" -> part.tokens. NO model field is emitted.
@@ -165,6 +172,21 @@ function main() {
     const log = fs.readFileSync(path.join(work, "logs", "agent-stderr.log"), "utf8");
     assert.ok(log.includes("APIError: Forbidden: request blocked for host api.example.test"), "the log names the error event's reason");
     console.log("opencode: a { type: \"error\" } event names the failure OK");
+  }
+
+  {
+    // Fail closed: an error event on stdout is a failed run even when opencode
+    // exits 0 and some text came before it. No result.md, no success report.
+    fs.rmSync(resultPath, { force: true });
+    fs.rmSync(path.join(work, "logs"), { recursive: true, force: true });
+    const errZero = runWrapper(shimDir("error-event-exit0"), inputPath, resultPath);
+    assert.equal(errZero.status, 1, `an error event with exit 0 still exits 1 (stdout: ${errZero.stdout})`);
+    assert.equal(errZero.stdout, "", "no success report on stdout when opencode reports an error event");
+    assert.ok(!fs.existsSync(resultPath), "no result.md when opencode reports an error event and exits 0");
+    assert.ok(errZero.stderr.includes("APIError: Rate limited for host api.example.test"), "stderr names the error event's reason");
+    const log = fs.readFileSync(path.join(work, "logs", "agent-stderr.log"), "utf8");
+    assert.ok(log.includes("APIError: Rate limited for host api.example.test"), "the log names the error event's reason");
+    console.log("opencode: an error event with exit 0 fails closed OK");
   }
 
   {

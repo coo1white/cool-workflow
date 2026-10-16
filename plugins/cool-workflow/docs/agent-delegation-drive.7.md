@@ -447,6 +447,13 @@ last 4096 bytes of the command's stderr, with the same secret redaction. This
 works on both the serial and the concurrent path, and a log the wrapper wrote is
 never replaced. The recorded `reason` and the `--json` payload do not change.
 
+opencode can give a failed run as a `{ "type": "error" }` event on stdout and
+still exit 0, at times after some mid-run text. The opencode wrapper (and
+deepseek and gemini through opencode, which use it) takes such an event as a
+failed hop: it exits 1, puts the event's reason on stderr and in
+`agent-stderr.log`, and writes no `result.md` and no stdout report. The text
+before the event is never taken as a result.
+
 On a terminal, a `cw -q` run that parks or blocks with an agent set ends like
 this:
 
