@@ -135,7 +135,15 @@ Unknown requested profiles fail closed with `sandbox-profile-not-found`.
 
 Bad profile files fail validation with `sandbox-profile-invalid`.
 
-Denied worker output writes make `sandbox-write-denied` feedback. Runtime
+Denied worker output writes make `sandbox-write-denied` feedback. The worker
+output paths (`result.md`, `artifacts/`, `logs/`) are checked on the real path
+as well as the written path: when `result.md`, or a folder between the run
+folder and it, is a symlink that points outside those paths, the write is
+refused with `sandbox-write-denied` and the message "write path resolves
+through a symlink outside sandbox profile <id>: <path> -> <real path>". Both
+sides are compared as real paths, so a run under a symlinked temp root (macOS
+`/var` -> `/private/var`) is not refused. `cw result` makes the same check on
+the worker's `result.md` before it copies the operator file there. Runtime
 helpers also give `sandbox-read-denied`, `sandbox-network-denied`, and
 `sandbox-command-denied` for hosts that want to note down those decisions through
 CW.
