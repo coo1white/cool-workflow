@@ -65,6 +65,30 @@ and `triggers.json`. Two additions close it for the run state itself:
   inside `fn` (`saveCheckpoint`, worker-failure persists) keep their own
   lock calls unchanged. Cross-process behavior is untouched.
 
+### A live drive and an operator write (unreleased)
+
+A drive round cannot hold the `state.json` lock while its agents run (that
+takes minutes, past the 30 s steal window), so it holds its own copy of the
+run instead. Before, a `cw result` or `cw commit` made on the same run while
+the drive's agents ran was lost: the drive's next save put its older copy
+back over the operator's write, with no error. Now:
+
+- After the agent wait (the serial spawn, a sub-workflow's child drive, or a
+  concurrent round's whole batch), the drive checks the `state.json` file
+  stamp it last loaded or saved. When no one wrote the file since, it goes on
+  with its copy (a `stat`, no extra read: one writer acts as before). When
+  someone did, it loads the run again and puts its own result on top, so both
+  writes are kept.
+- When the other writer settled the very task the drive's agent was working
+  on (for one, `cw result` for that task), the drive refuses: it exits
+  non-zero with `state.json of run <id> was changed by another writer ...;
+  refusing to overwrite it`, and saves nothing over the operator's write. Run
+  the drive again to go on from the saved state.
+- Every drive save checks the same stamp under the `state.json` lock and
+  refuses with the same message when the file changed after the drive's last
+  load or save, so a write that lands in any other part of a round is never
+  overwritten either.
+
 ### Run paths come from where the run is (unreleased)
 
 A run's `state.json` keeps a `paths` block (`runDir`, `state`, `report`,

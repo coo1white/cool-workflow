@@ -44,7 +44,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createRunPaths = void 0;
+exports.RunStateConflictError = exports.createRunPaths = void 0;
 exports.sameRealLocation = sameRealLocation;
 exports.rebindRunPaths = rebindRunPaths;
 exports.ensureRunDirs = ensureRunDirs;
@@ -60,6 +60,7 @@ exports.withDriveLock = withDriveLock;
 exports.withDriveLockAsync = withDriveLockAsync;
 exports.saveCheckpoint = saveCheckpoint;
 exports.serializeRunState = serializeRunState;
+exports.runStateIsCurrent = runStateIsCurrent;
 exports.savedRunIfCurrent = savedRunIfCurrent;
 exports.compactCheckpoint = compactCheckpoint;
 exports.createRun = createRun;
@@ -244,12 +245,18 @@ function loadRunFromCwd(runId, cwd = process.cwd()) {
     const statePath = path.join(cwd, ".cw", "runs", runId, "state.json");
     if (!fs.existsSync(statePath))
         throw new Error(`Run not found: ${runId}`);
+    // Stamp BEFORE the read: a write landing between the two leaves an older
+    // stamp, so runStateIsCurrent errs to "changed" (a reload), never to
+    // "unchanged" over a write this copy did not see.
+    const stamp = stateFileStamp(statePath);
     const result = loadRunStateFile(statePath, { dryRun: true });
     if (result.report.status === "unsupported") {
         throw new Error(`Unsupported CW run state: ${result.report.errors.join("; ")}`);
     }
     rebindRunPaths(result.run, path.resolve(path.dirname(statePath)));
     assertNotSuspectedDataLoss(runId, result);
+    if (stamp)
+        RUN_STAMPS.set(result.run, stamp);
     return result.run;
 }
 /** The canonical run directory for `runId` under `cwd` — the SAME
@@ -421,22 +428,41 @@ async function withDriveLockAsync(runDir, runId, fn) {
         release();
     }
 }
+/** Thrown by `saveCheckpoint(run, { ifUnchanged: true })` when another
+ *  writer saved state.json after `run` was loaded or saved here. */
+class RunStateConflictError extends Error {
+    constructor(runId) {
+        super(`state.json of run ${runId} was changed by another writer (such as cw result or cw commit) while this drive held an older copy; refusing to overwrite it. Run the drive again to go on from the saved state.`);
+        this.name = "RunStateConflictError";
+    }
+}
+exports.RunStateConflictError = RunStateConflictError;
 /** state.json is the single source of truth — set `updatedAt`, then write
- *  it DURABLY with a lock so concurrent processes never lose an update. */
-function saveCheckpoint(run) {
+ *  it DURABLY with a lock so concurrent processes never lose an update.
+ *  `ifUnchanged` (the drive's saves): under the same lock, refuse with
+ *  RunStateConflictError when state.json is no longer the file `run` was
+ *  loaded from or last saved as (runStateIsCurrent), so a long-held copy
+ *  never writes over a change it never saw. */
+function saveCheckpoint(run, options = {}) {
     (0, trust_audit_1.flushPendingTrustAudit)(run);
     run.updatedAt = new Date().toISOString();
     (0, fs_atomic_1.withFileLock)(run.paths.state, () => {
+        if (options.ifUnchanged && RUN_STAMPS.has(run) && !runStateIsCurrent(run))
+            throw new RunStateConflictError(run.id);
         const parts = runStateParts(run);
         if (process.env.CW_STATE_WRITE_VERIFY === "1" && Buffer.concat(parts).toString("utf8") !== `${JSON.stringify(run, null, 2)}\n`) {
             throw new Error(`state serialization differs from JSON.stringify for run ${run.id}`);
         }
         (0, fs_atomic_1.writePartsDurable)(run.paths.state, parts, { durable: true });
         const stamp = stateFileStamp(run.paths.state);
-        if (stamp)
+        if (stamp) {
             LAST_SAVED.set(path.resolve(run.paths.state), { stamp, run });
-        else
+            RUN_STAMPS.set(run, stamp);
+        }
+        else {
             LAST_SAVED.delete(path.resolve(run.paths.state));
+            RUN_STAMPS.delete(run);
+        }
     });
 }
 /** `JSON.stringify(run, null, 2)`, byte for byte (see runStateParts). */
@@ -559,6 +585,16 @@ function unchangedShape(value, shape, pos) {
  *  write by anyone (another process, a hand edit, a restore) replaces the
  *  file by rename or rewrites it, so the stamp no longer matches. */
 const LAST_SAVED = new Map();
+/** The state.json stamp each run object was loaded from (loadRunFromCwd)
+ *  or last saved as (saveCheckpoint) in this process. */
+const RUN_STAMPS = new WeakMap();
+/** True when state.json is still exactly the file `run` was loaded from or
+ *  last saved as in this process; false when anyone wrote it since, or when
+ *  nothing is known of `run`. A stat, never a read. */
+function runStateIsCurrent(run) {
+    const stamp = RUN_STAMPS.get(run);
+    return stamp !== undefined && stateFileStamp(run.paths.state) === stamp;
+}
 function stateFileStamp(file) {
     try {
         const s = fs.statSync(file, { bigint: true });
