@@ -51,7 +51,7 @@ import {
   ResultEnvelopeLike,
 } from "../core/pipeline/loop-expansion";
 import { firstRunnablePhase, runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch";
-import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir } from "./run-store";
+import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir, runStateIsCurrent, RunStateConflictError } from "./run-store";
 import { createDispatchManifest } from "./dispatch";
 import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope, reopenParkedWorker } from "./worker-isolation";
 import { createStateNode } from "../core/state/state-node";
@@ -258,6 +258,36 @@ function withRoundCache<T>(ctx: DriveContext, fn: () => T): T {
   }
 }
 
+/** Every drive save: refuse (RunStateConflictError) rather than write over
+ *  a state.json another process saved after this drive loaded or saved it
+ *  — a round holds its copy for as long as its agents run, while `cw result`
+ *  or `cw commit` may save the same run (lost update, fail closed). */
+const DRIVE_SAVE = { ifUnchanged: true } as const;
+
+/** After a long wait (an agent spawn, a sub-workflow drive), the round's run
+ *  as it is on disk now: the same object when no one wrote state.json since
+ *  this process loaded or saved it (a stat, no read — the single-writer path
+ *  is unchanged), else a fresh load that also replaces the round cache, so
+ *  the drive's own change goes on top of the other writer's. Only call it
+ *  where the held copy has no unsaved change of its own. */
+function refreshRun(ctx: DriveContext, run: WorkflowRun): WorkflowRun {
+  if (runStateIsCurrent(run)) return run;
+  const fresh = loadRunFromCwd(ctx.runId, ctx.cwd);
+  if (roundCache.has(ctx.runId)) roundCache.set(ctx.runId, fresh);
+  return fresh;
+}
+
+/** The task `taskId` of a refreshed run, still the one this drive's agent
+ *  worked as `workerId`; refuses when another writer settled or moved it
+ *  meanwhile (never two results for one task, never a silent drop). */
+function stillOwnedTask(run: WorkflowRun, taskId: string, workerId: string): WorkflowRun["tasks"][number] {
+  const task = run.tasks.find((t) => t.id === taskId);
+  if (!task || task.status !== "running" || task.workerId !== workerId) {
+    throw new RunStateConflictError(run.id);
+  }
+  return task;
+}
+
 /** The run a new round starts from. When the last round's run is still
  *  exactly what state.json holds (this process's last save wrote that
  *  very object, and the file's stamp has not moved since, so no other
@@ -346,11 +376,11 @@ function handleHop(ctx: DriveContext, task: { id: string; phase: string }, worke
 
   if (decided.status === "parked") {
     recordWorkerFailure(run, workerId, decided.parkedReason || reason, { code: "agent-delegation-parked", retryable: false, retryCount: decided.attempts });
-    if (!deferPersist) saveCheckpoint(run);
+    if (!deferPersist) saveCheckpoint(run, DRIVE_SAVE);
     return makeStep("park", "parked", { runId: ctx.runId, taskId: task.id, phase: task.phase, backendId: "agent", attempts: decided.attempts, reason: decided.parkedReason || reason });
   }
   recordWorkerRetryAttempt(run, workerId, decided.attempts, reason);
-  if (!deferPersist) saveCheckpoint(run);
+  if (!deferPersist) saveCheckpoint(run, DRIVE_SAVE);
   return makeStep("fulfill", "failed", { runId: ctx.runId, taskId: task.id, phase: task.phase, backendId: "agent", attempts: decided.attempts, reason });
 }
 
@@ -393,7 +423,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
     // pipeline-run.md's persist-ordering section pins this exact reason.
     if (!deferPersist) {
       if (manifest.dispatchId) commitState(run, `dispatch:${manifest.dispatchId}`);
-      saveCheckpoint(run);
+      saveCheckpoint(run, DRIVE_SAVE);
     }
     const dispatchedTask = manifest.tasks.find((t) => t.id === selected.id) || manifest.tasks[0];
     if (!dispatchedTask || !dispatchedTask.workerId) {
@@ -468,7 +498,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
       // `worker:<worker-id>:result`), not just a bare saveCheckpoint.
       if (!deferPersist) {
         commitState(run, `worker:${workerId}:result`);
-        saveCheckpoint(run);
+        saveCheckpoint(run, DRIVE_SAVE);
       }
     } catch (error) {
       return handleHop(ctx, selected, workerId, `result cache rejected: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
@@ -496,6 +526,18 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
     delegation: { command: ctx.config.command, args: ctx.config.args, endpoint: ctx.config.endpoint, model: (selected.model as string) || ctx.config.model },
     ...(preparedOutcome ? { preparedAgentOutcome: preparedOutcome } : {}),
   });
+
+  // The agent ran for as long as it took; `cw result` / `cw commit` may have
+  // saved this run meanwhile. Settle onto what is on disk now (serial path:
+  // the held copy has nothing unsaved; a concurrent round refreshes before
+  // its settlement instead, in prepareConcurrentOutcomes).
+  if (!deferPersist) {
+    const fresh = refreshRun(ctx, run);
+    if (fresh !== run) {
+      run = fresh;
+      selected = stillOwnedTask(run, selectedId, workerId);
+    }
+  }
 
   const handle = envelope.provenance.handle;
   const reportedModel = (handle?.metadata?.reportedModel as string) || "unreported";
@@ -534,7 +576,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
     });
     if (!deferPersist) {
       commitState(run, `worker:${workerId}:result`);
-      saveCheckpoint(run);
+      saveCheckpoint(run, DRIVE_SAVE);
     }
   } catch (error) {
     return handleHop(ctx, selected, workerId, `result.md rejected: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
@@ -606,6 +648,15 @@ function runSubWorkflow(
     visitedAppIds: [...ctx.visitedAppIds, parentApp],
     policy: ctx.policy,
   });
+  // The child drive can run for minutes: settle onto the run as it is on
+  // disk now, as processSelectedTask does after an agent spawn.
+  if (!deferPersist) {
+    const fresh = refreshRun(ctx, run);
+    if (fresh !== run) {
+      run = fresh;
+      selected = stillOwnedTask(run, selected.id, workerId);
+    }
+  }
   if (childResult.status !== "complete") {
     return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} did not complete (status: ${childResult.status})`, deferPersist, deferPersist ? run : undefined);
   }
@@ -657,7 +708,7 @@ function runSubWorkflow(
     maybeExpandLoop(run);
     if (!deferPersist) {
       commitState(run, `worker:${workerId}:result`);
-      saveCheckpoint(run);
+      saveCheckpoint(run, DRIVE_SAVE);
     }
   } catch (error) {
     return handleHop(ctx, selected, workerId, `sub-workflow result rejected by parent gate: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
@@ -810,11 +861,11 @@ export function driveStep(ctx: DriveContext): DriveStep {
       // the run stops blocked with the reason, its report and state saved.
       if (!(error instanceof CommitGateError)) throw error;
       writeReport(run);
-      saveCheckpoint(run);
+      saveCheckpoint(run, DRIVE_SAVE);
       return makeStep("commit", "blocked", { runId: run.id, reason: `final commit blocked: ${error.message}` });
     }
     writeReport(run);
-    saveCheckpoint(run);
+    saveCheckpoint(run, DRIVE_SAVE);
     return makeStep("commit", "complete", { runId: run.id, reason: `committed ${commit.id}` });
   }
   if (gate.step) return gate.step;
@@ -842,6 +893,8 @@ function prepareConcurrentOutcomes(
   const jobTaskIds: string[] = [];
   const endpointJobs: AgentEndpointJob[] = [];
   const endpointTaskIds: string[] = [];
+  // The worker each spawned or delegated task runs as, to check after the wait.
+  const spawnedWorkers = new Map<string, string>();
   // Set whenever a task's status flips pending -> running (workerId
   // assigned) this round, regardless of whether it later becomes a real
   // spawn job, an endpoint job, a cache hit, or a sub-workflow task. That
@@ -921,6 +974,7 @@ function prepareConcurrentOutcomes(
       }
       jobs.push(job);
       jobTaskIds.push(taskId);
+      spawnedWorkers.set(taskId, workerId);
       continue;
     }
     // Endpoint-configured agent: no CLI binary to batch-spawn, but its HTTP
@@ -932,6 +986,7 @@ function prepareConcurrentOutcomes(
     if (endpointJob) {
       endpointJobs.push(endpointJob);
       endpointTaskIds.push(taskId);
+      spawnedWorkers.set(taskId, workerId);
     }
   }
   });
@@ -952,13 +1007,23 @@ function prepareConcurrentOutcomes(
     // entirely of sub-workflow and/or cache-hit tasks — which builds zero
     // spawn/endpoint jobs — still gets this flush before its long-running
     // settle loop starts.
-    saveCheckpoint(loadRun(ctx));
+    saveCheckpoint(loadRun(ctx), DRIVE_SAVE);
   }
   const outcomes = new Map<string, AgentChildOutcome>();
   const settled = runAgentBatchOutcomes(jobs as Parameters<typeof runAgentBatchOutcomes>[0]);
   jobTaskIds.forEach((taskId, index) => outcomes.set(taskId, settled[index]));
   const endpointSettled = runEndpointBatchOutcomes(endpointJobs);
   endpointTaskIds.forEach((taskId, index) => outcomes.set(taskId, endpointSettled[index]));
+  // The batch ran for as long as its slowest agent; `cw result` / `cw commit`
+  // may have saved this run meanwhile. Settle onto what is on disk now: the
+  // round's copy has nothing unsaved here (any dispatch was flushed above).
+  // A task another writer settled or moved while its agent ran refuses the
+  // round, as on the serial path (stillOwnedTask).
+  const held = loadRun(ctx);
+  const fresh = refreshRun(ctx, held);
+  if (fresh !== held) {
+    for (const [taskId, workerId] of spawnedWorkers) stillOwnedTask(fresh, taskId, workerId);
+  }
   return { outcomes, failSteps };
 }
 
@@ -1013,7 +1078,7 @@ function driveConcurrentRound(ctx: DriveContext, limit: number): DriveStep[] {
       const settledRun = loadRun(ctx);
       withPerfTraceGroup("checkpoint", () => commitState(settledRun, `concurrent-round:${batch.length}-tasks`));
       withPerfTraceGroup("report", () => writeReport(settledRun));
-      withPerfTraceGroup("checkpoint", () => saveCheckpoint(settledRun));
+      withPerfTraceGroup("checkpoint", () => saveCheckpoint(settledRun, DRIVE_SAVE));
     }
     return steps.length > 0 ? steps : [driveStep(ctx)];
   });
@@ -1262,7 +1327,7 @@ function reopenParked(ctx: DriveContext): string[] {
       reopenParkedWorker(run, String(run.tasks.find((task) => task.id === taskId)!.workerId));
     }
   });
-  saveCheckpoint(run);
+  saveCheckpoint(run, DRIVE_SAVE);
   return taskIds;
 }
 
