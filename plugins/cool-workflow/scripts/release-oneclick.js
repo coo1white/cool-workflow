@@ -21,8 +21,12 @@
 //
 // Stages (each is idempotent — probes current state before acting, so a
 // re-run after a failure resumes rather than repeats):
-//   0. preflight   — release-flow.js --cut --preflight-only (fail in seconds,
-//                    before the gate/vendor-preflight/reviewer spend anything)
+//   0. preflight   — the release:doctor checks (release-preflight.js: HEAD is
+//                    the origin/main tip, clean tree, reviewer binary exists,
+//                    signing key file, git identity, gh auth, no vX.Y.Z tag;
+//                    every problem reported at once), then release-flow.js
+//                    --cut --preflight-only (fail in seconds, before the
+//                    gate/vendor-preflight/reviewer spend anything)
 //   1. bump PR     — only if package.json is not already at the target
 //                    version; skipped when the agent's prep PR already landed
 //   2. cut         — release-flow.js --cut --version X --push (gate, live
@@ -46,6 +50,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+const { runChecks, formatFindings } = require("./release-preflight.js");
 
 const scriptsDir = __dirname;
 const pluginRoot = path.resolve(scriptsDir, "..");
@@ -190,6 +195,16 @@ function verifyLocalTagVerdict() {
 // ---- stage 0: preflight -----------------------------------------------------
 function runPreflight() {
   stage(0, "preflight");
+  // The release:doctor checks (scripts/release-preflight.js, the one shared
+  // implementation) run FIRST and report every problem at once, on stderr:
+  // a stale HEAD, a dirty tree, a missing reviewer binary, an unset signing
+  // key, a missing git identity. --dry-run stays offline (no fetch/ls-remote/
+  // gh probe), the same rule alreadyCut() follows.
+  const doctor = runChecks({ repoRoot, version, offline: DRY_RUN, mode: "cut", gitBin: GIT_BIN, ghBin: GH_BIN });
+  process.stderr.write(formatFindings(doctor, { prefix: "release-oneclick", onlyProblems: true }));
+  if (!doctor.ok) {
+    die(`preflight failed — ${doctor.failures} problem(s) above; fix them before re-running (nothing was done yet). Re-check in seconds with: npm run release:doctor -- ${version}`);
+  }
   const args = ["scripts/release-flow.js", "--cut", "--version", version, "--push", "--preflight-only"];
   const r = spawnSync("node", args, { cwd: pluginRoot, encoding: "utf8", stdio: "inherit" });
   if (r.status !== 0) {

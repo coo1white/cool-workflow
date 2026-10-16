@@ -37,6 +37,8 @@ const REAL_FLOW = path.resolve(__dirname, "..", "scripts", "release-flow.js");
 assert.ok(fs.existsSync(REAL_FLOW), "release-flow.js must exist");
 const REAL_TAGS = path.resolve(__dirname, "..", "scripts", "release-tags.js");
 assert.ok(fs.existsSync(REAL_TAGS), "release-tags.js must exist");
+const REAL_PREFLIGHT = path.resolve(__dirname, "..", "scripts", "release-preflight.js");
+assert.ok(fs.existsSync(REAL_PREFLIGHT), "release-preflight.js must exist");
 
 let caseId = 0;
 function run(bin, args, cwd, env) {
@@ -64,6 +66,7 @@ function fixture() {
   fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
   fs.copyFileSync(REAL_FLOW, path.join(dir, "scripts", "release-flow.js"));
   fs.copyFileSync(REAL_TAGS, path.join(dir, "scripts", "release-tags.js"));
+  fs.copyFileSync(REAL_PREFLIGHT, path.join(dir, "scripts", "release-preflight.js"));
   fs.writeFileSync(path.join(dir, "README.md"), "x\n");
   run("git", ["add", "-A"], dir);
   run("git", ["commit", "-q", "-m", "init"], dir);
