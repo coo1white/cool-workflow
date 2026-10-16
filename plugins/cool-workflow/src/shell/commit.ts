@@ -14,6 +14,7 @@ import { StateCommit, StateNode, StateNodeError, WorkflowRun } from "../core/sta
 import { writeJson } from "./fs-atomic";
 import { formatCommitId, gateFailureSeq, resolveCommitGate } from "../core/pipeline/commit-gate";
 import type { CommitStateOptions } from "../core/pipeline/commit-gate";
+import type { ErrorFeedbackRecord } from "../core/pipeline/error-feedback";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract";
 import { runPipelineStage } from "../core/pipeline/runner";
 import { appendRunNode, writeRunNode } from "./node-store";
@@ -117,10 +118,27 @@ function backingResultFor(run: WorkflowRun, verifierNodeId: string | undefined):
   return { result: task.result as unknown as ResultEnvelope | undefined, requiresEvidence: Boolean(task.requiresEvidence) };
 }
 
+/** The file-style evidence locators that do not resolve on disk for this run,
+ *  in strict mode (CW_REQUIRE_RESOLVABLE_EVIDENCE, on by default); [] when
+ *  strict mode is off. One base-dir set (run cwd, process cwd, run dir) for
+ *  the verdict accept check (worker-isolation.ts) and the commit gate below,
+ *  so the two can not disagree on the same locator. */
+export function unresolvedRunFileEvidence(run: WorkflowRun, evidence: string[]): string[] {
+  return pureUnresolvedFileEvidence(
+    evidence,
+    Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir])),
+    { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) }
+  );
+}
+
 /** commitState(run, input) — resolves the gate, writes the failure node +
  *  throws on any error; on success writes the snapshot + commit node and
- *  pushes the commit. */
-export function commitState(run: WorkflowRun, input: string | CommitStateOptions): StateCommit {
+ *  pushes the commit. `reuseOpenGateFailure` (the drive's terminal commit
+ *  only): when an open feedback record already holds the very same gate
+ *  failures for the same verifier node, throw with that record and add no
+ *  second failure node or feedback record — a resume that runs the same
+ *  blocked commit again does not pile them up. */
+export function commitState(run: WorkflowRun, input: string | CommitStateOptions, behavior: { reuseOpenGateFailure?: boolean } = {}): StateCommit {
   const options = normalizeCommitOptions(input);
   const now = new Date().toISOString();
   const { result: backingResult, requiresEvidence } = backingResultFor(run, options.verifierNodeId || (options.reason.startsWith("result:") ? run.tasks.find((t) => t.id === options.reason.slice(7))?.verifierNodeId as string | undefined : undefined));
@@ -129,14 +147,7 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
     now,
     backingResult,
     taskRequiresEvidence: requiresEvidence,
-    unresolvedFileEvidence: requireResolvableEvidence()
-      ? (evidence: string[]) =>
-          pureUnresolvedFileEvidence(
-            evidence,
-            Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir])),
-            { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) }
-          )
-      : undefined,
+    unresolvedFileEvidence: requireResolvableEvidence() ? (evidence: string[]) => unresolvedRunFileEvidence(run, evidence) : undefined,
   });
 
   // Stack the review gate ON TOP of the verifier gate. An applicable review
@@ -160,6 +171,10 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
   }
 
   if (gate.errors.length) {
+    if (behavior.reuseOpenGateFailure) {
+      const reused = openGateFailure(run, gate);
+      if (reused) throw reused;
+    }
     throw recordCommitGateFailure(run, options, gate);
   }
 
@@ -256,6 +271,24 @@ function recordCommitNode(run: WorkflowRun, commit: StateCommit, options: Commit
   });
   appendRunNode(run, checkpointNode);
   return checkpointNode.id;
+}
+
+function gateFailureList(errors: StateNodeError[]): string {
+  return JSON.stringify(errors.map((entry) => ({ code: entry.code, message: entry.message, nodeId: entry.nodeId })));
+}
+
+/** An open commit-stage feedback record for the same verifier node with the
+ *  same failure list, as a CommitGateError; undefined when there is none. */
+function openGateFailure(run: WorkflowRun, gate: ReturnType<typeof resolveCommitGate>): CommitGateError | undefined {
+  const failures = gateFailureList(gate.errors);
+  const record = ((run.feedback as ErrorFeedbackRecord[] | undefined) || []).find((entry) =>
+    entry.status === "open" &&
+    entry.stageId === "commit" &&
+    entry.metadata?.verifierNodeId === gate.verifierNodeId &&
+    JSON.stringify(entry.metadata?.failures || []) === failures
+  );
+  if (!record) return undefined;
+  return new CommitGateError(gate.errors[0], { feedbackId: record.id, stateNodeId: record.nodeId });
 }
 
 function recordCommitGateFailure(run: WorkflowRun, options: CommitStateOptions, gate: ReturnType<typeof resolveCommitGate>): CommitGateError {

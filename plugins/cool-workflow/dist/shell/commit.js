@@ -44,6 +44,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CommitGateError = void 0;
 exports.readGitHead = readGitHead;
 exports.readHeadFromFiles = readHeadFromFiles;
+exports.unresolvedRunFileEvidence = unresolvedRunFileEvidence;
 exports.commitState = commitState;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
@@ -151,10 +152,22 @@ function backingResultFor(run, verifierNodeId) {
         return { result: undefined, requiresEvidence: undefined };
     return { result: task.result, requiresEvidence: Boolean(task.requiresEvidence) };
 }
+/** The file-style evidence locators that do not resolve on disk for this run,
+ *  in strict mode (CW_REQUIRE_RESOLVABLE_EVIDENCE, on by default); [] when
+ *  strict mode is off. One base-dir set (run cwd, process cwd, run dir) for
+ *  the verdict accept check (worker-isolation.ts) and the commit gate below,
+ *  so the two can not disagree on the same locator. */
+function unresolvedRunFileEvidence(run, evidence) {
+    return (0, evidence_grounding_1.unresolvedFileEvidence)(evidence, Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir])), { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) });
+}
 /** commitState(run, input) — resolves the gate, writes the failure node +
  *  throws on any error; on success writes the snapshot + commit node and
- *  pushes the commit. */
-function commitState(run, input) {
+ *  pushes the commit. `reuseOpenGateFailure` (the drive's terminal commit
+ *  only): when an open feedback record already holds the very same gate
+ *  failures for the same verifier node, throw with that record and add no
+ *  second failure node or feedback record — a resume that runs the same
+ *  blocked commit again does not pile them up. */
+function commitState(run, input, behavior = {}) {
     const options = normalizeCommitOptions(input);
     const now = new Date().toISOString();
     const { result: backingResult, requiresEvidence } = backingResultFor(run, options.verifierNodeId || (options.reason.startsWith("result:") ? run.tasks.find((t) => t.id === options.reason.slice(7))?.verifierNodeId : undefined));
@@ -162,9 +175,7 @@ function commitState(run, input) {
         now,
         backingResult,
         taskRequiresEvidence: requiresEvidence,
-        unresolvedFileEvidence: (0, evidence_grounding_1.requireResolvableEvidence)()
-            ? (evidence) => (0, evidence_grounding_1.unresolvedFileEvidence)(evidence, Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir])), { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) })
-            : undefined,
+        unresolvedFileEvidence: (0, evidence_grounding_1.requireResolvableEvidence)() ? (evidence) => unresolvedRunFileEvidence(run, evidence) : undefined,
     });
     // Stack the review gate ON TOP of the verifier gate. An applicable review
     // policy can only ADD required-approval constraints from authorized roles; it
@@ -188,6 +199,11 @@ function commitState(run, input) {
             reviewProvenance = (0, collaboration_io_1.commitReviewProvenance)(run, reviewInput);
     }
     if (gate.errors.length) {
+        if (behavior.reuseOpenGateFailure) {
+            const reused = openGateFailure(run, gate);
+            if (reused)
+                throw reused;
+        }
         throw recordCommitGateFailure(run, options, gate);
     }
     fs.mkdirSync(run.paths.commitsDir, { recursive: true });
@@ -276,6 +292,21 @@ function recordCommitNode(run, commit, options, gate) {
     });
     (0, node_store_1.appendRunNode)(run, checkpointNode);
     return checkpointNode.id;
+}
+function gateFailureList(errors) {
+    return JSON.stringify(errors.map((entry) => ({ code: entry.code, message: entry.message, nodeId: entry.nodeId })));
+}
+/** An open commit-stage feedback record for the same verifier node with the
+ *  same failure list, as a CommitGateError; undefined when there is none. */
+function openGateFailure(run, gate) {
+    const failures = gateFailureList(gate.errors);
+    const record = (run.feedback || []).find((entry) => entry.status === "open" &&
+        entry.stageId === "commit" &&
+        entry.metadata?.verifierNodeId === gate.verifierNodeId &&
+        JSON.stringify(entry.metadata?.failures || []) === failures);
+    if (!record)
+        return undefined;
+    return new CommitGateError(gate.errors[0], { feedbackId: record.id, stateNodeId: record.nodeId });
 }
 function recordCommitGateFailure(run, options, gate) {
     const first = gate.errors[0] || { code: "commit-gate-blocked", message: "Verifier-gated commit blocked", at: new Date().toISOString(), retryable: false };

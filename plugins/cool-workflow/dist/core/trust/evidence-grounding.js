@@ -15,6 +15,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.isGroundedEvidence = isGroundedEvidence;
 exports.hasGroundedEvidence = hasGroundedEvidence;
 exports.evidenceFilePath = evidenceFilePath;
+exports.isVerdictTaskId = isVerdictTaskId;
 exports.requireResolvableEvidence = requireResolvableEvidence;
 exports.resolveEvidenceLocator = resolveEvidenceLocator;
 exports.unresolvedFileEvidence = unresolvedFileEvidence;
@@ -51,6 +52,12 @@ function hasGroundedEvidence(evidence) {
 function evidenceFilePath(raw) {
     const shape = classify(String(raw ?? ""));
     return shape.kind === "file" && shape.pathPart ? shape.pathPart : null;
+}
+/** Whether a task id names the verdict/synthesis task whose verifier node
+ *  gates a driven run's final commit — the one task whose file evidence is
+ *  checked on disk at accept time as well as at the commit. */
+function isVerdictTaskId(taskId) {
+    return /^verdict[:/]|^synthesis[:/]/i.test(taskId);
 }
 /** Whether opt-in strict resolution is requested via the environment.
  *  Enabled by DEFAULT: file-style evidence locators MUST exist on disk.

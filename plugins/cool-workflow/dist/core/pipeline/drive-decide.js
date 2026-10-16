@@ -35,6 +35,7 @@ exports.incrementalCacheKey = incrementalCacheKey;
 exports.incrementalDelegationDigest = incrementalDelegationDigest;
 const dispatch_1 = require("./dispatch");
 const hash_1 = require("../hash");
+const evidence_grounding_1 = require("../trust/evidence-grounding");
 exports.DRIVE_SCHEMA_VERSION = 1;
 exports.MAX_SUB_WORKFLOW_DEPTH = 4;
 function makeStep(action, status, fields) {
@@ -75,7 +76,7 @@ function reopenableParkedTaskIds(run) {
 }
 /** The completed verdict/synthesis task's verifierNodeId, if any. */
 function verdictVerifierNodeId(run) {
-    const verdict = run.tasks.find((task) => /^verdict[:/]|^synthesis[:/]/i.test(task.id) && task.status === "completed");
+    const verdict = run.tasks.find((task) => (0, evidence_grounding_1.isVerdictTaskId)(task.id) && task.status === "completed");
     return verdict?.verifierNodeId;
 }
 function exitCodeFromEvidence(evidence) {

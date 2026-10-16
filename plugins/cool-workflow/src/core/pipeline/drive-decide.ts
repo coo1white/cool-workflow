@@ -15,6 +15,7 @@
 import { RunTask, WorkflowRun } from "../state/types";
 import { firstRunnablePhase, runnableTaskIds } from "./dispatch";
 import { stableStringify, sha256 } from "../hash";
+import { isVerdictTaskId } from "../trust/evidence-grounding";
 
 export const DRIVE_SCHEMA_VERSION = 1;
 export const MAX_SUB_WORKFLOW_DEPTH = 4;
@@ -79,7 +80,7 @@ export function reopenableParkedTaskIds(run: WorkflowRun): string[] {
 
 /** The completed verdict/synthesis task's verifierNodeId, if any. */
 export function verdictVerifierNodeId(run: WorkflowRun): string | undefined {
-  const verdict = run.tasks.find((task) => /^verdict[:/]|^synthesis[:/]/i.test(task.id) && task.status === "completed");
+  const verdict = run.tasks.find((task) => isVerdictTaskId(task.id) && task.status === "completed");
   return verdict?.verifierNodeId as string | undefined;
 }
 

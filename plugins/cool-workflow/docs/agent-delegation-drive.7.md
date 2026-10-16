@@ -190,6 +190,21 @@ Map and 6 Assess workers run at the same time, 12 in one round.
   scheduling retry budget and lands **parked** (reuse v0.1.37 `retryOrPark`) — the
   drive stops; it is never quietly re-driven forever. Only a resume runs it
   again, with one fresh budget each time (see `--resume` below).
+- **Verdict evidence that is not on disk.** The final commit takes the
+  verdict only when every file its evidence names is on disk
+  (`CW_REQUIRE_RESOLVABLE_EVIDENCE`, on by default). The same check is made
+  when the verdict/synthesis result (a task that requires evidence) is
+  accepted: a result that cites a file that is not there is turned down
+  (`verdict-evidence-unresolvable`), the reason goes at the top of the
+  worker's `input.md`, and the hop is tried again, then parked. So the drive
+  does not throw, `report.md` is written, and after the agent is fixed a
+  resume runs the verdict again and the run commits. If a cited file goes
+  away after the accept, the final commit is still refused, never made: the
+  drive stops `blocked` on a `commit` step whose reason starts
+  `final commit blocked:` and names the files, saves state and `report.md`,
+  and keeps one gate-failed node and one open feedback record — a second
+  drive of the same blocked commit adds no more. Put the file back (or run
+  the verdict again) and drive the run once more to commit it.
 
 ## Replay determinism (bound to node-snapshot)
 

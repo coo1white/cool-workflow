@@ -72,6 +72,7 @@ const contract_1 = require("../core/pipeline/contract");
 const result_normalize_1 = require("../core/pipeline/result-normalize");
 const evidence_grounding_1 = require("../core/trust/evidence-grounding");
 const trust_audit_1 = require("./trust-audit");
+const commit_1 = require("./commit");
 const sandbox_profile_1 = require("./sandbox-profile");
 const registry_1 = require("./execution-backend/registry");
 const error_feedback_io_1 = require("./error-feedback-io");
@@ -667,6 +668,22 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
             throw new Error(message);
         }
     }
+    // The verdict's evidence gates the run's final commit, and that gate asks
+    // every file locator to resolve on disk (requireResolvableEvidence, on by
+    // default). Ask the same here, with the same base dirs, so a bad citation
+    // is turned down at accept time — retried with the reason at the top of
+    // input.md, then parked (a resume can open it again) — and never reaches
+    // the final commit as a verdict nothing can take back. The condition
+    // matches the commit gate's own: a verdict/synthesis task that requires
+    // evidence.
+    if ((0, evidence_grounding_1.isVerdictTaskId)(task.id) && task.requiresEvidence && (0, evidence_grounding_1.requireResolvableEvidence)()) {
+        const unresolved = (0, commit_1.unresolvedRunFileEvidence)(run, parsedResult.evidence.map((entry) => String(entry)));
+        if (unresolved.length) {
+            const message = `Task ${task.id} cites file evidence that does not resolve on disk: ${unresolved.join(", ")}`;
+            recordWorkerFailure(run, workerId, message, { code: "verdict-evidence-unresolvable", retryable: true });
+            throw new Error(message);
+        }
+    }
     // Step 2: attest delegation (the agent-hop provenance). Track 1: verify
     // the agent's signed telemetry BEFORE recording it — CW holds only the
     // operator's PUBLIC key, so this verifies attribution, never measures
@@ -932,7 +949,9 @@ function recordWorkerFailure(run, workerId, error, options = {}) {
     if (structured.retryable && fs.existsSync(scope.inputPath)) {
         const fix = structured.code === "worker-result-missing"
             ? "Write the final Markdown result to result.md before finishing."
-            : "The `cw:result` block must be one JSON object, closed with `}`.";
+            : structured.code === "verdict-evidence-unresolvable"
+                ? "Cite only files that are on disk, by a path relative to the repository."
+                : "The `cw:result` block must be one JSON object, closed with `}`.";
         const notice = `Your last result was rejected: ${message}. ${fix}\n\n`;
         fs.writeFileSync(scope.inputPath, notice + fs.readFileSync(scope.inputPath, "utf8"), "utf8");
     }
