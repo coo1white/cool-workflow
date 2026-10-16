@@ -118,14 +118,30 @@ dashboard database and does not own state.
 
 ## Release Flow
 
-The portable release orchestrator is:
+First check the release machine. It takes a few seconds and runs no tests:
 
 ```bash
-node plugins/cool-workflow/scripts/release-flow.js --check
+cd plugins/cool-workflow
+npm run release:doctor -- X.Y.Z
 ```
 
-The independent review step is delegated to your configured agent command or
-endpoint. Do not write the verdict file by hand.
+It reports every problem at once, each with the command that fixes it: an old
+or wrong branch, changed files, a reviewer command that is not there, a signing
+key that cannot be read, a private git email, `gh` not signed in, or a tag that
+is already there. Then cut the release:
+
+```bash
+npm run release -- X.Y.Z
+```
+
+`npm run release` runs the same checks first, then the gate, the independent
+review, the signed verdict, the tag, and the npm publish. The review step is
+given to your configured agent command or endpoint. Do not write the verdict
+file by hand.
+
+CI goes through the same flow (with a stub reviewer and no key) on every pull
+request that changes release tooling, with the npm that comes with Node 24 and
+with the newest npm, so a break shows up there and not in a real cut.
 
 ## Operational Checklist
 
