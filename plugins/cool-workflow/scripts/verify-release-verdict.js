@@ -4,6 +4,9 @@
 // verdict for this commit" check. Both CI workflows call it:
 //   .github/workflows/release.yml   (cwd = repo root)
 //   .github/workflows/npm-publish.yml    (cwd = plugins/cool-workflow)
+// In CI they never run the tag's own copy: each workflow first copies this
+// file and its helpers out of origin/main into $RUNNER_TEMP and runs them
+// from there, with the tag checkout as cwd (the repo being judged).
 // Before this file, each workflow kept its own ~35-line bash copy of this
 // same loop, and the two copies could drift apart. Now the logic lives here
 // only, and each workflow step is one line.
