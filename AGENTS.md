@@ -610,7 +610,12 @@ regardless of the capability it ships. The long form lives in
 1. POLA — Principle of Least Astonishment. Never change the meaning, shape, or
    byte content of an existing output, file layout, exit code, or flag. New
    behavior arrives behind a new flag/verb or an env opt-in/opt-out, with the
-   old behavior byte-identical by default.
+   old behavior byte-identical by default. One exception, for a default the
+   operator chooses to change: an intent file records the operator's own
+   yes (quoted, dated), the matching `docs/*.7.md` says the new default in
+   the same range, and the release raises the minor version (0.x) or the
+   major version (1.0 on). Missing any one, it is a POLA break. The release
+   reviewer (`agents/release-reviewer.md`) checks all three.
 2. Mechanism, not policy. The kernel (plugins/cool-workflow/src/) provides
    mechanisms; policy lives in userland — apps, configs, wrappers, env.
    Vendor-specific logic (claude/codex/gemini rendering, prompt formats)

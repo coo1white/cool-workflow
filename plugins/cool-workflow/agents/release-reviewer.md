@@ -50,6 +50,19 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
      (shipped behavior changes update docs/*.7.md in the same diff), and
      style(9) spirit (no reformatting of untouched code). Any violation →
      REJECT regardless of capability.
+   - Operator-approved breaking change (the ONE exception, and to POLA
+     only): a default-behavior or byte change is not a POLA violation
+     when ALL three of these hold, each checked by you in this range:
+     1. a file under `plugins/cool-workflow/project/docs/intent/` records
+        the operator's own yes to that exact change: their quoted words
+        and a date, not an agent's summary of what they might want;
+     2. the matching `plugins/cool-workflow/docs/*.7.md` says what the new
+        default is, changed in this same range;
+     3. the release raises the minor version from the previous tag while
+        the version is 0.x (0.2.8 → 0.3.0), or the major version from 1.0.
+     If any one is missing, it is a POLA violation → REJECT. The other
+     checks above (spec accretion, test quality, mechanism-not-policy,
+     Rule of Silence, fail-closed, man-page sync) still apply in full.
 
 4. Record the verdict (this is the ONLY file you may write):
    - APPROVED:

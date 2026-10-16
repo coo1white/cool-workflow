@@ -41,6 +41,13 @@ assert.ok(fs.existsSync(REVIEWER_PROMPT), "release reviewer prompt must exist");
   assert.match(prompt, /control plane has already run the deterministic gate/i, "the control plane, not the reviewer, owns the deterministic gate");
   assert.match(prompt, /kind: semantic-review/, "reviewer rejections require a semantic-review kind");
   assert.doesNotMatch(prompt, /Run the deterministic gate yourself/i, "reviewer must not repeat the control-plane gate");
+  // The one POLA exception: an operator-chosen default change, taken only
+  // with all three checks; one missing is still a POLA break.
+  assert.match(prompt, /Operator-approved breaking change \(the ONE exception, and to POLA\s+only\)/, "the POLA exception is named and scoped to POLA");
+  assert.match(prompt, /project\/docs\/intent\/[\s\S]*operator's own yes[\s\S]*quoted words\s+and a date/, "check 1: the operator's own words in an intent file");
+  assert.match(prompt, /docs\/\*\.7\.md[\s\S]*new\s+default is, changed in this same range/, "check 2: the man page for the new default");
+  assert.match(prompt, /raises the minor version[\s\S]*0\.x/, "check 3: a minor version raise on 0.x");
+  assert.match(prompt, /If any one is missing, it is a POLA violation → REJECT/, "a missing check is still a REJECT");
 }
 
 let caseId = 0;
