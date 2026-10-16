@@ -271,6 +271,14 @@ wrote to stdout (or says it wrote nothing). A vendor CLI such as `claude -p`
 puts its own error there — not logged in, a usage limit, a bad flag — so that
 line is the reason for the stop.
 
+The reviewer prompt (`agents/release-reviewer.md`) holds POLA strictly, with
+one exception: a default change the operator chose. The reviewer takes it
+only when all three hold, each checked by the reviewer in the diff range:
+an intent file under `project/docs/intent/` has the operator's own words and
+a date for that change; the matching `docs/*.7.md` says the new default in
+the same range; and the release raises the minor version (0.x) or the major
+version (from 1.0). If one is missing, the verdict is REJECTED.
+
 `{{input}}` is put in place of the reviewer prompt file path. Gemini and OpenCode
 also get generated MCP manifests (`.gemini-plugin/`, `.opencode-plugin/`) so the
 `cw_*` tools are there as MCP tools in those hosts. The verdict path

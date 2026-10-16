@@ -204,7 +204,12 @@ exit code, or flag that is here now never changes meaning or bytes under an oper
 behavior comes out behind a new verb/flag or an env toggle, with the earlier
 behavior byte-identical by default. (Example: live drive output is added on top —
 stderr only, TTY-gated, `CW_NO_STREAM=1` opt-out; the stdout payload and
-evidence digest are not changed.)
+evidence digest are not changed.) One exception: a default the operator
+chooses to change. Three things must all be true. An intent file keeps the
+operator's own yes, in their words, with a date. The matching `docs/*.7.md`
+says what the new default is, in the same release. The release puts up the
+minor version (0.x) or the major version (from 1.0). If one of the three is
+not there, it is a POLA break, and the release reviewer says no.
 
 **Mechanism, not policy.** The kernel gives mechanisms; policy is data in
 userland. WHICH agent runs is config (`CW_AGENT_COMMAND` / agent-config), not
