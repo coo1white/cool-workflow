@@ -1099,11 +1099,19 @@ export class RunRegistry {
     return result.run;
   }
 
-  resume(runId: string, options: { scope?: "repo" | "home"; limit?: number } = {}): RunResumeResult {
+  resume(runId: string, options: { scope?: "repo" | "home"; limit?: number; namedBy?: "--repo" | "--cwd" } = {}): RunResumeResult {
     const scope = options.scope || "home";
     const located = this.locate(runId, scope);
     if (!located) {
       throw new Error(`Cannot resume: run ${runId} not found in source state (fail closed; try registry refresh).`);
+    }
+    // The caller named this folder (--repo/--cwd) and the run is not in it:
+    // refuse rather than quietly resume (or drive) the run in another known
+    // repo. Operator-approved default change for 0.4.0 (2026-10-16, #786).
+    if (options.namedBy && located.from === "home") {
+      throw new Error(
+        `Cannot resume: run ${runId} is not in ${this.repoRoot} (the folder named by ${options.namedBy}); the registry finds it in ${located.record.repo} (fail closed; nothing was resumed). Run again with ${options.namedBy} ${located.record.repo}, or add --scope home to look across the registry.`
+      );
     }
     const record = located.record;
     const run = this.loadRun(record.repo, runId);

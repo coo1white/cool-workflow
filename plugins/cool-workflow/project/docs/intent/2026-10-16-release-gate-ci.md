@@ -122,3 +122,25 @@ This changes a release default, so it goes out in the next minor (0.4.0).
 | 2. CI release rehearsal | done | #781 |
 | 3. Gate takes the green CI on the reviewed commit | in this PR | this PR |
 | Ships in 0.4.0 (minor raise) | after merge | — |
+
+## Operator decisions for 0.4.0 (2026-10-16)
+
+Two more default changes go out in 0.4.0 under the POLA exception
+(`AGENTS.md`, FreeBSD rule 1: the operator's own dated yes here, the
+matching `docs/*.7.md` in the same diff, and a minor version raise at
+release). The questions were put to the operator in plain words, as
+written here:
+
+1. "`cw run resume <id> --repo X`: if the run isn't in folder X, it
+   currently goes and finds it in another folder. Should it stop with an
+   error instead? — My recommendation: Yes, stop."
+2. "`cw backend agent-config set`: when you switch to a new agent
+   command, it keeps the old command's settings. Clear them? — My
+   recommendation: Yes, clear them."
+
+The operator's answer, word for word (2026-10-16): "ok to all"
+
+| Decision | Issue | Branch | Man page |
+|---|---|---|---|
+| 1. A folder named with `--repo`/`--cwd` holds `run resume` to that folder | #786 | `claude/trusting-wozniak-d0z17o-resume-repo-strict` | `docs/run-registry-control-plane.7.md`, `docs/agent-delegation-drive.7.md` |
+| 2. A changed `--agent-command` clears the stored args | #784 | `claude/trusting-wozniak-d0z17o-agent-config-set-args` | `docs/agent-delegation-drive.7.md` |
