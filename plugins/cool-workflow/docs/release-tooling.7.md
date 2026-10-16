@@ -223,6 +223,8 @@ is made, and it is not a verified code rejection.
 # the operator's one-command release (scripts/release-oneclick.js — preflight,
 # gated cut, tag-only push, CI wait, npm confirmation, verdict-record PR):
 npm run release -- 0.2.4
+# fast preflight first (seconds, no tests; release runs the same checks first):
+npm run release:doctor -- 0.2.4
 # check only (gate + independent review, no mutation):
 node plugins/cool-workflow/scripts/release-flow.js --check
 # cut a tag once review is green (when --push, also creates the GitHub Release):
@@ -245,6 +247,48 @@ deliberate re-cut). The push at the end moves ONLY `refs/tags/vX.Y.Z`: the
 verdict commit is a one-hop leaf on the reviewed commit, reachable through
 the tag alone, so main's branch protection is never in the path and no
 stray remote branch is created.
+
+### release:doctor
+
+```text
+npm run release:doctor [-- X.Y.Z] [--json] [--offline]
+node scripts/release-doctor.js [X.Y.Z] [--json] [--offline]
+```
+
+A fast release preflight: a few seconds, no test suite, no gate, no
+reviewer, no model, and no change to anything. It gives ALL the problems in
+one run, each with the exact command that puts it right, so a cut does not
+come to a stop late, one problem at a time, after a 10-minute gate. The
+version is by default the one in `plugins/cool-workflow/package.json`.
+
+| Check | Fails when | Fix it gives |
+|---|---|---|
+| `head-current` | after `git fetch origin main`, HEAD is not the `origin/main` tip (names both shas and the current branch) | `git checkout main && git pull --ff-only origin main` |
+| `cut-branch` | a local `release/vX.Y.Z-cut` branch is not at `origin/main` (old code from an earlier cut) | `git branch -D release/vX.Y.Z-cut` (never deleted for you) |
+| `clean-tree` | `git status --porcelain -uno` is not empty | commit or stash |
+| `cw-dir` | (warning) a `.cw/` folder is at the repo root | `rm -rf <repo>/.cw` |
+| `reviewer` | the reviewer config `release-flow.js` reads (`CW_AGENT_COMMAND` > `agent-config.json` > auto-detect; else `CW_AGENT_ENDPOINT`) is not set, or its first argv token is not an executable file (a full path, or on `PATH`); the reviewer is never run | `export CW_AGENT_COMMAND=...` |
+| `signing-key` | `.cw-release/verdict-signing.pub` is committed and `CW_RELEASE_VERDICT_PRIVKEY` is not set, or is not a readable regular file (the key is never read or printed) | `export CW_RELEASE_VERDICT_PRIVKEY=~/.cw-keys/verdict-signing.key` |
+| `git-identity` | `user.email` is not set; a warning when it is not a `@users.noreply.github.com` address (GitHub may say no to the push with GH007) | `git config user.email "<id>+<login>@users.noreply.github.com"` |
+| `gh` | (warning) `gh auth status` fails — the GitHub Release then falls back to CI's auto-generated notes | `gh auth login` |
+| `tag-local`, `tag-remote` | (warning for the doctor) `vX.Y.Z` is there already — `npm run release -- X.Y.Z` takes up that cut again at stage 3 | — |
+| `tools` | (info) node and npm versions | — |
+
+Diagnostics go to stderr. `--json` puts one stable object on stdout:
+`{ ok, mode, version, failures, warnings, checks: [{ id, status, message, fix?, detail? }] }`,
+where `status` is `ok`, `info`, `warn` or `fail`. The exit code is 0 when no
+check fails (warnings are allowed) and 1 when one does. `--offline` does not
+do the fetch, the `ls-remote` and the `gh` check.
+
+`npm run release -- X.Y.Z` runs the same checks FIRST, in its stage 0 (the
+code is one file, `scripts/release-preflight.js`, used by the doctor, by
+`release-oneclick.js`, and by `release-flow.js --cut`'s own preflight), and
+stops before anything is done when one fails, with only the problem lines on
+stderr. Two differences there: a `vX.Y.Z` tag that is already there is never
+seen by stage 0 (the resume goes straight to stage 3), and an old
+`release/vX.Y.Z-cut` branch is only a warning, because the cut stage makes
+it again from `origin/main` (`git checkout -B`). `--dry-run` keeps stage 0
+offline.
 
 After the review, and before it bumps or stages anything, the cut checks the
 tracked tree again. The preflight made sure it was clean, so a change now came

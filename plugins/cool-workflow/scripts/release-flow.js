@@ -742,75 +742,40 @@ function preflightCut() {
   // being thrown away over a missing flag.
   if (!cutVersion || !/^\d+\.\d+\.\d+$/.test(cutVersion)) die("--cut requires --version x.y.z");
 
+  // (b)-(e) live in release-preflight.js, the ONE implementation shared with
+  // `npm run release:doctor` and release-oneclick's stage 0. Here they run in
+  // order and the first failure stops the cut (the doctor reports them all).
+  const pf = require("./release-preflight.js");
+  const ctx = pf.createContext({ repoRoot });
+  const stop = (f) => {
+    if (f.status === "fail") die(f.message, f.detail || (f.fix ? `fix:  ${f.fix}` : undefined));
+  };
+
   // (b) signing — once .cw-release/verdict-signing.pub is committed, CI's
   // release-gate REQUIRES a valid signature; a cut without the private key
   // configured would push an unsigned verdict that fails only in CI. Fail
   // closed here instead, and also prove the configured key IS the committed
   // key (a wrong key signs "successfully" and still fails in CI).
-  const pubPath = path.join(repoRoot, ".cw-release", "verdict-signing.pub");
-  if (fs.existsSync(pubPath)) {
-    const raw = process.env.CW_RELEASE_VERDICT_PRIVKEY;
-    if (!raw || !raw.trim()) {
-      die(
-        "verdict-signing.pub is committed, so CI requires a SIGNED verdict — set the private key first",
-        'fix:  export CW_RELEASE_VERDICT_PRIVKEY=~/.cw-keys/verdict-signing.key'
-      );
-    }
-    const pem = resolveVerdictPrivateKey(raw);
-    let key;
-    try {
-      key = crypto.createPrivateKey(pem);
-    } catch (error) {
-      die(`CW_RELEASE_VERDICT_PRIVKEY is not a readable private key: ${error.message}`);
-    }
-    if (key.asymmetricKeyType !== "ed25519") {
-      die(`CW_RELEASE_VERDICT_PRIVKEY is a ${key.asymmetricKeyType || "unknown"} key, not ed25519 — generate one with scripts/verdict-keygen.js`);
-    }
-    const derivedPub = crypto.createPublicKey(key).export({ type: "spki", format: "pem" }).toString().trim();
-    const committedPub = fs.readFileSync(pubPath, "utf8").trim();
-    if (derivedPub !== committedPub) {
-      die("CW_RELEASE_VERDICT_PRIVKEY does not match the committed .cw-release/verdict-signing.pub — wrong key; CI would reject its signature");
-    }
-  }
+  stop(pf.checkSigningKey(ctx, { verifyMatch: true }));
 
   // (c) tag must not exist yet — a stale local tag makes cut() die at the very
   // last step ("tag 'vX.Y.Z' already exists") after everything else has run.
-  if (git(["tag", "-l", `v${cutVersion}`]).out) {
-    die(`tag v${cutVersion} already exists locally — delete it first (git tag -d v${cutVersion}) or pick the next version`);
-  }
+  stop(pf.checkLocalTag(ctx, cutVersion));
 
   // (d) clean tree (tracked files only — cut()'s `git add -u` can never sweep
   // an untracked stray in, so untracked files are not a cut hazard).
-  const dirty = git(["status", "--porcelain", "-uno"]).out;
-  if (dirty) die("working tree has tracked modifications — commit or stash them before a cut", dirty);
+  stop(pf.checkCleanTree(ctx));
 
   // (e) network-dependent checks, only when this cut will actually push and
   // only when an `origin` remote exists (smoke fixtures have none):
-  if (PUSH && git(["remote"]).out.split("\n").includes("origin")) {
-    // remote tag must not exist (someone/some run already published this version)
-    const remoteTag = git(["ls-remote", "origin", `refs/tags/v${cutVersion}`]);
-    // Fail CLOSED on a failed ls-remote: a non-zero exit (network blip, auth
-    // error) is NOT evidence the tag is absent. Treating it as "no remote tag"
-    // (the old `code === 0 && out` shape) let a transient failure skip the
-    // already-published guard and cut a version that may already exist.
-    if (remoteTag.code !== 0) {
-      die(`could not check origin for tag v${cutVersion} (git ls-remote failed) — refusing to cut blind`, remoteTag.err);
-    }
-    if (remoteTag.out) {
-      die(`tag v${cutVersion} already exists on origin — this version is already published; pick the next version`);
-    }
+  if (PUSH && pf.hasOrigin(ctx)) {
+    // remote tag must not exist (someone/some run already published this
+    // version); a failed ls-remote fails CLOSED, never reads as "absent".
+    stop(pf.checkRemoteTag(ctx, cutVersion));
     // HEAD must be the current origin/main tip — cutting a stale HEAD publishes
     // old code (nearly happened on the v0.2.2 cut).
-    if (git(["fetch", "origin", "main", "--quiet"]).code !== 0) {
-      die("git fetch origin main failed — a --push cut needs the network anyway; fix connectivity first");
-    }
-    const mainTip = git(["rev-parse", "origin/main"]).out;
-    if (mainTip !== HEAD && !has("--allow-stale-head")) {
-      die(
-        `HEAD (${HEAD.slice(0, 12)}) is not the origin/main tip (${mainTip.slice(0, 12)}) — a cut must release exactly what main has`,
-        "fix:  git fetch origin main && git checkout -B <branch> origin/main   (or pass --allow-stale-head if this is deliberate)"
-      );
-    }
+    stop(pf.fetchMain(ctx));
+    if (!has("--allow-stale-head")) stop(pf.checkHeadCurrent(ctx));
   }
   say("cut preflight OK");
 }

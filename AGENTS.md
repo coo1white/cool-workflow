@@ -760,7 +760,9 @@ package.json — same convention as the VERIFY step above):
 1. **Agent prep**: land the version bump as its OWN PR
    (`npm run bump:version -- X.Y.Z --content`, regenerate the project
    index, a full clean rebuild).
-2. **Operator command**: the release operator runs `npm run release --
+2. **Operator command**: first run `npm run release:doctor -- X.Y.Z` (a
+   few seconds, no tests; it gives every problem at once with its fix),
+   then the release operator runs `npm run release --
    X.Y.Z` in their own terminal
    (`plugins/cool-workflow/scripts/release-oneclick.js`). It fail-fasts
    on every known precondition BEFORE the gate/vendor/
