@@ -55,6 +55,7 @@ exports.nodeSnapshotCli = nodeSnapshotCli;
 exports.nodeDiffCli = nodeDiffCli;
 exports.nodeReplayCli = nodeReplayCli;
 exports.nodeReplayVerifyCli = nodeReplayVerifyCli;
+exports.contractShowCli = contractShowCli;
 exports.optionalStringArg = optionalStringArg;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
@@ -64,6 +65,7 @@ const node_store_1 = require("./node-store");
 const contract_migration_1 = require("../core/state/contract-migration");
 const node_snapshot_1 = require("../core/state/node-snapshot");
 const dispatch_1 = require("../core/pipeline/dispatch");
+const runner_1 = require("../core/pipeline/runner");
 const numeric_flag_1 = require("../core/util/numeric-flag");
 function optionalStringArg(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -172,4 +174,20 @@ function nodeReplayCli(runId, snapshotId, options = {}) {
 function nodeReplayVerifyCli(runId, replayId, options = {}) {
     const run = loadRun(runId, options);
     return (0, node_snapshot_1.verifyNodeReplay)(run, (0, node_store_1.readNodeReplay)(run, replayId), options);
+}
+// ---------------------------------------------------------------------
+// contract.show
+// ---------------------------------------------------------------------
+/** First string of a CLI/MCP value: a trimmed string, or the first entry
+ *  of a repeated flag's array. */
+function firstStringArg(value) {
+    return typeof value === "string" && value.trim() ? value.trim() : Array.isArray(value) && typeof value[0] === "string" ? value[0] : undefined;
+}
+/** `cw contract show <run> [contract-id]` / `cw_contract_show` — the run's
+ *  resolved pipeline contract. Port of the old runner.showContract. */
+function contractShowCli(args, contractId) {
+    const runId = firstStringArg(args.runId);
+    if (!runId)
+        throw new Error("Missing run id");
+    return (0, runner_1.getRunContract)(loadRun(runId, args), contractId ?? firstStringArg(args.contractId));
 }

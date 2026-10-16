@@ -233,17 +233,11 @@ verbs are parity-gated and show read-only in the v0.1.30 Workbench. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
 
-## Team Collaboration (v0.1.32)
+## Team Collaboration (v0.1.32, removed)
 
-v0.1.32 adds Team Collaboration: a host-attested actor and append-only
-approvals/rejections/comments/handoffs provenance-linked to a durable target,
-plus a review gate that STACKS ON the verifier gate — needed approvals from
-authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
-and never in place of them, failing closed on quorum/authority/self-approval and
-keeping a record of who approved the very artifact that went out. Policy (required approvals,
-authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
-unchanged). The verbs are parity-gated and show read-only in the v0.1.30
-Workbench. See [Team Collaboration](team-collaboration.7.md).
+v0.1.32 added Team Collaboration (approvals, rejections, comments, handoffs,
+and a review gate on the commit). It went with the multi-agent family; see
+release-and-migration(7), "Removed Surfaces".
 
 ## Release Tooling (v0.1.33)
 

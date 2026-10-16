@@ -9,9 +9,8 @@ const path = require("node:path");
 // one inlined orchestrator, not split across separate modules. This smoke
 // checks the property that split was guarding: the accept path still runs
 // its five steps in the documented order (validate -> attest delegation ->
-// accept -> verify -> completion), and blackboard fanout still goes
-// through its own module (multi-agent-io) rather than reaching into
-// coordinator.ts directly.
+// accept -> verify -> completion), with no blackboard or multi-agent
+// membership write in it.
 const pluginRoot = path.resolve(__dirname, "..");
 const workerSourcePath = path.join(pluginRoot, "src", "shell", "worker-isolation.ts");
 const workerSource = fs.readFileSync(workerSourcePath, "utf8");
@@ -32,8 +31,10 @@ for (const marker of stepMarkers) {
   lastIndex = index;
 }
 
-assert.doesNotMatch(workerSource, /from "\.\/coordinator"/, "worker-isolation must not import coordinator side-effect writers directly");
-assert.doesNotMatch(workerSource, /\b(addBlackboardArtifact|postBlackboardMessage)\b/, "blackboard writes must stay behind the multi-agent-io fanout indirection, not called directly");
-assert.match(workerSource, /from "\.\/multi-agent-io"/, "blackboard/multi-agent fanout must go through multi-agent-io, not be reimplemented inline");
+// The blackboard/multi-agent fanout this accept path used to call through
+// multi-agent-io went with that family (slim-and-esm step 2): the accept path
+// must not grow a blackboard or membership write back, inline or imported.
+assert.doesNotMatch(workerSource, /from "\.\/(coordinator|coordinator-io|multi-agent-io)"/, "worker-isolation must not import the removed multi-agent modules");
+assert.doesNotMatch(workerSource, /\b(addBlackboardArtifact|postBlackboardMessage|recordMultiAgentWorkerOutput)\b/, "the accept path must not write blackboard or membership records");
 
 process.stdout.write("worker-accept-path-architecture-smoke: ok\n");

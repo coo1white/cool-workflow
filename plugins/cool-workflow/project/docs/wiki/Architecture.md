@@ -10,11 +10,8 @@ policy, and vendor wrappers live outside that core.
 
 ```text
 workflow app -> runner -> dispatch -> isolated workers
-    -> results -> feedback/candidates -> verifier gate
+    -> results -> feedback -> verifier gate
     -> commit/checkpoint -> report/trust audit
-
-multi-agent host -> topology -> blackboard/coordinator
-    -> fanout/fanin -> candidate score/select
 ```
 
 CW is a small TypeScript tool with **zero runtime dependencies**. It drives
@@ -70,7 +67,6 @@ A run is stored as plain files:
   workers/<worker-id>/
   results/
   nodes/
-  candidates/
   commits/
 ```
 

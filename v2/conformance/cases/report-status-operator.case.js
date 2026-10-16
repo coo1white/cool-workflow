@@ -48,7 +48,7 @@ caseMain(() => {
   assert.match(stSummary.stdout, /\nPhase: .* \| Stage: .* \| Blocked: (no|.+)\n/);
   assert.match(stSummary.stdout, /\nTasks: .*; total=1\n/);
   assert.match(stSummary.stdout, /\nNext Action\n/);
-  assert.ok(stSummary.stdout.includes("(use --verbose for full worker/candidate/feedback/commit/trust panels)"));
+  assert.ok(stSummary.stdout.includes("(use --verbose for full worker/feedback/commit/trust panels)"));
 
   // --brief is the documented alias for --summary; same shape.
   const stBrief = run(["status", runId, "--brief"], { cwd: repo });
@@ -58,21 +58,21 @@ caseMain(() => {
   const stFull = run(["status", runId], { cwd: repo });
   assert.equal(stFull.status, 0);
   assert.equal(stFull.stderr, "");
-  for (const panel of ["Workers", "Candidates", "Feedback", "Commits", "Trust Audit"]) {
+  for (const panel of ["Workers", "Feedback", "Commits", "Trust Audit"]) {
     assert.ok(stFull.stdout.includes(panel), `full status must include the ${panel} panel`);
   }
   assert.ok(stFull.stdout.includes(`Report: ${payload.reportPath}`));
 
   // --- cw operator status <id> --json is a DIFFERENT, wider payload than
   // cw status --json (summarizeOperatorRun vs summarizeRun) — same runId
-  // and workflowId, but its own extra panels (candidates, trust, etc).
+  // and workflowId, but its own extra panels (feedback, trust, etc).
   const opStatus = run(["operator", "status", runId, "--json"], { cwd: repo });
   assert.equal(opStatus.status, 0);
   assert.equal(opStatus.stderr, "");
   const opSummary = JSON.parse(opStatus.stdout);
   assert.equal(opSummary.runId, runId);
   assert.equal(opSummary.workflowId, "end-to-end-golden-path");
-  for (const key of ["candidates", "feedback", "commits", "trust", "nextActions"]) {
+  for (const key of ["feedback", "commits", "trust", "nextActions"]) {
     assert.ok(key in opSummary, `operator status must carry the ${key} panel`);
   }
 

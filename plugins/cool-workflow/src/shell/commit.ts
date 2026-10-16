@@ -22,8 +22,6 @@ import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/
 import { ResultEnvelope } from "../core/pipeline/result-normalize";
 import { normalizeEvidence, recordTrustAuditEvent } from "./trust-audit";
 import { unresolvedFileEvidence as pureUnresolvedFileEvidence, requireResolvableEvidence } from "../core/trust/evidence-grounding";
-import { reviewGateErrors, commitReviewProvenance, selfActorIdsForCandidate } from "./collaboration-io";
-import type { CommitReviewProvenance } from "../core/multi-agent/collaboration";
 import { recordFeedback } from "./error-feedback-io";
 
 export class CommitGateError extends Error {
@@ -42,22 +40,17 @@ export class CommitGateError extends Error {
 
 function normalizeCommitOptions(input: string | CommitStateOptions): CommitStateOptions {
   if (typeof input === "string") return { reason: input || "manual", source: "runtime" };
-  // Fold facade-style bare nouns (verifier/candidate/selection) into the *Id
-  // fields so a host/MCP-shaped payload gates the same as a CLI-shaped one. When
-  // any gate option is supplied, the commit is verifier-gated by construction —
-  // mirrors commitRun()'s hasGateOption, so calling commitState directly with
-  // { selection } gates exactly as `cw commit --selection` does.
+  // Fold facade-style bare nouns (verifier/verifierNode) into verifierNodeId
+  // so a host/MCP-shaped payload gates the same as a CLI-shaped one. When a
+  // verifier is supplied, the commit is verifier-gated by construction —
+  // mirrors commitRun()'s hasGateOption.
   const verifierNodeId = input.verifierNodeId || input.verifier || input.verifierNode;
-  const candidateId = input.candidateId || input.candidate;
-  const selectionId = input.selectionId || input.selection;
-  const hasGateOption = Boolean(verifierNodeId || candidateId || selectionId);
+  const hasGateOption = Boolean(verifierNodeId);
   return {
     ...input,
     reason: input.reason || "manual",
     source: input.source || "runtime",
     verifierNodeId,
-    candidateId,
-    selectionId,
     verifierGated: input.verifierGated || (hasGateOption && !input.allowUnverifiedCheckpoint),
   };
 }
@@ -150,26 +143,6 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
     unresolvedFileEvidence: requireResolvableEvidence() ? (evidence: string[]) => unresolvedRunFileEvidence(run, evidence) : undefined,
   });
 
-  // Stack the review gate ON TOP of the verifier gate. An applicable review
-  // policy can only ADD required-approval constraints from authorized roles; it
-  // never relaxes verifier acceptance. Fail closed: a verifier-passing but
-  // un-approved commit is BLOCKED here. Provenance (who approved the shipped
-  // commit) is stamped only when NO errors remain. The old build wired this
-  // inside resolveVerifierGate; v2's resolver is pure, so it layers in the
-  // shell where the run's approval state lives.
-  let reviewProvenance: CommitReviewProvenance | undefined;
-  if (gate.verifierGated) {
-    const reviewInput = {
-      targetKind: "commit" as const,
-      candidateId: gate.candidateId,
-      selectionId: gate.selectionId,
-      selfActorIds: selfActorIdsForCandidate(run, gate.candidateId, gate.selectionId),
-    };
-    const reviewErrors = reviewGateErrors(run, reviewInput);
-    if (reviewErrors.length) gate.errors.push(...reviewErrors);
-    else reviewProvenance = commitReviewProvenance(run, reviewInput);
-  }
-
   if (gate.errors.length) {
     if (behavior.reuseOpenGateFailure) {
       const reused = openGateFailure(run, gate);
@@ -181,11 +154,10 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
   fs.mkdirSync(run.paths.commitsDir, { recursive: true });
   const id = formatCommitId((run.commits || []).length + 1);
   const snapshotPath = path.join(run.paths.commitsDir, `${id}.json`);
-  const rationale = gate.acceptanceRationale;
   const audit = gate.verifierGated
-    ? recordTrustAuditEvent(run, { kind: "commit.gate", decision: "accepted", source: "cw-validated", workerId: rationale?.workerId as string | undefined, nodeId: gate.verifierNodeId, candidateId: gate.candidateId, selectionId: gate.selectionId, commitId: id, sandboxProfileId: rationale?.sandboxProfileId as string | undefined, evidence: gate.evidence, metadata: rationale as Record<string, unknown> | undefined })
+    ? recordTrustAuditEvent(run, { kind: "commit.gate", decision: "accepted", source: "cw-validated", nodeId: gate.verifierNodeId, commitId: id, evidence: gate.evidence })
     : undefined;
-  const evidence = normalizeEvidence(run, gate.evidence, { source: gate.verifierGated ? "cw-validated" : "runtime-derived", workerId: rationale?.workerId as string | undefined, verifierNodeId: gate.verifierNodeId, candidateId: gate.candidateId, selectionId: gate.selectionId, commitId: id, auditEventIds: audit ? [audit.id] : [] });
+  const evidence = normalizeEvidence(run, gate.evidence, { source: gate.verifierGated ? "cw-validated" : "runtime-derived", verifierNodeId: gate.verifierNodeId, commitId: id, auditEventIds: audit ? [audit.id] : [] });
 
   const commit: StateCommit = {
     id,
@@ -199,24 +171,8 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
     verifierGated: gate.verifierGated,
     checkpoint: !gate.verifierGated,
     verifierNodeId: gate.verifierNodeId,
-    candidateId: gate.candidateId,
-    selectionId: gate.selectionId,
     evidence,
-    // Acceptance rationale rides on the commit so `report`/`metrics`/audit can
-    // explain WHY it was accepted. commitGateResult reflects whether the gate
-    // ran (passed) or this was an unverified checkpoint; audit event id is
-    // threaded so the rationale points back at its own audit record.
-    ...(rationale
-      ? {
-          acceptanceRationale: {
-            ...rationale,
-            commitGateResult: gate.verifierGated ? "passed" : "checkpoint",
-            auditEventIds: audit ? [...((rationale.auditEventIds as string[]) || []), audit.id] : (rationale.auditEventIds as string[] | undefined),
-          },
-        }
-      : {}),
     metadata: { ...(options.metadata || {}), ...gate.metadata },
-    ...(reviewProvenance ? { review: reviewProvenance as unknown as Record<string, unknown> } : {}),
   };
 
   const commitNodeId = recordCommitNode(run, commit, options, gate);
@@ -247,14 +203,13 @@ function recordCommitNode(run: WorkflowRun, commit: StateCommit, options: Commit
         outputNodeId: `${run.id}:commit:${commit.id}`,
         outputStatus: "committed",
         loopStage: "checkpoint",
-        outputs: { snapshotPath: commit.snapshotPath, gitHead: commit.gitHead, verifierGated: true, verifierNodeId: verifierNode.id, candidateId: gate.candidateId, selectionId: gate.selectionId },
+        outputs: { snapshotPath: commit.snapshotPath, gitHead: commit.gitHead, verifierGated: true, verifierNodeId: verifierNode.id },
         artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
         evidence: commit.evidence || verifierNode.evidence,
-        metadata: { ...(options.metadata || {}), reason: options.reason, commitId: commit.id, verifierGated: true, checkpoint: false, verifierNodeId: verifierNode.id, candidateId: gate.candidateId, selectionId: gate.selectionId, selectionNodeId: gate.selectionNodeId },
+        metadata: { ...(options.metadata || {}), reason: options.reason, commitId: commit.id, verifierGated: true, checkpoint: false, verifierNodeId: verifierNode.id },
       },
       { persist: false, persistNode: writeRunNode, pathExists: fs.existsSync }
     );
-    if (gate.selectionNodeId && commitResult.outputNodeId) linkAdditionalParent(run, gate.selectionNodeId, commitResult.outputNodeId);
     return commitResult.outputNodeId;
   }
 
@@ -299,7 +254,7 @@ function recordCommitGateFailure(run: WorkflowRun, options: CommitStateOptions, 
       kind: "error",
       status: "pending",
       loopStage: "checkpoint",
-      inputs: { reason: options.reason, verifierNodeId: gate.verifierNodeId, candidateId: gate.candidateId, selectionId: gate.selectionId },
+      inputs: { reason: options.reason, verifierNodeId: gate.verifierNodeId },
       evidence: gate.evidence,
       contractId: DEFAULT_PIPELINE_CONTRACT_ID,
       metadata: {
@@ -314,13 +269,11 @@ function recordCommitGateFailure(run: WorkflowRun, options: CommitStateOptions, 
     first
   );
   const persisted = appendRunNode(run, node);
-  for (const parentId of [gate.selectionNodeId, gate.verifierNodeId].filter(Boolean) as string[]) {
-    linkAdditionalParent(run, parentId, persisted.id);
-  }
+  if (gate.verifierNodeId) linkAdditionalParent(run, gate.verifierNodeId, persisted.id);
   // Record the block as append-only operator feedback so the codes
-  // (commit-verifier-not-found / missing-evidence / review-gate-missing-
-  // approvals / …) are not lost — the old build did this and the commit gate's
-  // failure must surface visibly, not silently.
+  // (commit-verifier-not-found / missing-evidence / …) are not lost — the
+  // old build did this and the commit gate's failure must surface visibly,
+  // not silently.
   const feedback = recordFeedback(run, {
     source: options.source === "cli" ? "cli" : "verifier",
     error: first,
@@ -333,8 +286,6 @@ function recordCommitGateFailure(run: WorkflowRun, options: CommitStateOptions, 
     metadata: {
       reason: options.reason,
       verifierNodeId: gate.verifierNodeId,
-      candidateId: gate.candidateId,
-      selectionId: gate.selectionId,
       failures: gate.errors.map((entry) => ({ code: entry.code, message: entry.message, nodeId: entry.nodeId })),
     },
   });

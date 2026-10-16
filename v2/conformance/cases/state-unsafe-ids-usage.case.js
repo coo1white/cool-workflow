@@ -2,7 +2,7 @@
 "use strict";
 
 // assertSafeRunId's exact refusal message, and the fixed Usage: strings
-// for the state/migration/node/summary subcommand families when given an
+// for the state/migration/node subcommand families when given an
 // unknown verb. These are cheap, high-value byte-exact checks: a rebuild
 // that reformats any of them breaks operator scripts that grep stderr.
 
@@ -36,7 +36,6 @@ caseMain(() => {
       args: ["migration", "nope"],
       usage: "cw migration list|check|prove [target] [--contract run-state|workflow-app]",
     },
-    { args: ["summary", "nope"], usage: "cw summary refresh|show <run-id> [--json]" },
     { args: ["ledger", "nope"], usage: "cw ledger propose|review|verify|apply|list [options]" },
   ];
   for (const { args, usage } of cases) {

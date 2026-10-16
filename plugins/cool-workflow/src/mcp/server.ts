@@ -152,9 +152,8 @@ export function negotiateProtocolVersion(requested: unknown): string {
 
 // Tools whose result carries free-form text ORIGINALLY AUTHORED by a
 // worker/agent/operator/external caller — never computed or validated by
-// this codebase itself (a blackboard message body, a review comment, a
-// worker's own recorded failure message, an approve/reject rationale, a
-// judge's rationale). The calling model reads these values as ordinary tool
+// this codebase itself (a worker's own recorded failure message, a feedback
+// message). The calling model reads these values as ordinary tool
 // output; if an earlier worker (or a tampered run-state file) planted a
 // prompt-injection payload in one of them, nothing marks it as different
 // from cool-workflow's own trusted output. This table names the exact JSON
@@ -166,35 +165,23 @@ export function negotiateProtocolVersion(requested: unknown): string {
 //
 // This list is deliberately exhaustive over every MCP tool a repo-wide
 // review found reachable from a worker/agent/operator-authored free-text
-// field (2026-07-08 security review) — including the "aggregate/dashboard"
-// tools (cw_workbench_view, cw_multi_agent_status, cw_operator_status,
-// cw_operator_report) that re-surface the SAME underlying stored text as
-// the narrower tools below through a different field path. Labeling only
-// the narrow tools and missing their aggregators would let a caller bypass
-// the advisory just by calling the dashboard instead.
+// field (2026-07-08 security review). The "aggregate/dashboard" tools
+// (cw_workbench_view, cw_operator_status, cw_operator_report) carried such
+// text only through the multi-agent, blackboard, review and judge panels;
+// those panels went with that family (slim-and-esm step 2), so the
+// dashboards no longer re-surface stored text and need no advisory.
 const UNTRUSTED_RESULT_FIELDS: Record<string, string[]> = {
-  cw_blackboard_message_list: ["[].body"],
-  cw_comment_list: ["comments[].body"],
-  cw_blackboard_summary: ["openQuestions[].value", "conflicts[].value"],
-  cw_blackboard_summarize: ["unresolvedQuestions[].label", "highSignal[].label"],
   cw_worker_list: ["[].errors[].message"],
   cw_worker_show: ["errors[].message"],
   cw_worker_fail: ["errors[].message"],
-  cw_review_status: ["targets[].approvals[].rationale", "targets[].rejections[].rationale", "targets[].missing[]", "timeline[].summary"],
   cw_feedback_list: ["[].message"],
   cw_feedback_show: ["message"],
   cw_feedback_collect: ["[].message"],
   cw_feedback_task: ["message"],
   cw_feedback_resolve: ["message", "resolutionNote"],
-  cw_multi_agent_failures: ["[].reason"],
-  cw_multi_agent_status: ["summaries.blackboard.openQuestions[].value", "summaries.blackboard.conflicts[].value", "summaries.multiAgentOperator.failures[].reason"],
-  cw_operator_status: ["multiAgentOperator.failures[].reason"],
-  cw_operator_report: ["multiAgentOperator.failures[].reason"],
   cw_node_list: ["[].errors[].message"],
   cw_node_show: ["errors[].message"],
   cw_node_snapshot: ["body.errors[].message"],
-  cw_audit_judge: ["judgeRationales[].metadata.rationale", "panelDecisions[].metadata.rationale"],
-  cw_workbench_view: ["panels.collaboration.comments.data", "panels.collaboration.review.data", "panels.blackboard.digest.data", "panels.audit.judge.data"],
 };
 
 function untrustedContentAdvisory(name: string): string | undefined {

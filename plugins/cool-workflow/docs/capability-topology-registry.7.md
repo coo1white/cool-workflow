@@ -2,17 +2,19 @@
 
 ## Name
 
-`capability-registry`, `registerTopology` — the declared capability contract and the open topology registry for agent-driven CW extension
+`capability-registry` — the declared capability contract for agent-driven CW extension
 
 ## Description
 
-CW keeps two layers here. The **capability registry**
-(`src/core/capability-data.ts`) is the one declared source of truth for every
-capability CW exposes; it is read at build/check time, not written to at
-runtime. The **topology registry** (`src/core/multi-agent/topology.ts`) is an open runtime
-registry: new topologies put themselves in it with `registerTopology()` and
-then come up by themselves in `topology list`, `topology validate`, and
-`topology apply`.
+The **capability registry** (`src/core/capability-data.ts`) is the one
+declared source of truth for every capability CW exposes; it is read at
+build/check time, not written to at runtime.
+
+> History: this page also gave an account of the open **topology registry**
+> (`registerTopology()`, behind `topology list|validate|apply`). It was taken
+> out with the multi-agent family (slim-and-esm program, step 2); see
+> release-and-migration(7), "Removed Surfaces". The page keeps its name so
+> `cw man capability-topology-registry` still works.
 
 > History: v0.1.53 also shipped a dynamic *capability* dispatcher
 > (`capability-dispatcher`, `registerCapabilityHandler`,
@@ -24,8 +26,8 @@ then come up by themselves in `topology list`, `topology validate`, and
 > `cw dispatch` command, which writes a subagent dispatch manifest, is a normal
 > declared capability, not that dispatcher.)
 
-BSD way: keep **mechanism** (the registry / the open Map) apart from **policy**
-(the entries). Fail-closed on unknown ids.
+BSD way: keep **mechanism** (the registry) apart from **policy** (the
+entries). Fail-closed on unknown ids.
 
 ## Capability Registry
 
@@ -89,103 +91,8 @@ Run `node plugins/cool-workflow/scripts/parity-check.js --check` and read
 CLI <-> MCP matrix lives in `docs/cli-mcp-parity.7.md`, which is generated from
 the same registry.
 
-## Topology Registry
-
-### Interface
-
-```typescript
-interface MultiAgentTopologyDefinition {
-  schemaVersion: 1;
-  id: string;              // open string namespace (was closed union)
-  title: string;
-  summary: string;
-  roles: TopologyRoleSpec[];
-  groups: Array<{ id: string; title: string; roleIds: string[] }>;
-  blackboardTopics: Array<{ id: string; title: string; description: string }>;
-  phases: TopologyPhaseSpec[];
-  fanoutStrategy: string;
-  faninStrategy: string;
-  requiredEvidence: string[];
-  coordinatorDecisions: CoordinatorDecisionKind[];
-  candidateExpectations: string[];
-  verifierGates: string[];
-}
-
-interface TopologyRoleSpec {
-  id: string;
-  title: string;
-  responsibilities: string[];
-  count?: number;         // NEW: materialize N instances of this role
-  requiredEvidence: string[];
-  expectedArtifacts: string[];
-  faninObligations: string[];
-}
-```
-
-### Registering a new topology
-
-```typescript
-import { registerTopology } from "./topology";
-
-registerTopology({
-  schemaVersion: 1,
-  id: "swarm",
-  title: "Swarm",
-  summary: "Parallel swarm agents with consensus voting.",
-  roles: [
-    { id: "swarm-agent", title: "Swarm Agent",
-      responsibilities: ["Produce shard result with evidence."],
-      requiredEvidence: ["swarm output artifact"],
-      expectedArtifacts: ["swarm result"],
-      faninObligations: ["indexed swarm artifact"],
-      count: 5 }
-  ],
-  groups: [{ id: "swarm", title: "Swarm Group", roleIds: ["swarm-agent"] }],
-  blackboardTopics: [
-    { id: "swarm-outputs", title: "Swarm Outputs", description: "Agent results." }
-  ],
-  phases: [
-    { id: "execute", title: "Execute", roleIds: ["swarm-agent"],
-      fanout: true, fanin: false,
-      requiredEvidence: ["swarm output artifact"],
-      coordinatorDecisionKinds: ["artifact-index"] },
-    { id: "consensus", title: "Consensus", roleIds: ["synthesizer"],
-      fanout: false, fanin: true,
-      requiredEvidence: ["all swarm evidence"],
-      coordinatorDecisionKinds: ["candidate-synthesis"] }
-  ],
-  fanoutStrategy: "one membership per swarm agent role",
-  faninStrategy: "consensus requires all swarm agent evidence",
-  requiredEvidence: ["swarm output artifact", "consensus synthesis"],
-  coordinatorDecisions: ["artifact-index", "candidate-synthesis"],
-  candidateExpectations: ["Synthesis cites swarm agent provenance."],
-  verifierGates: ["Swarm fanin must be ready before commit."]
-});
-```
-
-### How it works
-
-1. `registerTopology()` stores the definition in a `Map<string, MultiAgentTopologyDefinition>`
-2. `listTopologyDefinitions()` gives back official + registered; registered wins when two ids are the same
-3. `getTopologyDefinition(id)` looks at registered first, then official
-4. `materializedRoles()` uses `role.count` to make copies — no more hardcoded
-   mapper/judge switch logic
-5. `applyTopology()` works the same way for official and registered topologies
-
-### Data-driven role expansion
-
-Before v0.1.53, `materializedRoles()` hardcoded the "mapper" and "judge" role
-expansion. Now it reads `role.count` on each role spec:
-- `role.count > 1`: makes `role-1`, `role-2`, ... `role-N`
-- `role.count` undefined or 1: makes one role instance
-- So that official topologies keep working as before, the `mapperCount` and `judgeCount`
-  input overrides still hold
-
 ## See Also
 
 - `src/core/capability-data.ts` — the one declared source for all capabilities
 - `src/wiring/capability-table/registry-core.ts` — the shared core entries both surfaces route through
-- `topology.ts` — topology definitions and the registry
-- `src/core/multi-agent/topology.ts` — topology type definitions
 - `docs/cli-mcp-parity.7.md` — CLI <-> MCP parity gate
-- `docs/multi-agent-topologies.7.md` — official topology recipes

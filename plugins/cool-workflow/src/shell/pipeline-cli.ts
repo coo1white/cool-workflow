@@ -731,19 +731,10 @@ export function dispatchRun(args: Record<string, unknown>): Record<string, unkno
   // The whole load -> change -> save cycle holds the state.json lock so a
   // concurrent dispatch/result on the same run cannot drop this update.
   return withRunStateLock(runId, invocationCwd(args), (run) => {
-    // parseArgv keys long flags in kebab-case; accept camelCase as a fallback.
-    const flag = (kebab: string, camel: string): string | undefined => {
-      const v = args[kebab] ?? args[camel];
-      return typeof v === "string" && v.trim() ? v : undefined;
-    };
     const manifest = createDispatchManifest(run, requiredNumberFlag(args.limit, "--limit"), {
       sandboxProfileId: typeof args.sandbox === "string" ? args.sandbox : undefined,
       sandbox: typeof args.sandbox === "string" ? args.sandbox : undefined,
       backendId: typeof args.backend === "string" ? args.backend : undefined,
-      multiAgentRunId: flag("multi-agent-run", "multiAgentRun"),
-      multiAgentGroupId: flag("multi-agent-group", "multiAgentGroup"),
-      multiAgentRoleId: flag("multi-agent-role", "multiAgentRole"),
-      multiAgentFanoutId: flag("multi-agent-fanout", "multiAgentFanout"),
     });
     if (manifest.dispatchId) {
       commitState(run, `dispatch:${manifest.dispatchId}`);
@@ -837,9 +828,7 @@ export function commitRun(args: Record<string, unknown>): Record<string, unknown
   // cannot drop this commit (lost-update class, matching dispatchRun/recordResultRun).
   return withRunStateLock(runId, invocationCwd(args), (run) => {
     const allowCheckpoint = Boolean(args.allowUnverifiedCheckpoint || args["allow-unverified-checkpoint"]);
-    const hasGateOption = Boolean(
-      args.verifier || args.verifierNode || args["verifier-node"] || args.candidate || args.selection
-    );
+    const hasGateOption = Boolean(args.verifier || args.verifierNode || args["verifier-node"]);
     try {
       const commit = commitState(run, {
         reason: typeof args.reason === "string" && args.reason ? args.reason : "manual",
@@ -848,8 +837,6 @@ export function commitRun(args: Record<string, unknown>): Record<string, unknown
           (typeof args.verifierNode === "string" && args.verifierNode) ||
           (typeof args["verifier-node"] === "string" && args["verifier-node"]) ||
           undefined,
-        candidateId: typeof args.candidate === "string" ? args.candidate : undefined,
-        selectionId: typeof args.selection === "string" ? args.selection : undefined,
         verifierGated: hasGateOption || !allowCheckpoint,
         allowUnverifiedCheckpoint: allowCheckpoint,
         source: "cli",

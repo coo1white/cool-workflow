@@ -6,9 +6,7 @@
 // validation module. NodeSnapshot / NodeReplayRun are read at the
 // `readNodeSnapshot`/`readNodeReplay` edge in shell/node-store.ts.
 // WorkerScope is read at the `getWorkerScope`/`loadWorkerScopesFromDisk`
-// edge in shell/worker-isolation.ts. CandidateScore/CandidateRecord
-// guards still land with their owning milestone (9) rather than being
-// spec'd ahead of need here.
+// edge in shell/worker-isolation.ts.
 //
 // WorkerScope itself is a shell-layer concept (its full type carries
 // ResolvedSandboxPolicy/SandboxAttestation from shell/execution-backend),
@@ -33,7 +31,6 @@ exports.RecordValidationError = void 0;
 exports.validateWorkerScope = validateWorkerScope;
 exports.validateNodeSnapshot = validateNodeSnapshot;
 exports.validateNodeReplayRun = validateNodeReplayRun;
-exports.tryValidateCandidateScore = tryValidateCandidateScore;
 function isRecord(value) {
     return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -45,12 +42,6 @@ function isObjectArray(value) {
 }
 function isStringArray(value) {
     return Array.isArray(value) && value.every((entry) => typeof entry === "string");
-}
-function isFiniteNumber(value) {
-    return typeof value === "number" && Number.isFinite(value);
-}
-function isNumberRecord(value) {
-    return isRecord(value) && Object.values(value).every((entry) => isFiniteNumber(entry));
 }
 const SNAPSHOT_FRESHNESS = new Set(["valid", "stale", "absent"]);
 const WORKER_STATUSES = new Set([
@@ -194,47 +185,4 @@ function validateNodeReplayRun(value) {
     if (problem)
         throw new RecordValidationError("NodeReplayRun", problem.reason, problem.field);
     return value;
-}
-// ---------------------------------------------------------------------------
-// CandidateScore — the score records evidence-reasoning.ts reads off disk to
-// build the score gate. A corrupt/forged score must NOT flow into the run as a
-// trusted record: the gate that backs commit selection reads these fields, so
-// we fail closed at the read edge. schemaVersion===1; id/candidateId/runId/
-// createdAt/scorer strings; criteria a Record<string, number>; total/maxTotal/
-// normalized finite numbers; verdict a pass|warn|fail enum; evidence/artifacts
-// object arrays. Byte-behavior port of the old build's validation module guard.
-// ---------------------------------------------------------------------------
-const SCORE_VERDICTS = new Set(["pass", "warn", "fail"]);
-function candidateScoreReason(value) {
-    if (!isRecord(value))
-        return { reason: "not an object" };
-    if (value.schemaVersion !== 1)
-        return { field: "schemaVersion", reason: "must equal 1" };
-    const requiredStrings = ["id", "candidateId", "runId", "createdAt", "scorer"];
-    for (const field of requiredStrings) {
-        if (!isString(value[field]))
-            return { field: field, reason: "must be a string" };
-    }
-    if (!isNumberRecord(value.criteria))
-        return { field: "criteria", reason: "must be a Record<string, number>" };
-    if (!isFiniteNumber(value.total))
-        return { field: "total", reason: "must be a finite number" };
-    if (!isFiniteNumber(value.maxTotal))
-        return { field: "maxTotal", reason: "must be a finite number" };
-    if (!isFiniteNumber(value.normalized))
-        return { field: "normalized", reason: "must be a finite number" };
-    if (!isString(value.verdict) || !SCORE_VERDICTS.has(value.verdict)) {
-        return { field: "verdict", reason: "must be a valid CandidateScore verdict (pass|warn|fail)" };
-    }
-    if (!isObjectArray(value.evidence))
-        return { field: "evidence", reason: "must be a StateEvidence[]" };
-    if (!isObjectArray(value.artifacts))
-        return { field: "artifacts", reason: "must be a StateArtifact[]" };
-    return undefined;
-}
-/** Best-effort guard: returns null on a shape mismatch so the caller skips the
- *  record and the downstream score gate fails closed on its absence, rather
- *  than trusting a forged/corrupt score. */
-function tryValidateCandidateScore(value) {
-    return candidateScoreReason(value) ? null : value;
 }

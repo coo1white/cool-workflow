@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// FreeBSD-audit DET-IDs-B (findings L12/L13, entity-id half): the 8 entity-ID
+// FreeBSD-audit DET-IDs-B (findings L12/L13, entity-id half): the entity-ID
 // minting sites must be DETERMINISTIC — derived from stable, replayable inputs
 // (a per-run/per-collection sequence or a content hash) instead of a wall-clock
 // stamp + Math.random() suffix. This smoke creates the SAME logical entities in
@@ -16,20 +16,10 @@ const path = require("node:path");
 // v2 module layout: old flat modules split into core/ (pure) + shell/ (io).
 const { createRunPaths, ensureRunDirs, saveCheckpoint } = require("../dist/shell/run-store");
 const { appendRunNode, createStateNode } = require("../dist/core/state/state-node");
-const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/shell/candidate-scoring-io");
 const { recordFeedback } = require("../dist/shell/error-feedback-io");
 const { commitState } = require("../dist/shell/commit");
-const {
-  createMultiAgentRun,
-  createAgentRole,
-  createAgentGroup
-} = require("../dist/shell/multi-agent-io");
-const {
-  resolveBlackboard,
-  createBlackboardTopic,
-  postBlackboardMessage,
-  recordCoordinatorDecision
-} = require("../dist/shell/coordinator-io");
+// (The candidate/score/selection, multi-agent and blackboard id-minting sites
+// went with the multi-agent family, slim-and-esm step 2.)
 const { RoutineTriggerBridge } = require("../dist/shell/scheduler-io");
 
 const RUN_ID = "det-ids-b";
@@ -154,38 +144,6 @@ function mintAll(tmp) {
   );
   ids.nodeId = adHocNode.id;
 
-  // --- candidate / score / selection -------------------------------------------
-  const candidate = registerCandidate(
-    run,
-    {
-      workerId: "worker-one",
-      taskId: "map:one",
-      kind: "worker-output",
-      resultNodeId: `${RUN_ID}:result:map:one`,
-      verifierNodeId: `${RUN_ID}:verifier:map:one`,
-      resultPath
-    },
-    { persist: false }
-  );
-  ids.candidateId = candidate.id;
-
-  const score = scoreCandidate(
-    run,
-    candidate.id,
-    {
-      scorer: "smoke",
-      criteria: { correctness: 4, evidence: 4, fit: 2 },
-      maxTotal: 10,
-      evidence: [{ id: "score:evidence", source: "test", locator: `${resultPath}:1` }],
-      notes: "strong candidate"
-    },
-    { persist: false }
-  );
-  ids.scoreId = score.id;
-
-  const selection = selectCandidate(run, candidate.id, { reason: "selected" }, { persist: false });
-  ids.selectionId = selection.id;
-
   // --- error-feedback createFeedbackId -----------------------------------------
   const feedback = recordFeedback(
     run,
@@ -204,33 +162,6 @@ function mintAll(tmp) {
     source: "manual"
   });
   ids.commitId = commit.id;
-
-  // --- multi-agent createId (mar / role / group) -------------------------------
-  const marRun = createMultiAgentRun(run, { title: "MA", objective: "prove deterministic ids" });
-  ids.marId = marRun.id;
-  const role = createAgentRole(run, {
-    multiAgentRunId: marRun.id,
-    title: "Runtime",
-    responsibilities: ["produce evidence"]
-  });
-  ids.roleId = role.id;
-  const group = createAgentGroup(run, { multiAgentRunId: marRun.id, title: "Group" });
-  ids.groupId = group.id;
-
-  // --- coordinator createId (bb / topic / msg / decision) ----------------------
-  const board = resolveBlackboard(run, {});
-  ids.boardId = board.id;
-  const topic = createBlackboardTopic(run, { blackboardId: board.id, title: "Coordination" });
-  ids.topicId = topic.id;
-  const message = postBlackboardMessage(run, { topicId: topic.id, body: "deterministic message" });
-  ids.messageId = message.id;
-  const decision = recordCoordinatorDecision(run, {
-    blackboardId: board.id,
-    kind: "context-update",
-    outcome: "accepted",
-    reason: "deterministic decision"
-  });
-  ids.decisionId = decision.id;
 
   saveCheckpoint(run);
 
@@ -278,13 +209,8 @@ const trigB = mintTriggers(fs.mkdtempSync(path.join(os.tmpdir(), "cw-det-ids-b-t
 assert.deepEqual(trigB, trigA, `trigger/event ids must be byte-identical across two fresh stores\nA: ${JSON.stringify(trigA)}\nB: ${JSON.stringify(trigB)}`);
 
 // Sanity: the minted ids carry their human-readable prefix (format preserved).
-assert.match(idsA.candidateId, /^candidate-worker-output-/, "candidate id keeps its descriptive prefix");
-assert.match(idsA.scoreId, /^score-/, "score id keeps its descriptive prefix (evidence-adoption-reasoning-smoke depends on this)");
-assert.match(idsA.selectionId, /^selection-/, "selection id keeps its descriptive prefix");
 assert.match(idsA.commitId, /^state-\d{4}$/, "commit id is a zero-padded sequence");
 assert.match(idsA.feedbackId, /^feedback-/, "feedback id keeps its descriptive prefix");
-assert.match(idsA.marId, /^mar-\d{4}$/, "multi-agent run id is a zero-padded sequence");
-assert.match(idsA.boardId, /^bb-\d{4}$/, "blackboard id is a zero-padded sequence");
 assert.match(trigA.triggerId, /^api-\d{4}$/, "trigger id is a zero-padded sequence");
 assert.match(trigA.eventId, /^event-api-\d{4}$/, "event id is a zero-padded sequence");
 

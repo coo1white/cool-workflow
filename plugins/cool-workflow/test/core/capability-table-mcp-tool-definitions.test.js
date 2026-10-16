@@ -20,7 +20,7 @@ const { COMMON_PROPERTY_TYPES } = require("../../dist/core/capability-data");
 // inputSchema:{type:"object", properties, additionalProperties:true}.
 {
   const defs = mcpToolDefinitions();
-  assert.equal(defs.length, 198, "mcpToolDefinitions() must return exactly 198 entries");
+  assert.equal(defs.length, 123, "mcpToolDefinitions() must return exactly 123 entries");
   for (const def of defs) {
     assert.equal(typeof def.name, "string", `${def.name}: name must be a string`);
     assert.equal(typeof def.description, "string", `${def.name}: description must be a string`);
@@ -113,20 +113,22 @@ const { COMMON_PROPERTY_TYPES } = require("../../dist/core/capability-data");
   assert.deepEqual(cwNodeShow.inputSchema.required, ["runId", "nodeId"], "cw_node_show's required must be [\"runId\", \"nodeId\"]");
 }
 
-// inputSchema.required, OR-group case: cw_eval_replay's one requiredArgs
-// group is "snapshot|snapshotId|path" — an OR group. JSON Schema's plain
+// inputSchema.required, OR-group case: cw_run_import's one requiredArgs
+// group is "archive|path|file" — an OR group. JSON Schema's plain
 // "required" is AND-only, so none of its three names may be forced in,
 // and the raw joined string must never leak through as a literal entry.
+// (This case used cw_eval_replay until that tool went with the multi-agent
+// family, slim-and-esm step 2.)
 {
   const defs = mcpToolDefinitions();
-  const cwEvalReplay = defs.find((d) => d.name === "cw_eval_replay");
-  assert.ok(cwEvalReplay, "cw_eval_replay must be declared");
-  const required = cwEvalReplay.inputSchema.required;
+  const cwRunImport = defs.find((d) => d.name === "cw_run_import");
+  assert.ok(cwRunImport, "cw_run_import must be declared");
+  const required = cwRunImport.inputSchema.required;
   if (required !== undefined) {
-    assert.ok(!required.includes("snapshot|snapshotId|path"), "the raw OR-group string must never leak into required");
-    assert.ok(!required.includes("snapshot"), "an OR-group name must not be forced into required");
-    assert.ok(!required.includes("snapshotId"), "an OR-group name must not be forced into required");
+    assert.ok(!required.includes("archive|path|file"), "the raw OR-group string must never leak into required");
+    assert.ok(!required.includes("archive"), "an OR-group name must not be forced into required");
     assert.ok(!required.includes("path"), "an OR-group name must not be forced into required");
+    assert.ok(!required.includes("file"), "an OR-group name must not be forced into required");
   }
 }
 
@@ -229,13 +231,17 @@ const { COMMON_PROPERTY_TYPES } = require("../../dist/core/capability-data");
   }
 }
 
-// "When to use which" cross-references: each of the four status-family
+// "When to use which" cross-references: each of the three status-family
 // descriptions names at least one sibling status tool. A drift guard so a later description edit keeps the
-// cross-references.
+// cross-references. (cw_multi_agent_status, the fourth, went with the
+// multi-agent family, slim-and-esm step 2; no description may still name it.)
 {
   const defs = mcpToolDefinitions();
   const byName = new Map(defs.map((d) => [d.name, d]));
-  const statusFamily = ["cw_status", "cw_operator_status", "cw_workbench_view", "cw_multi_agent_status"];
+  for (const def of defs) {
+    assert.ok(!/cw_(multi_agent|blackboard|candidate|topology)_/.test(def.description), `${def.name}'s description must not name a removed tool`);
+  }
+  const statusFamily = ["cw_status", "cw_operator_status", "cw_workbench_view"];
   for (const name of statusFamily) {
     const description = byName.get(name).description;
     const siblings = statusFamily.filter((sibling) => sibling !== name);

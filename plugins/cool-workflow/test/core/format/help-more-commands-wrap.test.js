@@ -42,11 +42,14 @@ function moreCommandsLines() {
 // reproduces the exact SPEC token list in the exact original order — no
 // token dropped, duplicated, or reordered by the wrap.
 {
+  // candidate review multi-agent topology summary blackboard coordinator
+  // approve reject comment handoff eval went with the multi-agent family
+  // (slim-and-esm step 2).
   const SPEC_TOKENS = (
     "list search info init plan status next dispatch result state commit report app sandbox backend " +
-    "contract node feedback worker audit candidate review loop schedule routine registry run queue clones " +
-    "orphans history quickstart audit-run multi-agent topology summary blackboard coordinator metrics " +
-    "operator sched gc telemetry migration demo workbench approve reject comment handoff ledger graph eval " +
+    "contract node feedback worker audit loop schedule routine registry run queue clones " +
+    "orphans history quickstart audit-run metrics " +
+    "operator sched gc telemetry migration demo workbench ledger graph " +
     "man version fix completion"
   ).split(" ");
   const rejoined = moreCommandsLines()

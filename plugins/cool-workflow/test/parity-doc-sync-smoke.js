@@ -38,6 +38,7 @@ assert.equal(
 // truth is now core/capability-table's REGISTRY (same array shape: capability,
 // surface, cli, mcp, ...). Same intent: the registry is not empty/partial.
 const { REGISTRY: CAPABILITY_REGISTRY } = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
-assert.ok(CAPABILITY_REGISTRY.length >= 180, `registry unexpectedly small (${CAPABILITY_REGISTRY.length})`);
+// 157 capabilities since the multi-agent family went (slim-and-esm step 2).
+assert.ok(CAPABILITY_REGISTRY.length >= 150, `registry unexpectedly small (${CAPABILITY_REGISTRY.length})`);
 
 process.stdout.write(`parity-doc-sync-smoke: ok (matrix generated + in sync; ${CAPABILITY_REGISTRY.length} capabilities)\n`);

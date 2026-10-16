@@ -100,4 +100,3 @@ The full trust statement lives in:
 
 - `plugins/cool-workflow/docs/trust-model.md`
 - `plugins/cool-workflow/docs/security-trust-hardening.7.md`
-- `plugins/cool-workflow/docs/multi-agent-trust-policy-audit.7.md`

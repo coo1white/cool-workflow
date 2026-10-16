@@ -41,13 +41,6 @@ caseMain(() => {
   const sandboxPayload = JSON.parse(sandbox.stdout);
   assert.equal(sandboxPayload.valid, false);
 
-  // topology validate: unknown topology id -> valid:false, exit 1.
-  const topology = run(["topology", "validate", "no-such-topo", "--json"]);
-  assert.equal(topology.status, 1);
-  const topologyPayload = JSON.parse(topology.stdout);
-  assert.equal(topologyPayload.valid, false);
-  assert.equal(topologyPayload.topologyId, "no-such-topo");
-
   // migration check / prove: both throw a clean "Missing target" error
   // (with a "cw run list" Try: hint) when no target is given at all —
   // exit 1 via the top-level catch, never a crash.
@@ -89,7 +82,7 @@ caseMain(() => {
 
   // Top-level catch never leaks anything to stdout on error, across every
   // failure mode above and this one more (search with no keyword).
-  for (const r of [gcVerify, inspect, restore, sandbox, topology, plan, next]) {
+  for (const r of [gcVerify, inspect, restore, sandbox, plan, next]) {
     if (r.status === 1 && r.stdout === "") {
       assert.equal(r.stdout, "");
     }

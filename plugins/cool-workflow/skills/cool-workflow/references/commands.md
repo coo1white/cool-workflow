@@ -12,11 +12,6 @@ absolute plugin script path. Run data is written to `.cw/runs/<run-id>/` under
 
 - [Discovery & apps](#discovery--apps)
 - [Plan / dispatch / result / report](#plan--dispatch--result--report)
-- [Topologies](#topologies)
-- [Multi-agent host surface](#multi-agent-host-surface)
-- [Multi-agent low-level state](#multi-agent-low-level-state)
-- [Eval & replay](#eval--replay)
-- [Blackboard & coordinator](#blackboard--coordinator)
 - [Sandbox profiles](#sandbox-profiles)
 - [Commit, state & summaries](#commit-state--summaries)
 - [Scheduling & routines](#scheduling--routines)
@@ -80,120 +75,6 @@ Operator UX is human-readable by default for `status`, `graph`, report
 `--format json` when scripts or MCP-style integrations need structured output.
 Status recommendations are deterministic hints, not hidden automation.
 
-## Topologies
-
-Official userland recipes on top of the process table and shared coordination
-filesystem. `map-reduce`, `debate`, and `judge-panel` materialize ordinary run,
-role, group, fanout/fanin, blackboard, coordinator, candidate, commit, and audit
-records — deterministic recipes, not hidden autonomous coordination.
-
-```bash
-cw topology list
-cw topology show map-reduce
-cw topology validate map-reduce
-cw topology apply <run-id> map-reduce --task task-id --mapper-count 2
-cw topology summary <run-id>
-cw topology graph <run-id>
-```
-
-## Multi-agent host surface
-
-Prefer this high-level surface (`run -> status -> step -> blackboard -> score ->
-select`) when an agent host needs to drive multi-agent work without manual id
-plumbing. It wraps the topology, multi-agent, blackboard, candidate, commit, and
-audit primitives; it does not replace them.
-
-```bash
-cw multi-agent run <run-id> --topology judge-panel --task task-id
-cw multi-agent status <run-id>
-cw multi-agent step <run-id> --sandbox readonly
-cw multi-agent blackboard <run-id> summary
-cw multi-agent score <run-id> candidate-id --criterion correctness=1 --evidence ref
-cw multi-agent select <run-id> candidate-id --reason "verified winner"
-```
-
-Operator views (who depends on whom, who is blocked, which evidence was adopted):
-
-```bash
-cw multi-agent summary <run-id>
-cw multi-agent graph <run-id>
-cw multi-agent dependencies <run-id>
-cw multi-agent failures <run-id>
-cw multi-agent evidence <run-id>
-```
-
-State Explosion Management — when a run grows too large to read, use derived,
-provenance-backed digests (they never delete raw records and fail closed when
-stale; every synthetic node carries source ids and an expansion command):
-
-```bash
-cw summary refresh <run-id>
-cw summary show <run-id>
-cw blackboard summarize <run-id>
-cw multi-agent summarize <run-id>
-cw multi-agent graph <run-id> --view compact|critical-path|failures|... [--focus <id>] [--depth <n>]
-```
-
-Trust / Policy / Audit — inspect role authority, message provenance, blackboard
-write decisions, judge rationale, panel decisions, and why a result is trusted
-(missing policy/evidence/provenance/rationale fail closed):
-
-```bash
-cw audit multi-agent <run-id>
-cw audit policy <run-id>
-cw audit role <run-id>
-cw audit blackboard <run-id>
-cw audit judge <run-id>
-```
-
-## Multi-agent low-level state
-
-First-class runtime state around dispatches (`MultiAgentRun`, `AgentRole`,
-`AgentGroup`, `AgentMembership`, `AgentFanout`, `AgentFanin`). CW records and
-validates this state; the host still executes agents. Invalid lifecycle
-transitions, duplicate memberships, ambiguous dispatch attachment, and missing
-fanin evidence fail closed.
-
-```bash
-cw multi-agent run <run-id> --id ma --objective "coordinated work"
-cw multi-agent role <run-id> role --multi-agent-run ma --responsibility "do work" --required-evidence "result evidence"
-cw multi-agent group <run-id> group --multi-agent-run ma --task task-id
-cw multi-agent fanout <run-id> fanout --group group --reason "split work" --role role --task task-id
-cw dispatch <run-id> --multi-agent-run ma --multi-agent-group group --multi-agent-role role --multi-agent-fanout fanout
-cw multi-agent fanin <run-id> fanin --group group --fanout fanout --required-role role
-```
-
-## Eval & replay
-
-Use when a topology-backed multi-agent run needs release-gate evidence.
-Artifacts live under `.cw/evals/<suite-id>/` as plain JSON plus `report.md`.
-
-```bash
-cw eval snapshot <run-id> --id suite-id
-cw eval replay .cw/evals/suite-id/snapshot.json
-cw eval compare .cw/evals/suite-id/snapshot.json .cw/evals/suite-id/replay-run.json
-cw eval score .cw/evals/suite-id/replay-run.json
-cw eval gate .cw/evals/suite-id
-cw eval report .cw/evals/suite-id/replay-run.json
-```
-
-## Blackboard & coordinator
-
-The shared coordination substrate: durable blackboards, topics, messages,
-context frames, artifact refs, snapshots, and coordinator decisions under
-`.cw/runs/<run-id>/blackboard/`.
-
-```bash
-cw blackboard summary <run-id>
-cw blackboard topic create <run-id> --id topic --title "Shared context"
-cw blackboard message post <run-id> --topic topic --body "message"
-cw blackboard context put <run-id> --topic topic --kind fact --key finding --value "evidence-backed fact"
-cw blackboard artifact add <run-id> --topic topic --path /path/to/result.md --kind worker-result
-cw blackboard snapshot <run-id>
-cw coordinator summary <run-id>
-cw coordinator decision <run-id> --kind conflict-resolution --outcome accepted --reason "evidence supports this"
-```
-
 ## Sandbox profiles
 
 Named CW policy contracts describing worker read paths, write paths, command
@@ -216,10 +97,8 @@ unknown user data is preserved.
 
 ```bash
 cw commit <run-id> --verifier <node-id> --reason "verified result"
-cw commit <run-id> --selection <selection-id> --reason "verified winner"
 cw commit <run-id> --allow-unverified-checkpoint --reason "manual checkpoint"
 cw worker summary <run-id>
-cw candidate summary <run-id>
 cw feedback summary <run-id>
 cw commit summary <run-id>
 cw state check <run-id>
@@ -253,7 +132,7 @@ npm run release:check    # dry-run release gate (build, types, tests, dogfood)
 ```
 
 `golden-path` exercises `workflow app -> plan -> dispatch -> isolated worker ->
-candidate scoring -> verifier -> gated commit -> report`, writing a simulated
+verifier -> gated commit -> report`, writing a simulated
 worker `cw:result` and asserting durable state files rather than exit codes.
 `release:check` does not tag, push, publish, or mutate fixtures.
 
@@ -264,19 +143,11 @@ JSON-first tools. **Preserve CLI/MCP parity when extending CW** — every CLI
 capability must have a matching MCP tool and vice versa.
 
 `cw_app_run`, `cw_dispatch`, `cw_worker_manifest`, `cw_worker_output`,
-`cw_candidate_register`, `cw_candidate_score`, `cw_candidate_select`,
-`cw_commit`, `cw_operator_status`, `cw_operator_graph`, `cw_operator_report`,
-`cw_topology_list`, `cw_topology_show`, `cw_topology_validate`,
-`cw_topology_apply`, `cw_topology_summary`, `cw_topology_graph`,
-`cw_multi_agent_summary`, `cw_multi_agent_graph`, `cw_multi_agent_dependencies`,
-`cw_multi_agent_failures`, `cw_multi_agent_evidence`, `cw_multi_agent_run`,
-`cw_multi_agent_status`, `cw_multi_agent_step`, `cw_multi_agent_blackboard`,
-`cw_multi_agent_score`, `cw_multi_agent_select`, `cw_multi_agent_run_create`,
-`cw_multi_agent_role_create`, `cw_multi_agent_group_create`,
-`cw_multi_agent_membership_create`, `cw_multi_agent_fanout_create`,
-`cw_multi_agent_fanin_collect`, `cw_eval_snapshot`, `cw_eval_replay`,
-`cw_eval_compare`, `cw_eval_score`, `cw_eval_gate`, `cw_eval_report`,
-`cw_blackboard_summary`, `cw_blackboard_context_put`,
-`cw_blackboard_artifact_add`, `cw_coordinator_decision`, `cw_summary_refresh`,
-`cw_summary_show`, `cw_blackboard_summarize`, `cw_multi_agent_summarize`, and
-`cw_multi_agent_graph_compact`.
+`cw_commit`, `cw_operator_status`, `cw_operator_graph`, and `cw_operator_report`
+are the core tools; the generated parity table in `docs/cli-mcp-parity.7.md`
+lists every tool.
+
+The topology, multi-agent, eval/replay, blackboard, coordinator, candidate,
+summary, and review/comment/approve/reject/handoff verbs and their MCP tools
+went with the multi-agent family (see `docs/release-and-migration.7.md`,
+"Removed Surfaces").

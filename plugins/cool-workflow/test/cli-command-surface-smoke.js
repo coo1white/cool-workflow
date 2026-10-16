@@ -37,7 +37,7 @@ assert.match(entry, /export async function runCli\b/, "cli/entry.ts must export 
 assert.match(entry, /parseArgv\(/, "cli/entry.ts must preserve parseArgv-based CLI parsing");
 
 // The operational families (feedback/metrics/migration/sandbox/backend/
-// contract/candidate) must NOT live as inline arms of a command switch —
+// contract) must NOT live as inline arms of a command switch —
 // the same anti-god-dispatch guard the old smoke enforced. In v2 they are
 // rows in the CAPABILITY TABLE, keyed by a `path: ["<verb>", ...]`, and
 // dispatched generically by cli/dispatch.ts. So the v2-faithful form of
@@ -51,7 +51,7 @@ assert.match(entry, /parseArgv\(/, "cli/entry.ts must preserve parseArgv-based C
 // up, regardless of which slice a verb's row happens to live in.
 const dispatch = fs.readFileSync(srcDispatch, "utf8");
 const { REGISTRY } = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
-for (const v of ["feedback", "metrics", "migration", "sandbox", "backend", "contract", "candidate"]) {
+for (const v of ["feedback", "metrics", "migration", "sandbox", "backend", "contract"]) {
   assert.ok(
     REGISTRY.some((row) => row.cli && row.cli.path[0] === v),
     v + " is a capability-table row (not an inline god-dispatch arm)"

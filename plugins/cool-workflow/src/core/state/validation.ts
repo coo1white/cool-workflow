@@ -5,9 +5,7 @@
 // validation module. NodeSnapshot / NodeReplayRun are read at the
 // `readNodeSnapshot`/`readNodeReplay` edge in shell/node-store.ts.
 // WorkerScope is read at the `getWorkerScope`/`loadWorkerScopesFromDisk`
-// edge in shell/worker-isolation.ts. CandidateScore/CandidateRecord
-// guards still land with their owning milestone (9) rather than being
-// spec'd ahead of need here.
+// edge in shell/worker-isolation.ts.
 //
 // WorkerScope itself is a shell-layer concept (its full type carries
 // ResolvedSandboxPolicy/SandboxAttestation from shell/execution-backend),
@@ -29,7 +27,6 @@
 // guards", "Fail-closed record reads".
 
 import { NodeReplayRun, NodeSnapshot, NodeSnapshotBody, NodeSnapshotFreshness, StateNodeError } from "./types";
-import type { CandidateScore } from "../multi-agent/candidate-scoring";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -45,14 +42,6 @@ function isObjectArray(value: unknown): value is Record<string, unknown>[] {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isNumberRecord(value: unknown): value is Record<string, number> {
-  return isRecord(value) && Object.values(value).every((entry) => isFiniteNumber(entry));
 }
 
 const SNAPSHOT_FRESHNESS: ReadonlySet<string> = new Set<NodeSnapshotFreshness>(["valid", "stale", "absent"]);
@@ -209,42 +198,4 @@ export function validateNodeReplayRun(value: unknown): NodeReplayRun {
   const problem = nodeReplayRunReason(value);
   if (problem) throw new RecordValidationError("NodeReplayRun", problem.reason, problem.field);
   return value as NodeReplayRun;
-}
-
-// ---------------------------------------------------------------------------
-// CandidateScore — the score records evidence-reasoning.ts reads off disk to
-// build the score gate. A corrupt/forged score must NOT flow into the run as a
-// trusted record: the gate that backs commit selection reads these fields, so
-// we fail closed at the read edge. schemaVersion===1; id/candidateId/runId/
-// createdAt/scorer strings; criteria a Record<string, number>; total/maxTotal/
-// normalized finite numbers; verdict a pass|warn|fail enum; evidence/artifacts
-// object arrays. Byte-behavior port of the old build's validation module guard.
-// ---------------------------------------------------------------------------
-
-const SCORE_VERDICTS: ReadonlySet<string> = new Set<CandidateScore["verdict"]>(["pass", "warn", "fail"]);
-
-function candidateScoreReason(value: unknown): { field?: string; reason: string } | undefined {
-  if (!isRecord(value)) return { reason: "not an object" };
-  if (value.schemaVersion !== 1) return { field: "schemaVersion", reason: "must equal 1" };
-  const requiredStrings: (keyof CandidateScore)[] = ["id", "candidateId", "runId", "createdAt", "scorer"];
-  for (const field of requiredStrings) {
-    if (!isString(value[field as string])) return { field: field as string, reason: "must be a string" };
-  }
-  if (!isNumberRecord(value.criteria)) return { field: "criteria", reason: "must be a Record<string, number>" };
-  if (!isFiniteNumber(value.total)) return { field: "total", reason: "must be a finite number" };
-  if (!isFiniteNumber(value.maxTotal)) return { field: "maxTotal", reason: "must be a finite number" };
-  if (!isFiniteNumber(value.normalized)) return { field: "normalized", reason: "must be a finite number" };
-  if (!isString(value.verdict) || !SCORE_VERDICTS.has(value.verdict)) {
-    return { field: "verdict", reason: "must be a valid CandidateScore verdict (pass|warn|fail)" };
-  }
-  if (!isObjectArray(value.evidence)) return { field: "evidence", reason: "must be a StateEvidence[]" };
-  if (!isObjectArray(value.artifacts)) return { field: "artifacts", reason: "must be a StateArtifact[]" };
-  return undefined;
-}
-
-/** Best-effort guard: returns null on a shape mismatch so the caller skips the
- *  record and the downstream score gate fails closed on its absence, rather
- *  than trusting a forged/corrupt score. */
-export function tryValidateCandidateScore(value: unknown): CandidateScore | null {
-  return candidateScoreReason(value) ? null : (value as CandidateScore);
 }

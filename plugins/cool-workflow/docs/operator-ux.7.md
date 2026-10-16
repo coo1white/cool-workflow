@@ -1,8 +1,8 @@
 # Operator UX
 
 Cool Workflow v0.1.12 added a read-only Operator UX layer to help you see a
-run from the console. It does not change workflow state, dispatch workers, score
-candidates, or commit snapshots. It reads `WorkflowRun` state and makes
+run from the console. It does not change workflow state, dispatch workers, or
+commit snapshots. It reads `WorkflowRun` state and makes
 deterministic summaries for people, while it keeps JSON for scripts and MCP.
 
 ## Inspect A Run
@@ -14,9 +14,8 @@ cw status <run-id>
 ```
 
 The status view gives you run id, workflow/app id and version, loop stage, active
-phase, blocked reasons, phase/task counts, workers, candidates, feedback,
-commits, multi-agent runtime health, Multi-Agent Operator UX counts, report
-path, and the next command it puts forward.
+phase, blocked reasons, phase/task counts, workers, feedback, commits, the
+trust-audit chain, report path, and the next command it puts forward.
 
 Machine-readable status is still there for you:
 
@@ -36,8 +35,7 @@ starts as fast as `cw version`.
 
 In v0.1.13, MCP also gives JSON-native operator tools:
 `cw_operator_status`, `cw_operator_graph`, `cw_operator_report`,
-`cw_worker_summary`, `cw_candidate_summary`, `cw_feedback_summary`, and
-`cw_commit_summary`.
+`cw_worker_summary`, `cw_feedback_summary`, and `cw_commit_summary`.
 
 ## Next Actions
 
@@ -53,16 +51,10 @@ cw worker manifest <run-id> <worker-id>
 
 cw feedback show <run-id> <feedback-id>
   reason: open feedback should be resolved before more dispatch
-
-cw candidate register <run-id> --worker <worker-id>
-  reason: a completed worker result has not been registered as a candidate
-
-cw commit <run-id> --selection <selection-id>
-  reason: a verified selected candidate is ready for a verifier-gated commit
 ```
 
-Open feedback comes first, before dispatch or candidate work. If all tracked
-work is done, the advisor points to `cw report <run-id> --show`.
+Open feedback comes first, before dispatch. If all tracked work is done, the
+advisor points to `cw report <run-id> --show`.
 
 ## Graph
 
@@ -81,31 +73,8 @@ cw node graph <run-id> --json
 ```
 
 The human graph puts phases, tasks, dispatches, workers, result nodes,
-verifier nodes, candidates, selections, commits, and feedback into groups, then prints the
-edges between them. v0.1.17 also adds `multi-agent-run`, `agent-role`,
-`agent-group`, `agent-membership`, `agent-fanout`, and `agent-fanin` nodes when
-the run has first-class multi-agent state. v0.1.18 adds `blackboard`,
-`blackboard-topic`, `blackboard-message`, `blackboard-context`,
-`blackboard-artifact`, `blackboard-snapshot`, and `coordinator-decision` nodes
-when shared coordination state is there. JSON output gives back deterministic `nodes`
-and `edges`.
-
-## Multi-Agent Operator UX
-
-v0.1.21 adds clear multi-agent operator views that answer who is dependent on
-whom, who is blocked, and which evidence went into the accepted result:
-
-```bash
-cw multi-agent graph <run-id>
-cw multi-agent dependencies <run-id>
-cw multi-agent failures <run-id>
-cw multi-agent evidence <run-id>
-```
-
-The same derived model is in `status`, `report --show`, and
-`cw_multi_agent_status` under `summaries.multiAgentOperator`. See
-[multi-agent-operator-ux.7.md](multi-agent-operator-ux.7.md) for the full
-trace from agent membership to verifier-gated commit.
+verifier nodes, commits, and feedback into groups, then prints the edges
+between them. JSON output gives back deterministic `nodes` and `edges`.
 
 ## Console Report
 
@@ -160,42 +129,26 @@ The chief run resources have human summaries by default and JSON when you ask fo
 cw worker summary <run-id>
 cw worker summary <run-id> --json
 
-cw candidate summary <run-id>
-cw candidate summary <run-id> --json
-
 cw feedback summary <run-id>
 cw feedback summary <run-id> --json
 
 cw commit summary <run-id>
 cw commit summary <run-id> --json
-
-cw multi-agent summary <run-id>
-cw multi-agent summary <run-id> --json
-cw multi-agent graph <run-id>
-cw multi-agent graph <run-id> --json
-cw multi-agent dependencies <run-id>
-cw multi-agent failures <run-id>
-cw multi-agent evidence <run-id>
 ```
 
 Worker summaries show allocated/running/verified/failed/rejected counts,
 sandbox profile ids, manifest paths, result paths, and linked feedback for
 failed or rejected workers.
 
-Candidate summaries show registered/scored/selected/verified/rejected/failed
-counts, the newest ranking path, selected candidates, candidates ready for commit,
-and clear missing scoring/evidence/gate problems.
-
 Feedback summaries put records into groups by open/tasked/resolved/rejected status,
 severity, classification, and retryability.
 
 Commit summaries make a clear line between verifier-gated commits and non-gated checkpoints
-and show snapshot paths, evidence counts, and linked verifier/candidate/selection
-ids.
+and show snapshot paths, evidence counts, and linked verifier ids.
 
-Multi-agent summaries show run and group status, role coverage, membership
-health, fanout/fanin progress, missing evidence, blocked reasons, and the next
-action it puts forward.
+The candidate, multi-agent, blackboard, and topology panels and their
+`cw candidate|multi-agent|blackboard|topology` commands were taken out with
+the multi-agent family; see release-and-migration(7), "Removed Surfaces".
 
 ## File Discipline
 

@@ -25,7 +25,7 @@ function verifierNode(overrides) {
   };
 }
 
-// Not verifier-gated at all (no verifierNodeId/candidateId/selectionId,
+// Not verifier-gated at all (no verifierNodeId,
 // verifierGated not set, reason does not match "result:<task>") -> zero
 // errors, a checkpoint (not gated) resolution.
 {
@@ -37,7 +37,7 @@ function verifierNode(overrides) {
 }
 
 // commit-verifier-required: verifierGated true (explicit verifierGated:
-// true) but no verifierNodeId/candidateId/selectionId resolves — fires
+// true) but no verifierNodeId resolves — fires
 // with the exact hint message.
 {
   const run = baseRun([]);
@@ -45,7 +45,9 @@ function verifierNode(overrides) {
   assert.equal(res.verifierGated, true);
   const err = res.errors.find((e) => e.code === "commit-verifier-required");
   assert.ok(err, "commit-verifier-required must fire");
-  assert.equal(err.message, "Verifier-gated commit requires --verifier, --candidate, or --selection");
+  // --candidate/--selection went with the multi-agent family (slim-and-esm
+  // step 2): --verifier is now the only way to name the gate.
+  assert.equal(err.message, "Verifier-gated commit requires --verifier");
   assert.equal(err.details.hint, "Use --allow-unverified-checkpoint to write a non-gated checkpoint.");
 }
 

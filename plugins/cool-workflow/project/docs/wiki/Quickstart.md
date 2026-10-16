@@ -124,7 +124,7 @@ npm run golden-path
 ```
 
 It walks the full path end to end: app validation, planning, dispatch, worker
-output, candidate selection, verifier-gated commit, report generation, status,
+output, verifier-gated commit, report generation, status,
 and graph views.
 
 ## Troubleshooting

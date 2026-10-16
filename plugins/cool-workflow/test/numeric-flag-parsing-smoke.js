@@ -230,53 +230,8 @@ function runFail(args, opts) {
   fs.rmSync(home, { recursive: true, force: true });
 }
 
-// ---------------------------------------------------------------------
-// multi-agent fanout's --limit (aliased --concurrency/--concurrencyLimit)
-// must error on garbage instead of silently fanning out unbounded.
-// ---------------------------------------------------------------------
-{
-  const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-fanout-")));
-  const opts = { cwd: tmp };
-  const plan = runJson(["plan", "end-to-end-golden-path", "--repo", tmp, "--question", "Prove numeric flag parsing on multi-agent fanout."], opts);
-
-  runJson(["multi-agent", "run", plan.runId, "--id", "ma-numeric-flag", "--title", "Numeric Flag Smoke", "--objective", "prove fanout --limit parsing"], opts);
-  runJson(
-    [
-      "multi-agent",
-      "role",
-      plan.runId,
-      "numeric-flag-role",
-      "--multi-agent-run",
-      "ma-numeric-flag",
-      "--title",
-      "Role",
-      "--responsibility",
-      "produce evidence"
-    ],
-    opts
-  );
-  runJson(
-    ["multi-agent", "group", plan.runId, "numeric-flag-group", "--multi-agent-run", "ma-numeric-flag", "--phase", "Golden Path", "--task", "golden:path"],
-    opts
-  );
-
-  const bare = runFail(
-    ["multi-agent", "fanout", plan.runId, "numeric-flag-fanout", "--group", "numeric-flag-group", "--reason", "prove --limit parsing", "--limit"],
-    opts
-  );
-  assert.match(bare.stderr, /--limit requires a value/, "a bare --limit on multi-agent fanout must error, not silently fan out unbounded");
-
-  const garbage = runFail(
-    ["multi-agent", "fanout", plan.runId, "numeric-flag-fanout", "--group", "numeric-flag-group", "--reason", "prove --limit parsing", "--limit", "abc"],
-    opts
-  );
-  assert.match(garbage.stderr, /Invalid --limit "abc": expected a number/, "an unparseable --limit on multi-agent fanout must error");
-
-  fs.rmSync(tmp, { recursive: true, force: true });
-}
-
 process.stdout.write(
   "numeric-flag-parsing-smoke: ok (dispatch 0/-1/bare/garbage, sched lease + policy set + empty-string, run list bare/exact/offset, " +
     "run search/resume/history/queue-drain/gc-run coverage, registry --priority/--reclaimAfterArchiveDays/--older-than-days/--minAgeMinutes, " +
-    "metrics summary, multi-agent fanout, cw next)\n"
+    "metrics summary, cw next)\n"
 );

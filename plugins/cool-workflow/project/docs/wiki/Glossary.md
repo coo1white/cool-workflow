@@ -67,27 +67,6 @@ re-checkable with `cw audit verify`. See [Trust And Audit](Trust-And-Audit.md).
 `cw report verify-bundle` re-checks it offline with nothing but the file
 (add `--require-signatures` to demand that findings are signed).
 
-## Multi-agent
-
-**Coordinator / Blackboard** — The shared store agents use to work together
-(topics, messages, artifacts, context, snapshots, decisions), kept under
-`.cw/runs/<id>/blackboard/`, made on first write.
-
-**Role / group / membership** — Multi-agent work kept like an OS *process
-table*: who is who, which group they are in, and where they are in their
-life-cycle.
-
-**Topology** — A ready-made team shape for more than one agent:
-
-| Topology | Shape |
-| --- | --- |
-| `map-reduce` | Fan work out to mapper roles, collect the evidence, then fold it together. |
-| `debate` | Record claims on both sides, answers to them, conflicts, and one joined view at the end. |
-| `judge-panel` | Take independent judge outputs and select one, with the trail kept. |
-
-**Fanout / fanin** — Spreading work across workers, and folding their outputs
-back together.
-
 ## Surfaces & portability
 
 **CLI** — The `cw` command: the simplest common interface, one every host has

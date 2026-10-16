@@ -23,96 +23,10 @@ const { migrateRunState } = require("../dist/core/state/migrations");
   const plan = runJson(["plan", "architecture-review", "--repo", tmp, "--question", "Robustness hardening smoke."]);
   assert.ok(fs.existsSync(plan.statePath));
 
-  // `blackboard message post <runId>` must resolve the runId correctly and
-  // fail on the real validation problem (a missing message body).
-  const invalidCli = runFail(["blackboard", "message", "post", plan.runId, "--topic", "missing-topic"]);
-  assert.match(invalidCli.stderr, /Unknown BlackboardTopic id|Missing message body|body is required/);
-
-  runJson(["multi-agent", "run", plan.runId, "--id", "safe/id"]);
-  const multiAgentCollision = runFail(["multi-agent", "run", plan.runId, "--id", "safe_id"]);
-  assert.match(multiAgentCollision.stderr, /collide on safe file name safe_id/);
-
-  const firstTopic = runJson(["blackboard", "topic", "create", plan.runId, "--id", "topic/a", "--title", "Topic A"]);
-  assert.equal(firstTopic.id, "topic/a");
-  const blackboardCollision = runFail(["blackboard", "topic", "create", plan.runId, "--id", "topic_a", "--title", "Topic A2"]);
-  assert.match(blackboardCollision.stderr, /collide on safe file name topic_a/);
-
-  const hostRun = runJson([
-    "multi-agent",
-    "run",
-    plan.runId,
-    "--topology",
-    "judge-panel",
-    "--topology-run",
-    "robust-panel",
-    "--judge-count",
-    "2",
-    "--task",
-    "map:server-api",
-    "--task",
-    "map:web-client"
-  ]);
-  assert.equal(hostRun.ids.topologyRunIds[0], "robust-panel");
-
-  const deniedTopic = runJson([
-    "blackboard",
-    "topic",
-    "create",
-    plan.runId,
-    "--blackboard",
-    "robust-panel-blackboard",
-    "--id",
-    "robust-panel-outside",
-    "--title",
-    "Outside"
-  ]);
-  assert.equal(deniedTopic.id, "robust-panel-outside");
-  const deniedWrite = runFail([
-    "blackboard",
-    "message",
-    "post",
-    plan.runId,
-    "--topic",
-    "robust-panel-outside",
-    "--blackboard",
-    "robust-panel-blackboard",
-    "--body",
-    "This role write must be denied before mutation.",
-    "--authorKind",
-    "role",
-    "--authorId",
-    "robust-panel-judge-1",
-    "--multi-agent-run",
-    "robust-panel-ma",
-    "--role",
-    "robust-panel-judge-1"
-  ]);
-  assert.match(deniedWrite.stderr, /outside policy|policy/);
-  const trust = runJson(["audit", "multi-agent", plan.runId, "--json"]);
-  assert.ok(trust.policyViolations.length >= 1);
-
-  const blocked = runJson([
-    "multi-agent",
-    "fanin",
-    plan.runId,
-    "robust-blocked-fanin",
-    "--group",
-    hostRun.ids.groupIds[0],
-    "--fanout",
-    hostRun.ids.fanoutIds[0]
-  ]);
-  assert.equal(blocked.status, "blocked");
-  assert.ok(blocked.blockedReasons.some((reason) => /has no membership|has not reported|required evidence|indexed blackboard evidence/.test(reason)));
-
-  const snapshot = runJson(["eval", "snapshot", plan.runId, "--id", "robustness-suite", "--json"]);
-  const replay = runJson(["eval", "replay", snapshot.paths.snapshotPath, "--id", "robustness-suite-replay", "--json"]);
-  const malformedReplayPath = path.join(path.dirname(replay.paths.replayRunPath), "malformed-replay-run.json");
-  const malformedReplay = JSON.parse(fs.readFileSync(replay.paths.replayRunPath, "utf8"));
-  delete malformedReplay.replay;
-  malformedReplay.paths.replayRunPath = malformedReplayPath;
-  fs.writeFileSync(malformedReplayPath, `${JSON.stringify(malformedReplay, null, 2)}\n`, "utf8");
-  const malformedCompare = runFail(["eval", "compare", snapshot.paths.snapshotPath, malformedReplayPath]);
-  assert.match(malformedCompare.stderr, /Replay run missing replay section/);
+  // The blackboard / multi-agent / eval robustness cases that lived here went
+  // with the multi-agent family (slim-and-esm step 2); the state-migration
+  // fail-closed checks above still cover old multiAgent/blackboard/topologies
+  // records, and the MCP checks below cover argument hardening.
 
   const mcp = await readMcp(plan.runId);
   assert.match(mcp.missingRunId, /missing required argument: runId/);

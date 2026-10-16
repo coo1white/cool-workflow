@@ -8,9 +8,9 @@ control. This release adds search, resume, archive, a durable queue,
 cross-repo history, and failed-run rerun — without any change to the run-state schema
 and without taking ownership of source truth.
 
-The design keeps to the same base-system observability idea as
-[State Explosion Management](state-explosion-management.7.md) and the
-[Evidence Adoption Reasoning Chain](evidence-adoption-reasoning-chain.7.md):
+The design keeps to the same base-system observability idea as the old
+State Explosion Management and Evidence Adoption Reasoning Chain pages (both
+went with the multi-agent family):
 
 - the per-run `.cw/runs/<id>/state.json` is the SINGLE source of truth
 - the registry is a DERIVED userland index, never a stand-in for source records
@@ -392,17 +392,11 @@ verbs are parity-gated and show read-only in the v0.1.30 Workbench. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
 
-## Team Collaboration (v0.1.32)
+## Team Collaboration (v0.1.32, removed)
 
-v0.1.32 adds Team Collaboration: a host-attested actor and append-only
-approvals/rejections/comments/handoffs provenance-linked to a durable target,
-plus a review gate that STACKS ON the verifier gate — required approvals from
-authorized roles, made to hold inside `resolveCommitGate` AFTER the verifier checks
-and never in place of them, failing closed on quorum/authority/self-approval and
-keeping a record of who approved the very artifact that shipped. Policy (required approvals,
-authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
-unchanged). The verbs are parity-gated and show read-only in the v0.1.30
-Workbench. See [Team Collaboration](team-collaboration.7.md).
+v0.1.32 added Team Collaboration (approvals, rejections, comments, handoffs,
+and a review gate on the commit). It went with the multi-agent family; see
+release-and-migration(7), "Removed Surfaces".
 
 ## Release Tooling (v0.1.33)
 

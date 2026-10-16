@@ -131,46 +131,14 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw state check <run-id> [--state PATH] [--write]");
     },
 }, "state.usage exists only to own the fixed usage-error text for an unrecognized state subcommand; every real state.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("audit.usage", "cw audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]", {
+(0, registry_core_1.addCliOnlyCapability)("audit.usage", "cw audit summary|worker|provenance|attest|decision <run-id> [worker-id]", {
     path: ["audit"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-        throw new Error("Usage: cw audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]");
+        throw new Error("Usage: cw audit summary|worker|provenance|attest|decision <run-id> [worker-id]");
     },
 }, "audit.usage exists only to own the fixed usage-error text for an unrecognized audit subcommand; every real audit.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("blackboard.usage", "cw blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>", {
-    path: ["blackboard"],
-    jsonMode: "default",
-    hiddenFromHelp: true,
-    handler: () => {
-        throw new Error("Usage: cw blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>");
-    },
-}, "blackboard.usage exists only to own the fixed usage-error text for an unrecognized blackboard subcommand; every real blackboard.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("candidate.usage", "cw candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]", {
-    path: ["candidate"],
-    jsonMode: "default",
-    hiddenFromHelp: true,
-    handler: () => {
-        throw new Error("Usage: cw candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]");
-    },
-}, "candidate.usage exists only to own the fixed usage-error text for an unrecognized candidate subcommand; every real candidate.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("comment.usage", "cw comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]", {
-    path: ["comment"],
-    jsonMode: "default",
-    hiddenFromHelp: true,
-    handler: () => {
-        throw new Error("Usage: cw comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]");
-    },
-}, "comment.usage exists only to own the fixed usage-error text for an unrecognized comment subcommand; every real comment.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("eval.usage", "cw eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>", {
-    path: ["eval"],
-    jsonMode: "default",
-    hiddenFromHelp: true,
-    handler: () => {
-        throw new Error("Usage: cw eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>");
-    },
-}, "eval.usage exists only to own the fixed usage-error text for an unrecognized eval subcommand; every real eval.* action is its own capability row above.");
 (0, registry_core_1.addCliOnlyCapability)("telemetry.usage", "cw telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]", {
     path: ["telemetry"],
     jsonMode: "default",
@@ -187,14 +155,6 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw demo tamper|bundle [--json]");
     },
 }, "demo.usage exists only to own the fixed usage-error text for an unrecognized demo subcommand; every real demo.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("multi-agent.usage", "cw multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]", {
-    path: ["multi-agent"],
-    jsonMode: "default",
-    hiddenFromHelp: true,
-    handler: () => {
-        throw new Error("Usage: cw multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]");
-    },
-}, "multi-agent.usage exists only to own the fixed usage-error text for an unrecognized multi-agent subcommand; every real multi-agent.* action is its own capability row above.");
 (0, registry_core_1.addCliOnlyCapability)("node.usage", "cw node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]", {
     path: ["node"],
     jsonMode: "default",
@@ -251,22 +211,6 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw operator status|report <run-id> [--json]");
     },
 }, "operator.usage exists only to own the fixed usage-error text for an unrecognized operator subcommand; every real operator.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("topology.usage", "cw topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>", {
-    path: ["topology"],
-    jsonMode: "default",
-    hiddenFromHelp: true,
-    handler: () => {
-        throw new Error("Usage: cw topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>");
-    },
-}, "topology.usage exists only to own the fixed usage-error text for an unrecognized topology subcommand; every real topology.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("summary.usage", "cw summary refresh|show <run-id> [--json]", {
-    path: ["summary"],
-    jsonMode: "default",
-    hiddenFromHelp: true,
-    handler: () => {
-        throw new Error("Usage: cw summary refresh|show <run-id> [--json]");
-    },
-}, "summary.usage exists only to own the fixed usage-error text for an unrecognized summary subcommand; every real summary.* action is its own capability row above.");
 (0, registry_core_1.addCliOnlyCapability)("workbench.usage", "cw workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]", {
     path: ["workbench"],
     jsonMode: "default",
@@ -283,22 +227,6 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]");
     },
 }, "worker.usage exists only to own the fixed usage-error text for an unrecognized worker subcommand; every real worker.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("review.usage", "cw review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection", {
-    path: ["review"],
-    jsonMode: "default",
-    hiddenFromHelp: true,
-    handler: () => {
-        throw new Error("Usage: cw review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection");
-    },
-}, "review.usage exists only to own the fixed usage-error text for an unrecognized review subcommand; every real review.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("coordinator.usage", "cw coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT", {
-    path: ["coordinator"],
-    jsonMode: "default",
-    hiddenFromHelp: true,
-    handler: () => {
-        throw new Error("Usage: cw coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT");
-    },
-}, "coordinator.usage exists only to own the fixed usage-error text for an unrecognized coordinator subcommand; every real coordinator.* action is its own capability row above.");
 // ---- man (CLI-only; raw manual-page bytes to stdout, no MCP peer) -----
 //
 // Writes the resolved doc file's raw bytes directly to stdout and

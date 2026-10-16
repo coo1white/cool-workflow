@@ -1,10 +1,11 @@
 # Security / Trust Hardening
 
 CW v0.1.15 adds a local trust audit layer for worker sandbox decisions,
-evidence provenance, candidate selection, and verifier-gated commits.
-CW v0.1.22 uses this same layer again for multi-agent role policy, blackboard
-write audit, message provenance, judge rationale, panel decisions, and policy
-violations.
+evidence provenance, and verifier-gated commits. The multi-agent audit views
+(role policy, blackboard write audit, judge rationale) went with the
+multi-agent family; see release-and-migration(7), "Removed Surfaces". Audit
+events an older CW wrote for them stay in `events.jsonl` and still count in
+the chain check.
 
 ## Audit Records
 
@@ -92,11 +93,6 @@ With the require flag off (the default), none of this changes: a plain
 cw audit summary <run-id>
 cw audit worker <run-id> <worker-id>
 cw audit provenance <run-id> [--worker ID|--candidate ID|--commit ID]
-cw audit multi-agent <run-id>
-cw audit policy <run-id>
-cw audit role <run-id> <role-id>
-cw audit blackboard <run-id>
-cw audit judge <run-id>
 cw audit attest <run-id> --worker <worker-id> --hostEnforced true
 cw audit decision <run-id> <worker-id> --path <path>
 cw audit decision <run-id> <worker-id> --command "npm test"
@@ -109,33 +105,31 @@ cw result <run-id> <task-id> <result-file> [--allow-unattested]
 Denied audit decisions are put into audit files and joined to feedback/error
 records. Environment values are cut back to names.
 
+`--candidate` on `cw audit provenance` stays so a run an older CW wrote with
+candidates can still be read.
+
 ## Evidence Provenance
 
 `StateEvidence` still works with older versions. v0.1.15 adds optional
 `provenance` metadata that can point from:
 
 ```text
-worker result -> result node -> verifier node -> candidate -> score -> selection -> commit
+worker result -> result node -> verifier node -> commit
 ```
 
-Candidate scores, selections, and verifier-gated commits keep provenance
-links in place of only copying evidence arrays.
+Verifier-gated commits keep provenance links in place of only copying
+evidence arrays.
 
 ## Why Accepted
 
-Selected candidates and verifier-gated commits come with an acceptance rationale:
+A verifier-gated commit names its verifier node and copies that node's
+evidence; the `commit.gate` audit event points back at both. The commit gate
+fails closed when the evidence is missing, not grounded, or (in strict mode)
+not found on disk.
 
-- selected candidate id
-- score id and score criteria
-- verifier node id
-- evidence count
-- sandbox profile id
-- worker id
-- commit gate result
-- audit event ids
-
-Verifier-gated commits fail closed when the acceptance rationale is not able to make clear
-the evidence chain.
+The `acceptanceRationale` record (selected candidate, score, worker, sandbox
+profile) was made only for a candidate selection commit, so it went with
+the candidate verbs. A commit an older CW wrote with one keeps it as data.
 
 ## MCP
 
@@ -144,11 +138,6 @@ The MCP server gives these like tools:
 - `cw_audit_summary`
 - `cw_audit_worker`
 - `cw_audit_provenance`
-- `cw_audit_multi_agent`
-- `cw_audit_policy`
-- `cw_audit_role`
-- `cw_audit_blackboard`
-- `cw_audit_judge`
 - `cw_audit_attest`
 - `cw_audit_decision`
 

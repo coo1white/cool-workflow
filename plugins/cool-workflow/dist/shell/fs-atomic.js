@@ -232,9 +232,7 @@ function durableAppendFileSync(file, data) {
  *  returns false (treat as "not newline-terminated") — the safe side: an
  *  extra leading newline is harmless for an NDJSON reader that skips blank
  *  lines, while a MISSED torn boundary would merge two records into one
- *  unparseable line. Shared by trust-audit's events.jsonl and the
- *  blackboard's messages.jsonl append paths — same file shape, same
- *  torn-tail risk, one implementation. */
+ *  unparseable line. Used by trust-audit's events.jsonl append path. */
 function logEndsWithNewline(file, size) {
     if (size <= 0)
         return false;

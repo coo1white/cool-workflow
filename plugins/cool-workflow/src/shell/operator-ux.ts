@@ -4,14 +4,11 @@
 // MILESTONE 11 (reporting/observability). A scoped-but-real port of the
 // old build's operator-ux module + orchestrator report module's
 // `summarizeRun`: every summary here reads real run state through the
-// same summarizers report.ts and the multi-agent/candidate/trust shell
-// modules already use (no duplicate logic, no fabricated fields). The
-// old build's deeper multi-agent-operator-ux / topology-trust cross-
-// summaries are folded in at a scoped level sufficient for this
-// milestone's conformance surface (candidates/feedback/commits/trust/
-// nextActions on `operator status`, the deterministic run graph) rather
-// than ported in full — a later milestone can extend these without
-// changing this file's exported shapes.
+// same summarizers report.ts and the trust shell module already use (no
+// duplicate logic, no fabricated fields): workers/feedback/commits/trust/
+// nextActions on `operator status`, and the deterministic run graph. The
+// candidate, multi-agent, blackboard and topology parts went with that
+// family (slim-and-esm step 2).
 //
 // Evidence: SPEC/reporting-ux.md "Operator UX human text", "Exit codes".
 
@@ -19,13 +16,7 @@ import * as path from "node:path";
 import { WorkflowRun, RunTask, RunPhase, StateCommit, TaskStatus } from "../core/state/types";
 import { WorkerScope } from "./worker-isolation";
 import { updatePhaseStatuses } from "../core/pipeline/dispatch";
-import { summarizeCandidates as summarizeCandidatesCounts, listCandidates } from "./candidate-scoring-io";
 import { summarizeTrustAudit, TrustAuditSummary } from "./trust-audit";
-import { summarizeMultiAgent, buildMultiAgentGraph } from "./multi-agent-io";
-import { summarizeBlackboard, buildBlackboardGraph } from "./coordinator-io";
-import { buildTopologyGraph } from "./topology-io";
-import { summarizeMultiAgentOperator, MultiAgentOperatorStatus } from "./multi-agent-operator-ux";
-import { summarizeMultiAgentTrust } from "./trust-policy-io";
 import { stableCompare } from "../core/util/collate";
 
 export interface OperatorRecommendation {
@@ -135,80 +126,6 @@ function summarizeTasks(tasks: RunTask[]): OperatorTaskSummary {
   };
 }
 
-export interface OperatorCandidateSummary {
-  total: number;
-  byStatus: Record<string, number>;
-  byKind: Record<string, number>;
-  selections: number;
-  indexPath: string;
-  rankingPath: string;
-  latestRankingPath?: string;
-  selected: Array<{ selectionId: string; candidateId: string; scoreId?: string; verifierNodeId?: string }>;
-  readyForCommit: Array<{ candidateId: string; selectionId: string; scoreId?: string; verifierNodeId?: string }>;
-  problems: string[];
-  candidates: Array<{ id: string; kind: string; status: string; scoreCount: number; selected: boolean; feedbackIds: string[]; resultPath?: string }>;
-}
-
-interface CandidateLike {
-  id: string;
-  kind: string;
-  status: string;
-  scores?: unknown[];
-  evidence?: unknown[];
-  feedbackIds?: string[];
-  resultPath?: string;
-}
-interface SelectionLike {
-  id: string;
-  candidateId: string;
-  scoreId?: string;
-  verifierNodeId?: string;
-}
-interface CommitLike {
-  verifierGated?: boolean;
-  selectionId?: string;
-}
-
-/** Port of the old build's summarizeOperatorCandidates: the counts PLUS the
- *  selected/readyForCommit/problems/candidates detail the `candidate summary`
- *  verb and operator panel both read. */
-function summarizeOperatorCandidates(run: WorkflowRun): OperatorCandidateSummary {
-  const counts = summarizeCandidatesCounts(run);
-  const candidates = [...((run.candidates as unknown as CandidateLike[]) || [])].sort((left, right) => stableCompare(left.id, right.id));
-  const selections = [...((run.candidateSelections as unknown as SelectionLike[]) || [])].sort((left, right) => stableCompare(left.id, right.id));
-  const commits = (run.commits as unknown as CommitLike[]) || [];
-  const selectedIds = new Set(selections.map((selection) => selection.candidateId));
-  const readyForCommit = selections
-    .filter((selection) => {
-      const candidate = candidates.find((item) => item.id === selection.candidateId);
-      if (!candidate || candidate.status !== "verified" || !selection.scoreId) return false;
-      return !commits.some((commit) => commit.verifierGated && commit.selectionId === selection.id);
-    })
-    .map((selection) => ({ candidateId: selection.candidateId, selectionId: selection.id, scoreId: selection.scoreId, verifierNodeId: selection.verifierNodeId }));
-  const problems: string[] = [];
-  for (const candidate of candidates) {
-    if ((candidate.status === "registered" || candidate.status === "scored") && !(candidate.evidence || []).length) problems.push(`candidate ${candidate.id} has no evidence`);
-    if (candidate.status === "registered" && !(candidate.scores || []).length) problems.push(`candidate ${candidate.id} has not been scored`);
-    if ((candidate.status === "selected" || candidate.status === "verified") && !selections.some((selection) => selection.candidateId === candidate.id)) problems.push(`candidate ${candidate.id} status is ${candidate.status} but no selection record exists`);
-  }
-  return {
-    ...counts,
-    latestRankingPath: counts.rankingPath,
-    selected: selections.map((selection) => ({ selectionId: selection.id, candidateId: selection.candidateId, scoreId: selection.scoreId, verifierNodeId: selection.verifierNodeId })),
-    readyForCommit,
-    problems: problems.sort(),
-    candidates: candidates.map((candidate) => ({ id: candidate.id, kind: candidate.kind, status: candidate.status, scoreCount: (candidate.scores || []).length, selected: selectedIds.has(candidate.id), feedbackIds: candidate.feedbackIds || [], resultPath: candidate.resultPath })),
-  };
-}
-
-/** `cw candidate summary <run>` — the operator candidate summary (with
- *  readyForCommit/selected/problems). Exported so the candidate.summary CLI
- *  verb returns the same rich shape the old build's
- *  summarizeCandidateOperatorRecords did. */
-export function summarizeCandidateOperatorRecords(run: WorkflowRun): OperatorCandidateSummary {
-  return summarizeOperatorCandidates(run);
-}
-
 export interface OperatorFeedbackSummary {
   total: number;
   byStatus: Record<string, number>;
@@ -260,20 +177,14 @@ function summarizeOperatorWorkers(run: WorkflowRun): OperatorWorkerSummary {
   };
 }
 
-/** Next-action advice: a scoped-but-real subset of the old build's
- *  priority-ordered advice ladder (open feedback -> failed worker ->
- *  running tasks -> pending tasks -> ready-for-commit -> fallback
- *  `report --show`). */
 /** Next-action advice — port of the old build's adviseNextSteps
- *  (operator-ux module): a single ordered chain of guard arms, each
- *  returning as soon as it fires so the operator sees the ONE next step
- *  the run is waiting on. The candidate lifecycle arms (register -> score
- *  -> rank/select -> commit) are the part v2's earlier scoped port dropped;
- *  the operator-ux smoke walks that whole chain. Reads candidate/selection
- *  state off `run` directly, same as the old build. */
+ *  (operator-ux module): a single ordered chain of guard arms (open
+ *  feedback -> failed worker -> running tasks -> pending tasks -> fallback
+ *  `report --show`), each returning as soon as it fires so the operator
+ *  sees the ONE next step the run is waiting on. */
 function adviseNextSteps(
   run: WorkflowRun,
-  ctx: { tasks: OperatorTaskSummary; workers: OperatorWorkerSummary; feedback: OperatorFeedbackSummary; candidates: OperatorCandidateSummary }
+  ctx: { tasks: OperatorTaskSummary; workers: OperatorWorkerSummary; feedback: OperatorFeedbackSummary }
 ): OperatorRecommendation[] {
   const actions: OperatorRecommendation[] = [];
   const feedbackRecords = (run.feedback || []) as Array<{ id: string; status: string; severity: string; classification: string }>;
@@ -302,33 +213,6 @@ function adviseNextSteps(
     actions.push({ command: `cw dispatch ${run.id} --limit ${limit}`, reason: `${ctx.tasks.pending.length} pending task(s) are ready for the active phase.`, priority: "high" });
     return actions;
   }
-  const candidateRecords = (run.candidates || []) as Array<{ id: string; status: string; workerId?: string; scores?: unknown[] }>;
-  const selectionRecords = (run.candidateSelections || []) as Array<{ candidateId: string }>;
-  const completedWithoutCandidate = (run.tasks || []).find(
-    (task) => task.status === "completed" && task.workerId && !candidateRecords.some((candidate) => candidate.workerId === task.workerId)
-  );
-  if (completedWithoutCandidate?.workerId) {
-    actions.push({ command: `cw candidate register ${run.id} --worker ${completedWithoutCandidate.workerId}`, reason: "A completed worker result is available but has not been registered as a candidate.", priority: "high" });
-    return actions;
-  }
-  const unscored = candidateRecords.find((candidate) => candidate.status === "registered" && !(candidate.scores || []).length);
-  if (unscored) {
-    actions.push({ command: `cw candidate score ${run.id} ${unscored.id} --criterion correctness=1 --evidence <path-or-locator>`, reason: "Registered candidates need score evidence before ranking or selection.", priority: "high" });
-    return actions;
-  }
-  const scoredWithoutSelection = candidateRecords.find(
-    (candidate) => candidate.status === "scored" && !selectionRecords.some((selection) => selection.candidateId === candidate.id)
-  );
-  if (scoredWithoutSelection) {
-    actions.push({ command: `cw candidate rank ${run.id}`, reason: "Scored candidates can be ranked before selection.", priority: "high" });
-    actions.push({ command: `cw candidate select ${run.id} ${scoredWithoutSelection.id}`, reason: "Select the candidate once the ranking supports it.", priority: "normal" });
-    return actions;
-  }
-  if (ctx.candidates.readyForCommit.length) {
-    const ready = ctx.candidates.readyForCommit[0];
-    actions.push({ command: `cw commit ${run.id} --selection ${ready.selectionId}`, reason: "A verified selected candidate is ready for a verifier-gated commit.", priority: "high" });
-    return actions;
-  }
   actions.push({ command: `cw report ${run.id} --show`, reason: "All tracked phases are complete or no further operator action is currently available.", priority: "normal" });
   return actions;
 }
@@ -346,13 +230,8 @@ export interface OperatorRunSummary {
   phases: OperatorPhaseSummary[];
   tasks: OperatorTaskSummary;
   workers: OperatorWorkerSummary;
-  candidates: OperatorCandidateSummary;
   feedback: OperatorFeedbackSummary;
   commits: OperatorCommitSummary;
-  multiAgent: ReturnType<typeof summarizeMultiAgent>;
-  multiAgentOperator: MultiAgentOperatorStatus;
-  multiAgentTrust: ReturnType<typeof summarizeMultiAgentTrust>;
-  blackboard: ReturnType<typeof summarizeBlackboard>;
   trust: TrustAuditSummary;
   reportPath: string;
   nextActions: OperatorRecommendation[];
@@ -367,13 +246,8 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
   const phases = summarizePhases(run);
   const tasks = summarizeTasks(run.tasks);
   const workers = summarizeOperatorWorkers(run);
-  const candidates = summarizeOperatorCandidates(run);
   const feedback = summarizeOperatorFeedback(run);
   const commits = summarizeOperatorCommits(run);
-  const multiAgent = summarizeMultiAgent(run);
-  const multiAgentOperator = summarizeMultiAgentOperator(run);
-  const multiAgentTrust = summarizeMultiAgentTrust(run);
-  const blackboard = summarizeBlackboard(run);
   const trust = summarizeTrustAudit(run, { persist: (run as unknown as Record<string, unknown>).__cwWorkbenchReadOnlyProjection !== true });
   const activePhase = phases.find((p) => p.status === "running") || phases.find((p) => p.status === "pending");
   const blockedReasons: string[] = [];
@@ -393,16 +267,11 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
     phases,
     tasks,
     workers,
-    candidates,
     feedback,
     commits,
-    multiAgent,
-    multiAgentOperator,
-    multiAgentTrust,
-    blackboard,
     trust,
     reportPath: run.paths.report,
-    nextActions: adviseNextSteps(run, { tasks, workers, feedback, candidates }),
+    nextActions: adviseNextSteps(run, { tasks, workers, feedback }),
   };
 }
 
@@ -470,23 +339,10 @@ export function buildOperatorGraph(run: WorkflowRun): OperatorGraph {
     if (worker.resultNodeId) addEdge(`${run.id}:worker:${worker.id}`, worker.resultNodeId);
     for (const feedbackId of worker.feedbackIds || []) addEdge(`${run.id}:worker:${worker.id}`, `${run.id}:feedback:${feedbackId}`);
   }
-  for (const candidate of listCandidates(run)) {
-    addNode(`${run.id}:candidate:${candidate.id}`, "candidate", candidate.status, candidate.id, candidate.resultPath);
-    if (candidate.resultNodeId) addEdge(candidate.resultNodeId, `${run.id}:candidate:${candidate.id}`);
-    if (candidate.verifierNodeId) addEdge(candidate.verifierNodeId, `${run.id}:candidate:${candidate.id}`, "gate");
-    for (const feedbackId of candidate.feedbackIds || []) addEdge(`${run.id}:candidate:${candidate.id}`, `${run.id}:feedback:${feedbackId}`);
-  }
-  for (const selectionRaw of run.candidateSelections || []) {
-    const selection = selectionRaw as { id: string; candidateId: string; verifierNodeId?: string; rankingPath?: string };
-    addNode(`${run.id}:selection:${selection.id}`, "selection", "verified", selection.id, selection.rankingPath);
-    addEdge(`${run.id}:candidate:${selection.candidateId}`, `${run.id}:selection:${selection.id}`);
-    if (selection.verifierNodeId) addEdge(selection.verifierNodeId, `${run.id}:selection:${selection.id}`, "verifier");
-  }
   for (const commit of run.commits || []) {
     const commitNodeId = commit.stateNodeId || `${run.id}:commit:${commit.id}`;
     addNode(commitNodeId, "commit", commit.verifierGated ? "committed" : "completed", commit.id, commit.snapshotPath);
     if (commit.verifierNodeId) addEdge(commit.verifierNodeId, commitNodeId, "verifier");
-    if (commit.selectionId) addEdge(`${run.id}:selection:${commit.selectionId}`, commitNodeId, "selection");
   }
   for (const feedbackRaw of run.feedback || []) {
     const feedback = feedbackRaw as { id: string; status: string; severity: string; classification: string; nodeId?: string; taskId?: string };
@@ -494,21 +350,6 @@ export function buildOperatorGraph(run: WorkflowRun): OperatorGraph {
     if (feedback.nodeId) addEdge(feedback.nodeId, `${run.id}:feedback:${feedback.id}`);
     if (feedback.taskId) addEdge(`${run.id}:task:${feedback.taskId}`, `${run.id}:feedback:${feedback.id}`);
   }
-
-  // Fold the topology + multi-agent + blackboard graphs into the operator
-  // graph, per the old build's buildOperatorGraph (in its operator-ux module): a
-  // run's top-level `cw graph` shows topology-run, multi-agent-run/agent-group/
-  // agent-role/agent-membership/agent-fanout/agent-fanin, and the blackboard
-  // topic/message/artifact nodes alongside the pipeline nodes.
-  const topologyGraph = buildTopologyGraph(run);
-  for (const node of topologyGraph.nodes) addNode(node.id, node.kind, node.status, node.label, node.path);
-  for (const edge of topologyGraph.edges) addEdge(edge.from, edge.to, edge.label);
-  const multiAgentGraph = buildMultiAgentGraph(run);
-  for (const node of multiAgentGraph.nodes) addNode(node.id, node.kind, node.status, node.label, node.path);
-  for (const edge of multiAgentGraph.edges) addEdge(edge.from, edge.to, edge.label);
-  const blackboardGraph = buildBlackboardGraph(run);
-  for (const node of blackboardGraph.nodes) addNode(node.id, node.kind, node.status, node.label, node.path);
-  for (const edge of blackboardGraph.edges) addEdge(edge.from, edge.to, edge.label);
 
   const sortedNodes = [...nodes.values()].sort((a, b) => stableCompare(a.kind, b.kind) || stableCompare(a.id, b.id));
   const sortedEdges = edges.slice().sort((a, b) => stableCompare(a.from, b.from) || stableCompare(a.to, b.to) || stableCompare(a.label || "", b.label || ""));

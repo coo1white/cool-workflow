@@ -6,9 +6,7 @@ CLIENT calling CW's CLI/MCP surface, and as a CONTRIBUTOR working with other
 vendor agents to build CW itself. This page gives the rules for both. It adds
 no new mechanism; it puts rules of use over mechanisms this project already
 has: [Vendor Manifest Loadability](vendor-manifest-loadability.7.md),
-[CLI <-> MCP Parity](cli-mcp-parity.7.md), [Team
-Collaboration](team-collaboration.7.md), [Coordinator /
-Blackboard](coordinator-blackboard.7.md), and [Cross-Agent
+[CLI <-> MCP Parity](cli-mcp-parity.7.md), and [Cross-Agent
 Ledger](cross-agent-ledger.7.md).
 
 ## Part 1 — Calling CW as a client (any vendor)
@@ -51,21 +49,17 @@ different feature branch. This is like more than one person working on one
 shared cloud document: no agent may overwrite another agent's work without a
 record, and every agent must leave a clear mark of what it did and why.
 
-1. **Say who you are.** When an action needs a record of who did it — an
-   approval, a rejection, a comment, a handoff — give an attested actor id
-   (`--attested`), not a blank or made-up name. See [Team
-   Collaboration](team-collaboration.7.md) for the full `Actor` model
-   (host-attested, operator-recorded, or unattributed — never faked).
+1. **Say who you are.** When an action needs a record of who did it — a
+   ledger proposal or review, a commit, a PR — name the agent with its real
+   id, not a blank or made-up name.
 2. **Never overwrite; always add a new record.** A decision, a review, or a
    note from one agent is an add-only record, not an edit to another
-   agent's file or field. Team Collaboration's `approve`/`reject`/
-   `comment`/`handoff` commands are the built-in way to do this inside a
-   run. A fix to a past record is a NEW record with `supersedes`, never a
+   agent's file or field. A fix to a past record is a NEW record with `supersedes`, never a
    silent rewrite.
 3. **Hand off state through the built-in channels, not side chat.**
-   - Agents working the same run/topology share state through the
-     [blackboard](coordinator-blackboard.7.md) (topics, messages,
-     artifacts), not through files outside `.cw/`.
+   - Agents working the same run share state through that run's saved
+     state under `.cw/runs/<id>/` (worker outputs, nodes, commits), read
+     with `cw status` and `cw graph`, not through files outside `.cw/`.
    - Agents scoped to two different repositories hand each other a
      proposal or a verdict through [`cw
      ledger`](cross-agent-ledger.7.md) (`propose`/`review`/`verify`/
@@ -88,7 +82,7 @@ record, and every agent must leave a clear mark of what it did and why.
 7. **Read state before you act.** Before an action that could undo or get
    in the way of another agent's work still in progress (a commit, a
    release cut, a state write), read the current run/PR state first —
-   `cw status`, `cw review status`, `gh pr view` — the same "read before
+   `cw status`, `gh pr view` — the same "read before
    you act" habit already asked of one agent alone, now held to across
    agents too.
 
@@ -96,8 +90,5 @@ record, and every agent must leave a clear mark of what it did and why.
 
 - [Vendor Manifest Loadability](vendor-manifest-loadability.7.md)
 - [CLI <-> MCP Parity](cli-mcp-parity.7.md)
-- [Multi-Agent CLI + MCP Surface](multi-agent-cli-mcp-surface.7.md)
-- [Team Collaboration](team-collaboration.7.md)
-- [Coordinator / Blackboard](coordinator-blackboard.7.md)
 - [Cross-Agent Ledger](cross-agent-ledger.7.md)
 - root `AGENTS.md` — HARD RULE, Iteration Loop, Resolving merge conflicts

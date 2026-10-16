@@ -316,6 +316,50 @@ Found in step 1:
   `package.json` (`eval:replay`) and the CI `steering-config-gate` job
   tied release tooling to D1.
 
+Found in step 2:
+
+- The numbers: src 50,265 to 35,664 lines (158 to 131 files); MCP
+  tools 198 to 123 and capabilities 241 to 157 (34 CLI-only); tracked
+  test files 478 to 388; `*.7.md` man pages 52 to 41; conformance
+  cases 106 to 88.
+- Kept commands whose output changes, as D1 names them: `report.md`
+  loses State Size & Compaction, Multi-Agent Runtime, Blackboard /
+  Coordinator, Acceptance Rationale and Candidates; `cw status` and
+  `cw operator status` lose the candidate, topology, multi-agent and
+  blackboard panels (the `--summary` hint now reads "use --verbose for
+  full worker/feedback/commit/trust panels"); the operator graph has no
+  candidate, selection, topology, multi-agent or blackboard nodes;
+  `cw commit` with no gate now says "Verifier-gated commit requires
+  --verifier".
+- The Workbench was a hook too, not only a D2 keep: its PANEL_MAP read
+  eleven D1 capabilities. It keeps four groups (`graph.operator`,
+  `worker.summary`, `audit.summary`, `metrics.report`). The page's
+  "what needs you" strip read only D1 panels, so it went; showing
+  "none" from no source would have been a false green.
+- `acceptanceRationale` on a commit was made only for a candidate and
+  selection commit, so a `--verifier` commit's record is byte-for-byte
+  the same as before.
+- `cw audit provenance --candidate` stays: the audit reader still reads
+  the candidates and selections an older CW left in `state.json`.
+  Those fields (`multiAgent`, `blackboard`, `topologies`,
+  `candidates`, `candidateSelections`) stay in the schema as data;
+  `test/legacy-multi-agent-state-smoke.js` loads such a state, reads it
+  through every kept view, and moves it forward to a verifier commit.
+- `contract.show` moved to `shell/state-cli.ts` (`contractShowCli`).
+  `pdca-blackboard-loop` was deleted, not rewritten: its whole point was
+  the blackboard, and `workflow-app-framework-demo` already shows a
+  small app.
+- `summary refresh` was the vehicle of the lock-steal conformance case;
+  that case now drives `cw commit --allow-unverified-checkpoint`, which
+  takes the same lock. Eighteen D1-only cases went, among them
+  `locale-independent-ordering` (it proved eval replay across locales)
+  and `eventhashundef-scoreid-round-trip` (its only CLI way in was
+  `multi-agent score`).
+- `project/docs/rebuild/SPEC/`: `multi-agent.md`, its surface file and
+  the twelve `cli-help` captures of removed verbs went. The other SPEC
+  files are the pinned capture of the old build and keep their D1 rows
+  as that record.
+
 (the rest filled at close)
 
 ## Status ledger
@@ -325,7 +369,7 @@ Found in step 1:
 | Intent + spec (this file) | open | |
 | D1-D6 answered | yes, all six (operator, 2026-09-28) | #751 |
 | 1 Release tooling off the family (D3) | open | |
-| 2 Delete the D1 family and cut its hooks | | |
+| 2 Delete the D1 family and cut its hooks | done on its branch, PR to come | |
 | 3 Comment and helper sweep (compress-src) | | |
 | 4 Node floor (D4) | | |
 | 5 ESM src + dist | | |

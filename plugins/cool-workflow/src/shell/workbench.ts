@@ -1,5 +1,5 @@
 // shell/workbench.ts — the read-only Workbench view: `cw workbench view`
-// (five-panel JSON view of one run) and the serve descriptor.
+// (panel-by-panel JSON view of one run) and the serve descriptor.
 //
 // MILESTONE 11 (reporting/observability). Byte-exact port of the panel
 // group/member shape from the old build's workbench module. Each panel
@@ -56,13 +56,10 @@ export interface WorkbenchPanel {
 /** Panel groups/members, in the SPEC's declared order. Each entry names
  *  the capability id whose MCP handler is called to fill the panel. */
 const PANEL_MAP: Record<string, Record<string, string>> = {
-  graph: { operator: "graph", multiAgent: "multi-agent.graph", compact: "summary.show", criticalPath: "summary.show" },
-  blackboard: { coordinator: "coordinator.summary", digest: "blackboard.summary", graph: "blackboard.graph" },
+  graph: { operator: "graph" },
   worker: { summary: "worker.summary" },
-  candidate: { summary: "candidate.summary", reasoning: "candidate.summary" },
   metrics: { report: "metrics.show" },
-  audit: { summary: "audit.summary", multiAgent: "audit.multi-agent", policy: "audit.policy", judge: "audit.judge" },
-  collaboration: { review: "review.status", comments: "comment.list" },
+  audit: { summary: "audit.summary" },
 };
 
 function cliCommandFor(capability: string): string {
@@ -187,7 +184,7 @@ const WORKBENCH_ROUTES: WorkbenchRoute[] = [
   { method: "GET", path: "/ui/*", description: "Static Workbench UI assets, when installed." },
   { method: "GET", path: "/api/index", description: "Read-only index of available runs." },
   { method: "GET", path: "/api/serve", description: "This serve descriptor." },
-  { method: "GET", path: "/api/run/:runId", description: "The five-panel WorkbenchRunView for one run." },
+  { method: "GET", path: "/api/run/:runId", description: "The four-group WorkbenchRunView for one run." },
 ];
 
 /** `cw workbench serve [--port N] [--once] [--scope repo|home]` — the

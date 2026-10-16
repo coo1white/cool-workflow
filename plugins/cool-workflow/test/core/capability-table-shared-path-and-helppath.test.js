@@ -33,15 +33,18 @@ const { REGISTRY, findCapabilityByCliPath } = require("../../dist/core/capabilit
   assert.equal(resolved.capability, "backend.agent.config.show", "the first-declared row (show) must win the shared-path lookup");
 }
 
-// blackboard.message.post and blackboard.message.list share dispatch path
-// ["blackboard","message"] the same way.
+// sched.policy.show and sched.policy.set share dispatch path
+// ["sched","policy"] the same way (the first-declared row, show, wins).
+// The blackboard.message.post/list pair that also shared a path went with
+// the multi-agent family (slim-and-esm step 2): its path resolves to nothing.
 {
-  const post = REGISTRY.find((r) => r.capability === "blackboard.message.post");
-  const list = REGISTRY.find((r) => r.capability === "blackboard.message.list");
-  assert.ok(post && list, "both blackboard.message rows must be declared");
-  assert.deepEqual(post.cli.path, ["blackboard", "message"], "post's dispatch path must be [blackboard,message]");
-  assert.deepEqual(list.cli.path, ["blackboard", "message"], "list's dispatch path must be [blackboard,message] too");
-  assert.notDeepEqual(post.cli.helpPath, list.cli.helpPath, "post and list must have DISTINCT helpPath display sequences");
+  const show = REGISTRY.find((r) => r.capability === "sched.policy.show");
+  const set = REGISTRY.find((r) => r.capability === "sched.policy.set");
+  assert.ok(show && set, "both sched.policy rows must be declared");
+  assert.deepEqual(show.cli.path, ["sched", "policy"], "show's dispatch path must be [sched,policy]");
+  assert.deepEqual(set.cli.path, ["sched", "policy"], "set's dispatch path must be [sched,policy] too (shared)");
+  assert.equal(findCapabilityByCliPath(["sched", "policy"]).capability, "sched.policy.show", "the first-declared row wins");
+  assert.equal(findCapabilityByCliPath(["blackboard", "message"]), undefined, "the removed blackboard path must not resolve");
 }
 
 // hiddenFromHelp: a 1-token usage-fallback row (sandbox.usage) exists to

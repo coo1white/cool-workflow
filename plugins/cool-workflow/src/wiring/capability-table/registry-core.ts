@@ -35,7 +35,6 @@ import type {
   McpBinding,
   Capability,
 } from "../../core/capability-data";
-import { required } from "../../core/util/cli-args";
 import { adviseNoRun } from "../../core/format/recovery-hint";
 
 // Every capability-table module (this file plus each domain slice) is
@@ -43,8 +42,8 @@ import { adviseNoRun } from "../../core/format/recovery-hint";
 // (index.ts's whole point is to populate REGISTRY before dispatch can
 // look anything up) — so a top-level `import` of a shell module here
 // means EVERY invocation pays that module's full load cost, even the
-// 99% of commands that never touch `status`/`summary.refresh`/`list`.
-// Requiring these 4 lazily (inside the handler that actually uses them)
+// 99% of commands that never touch `status`/`list`.
+// Requiring these 3 lazily (inside the handler that actually uses them)
 // measured live: this file alone was ~30-45ms of a ~75-100ms `cw --version`
 // require chain, the single largest slice. The 8 domain slices have the
 // same shape and are a natural follow-up, not attempted here.
@@ -57,9 +56,6 @@ function loadOperatorUx(): typeof import("../../shell/operator-ux") {
 function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader") {
   return require("../../shell/workflow-app-loader") as typeof import("../../shell/workflow-app-loader");
 }
-function loadStateExplosionCli(): typeof import("../../shell/state-explosion-cli") {
-  return require("../../shell/state-explosion-cli") as typeof import("../../shell/state-explosion-cli");
-}
 
 /** Real handlers implemented at THIS milestone, keyed by capability id.
  *  Every tool row not listed here gets `notYetImplemented`. Kept as a
@@ -71,8 +67,6 @@ const MCP_REAL_HANDLERS: Record<string, (args: Record<string, unknown>) => unkno
   list: () => listBundledWorkflows(),
   "sandbox.list": () => listBundledSandboxProfiles(),
   status: (args) => statusPayload(optionalString(args.runId)),
-  "summary.refresh": (args) => loadStateExplosionCli().summaryRefreshCli(required(optionalString(args.runId), "run id"), args),
-  "summary.show": (args) => loadStateExplosionCli().summaryShowCli(required(optionalString(args.runId), "run id"), args),
 };
 
 function optionalString(value: unknown): string | undefined {

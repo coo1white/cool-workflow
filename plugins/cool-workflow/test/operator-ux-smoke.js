@@ -38,7 +38,7 @@ assert.match(status, /Stage: interpret/);
 assert.match(status, /Phase: Golden Path/);
 assert.match(status, /Tasks: pending=1; total=1/);
 assert.match(status, /Workers/);
-assert.match(status, /Candidates/);
+assert.doesNotMatch(status, /Candidates/);
 assert.match(status, /Feedback/);
 assert.match(status, /Commits/);
 assert.match(status, /Trust Audit/);
@@ -72,47 +72,20 @@ writeWorkerResult(workerManifest.resultPath, evidenceLocator);
 runJson(["worker", "output", plan.runId, workerId, workerManifest.resultPath], tmp);
 
 status = runText(["status", plan.runId], tmp);
-assert.match(status, /cw candidate register/);
+// The candidate lifecycle hints (register -> score -> rank/select -> commit
+// --selection) went with the multi-agent family (slim-and-esm step 2): a
+// finished run now points straight at the report.
+assert.doesNotMatch(status, /cw candidate/);
+assert.match(status, /cw report .* --show/);
 
-const candidate = runJson(["candidate", "register", plan.runId, "--worker", workerId, "--id", "operator-candidate"], tmp);
-assert.equal(candidate.status, "registered");
-status = runText(["status", plan.runId], tmp);
-assert.match(status, /cw candidate score/);
-
-const score = runJson(
-  [
-    "candidate",
-    "score",
-    plan.runId,
-    "operator-candidate",
-    "--criterion",
-    "correctness=4",
-    "--criterion",
-    "evidence=4",
-    "--criterion",
-    "fit=2",
-    "--maxTotal",
-    "10",
-    "--evidence",
-    evidenceLocator
-  ],
-  tmp
-);
-assert.equal(score.verdict, "pass");
-status = runText(["status", plan.runId], tmp);
-assert.match(status, /cw candidate rank/);
-assert.match(status, /cw candidate select/);
-
-runJson(["candidate", "rank", plan.runId], tmp);
-const selection = runJson(["candidate", "select", plan.runId, "operator-candidate", "--reason", "operator smoke selected"], tmp);
-status = runText(["status", plan.runId], tmp);
-assert.match(status, /ready for commit=operator-candidate/);
-assert.match(status, /cw commit .* --selection/);
-
-runJson(["commit", plan.runId, "--selection", selection.id, "--reason", "operator smoke verifier-gated commit"], tmp);
+const state = JSON.parse(fs.readFileSync(plan.statePath, "utf8"));
+const verifierNodeId = state.tasks.find((task) => task.workerId === workerId).verifierNodeId;
+assert.ok(verifierNodeId);
+runJson(["commit", plan.runId, "--verifier", verifierNodeId, "--reason", "operator smoke verifier-gated commit"], tmp);
 status = runText(["status", plan.runId], tmp);
 assert.match(status, /verifier-gated=1/);
 assert.match(status, /cw report .* --show/);
+assert.doesNotMatch(status, /Candidates|Multi-Agent|Blackboard/);
 
 const graph = runText(["graph", plan.runId], tmp);
 assert.match(graph, /Run Graph:/);
@@ -122,14 +95,13 @@ assert.match(graph, /dispatch/);
 assert.match(graph, /worker/);
 assert.match(graph, /result/);
 assert.match(graph, /verifier/);
-assert.match(graph, /candidate/);
-assert.match(graph, /selection/);
 assert.match(graph, /commit/);
 assert.match(graph, /Edges/);
 
 const graphJson = runJson(["graph", plan.runId, "--json"], tmp);
 assert.equal(graphJson.runId, plan.runId);
 assert.ok(graphJson.nodes.some((node) => node.kind === "worker"));
+assert.ok(!graphJson.nodes.some((node) => node.kind === "candidate" || node.kind === "selection"));
 assert.ok(graphJson.edges.length > 0);
 
 const nodeGraph = runText(["node", "graph", plan.runId], tmp);
@@ -138,20 +110,18 @@ assert.ok(Array.isArray(runJson(["node", "graph", plan.runId, "--json"], tmp)));
 
 const reportSummary = runText(["report", plan.runId, "--summary"], tmp);
 assert.match(reportSummary, /Workers/);
-assert.match(reportSummary, /Candidates/);
+assert.doesNotMatch(reportSummary, /Candidates/);
 assert.match(reportSummary, /Commits/);
 assert.match(reportSummary, /Feedback/);
 assert.match(reportSummary, /Evidence/);
-assert.match(reportSummary, /operator-evidence\.md:1/);
+// The evidence-adoption panel that listed operator-evidence.md:1 here was a
+// multi-agent operator view; it went with that family (slim-and-esm step 2).
+assert.doesNotMatch(reportSummary, /Evidence Adoption/);
 
 const reportShow = runText(["report", plan.runId, "--show"], tmp);
 assert.match(reportShow, /Next Action/);
 assert.match(reportShow, /Resource Commands/);
-
-const candidateSummary = runText(["candidate", "summary", plan.runId], tmp);
-assert.match(candidateSummary, /Candidates/);
-assert.match(candidateSummary, /verified=1/);
-assert.equal(runJson(["candidate", "summary", plan.runId, "--json"], tmp).readyForCommit.length, 0);
+assert.doesNotMatch(reportShow, /cw (candidate|multi-agent|blackboard|topology|coordinator) /);
 
 const feedbackSummary = runText(["feedback", "summary", plan.runId], tmp);
 assert.match(feedbackSummary, /Feedback/);
@@ -164,14 +134,16 @@ assert.match(commitSummary, /verifier-gated=1/);
 assert.match(commitSummary, /checkpoints=/);
 assert.equal(runJson(["commit", "summary", plan.runId, "--json"], tmp).verifierGated, 1);
 
-// operator/graph/topology/summary are dispatched into their own
-// capability-table CLI bindings — each bare verb fails closed (no run-id /
-// no subcommand) with a handler-originated message, proving the dispatcher routes to the carved handler.
+// operator/graph are dispatched into their own capability-table CLI
+// bindings — each bare verb fails closed (no run-id / no subcommand) with a
+// handler-originated message, proving the dispatcher routes to the carved
+// handler. topology/summary went with the multi-agent family: each now fails
+// closed as an unknown command.
 for (const [verb, re] of [
   ["operator", /operator status\|report/],
   ["graph", /Missing run id/],
-  ["topology", /topology list\|show/],
-  ["summary", /summary refresh\|show/]
+  ["topology", /Unknown command: topology/],
+  ["summary", /Unknown command: summary/]
 ]) {
   let stderr = "";
   try {

@@ -21,16 +21,11 @@ caseMain(() => {
   const cases = [
     ["app", "cw app list|show|validate|init|package|run [app-id|path]"],
     ["state", "cw state check <run-id> [--state PATH] [--write]"],
-    ["audit", "cw audit summary|worker|provenance|multi-agent|policy|role|blackboard|judge|attest|decision <run-id> [worker-id|role-id]"],
-    ["blackboard", "cw blackboard summary|summarize|graph|resolve <run-id> | topic create <run-id> | message post|list <run-id> | context put <run-id> | artifact add|list <run-id> | snapshot <run-id>"],
-    ["candidate", "cw candidate list|show|register|score|rank|select|reject|summary <run-id> [candidate-id]"],
+    ["audit", "cw audit summary|worker|provenance|attest|decision <run-id> [worker-id]"],
     ["clones", "cw clones list [--json] | clones gc [--older-than-days N] [--all] [--json]"],
-    ["comment", "cw comment add <kind> <run-id> <target-id> --body <text> | comment list <run-id> [--json]"],
-    ["eval", "cw eval snapshot <run-id> --id <snapshot-id> | replay <snapshot-id-or-path> | compare <baseline-id-or-path> <replay-id-or-path> | score <replay-id-or-path> | gate <suite-id-or-path> | report <replay-id-or-path>"],
     ["gc", "cw gc plan|run|verify [run-id] [--reclaimAfterArchiveDays N] [--keep-scratch] [--keep-snapshots] [--keep-commits] [--limit N] [--json]"],
     ["telemetry", "cw telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]"],
     ["demo", "cw demo tamper|bundle [--json]"],
-    ["multi-agent", "cw multi-agent run|status|step|blackboard|score|select|summary|summarize|graph|dependencies|failures|evidence|reasoning|show|role|group|membership|fanout|fanin <run-id> [id]"],
     ["node", "cw node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]"],
     ["sandbox", "cw sandbox list|show|validate|choose [profile-id|profile-file]"],
     ["backend", "cw backend list|show|probe [backend-id]  |  cw backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]"],
@@ -39,8 +34,6 @@ caseMain(() => {
     ["feedback", "cw feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]"],
     ["metrics", "cw metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--limit N] [--json]"],
     ["operator", "cw operator status|report <run-id> [--json]"],
-    ["topology", "cw topology list|show <topology-id>|show <run-id> <topology-run-id>|validate <topology-id>|apply <run-id> <topology-id>|summary <run-id>|graph <run-id>"],
-    ["summary", "cw summary refresh|show <run-id> [--json]"],
     ["orphans", "cw orphans list [--scope repo|home] [--json] | orphans gc [--scope repo|home] [--min-age-minutes N] [--all] [--json]  (scope defaults to home: every registered repo)"],
     ["registry", "cw registry refresh|show [--scope repo|home] [--json]"],
     ["queue", "cw queue add|list|drain|show [queue-id] [--repo PATH] [--priority N]"],
@@ -49,8 +42,6 @@ caseMain(() => {
     ["sched", "cw sched plan|lease|release|complete|reclaim|reset|policy [show|set] [id] [--maxConcurrent N --maxAttempts N ...]"],
     ["workbench", "cw workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]"],
     ["worker", "cw worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]"],
-    ["review", "cw review status <run-id> [--json] | review policy <run-id> --required-approvals N --authorized-roles a,b --applies-to commit,selection"],
-    ["coordinator", "cw coordinator summary <run-id> | coordinator decision <run-id> --kind <kind> --outcome <outcome> --reason TEXT"],
   ];
 
   for (const [group, usage] of cases) {

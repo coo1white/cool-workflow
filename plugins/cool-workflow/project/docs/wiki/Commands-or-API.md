@@ -42,11 +42,10 @@ The `audit-run` token is a CLI-only alias for `quickstart`.
 | `cw app validate <app-id>` | Validate an app manifest and workflow. |
 | `cw plan <app-id> --repo PATH ...` | Create a run without driving all workers. |
 
-Eight apps ship in `apps/`. The five canonical lanes are `architecture-review`,
+Seven apps ship in `apps/`. The five canonical lanes are `architecture-review`,
 `architecture-review-fast`, `pr-review-fix-ci`, `release-cut`, and
-`research-synthesis`; the examples and the golden-path proof are
-`pdca-blackboard-loop`, `workflow-app-framework-demo`, and
-`end-to-end-golden-path`. Use `cw app list` for the live set.
+`research-synthesis`; the example and the golden-path proof are
+`workflow-app-framework-demo` and `end-to-end-golden-path`. Use `cw app list` for the live set.
 
 See [Workflow Apps](Workflow-Apps.md) for when to use each one.
 

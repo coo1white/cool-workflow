@@ -160,7 +160,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("plan").mcp.handler = (args) => loadP
 registry_core_1.REGISTRY_BY_CAPABILITY.get("dispatch").mcp.handler = (args) => loadPipelineCli().dispatchRun({ ...args, sandbox: args.sandbox ?? args.sandboxProfile ?? args.sandboxProfileId });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("result").mcp.handler = (args) => loadPipelineCli().recordResultRun(args);
 // `cw_commit` returns the FLAT commit envelope (verifierGated/checkpoint/
-// selectionId/… at the top level, plus a nested `commit`), matching the old
+// verifierNodeId/… at the top level, plus a nested `commit`), matching the old
 // build's commitEnvelope. `commitRun` (CLI shape) returns `{ runId, commit }`;
 // lift the commit's key fields to the top for the MCP surface.
 registry_core_1.REGISTRY_BY_CAPABILITY.get("commit").mcp.handler = (args) => {
@@ -172,8 +172,6 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("commit").mcp.handler = (args) => {
         verifierGated: commit.verifierGated,
         checkpoint: commit.checkpoint,
         verifierNodeId: commit.verifierNodeId,
-        candidateId: commit.candidateId,
-        selectionId: commit.selectionId,
         evidenceCount: Array.isArray(commit.evidence) ? commit.evidence.length : 0,
         snapshotPath: commit.snapshotPath,
         commit,

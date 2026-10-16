@@ -9,18 +9,15 @@
 // until it is free.
 //
 // Both cases here fabricate the ON-DISK lock state a second process
-// would have left behind, then drive ONE real `cw summary refresh` (which
-// calls saveCheckpoint -> withFileLock(state.json, ...)) against it and
+// would have left behind, then drive ONE real
+// `cw commit <run> --allow-unverified-checkpoint` (which calls
+// saveCheckpoint -> withFileLock(state.json, ...)) against it and
 // observe the deterministic reaction. No real concurrent CW processes
 // are spawned, so there is no timing flake.
 //
-// `summary refresh` (not `summary show`) is the vehicle: `summary show` is
-// a plain read (it builds a report from the persisted summary index and
-// makes no run mutation) and no longer touches state.json at all — a
-// perf fix landed after this case was first written, see ITERATION_LOG.md's
-// "post-v0.2.2 performance hardening" batch. `summary refresh` still does
-// (it is the one that recomputes and durably persists the summaries), so
-// it is the one that still exercises the lock protocol below.
+// The vehicle was `cw summary refresh` until that verb went with the
+// multi-agent family (slim-and-esm step 2); an unverified checkpoint
+// commit takes the same lock on the same state.json.
 //
 //   1. STALE-LOCK-IS-STOLEN: a lock body from a fake pid, backdated
 //      mtime > 30s -> cw proceeds fast (steals it), and the state.json
@@ -58,10 +55,10 @@ caseMain(async () => {
     assert.ok(fs.existsSync(lockPath), "fabricated stale lock must exist before the op");
 
     const t0 = Date.now();
-    const refresh = run(["summary", "refresh", runId, "--json"], { cwd: repo });
+    const op = run(["commit", runId, "--allow-unverified-checkpoint", "--reason", "lock-probe"], { cwd: repo });
     const elapsedMs = Date.now() - t0;
 
-    assert.equal(refresh.status, 0, `stale lock must be stolen, not block: ${refresh.stderr}`);
+    assert.equal(op.status, 0, `stale lock must be stolen, not block: ${op.stderr}`);
     // A blocked caller would wait up to 240*25ms = 6000ms; stealing is
     // near-instant. Give generous headroom for a slow CI box.
     assert.ok(elapsedMs < 4000, `expected a fast steal, took ${elapsedMs}ms`);
@@ -111,10 +108,10 @@ caseMain(async () => {
     child.unref();
 
     const t0 = Date.now();
-    const refresh = run(["summary", "refresh", runId, "--json"], { cwd: repo });
+    const op = run(["commit", runId, "--allow-unverified-checkpoint", "--reason", "lock-probe"], { cwd: repo });
     const elapsedMs = Date.now() - t0;
 
-    assert.equal(refresh.status, 0, `must succeed once the fresh lock is released: ${refresh.stderr}`);
+    assert.equal(op.status, 0, `must succeed once the fresh lock is released: ${op.stderr}`);
     // It must have actually waited for the release, not stolen the
     // fresh lock early -- elapsed time is at least close to the hold
     // time (allow some slack under the 25ms poll granularity).

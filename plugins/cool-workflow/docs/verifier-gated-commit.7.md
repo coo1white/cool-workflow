@@ -8,8 +8,6 @@ Verifier-Gated Commit - commit only state that got past an evidence-backed verif
 
 ```text
 node dist/cli.js commit <run-id> --verifier <node-id> --reason "verified result"
-node dist/cli.js commit <run-id> --candidate <candidate-id> --reason "promote selected candidate"
-node dist/cli.js commit <run-id> --selection <selection-id> --reason "promote selected candidate"
 node dist/cli.js commit <run-id> --allow-unverified-checkpoint --reason "operator checkpoint"
 ```
 
@@ -32,14 +30,15 @@ normal checkpoints:
 only verified state becomes committed state
 ```
 
-A verifier-gated commit needs one of these inputs:
+A verifier-gated commit needs a `verifier` state node with `verified` status
+and evidence, named with `--verifier <node-id>` (or found from a
+`result:<task-id>` reason whose task has a verifier node).
 
-- a `verifier` state node with `verified` status and evidence
-- a verified candidate selection that references such a verifier node
-- a selected candidate whose selection references such a verifier node
+The verifier gate has the final say.
 
-The verifier gate has the final say. Candidate scores are evidence to help the
-operator make a choice. They do not give the right to commit state.
+The `--candidate` and `--selection` inputs went with the multi-agent family
+(see release-and-migration(7), "Removed Surfaces"). A commit that passes
+one of them now fails closed with `commit-verifier-required`.
 
 ## CHECKPOINTS
 
@@ -68,15 +67,13 @@ A verifier-gated commit writes gate metadata in the commit JSON and state node:
   "verifierGated": true,
   "checkpoint": false,
   "verifierNodeId": "run:verifier:task",
-  "candidateId": "candidate-one",
-  "selectionId": "selection-candidate-one-...",
   "evidence": []
 }
 ```
 
-The `candidateId` and `selectionId` fields are there when the commit promotes
-a candidate or candidate selection. The `evidence` field is copied from the
-verifier node.
+The `evidence` field is copied from the verifier node. A commit record that an
+older CW wrote may still carry `candidateId` and `selectionId`; they are kept
+as data and read by `cw audit provenance`.
 
 ## FILES
 
@@ -103,31 +100,13 @@ commit-verifier-not-found
 commit-verifier-wrong-kind
 commit-verifier-not-verified
 commit-verifier-missing-evidence
-commit-candidate-not-found
-commit-candidate-not-selectable
-commit-candidate-unscored
-commit-candidate-not-verified
-commit-candidate-selection-missing
-commit-selection-not-found
-commit-selection-node-missing
-commit-selection-not-verified
-commit-verifier-linkage-mismatch
+commit-verifier-evidence-ungrounded
+commit-verifier-evidence-unresolvable
+commit-rationale-empty-capture
 ```
 
 Use `cw feedback list <run-id>` and `cw node graph <run-id>` to look at
 the failed transition.
-
-## CANDIDATES
-
-A candidate can become committed state only after selection gets past the verifier
-gate. Rejected, failed, unscored, unselected, or unverified candidates are
-blocked.
-
-The normal candidate path is:
-
-```text
-candidate record -> score record -> verified selection -> verifier-gated commit
-```
 
 ## COMPATIBILITY
 

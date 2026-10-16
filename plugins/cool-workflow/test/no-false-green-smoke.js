@@ -17,13 +17,13 @@
 //   1. The commit FAILS CLOSED with `commit-rationale-empty-capture`, visibly:
 //      a thrown CommitGateError + a `commit-gate-failed` state node + feedback,
 //      and NO verifier-gated commit is produced.   <-- RED without the gate.
-//   2. Candidate SELECTION of the same empty-capture verifier node also fails
-//      closed (`candidate-selection-empty-capture`), keeping selection in sync.
-//   3. The decision reads ONLY persisted node metadata, so the reloaded-from-disk
+//   2. The decision reads ONLY persisted node metadata, so the reloaded-from-disk
 //      run reaches the SAME commit failure (replay-stable, no clock/ordering).
-//   4. A worker result that normalizes TO real grounded evidence flows all the way
-//      through the REAL pipeline to a verifier-gated commit with
-//      rationale.evidenceCount > 0 — the gate blocks false-green, never real work.
+//   3. A worker result that normalizes TO real grounded evidence flows all the way
+//      through the REAL pipeline to a verifier-gated commit that carries its
+//      evidence — the gate blocks false-green, never real work.
+// (The candidate-selection half of this gate went with the multi-agent family,
+// slim-and-esm step 2.)
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -33,9 +33,6 @@ const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = requir
 const { createStateNode, appendRunNode, linkStateNodes } = require("../dist/core/state/state-node");
 const { DEFAULT_PIPELINE_CONTRACT_ID } = require("../dist/core/pipeline/contract");
 const { recordWorkerOutput, allocateWorkerScope, writeWorkerManifest } = require("../dist/shell/worker-isolation");
-// v2 split candidate scoring: registerCandidate/scoreCandidate/selectCandidate are
-// the disk-backed IO ops, now in shell/candidate-scoring-io.
-const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/shell/candidate-scoring-io");
 const { commitState, CommitGateError } = require("../dist/shell/commit");
 const { listTrustAuditEvents } = require("../dist/shell/trust-audit");
 
@@ -174,33 +171,7 @@ function buildRun(runId, taskId) {
     "no clean/green verifier-gated commit was produced from empty capture"
   );
 
-  // (2) Candidate SELECTION of the same empty-capture verifier node fails closed too.
-  const candidate = registerCandidate(run, {
-    id: "cand-empty",
-    workerId: "worker-empty",
-    taskId,
-    resultNodeId: resultNode.id,
-    verifierNodeId: verifierNode.id
-  });
-  scoreCandidate(run, candidate.id, {
-    criteria: { correctness: 5 },
-    maxTotal: 5,
-    evidence: [{ id: "score-ev", source: "operator-recorded", locator: groundedLocator, summary: groundedLocator }]
-  });
-  let selectionError;
-  try {
-    selectCandidate(run, candidate.id, { reason: "should be blocked" });
-  } catch (err) {
-    selectionError = err;
-  }
-  assert.ok(selectionError, "selection of an empty-capture candidate throws");
-  assert.match(
-    String(selectionError.message),
-    /empty-capture|no real evidence/i,
-    "selection error names the empty-capture cause (selection + commit in sync)"
-  );
-
-  // (3) Replay-stable: reload from disk and re-run the commit -> same failure.
+  // (2) Replay-stable: reload from disk and re-run the commit -> same failure.
   saveCheckpoint(run);
   const reloaded = loadRunFromCwd(runId, tmp);
   let replayError;
@@ -212,12 +183,12 @@ function buildRun(runId, taskId) {
   assert.ok(replayError instanceof CommitGateError, "reloaded run reaches the same commit failure");
   assert.equal(replayError.structured.code, "commit-rationale-empty-capture", "replay failure is the same cause");
 
-  console.log("no-false-green: empty capture fails closed at commit + selection (visible, replay-stable) ok");
+  console.log("no-false-green: empty capture fails closed at commit (visible, replay-stable) ok");
 }
 
 // ---------------------------------------------------------------------------
 // Scenario B — REAL evidence still passes all the way to a committed state,
-// driven through the REAL worker -> verify -> candidate -> commit pipeline.
+// driven through the REAL worker -> verify -> commit pipeline.
 // ---------------------------------------------------------------------------
 {
   const runId = "no-false-green-real";
@@ -258,28 +229,12 @@ function buildRun(runId, taskId) {
     "no capture warning audit event for a real-evidence result"
   );
 
-  const candidate = registerCandidate(run, {
-    id: "cand-real",
-    workerId: "worker-real",
-    taskId,
-    resultNodeId: task.resultNodeId,
-    verifierNodeId: task.verifierNodeId
-  });
-  scoreCandidate(run, candidate.id, {
-    criteria: { correctness: 5 },
-    maxTotal: 5,
-    evidence: [{ id: "score-ev", source: "operator-recorded", locator: groundedLocator, summary: groundedLocator }]
-  });
-
-  const selection = selectCandidate(run, candidate.id, { reason: "real evidence passes" });
-  assert.ok(selection.id, "selection of a real-evidence candidate succeeds");
-
-  const commit = commitState(run, { reason: "no-false-green real evidence commit", selectionId: selection.id });
+  const commit = commitState(run, { reason: "no-false-green real evidence commit", verifierNodeId: task.verifierNodeId });
   assert.equal(commit.verifierGated, true, "real evidence produces a verifier-gated commit");
-  assert.ok(commit.acceptanceRationale, "commit carries an acceptance rationale");
-  assert.ok(commit.acceptanceRationale.evidenceCount > 0, "rationale evidenceCount > 0 for a real-evidence commit");
+  assert.equal(commit.verifierNodeId, task.verifierNodeId, "the commit is gated on the worker's own verifier node");
+  assert.ok(commit.evidence.length > 0, "a real-evidence commit carries its evidence");
 
-  console.log("no-false-green: real evidence passes selection + verifier-gated commit ok");
+  console.log("no-false-green: real evidence passes the verifier-gated commit ok");
 }
 
 console.log("no-false-green-smoke: ok");

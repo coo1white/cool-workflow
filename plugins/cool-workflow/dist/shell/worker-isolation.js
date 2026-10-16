@@ -5,11 +5,9 @@
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
 // worker-isolation module's real-execution-path (allocateWorkerScope,
 // writeWorkerManifest, recordWorkerOutput, recordWorkerFailure,
-// recordWorkerRetryAttempt, the worker index) — the multi-agent/
-// blackboard cross-linking (worker-accept/blackboard-*.ts) is milestone
-// 9's scope and is a no-op here (no case in this milestone's gate
-// exercises multi-agent linkage). The accept-path ORDER matches the old
-// build: validate -> attest delegation -> accept -> verify -> completion.
+// recordWorkerRetryAttempt, the worker index). The accept-path ORDER
+// matches the old build: validate -> attest delegation -> accept ->
+// verify -> completion.
 //
 // Evidence: SPEC/pipeline-run.md's worker-isolation references;
 // exechard-evidence-triple-hygiene.case.js, exechard-model-attestation-
@@ -77,34 +75,6 @@ const sandbox_profile_1 = require("./sandbox-profile");
 const registry_1 = require("./execution-backend/registry");
 const error_feedback_io_1 = require("./error-feedback-io");
 const run_store_1 = require("./run-store");
-const multi_agent_io_1 = require("./multi-agent-io");
-const runtime_1 = require("../core/multi-agent/runtime");
-/** The blackboard coordination block on a worker manifest, derived from the
- *  worker's AgentMembership linkage (undefined for a non-blackboard worker).
- *  Byte-behavior port of the old build's blackboardManifest. */
-function workerBlackboardManifest(run, task) {
-    const membershipId = task?.multiAgent?.membershipId;
-    const membership = membershipId ? (0, runtime_1.getAgentMembership)(run, membershipId) : undefined;
-    const blackboardId = membership?.blackboardId;
-    if (!blackboardId)
-        return undefined;
-    const root = run.paths.blackboardDir || path.join(run.paths.runDir, "blackboard");
-    return {
-        id: blackboardId,
-        topicIds: membership?.topicIds || [],
-        indexPath: path.join(root, "index.json"),
-        messagesPath: path.join(root, "messages.jsonl"),
-        topicsDir: path.join(root, "topics"),
-        contextsDir: path.join(root, "contexts"),
-        artifactsDir: path.join(root, "artifacts"),
-        instructions: [
-            "Use the blackboard as shared coordination context.",
-            "Read index.json and the relevant topic/context/artifact files before synthesizing.",
-            "Cite blackboard artifact refs or message refs in result evidence when relevant.",
-            "Do not edit blackboard files directly; CW records accepted worker output into the blackboard.",
-        ],
-    };
-}
 const verifier_1 = require("./verifier");
 const runner_1 = require("../core/pipeline/runner");
 const hash_1 = require("../core/hash");
@@ -264,8 +234,6 @@ function writeWorkerManifest(run, scope) {
             : undefined,
         backendId: scope.backendId,
         backendAttestation: scope.backendAttestation,
-        multiAgent: task?.multiAgent,
-        blackboard: workerBlackboardManifest(run, task),
         backend: scope.backendId && scope.backendAttestation
             ? {
                 id: scope.backendId,
@@ -805,13 +773,6 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     resultNode.evidence = (0, trust_audit_1.normalizeEvidence)(run, resultNode.evidence, { source: "cw-validated", workerId, taskId: task.id, resultNodeId: resultNode.id, auditEventIds: [pathAudit.id, acceptedAudit.id] });
     resultNode = (0, node_store_1.appendRunNode)(run, resultNode);
     task.resultNodeId = resultNode.id;
-    // Multi-agent: if this task belongs to an AgentMembership, sync the membership
-    // to "reported" with this result's evidence so a fanin can see it as complete
-    // (isMembershipReported). No-op for a non-multi-agent task (no membership
-    // matches workerId/taskId). Byte-behavior port of the old accept path.
-    if (task.multiAgent) {
-        (0, multi_agent_io_1.recordMultiAgentWorkerOutput)(run, { workerId, taskId: task.id, resultNodeId: resultNode.id, evidence: resultNode.evidence });
-    }
     if ((0, result_normalize_1.isEmptyCapture)(parsedResult)) {
         (0, trust_audit_1.recordTrustAuditEvent)(run, { kind: "worker.capture-warning", decision: "recorded", source: "cw-validated", workerId, taskId: task.id, nodeId: resultNode.id, parentEventIds: [acceptedAudit.id], metadata: { reason: "no findings or evidence captured from result.md", resultPath: destination } });
     }

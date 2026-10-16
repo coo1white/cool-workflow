@@ -160,15 +160,10 @@ plugins/cool-workflow/project/docs/BACKLOG.md instead of implementing it.
 The `cw -q` path: `src/cli/entry.ts` → `src/shell/pipeline-cli.ts` → `pipeline.ts`, `dispatch.ts`, `drive.ts`, `worker-isolation.ts`, `run-store.ts`, `report.ts`, `commit.ts`, `node-store.ts`, `trust-audit.ts`, `observability.ts`, `onramp.ts`, `agent-config.ts`, `workflow-app-loader.ts`, `sandbox-profile.ts`, `fs-atomic.ts`; resume adds `registry-cli.ts`, `run-registry-io.ts`.
 Proof: `plugins/cool-workflow/project/docs/audits/four-fixes-receipt-2026-09-02.json`, `plugins/cool-workflow/project/docs/audits/run-folder-receipt-2026-09-02.json`.
 **Frozen surfaces** — fixes and deletions only; growth needs the operator's yes in an intent; `growth:check` holds the ceiling.
-- multi-agent: `src/shell/multi-agent-cli.ts`, `multi-agent-host.ts`, `multi-agent-io.ts`, `multi-agent-operator-ux.ts`, `src/core/multi-agent/`
-- coordinator and topology: `src/shell/coordinator-io.ts`, `topology-io.ts`
-- candidates and eval: `src/shell/candidate-scoring-io.ts`, `eval-io.ts`, `eval-text.ts`
 - scheduling: `src/shell/scheduler-io.ts`, `scheduling-io.ts`
-- collaboration and workbench: `src/shell/collaboration-io.ts`, `workbench.ts`, `workbench-host.ts`, `workbench-text.ts`
-- state explosion: `src/shell/state-explosion-cli.ts`, `src/core/state/state-explosion/`
+- workbench: `src/shell/workbench.ts`, `workbench-host.ts`, `workbench-text.ts`
 - orchestrator: `src/shell/orchestrator.ts`
 - telemetry demo: `src/shell/telemetry-demo.ts`
-- evidence reasoning: `src/shell/evidence-reasoning.ts`
 - observability intake: `src/shell/observability-intake.ts`
 - reclamation: `src/shell/reclamation-io.ts`
 
@@ -221,7 +216,8 @@ project's version history now lives only in git tags and GitHub Releases
 - evidence-gated commit：模型说"做完了"不算数，要有 evidence + verifier 通过才提交。
 - 跨厂商移植：一个内核生成所有 vendor 的 plugin（Claude/Codex/…）。
 - 把已有资产用得更狠：registry、delegating backends、workbench、audit chain、
-  parity、scheduling、blackboard 都已经在了——深化它们，而不是重造。
+  parity、scheduling 都已经在了——深化它们，而不是重造。（blackboard 与整个
+  多 agent 一族已于 2026-09-28 删除，见下方"常见误判"。）
 - 两个落地场景全力投入（它们 100% 吃现有资产）：代码库风险分析工具
   （architecture-review workflow + evidence + audit trail）；给别的 agent
   框架（LangChain/CrewAI…）加可观测 / 审计层。
@@ -242,7 +238,7 @@ project's version history now lives only in git tags and GitHub Releases
 |---|---|
 | "CW 只能编排、执行依赖外部是个差距，应该内嵌 API" | 这是定位红线，不是差距。执行后端（`plugins/cool-workflow/src/shell/execution-backend/`）的红线不变——"CW DELEGATES"（见 `plugins/cool-workflow/src/shell/pipeline-cli.ts` 的委托声明）。 |
 | "CW 是个 SDK / 应该做成 SDK" | 先分清两种 SDK：① 模型执行 SDK（内嵌 Claude/OpenAI API、自己跑模型）= 红线，永远不做。② Workflow App framework / 编排运行时（给开发者写 workflow app、给别的 agent 框架当可审计编排层）= 现在就已经是了。对内对外一律先说"可审计编排 / 控制平面 (control-plane)"，只有明确指 ② 时才用 "Workflow App framework"，不用 "SDK" 自我描述。 |
-| "blackboard 存在但没用起来" | 已深度接入（`plugins/cool-workflow/src/core/multi-agent/coordinator.ts`），进了 dispatch / operator-ux / audit，落盘 `.cw/runs/<id>/blackboard/`）。要做的是用更狠，不是从零搭。 |
+| "blackboard 存在但没用起来，应该用得更狠" | 已删除（2026-09-28 运营方同意 D1，slim-and-esm 第 2 步）：blackboard 连同 coordinator、topology、candidate、eval、review gate、state-explosion 整个多 agent 一族一起去掉了。原因：它是冻结面（只修不长），核心路径（`cw -q`、resume、report、doctor）用不到它，却约 12,800 行、75 个 MCP 工具，并把 dispatch / commit / report 牵进同一个 import 环；而且 CW 的定位是让别人的执行可审计，不是自己当多 agent 编排运行时。多个 agent 要协作，用 workflow app 定形、worker 输出给事实、`cw ledger` 跨 agent 交接。旧 state 里的 `multiAgent` / `blackboard` / `candidates` 字段照样能加载（当作数据保留）。 |
 | "phases 应该动态化" | 现状静态是为了可复放。要动态先解决 replay 确定性，否则削弱核心卖点。 |
 
 ## Build Memory
@@ -483,8 +479,9 @@ short, and simple to add to. Do not use it for guesses.)
 #### Naming & POLA
 
 - **Check for an existing verb before naming a new one.** `cw handoff` already
-  existed (run/task ownership transfer), so the cross-agent primitive had to be a
-  NEW verb, `cw ledger`. Grep the command surface first.
+  existed (run/task ownership transfer; removed with the multi-agent family on
+  2026-09-28), so the cross-agent primitive had to be a NEW verb, `cw ledger`.
+  Grep the command surface first.
 - **Extend output additively.** New JSON keys are POLA-safe; changing or removing
   existing keys is not. Guard the byte-identical default with a POLA assertion in
   the smoke (e.g. single-`--dir` keeps `dir`, not `dirs`).
@@ -532,18 +529,21 @@ short, and simple to add to. Do not use it for guesses.)
   (`cw man <topic>` serves `docs/<topic>.7.md`). Before deleting "unreferenced"
   files, run the FULL suite against the committed head; that is the real net.
 
-#### Multi-agent loops (PDCA blackboard)
+#### Multi-agent loops
 
 - When a task asks for agents to work together, first try the parts CW already
-  has: workflow apps give the work shape, worker output gives checked facts, the
-  blackboard gives shared state, MCP gives tool access to the same state, smoke
-  tests prove the loop. Do not make a new MCP server when the existing server
-  can show the same run state; add a workflow app first, then prove it with one
-  smoke that uses both CLI and MCP.
+  has: workflow apps give the work shape, worker output gives checked facts,
+  each phase reads the results of the phase before it, MCP gives tool access to
+  the same run state, `cw ledger` hands work between agents in two repos, and
+  smoke tests prove the loop. Do not make a new MCP server when the existing
+  server can show the same run state; add a workflow app first, then prove it
+  with one smoke that uses both CLI and MCP.
 - For a three-agent loop keep the order plain: `plan -> build -> audit -> next
-  action`. Each agent writes one blackboard message and, when there is a result
-  file, one artifact ref. If audit evidence is missing, let the worker evidence
+  action`, one phase each. If audit evidence is missing, let the worker evidence
   gate refuse the result instead of adding a new policy layer.
+- The blackboard, the multi-agent runtime, and the `pdca-blackboard-loop` app
+  were removed on 2026-09-28 (slim-and-esm step 2, decision D1); do not bring
+  them back as a shared-state layer without a new intent and the operator's yes.
 
 #### Git & cross-session operations
 

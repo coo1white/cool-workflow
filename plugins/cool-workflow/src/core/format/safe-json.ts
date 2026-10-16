@@ -2,8 +2,8 @@
 // `--json` output (cli/io.ts) and the MCP `tools/call` result (mcp/server.ts).
 //
 // Both surfaces JSON.stringify a caller-selected result with no size limit.
-// An aggregate/dashboard capability (e.g. cw_workbench_view, cw comment
-// list --json on a run with thousands of comments) can grow to hundreds of
+// An aggregate/dashboard capability (e.g. cw_workbench_view, cw node
+// list --json on a run with thousands of nodes) can grow to hundreds of
 // MB: a useless dump for a calling agent's context window at best, and at
 // worst a RangeError ("Invalid string length") once the string crosses
 // V8's per-string ceiling (~256M UTF-16 code units) — the same failure

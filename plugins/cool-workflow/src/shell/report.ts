@@ -2,13 +2,13 @@
 // headers/fallback lines from the spec), the actual file write.
 //
 // MILESTONE 6+7 (combined), EXTENDED at MILESTONE 11 (reporting/
-// observability) with the four sections that were deferred while their
-// own subsystems' milestones (8/9/4) had not yet landed: State Size &
-// Compaction (state-explosion, milestone 4), Sandbox Profiles (milestone
-// 5), Trust Audit (milestone 8), Acceptance Rationale (commit-gate,
-// milestone 6+7). Byte-exact port of
-// the old build's orchestrator report module's renderX helpers for
-// each.
+// observability) with the sections that were deferred while their own
+// subsystems' milestones (8/5) had not yet landed: Sandbox Profiles
+// (milestone 5) and Trust Audit (milestone 8). Byte-exact port of the old
+// build's orchestrator report module's renderX helpers for each. The State
+// Size & Compaction, Multi-Agent Runtime, Blackboard / Coordinator,
+// Acceptance Rationale and Candidates sections went with the multi-agent
+// family (slim-and-esm step 2).
 //
 // Evidence: SPEC/reporting-ux.md "report.md (written by writeReport)".
 
@@ -17,15 +17,9 @@ import { WorkflowRun } from "../core/state/types";
 import { updatePhaseStatuses } from "../core/pipeline/dispatch";
 import { WorkerScope } from "./worker-isolation";
 import { sandboxGuaranteeLabels } from "./execution-backend/registry";
-import { buildStateExplosionReport, loadStateExplosionSummaryIndex } from "./state-explosion-cli";
-import { stateExplosionReportLines } from "../core/format/state-explosion-text";
-import { summarizeCandidates } from "./candidate-scoring-io";
 import { summarizeTrustAudit, listTrustAuditEvents } from "./trust-audit";
 import { verifyTelemetryLedger } from "./telemetry-ledger-io";
 import { runLifecycle } from "./run-registry-io";
-import { summarizeMultiAgent } from "./multi-agent-io";
-import { summarizeBlackboard } from "./coordinator-io";
-import { operatorDigestInput } from "./multi-agent-operator-ux";
 import { stableCompare } from "../core/util/collate";
 import { normalizeResultEnvelope } from "../core/pipeline/result-normalize";
 
@@ -73,15 +67,6 @@ function renderCommits(run: WorkflowRun): string[] {
     const gate = commit.verifierGated ? `verifier=${commit.verifierNodeId || "unknown"}, evidence=${commit.evidence?.length || 0}` : "verifierGated=false";
     return `- ${commit.id}: ${commit.reason} [${commit.loopStage}; ${kind}; ${gate}] (${commit.snapshotPath})`;
   });
-}
-
-/** `## State Size & Compaction` — milestone 4's state-explosion report,
- *  rendered with its own dedicated text formatter (always non-empty; no
- *  "no records" fallback in the old build either). */
-function renderStateSize(run: WorkflowRun): string[] {
-  const index = loadStateExplosionSummaryIndex(run);
-  const report = buildStateExplosionReport(run, { index, operator: operatorDigestInput(run) });
-  return stateExplosionReportLines(report);
 }
 
 /** `## Sandbox Profiles` — byte-exact port of the old build's
@@ -163,106 +148,6 @@ function renderTelemetryAttestation(run: WorkflowRun): string[] {
     );
   }
   return lines;
-}
-
-/** `## Acceptance Rationale` — byte-exact port of the old build's
- *  renderAcceptanceRationale. */
-function renderAcceptanceRationale(run: WorkflowRun): string[] {
-  const lines: string[] = [];
-  for (const selectionRaw of run.candidateSelections || []) {
-    const selection = selectionRaw as { id: string; candidateId?: string; acceptanceRationale?: Record<string, unknown> };
-    const rationale = selection.acceptanceRationale;
-    if (!rationale) continue;
-    lines.push(
-      `- Selection ${selection.id}: candidate=${rationale.selectedCandidateId || selection.candidateId}, score=${rationale.scoreId || "none"}, verifier=${rationale.verifierNodeId || "none"}, evidence=${rationale.evidenceCount}, sandbox=${rationale.sandboxProfileId || "none"}, worker=${rationale.workerId || "none"}`
-    );
-  }
-  for (const commit of run.commits || []) {
-    if (!commit.acceptanceRationale) continue;
-    const rationale = commit.acceptanceRationale;
-    lines.push(
-      `- Commit ${commit.id}: gate=${rationale.commitGateResult || "unknown"}, candidate=${rationale.selectedCandidateId || commit.candidateId || "none"}, score=${rationale.scoreId || "none"}, verifier=${rationale.verifierNodeId || commit.verifierNodeId || "none"}, evidence=${rationale.evidenceCount}, sandbox=${rationale.sandboxProfileId || "none"}, worker=${rationale.workerId || "none"}`
-    );
-  }
-  return lines.length ? lines : ["No accepted candidate or verifier-gated commit rationale yet."];
-}
-
-/** `## Multi-Agent Runtime` — byte-exact port of the old build's
- *  renderMultiAgent. */
-function renderMultiAgent(run: WorkflowRun): string[] {
-  const summary = summarizeMultiAgent(run);
-  if (!summary.totalRuns) return ["No multi-agent runtime records yet."];
-  const lines = [
-    `- Runs: ${summary.totalRuns} (${formatCounts(summary.runsByStatus)})`,
-    `- Roles: ${summary.roles}`,
-    `- Groups: ${summary.groups} (${formatCounts(summary.groupsByStatus)})`,
-    `- Memberships: ${summary.memberships} (${formatCounts(summary.membershipsByStatus)})`,
-    `- Fanouts: ${summary.fanouts}`,
-    `- Fanins: ${summary.fanins} (${formatCounts(summary.faninsByStatus)})`,
-  ];
-  if (summary.blockedReasons.length) {
-    lines.push("", "Blocked:");
-    for (const reason of summary.blockedReasons.slice(0, 8)) lines.push(`- ${reason}`);
-  }
-  for (const group of summary.groupsDetail.slice(0, 8)) {
-    lines.push("", `Group ${group.id}: status=${group.status}, phase=${group.phase || "none"}, run=${group.multiAgentRunId}`);
-    for (const role of group.roles) {
-      lines.push(`- role=${role.roleId}, memberships=${role.memberships}, reported=${role.reported}, missing=${role.missing}, requiredEvidence=${role.requiredEvidence}`);
-    }
-    lines.push(`- fanouts=${group.fanouts.join(", ") || "none"}`);
-    lines.push(`- fanins=${group.fanins.join(", ") || "none"}`);
-  }
-  if (summary.nextAction) lines.push("", `Next multi-agent action: ${summary.nextAction}`);
-  return lines;
-}
-
-/** `## Blackboard / Coordinator` — byte-exact port of the old build's
- *  renderBlackboard. */
-function renderBlackboard(run: WorkflowRun): string[] {
-  const summary = summarizeBlackboard(run);
-  if (!summary.blackboardId) return ["No blackboard records yet."];
-  const lines = [
-    `- Blackboard: ${summary.blackboardId}`,
-    `- Topics: ${summary.topics}`,
-    `- Messages: ${summary.messages}`,
-    `- Contexts: ${summary.contexts}`,
-    `- Artifacts: ${summary.artifacts}`,
-    `- Snapshots: ${summary.snapshots}`,
-    `- Decisions: ${summary.decisions}`,
-    `- Ready for fanin: ${summary.readyForFanin ? "yes" : "no"}`,
-    `- Index: ${summary.indexPath || "none"}`,
-    `- Latest snapshot: ${summary.latestSnapshotPath || "none"}`,
-  ];
-  if (summary.openQuestions.length) {
-    lines.push("", "Open questions:");
-    for (const question of summary.openQuestions.slice(0, 8)) lines.push(`- ${question.id}: ${question.key}=${question.value}`);
-  }
-  if (summary.conflicts.length) {
-    lines.push("", "Conflicts:");
-    for (const conflict of summary.conflicts.slice(0, 8)) {
-      lines.push(`- ${conflict.id}: ${conflict.key} conflicts with ${conflict.conflictingContextIds.join(", ") || "unknown"}`);
-    }
-  }
-  if (summary.missingEvidence.length) {
-    lines.push("", "Missing evidence:");
-    for (const item of summary.missingEvidence.slice(0, 8)) lines.push(`- ${item}`);
-  }
-  if (summary.nextAction) lines.push("", `Next coordinator action: ${summary.nextAction}`);
-  return lines;
-}
-
-/** `## Candidates` — byte-exact port of the old build's renderCandidates. */
-function renderCandidatesSection(run: WorkflowRun): string[] {
-  const summary = summarizeCandidates(run);
-  if (!summary.total) return ["No candidates yet."];
-  return [
-    `- Total: ${summary.total}`,
-    `- By status: ${formatCounts(summary.byStatus)}`,
-    `- By kind: ${formatCounts(summary.byKind)}`,
-    `- Selections: ${summary.selections}`,
-    `- Index: ${summary.indexPath}`,
-    `- Ranking: ${summary.rankingPath}`,
-  ];
 }
 
 function renderFeedback(run: WorkflowRun): string[] {
@@ -417,18 +302,6 @@ export function writeReport(run: WorkflowRun): string {
     "",
     ...renderWorkers(run),
     "",
-    "## State Size & Compaction",
-    "",
-    ...renderStateSize(run),
-    "",
-    "## Multi-Agent Runtime",
-    "",
-    ...renderMultiAgent(run),
-    "",
-    "## Blackboard / Coordinator",
-    "",
-    ...renderBlackboard(run),
-    "",
     "## Sandbox Profiles",
     "",
     ...renderSandboxProfiles(run),
@@ -436,14 +309,6 @@ export function writeReport(run: WorkflowRun): string {
     "## Trust Audit",
     "",
     ...renderTrustAudit(run),
-    "",
-    "## Acceptance Rationale",
-    "",
-    ...renderAcceptanceRationale(run),
-    "",
-    "## Candidates",
-    "",
-    ...renderCandidatesSection(run),
     "",
     "## Pending Tasks",
     "",

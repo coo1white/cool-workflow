@@ -4,7 +4,7 @@
 // is how a selection in one shows in the other, and how Back, Forward and
 // a page reload keep the named view.
 
-export const TAB_KEYS = ["graph", "blackboard", "worker", "candidate", "audit", "metrics", "collaboration"] as const;
+export const TAB_KEYS = ["graph", "worker", "audit", "metrics"] as const;
 export type TabKey = (typeof TAB_KEYS)[number];
 export const DEFAULT_TAB: TabKey = TAB_KEYS[0];
 

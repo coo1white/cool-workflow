@@ -27,7 +27,7 @@ const NOW = "2026-07-04T00:00:00.000Z";
 }
 
 // A gated commit's metadata starts as {verifierGated:true, checkpoint:false}
-// and gains verifierNodeId/candidateId/selectionId/selectionNodeId keys —
+// and gains a verifierNodeId key —
 // this is the "committed" world, structurally distinct.
 {
   const node = { id: "v1", kind: "verifier", status: "verified", evidence: [{ id: "e1", path: "a.ts:1" }] };

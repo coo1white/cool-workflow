@@ -44,12 +44,12 @@ const capability_table_1 = require("../capability-table");
 exports.MORE_COMMANDS_TOKENS = [
     "list", "search", "info", "init", "plan", "status", "next", "dispatch",
     "result", "state", "commit", "report", "app", "sandbox", "backend",
-    "contract", "node", "feedback", "worker", "audit", "candidate", "review",
+    "contract", "node", "feedback", "worker", "audit",
     "loop", "schedule", "routine", "registry", "run", "queue", "clones",
-    "orphans", "history", "quickstart", "audit-run", "multi-agent", "topology",
-    "summary", "blackboard", "coordinator", "metrics", "operator", "sched",
-    "gc", "telemetry", "migration", "demo", "workbench", "approve", "reject",
-    "comment", "handoff", "ledger", "graph", "eval", "man", "version",
+    "orphans", "history", "quickstart", "audit-run",
+    "metrics", "operator", "sched",
+    "gc", "telemetry", "migration", "demo", "workbench",
+    "ledger", "graph", "man", "version",
     "fix", "completion",
 ];
 const MORE_COMMANDS_WRAP_WIDTH = 76;

@@ -46,19 +46,13 @@ exports.auditVerifyCli = auditVerifyCli;
 exports.auditHeadCli = auditHeadCli;
 exports.auditRepairCli = auditRepairCli;
 exports.auditSummaryCli = auditSummaryCli;
-exports.auditMultiAgentCli = auditMultiAgentCli;
-exports.auditPolicyCli = auditPolicyCli;
-exports.auditJudgeCli = auditJudgeCli;
 exports.auditWorkerCli = auditWorkerCli;
 exports.auditProvenanceCli = auditProvenanceCli;
-exports.auditRoleCli = auditRoleCli;
-exports.auditBlackboardCli = auditBlackboardCli;
 exports.auditAttestCli = auditAttestCli;
 exports.auditDecisionCli = auditDecisionCli;
 const path = __importStar(require("node:path"));
 const trust_audit_1 = require("./trust-audit");
 const run_store_1 = require("./run-store");
-const trust_policy_io_1 = require("./trust-policy-io");
 const report_1 = require("./report");
 const audit_provenance_1 = require("./audit-provenance");
 const worker_isolation_1 = require("./worker-isolation");
@@ -152,31 +146,16 @@ function auditRepairCli(runId, args) {
     const result = (0, trust_audit_1.repairTrustAuditTornTail)(run, { write, anchor });
     return { schemaVersion: 1, runId: run.id, write, ...result };
 }
-/** MILESTONE 11 (reporting/observability, workbench audit panels) —
- *  `cw audit summary`/`audit multi-agent`/`audit policy`/`audit judge`.
- *  These read the same trust-audit summary functions the report.md
- *  writer and multi-agent trust-policy layer already build, so panel
- *  data can never drift from the standalone commands' output. */
+/** MILESTONE 11 (reporting/observability, workbench audit panel) —
+ *  `cw audit summary`. This reads the same trust-audit summary function
+ *  the report.md writer already builds, so panel data can never drift
+ *  from the standalone command's output. */
 function auditSummaryCli(runId, args) {
     const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
     return (0, trust_audit_1.summarizeTrustAudit)(run, { persist: args.__cwWorkbenchReadOnlyProjection !== true });
 }
-function auditMultiAgentCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    return (0, trust_policy_io_1.summarizeMultiAgentTrust)(run);
-}
-function auditPolicyCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    const summary = (0, trust_policy_io_1.summarizeMultiAgentTrust)(run);
-    return { schemaVersion: 1, runId: run.id, rolePolicies: summary.rolePolicies, permissionDecisions: summary.permissionDecisions, policyViolations: summary.policyViolations };
-}
-function auditJudgeCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    const summary = (0, trust_policy_io_1.summarizeMultiAgentTrust)(run);
-    return { schemaVersion: 1, runId: run.id, judgeRationales: summary.judgeRationales, panelDecisions: summary.panelDecisions };
-}
 // ---------------------------------------------------------------------------
-// The audit worker/provenance/role/blackboard/attest/decision verbs the old
+// The audit worker/provenance/attest/decision verbs the old
 // flat build had (cli/handlers/audit.ts + orchestrator/audit-operations.ts),
 // ported here as thin loadRun -> delegate wrappers over audit-provenance.ts +
 // trust-audit.ts primitives.
@@ -212,40 +191,6 @@ function auditProvenanceCli(runId, args) {
         candidateId: optionalString(args.candidate ?? args.candidateId),
         commitId: optionalString(args.commit ?? args.commitId),
     });
-}
-/** `cw audit role <run> <role>` — per-role policy + audit slice. */
-function auditRoleCli(runId, roleId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    const summary = (0, trust_policy_io_1.summarizeMultiAgentTrust)(run);
-    const events = (0, trust_audit_1.listTrustAuditEvents)(run).filter((event) => event.agentRoleId === roleId);
-    return {
-        schemaVersion: 1,
-        runId: run.id,
-        roleId,
-        role: run.multiAgent?.roles?.find((entry) => entry.id === roleId),
-        rolePolicies: summary.rolePolicies.filter((entry) => entry.subjectId === roleId),
-        permissionDecisions: events.filter((event) => event.kind === "multi-agent.permission"),
-        blackboardWrites: events.filter((event) => event.kind === "blackboard.write"),
-        messageProvenance: events.filter((event) => event.kind === "blackboard.message-provenance"),
-        judgeRationales: events.filter((event) => event.kind === "judge.rationale"),
-        panelDecisions: events.filter((event) => event.kind === "judge.panel-decision"),
-        policyViolations: events.filter((event) => event.kind === "policy.violation"),
-        events,
-        nextAction: `cw audit multi-agent ${run.id} --json`,
-    };
-}
-/** `cw audit blackboard <run>` — blackboard write/provenance audit. */
-function auditBlackboardCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
-    const summary = (0, trust_policy_io_1.summarizeMultiAgentTrust)(run);
-    return {
-        schemaVersion: 1,
-        runId: run.id,
-        blackboardWrites: summary.blackboardWrites,
-        messageProvenance: summary.messageProvenance,
-        policyViolations: summary.policyViolations.filter((event) => event.blackboardId),
-        nextAction: summary.nextAction,
-    };
 }
 /** `cw audit attest <run> [--worker …] [--command|--network|--env|--note …]`
  *  — record a host/operator sandbox attestation. */

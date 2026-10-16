@@ -32,7 +32,7 @@ Reports live under the repo that was reviewed:
 ```
 
 The same directory holds `state.json`, audit logs, telemetry, worker scopes,
-results, nodes, candidates, and commits.
+results, nodes, and commits.
 
 ## What Does The Cryptography Prove?
 

@@ -22,7 +22,7 @@ caseMain(() => {
   const bare = run(["commit", planPayload.runId, "--json"], { cwd: repo });
   assert.equal(bare.status, 1);
   assert.equal(bare.stdout, "");
-  assert.match(bare.stderr, /Verifier-gated commit requires --verifier, --candidate, or --selection/);
+  assert.match(bare.stderr, /Verifier-gated commit requires --verifier\n/);
 
   // --allow-unverified-checkpoint succeeds and writes a checkpoint (not a
   // verifier-gated commit).
