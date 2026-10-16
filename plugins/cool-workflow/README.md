@@ -105,6 +105,7 @@ CW does not run the model — it keeps the books. Your agent signs its findings 
 | `Missing required input: question` | Add `-q "<question>"` |
 | Run stopped before the end | Fix the cause, then `cw --resume --run <id>` takes it to the end; a worker that stopped gets fresh tries (inside the project, or add `--repo <path>`) |
 | `... is not a git project` | Run it inside the project, or pass `--repo` |
+| `Run <id> was made for <folder>` | The run belongs to another folder (a copied or moved repo): pass `--repo <that folder>`, or move it with `cw run export` and `cw run import` |
 
 ## Learn more
 

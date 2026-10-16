@@ -38,6 +38,11 @@ cw --resume --run <run-id>
 
 This needs the cwd inside the project, or `--repo <path>`.
 
+The folder you name must be the one the run was made for. If it is not (a
+copied or moved repo), resume stops with an error and changes nothing. Pass
+`--repo <the run's folder>`, or move the run with `cw run export` and
+`cw run import`.
+
 ## Export A Run
 
 ```bash
@@ -123,6 +128,7 @@ preserved for audit.
 | Missing restore manifest | `verify-import` fails. |
 | Telemetry chain failure | Verification reports the chain failure. |
 | Trust-audit chain failure | Verification reports `trust-audit-invalid`. |
+| Resume from a folder the run was not made for | Refused; the error names the run's own folder. |
 
 ## Related Pages
 
