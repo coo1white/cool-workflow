@@ -86,6 +86,9 @@ function world() {
   fs.writeFileSync(path.join(pkgDir, "package.json"), JSON.stringify({ name: "fixture", version: VERSION }, null, 2) + "\n");
   fs.copyFileSync(ONECLICK, path.join(pkgDir, "scripts", "release-oneclick.js"));
   fs.copyFileSync(PREFLIGHT, path.join(pkgDir, "scripts", "release-preflight.js"));
+  // release-oneclick.js also requires the required-CI-checks reader (its cut
+  // stage waits on those checks).
+  fs.copyFileSync(path.join(pluginRoot, "scripts", "release-ci-checks.js"), path.join(pkgDir, "scripts", "release-ci-checks.js"));
   fs.writeFileSync(path.join(pkgDir, "dist", "shell", "agent-config.js"),
     "\"use strict\";\n" +
     "function resolveAgentConfig(flags, env) {\n" +

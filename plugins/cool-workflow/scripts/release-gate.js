@@ -6,6 +6,20 @@
 // (Node port of the former release-gate.sh; behavior kept line for line,
 // minus the cadence step dropped 2026-08-04 — same exit map: 0 = PASSED,
 // 1 = REJECTED.)
+//
+// Test step, two modes:
+//   (default)        run `npm run test:gate` here — release.yml's tag-push
+//                    gate and `release-flow.js --local-tests` use this.
+//   --tests-from-ci  do NOT run the suite; the step passes only when the
+//                    checks main's branch protection requires are completed
+//                    and green on GitHub for this exact HEAD sha
+//                    (release-ci-checks.js). Any other answer — and any
+//                    failure to get one — fails the gate. The evidence is
+//                    written to .cw-release/gate-ci-<HEAD-sha>.json for
+//                    release-flow.js. `release-flow.js` passes this flag by
+//                    default (project/docs/intent/2026-10-16-release-gate-ci.md).
+//   Test seam: CW_RELEASE_GATE_GH_CMD overrides the `gh` binary (single
+//   executable token, spawned shell:false) so a smoke can stub GitHub.
 
 const fs = require("node:fs");
 const path = require("node:path");
@@ -102,11 +116,32 @@ if (build.error || build.status !== 0) {
   reportNpmFailure("build", build);
 }
 
-say("[2/5] tests");
-const tests = runNpm(["run", "test:gate", "--prefix", "plugins/cool-workflow"], { CW_TEST_CONCURRENCY: "1" });
-if (tests.error || tests.status !== 0) {
-  fail("tests failed");
-  reportNpmFailure("tests", tests);
+const TESTS_FROM_CI = process.argv.slice(2).includes("--tests-from-ci");
+const CI_EVIDENCE = path.join(MARKER_DIR, `gate-ci-${SHA}.json`);
+// A stale evidence file from an earlier run must never stand for this one.
+fs.rmSync(CI_EVIDENCE, { force: true });
+if (TESTS_FROM_CI) {
+  say("[2/5] tests — from the required CI checks on this exact commit (no local run)");
+  const { queryRequiredChecks } = require("./release-ci-checks.js");
+  const ci = queryRequiredChecks({
+    repoRoot: REPO_ROOT,
+    sha: SHA,
+    ghBin: (process.env.CW_RELEASE_GATE_GH_CMD || "gh").trim()
+  });
+  for (const c of ci.checks) say(`  ${c.name}: ${c.status}${c.conclusion ? ` / ${c.conclusion}` : ""}${c.url ? ` ${c.url}` : ""}`);
+  if (ci.ok) {
+    fs.writeFileSync(CI_EVIDENCE, `${JSON.stringify({ mode: "ci", sha: SHA, slug: ci.slug, checks: ci.checks }, null, 2)}\n`);
+  } else {
+    fail(`required CI checks are not green on ${SHA} (${ci.state}): ${ci.problems.join("; ")}`);
+    process.stderr.write(`release-gate: fix: ${ci.fix}\n`);
+  }
+} else {
+  say("[2/5] tests");
+  const tests = runNpm(["run", "test:gate", "--prefix", "plugins/cool-workflow"], { CW_TEST_CONCURRENCY: "1" });
+  if (tests.error || tests.status !== 0) {
+    fail("tests failed");
+    reportNpmFailure("tests", tests);
+  }
 }
 
 if (PREV_TAG) {
@@ -176,6 +211,7 @@ for (const B of candidateBranches) {
 // --- Verdict ------------------------------------------------------------
 if (FAIL !== 0) {
   fs.rmSync(path.join(MARKER_DIR, `gate-${SHA}.ok`), { force: true });
+  fs.rmSync(CI_EVIDENCE, { force: true });
   say(`RELEASE GATE: REJECTED (${SHA})`);
   process.exit(1);
 }

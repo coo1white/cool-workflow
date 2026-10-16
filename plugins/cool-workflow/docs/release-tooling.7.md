@@ -227,6 +227,8 @@ npm run release -- 0.2.4
 npm run release:doctor -- 0.2.4
 # check only (gate + independent review, no mutation):
 node plugins/cool-workflow/scripts/release-flow.js --check
+# the same, with the full test suite run on this machine (CI cannot be reached):
+node plugins/cool-workflow/scripts/release-flow.js --check --local-tests
 # cut a tag once review is green (when --push, also creates the GitHub Release):
 node plugins/cool-workflow/scripts/release-flow.js --cut --version 0.1.77 [--push] [--no-release]
 # run ONLY the cut's fail-fast preflight (seconds; used by release-oneclick.js):
@@ -247,6 +249,58 @@ deliberate re-cut). The push at the end moves ONLY `refs/tags/vX.Y.Z`: the
 verdict commit is a one-hop leaf on the reviewed commit, reachable through
 the tag alone, so main's branch protection is never in the path and no
 stray remote branch is created.
+
+### The gate's test step: the green CI checks on the reviewed commit
+
+(New default from 0.4.0; the operator's yes is in
+`project/docs/intent/2026-10-16-release-gate-ci.md`.)
+
+The gate (`scripts/release-gate.js`) has five steps: build, tests,
+substance, test evidence, branch naming. By default `release-flow.js` (and
+so `npm run release`) runs the gate as `release-gate.js --tests-from-ci`:
+the tests step does NOT run `npm run test:gate` on the operator's machine.
+It reads GitHub's check runs for the exact HEAD sha
+(`gh api repos/<owner>/<repo>/commits/<sha>/check-runs`, owner and repo from
+the `origin` remote) and passes only when every required check is there,
+made by GitHub Actions for that sha, `completed`, with conclusion
+`success`. The required checks are the ones `main`'s branch protection
+requires, `check (18)` and `check (22)` (the ubuntu legs of `ci.yml`'s
+`check` job). They are named in one place, `REQUIRED_CHECKS` in
+`scripts/release-ci-checks.js`, and `test/ci-shape-gate-smoke.js` fails when
+a name there is not a leg of that job. The other four steps still run
+locally; they take seconds.
+
+It fails closed. A check that is missing, queued, in progress, failed,
+cancelled, skipped or timed out; two runs of one check where one is not
+green; a `gh` that is not installed, not logged in, or gives an error; an
+`origin` that is not on github.com; a reply that is not JSON — each one
+fails the gate with the reason and its fix (wait for CI, push the commit,
+fix the red check in a normal PR), and nothing falls back to a local run.
+On a pass the gate writes `.cw-release/gate-ci-<sha>.json` (not tracked)
+with the checks and their run URLs. `release-flow.js` takes it back, fails
+closed when it is missing or does not show every required check green on
+HEAD, and puts the mode and the run URLs into the reviewer input. Its last
+JSON object gets a `gateTests` key: `ci`, `local`, or `override` (the gate
+was replaced by `CW_RELEASE_FLOW_GATE_CMD`).
+
+`npm run release -- X.Y.Z` first waits, in its cut stage, for the required
+checks on the cut commit (deadline 45 minutes): a bump PR merged a minute
+earlier has its `main` CI still running. A red check stops the release
+there, before the gate.
+
+The old way is an opt-in, for when CI cannot be reached:
+
+```bash
+node scripts/release-flow.js --cut --version X.Y.Z --push --local-tests
+npm run release -- X.Y.Z --local-tests
+CW_RELEASE_LOCAL_TESTS=1 npm run release -- X.Y.Z
+```
+
+With it, the gate runs the full `test:gate` suite here, as before 0.4.0,
+and GitHub is not asked. `release-gate.js` run by hand, with no flag, is
+also unchanged: the tag-push gate in `release.yml` runs the full suite in
+CI. Test seam: `CW_RELEASE_GATE_GH_CMD` puts a stub in place of the `gh`
+binary the gate runs (spawned `shell:false`).
 
 ### release:doctor
 
@@ -381,11 +435,11 @@ steps, with cwd `plugins/cool-workflow`:
 npm run build
 npm run version:sync
 CW_AGENT_COMMAND="node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.js {{input}}" \
-  node scripts/release-flow.js --check
+  node scripts/release-flow.js --check --local-tests
 node scripts/dogfood-release.js --smoke
 ```
 
-`--check` runs the full deterministic gate (build, `test:gate`, substance,
+`--check --local-tests` runs the full deterministic gate (build, `test:gate`, substance,
 test evidence, branch naming; on a PR the branch name is `GITHUB_HEAD_REF`),
 then the reviewer spawn and the verdict check. The reviewer is a stub that
 gives `APPROVED <HEAD>` and fails closed on a bad prompt file; it is never
@@ -393,7 +447,9 @@ a real review. The job has no signing key and does no tag, push, or
 publish. It does not run the `--cut` preflight: with
 `.cw-release/verdict-signing.pub` committed, that preflight needs the
 operator's private key, which never goes into CI. It is not a required
-check.
+check. It must pass `--local-tests`: it runs beside the `check` jobs on the
+same commit, so it cannot wait for them to be green (`ci-shape-gate-smoke`
+holds this).
 
 ### npm publishing trust
 

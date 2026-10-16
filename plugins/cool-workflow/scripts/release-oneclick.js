@@ -4,7 +4,7 @@
 // release-oneclick.js — the operator's ONE command for a full release.
 //
 //   npm run release -- X.Y.Z
-//   node scripts/release-oneclick.js X.Y.Z [--dry-run]
+//   node scripts/release-oneclick.js X.Y.Z [--dry-run] [--local-tests]
 //
 // This is a pure orchestrator over EXISTING tools (release-flow.js,
 // bump-version.js, sync-project-index.js, gh, git) — it adds no new release
@@ -29,8 +29,14 @@
 //                    gate/vendor-preflight/reviewer spend anything)
 //   1. bump PR     — only if package.json is not already at the target
 //                    version; skipped when the agent's prep PR already landed
-//   2. cut         — release-flow.js --cut --version X --push (gate, live
-//                    vendor preflight, reviewer, sign, tag-only push, Release)
+//   2. cut         — first wait (deadline 45 min) for the required CI checks
+//                    on the cut commit (scripts/release-ci-checks.js); a red
+//                    check stops the release. Then release-flow.js --cut
+//                    --version X --push (gate, whose test step takes those
+//                    green checks in place of a local suite run; live vendor
+//                    preflight, reviewer, sign, tag-only push, Release).
+//                    --local-tests (or CW_RELEASE_LOCAL_TESTS=1) skips the
+//                    wait and runs the full suite locally, as before.
 //   3. record+wait — PR landing the verdict+.sig onto main (informational,
 //                    no gate implications) + poll release/npm-publish +
 //                    confirm `npm view` shows the new version
@@ -51,6 +57,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 const { runChecks, formatFindings } = require("./release-preflight.js");
+const { queryRequiredChecks, REQUIRED_CHECKS } = require("./release-ci-checks.js");
 
 const scriptsDir = __dirname;
 const pluginRoot = path.resolve(scriptsDir, "..");
@@ -58,6 +65,7 @@ const repoRoot = path.resolve(pluginRoot, "..", "..");
 
 const argv = process.argv.slice(2);
 const DRY_RUN = argv.includes("--dry-run");
+const LOCAL_TESTS = argv.includes("--local-tests") || process.env.CW_RELEASE_LOCAL_TESTS === "1";
 const version = argv.find((a) => /^\d+\.\d+\.\d+$/.test(a));
 
 const GIT_BIN = (process.env.CW_ONECLICK_GIT_CMD || "git").trim();
@@ -110,7 +118,7 @@ function poll({ label, timeoutMs, intervalMs, probe }) {
 }
 
 if (!version) {
-  die("usage: node scripts/release-oneclick.js X.Y.Z [--dry-run]");
+  die("usage: node scripts/release-oneclick.js X.Y.Z [--dry-run] [--local-tests]");
 }
 
 // ---- resume detection (before anything else) --------------------------------
@@ -296,17 +304,48 @@ function runBumpStage() {
 }
 
 // ---- stage 2: cut ------------------------------------------------------------
+// The gate's test step reads the required CI checks on the cut commit. A
+// bump PR merged a minute ago has its main CI still running, so wait for the
+// checks here (with a deadline) rather than let the gate refuse a commit
+// that is only not done yet. A red check stops the release at once.
+function waitForRequiredChecks(sha) {
+  say(`waiting for the required CI checks (${REQUIRED_CHECKS.join(", ")}) on ${sha}...`);
+  let last = "";
+  poll({
+    label: "required CI checks wait",
+    timeoutMs: 45 * 60 * 1000,
+    intervalMs: 20000,
+    probe: () => {
+      const ci = queryRequiredChecks({ repoRoot, sha, ghBin: GH_BIN, gitBin: GIT_BIN });
+      if (ci.ok) return { done: true };
+      if (ci.state === "failure") {
+        die(`a required CI check is red on ${sha} — the release stops here (nothing was tagged).`, `${ci.problems.join("\n")}\nfix:  ${ci.fix}`);
+      }
+      if (ci.state === "error") return { error: true };
+      const now = ci.problems.join("; ");
+      if (now !== last) say(`  ${ci.state}: ${now}`);
+      last = now;
+      return {};
+    }
+  });
+  say("required CI checks: all green.");
+}
+
 function runCutStage() {
   stage(2, "cut (gate + vendor preflight + reviewer + sign + tag + push)");
+  const flowArgs = ["scripts/release-flow.js", "--cut", "--version", version, "--push"];
+  if (argv.includes("--local-tests")) flowArgs.push("--local-tests");
   if (DRY_RUN) {
-    say(`[dry-run] would: node scripts/release-flow.js --cut --version ${version} --push`);
+    if (!LOCAL_TESTS) say(`[dry-run] would: wait for the required CI checks (${REQUIRED_CHECKS.join(", ")}) on the origin/main tip.`);
+    say(`[dry-run] would: node ${flowArgs.join(" ")}`);
     return;
   }
   git(["fetch", "origin", "main", "--quiet"], { cwd: repoRoot });
   const co = git(["checkout", "-B", `release/v${version}-cut`, "origin/main"], { cwd: repoRoot });
   if (co.code !== 0) die("could not branch from origin/main for the cut", co.err);
+  if (!LOCAL_TESTS) waitForRequiredChecks(git(["rev-parse", "HEAD"]).out);
 
-  const r = spawnSync("node", ["scripts/release-flow.js", "--cut", "--version", version, "--push"], {
+  const r = spawnSync("node", flowArgs, {
     cwd: pluginRoot,
     encoding: "utf8",
     stdio: "inherit"
