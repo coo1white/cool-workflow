@@ -140,6 +140,30 @@ try {
     assert.equal(ok.id, "safe-id-1", "a safe injected run id still works");
   });
 
+  // ===== 5. a run reached through a symlink keeps its stored paths =====
+  // (macOS: /var is a symlink to /private/var, so a run planned under the
+  // real path and loaded under the link must print the same paths.)
+  section("5", () => {
+    const repo = makeRepo("symlink");
+    const run = planRun(repo);
+    const link = path.join(root, "symlink", "repo-link");
+    fs.symlinkSync(repo, link, "dir");
+    const stored = readState(run.paths.state);
+    // One stored path whose file is not there yet: the nearest real parent
+    // is compared.
+    assert.equal(fs.existsSync(stored.paths.candidatesDir), false);
+
+    const viaLink = loadRunFromCwd(run.id, link);
+    assert.equal(JSON.stringify(viaLink.paths), JSON.stringify(stored.paths), "stored paths are kept byte-for-byte through a symlink");
+    assert.equal(JSON.stringify(viaLink.audit), JSON.stringify(stored.audit), "stored audit paths are kept byte-for-byte through a symlink");
+    const viaRegistry = new RunRegistry(link, undefined, env).loadRun(link, run.id);
+    assert.equal(JSON.stringify(viaRegistry.paths), JSON.stringify(stored.paths), "RunRegistry.loadRun keeps them too");
+
+    const res = cw(["report", run.id, "--cwd", link, "--json"], repo);
+    assert.equal(res.status, 0, res.stderr);
+    assert.ok(res.stdout.includes(JSON.stringify(stored.paths.report).slice(1, -1)), `report path printed as stored\n${res.stdout}`);
+  });
+
   if (failures.length) {
     for (const failure of failures) console.error(`not ok ${failure}`);
     process.exitCode = 1;

@@ -78,8 +78,12 @@ to write:
 - A `state.json` in a cloned repo cannot point `paths.report` (or any
   other path) out of its run folder; `cw report` writes only inside it.
 - A repo that was moved writes into its new place, not the old one.
-- Stored paths that are already right come back byte-identical, so a
-  normal run saves the same bytes as before. A stored `paths` key that
+- A stored path that names the same real place as the rebuilt one is
+  kept byte for byte, also when the two strings differ only by a symlink
+  (for one, macOS `/var` and `/private/var`). CW checks this with the
+  real path of the file, or of its nearest parent that is there. So a
+  normal run prints and saves the same bytes as before. A stored path
+  that names any other place is replaced, and a stored `paths` key that
   CW does not make is dropped on load.
 
 The report head (`# <title>`, `- Workflow:`, `- Question:`, and the other

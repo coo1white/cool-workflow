@@ -42,4 +42,19 @@ const runDir = "/repo/.cw/runs/demo-run";
   assert.deepEqual(run.audit, { schemaVersion: 1 });
 }
 
+// A sameLocation answer of yes keeps the stored string; no replaces it.
+{
+  const linked = createRunPaths("/link/.cw/runs/demo-run");
+  const run = {
+    paths: { ...linked, report: "/elsewhere/report.md" },
+    audit: { schemaVersion: 1, eventLogPath: path.join(linked.auditDir, "events.jsonl") },
+  };
+  const same = (stored, rebuilt) => stored.replace(/^\/link\//, "/repo/") === rebuilt;
+  rebindRunPaths(run, runDir, same);
+  assert.equal(run.paths.runDir, linked.runDir, "same place: stored string kept");
+  assert.equal(run.paths.state, linked.state);
+  assert.equal(run.paths.report, path.join(runDir, "report.md"), "other place: rebuilt");
+  assert.equal(run.audit.eventLogPath, path.join(linked.auditDir, "events.jsonl"));
+}
+
 console.log("rebind-run-paths: ok");

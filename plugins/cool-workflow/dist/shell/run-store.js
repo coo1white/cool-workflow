@@ -44,7 +44,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rebindRunPaths = exports.createRunPaths = void 0;
+exports.createRunPaths = void 0;
+exports.sameRealLocation = sameRealLocation;
+exports.rebindRunPaths = rebindRunPaths;
 exports.ensureRunDirs = ensureRunDirs;
 exports.hashArtifactFile = hashArtifactFile;
 exports.loadRunStateFile = loadRunStateFile;
@@ -66,10 +68,45 @@ const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
 const run_paths_1 = require("../core/state/run-paths");
 Object.defineProperty(exports, "createRunPaths", { enumerable: true, get: function () { return run_paths_1.createRunPaths; } });
-Object.defineProperty(exports, "rebindRunPaths", { enumerable: true, get: function () { return run_paths_1.rebindRunPaths; } });
 const migrations_1 = require("../core/state/migrations");
 const hash_1 = require("../core/hash");
 const trust_audit_1 = require("./trust-audit");
+/** The real place an absolute, normalized path names: realpath of the path
+ *  when it is there, else realpath of its nearest existing parent plus the
+ *  rest of the segments. undefined for a relative or not-normalized path
+ *  (a `..` cannot be followed lexically across a symlink) or on any error. */
+function realLocation(value) {
+    if (!path.isAbsolute(value) || path.normalize(value) !== value)
+        return undefined;
+    try {
+        let existing = value;
+        const rest = [];
+        while (!fs.existsSync(existing)) {
+            const parent = path.dirname(existing);
+            if (parent === existing)
+                return undefined;
+            rest.unshift(path.basename(existing));
+            existing = parent;
+        }
+        return path.join(fs.realpathSync.native(existing), ...rest);
+    }
+    catch {
+        return undefined;
+    }
+}
+/** SameLocation for rebindRunPaths: the two paths name one real place
+ *  (the same file or folder through a symlink). Fails closed: a path whose
+ *  real place cannot be found is never the same. */
+function sameRealLocation(stored, rebuilt) {
+    const a = realLocation(stored);
+    return a !== undefined && a === realLocation(rebuilt);
+}
+/** rebindRunPaths with the symlink-aware sameRealLocation: stored paths
+ *  that name the run's real folder are kept byte for byte (POLA for
+ *  printed paths); any other stored path is replaced. */
+function rebindRunPaths(run, runDir) {
+    return (0, run_paths_1.rebindRunPaths)(run, runDir, sameRealLocation);
+}
 /** `mkdirSync` (recursive) every always-written directory. `artifacts`,
  *  `feedback`, `candidates`, `multi-agent`, `blackboard`, and `topologies`
  *  are made on first use instead, each by its own writer in shell/. */
@@ -211,7 +248,7 @@ function loadRunFromCwd(runId, cwd = process.cwd()) {
     if (result.report.status === "unsupported") {
         throw new Error(`Unsupported CW run state: ${result.report.errors.join("; ")}`);
     }
-    (0, run_paths_1.rebindRunPaths)(result.run, path.resolve(path.dirname(statePath)));
+    rebindRunPaths(result.run, path.resolve(path.dirname(statePath)));
     assertNotSuspectedDataLoss(runId, result);
     return result.run;
 }
