@@ -65,7 +65,7 @@ function contract(files) {
 {
   const report = contract([
     "plugins/cool-workflow/src/shell/drive.ts",
-    "v2/conformance/cases/locale-independent-ordering.case.js"
+    "v2/conformance/cases/lockstale-steal-and-respect.case.js"
   ]);
   assert.ok(!codes(report).includes("runtime-smoke-required"), codes(report).join(", "));
 }

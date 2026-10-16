@@ -130,11 +130,11 @@ function main() {
 
   // ---- 6. runtime imports still valid -----------------------------------------
   // v2 module renames of the old flat/orchestrator paths:
-  //   dist/candidate-scoring.js            -> dist/core/multi-agent/candidate-scoring.js
   //   dist/orchestrator/migration-operations.js -> dist/shell/state-cli.js (migration surface)
   //   dist/orchestrator/lifecycle-operations.js (recordResult) -> dist/shell/pipeline-cli.js (recordResultRun)
+  // (dist/core/multi-agent/candidate-scoring.js went with the multi-agent
+  // family, slim-and-esm step 2.)
   {
-    require(path.join(pluginRoot, "dist", "core", "multi-agent", "candidate-scoring.js"));
     const { migrationCheck } = require(path.join(pluginRoot, "dist", "shell", "state-cli.js"));
     assert.equal(typeof migrationCheck, "function", "state-cli exposes the migration surface");
     assert.equal(typeof recordResultRun, "function", "pipeline-cli exposes recordResultRun");

@@ -22,7 +22,7 @@ function main() {
     evidencePath,
     [
       "# Golden Evidence",
-      "The golden path evidence file proves the worker result and candidate score are backed by a stable file:line locator.",
+      "The golden path evidence file proves the worker result and verifier-gated commit are backed by a stable file:line locator.",
       ""
     ].join("\n"),
     "utf8"
@@ -114,69 +114,12 @@ function main() {
     assert.equal(verifierNode.status, "verified");
     assert.ok(verifierNode.evidence.some((entry) => entry.locator === evidenceLocator));
 
-    const candidate = runJson(
-      ["candidate", "register", plan.runId, "--worker", workerId, "--id", "golden-candidate"],
-      tmp
-    );
-    assert.equal(candidate.id, "golden-candidate");
-    assert.equal(candidate.workerId, workerId);
-    assert.equal(candidate.status, "registered");
-    assert.equal(candidate.resultNodeId, resultNode.id);
-    assert.equal(candidate.verifierNodeId, verifierNode.id);
-    assert.ok(fs.existsSync(path.join(tmp, ".cw", "runs", plan.runId, "candidates", "golden-candidate", "candidate.json")));
-
-    const score = runJson(
-      [
-        "candidate",
-        "score",
-        plan.runId,
-        "golden-candidate",
-        "--criterion",
-        "correctness=4",
-        "--criterion",
-        "evidence=4",
-        "--criterion",
-        "fit=2",
-        "--maxTotal",
-        "10",
-        "--evidence",
-        evidenceLocator
-      ],
-      tmp
-    );
-    assert.equal(score.candidateId, "golden-candidate");
-    assert.equal(score.total, 10);
-    assert.equal(score.normalized, 1);
-    assert.equal(score.verdict, "pass");
-    assert.ok(
-      fs.existsSync(path.join(tmp, ".cw", "runs", plan.runId, "candidates", "golden-candidate", "scores", `${score.id}.json`))
-    );
-
-    const ranking = runJson(["candidate", "rank", plan.runId], tmp);
-    assert.equal(ranking.candidates[0].candidateId, "golden-candidate");
-    assert.equal(ranking.candidates[0].rank, 1);
-    const rankingPath = path.join(tmp, ".cw", "runs", plan.runId, "candidates", "ranking.json");
-    assert.ok(fs.existsSync(rankingPath));
-
-    const selection = runJson(
-      ["candidate", "select", plan.runId, "golden-candidate", "--reason", "golden path verified"],
-      tmp
-    );
-    assert.equal(selection.candidateId, "golden-candidate");
-    assert.equal(selection.verifierNodeId, verifierNode.id);
-    assert.equal(selection.scoreId, score.id);
-    assert.ok(selection.evidence.length > 0);
-
-    state = readJson(plan.statePath);
-    const verifiedCandidate = state.candidates.find((entry) => entry.id === "golden-candidate");
-    assert.equal(verifiedCandidate.status, "verified");
-
     const commitResult = runJson(
       [
         "commit",
         plan.runId,
-        "--selection",
-        selection.id,
+        "--verifier",
+        verifierNode.id,
         "--reason",
         "golden path verifier-gated commit"
       ],
@@ -185,8 +128,6 @@ function main() {
     assert.equal(commitResult.runId, plan.runId);
     assert.equal(commitResult.commit.verifierGated, true);
     assert.equal(commitResult.commit.checkpoint, false);
-    assert.equal(commitResult.commit.selectionId, selection.id);
-    assert.equal(commitResult.commit.candidateId, "golden-candidate");
     assert.equal(commitResult.commit.verifierNodeId, verifierNode.id);
     assert.ok(commitResult.commit.evidence.some((entry) => entry.locator === evidenceLocator));
     assert.ok(fs.existsSync(commitResult.commit.snapshotPath));
@@ -196,10 +137,7 @@ function main() {
     assert.ok(fs.existsSync(reportPath));
     const report = fs.readFileSync(reportPath, "utf8");
     assert.match(report, /Workflow App: end-to-end-golden-path@0\.3\.0/);
-    assert.match(report, /## Candidates/);
     assert.match(report, /## Trust Audit/);
-    assert.match(report, /## Acceptance Rationale/);
-    assert.match(report, /golden-candidate/);
     assert.match(report, /verifier-gated commit/);
     assert.match(report, /golden path verifier-gated commit/);
 
@@ -208,8 +146,6 @@ function main() {
     assert.equal(finalCommit.id, commitResult.commit.id);
     assert.equal(finalCommit.verifierGated, true);
     assert.equal(finalCommit.checkpoint, false);
-    assert.equal(finalCommit.selectionId, selection.id);
-    assert.equal(finalCommit.candidateId, "golden-candidate");
     assert.equal(finalCommit.verifierNodeId, verifierNode.id);
     assert.ok(finalCommit.evidence.some((entry) => entry.locator === evidenceLocator));
     assert.equal((state.feedback || []).length, 0);
@@ -221,8 +157,7 @@ function main() {
       statePath: plan.statePath,
       reportPath,
       workerId,
-      candidateId: "golden-candidate",
-      selectionId: selection.id,
+      verifierNodeId: verifierNode.id,
       commitId: finalCommit.id,
       evidence: [evidenceLocator, reportPath, finalCommit.snapshotPath]
     };

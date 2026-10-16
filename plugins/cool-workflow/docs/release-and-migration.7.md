@@ -128,11 +128,43 @@ provenance, release candidate, score, selection, and verifier-gated
 commit/checkpoint. `npm run release:check` includes the dogfood smoke test so
 the wiring stays covered without running the full release gate inside itself.
 
-For v0.1.17, release discipline added Multi-Agent Runtime Core coverage.
-`npm run release:check` runs `test/multi-agent-runtime-core-smoke.js` directly
-and through `npm test`. Older fixture runs normalize with empty multi-agent
-state under `multiAgent` and `.cw/runs/<run-id>/multi-agent/`, while unknown
-user data stays kept.
+For v0.1.17, release discipline added Multi-Agent Runtime Core coverage
+(the multi-agent runtime core smoke, taken out with the multi-agent family;
+see "Removed Surfaces" below). Older fixture runs normalize with empty
+multi-agent state under `multiAgent`, while unknown user data stays kept.
+
+## Removed Surfaces: The Multi-Agent Family
+
+The multi-agent family was taken out (slim-and-esm program, step 2; the
+operator's yes of 2026-09-28 is in
+`project/docs/intent/2026-09-28-slim-and-esm.md`, decision D1). These are no
+longer part of CW, on the CLI or over MCP:
+
+- CLI verbs: `cw multi-agent`, `cw topology`, `cw blackboard`,
+  `cw coordinator`, `cw candidate`, `cw eval`, `cw summary`, `cw approve`,
+  `cw reject`, `cw comment`, `cw handoff`, `cw review`, and the audit views
+  `cw audit multi-agent|policy|role|blackboard|judge`. Each now fails closed:
+  `Unknown command` (or the `cw audit` usage line), exit 1.
+- MCP tools: the 75 `cw_multi_agent_*`, `cw_topology_*`, `cw_blackboard_*`,
+  `cw_coordinator_*`, `cw_candidate_*`, `cw_eval_*`, `cw_summary_*`,
+  `cw_evidence_reasoning*`, `cw_approve`, `cw_reject`, `cw_comment_*`,
+  `cw_handoff`, `cw_review_*` and `cw_audit_multi_agent|policy|role|blackboard|judge`
+  tools. `tools/list` with `CW_MCP_TOOLS=full` now names 123 tools.
+- `cw commit` keeps its verifier gate and evidence check, but takes no
+  `--candidate`/`--selection` and has no review gate.
+- `cw dispatch` takes no `--multi-agent-*` flags.
+- report.md has no State Size & Compaction, Multi-Agent Runtime,
+  Blackboard / Coordinator, Acceptance Rationale, or Candidates part.
+- `cw operator status --json` has no `candidates`, `multiAgent`,
+  `multiAgentOperator`, `multiAgentTrust`, or `blackboard` keys; the
+  Workbench run view has the graph, worker, metrics, and audit panels only.
+- The `pdca-blackboard-loop` example app.
+
+A state file written by an older CW with `multiAgent`, `blackboard`,
+`topologies`, `candidates`, or `candidateSelections` data still loads,
+checks, reports, exports, and resumes. Those fields are kept as data, just as
+CW keeps any other user data; no command reads them as live state any more.
+`test/legacy-multi-agent-state-smoke.js` holds this.
 
 ## Unsupported Cases
 
@@ -203,17 +235,11 @@ current source. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
 
-## Team Collaboration (v0.1.32)
+## Team Collaboration (v0.1.32, removed)
 
-v0.1.32 adds Team Collaboration: a host-attested actor and append-only
-approvals/rejections/comments/handoffs provenance-linked to a durable target,
-plus a review gate that STACKS ON the verifier gate — required approvals from
-authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
-and never in place of them, failing closed on quorum/authority/self-approval and
-recording who approved the very artifact that shipped. Policy (required approvals,
-authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
-unchanged). The verbs are parity-gated and render read-only in the v0.1.30
-Workbench. See [Team Collaboration](team-collaboration.7.md).
+v0.1.32 added Team Collaboration (approvals, rejections, comments, handoffs,
+and a review gate on the commit). It went with the multi-agent family; see
+release-and-migration(7), "Removed Surfaces".
 
 ## Release Tooling (v0.1.33)
 

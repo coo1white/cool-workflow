@@ -1,4 +1,0 @@
-# exit: 0
-cw approve
-
-  cw approve  Append a host-attested approval of a candidate/commit/selection.

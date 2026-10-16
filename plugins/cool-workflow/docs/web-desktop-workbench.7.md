@@ -1,9 +1,8 @@
 # Web / Desktop Workbench
 
 CW v0.1.30 adds the Web / Desktop Workbench: a console for people that shows
-a run's five operator surfaces — run graph, blackboard, worker logs, candidate
-compare, and audit timeline — plus a way in across runs over the v0.1.28 Run
-Registry. It is a THIRD FRONT DOOR, not a new brain.
+a run's operator surfaces — run graph, worker logs, audit timeline, and
+metrics — plus a way in across runs over the v0.1.28 Run Registry. It is a THIRD FRONT DOOR, not a new brain.
 
 Before v0.1.30 CW had no web/HTTP/UI surface at all: the CLI showed things at human
 speed and the MCP server (JSON-RPC over stdio) showed things for machine context. The
@@ -66,39 +65,36 @@ committed `dist/` and a plain `node` runtime keep working when the Workbench (an
 its static UI assets under `ui/workbench/`) is not there. The kernel imports the
 Workbench never; the Workbench imports the kernel.
 
-## The five panels
+## The four panel groups
 
 Each panel shows operator words that already exist, with the same names and
 meaning as the CLI (least surprise). For run `<id>`:
 
-1. RUN GRAPH — `cw graph <id> --json` (operator graph) plus
-   `cw multi-agent graph <id> [--view compact|critical-path] --json`. Backend
-   ids/attestations (v0.1.29) sit on the nodes; the critical path, failures,
-   missing evidence, and policy violations are never folded away.
-2. BLACKBOARD — `cw coordinator summary <id>`, `cw blackboard summarize <id>
-   --json`, and `cw blackboard graph <id>`: topics, messages, contexts,
-   artifacts, snapshots, decisions, conflicts, and adopted/missing evidence.
-3. WORKER LOGS — `cw worker summary <id> --json`: manifests, outputs, scoped
-   results, failures, and the recorded execution backend + sandbox attestation.
-4. CANDIDATE COMPARE — `cw candidate summary <id> --json` plus
-   `cw multi-agent reasoning <id> --json`: scores, selection, reasons for turning down,
-   and the v0.1.26 evidence-adoption reasoning chain (why adopted).
-5. AUDIT TIMELINE — `cw audit summary <id>`, `cw audit multi-agent <id> --json`,
-   `cw audit policy <id> --json`, and `cw audit judge <id> --json`: trust-audit
-   events, role policy decisions, provenance, judge/chair rationale, and policy
-   violations.
+1. RUN GRAPH (`graph.operator`) — `cw graph <id> --json` (operator graph).
+   Backend ids/attestations (v0.1.29) sit on the nodes; failures and
+   missing evidence are never folded away.
+2. WORKER LOGS (`worker.summary`) — `cw worker summary <id> --json`:
+   manifests, outputs, scoped results, failures, and the recorded execution
+   backend + sandbox attestation.
+3. AUDIT TIMELINE (`audit.summary`) — `cw audit summary <id> --json`:
+   trust-audit events, provenance, and the chain check.
+4. METRICS & COST (`metrics.report`) — `cw metrics show <id> --json`.
 
 The way in across runs lists/searches runs through the Run Registry (`cw registry show
---json` + `cw run list|search --json`); going into a run opens its seven tabs:
-the five panels above plus Metrics & cost and Review & collaboration.
+--json` + `cw run list|search --json`); going into a run opens its four tabs,
+one for each group above.
+
+The blackboard, candidate compare, and review & collaboration tabs, and the
+`graph.multiAgent|compact|criticalPath` and `audit.multiAgent|policy|judge`
+panels, went with the multi-agent family (see release-and-migration(7),
+"Removed Surfaces"). So did the strip of problems, missing evidence, and next
+command, which read only those panels.
 
 ## The face (v0.2.8)
 
 One look at a run answers three questions. A round stamp by the run id
-carries the lifecycle word (PASS, BLOCKED, FAILED, RUNNING); a strip above
-the tabs shows problems, missing evidence, and the next command, taken
-from panels already in the one payload; a blocked or failed run shows its
-recovery line first. Every panel's raw JSON is one line down, folded
+carries the lifecycle word (PASS, BLOCKED, FAILED, RUNNING); a blocked or
+failed run shows its recovery line first. Every panel's raw JSON is one line down, folded
 behind "raw payload", byte for byte the `--json` payload.
 
 The page itself is a Next 16.3.0 + React 19.2.8 static export, built in
@@ -108,18 +104,17 @@ it). Tailwind 4 + daisyUI 5 give the look; the two JSON routes below are
 unchanged, and the export ships no network call of its own. The theme
 follows the OS light/dark setting (daisyUI's `cool-dark`/`cool-light`
 pair), with a stored pick overriding it once a person picks one by hand.
-The seven tabs are unchanged: the five panels above plus Metrics & cost
-and Review & collaboration. `report.html` stays one plain, offline file,
+The tabs are the four panel groups above. `report.html` stays one plain, offline file,
 built by the same `report-html.ts` function as before.
 
 ## Explicit, inspectable, fail closed
 
 The Workbench shows freshness in a true way. When a source capability cannot be read
-(a run with no blackboard yet, or state that cannot be worked out), the panel is shown
+(state that cannot be worked out), the panel is shown
 `absent` with the true error — just what the CLI would report — and the view
 is `resolved: false`. It never makes up a view when source state cannot be read.
 The same `valid`/`stale`/`absent`/`missing` freshness the runtime already records
-(Run Registry, Evidence Adoption Reasoning Chain, state-explosion summaries) goes
+(Run Registry) goes
 through verbatim.
 
 ## Trust boundary
@@ -160,14 +155,14 @@ never actually binds a listener.)
 ## Surfaces
 
 ```
-cw workbench view <run-id> [--json]         # five-panel WorkbenchRunView for one run
+cw workbench view <run-id> [--json]         # WorkbenchRunView for one run
 cw workbench serve [--port N] [--scope repo|home] [--once|--json] [--require-token]
 ```
 
 The page address may name one run and one panel:
 
 ```text
-#run=<encoded-run-id>&tab=<graph|blackboard|worker|candidate|audit|metrics|collaboration>
+#run=<encoded-run-id>&tab=<graph|worker|audit|metrics>
 ```
 
 The `run` value is needed for a run view. With no `tab`, the page uses
@@ -203,7 +198,7 @@ GET /                       # static UI shell (dependency-light; absent -> JSON-
 GET /ui/*                   # static UI assets, read from disk
 GET /api/index              # registry show + run list/search (cross-run entry)
 GET /api/serve              # the serve descriptor
-GET /api/run/:runId         # the five-panel WorkbenchRunView
+GET /api/run/:runId         # the four-group WorkbenchRunView
 ```
 
 ## Version
@@ -227,17 +222,11 @@ verbs are parity-gated and show read-only in the v0.1.30 Workbench. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
 
-## Team Collaboration (v0.1.32)
+## Team Collaboration (v0.1.32, removed)
 
-v0.1.32 adds Team Collaboration: a host-attested actor and append-only
-approvals/rejections/comments/handoffs provenance-linked to a durable target,
-plus a review gate that STACKS ON the verifier gate — required approvals from
-authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
-and never in place of them, failing closed on quorum/authority/self-approval and
-recording who approved the very artifact that shipped. Policy (required approvals,
-authorized roles, self-approval) is data, off by default (pre-v0.1.32 behavior
-unchanged). The verbs are parity-gated and show read-only in the v0.1.30
-Workbench. See [Team Collaboration](team-collaboration.7.md).
+v0.1.32 added Team Collaboration (approvals, rejections, comments, handoffs,
+and a review gate on the commit). It went with the multi-agent family; see
+release-and-migration(7), "Removed Surfaces".
 
 ## Release Tooling (v0.1.33)
 

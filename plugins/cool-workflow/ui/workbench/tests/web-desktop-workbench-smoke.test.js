@@ -60,8 +60,9 @@ function canonical(value) {
   return JSON.stringify(value).replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, "<ts>");
 }
 
-// `cw summary show` (backing the graph.compact/graph.criticalPath panels)
-// calls saveCheckpoint on every read -- confirmed byte-exact old-build
+// `cw summary show` (which backed the graph.compact/graph.criticalPath
+// panels until those went with the multi-agent family, slim-and-esm step 2)
+// called saveCheckpoint on every read -- confirmed byte-exact old-build
 // behavior (the old orchestrator module's summaryShow did the same; its own comment
 // on the neighboring metricsShow method draws the contrast: "NEVER mutates
 // the run's own state.json (no saveCheckpoint), so the source -- and
@@ -147,12 +148,12 @@ async function main() {
   // v2: no runner facade — the view resolves the run from the given cwd.
   const view = buildWorkbenchRunView(runId, { cwd: workspace });
 
-  // ---- 1. shape + the five operator panels exist ---------------------------
+  // ---- 1. shape + the four operator panel groups exist ---------------------------
   assert.equal(view.schemaVersion, 1);
   assert.equal(view.surface, "workbench");
   assert.equal(view.runId, runId);
   assert.equal(view.resolved, true, "the bootstrapped run resolves");
-  for (const group of ["graph", "blackboard", "worker", "candidate", "audit", "metrics", "collaboration"]) {
+  for (const group of ["graph", "worker", "audit", "metrics"]) {
     assert.ok(view.panels[group], `panel group ${group} present`);
   }
 
@@ -161,9 +162,9 @@ async function main() {
   // payload of the capability that fills it — panel data can never drift from
   // the standalone command. In v2 the panel->capability map (PANEL_MAP in
   // src/shell/workbench.ts) was rebuilt with a different member layout than the
-  // old build (e.g. graph.compact/criticalPath now embed `summary show`, not
-  // `multi-agent graph --view ...`; candidate.reasoning now embeds `candidate
-  // summary`, not the old MCP-only `multi-agent reasoning`). So we no longer
+  // old build, and the multi-agent family's panels (blackboard, candidate,
+  // collaboration, graph.compact/criticalPath, audit.multiAgent/policy/judge)
+  // went in slim-and-esm step 2. So we no longer
   // hardcode the OLD command list — we derive each panel's expected CLI command
   // from its OWN declared capability in the v2 registry (the true no-drift
   // invariant), and compare panel.data to that command byte-for-byte.
@@ -179,30 +180,16 @@ async function main() {
   }
   const panels = [
     view.panels.graph.operator,
-    view.panels.graph.multiAgent,
-    view.panels.graph.compact,
-    view.panels.graph.criticalPath,
-    view.panels.blackboard.coordinator,
-    view.panels.blackboard.digest,
-    view.panels.blackboard.graph,
     view.panels.worker.summary,
-    view.panels.candidate.summary,
-    view.panels.candidate.reasoning,
     view.panels.audit.summary,
-    view.panels.audit.multiAgent,
-    view.panels.audit.policy,
-    view.panels.audit.judge,
-    view.panels.metrics.report,
-    view.panels.collaboration.review,
-    view.panels.collaboration.comments
+    view.panels.metrics.report
   ];
   const panelCliParity = panels.map((panel) => [panel, argvFor(panel.capability)]);
   // The metrics payload is time-dependent for an in-flight run —
   // `time.run.wallClockMs` (src/shell/observability.ts) and
   // `sourceFingerprint` (which folds run.updatedAt) legitimately drift
-  // between the in-process panel build and the fresh CLI subprocess, since
-  // `graph.compact`/`graph.criticalPath` are backed by `cw summary show`,
-  // which checkpoints on every read. Use canonicalStable, which neutralizes
+  // between the in-process panel build and the fresh CLI subprocess. Use
+  // canonicalStable, which neutralizes
   // exactly those two volatile fields so every OTHER field still compares
   // byte-for-byte.
   for (const [panel, argv] of panelCliParity) {
@@ -241,11 +228,8 @@ async function main() {
     const mcpServe = await mcp.tool("cw_workbench_serve", { cwd: workspace });
     // These three byte-parity assertions use canonicalStable (see its comment
     // above the panel loop): the metrics panel's `sourceFingerprint` and
-    // `wallClockMs` fold in `run.updatedAt`, which `cw summary show` legitimately
-    // bumps on every read (confirmed byte-exact old-build behavior, not a v2
-    // regression) — an in-process view that builds a graph panel and then a
-    // metrics panel sees a different `updatedAt` than a later fresh CLI/MCP
-    // call. Every OTHER field still compares byte-for-byte.
+    // `wallClockMs` fold in `run.updatedAt` and the clock, so an in-process
+    // view and a later fresh CLI/MCP call can see different values. Every OTHER field still compares byte-for-byte.
     assert.equal(canonicalStable(cliView), canonicalStable(mcpView), "cw workbench view --json === cw_workbench_view");
     assert.equal(canonical(cliServe), canonical(mcpServe), "cw workbench serve --once --json === cw_workbench_serve");
     // And the core view equals the CLI view (one source, two renderings).

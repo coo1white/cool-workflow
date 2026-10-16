@@ -10,8 +10,7 @@ report — and adds an added-on, host-attested usage record so cost can be
 worked out in an honest way — without changing the `ResultEnvelope` schema and without
 taking over the source truth.
 
-The design keeps to the same base-system observability idea as
-[State Explosion Management](state-explosion-management.7.md) and the
+The design keeps to the same base-system observability idea as the
 [Run Registry / Control Plane](run-registry-control-plane.7.md):
 
 - the per-run `.cw/runs/<id>/state.json` is the SINGLE source of truth
@@ -123,17 +122,11 @@ time and rate metrics from their existing timestamps and outcomes.
 This document targets CW 0.1.31.
 
 
-## Team Collaboration (v0.1.32)
+## Team Collaboration (v0.1.32, removed)
 
-v0.1.32 adds Team Collaboration: a host-attested actor and append-only
-approvals/rejections/comments/handoffs provenance-linked to a durable target,
-plus a review gate that STACKS ON the verifier gate — required approvals from
-authorized roles, made to hold inside `resolveCommitGate` AFTER the verifier checks
-and never in place of them, failing closed on quorum/authority/self-approval and
-recording who approved the very artifact that shipped. Policy (required approvals,
-authorized roles, self-approval) is data, default off (pre-v0.1.32 behavior
-unchanged). The verbs are parity-gated and render read-only in the v0.1.30
-Workbench. See [Team Collaboration](team-collaboration.7.md).
+v0.1.32 added Team Collaboration (approvals, rejections, comments, handoffs,
+and a review gate on the commit). It went with the multi-agent family; see
+release-and-migration(7), "Removed Surfaces".
 
 ## Release Tooling (v0.1.33)
 

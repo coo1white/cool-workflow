@@ -5,7 +5,8 @@
 // domain so the switch covers ~40+ previously-uncovered arms.
 // Light touch: verifies dispatch succeeds, does not crash.
 
-// All 65 tool calls execute successfully. Each exercises a dispatch path for
+// Every tool call below (bar the fail-closed unknown/removed-tool checks)
+// executes successfully. Each exercises a dispatch path for
 // that tool type. Assertions are intentionally NOT weakened. This smoke is green
 // when dispatch handlers are wired for all called tools, as they are today.
 const assert = require("node:assert/strict");
@@ -32,16 +33,11 @@ const pluginRoot = path.resolve(__dirname, "..");
   );
 }
 
-// ---- Topology (no run needed) ----
+// ---- Removed tools fail closed (the multi-agent family, slim-and-esm step 2) ----
 {
-  const listR = callTool("cw_topology_list", {});
-  assert.ok((listR), "topology list returns array");
-
-  const showR = callTool("cw_topology_show", { topologyId: "debate" });
-  assert.ok(showR, "topology show returns ok");
-
-  const valR = callTool("cw_topology_validate", { topologyId: "debate" });
-  assert.ok(valR, "topology validate returns ok");
+  for (const name of ["cw_topology_list", "cw_multi_agent_status", "cw_candidate_list", "cw_blackboard_summary", "cw_summary_show", "cw_audit_judge", "cw_review_status"]) {
+    assert.throws(() => callTool(name, {}), /Unknown tool/, `${name} is gone and fails closed`);
+  }
 }
 
 // ---- Apps (no run needed) ----
@@ -178,33 +174,14 @@ const pluginRoot = path.resolve(__dirname, "..");
   callTool("cw_contract_show", { runId, cwd: tmp });
   callTool("cw_node_list", { runId, cwd: tmp });
   callTool("cw_worker_summary", { runId, cwd: tmp });
-  callTool("cw_candidate_summary", { runId, cwd: tmp });
   callTool("cw_feedback_summary", { runId, cwd: tmp });
   callTool("cw_commit_summary", { runId, cwd: tmp });
-  callTool("cw_multi_agent_summary", { runId, cwd: tmp });
-  callTool("cw_multi_agent_graph", { runId, cwd: tmp });
-  callTool("cw_multi_agent_dependencies", { runId, cwd: tmp });
-  callTool("cw_multi_agent_failures", { runId, cwd: tmp });
-  callTool("cw_multi_agent_evidence", { runId, cwd: tmp });
-  callTool("cw_blackboard_summarize", { runId, cwd: tmp });
-  callTool("cw_multi_agent_summarize", { runId, cwd: tmp });
-  callTool("cw_summary_show", { runId, cwd: tmp });
-  callTool("cw_topology_summary", { runId, cwd: tmp });
-  callTool("cw_topology_graph", { runId, cwd: tmp });
-  callTool("cw_blackboard_summary", { runId, cwd: tmp });
-  callTool("cw_blackboard_graph", { runId, cwd: tmp });
-  callTool("cw_coordinator_summary", { runId, cwd: tmp });
   callTool("cw_audit_summary", { runId, cwd: tmp });
-  callTool("cw_audit_multi_agent", { runId, cwd: tmp });
-  callTool("cw_audit_policy", { runId, cwd: tmp });
-  callTool("cw_audit_blackboard", { runId, cwd: tmp });
-  callTool("cw_audit_judge", { runId, cwd: tmp });
   callTool("cw_metrics_show", { runId, cwd: tmp });
   callTool("cw_report", { runId, cwd: tmp });
   callTool("cw_workbench_view", { runId, cwd: tmp });
   callTool("cw_feedback_list", { runId, cwd: tmp });
   callTool("cw_worker_list", { runId, cwd: tmp });
-  callTool("cw_candidate_list", { runId, cwd: tmp });
   callTool("cw_run_show", { runId, cwd: tmp });
 };
 

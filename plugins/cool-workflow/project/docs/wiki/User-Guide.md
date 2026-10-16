@@ -115,8 +115,7 @@ commits/        state that passed the checks
 telemetry.json  the signed usage ledger
 ```
 
-Other directories (`blackboard/`, `candidates/`, `topologies/`,
-`feedback/`, a worker's `artifacts/` and `logs/`) exist only if a file
+Other directories (`feedback/`, a worker's `artifacts/` and `logs/`) exist only if a file
 was written into them. Before the fix a single run left 33 empty
 directories behind; the second test run left none.
 

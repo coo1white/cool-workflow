@@ -21,9 +21,10 @@ import {
 } from "../core/state/contract-migration";
 import { diffNodeSnapshots, verifyNodeReplay } from "../core/state/node-snapshot";
 import { nextDispatchTasks } from "../core/pipeline/dispatch";
+import { getRunContract } from "../core/pipeline/runner";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { StateMigrationReport } from "../core/state/migrations";
-import { WorkflowRun } from "../core/state/types";
+import { PipelineContract, WorkflowRun } from "../core/state/types";
 
 function optionalStringArg(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -155,6 +156,24 @@ export function nodeReplayCli(runId: string, snapshotId: string, options: Record
 export function nodeReplayVerifyCli(runId: string, replayId: string, options: Record<string, unknown> = {}) {
   const run = loadRun(runId, options);
   return verifyNodeReplay(run, readNodeReplay(run, replayId), options as { now?: string });
+}
+
+// ---------------------------------------------------------------------
+// contract.show
+// ---------------------------------------------------------------------
+
+/** First string of a CLI/MCP value: a trimmed string, or the first entry
+ *  of a repeated flag's array. */
+function firstStringArg(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : Array.isArray(value) && typeof value[0] === "string" ? value[0] : undefined;
+}
+
+/** `cw contract show <run> [contract-id]` / `cw_contract_show` — the run's
+ *  resolved pipeline contract. Port of the old runner.showContract. */
+export function contractShowCli(args: Record<string, unknown>, contractId?: string): PipelineContract {
+  const runId = firstStringArg(args.runId);
+  if (!runId) throw new Error("Missing run id");
+  return getRunContract(loadRun(runId, args), contractId ?? firstStringArg(args.contractId));
 }
 
 export { optionalStringArg };

@@ -73,7 +73,6 @@ assert.ok(registry.CAPABILITY_REGISTRY, "dist/core/capability-table.js must expo
 const GLOBAL_PROBES = [
   "list",
   "app.list",
-  "topology.list",
   "sandbox.list",
   "backend.list",
   "backend.agent.config.show",
@@ -91,15 +90,11 @@ const RUN_PROBES = [
   "node.list",
   "node.graph",
   "worker.summary",
-  "candidate.summary",
   "feedback.summary",
   "commit.summary",
   "audit.summary",
-  "multi-agent.summary",
   "workbench.view",
   "metrics.show",
-  "review.status",
-  "comment.list",
   "gc.plan",
   "gc.verify"
 ];

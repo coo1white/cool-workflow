@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 // This smoke drives the built dist/mcp-server.js over stdio, walking the
-// app -> worker -> candidate -> commit -> operator MCP surface: tools/list
-// reports the full tool set (src/core/capability-table.ts MCP_TOOL_DATA),
-// and each tool this smoke calls (cw_sandbox_choose, cw_app_run,
-// cw_worker_manifest, candidate.register, operator.status, worker.summary)
-// has a real handler.
+// app -> worker -> commit -> operator MCP surface: tools/list reports the
+// full tool set (src/core/capability-table.ts MCP_TOOL_DATA), and each tool
+// this smoke calls (cw_sandbox_choose, cw_app_run, cw_worker_manifest,
+// cw_commit, operator.status, worker.summary) has a real handler.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -74,14 +73,6 @@ function tool(name, args) {
       "cw_worker_manifest",
       "cw_worker_output",
       "cw_worker_validate",
-      "cw_candidate_list",
-      "cw_candidate_show",
-      "cw_candidate_register",
-      "cw_candidate_score",
-      "cw_candidate_rank",
-      "cw_candidate_select",
-      "cw_candidate_reject",
-      "cw_candidate_summary",
       "cw_sandbox_choose",
       "cw_commit",
       "cw_commit_summary",
@@ -172,55 +163,20 @@ function tool(name, args) {
     const workers = await tool("cw_worker_list", { cwd: tmp, runId: appRun.runId });
     assert.equal(workers.length, 1);
 
-    const candidate = await tool("cw_candidate_register", {
-      cwd: tmp,
-      runId: appRun.runId,
-      id: "mcp-candidate",
-      kind: "worker-output",
-      worker: workerId
-    });
-    assert.equal(candidate.id, "mcp-candidate");
-    const score = await tool("cw_candidate_score", {
-      cwd: tmp,
-      runId: appRun.runId,
-      candidateId: candidate.id,
-      criteria: { correctness: 4, evidence: 4, fit: 2 },
-      maxTotal: 10,
-      evidence: ["test/mcp-app-surface-smoke.js:1"],
-      verdict: "pass",
-      notes: "deterministic MCP smoke candidate"
-    });
-    assert.equal(score.normalized, 1);
-    const ranking = await tool("cw_candidate_rank", {
-      cwd: tmp,
-      runId: appRun.runId,
-      requireEvidence: true,
-      requireVerifierGate: true
-    });
-    assert.equal(ranking.candidates[0].candidateId, candidate.id);
-    const selection = await tool("cw_candidate_select", {
-      cwd: tmp,
-      runId: appRun.runId,
-      candidateId: candidate.id,
-      reason: "MCP smoke selected",
-      requireVerifierGate: true
-    });
-    assert.equal(selection.candidateId, candidate.id);
-    assert.equal(selection.verifierNodeId, worker.output.verifierNodeId);
-    const candidateSummary = await tool("cw_candidate_summary", { cwd: tmp, runId: appRun.runId });
-    assert.equal(candidateSummary.readyForCommit.length, 1);
-
     const commit = await tool("cw_commit", {
       cwd: tmp,
       runId: appRun.runId,
-      selection: selection.id,
+      verifier: worker.output.verifierNodeId,
       reason: "MCP smoke verifier-gated commit"
     });
     assert.equal(commit.verifierGated, true);
     assert.equal(commit.checkpoint, false);
-    assert.equal(commit.selectionId, selection.id);
+    assert.equal(commit.verifierNodeId, worker.output.verifierNodeId);
     assert.equal(commit.evidenceCount, 1);
     assert.ok(fs.existsSync(commit.snapshotPath));
+    // The candidate tools went with the multi-agent family (slim-and-esm
+    // step 2): the commit is gated on the worker's own verifier node.
+    assert.ok(!toolNames.has("cw_candidate_register"), "cw_candidate_register must be gone");
 
     const status = await tool("cw_operator_status", { cwd: tmp, runId: appRun.runId });
     assert.equal(status.runId, appRun.runId);

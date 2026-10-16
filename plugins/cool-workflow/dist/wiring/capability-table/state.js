@@ -1,9 +1,8 @@
 "use strict";
-// wiring/capability-table/state.ts — MILESTONE 3 (state kernel) + MILESTONE 4
-// (state-explosion summaries) CLI bindings: state.check, migration.list|
-// check|prove, node.list|show|graph|snapshot|diff|replay|replay.verify,
-// summary.refresh|show. Split out of core/capability-table.ts, byte-for-byte
-// (extracted with sed, not retyped).
+// wiring/capability-table/state.ts — MILESTONE 3 (state kernel) CLI
+// bindings: state.check, migration.list|check|prove, node.list|show|graph|
+// snapshot|diff|replay|replay.verify, contract.show. Split out of
+// core/capability-table.ts, byte-for-byte (extracted with sed, not retyped).
 Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
 const cli_args_1 = require("../../core/util/cli-args");
@@ -14,9 +13,6 @@ function loadReportViewCli() {
 }
 function loadStateCli() {
     return require("../../shell/state-cli");
-}
-function loadStateExplosionCli() {
-    return require("../../shell/state-explosion-cli");
 }
 // MILESTONE 3 (state kernel) CLI bindings: state.check, migration.list|
 // check|prove, node.list|show|graph|snapshot|diff|replay|replay.verify.
@@ -138,44 +134,13 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("node.snapshot").mcp.handler = (args)
 registry_core_1.REGISTRY_BY_CAPABILITY.get("node.diff").mcp.handler = (args) => loadStateCli().nodeDiffCli((0, cli_args_2.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), (0, cli_args_2.required)((0, cli_args_1.optionalArg)(args.baselineSnapshotId ?? args.baseline), "baseline snapshot id"), (0, cli_args_2.required)((0, cli_args_1.optionalArg)(args.candidateSnapshotId ?? args.candidate), "candidate snapshot id"), args);
 registry_core_1.REGISTRY_BY_CAPABILITY.get("node.replay").mcp.handler = (args) => loadStateCli().nodeReplayCli((0, cli_args_2.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), (0, cli_args_2.required)((0, cli_args_1.optionalArg)(args.snapshotId), "snapshot id"), args);
 registry_core_1.REGISTRY_BY_CAPABILITY.get("node.replay.verify").mcp.handler = (args) => loadStateCli().nodeReplayVerifyCli((0, cli_args_2.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), (0, cli_args_2.required)((0, cli_args_1.optionalArg)(args.replayId), "replay id"), args);
-// `contract.show` is not yet a declared MCP_TOOL_DATA row with a CLI peer
-// wired here (it IS in MCP_TOOL_DATA already); no milestone-3 conformance
-// case reaches it, so it is intentionally left on its placeholder handler
-// until a case demands it — avoids speculative, untested wiring.
-// ---------------------------------------------------------------------
-// MILESTONE 4 (state-explosion summaries) CLI bindings: summary.refresh,
-// summary.show. Handler BODIES live in shell/state-explosion-cli.ts
-// (impure — disk reads/writes summaries under the run dir); this table
-// only wires argv shape -> handler call, per cli/dispatch.ts's generic
-// executor contract. Per SPEC/state-core.md's CLI verbs section: without
-// `--json` both print `formatStateExplosionReport` text (jsonMode
-// "flag" — text by default, JSON under --json/--format json).
-// ---------------------------------------------------------------------
-const state_explosion_text_1 = require("../../core/format/state-explosion-text");
-const cli_args_3 = require("../../core/util/cli-args");
-(0, registry_core_1.attachCliBinding)("summary.refresh", {
-    path: ["summary", "refresh"],
-    jsonMode: "flag",
-    handler: (args) => {
-        const runId = (0, cli_args_2.required)(args.positionals[0], "run id");
-        const index = loadStateExplosionCli().summaryRefreshCli(runId, args.options);
-        // Byte-exact port of the old build's handleSummary "refresh": the
-        // human-text branch re-reads via a fresh summaryShow call rather than
-        // formatting the refresh's own index record (src/cli/handlers/
-        // operator.ts:118-127); only computed when actually needed, so a
-        // --json call does exactly the one read the old build's if/else did.
-        if ((0, cli_args_3.wantsJson)(args.options))
-            return { json: index };
-        return { json: index, text: (0, state_explosion_text_1.formatStateExplosionReport)(loadStateExplosionCli().summaryShowCli(runId, args.options)) };
-    },
+// `cw contract show <run> [contract-id]` / `cw_contract_show` — the run's
+// own pipeline contract. Moved here from the deleted multi-agent slice
+// (slim-and-esm step 2); same handler body, now in shell/state-cli.ts.
+(0, registry_core_1.attachCliBinding)("contract.show", {
+    path: ["contract", "show"],
+    jsonMode: "default",
+    handler: (args) => ({ json: loadStateCli().contractShowCli({ runId: (0, cli_args_2.required)(args.positionals[0], "run id"), ...args.options }, args.positionals[1]) }),
 });
-(0, registry_core_1.attachCliBinding)("summary.show", {
-    path: ["summary", "show"],
-    jsonMode: "flag",
-    handler: (args) => {
-        const runId = (0, cli_args_2.required)(args.positionals[0], "run id");
-        const report = loadStateExplosionCli().summaryShowCli(runId, args.options);
-        return { json: report, text: (0, state_explosion_text_1.formatStateExplosionReport)(report) };
-    },
-});
+registry_core_1.REGISTRY_BY_CAPABILITY.get("contract.show").mcp.handler = (args) => loadStateCli().contractShowCli(args);
 // ---------------------------------------------------------------------

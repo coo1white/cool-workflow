@@ -3,9 +3,8 @@
 //
 // MILESTONE 6+7 (combined). Byte-exact port of the old build's
 // dispatch module's IO half (worker-scope allocation, manifest file
-// write, state-node append). Multi-agent attachment and custom sandbox
-// profile persistence at dispatch (H7) are milestone 9's scope and are
-// no-ops here.
+// write, state-node append), plus custom sandbox profile persistence at
+// dispatch (H7).
 //
 // Evidence: SPEC/pipeline-run.md "Dispatch — dispatch module".
 
@@ -19,7 +18,6 @@ import { createStateNode, transitionStateNode } from "../core/state/state-node";
 import { appendRunNode, writeRunNode } from "./node-store";
 import { writeJson } from "./fs-atomic";
 import { allocateWorkerScope, writeWorkerManifest, getWorkerScope } from "./worker-isolation";
-import { attachDispatchToMultiAgent } from "./multi-agent-io";
 import { resolveBackendSelection } from "./execution-backend/registry";
 import { DEFAULT_SANDBOX_PROFILE_ID, resolveSandboxProfileById, sandboxContextForValidation, persistCustomSandboxProfile } from "./sandbox-profile";
 import { BackendSelection, ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types";
@@ -40,7 +38,6 @@ export interface DispatchManifest {
   backendId: string;
   backendSelection: BackendSelection;
   backendAttestation?: SandboxAttestation;
-  multiAgent?: Record<string, unknown>;
 }
 
 export interface DispatchOptions {
@@ -48,10 +45,6 @@ export interface DispatchOptions {
   backendId?: string;
   /** custom sandbox profile FILE (H7); persisted to run.customSandboxProfiles. */
   sandbox?: string;
-  multiAgentRunId?: string;
-  multiAgentGroupId?: string;
-  multiAgentRoleId?: string;
-  multiAgentFanoutId?: string;
 }
 
 export function createDispatchManifest(run: WorkflowRun, limit?: number, options: DispatchOptions = {}): DispatchManifest {
@@ -92,28 +85,10 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
 
   const selectedRunTasks = run.tasks.filter((t) => taskIds.has(t.id));
 
-  // Attach this dispatch to any active multi-agent run/group/role/fanout: the
-  // kernel binds each selected task to its membership and returns the multiAgent
-  // block that rides on the manifest + each task + run.dispatches, so a fanin can
-  // see its members. Byte-behavior port of the old build's dispatch attachment.
-  const multiAgentAttachment = attachDispatchToMultiAgent(run, {
-    multiAgentRunId: options.multiAgentRunId,
-    groupId: options.multiAgentGroupId,
-    roleId: options.multiAgentRoleId,
-    fanoutId: options.multiAgentFanoutId,
-    dispatchId,
-    tasks: selectedRunTasks,
-    sandboxProfileId,
-    concurrencyLimit: limit,
-  });
-
   for (const task of selectedRunTasks) {
     const worker = task.workerId ? getWorkerScope(run, String(task.workerId)) : undefined;
     if (worker) writeWorkerManifest(run, worker);
   }
-  const multiAgentBlock = multiAgentAttachment.multiAgent
-    ? { ...multiAgentAttachment.multiAgent, membershipIds: multiAgentAttachment.membershipIds }
-    : undefined;
 
   const dispatchNode = appendRunNode(
     run,
@@ -139,7 +114,7 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
     }
   }
 
-  run.dispatches.push({ id: dispatchId, phase: tasks[0].phase || "", taskIds: tasks.map((t) => t.id), manifestPath, createdAt: now, stateNodeId: dispatchNode.id, workerIds: selectedRunTasks.filter((t) => t.workerId).map((t) => String(t.workerId)), sandboxProfileId, backendId: backendSelection.backendId, ...(multiAgentBlock ? { multiAgent: multiAgentBlock } : {}) });
+  run.dispatches.push({ id: dispatchId, phase: tasks[0].phase || "", taskIds: tasks.map((t) => t.id), manifestPath, createdAt: now, stateNodeId: dispatchNode.id, workerIds: selectedRunTasks.filter((t) => t.workerId).map((t) => String(t.workerId)), sandboxProfileId, backendId: backendSelection.backendId });
   // Advance the run-level loop stage so operator status ("Stage: act") reflects
   // that work is dispatched — the standalone `cw dispatch` path, like the drive
   // loop, moves interpret→act. (Old build advanced it here.)
@@ -162,7 +137,6 @@ export function createDispatchManifest(run: WorkflowRun, limit?: number, options
     backendId: backendSelection.backendId,
     backendSelection,
     backendAttestation,
-    ...(multiAgentBlock ? { multiAgent: multiAgentBlock } : {}),
   };
   writeJson(manifestPath, manifest);
   return manifest;

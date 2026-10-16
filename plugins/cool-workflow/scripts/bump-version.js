@@ -227,17 +227,11 @@ function contentSurfaceFiles(next) {
     // README.md by scripts/sync-readme.js and shows the version via the live npm/release shields
     // badges, not a hand-maintained literal — so it is NOT a version-bump surface. After a bump,
     // `npm run sync:readme` keeps it byte-identical to the GitHub README (guarded by readme:check).
-    { path: "plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md",   needle: next, desc: "multi-agent CLI/MCP surface doc" },
-    { path: "plugins/cool-workflow/docs/multi-agent-operator-ux.7.md",       needle: next, desc: "multi-agent operator UX doc" },
-    { path: "plugins/cool-workflow/docs/multi-agent-eval-replay-harness.7.md", needle: next, desc: "multi-agent eval/replay doc" },
-    { path: "plugins/cool-workflow/docs/state-explosion-management.7.md",    needle: next, desc: "state explosion doc" },
-    { path: "plugins/cool-workflow/docs/evidence-adoption-reasoning-chain.7.md", needle: next, desc: "evidence reasoning doc" },
     { path: "plugins/cool-workflow/docs/cli-mcp-parity.7.md",                needle: next, desc: "CLI/MCP parity doc" },
     { path: "plugins/cool-workflow/docs/run-registry-control-plane.7.md",    needle: next, desc: "run registry doc" },
     { path: "plugins/cool-workflow/docs/execution-backends.7.md",            needle: next, desc: "execution backends doc" },
     { path: "plugins/cool-workflow/docs/web-desktop-workbench.7.md",         needle: next, desc: "workbench doc" },
     { path: "plugins/cool-workflow/docs/observability-cost-accounting.7.md", needle: next, desc: "observability doc" },
-    { path: "plugins/cool-workflow/docs/team-collaboration.7.md",            needle: next, desc: "team collaboration doc" },
     { path: "plugins/cool-workflow/docs/release-tooling.7.md",               needle: next, desc: "release tooling doc" },
     { path: "plugins/cool-workflow/docs/real-execution-backends.7.md",       needle: next, desc: "real execution backends doc" },
     { path: "plugins/cool-workflow/docs/node-snapshot-diff-replay.7.md",     needle: next, desc: "node snapshot doc" },

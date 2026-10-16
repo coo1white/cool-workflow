@@ -124,20 +124,13 @@ function openMcp() {
 
   {
     const plan = registry.payloadProbePlan();
-    const firstBatchScenarioCaps = ["plan", "app.package", "approve", "reject", "comment.add", "handoff", "review.policy"];
+    const firstBatchScenarioCaps = ["plan", "app.package"];
     const secondBatchScenarioCaps = [
       "app.show",
       "app.validate",
-      "topology.show",
-      "topology.validate",
-      "topology.apply",
-      "topology.summary",
-      "topology.graph",
       "sandbox.show",
       "sandbox.validate",
-      "sandbox.choose",
-      "summary.refresh",
-      "summary.show"
+      "sandbox.choose"
     ];
     const localRunScenarioCaps = [
       "worker.list",
@@ -146,13 +139,6 @@ function openMcp() {
       "worker.output",
       "worker.fail",
       "worker.validate",
-      "candidate.list",
-      "candidate.show",
-      "candidate.register",
-      "candidate.score",
-      "candidate.rank",
-      "candidate.select",
-      "candidate.reject",
       "feedback.list",
       "feedback.show",
       "feedback.collect",
@@ -173,7 +159,10 @@ function openMcp() {
     assert.deepEqual(plan.duplicateClassifications, [], "payload probe classification must not duplicate capabilities");
     assert.deepEqual(plan.invalidClassifications, [], "payload probe classification must only reference payload-identical capabilities");
     assert.ok(plan.targets.length > 30, "payload probe plan must grow beyond the original read-only coverage");
-    assert.equal(plan.targets.length, 73, "payload probe plan must include all local scenario target batches");
+    // 73 before the multi-agent family went (slim-and-esm step 2): its 24
+    // probe targets (topology/candidate/summary/review/comment/approve/
+    // reject/handoff and the candidate/multi-agent summaries) went with it.
+    assert.equal(plan.targets.length, 49, "payload probe plan must include all local scenario target batches");
     assert.ok(plan.deferred.length > 0, "complex payload-identical capabilities must be explicitly deferred with reasons");
     for (const deferred of plan.deferred) {
       assert.ok(deferred.reason && deferred.reason.trim(), `${deferred.capability}: deferred payload probe must record a reason`);
@@ -184,7 +173,7 @@ function openMcp() {
     }
     assert.equal(typeof registry.buildPayloadProbePlan, "function", "registry must expose the pure payload probe plan checker");
 
-    const classificationGuardCap = "topology.apply";
+    const classificationGuardCap = "sandbox.choose";
     const missingScenario = registry.buildPayloadProbePlan(
       plan.targets.filter((target) => target.capability !== classificationGuardCap),
       plan.deferred
@@ -245,34 +234,15 @@ function openMcp() {
       "app.show",
       "app.validate",
       "app.package",
-      "topology.show",
-      "topology.validate",
-      "topology.apply",
-      "topology.summary",
-      "topology.graph",
-      "summary.refresh",
-      "summary.show",
       "sandbox.show",
       "sandbox.validate",
       "sandbox.choose",
-      "approve",
-      "reject",
-      "comment.add",
-      "handoff",
-      "review.policy",
       "worker.list",
       "worker.show",
       "worker.manifest",
       "worker.output",
       "worker.fail",
       "worker.validate",
-      "candidate.list",
-      "candidate.show",
-      "candidate.register",
-      "candidate.score",
-      "candidate.rank",
-      "candidate.select",
-      "candidate.reject",
       "feedback.list",
       "feedback.show",
       "feedback.collect",
@@ -327,14 +297,8 @@ function openMcp() {
     "graph",
     "operator.report",
     "worker.summary",
-    "candidate.summary",
     "feedback.summary",
-    "commit.summary",
-    "multi-agent.summary",
-    "multi-agent.graph",
-    "multi-agent.dependencies",
-    "multi-agent.failures",
-    "multi-agent.evidence"
+    "commit.summary"
   ]) {
     const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === capability);
     assert.ok(cap && cap.mcp, `${capability}: registry entry must declare an MCP tool`);
@@ -397,8 +361,7 @@ function openMcp() {
     // global (run-less) reads are identical too.
     for (const [cliArgv, toolName] of [
       [["list"], "cw_list"],
-      [["app", "list"], "cw_app_list"],
-      [["topology", "list"], "cw_topology_list"]
+      [["app", "list"], "cw_app_list"]
     ]) {
       const cliOut = JSON.parse(execFileSync(node, [cli, ...cliArgv], { cwd: workspace, encoding: "utf8" }));
       const mcpOut = await mcp.tool(toolName, { cwd: workspace });

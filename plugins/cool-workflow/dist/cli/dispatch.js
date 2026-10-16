@@ -168,11 +168,6 @@ function dispatchLegacy(args) {
         // now real capability-table rows (core/capability-table.ts, milestone
         // 5) that dispatchTable() above always matches first, per the
         // Revision note's "table rows, never a new switch arm" rule.
-        // NOTE: "topology" is not an arm here any more — topology.list/show/
-        // validate/apply/summary/graph are now real capability-table rows
-        // (core/capability-table.ts, milestone 9) that dispatchTable() above
-        // always matches first, per the Revision note's "table rows, never a
-        // new switch arm" rule.
         // NOTE: "migration" is not an arm here any more — migration.list/
         // check/prove are now real capability-table rows
         // (core/capability-table.ts) that dispatchTable() above always

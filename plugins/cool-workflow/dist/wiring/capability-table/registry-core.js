@@ -32,15 +32,14 @@ exports.mcpToolDefinitions = mcpToolDefinitions;
 exports.declaredMcpTools = declaredMcpTools;
 exports.findCapabilityByMcpTool = findCapabilityByMcpTool;
 const capability_data_1 = require("../../core/capability-data");
-const cli_args_1 = require("../../core/util/cli-args");
 const recovery_hint_1 = require("../../core/format/recovery-hint");
 // Every capability-table module (this file plus each domain slice) is
 // required unconditionally at CLI/MCP startup, for every single command
 // (index.ts's whole point is to populate REGISTRY before dispatch can
 // look anything up) — so a top-level `import` of a shell module here
 // means EVERY invocation pays that module's full load cost, even the
-// 99% of commands that never touch `status`/`summary.refresh`/`list`.
-// Requiring these 4 lazily (inside the handler that actually uses them)
+// 99% of commands that never touch `status`/`list`.
+// Requiring these 3 lazily (inside the handler that actually uses them)
 // measured live: this file alone was ~30-45ms of a ~75-100ms `cw --version`
 // require chain, the single largest slice. The 8 domain slices have the
 // same shape and are a natural follow-up, not attempted here.
@@ -53,9 +52,6 @@ function loadOperatorUx() {
 function loadWorkflowAppLoader() {
     return require("../../shell/workflow-app-loader");
 }
-function loadStateExplosionCli() {
-    return require("../../shell/state-explosion-cli");
-}
 /** Real handlers implemented at THIS milestone, keyed by capability id.
  *  Every tool row not listed here gets `notYetImplemented`. Kept as a
  *  small side table (rather than inlined into MCP_TOOL_DATA above) so the
@@ -66,8 +62,6 @@ const MCP_REAL_HANDLERS = {
     list: () => listBundledWorkflows(),
     "sandbox.list": () => listBundledSandboxProfiles(),
     status: (args) => statusPayload(optionalString(args.runId)),
-    "summary.refresh": (args) => loadStateExplosionCli().summaryRefreshCli((0, cli_args_1.required)(optionalString(args.runId), "run id"), args),
-    "summary.show": (args) => loadStateExplosionCli().summaryShowCli((0, cli_args_1.required)(optionalString(args.runId), "run id"), args),
 };
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;

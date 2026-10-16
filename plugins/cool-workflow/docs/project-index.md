@@ -6,21 +6,18 @@ Generated from the current repository code on 2026-10-16 by `npm run sync:projec
 
 - Package: `cool-workflow`
 - Version: `0.3.0`
-- Source modules: `158`
-- Workflow apps: `8`
-- Docs: `59`
-- Smoke tests: `287`
+- Source modules: `131`
+- Workflow apps: `7`
+- Docs: `48`
+- Smoke tests: `259`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
 
 ```text
 workflow app -> runner -> dispatch -> isolated workers
-    -> results -> feedback/candidates -> verifier gate
+    -> results -> feedback -> verifier gate
     -> commit/checkpoint -> report/trust audit
-
-multi-agent host -> topology -> blackboard/coordinator
-    -> fanout/fanin -> candidate score/select
 ```
 
 ## Source Map
@@ -42,7 +39,6 @@ multi-agent host -> topology -> blackboard/coordinator
 | --- | --- |
 | [shell/verifier.ts](../src/shell/verifier.ts) | Validates result envelopes, findings, evidence, and run gate completion. |
 | [shell/commit.ts](../src/shell/commit.ts) | Creates verifier-gated commits and explicit manual checkpoints. |
-| [core/multi-agent/candidate-scoring.ts](../src/core/multi-agent/candidate-scoring.ts) | Registers, scores, ranks, selects, rejects, and summarizes candidate outputs. |
 | [core/pipeline/error-feedback.ts](../src/core/pipeline/error-feedback.ts) | Turns failures into persisted feedback records and correction tasks. |
 | [shell/trust-audit.ts](../src/shell/trust-audit.ts) | Records provenance, sandbox decisions, host attestations, and acceptance rationale. |
 
@@ -55,22 +51,13 @@ multi-agent host -> topology -> blackboard/coordinator
 | [shell/sandbox-profile.ts](../src/shell/sandbox-profile.ts) | Resolves named sandbox policy contracts and validates read/write/command/network boundaries. |
 | [shell/harness.ts](../src/shell/harness.ts) | Renders task files for dispatched work. |
 
-### Multi-agent layer
-
-| Module | Responsibility |
-| --- | --- |
-| [core/multi-agent/runtime.ts](../src/core/multi-agent/runtime.ts) | Persists multi-agent runs, roles, groups, memberships, fanouts, and fanins. |
-| [core/multi-agent/coordinator.ts](../src/core/multi-agent/coordinator.ts) | Owns blackboard topics, messages, context, artifacts, snapshots, and coordinator decisions. |
-| [core/multi-agent/topology.ts](../src/core/multi-agent/topology.ts) | Defines and applies official map-reduce, debate, and judge-panel topologies. |
-| [shell/multi-agent-host.ts](../src/shell/multi-agent-host.ts) | Provides the preferred host loop for run, status, step, blackboard, score, and select. |
-
 ### User and host surfaces
 
 | Module | Responsibility |
 | --- | --- |
-| [cli.ts](../src/cli.ts) | Routes human CLI commands to runtime, app, topology, multi-agent, and operator flows. |
+| [cli.ts](../src/cli.ts) | Routes human CLI commands to runtime, app, and operator flows. |
 | [mcp-server.ts](../src/mcp-server.ts) | Exposes JSON-RPC/MCP tool parity for agent hosts. |
-| [shell/operator-ux.ts](../src/shell/operator-ux.ts) | Formats status, reports, graph, worker, candidate, feedback, commit, and trust summaries. |
+| [shell/operator-ux.ts](../src/shell/operator-ux.ts) | Formats status, reports, graph, worker, feedback, commit, and trust summaries. |
 | [shell/workflow-app-loader.ts](../src/shell/workflow-app-loader.ts) | Validates app manifests and loads app entrypoints. |
 | [core/workflow-apps/app-schema.ts](../src/core/workflow-apps/app-schema.ts) | Provides the fluent workflow, phase, task, artifact, and input API. |
 | [shell/scheduler-io.ts](../src/shell/scheduler-io.ts) | Runs wall-clock schedules, the desktop scheduler daemon tick, and routine triggers. |
@@ -91,11 +78,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/format/report-css.ts](../src/core/format/report-css.ts)
 - [core/format/report-html.ts](../src/core/format/report-html.ts)
 - [core/format/safe-json.ts](../src/core/format/safe-json.ts)
-- [core/format/state-explosion-text.ts](../src/core/format/state-explosion-text.ts)
 - [core/hash.ts](../src/core/hash.ts)
-- [core/multi-agent/collaboration.ts](../src/core/multi-agent/collaboration.ts)
-- [core/multi-agent/eval-replay.ts](../src/core/multi-agent/eval-replay.ts)
-- [core/multi-agent/trust-policy.ts](../src/core/multi-agent/trust-policy.ts)
 - [core/pipeline/commit-gate.ts](../src/core/pipeline/commit-gate.ts)
 - [core/pipeline/dispatch.ts](../src/core/pipeline/dispatch.ts)
 - [core/pipeline/drive-decide.ts](../src/core/pipeline/drive-decide.ts)
@@ -109,11 +92,6 @@ multi-agent host -> topology -> blackboard/coordinator
 - [core/state/run-paths.ts](../src/core/state/run-paths.ts)
 - [core/state/schema-validate.ts](../src/core/state/schema-validate.ts)
 - [core/state/schema.ts](../src/core/state/schema.ts)
-- [core/state/state-explosion/digest.ts](../src/core/state/state-explosion/digest.ts)
-- [core/state/state-explosion/graph.ts](../src/core/state/state-explosion/graph.ts)
-- [core/state/state-explosion/helpers.ts](../src/core/state/state-explosion/helpers.ts)
-- [core/state/state-explosion/report.ts](../src/core/state/state-explosion/report.ts)
-- [core/state/state-explosion/size.ts](../src/core/state/state-explosion/size.ts)
 - [core/state/validation.ts](../src/core/state/validation.ts)
 - [core/trust/evidence-grounding.ts](../src/core/trust/evidence-grounding.ts)
 - [core/trust/ledger.ts](../src/core/trust/ledger.ts)
@@ -134,17 +112,11 @@ multi-agent host -> topology -> blackboard/coordinator
 - [shell/app-run-cli.ts](../src/shell/app-run-cli.ts)
 - [shell/audit-cli.ts](../src/shell/audit-cli.ts)
 - [shell/audit-provenance.ts](../src/shell/audit-provenance.ts)
-- [shell/candidate-scoring-io.ts](../src/shell/candidate-scoring-io.ts)
-- [shell/collaboration-io.ts](../src/shell/collaboration-io.ts)
 - [shell/commit-summary.ts](../src/shell/commit-summary.ts)
-- [shell/coordinator-io.ts](../src/shell/coordinator-io.ts)
 - [shell/demo-cli.ts](../src/shell/demo-cli.ts)
 - [shell/doctor.ts](../src/shell/doctor.ts)
 - [shell/drive.ts](../src/shell/drive.ts)
 - [shell/error-feedback-io.ts](../src/shell/error-feedback-io.ts)
-- [shell/eval-io.ts](../src/shell/eval-io.ts)
-- [shell/eval-text.ts](../src/shell/eval-text.ts)
-- [shell/evidence-reasoning.ts](../src/shell/evidence-reasoning.ts)
 - [shell/exec-backend-cli.ts](../src/shell/exec-backend-cli.ts)
 - [shell/execution-backend/agent.ts](../src/shell/execution-backend/agent.ts)
 - [shell/execution-backend/ci.ts](../src/shell/execution-backend/ci.ts)
@@ -162,9 +134,6 @@ multi-agent host -> topology -> blackboard/coordinator
 - [shell/ledger-io.ts](../src/shell/ledger-io.ts)
 - [shell/man-cli.ts](../src/shell/man-cli.ts)
 - [shell/metrics-cli.ts](../src/shell/metrics-cli.ts)
-- [shell/multi-agent-cli.ts](../src/shell/multi-agent-cli.ts)
-- [shell/multi-agent-io.ts](../src/shell/multi-agent-io.ts)
-- [shell/multi-agent-operator-ux.ts](../src/shell/multi-agent-operator-ux.ts)
 - [shell/node-store.ts](../src/shell/node-store.ts)
 - [shell/observability-format.ts](../src/shell/observability-format.ts)
 - [shell/observability-intake.ts](../src/shell/observability-intake.ts)
@@ -187,13 +156,10 @@ multi-agent host -> topology -> blackboard/coordinator
 - [shell/run-registry-io.ts](../src/shell/run-registry-io.ts)
 - [shell/scheduling-io.ts](../src/shell/scheduling-io.ts)
 - [shell/state-cli.ts](../src/shell/state-cli.ts)
-- [shell/state-explosion-cli.ts](../src/shell/state-explosion-cli.ts)
 - [shell/telemetry-cli.ts](../src/shell/telemetry-cli.ts)
 - [shell/telemetry-demo.ts](../src/shell/telemetry-demo.ts)
 - [shell/telemetry-ledger-io.ts](../src/shell/telemetry-ledger-io.ts)
 - [shell/term.ts](../src/shell/term.ts)
-- [shell/topology-io.ts](../src/shell/topology-io.ts)
-- [shell/trust-policy-io.ts](../src/shell/trust-policy-io.ts)
 - [shell/workbench-host.ts](../src/shell/workbench-host.ts)
 - [shell/workbench-text.ts](../src/shell/workbench-text.ts)
 - [shell/workbench.ts](../src/shell/workbench.ts)
@@ -201,7 +167,6 @@ multi-agent host -> topology -> blackboard/coordinator
 - [wiring/capability-table/basics.ts](../src/wiring/capability-table/basics.ts)
 - [wiring/capability-table/exec-backend.ts](../src/wiring/capability-table/exec-backend.ts)
 - [wiring/capability-table/index.ts](../src/wiring/capability-table/index.ts)
-- [wiring/capability-table/multi-agent.ts](../src/wiring/capability-table/multi-agent.ts)
 - [wiring/capability-table/parity.ts](../src/wiring/capability-table/parity.ts)
 - [wiring/capability-table/pipeline.ts](../src/wiring/capability-table/pipeline.ts)
 - [wiring/capability-table/registry-core.ts](../src/wiring/capability-table/registry-core.ts)
@@ -218,7 +183,6 @@ multi-agent host -> topology -> blackboard/coordinator
 | `architecture-review` - Map a repository architecture, assess risks, verify important findings, and synthesize an evidence-backed verdict. | canonical | `repo`, `question`, `invariant`, `focus` | `readonly` | [manifest](../apps/architecture-review/app.json) / [workflow](../apps/architecture-review/workflow.js) |
 | `architecture-review-fast` - Run a shorter architecture review with parallel map and assess phases for faster first results. | canonical | `repo`, `question`, `invariant`, `focus`, `sourceContext`, `sourceContextDigest` | `readonly` | [manifest](../apps/architecture-review-fast/app.json) / [workflow](../apps/architecture-review-fast/workflow.js) |
 | `end-to-end-golden-path` - Deterministic one-worker workflow app for proving the CW integration chain. | userland | `question` | `readonly` | [manifest](../apps/end-to-end-golden-path/app.json) / [workflow](../apps/end-to-end-golden-path/workflow.js) |
-| `pdca-blackboard-loop` - Three agents use one blackboard to plan, build, check, and choose the next step. | example | `goal`, `repo`, `acceptance` | `readonly`, `workspace-write` | [manifest](../apps/pdca-blackboard-loop/app.json) / [workflow](../apps/pdca-blackboard-loop/workflow.js) |
 | `pr-review-fix-ci` - Review a pull request or branch, inspect CI failures, diagnose actionable issues, optionally patch, verify, and summarize with evidence. | canonical | `repo`, `pr`, `branch`, `base`, `ci`, `mode` | `readonly`, `workspace-write` | [manifest](../apps/pr-review-fix-ci/app.json) / [workflow](../apps/pr-review-fix-ci/workflow.js) |
 | `release-cut` - Prepare a release with checklist discipline: version checks, changelog, tests, packaging, release notes, and final verification. | canonical | `repo`, `version`, `previousVersion`, `releaseBranch`, `dryRun` | `readonly`, `workspace-write` | [manifest](../apps/release-cut/app.json) / [workflow](../apps/release-cut/workflow.js) |
 | `research-synthesis` - Split a research question into claims, investigate sources, cross-check evidence, verify claims, and synthesize a concise answer. | canonical | `question`, `source`, `scope`, `freshness` | `readonly`, `locked-down` | [manifest](../apps/research-synthesis/app.json) / [workflow](../apps/research-synthesis/workflow.js) |
@@ -227,13 +191,11 @@ multi-agent host -> topology -> blackboard/coordinator
 ## Documentation Map
 
 - [Agent Delegation Drive](agent-delegation-drive.7.md)
-- [CANDIDATE-SCORING(7)](candidate-scoring.7.md)
 - [Canonical Workflow Apps](canonical-workflow-apps.7.md)
 - [CAPABILITY-TOPOLOGY-REGISTRY(7) — Cool Workflow Agent-Driven Self-Evolution](capability-topology-registry.7.md)
 - [CLI ↔ MCP Parity](cli-mcp-parity.7.md)
 - [Contract Migration Tooling](contract-migration-tooling.7.md)
 - [Control-Plane Scheduling](control-plane-scheduling.7.md)
-- [Coordinator / Blackboard](coordinator-blackboard.7.md)
 - [Cross-Agent Handoff Ledger](cross-agent-ledger.7.md)
 - [DEMO(7)](demo.7.md)
 - [DOCTOR(7)](doctor.7.md)
@@ -241,7 +203,6 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Durable State & Locking](durable-state-and-locking.7.md)
 - [End-to-End Golden Path](end-to-end-golden-path.7.md)
 - [ERROR-FEEDBACK(7)](error-feedback.7.md)
-- [Evidence Adoption Reasoning Chain](evidence-adoption-reasoning-chain.7.md)
 - [EXECUTION-BACKENDS(7)](execution-backends.7.md)
 - [FIX(7)](fix.7.md)
 - [Getting Started](getting-started.md)
@@ -249,12 +210,6 @@ multi-agent host -> topology -> blackboard/coordinator
 - [Cool Workflow Docs](index.md)
 - [INIT(7)](init.7.md)
 - [MCP App Surface](mcp-app-surface.7.md)
-- [Multi-Agent CLI + MCP Surface](multi-agent-cli-mcp-surface.7.md)
-- [Multi-Agent Eval & Replay Harness](multi-agent-eval-replay-harness.7.md)
-- [Multi-Agent Operator UX](multi-agent-operator-ux.7.md)
-- [Multi-Agent Runtime Core](multi-agent-runtime-core.7.md)
-- [Multi-Agent Topologies](multi-agent-topologies.7.md)
-- [Multi-Agent Trust / Policy / Audit](multi-agent-trust-policy-audit.7.md)
 - [Multi-Vendor Agent Standards](multi-vendor-agent-standards.7.md)
 - [Node Snapshot / Diff / Replay](node-snapshot-diff-replay.7.md)
 - [Observability + Cost Accounting](observability-cost-accounting.7.md)
@@ -274,9 +229,7 @@ multi-agent host -> topology -> blackboard/coordinator
 - [SANDBOX-PROFILES(7)](sandbox-profiles.7.md)
 - [Security / Trust Hardening](security-trust-hardening.7.md)
 - [Source Context Profiles](source-context-profiles.7.md)
-- [State Explosion Management](state-explosion-management.7.md)
 - [STATE-NODE(7)](state-node.7.md)
-- [Team Collaboration](team-collaboration.7.md)
 - [Trust Audit Anchor](trust-audit-anchor.7.md)
 - [Trust Model & Limitations](trust-model.md)
 - [Unix-Inspired Workflow Principles](unix-principles.md)
@@ -311,11 +264,9 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [batch-delegate-error-flush-smoke.js](../test/batch-delegate-error-flush-smoke.js)
 - [batch-output-overflow-smoke.js](../test/batch-output-overflow-smoke.js)
 - [bench-run-smoke.js](../test/bench-run-smoke.js)
-- [blackboard-state-explosion-management-smoke.js](../test/blackboard-state-explosion-management-smoke.js)
 - [block-unapproved-tag-smoke.js](../test/block-unapproved-tag-smoke.js)
 - [budget-scaling-loop-smoke.js](../test/budget-scaling-loop-smoke.js)
 - [bump-version-idempotent-smoke.js](../test/bump-version-idempotent-smoke.js)
-- [candidate-scoring-smoke.js](../test/candidate-scoring-smoke.js)
 - [canonical-workflow-apps-smoke.js](../test/canonical-workflow-apps-smoke.js)
 - [ci-shape-gate-smoke.js](../test/ci-shape-gate-smoke.js)
 - [citation-check-smoke.js](../test/citation-check-smoke.js)
@@ -325,8 +276,8 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [cli-epipe-smoke.js](../test/cli-epipe-smoke.js)
 - [cli-format-smoke.js](../test/cli-format-smoke.js)
 - [cli-handler-clones-smoke.js](../test/cli-handler-clones-smoke.js)
-- [cli-handler-eval-node-smoke.js](../test/cli-handler-eval-node-smoke.js)
 - [cli-handler-maintenance-smoke.js](../test/cli-handler-maintenance-smoke.js)
+- [cli-handler-node-smoke.js](../test/cli-handler-node-smoke.js)
 - [cli-io-smoke.js](../test/cli-io-smoke.js)
 - [cli-jsonmode-parity-smoke.js](../test/cli-jsonmode-parity-smoke.js)
 - [cli-mcp-parity-smoke.js](../test/cli-mcp-parity-smoke.js)
@@ -335,7 +286,6 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [cli-render-smoke.js](../test/cli-render-smoke.js)
 - [clones-gc-smoke.js](../test/clones-gc-smoke.js)
 - [codex-agent-wrapper-smoke.js](../test/codex-agent-wrapper-smoke.js)
-- [collaboration-ops-unit-smoke.js](../test/collaboration-ops-unit-smoke.js)
 - [commit-snapshot-slim-smoke.js](../test/commit-snapshot-slim-smoke.js)
 - [concurrency-default-smoke.js](../test/concurrency-default-smoke.js)
 - [concurrent-failure-semantics-smoke.js](../test/concurrent-failure-semantics-smoke.js)
@@ -347,10 +297,6 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [context-profile-snapshot-smoke.js](../test/context-profile-snapshot-smoke.js)
 - [contract-migration-tooling-smoke.js](../test/contract-migration-tooling-smoke.js)
 - [control-plane-scheduling-smoke.js](../test/control-plane-scheduling-smoke.js)
-- [coordinator-blackboard-smoke.js](../test/coordinator-blackboard-smoke.js)
-- [coordinator-messages-jsonl-atomic-smoke.js](../test/coordinator-messages-jsonl-atomic-smoke.js)
-- [coordinator-messages-jsonl-dirty-append-smoke.js](../test/coordinator-messages-jsonl-dirty-append-smoke.js)
-- [coordinator-topology-persist-dirty-tracking-smoke.js](../test/coordinator-topology-persist-dirty-tracking-smoke.js)
 - [css-framework-gate-smoke.js](../test/css-framework-gate-smoke.js)
 - [cw-help-per-command-smoke.js](../test/cw-help-per-command-smoke.js)
 - [dead-export-removal-guard-smoke.js](../test/dead-export-removal-guard-smoke.js)
@@ -364,13 +310,11 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [doctor-audit-integrity-repair-smoke.js](../test/doctor-audit-integrity-repair-smoke.js)
 - [doctor-smoke.js](../test/doctor-smoke.js)
 - [dogfood-architecture-review-smoke.js](../test/dogfood-architecture-review-smoke.js)
-- [dogfood-npm-pack-shape-smoke.js](../test/dogfood-npm-pack-shape-smoke.js)
 - [dogfood-release-smoke.js](../test/dogfood-release-smoke.js)
 - [drive-async-real-signal-smoke.js](../test/drive-async-real-signal-smoke.js)
 - [drive-concurrency-flag-smoke.js](../test/drive-concurrency-flag-smoke.js)
 - [drive-concurrent-round-sigkill-smoke.js](../test/drive-concurrent-round-sigkill-smoke.js)
 - [drive-exhaustion-blocked-smoke.js](../test/drive-exhaustion-blocked-smoke.js)
-- [drive-operator-write-lost-update-smoke.js](../test/drive-operator-write-lost-update-smoke.js)
 - [drive-round-cache-serial-smoke.js](../test/drive-round-cache-serial-smoke.js)
 - [drive-run-mutex-smoke.js](../test/drive-run-mutex-smoke.js)
 - [drive-ticker-smoke.js](../test/drive-ticker-smoke.js)
@@ -381,8 +325,6 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [enforcement-labels-smoke.js](../test/enforcement-labels-smoke.js)
 - [error-feedback-resolution-smoke.js](../test/error-feedback-resolution-smoke.js)
 - [error-feedback-smoke.js](../test/error-feedback-smoke.js)
-- [eval-replay-stale-cache-smoke.js](../test/eval-replay-stale-cache-smoke.js)
-- [evidence-adoption-reasoning-smoke.js](../test/evidence-adoption-reasoning-smoke.js)
 - [evidence-content-extraction-smoke.js](../test/evidence-content-extraction-smoke.js)
 - [exec-child-termination-smoke.js](../test/exec-child-termination-smoke.js)
 - [exec-vendor-reap-smoke.js](../test/exec-vendor-reap-smoke.js)
@@ -404,6 +346,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [ledger-apply-smoke.js](../test/ledger-apply-smoke.js)
 - [ledger-resolution-smoke.js](../test/ledger-resolution-smoke.js)
 - [ledger-verify-smoke.js](../test/ledger-verify-smoke.js)
+- [legacy-multi-agent-state-smoke.js](../test/legacy-multi-agent-state-smoke.js)
 - [loop-bounded-expansion-smoke.js](../test/loop-bounded-expansion-smoke.js)
 - [man-run-registry-traversal-smoke.js](../test/man-run-registry-traversal-smoke.js)
 - [manifest-vendor-registry-failclosed-smoke.js](../test/manifest-vendor-registry-failclosed-smoke.js)
@@ -424,16 +367,6 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [mcp-untrusted-content-advisory-smoke.js](../test/mcp-untrusted-content-advisory-smoke.js)
 - [metrics-summary-limit-smoke.js](../test/metrics-summary-limit-smoke.js)
 - [missing-artifact-gate-live-smoke.js](../test/missing-artifact-gate-live-smoke.js)
-- [multi-agent-cli-mcp-surface-smoke.js](../test/multi-agent-cli-mcp-surface-smoke.js)
-- [multi-agent-eval-determinism-regression-smoke.js](../test/multi-agent-eval-determinism-regression-smoke.js)
-- [multi-agent-eval-replay-smoke.js](../test/multi-agent-eval-replay-smoke.js)
-- [multi-agent-operator-ux-smoke.js](../test/multi-agent-operator-ux-smoke.js)
-- [multi-agent-runtime-core-smoke.js](../test/multi-agent-runtime-core-smoke.js)
-- [multi-agent-state-lock-concurrency-smoke.js](../test/multi-agent-state-lock-concurrency-smoke.js)
-- [multi-agent-topologies-debate-smoke.js](../test/multi-agent-topologies-debate-smoke.js)
-- [multi-agent-topologies-judge-panel-smoke.js](../test/multi-agent-topologies-judge-panel-smoke.js)
-- [multi-agent-topologies-map-reduce-smoke.js](../test/multi-agent-topologies-map-reduce-smoke.js)
-- [multi-agent-trust-policy-audit-smoke.js](../test/multi-agent-trust-policy-audit-smoke.js)
 - [no-false-green-smoke.js](../test/no-false-green-smoke.js)
 - [no-unused-locals-smoke.js](../test/no-unused-locals-smoke.js)
 - [node-snapshot-diff-replay-smoke.js](../test/node-snapshot-diff-replay-smoke.js)
@@ -454,7 +387,6 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [parse-guard-smoke.js](../test/parse-guard-smoke.js)
 - [parse-hardening-round2-smoke.js](../test/parse-hardening-round2-smoke.js)
 - [path-containment-smoke.js](../test/path-containment-smoke.js)
-- [pdca-blackboard-loop-smoke.js](../test/pdca-blackboard-loop-smoke.js)
 - [perf-ratchet-smoke.js](../test/perf-ratchet-smoke.js)
 - [phase-overlap-smoke.js](../test/phase-overlap-smoke.js)
 - [pii-redaction-smoke.js](../test/pii-redaction-smoke.js)
@@ -488,19 +420,16 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [remote-link-git-smoke.js](../test/remote-link-git-smoke.js)
 - [report-answer-smoke.js](../test/report-answer-smoke.js)
 - [report-bundle-smoke.js](../test/report-bundle-smoke.js)
-- [report-html-href-smoke.js](../test/report-html-href-smoke.js)
 - [report-open-smoke.js](../test/report-open-smoke.js)
 - [report-pubkey-pin-smoke.js](../test/report-pubkey-pin-smoke.js)
 - [report-verify-bundle-smoke.js](../test/report-verify-bundle-smoke.js)
 - [result-normalize-smoke.js](../test/result-normalize-smoke.js)
-- [resume-anchor-mismatch-smoke.js](../test/resume-anchor-mismatch-smoke.js)
 - [resume-parked-smoke.js](../test/resume-parked-smoke.js)
 - [robustness-failclosed-smoke.js](../test/robustness-failclosed-smoke.js)
 - [robustness-hardening-smoke.js](../test/robustness-hardening-smoke.js)
 - [root-layout-smoke.js](../test/root-layout-smoke.js)
 - [run-all-agent-env-hermetic-smoke.js](../test/run-all-agent-env-hermetic-smoke.js)
 - [run-all-json-summary-smoke.js](../test/run-all-json-summary-smoke.js)
-- [run-all-timeout-header-smoke.js](../test/run-all-timeout-header-smoke.js)
 - [run-archive-intake-limits-smoke.js](../test/run-archive-intake-limits-smoke.js)
 - [run-export-cross-machine-smoke.js](../test/run-export-cross-machine-smoke.js)
 - [run-export-import-smoke.js](../test/run-export-import-smoke.js)
@@ -513,7 +442,6 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [run-inspect-archive-smoke.js](../test/run-inspect-archive-smoke.js)
 - [run-link-smoke.js](../test/run-link-smoke.js)
 - [run-paths-shell-boundary-smoke.js](../test/run-paths-shell-boundary-smoke.js)
-- [run-paths-trust-smoke.js](../test/run-paths-trust-smoke.js)
 - [run-registry-control-plane-smoke.js](../test/run-registry-control-plane-smoke.js)
 - [run-restore-failclosed-smoke.js](../test/run-restore-failclosed-smoke.js)
 - [run-resume-drive-smoke.js](../test/run-resume-drive-smoke.js)
@@ -542,10 +470,8 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [state-node-smoke.js](../test/state-node-smoke.js)
 - [status-run-flag-smoke.js](../test/status-run-flag-smoke.js)
 - [sub-workflow-nesting-smoke.js](../test/sub-workflow-nesting-smoke.js)
-- [summary-show-no-checkpoint-write-smoke.js](../test/summary-show-no-checkpoint-write-smoke.js)
 - [surface-explicit-cwd-smoke.js](../test/surface-explicit-cwd-smoke.js)
 - [tamper-evidence-demo-smoke.js](../test/tamper-evidence-demo-smoke.js)
-- [team-collaboration-smoke.js](../test/team-collaboration-smoke.js)
 - [telemetry-attest-wrap-smoke.js](../test/telemetry-attest-wrap-smoke.js)
 - [telemetry-attestation-smoke.js](../test/telemetry-attestation-smoke.js)
 - [telemetry-fail-closed-smoke.js](../test/telemetry-fail-closed-smoke.js)
@@ -574,7 +500,6 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [worker-accept-path-architecture-smoke.js](../test/worker-accept-path-architecture-smoke.js)
 - [worker-isolation-smoke.js](../test/worker-isolation-smoke.js)
 - [worker-off-target-smoke.js](../test/worker-off-target-smoke.js)
-- [worker-result-symlink-smoke.js](../test/worker-result-symlink-smoke.js)
 - [worker-retry-count-smoke.js](../test/worker-retry-count-smoke.js)
 - [workflow-app-framework-smoke.js](../test/workflow-app-framework-smoke.js)
 

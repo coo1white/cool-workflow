@@ -6,11 +6,10 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 // v2 layout: flat src/ was split into core/ (pure) + shell/ (stateful I/O).
-// commitState and the stateful candidate register/score/select moved to shell/;
+// commitState moved to shell/;
 // run-path + checkpoint helpers moved to shell/run-store; the pure state-node
 // helpers moved to core/state/state-node. Signatures are unchanged.
 const { commitState } = require("../dist/shell/commit");
-const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/shell/candidate-scoring-io");
 const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store");
 const { appendRunNode, createStateNode } = require("../dist/core/state/state-node");
 
@@ -181,67 +180,35 @@ const checkpointNode = run.nodes.find((node) => node.id === checkpoint.stateNode
 assert.equal(checkpointNode.status, "completed");
 assert.equal(checkpointNode.metadata.verifierGated, false);
 
-const unscored = registerCandidate(
-  run,
-  {
-    id: "candidate-unscored",
-    kind: "manual",
-    resultNodeId: "commit-smoke:result:task-one",
-    verifierNodeId: "commit-smoke:verifier:task-one",
-    resultPath
-  },
-  { persist: false }
-);
+// The candidate/selection gate options went with the multi-agent family
+// (slim-and-esm step 2): a candidate or selection id is no longer a way to
+// name the verifier, so a gated commit that names only one fails closed
+// with commit-verifier-required — never a silent pass.
 assert.throws(
   () =>
     commitState(run, {
-      reason: "unscored candidate",
-      candidateId: unscored.id,
+      reason: "old candidate option",
+      candidateId: "candidate-one",
+      selectionId: "selection-one",
       verifierGated: true,
       source: "cli"
     }),
-  /has no score evidence|has no verified selection|not verifier-gated/
+  /Verifier-gated commit requires --verifier$/
 );
 
-const candidate = registerCandidate(
-  run,
-  {
-    id: "candidate-one",
-    kind: "worker-output",
-    workerId: "worker-one",
-    taskId: "task-one",
-    resultNodeId: "commit-smoke:result:task-one",
-    verifierNodeId: "commit-smoke:verifier:task-one",
-    resultPath
-  },
-  { persist: false }
-);
-scoreCandidate(
-  run,
-  candidate.id,
-  {
-    id: "score-one",
-    scorer: "smoke",
-    criteria: { correctness: 4, evidence: 4, fit: 2 },
-    maxTotal: 10,
-    evidence: [{ id: "score:evidence", source: "test", locator: "test/verifier-gated-commit-smoke.js:1" }]
-  },
-  { persist: false }
-);
-const selection = selectCandidate(run, candidate.id, { reason: "verified winner" }, { persist: false });
-const selectionCommit = commitState(run, {
-  reason: "selected candidate",
-  selectionId: selection.id,
+const verifierCommit = commitState(run, {
+  reason: "explicit verifier",
+  verifierNodeId: "commit-smoke:verifier:task-one",
   verifierGated: true,
   source: "cli"
 });
-assert.equal(selectionCommit.verifierGated, true);
-assert.equal(selectionCommit.candidateId, candidate.id);
-assert.equal(selectionCommit.selectionId, selection.id);
-assert.equal(selectionCommit.verifierNodeId, "commit-smoke:verifier:task-one");
-const selectionNode = run.nodes.find((node) => node.metadata && node.metadata.selectionId === selection.id);
-const selectionCommitNode = run.nodes.find((node) => node.id === selectionCommit.stateNodeId);
-assert.ok(selectionCommitNode.parents.includes(selectionNode.id));
+assert.equal(verifierCommit.verifierGated, true);
+assert.equal(verifierCommit.verifierNodeId, "commit-smoke:verifier:task-one");
+assert.ok(!("candidateId" in verifierCommit), "a commit carries no candidate id");
+assert.ok(!("selectionId" in verifierCommit), "a commit carries no selection id");
+assert.ok(!("review" in verifierCommit), "a commit carries no review provenance (no review gate)");
+const verifierCommitNode = run.nodes.find((node) => node.id === verifierCommit.stateNodeId);
+assert.ok(verifierCommitNode.parents.includes("commit-smoke:verifier:task-one"));
 
 saveCheckpoint(run);
 

@@ -13,9 +13,10 @@ const cases = [
   { mod: "../dist/shell/term", dead: ["cwLabel", "formatDuration"], live: ["bold", "dim", "tryHint"] },
   {
     mod: "../dist/core/state/validation",
-    dead: ["tryValidateWorkerScope", "tryValidateNodeSnapshot", "tryValidateNodeReplayRun", "tryValidateCandidateRecord"],
-    // tryValidateCandidateScore is KEPT — it has real readers (evidence-reasoning.ts).
-    live: ["validateWorkerScope", "validateNodeSnapshot", "tryValidateCandidateScore"]
+    // tryValidateCandidateScore went with its one reader (evidence-reasoning.ts)
+    // and the rest of the multi-agent family (slim-and-esm step 2).
+    dead: ["tryValidateWorkerScope", "tryValidateNodeSnapshot", "tryValidateNodeReplayRun", "tryValidateCandidateRecord", "tryValidateCandidateScore"],
+    live: ["validateWorkerScope", "validateNodeSnapshot"]
   },
   {
     mod: "../dist/shell/execution-backend/registry",
@@ -23,19 +24,11 @@ const cases = [
     // resolveBackendSelection is KEPT — used by dispatch.ts + worker-isolation.ts.
     live: ["resolveBackendSelection", "runBackend", "attestSandbox"]
   },
-  // v2 relocations vs the old flat build: buildOperatorDigest was dead then
-  // (0 external refs) but v2 keeps it exported and calls it from TWO modules
-  // (shell/state-explosion-cli.ts + shell/multi-agent-operator-ux.ts), so it is
-  // a LIVE cross-module export here. The old build's buildCompactGraph does not
-  // live in report.ts in v2 at all — the compact-graph builder moved to
-  // state-explosion/graph.ts as buildCompactGraphFromView — so this case checks
-  // report.ts's real live pair instead.
-  { mod: "../dist/core/state/state-explosion/report", dead: [], live: ["buildStateExplosionReport", "buildOperatorDigest"] },
   // Round 2 (found once PR 3/6/7 rewrote away the last outside mentions):
-  // each of these 6 is called only inside its own file now.
-  { mod: "../dist/core/multi-agent/runtime", dead: ["requireRunTask"], live: ["summarizeMultiAgent"] },
+  // each of these is called only inside its own file now. (The
+  // state-explosion report, multi-agent runtime and collaboration cases went
+  // with those modules, slim-and-esm step 2.)
   { mod: "../dist/core/state/node-snapshot", dead: ["findRunNode"], live: ["snapshotNode"] },
-  { mod: "../dist/shell/collaboration-io", dead: ["resolveReviewPolicy"], live: ["deriveReviewState"] },
   { mod: "../dist/shell/reclamation-io", dead: ["sha256OfFile"], live: ["planReclamation"] },
   { mod: "../dist/shell/sandbox-profile", dead: ["isBundledSandboxProfileId", "validateSandboxRead"], live: ["sandboxPolicyForWorker"] },
   { mod: "../dist/shell/workflow-app-loader", dead: ["listWorkflowAppRecords"], live: ["loadWorkflowApp"] }

@@ -14,9 +14,12 @@ const summary = JSON.parse(output);
 
 assert.equal(summary.ok, true);
 assert.match(summary.runId, /^end-to-end-golden-path-/);
-assert.equal(summary.candidateId, "golden-candidate");
 assert.ok(summary.workerId);
-assert.ok(summary.selectionId);
+// The commit is gated on the worker's own verifier node (no candidate or
+// selection step since slim-and-esm step 2).
+assert.match(summary.verifierNodeId, /:verifier:/);
+assert.equal(summary.candidateId, undefined);
+assert.equal(summary.selectionId, undefined);
 assert.ok(summary.commitId);
 assert.ok(Array.isArray(summary.evidence));
 assert.ok(summary.evidence.length >= 3);

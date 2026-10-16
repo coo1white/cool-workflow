@@ -16,7 +16,7 @@ const {
 } = require("../src/navigation.ts");
 
 assert.equal(DEFAULT_TAB, "graph");
-assert.deepEqual(TAB_KEYS, ["graph", "blackboard", "worker", "candidate", "audit", "metrics", "collaboration"]);
+assert.deepEqual(TAB_KEYS, ["graph", "worker", "audit", "metrics"]);
 
 assert.deepEqual(parseFragment(""), { runId: null, tab: "graph", replace: false });
 assert.deepEqual(parseFragment("#run=run%2Fone"), { runId: "run/one", tab: "graph", replace: false });
@@ -27,12 +27,12 @@ assert.deepEqual(parseFragment("#tab=metrics"), { runId: null, tab: "metrics", r
 assert.equal(formatFragment("run/one", "audit"), "#run=run%2Fone&tab=audit");
 assert.equal(formatFragment("run with space", "graph"), "#run=run%20with%20space&tab=graph");
 
-assert.equal(moveTab("graph", "ArrowRight"), "blackboard");
-assert.equal(moveTab("collaboration", "ArrowRight"), "graph");
-assert.equal(moveTab("graph", "ArrowLeft"), "collaboration");
-assert.equal(moveTab("candidate", "Home"), "graph");
-assert.equal(moveTab("candidate", "End"), "collaboration");
-assert.equal(moveTab("candidate", "Enter"), "candidate");
-assert.equal(moveTab("not-a-tab", "ArrowRight"), "blackboard");
+assert.equal(moveTab("graph", "ArrowRight"), "worker");
+assert.equal(moveTab("metrics", "ArrowRight"), "graph");
+assert.equal(moveTab("graph", "ArrowLeft"), "metrics");
+assert.equal(moveTab("audit", "Home"), "graph");
+assert.equal(moveTab("audit", "End"), "metrics");
+assert.equal(moveTab("audit", "Enter"), "audit");
+assert.equal(moveTab("not-a-tab", "ArrowRight"), "worker");
 
 process.stdout.write("workbench-navigation.test: ok\n");

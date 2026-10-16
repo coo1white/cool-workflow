@@ -15,12 +15,10 @@ const { execFileSync } = require("node:child_process");
 
 // v2 cutover: OLD flat dist modules split into shell/ + core/.
 //   ../dist/commit            -> ../dist/shell/commit
-//   ../dist/candidate-scoring -> ../dist/shell/candidate-scoring-io
 //   ../dist/state (run I/O)    -> ../dist/shell/run-store
 //   ../dist/worker-isolation  -> ../dist/shell/worker-isolation
 //   ../dist/trust-audit       -> ../dist/shell/trust-audit
 const { commitState } = require("../dist/shell/commit");
-const { registerCandidate, scoreCandidate, selectCandidate } = require("../dist/shell/candidate-scoring-io");
 const { createRunPaths, ensureRunDirs, loadRunFromCwd, saveCheckpoint } = require("../dist/shell/run-store");
 const { allocateWorkerScope, recordWorkerOutput } = require("../dist/shell/worker-isolation");
 const { summarizeTrustAudit } = require("../dist/shell/trust-audit");
@@ -146,46 +144,18 @@ const verifierNode = loaded.nodes.find((node) => node.id === output.verifierNode
 assert.equal(resultNode.evidence[0].provenance.workerId, accepted.id);
 assert.equal(verifierNode.status, "verified");
 
-const candidate = registerCandidate(
-  loaded,
-  {
-    id: "trust-candidate",
-    kind: "worker-output",
-    workerId: accepted.id,
-    taskId: "trust:accept",
-    resultNodeId: output.stateNodeId,
-    verifierNodeId: output.verifierNodeId,
-    resultPath: accepted.resultPath
-  },
-  { persist: false }
-);
-const score = scoreCandidate(
-  loaded,
-  candidate.id,
-  {
-    id: "trust-score",
-    scorer: "trust-smoke",
-    criteria: { correctness: 4, evidence: 4, leastPrivilege: 2 },
-    maxTotal: 10,
-    evidence: [{ id: "score:evidence", source: "test", locator: "test/security-trust-hardening-smoke.js:1" }]
-  },
-  { persist: false }
-);
-const selection = selectCandidate(loaded, candidate.id, { reason: "trust chain selected" }, { persist: false });
-assert.equal(selection.acceptanceRationale.selectedCandidateId, candidate.id);
-assert.equal(selection.acceptanceRationale.scoreId, score.id);
-assert.equal(selection.acceptanceRationale.sandboxProfileId, "readonly");
-assert.equal(selection.acceptanceRationale.workerId, accepted.id);
-
+// The commit is gated on the accepted worker's own verifier node (the
+// candidate/score/selection step and its acceptance rationale went with the
+// multi-agent family, slim-and-esm step 2).
 const commit = commitState(loaded, {
   reason: "trust verifier-gated commit",
-  selectionId: selection.id,
+  verifierNodeId: output.verifierNodeId,
   verifierGated: true,
   source: "cli"
 });
 assert.equal(commit.verifierGated, true);
-assert.equal(commit.acceptanceRationale.selectedCandidateId, candidate.id);
-assert.equal(commit.acceptanceRationale.commitGateResult, "passed");
+assert.equal(commit.verifierNodeId, output.verifierNodeId);
+assert.equal(commit.acceptanceRationale, undefined);
 assert.ok(commit.evidence.every((entry) => entry.provenance && entry.provenance.commitId === commit.id));
 saveCheckpoint(loaded);
 
@@ -193,7 +163,7 @@ const summary = summarizeTrustAudit(loaded);
 assert.ok(summary.eventCount >= 10);
 assert.equal(summary.bySandboxProfile.readonly >= 1, true);
 assert.ok(summary.workers.find((worker) => worker.workerId === denied.id).denied >= 3);
-assert.ok(summary.commits.find((entry) => entry.commitId === commit.id).rationale);
+assert.ok(summary.commits.find((entry) => entry.commitId === commit.id));
 assert.ok(fs.existsSync(summary.eventLogPath));
 assert.ok(fs.existsSync(summary.summaryPath));
 assert.ok(fs.existsSync(summary.indexPath));

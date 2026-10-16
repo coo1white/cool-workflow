@@ -43,13 +43,10 @@ caseMain(() => {
   assert.equal(view.lifecycle, listed.lifecycle, "view.lifecycle === the run list record's lifecycle");
 
   const groups = {
-    graph: ["operator", "multiAgent", "compact", "criticalPath"],
-    blackboard: ["coordinator", "digest", "graph"],
+    graph: ["operator"],
     worker: ["summary"],
-    candidate: ["summary", "reasoning"],
     metrics: ["report"],
-    audit: ["summary", "multiAgent", "policy", "judge"],
-    collaboration: ["review", "comments"],
+    audit: ["summary"],
   };
   assert.deepEqual(Object.keys(view.panels).sort(), Object.keys(groups).sort());
   for (const [group, members] of Object.entries(groups)) {

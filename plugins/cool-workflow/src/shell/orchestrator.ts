@@ -85,10 +85,6 @@ export class CoolWorkflowRunner {
       const manifest = createDispatchManifest(run, limit, {
         sandboxProfileId: stringOption(options.sandbox) || stringOption(options.sandboxProfile) || stringOption(options.sandboxProfileId),
         backendId: stringOption(options.backend) || stringOption(options.backendId) || stringOption(options.executionBackend),
-        multiAgentRunId: stringOption(options.multiAgentRun || options.multiAgentRunId || options["multi-agent-run"]),
-        multiAgentGroupId: stringOption(options.multiAgentGroup || options.multiAgentGroupId || options.group || options["multi-agent-group"]),
-        multiAgentRoleId: stringOption(options.multiAgentRole || options.multiAgentRoleId || options.role || options["multi-agent-role"]),
-        multiAgentFanoutId: stringOption(options.multiAgentFanout || options.multiAgentFanoutId || options.fanout || options["multi-agent-fanout"]),
       });
       saveCheckpoint(run);
       return manifest;
@@ -153,13 +149,11 @@ export class CoolWorkflowRunner {
     return withRunStateLock(runId, this.cwd(), (run) => {
       const options = typeof input === "string" ? { reason: input } : input;
       const allowCheckpoint = Boolean(options.allowUnverifiedCheckpoint || options["allow-unverified-checkpoint"]);
-      const hasGateOption = Boolean(options.verifier || options.verifierNode || options["verifier-node"] || options.candidate || options.selection);
+      const hasGateOption = Boolean(options.verifier || options.verifierNode || options["verifier-node"]);
       try {
         const commit = commitState(run, {
           reason: stringOption(options.reason) || "manual",
           verifierNodeId: stringOption(options.verifier) || stringOption(options.verifierNode) || stringOption(options["verifier-node"]),
-          candidateId: stringOption(options.candidate),
-          selectionId: stringOption(options.selection),
           verifierGated: hasGateOption || !allowCheckpoint,
           allowUnverifiedCheckpoint: allowCheckpoint,
           source: "cli",

@@ -80,14 +80,6 @@ function main() {
   checkIncludes("plugins/cool-workflow/scripts/canonical-apps.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/scripts/dogfood-release.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/dogfood-release-smoke.js", VERSION, checks);
-  checkIncludes("plugins/cool-workflow/test/coordinator-blackboard-smoke.js", "coordinator-blackboard-smoke", checks);
-  checkIncludes("plugins/cool-workflow/test/multi-agent-topologies-map-reduce-smoke.js", "multi-agent-topologies-map-reduce-smoke", checks);
-  checkIncludes("plugins/cool-workflow/test/multi-agent-topologies-debate-smoke.js", "multi-agent-topologies-debate-smoke", checks);
-  checkIncludes("plugins/cool-workflow/test/multi-agent-topologies-judge-panel-smoke.js", "multi-agent-topologies-judge-panel-smoke", checks);
-  checkIncludes("plugins/cool-workflow/test/multi-agent-cli-mcp-surface-smoke.js", "multi-agent-cli-mcp-surface-smoke", checks);
-  checkIncludes("plugins/cool-workflow/test/multi-agent-eval-replay-smoke.js", "multi-agent-eval-replay-smoke", checks);
-  checkIncludes("plugins/cool-workflow/test/blackboard-state-explosion-management-smoke.js", "blackboard-state-explosion-management-smoke", checks);
-  checkIncludes("plugins/cool-workflow/test/evidence-adoption-reasoning-smoke.js", "evidence-adoption-reasoning-smoke", checks);
   checkIncludes("plugins/cool-workflow/test/mcp-app-surface-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/canonical-workflow-apps-smoke.js", VERSION, checks);
   checkIncludes("plugins/cool-workflow/test/workflow-app-framework-smoke.js", VERSION, checks);
@@ -101,15 +93,6 @@ function main() {
   // version-pinned here; readme:check guards that the two pages stay identical, and the surfaces
   // above (version.ts/dist/package.json/manifests/docs) still pin the release.
   checkIncludes("plugins/cool-workflow/docs/index.md", "release and migration", checks);
-  checkIncludes("plugins/cool-workflow/docs/multi-agent-topologies.7.md", "Multi-Agent Topologies", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/multi-agent-cli-mcp-surface.7.md", VERSION, checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/multi-agent-operator-ux.7.md", VERSION, checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/multi-agent-eval-replay-harness.7.md", VERSION, checks);
-  checkIncludes("plugins/cool-workflow/docs/state-explosion-management.7.md", "State Explosion Management", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/state-explosion-management.7.md", VERSION, checks);
-  checkIncludes("plugins/cool-workflow/docs/evidence-adoption-reasoning-chain.7.md", "Evidence Adoption Reasoning Chain", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/evidence-adoption-reasoning-chain.7.md", VERSION, checks);
-  checkIncludes("plugins/cool-workflow/docs/coordinator-blackboard.7.md", "Coordinator / Blackboard", checks);
   checkIncludes("plugins/cool-workflow/docs/cli-mcp-parity.7.md", "CLI", checks);
   checkIncludesOwnLine("plugins/cool-workflow/docs/cli-mcp-parity.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "cli-mcp-parity.7.md", checks);
@@ -129,10 +112,6 @@ function main() {
   checkIncludesOwnLine("plugins/cool-workflow/docs/observability-cost-accounting.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "observability-cost-accounting.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/observability-cost-accounting-smoke.js", "observability-cost-accounting-smoke", checks);
-  checkIncludes("plugins/cool-workflow/docs/team-collaboration.7.md", "Team Collaboration", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/team-collaboration.7.md", VERSION, checks);
-  checkIncludes("plugins/cool-workflow/docs/index.md", "team-collaboration.7.md", checks);
-  checkIncludes("plugins/cool-workflow/test/team-collaboration-smoke.js", "team-collaboration-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/release-tooling.7.md", "Release Tooling", checks);
   checkIncludesOwnLine("plugins/cool-workflow/docs/release-tooling.7.md", VERSION, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "release-tooling.7.md", checks);
@@ -170,9 +149,6 @@ function main() {
   checkIncludes("plugins/cool-workflow/src/shell/drive.ts", "driveStep", checks);
   checkIncludes("plugins/cool-workflow/dist/shell/drive.js", "driveStep", checks);
   checkIncludes("plugins/cool-workflow/src/wiring/capability-table/pipeline.ts", "run.drive", checks);
-  checkIncludes("plugins/cool-workflow/src/shell/collaboration-io.ts", "deriveReviewState", checks);
-  checkIncludes("plugins/cool-workflow/dist/shell/collaboration-io.js", "deriveReviewState", checks);
-  checkIncludes("plugins/cool-workflow/src/wiring/capability-table/multi-agent.ts", "review.status", checks);
   checkIncludes("plugins/cool-workflow/src/shell/observability.ts", "deriveMetricsReport", checks);
   checkIncludes("plugins/cool-workflow/dist/shell/observability.js", "deriveMetricsReport", checks);
   checkIncludes("plugins/cool-workflow/src/wiring/capability-table/reporting.ts", "metrics.show", checks);

@@ -42,7 +42,7 @@ function run(args, opts) {
     // Pinned, not merely absent: the suite's whole byte-identity story
     // depends on every run seeing the SAME collation, on any host. A case
     // that wants to prove locale-independence overrides these via opts.env
-    // (see locale-independent-ordering.case.js).
+    // (no case does so now; the locale case went with eval replay).
     LANG: "en_US.UTF-8",
     LC_ALL: "en_US.UTF-8",
   };

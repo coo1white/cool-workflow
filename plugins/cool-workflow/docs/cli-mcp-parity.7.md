@@ -41,8 +41,8 @@ mechanism — which is just what the parity gate checks.
 
 The MCP tool list is being pulled in toward that one source too. The first
 read-only inspection group (`operator.status`, `graph`, `operator.report`,
-worker/candidate/feedback/commit summaries, and the simple multi-agent inspection
-views) gets its MCP tool name and description straight from the capability
+and the worker/feedback/commit summaries) gets its MCP tool name and
+description straight from the capability
 registry; `mcp-server.ts` still owns the MCP input schema for those tools. This
 keeps the public `tools/list` output the same while taking away one copied
 description table at a time.
@@ -69,10 +69,8 @@ scenario probe for a safe local case. A scenario gets two new temp workspaces,
 one for CLI and one for MCP, sets up the same state, runs one capability through
 each door, and then compares the payload after taking out temp roots, run ids,
 time stamps, and chain hashes that are made by that workspace. This is used for
-local deterministic work such as app show/validate/package, topology
-show/validate/apply/summary/graph, sandbox show/validate/choose/resolve, state
-summary refresh/show, `plan`, `approve`, `reject`, `comment.add`, `handoff`, and
-`review.policy`.
+local deterministic work such as app show/validate/package, sandbox
+show/validate/choose, and `plan`.
 
 ## MCP Tool Hints and Version Negotiation
 
@@ -150,7 +148,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 241 capabilities, 198 MCP tools.
+machine-complete by design: 157 capabilities, 123 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -180,74 +178,13 @@ machine-complete by design: 241 capabilities, 198 MCP tools.
 | `worker.summary` | `cw worker summary` | `cw_worker_summary` | `worker.summary` | both | identical |
 | `workbench.view` | `cw workbench view` | `cw_workbench_view` | `workbench.view` | both | identical |
 | `workbench.serve` | `cw workbench serve` | `cw_workbench_serve` | `workbench.serve` | both | projected |
-| `candidate.summary` | `cw candidate summary` | `cw_candidate_summary` | `candidate.summary` | both | identical |
 | `feedback.summary` | `cw feedback summary` | `cw_feedback_summary` | `feedback.summary` | both | identical |
 | `commit.summary` | `cw commit summary` | `cw_commit_summary` | `commit.summary` | both | identical |
-| `multi-agent.summary` | `cw multi-agent summary` | `cw_multi_agent_summary` | `multi-agent.summary` | both | identical |
-| `multi-agent.graph` | `cw multi-agent graph` | `cw_multi_agent_graph` | `multi-agent.graph` | both | identical |
-| `multi-agent.dependencies` | `cw multi-agent dependencies` | `cw_multi_agent_dependencies` | `multi-agent.dependencies` | both | identical |
-| `multi-agent.failures` | `cw multi-agent failures` | `cw_multi_agent_failures` | `multi-agent.failures` | both | identical |
-| `multi-agent.evidence` | `cw multi-agent evidence` | `cw_multi_agent_evidence` | `multi-agent.evidence` | both | identical |
-| `multi-agent.reasoning` | `cw multi-agent reasoning` | `cw_evidence_reasoning` | `multi-agent.reasoning` | both | identical |
-| `multi-agent.reasoning.refresh` | `cw multi-agent reasoning` | `cw_evidence_reasoning_refresh` | `multi-agent.reasoning.refresh` | both | identical |
-| `summary.refresh` | `cw summary refresh` | `cw_summary_refresh` | `summary.refresh` | both | identical |
-| `summary.show` | `cw summary show` | `cw_summary_show` | `summary.show` | both | identical |
-| `blackboard.summarize` | `cw blackboard summarize` | `cw_blackboard_summarize` | `blackboard.summarize` | both | identical |
-| `multi-agent.summarize` | `cw multi-agent summarize` | `cw_multi_agent_summarize` | `multi-agent.summarize` | both | identical |
-| `multi-agent.graph.compact` | `cw multi-agent graph` | `cw_multi_agent_graph_compact` | `multi-agent.graph.compact` | both | identical |
-| `multi-agent.run` | `cw multi-agent run` | `cw_multi_agent_run` | `multi-agent.run` | both | identical |
-| `multi-agent.status` | `cw multi-agent status` | `cw_multi_agent_status` | `multi-agent.status` | both | identical |
-| `multi-agent.step` | `cw multi-agent step` | `cw_multi_agent_step` | `multi-agent.step` | both | identical |
-| `multi-agent.blackboard` | `cw multi-agent blackboard` | `cw_multi_agent_blackboard` | `multi-agent.blackboard` | both | identical |
-| `multi-agent.score` | `cw multi-agent score` | `cw_multi_agent_score` | `multi-agent.score` | both | identical |
-| `multi-agent.select` | `cw multi-agent select` | `cw_multi_agent_select` | `multi-agent.select` | both | identical |
-| `eval.snapshot` | `cw eval snapshot` | `cw_eval_snapshot` | `eval.snapshot` | both | identical |
-| `eval.replay` | `cw eval replay` | `cw_eval_replay` | `eval.replay` | both | identical |
-| `eval.compare` | `cw eval compare` | `cw_eval_compare` | `eval.compare` | both | identical |
-| `eval.score` | `cw eval score` | `cw_eval_score` | `eval.score` | both | identical |
-| `eval.gate` | `cw eval gate` | `cw_eval_gate` | `eval.gate` | both | identical |
-| `eval.report` | `cw eval report` | `cw_eval_report` | `eval.report` | both | identical |
-| `multi-agent.run.create` | `cw multi-agent role` | `cw_multi_agent_run_create` | `multi-agent.run.create` | both | identical |
-| `multi-agent.run.transition` | `cw multi-agent transition` | `cw_multi_agent_run_transition` | `multi-agent.run.transition` | both | identical |
-| `multi-agent.run.show` | `cw multi-agent show` | `cw_multi_agent_run_show` | `multi-agent.run.show` | both | identical |
-| `multi-agent.role.create` | `cw multi-agent role` | `cw_multi_agent_role_create` | `multi-agent.role.create` | both | identical |
-| `multi-agent.role.show` | `cw multi-agent role` | `cw_multi_agent_role_show` | `multi-agent.role.show` | both | identical |
-| `multi-agent.group.create` | `cw multi-agent group` | `cw_multi_agent_group_create` | `multi-agent.group.create` | both | identical |
-| `multi-agent.group.show` | `cw multi-agent group` | `cw_multi_agent_group_show` | `multi-agent.group.show` | both | identical |
-| `multi-agent.membership.create` | `cw multi-agent membership` | `cw_multi_agent_membership_create` | `multi-agent.membership.create` | both | identical |
-| `multi-agent.membership.show` | `cw multi-agent membership` | `cw_multi_agent_membership_show` | `multi-agent.membership.show` | both | identical |
-| `multi-agent.fanout.create` | `cw multi-agent fanout` | `cw_multi_agent_fanout_create` | `multi-agent.fanout.create` | both | identical |
-| `multi-agent.fanout.show` | `cw multi-agent fanout` | `cw_multi_agent_fanout_show` | `multi-agent.fanout.show` | both | identical |
-| `multi-agent.fanin.collect` | `cw multi-agent fanin` | `cw_multi_agent_fanin_collect` | `multi-agent.fanin.collect` | both | identical |
-| `multi-agent.fanin.show` | `cw multi-agent fanin` | `cw_multi_agent_fanin_show` | `multi-agent.fanin.show` | both | identical |
-| `topology.list` | `cw topology list` | `cw_topology_list` | `topology.list` | both | identical |
-| `topology.show` | `cw topology show` | `cw_topology_show` | `topology.show` | both | identical |
-| `topology.validate` | `cw topology validate` | `cw_topology_validate` | `topology.validate` | both | identical |
-| `topology.apply` | `cw topology apply` | `cw_topology_apply` | `topology.apply` | both | identical |
-| `topology.summary` | `cw topology summary` | `cw_topology_summary` | `topology.summary` | both | identical |
-| `topology.graph` | `cw topology graph` | `cw_topology_graph` | `topology.graph` | both | identical |
-| `blackboard.summary` | `cw blackboard summary` | `cw_blackboard_summary` | `blackboard.summary` | both | identical |
-| `blackboard.graph` | `cw blackboard graph` | `cw_blackboard_graph` | `blackboard.graph` | both | identical |
-| `blackboard.resolve` | `cw blackboard resolve` | `cw_blackboard_resolve` | `blackboard.resolve` | both | identical |
-| `blackboard.topic.create` | `cw blackboard topic` | `cw_blackboard_topic_create` | `blackboard.topic.create` | both | identical |
-| `blackboard.message.post` | `cw blackboard message` | `cw_blackboard_message_post` | `blackboard.message.post` | both | identical |
-| `blackboard.message.list` | `cw blackboard message` | `cw_blackboard_message_list` | `blackboard.message.list` | both | identical |
-| `blackboard.context.put` | `cw blackboard context` | `cw_blackboard_context_put` | `blackboard.context.put` | both | identical |
-| `blackboard.artifact.add` | `cw blackboard artifact` | `cw_blackboard_artifact_add` | `blackboard.artifact.add` | both | identical |
-| `blackboard.artifact.list` | `cw blackboard artifact` | `cw_blackboard_artifact_list` | `blackboard.artifact.list` | both | identical |
-| `blackboard.snapshot` | `cw blackboard snapshot` | `cw_blackboard_snapshot` | `blackboard.snapshot` | both | identical |
-| `coordinator.summary` | `cw coordinator summary` | `cw_coordinator_summary` | `coordinator.summary` | both | identical |
-| `coordinator.decision` | `cw coordinator decision` | `cw_coordinator_decision` | `coordinator.decision` | both | identical |
 | `audit.summary` | `cw audit summary` | `cw_audit_summary` | `audit.summary` | both | identical |
 | `audit.verify` | `cw audit verify` | `cw_audit_verify` | `audit.verify` | both | identical |
 | `audit.repair` | `cw audit repair` | `cw_audit_repair` | `audit.repair` | both | identical |
 | `audit.worker` | `cw audit worker` | `cw_audit_worker` | `audit.worker` | both | identical |
 | `audit.provenance` | `cw audit provenance` | `cw_audit_provenance` | `audit.provenance` | both | identical |
-| `audit.multi-agent` | `cw audit multi-agent` | `cw_audit_multi_agent` | `audit.multi-agent` | both | identical |
-| `audit.policy` | `cw audit policy` | `cw_audit_policy` | `audit.policy` | both | identical |
-| `audit.role` | `cw audit role` | `cw_audit_role` | `audit.role` | both | identical |
-| `audit.blackboard` | `cw audit blackboard` | `cw_audit_blackboard` | `audit.blackboard` | both | identical |
-| `audit.judge` | `cw audit judge` | `cw_audit_judge` | `audit.judge` | both | identical |
 | `audit.attest` | `cw audit attest` | `cw_audit_attest` | `audit.attest` | both | identical |
 | `audit.decision` | `cw audit decision` | `cw_audit_decision` | `audit.decision` | both | identical |
 | `dispatch` | `cw dispatch` | `cw_dispatch` | `dispatch` | both | identical |
@@ -274,25 +211,11 @@ machine-complete by design: 241 capabilities, 198 MCP tools.
 | `worker.output` | `cw worker output` | `cw_worker_output` | `worker.output` | both | identical |
 | `worker.fail` | `cw worker fail` | `cw_worker_fail` | `worker.fail` | both | identical |
 | `worker.validate` | `cw worker validate` | `cw_worker_validate` | `worker.validate` | both | identical |
-| `candidate.list` | `cw candidate list` | `cw_candidate_list` | `candidate.list` | both | identical |
-| `candidate.show` | `cw candidate show` | `cw_candidate_show` | `candidate.show` | both | identical |
-| `candidate.register` | `cw candidate register` | `cw_candidate_register` | `candidate.register` | both | identical |
-| `candidate.score` | `cw candidate score` | `cw_candidate_score` | `candidate.score` | both | identical |
-| `candidate.rank` | `cw candidate rank` | `cw_candidate_rank` | `candidate.rank` | both | identical |
-| `candidate.select` | `cw candidate select` | `cw_candidate_select` | `candidate.select` | both | identical |
-| `candidate.reject` | `cw candidate reject` | `cw_candidate_reject` | `candidate.reject` | both | identical |
-| `approve` | `cw approve` | `cw_approve` | `approve` | both | identical |
-| `reject` | `cw reject` | `cw_reject` | `reject` | both | identical |
-| `comment.add` | `cw comment add` | `cw_comment_add` | `comment.add` | both | identical |
-| `comment.list` | `cw comment list` | `cw_comment_list` | `comment.list` | both | identical |
-| `handoff` | `cw handoff` | `cw_handoff` | `handoff` | both | identical |
 | `ledger.propose` | `cw ledger propose` | `cw_ledger_propose` | `ledger.propose` | both | projected |
 | `ledger.review` | `cw ledger review` | `cw_ledger_review` | `ledger.review` | both | projected |
 | `ledger.verify` | `cw ledger verify` | `cw_ledger_verify` | `ledger.verify` | both | projected |
 | `ledger.apply` | `cw ledger apply` | `cw_ledger_apply` | `ledger.apply` | both | projected |
 | `ledger.list` | `cw ledger list` | `cw_ledger_list` | `ledger.list` | both | projected |
-| `review.status` | `cw review status` | `cw_review_status` | `review.status` | both | identical |
-| `review.policy` | `cw review policy` | `cw_review_policy` | `review.policy` | both | identical |
 | `feedback.list` | `cw feedback list` | `cw_feedback_list` | `feedback.list` | both | identical |
 | `feedback.show` | `cw feedback show` | `cw_feedback_show` | `feedback.show` | both | identical |
 | `feedback.collect` | `cw feedback collect` | `cw_feedback_collect` | `feedback.collect` | both | identical |
@@ -375,13 +298,8 @@ machine-complete by design: 241 capabilities, 198 MCP tools.
 | `sandbox.usage` | `cw sandbox` | `—` | `sandbox.usage` | cli-only | cli-only |
 | `state.usage` | `cw state` | `—` | `state.usage` | cli-only | cli-only |
 | `audit.usage` | `cw audit` | `—` | `audit.usage` | cli-only | cli-only |
-| `blackboard.usage` | `cw blackboard` | `—` | `blackboard.usage` | cli-only | cli-only |
-| `candidate.usage` | `cw candidate` | `—` | `candidate.usage` | cli-only | cli-only |
-| `comment.usage` | `cw comment` | `—` | `comment.usage` | cli-only | cli-only |
-| `eval.usage` | `cw eval` | `—` | `eval.usage` | cli-only | cli-only |
 | `telemetry.usage` | `cw telemetry` | `—` | `telemetry.usage` | cli-only | cli-only |
 | `demo.usage` | `cw demo` | `—` | `demo.usage` | cli-only | cli-only |
-| `multi-agent.usage` | `cw multi-agent` | `—` | `multi-agent.usage` | cli-only | cli-only |
 | `node.usage` | `cw node` | `—` | `node.usage` | cli-only | cli-only |
 | `backend.usage` | `cw backend` | `—` | `backend.usage` | cli-only | cli-only |
 | `contract.usage` | `cw contract` | `—` | `contract.usage` | cli-only | cli-only |
@@ -389,12 +307,8 @@ machine-complete by design: 241 capabilities, 198 MCP tools.
 | `feedback.usage` | `cw feedback` | `—` | `feedback.usage` | cli-only | cli-only |
 | `metrics.usage` | `cw metrics` | `—` | `metrics.usage` | cli-only | cli-only |
 | `operator.usage` | `cw operator` | `—` | `operator.usage` | cli-only | cli-only |
-| `topology.usage` | `cw topology` | `—` | `topology.usage` | cli-only | cli-only |
-| `summary.usage` | `cw summary` | `—` | `summary.usage` | cli-only | cli-only |
 | `workbench.usage` | `cw workbench` | `—` | `workbench.usage` | cli-only | cli-only |
 | `worker.usage` | `cw worker` | `—` | `worker.usage` | cli-only | cli-only |
-| `review.usage` | `cw review` | `—` | `review.usage` | cli-only | cli-only |
-| `coordinator.usage` | `cw coordinator` | `—` | `coordinator.usage` | cli-only | cli-only |
 | `man` | `cw man` | `—` | `man` | cli-only | cli-only |
 | `info` | `cw info` | `—` | `info` | cli-only | cli-only |
 <!-- /gen:parity:table -->
@@ -412,7 +326,7 @@ A capability may be on one surface only, but never without word of it — it mus
 carry a recorded reason in the registry.
 
 <!-- gen:parity:cliOnly -->
-43 capabilities are CLI-only:
+34 capabilities are CLI-only:
 
 - `version` — version is a local, no-run-state print; the old build never gave it an MCP peer.
 - `completion` — shell-completion output is a script for the user's OWN shell to source, not data an MCP client could use — CLI-only, same reasoning as doctor/fix.
@@ -435,13 +349,8 @@ carry a recorded reason in the registry.
 - `sandbox` — sandbox.usage exists only to own the fixed usage-error text for an unrecognized sandbox subcommand; every real sandbox.* action is its own capability row above.
 - `state` — state.usage exists only to own the fixed usage-error text for an unrecognized state subcommand; every real state.* action is its own capability row above.
 - `audit` — audit.usage exists only to own the fixed usage-error text for an unrecognized audit subcommand; every real audit.* action is its own capability row above.
-- `blackboard` — blackboard.usage exists only to own the fixed usage-error text for an unrecognized blackboard subcommand; every real blackboard.* action is its own capability row above.
-- `candidate` — candidate.usage exists only to own the fixed usage-error text for an unrecognized candidate subcommand; every real candidate.* action is its own capability row above.
-- `comment` — comment.usage exists only to own the fixed usage-error text for an unrecognized comment subcommand; every real comment.* action is its own capability row above.
-- `eval` — eval.usage exists only to own the fixed usage-error text for an unrecognized eval subcommand; every real eval.* action is its own capability row above.
 - `telemetry` — telemetry.usage exists only to own the fixed usage-error text for an unrecognized telemetry subcommand; every real telemetry.* action is its own capability row above.
 - `demo` — demo.usage exists only to own the fixed usage-error text for an unrecognized demo subcommand; every real demo.* action is its own capability row above.
-- `multi-agent` — multi-agent.usage exists only to own the fixed usage-error text for an unrecognized multi-agent subcommand; every real multi-agent.* action is its own capability row above.
 - `node` — node.usage exists only to own the fixed usage-error text for an unrecognized node subcommand; every real node.* action is its own capability row above.
 - `backend` — backend.usage exists only to own the fixed usage-error text for an unrecognized backend subcommand; every real backend.* action is its own capability row above.
 - `contract` — contract.usage exists only to own the fixed usage-error text for an unrecognized contract subcommand; every real contract.* action is its own capability row above.
@@ -449,12 +358,8 @@ carry a recorded reason in the registry.
 - `feedback` — feedback.usage exists only to own the fixed usage-error text for an unrecognized feedback subcommand; every real feedback.* action is its own capability row above.
 - `metrics` — metrics.usage exists only to own the fixed usage-error text for an unrecognized metrics subcommand; every real metrics.* action is its own capability row above.
 - `operator` — operator.usage exists only to own the fixed usage-error text for an unrecognized operator subcommand; every real operator.* action is its own capability row above.
-- `topology` — topology.usage exists only to own the fixed usage-error text for an unrecognized topology subcommand; every real topology.* action is its own capability row above.
-- `summary` — summary.usage exists only to own the fixed usage-error text for an unrecognized summary subcommand; every real summary.* action is its own capability row above.
 - `workbench` — workbench.usage exists only to own the fixed usage-error text for an unrecognized workbench subcommand; every real workbench.* action is its own capability row above.
 - `worker` — worker.usage exists only to own the fixed usage-error text for an unrecognized worker subcommand; every real worker.* action is its own capability row above.
-- `review` — review.usage exists only to own the fixed usage-error text for an unrecognized review subcommand; every real review.* action is its own capability row above.
-- `coordinator` — coordinator.usage exists only to own the fixed usage-error text for an unrecognized coordinator subcommand; every real coordinator.* action is its own capability row above.
 - `man` — man is a CLI-only raw-file reader over docs/; the old build never gave it an MCP peer.
 - `info` — info is a CLI-only convenience card over app.show; the old build never gave it an MCP peer.
 <!-- /gen:parity:cliOnly -->
@@ -532,9 +437,9 @@ an exception with no reason, a bad probe classification, a changed payload — a
 checking that the gate says no to each one. It is part of `npm test` and
 `npm run release:check`.
 
-The scenario probes now cover local worker/candidate/feedback read and write
-paths. They make temp runs, send out a worker, write a fixed `result.md`, score
-and pick a candidate, and make feedback from local state. No outside agent is
+The scenario probes now cover local worker/feedback read and write paths.
+They make temp runs, send out a worker, write a fixed `result.md`, and make
+feedback from local state. No outside agent is
 run; the probe checks only that CLI and MCP carry the same JSON to the same CW
 core.
 
@@ -566,8 +471,8 @@ surface is the same no matter which backend ran a run. See
 ## Web / Desktop Workbench (v0.1.30)
 
 v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
-console that renders this surface (and the other four operator panels — run
-graph, blackboard, worker logs, candidate compare, audit timeline) for any run,
+console that renders this surface (and the other operator panels — run
+graph, worker logs, metrics, audit timeline) for any run,
 reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR next to
 the CLI and MCP that holds no authoritative state and forks no schema: each panel
 is equal to its `cw <cmd> --json` payload byte-for-byte (parity-gated), and
@@ -596,8 +501,9 @@ authorized roles, enforced inside `resolveCommitGate` AFTER the verifier checks
 and never in place of them, failing closed on quorum/authority/self-approval and
 recording who said yes to the very artifact that shipped. Policy (needed
 approvals, authorized roles, self-approval) is data, default off (pre-v0.1.32
-behavior unchanged). The verbs are parity-gated and render read-only in the
-v0.1.30 Workbench. See [Team Collaboration](team-collaboration.7.md).
+behavior unchanged). Team Collaboration and its review gate were taken out
+with the multi-agent family (slim-and-esm program, step 2); see
+release-and-migration(7), "Removed Surfaces".
 
 ## Release Tooling (v0.1.33)
 

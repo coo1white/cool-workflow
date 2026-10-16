@@ -85,22 +85,6 @@ exports.CURATED_SMOKE_MAP = [
     {
         patterns: ["src/shell/scheduler-io.ts", "src/shell/scheduling-io.ts"],
         smokes: ["schedule-routine-daemon-smoke.js", "sched-policy-validation-smoke.js"]
-    },
-    {
-        patterns: [
-            "src/core/multi-agent/", "src/shell/multi-agent-", "src/shell/topology-io.ts",
-            "src/shell/coordinator-io.ts", "src/shell/evidence-reasoning.ts",
-            "src/core/state/state-explosion/", "src/shell/state-explosion-cli.ts",
-            "src/core/format/state-explosion-text.ts"
-        ],
-        smokes: [
-            "multi-agent-runtime-core-smoke.js",
-            "multi-agent-topologies-map-reduce-smoke.js",
-            "multi-agent-topologies-debate-smoke.js",
-            "multi-agent-topologies-judge-panel-smoke.js",
-            "multi-agent-cli-mcp-surface-smoke.js",
-            "blackboard-state-explosion-management-smoke.js"
-        ]
     }
 ];
 function optionEnabled(value) {

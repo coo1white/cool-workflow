@@ -21,7 +21,6 @@ import "./state";
 import "./exec-backend";
 import "./pipeline";
 import "./trust-ledger";
-import "./multi-agent";
 import "./scheduling-registry";
 import "./reporting";
 import "./workflow-apps";

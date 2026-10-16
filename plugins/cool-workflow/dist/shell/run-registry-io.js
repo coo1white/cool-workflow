@@ -842,10 +842,6 @@ class RunRegistry {
                 command: `cw dispatch ${runId} --cwd ${record.repo}`,
                 reason: `Continue ${nextTasks.length} pending/running task(s) from durable state.`,
             });
-            nextActions.push({
-                command: `cw multi-agent step ${runId} --cwd ${record.repo}`,
-                reason: "Take one deterministic host step without spawning agents.",
-            });
         }
         else if (record.derivedLifecycle === "failed") {
             nextActions.push({

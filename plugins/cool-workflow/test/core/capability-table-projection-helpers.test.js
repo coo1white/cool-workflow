@@ -39,12 +39,13 @@ const { cliCapabilities, declaredMcpTools, REGISTRY } = require("../../dist/core
   assert.ok(ids.includes("app.run"), "cliCapabilities() must include app.run (it carries a cli binding at the shipped release)");
 }
 
-// declaredMcpTools(): returns exactly 198 tool names (201 until
+// declaredMcpTools(): returns exactly 123 tool names (201 until
 // 2026-09-28, when cw_sandbox_resolve and the two cw_bands_* tools were
-// taken out), in the pinned tools/list source order.
+// taken out; 198 until the 75 multi-agent family tools went in slim-and-esm
+// step 2), in the pinned tools/list source order.
 {
   const tools = declaredMcpTools();
-  assert.equal(tools.length, 198, "declaredMcpTools() must report exactly 198 tool names");
+  assert.equal(tools.length, 123, "declaredMcpTools() must report exactly 123 tool names");
   assert.equal(tools[0], "cw_list", "the first declared tool must be cw_list");
   assert.equal(tools[tools.length - 1], "cw_run_link", "the last declared tool must be cw_run_link");
 }

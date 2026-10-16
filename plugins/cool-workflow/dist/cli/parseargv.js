@@ -111,11 +111,11 @@ exports.KNOWN_COMMANDS = new Set([
     "help", "list", "doctor", "info", "search", "man", "init", "quickstart",
     "plan", "status", "next", "dispatch", "result", "state", "commit", "report",
     "app", "sandbox", "backend", "contract", "node", "feedback", "worker",
-    "audit", "candidate", "review", "loop", "schedule", "routine", "registry",
-    "run", "queue", "clones", "orphans", "history", "audit-run", "multi-agent",
-    "topology", "summary", "blackboard", "coordinator", "metrics", "operator",
-    "sched", "gc", "telemetry", "migration", "demo", "workbench", "approve",
-    "reject", "comment", "handoff", "graph", "eval", "version", "fix",
+    "audit", "loop", "schedule", "routine", "registry",
+    "run", "queue", "clones", "orphans", "history", "audit-run",
+    "metrics", "operator",
+    "sched", "gc", "telemetry", "migration", "demo", "workbench",
+    "graph", "version", "fix",
     "completion",
 ]);
 /** Levenshtein edit distance between two strings. */

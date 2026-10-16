@@ -47,13 +47,8 @@ caseMain(() => {
     "## State Commits",
     "## Error Feedback",
     "## Workers",
-    "## State Size & Compaction",
-    "## Multi-Agent Runtime",
-    "## Blackboard / Coordinator",
     "## Sandbox Profiles",
     "## Trust Audit",
-    "## Acceptance Rationale",
-    "## Candidates",
     "## Pending Tasks",
     "## Results",
   ];
@@ -67,10 +62,12 @@ caseMain(() => {
 
   // Fixed empty-section lines for the sections that are empty on this run.
   assert.ok(report.includes("No feedback records.\n"));
-  assert.ok(report.includes("No multi-agent runtime records yet.\n"));
-  assert.ok(report.includes("No blackboard records yet.\n"));
-  assert.ok(report.includes("No accepted candidate or verifier-gated commit rationale yet.\n"));
-  assert.ok(report.includes("No candidates yet.\n"));
+  // The State Size & Compaction, Multi-Agent Runtime, Blackboard /
+  // Coordinator, Acceptance Rationale and Candidates sections went with the
+  // multi-agent family (slim-and-esm step 2); none may come back.
+  for (const gone of ["## State Size & Compaction", "## Multi-Agent Runtime", "## Blackboard / Coordinator", "## Acceptance Rationale", "## Candidates"]) {
+    assert.ok(!report.includes(gone), `removed section must stay gone: ${gone}`);
+  }
   assert.ok(report.includes("No pending tasks.\n"));
 
   // --- ## Results result-body shape: "### <taskId>" blank "Result: <path>"

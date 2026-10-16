@@ -1,15 +1,14 @@
 import { moveTab, type TabKey } from "./navigation";
 
-// Same seven tabs, same order and names, as app.js's PANEL_GROUPS: which
-// panels (of the one already-fetched run view) each tab shows.
+// The four tabs of src/shell/workbench.ts's PANEL_MAP, in its order:
+// which panels (of the one already-fetched run view) each tab shows. The
+// blackboard, candidate and collaboration tabs went with the multi-agent
+// family (slim-and-esm step 2).
 export const PANEL_GROUPS: { key: TabKey; label: string; panels: string[] }[] = [
-  { key: "graph", label: "Run graph", panels: ["operator", "multiAgent", "compact", "criticalPath"] },
-  { key: "blackboard", label: "Blackboard", panels: ["coordinator", "digest", "graph"] },
+  { key: "graph", label: "Run graph", panels: ["operator"] },
   { key: "worker", label: "Worker logs", panels: ["summary"] },
-  { key: "candidate", label: "Candidate compare", panels: ["summary", "reasoning"] },
-  { key: "audit", label: "Audit timeline", panels: ["summary", "multiAgent", "policy", "judge"] },
+  { key: "audit", label: "Audit timeline", panels: ["summary"] },
   { key: "metrics", label: "Metrics & cost", panels: ["report"] },
-  { key: "collaboration", label: "Review & collaboration", panels: ["review", "comments"] },
 ];
 
 // Ported from app.js's tab markup + navigation.js's moveTab: a real

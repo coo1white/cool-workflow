@@ -26,7 +26,7 @@ const REPO_ONLY = process.argv.includes("--repo-only");
 const indexPathOverride = process.env.CW_PROJECT_INDEX_PATH || "";
 
 // v2 layout: src/ splits into a pure core/ (state kernel, pipeline decisions,
-// multi-agent decisions, workflow-app schema) and an impure shell/ (file IO,
+// workflow-app schema) and an impure shell/ (file IO,
 // CLI/MCP wiring, worker sandboxing). Paths below are relative to src/ and
 // may include a subdirectory — the render step keeps the full relative path
 // as both the link target and the label, so the table also shows which
@@ -43,7 +43,6 @@ const moduleCatalog = {
   "Verification and state gates": [
     ["shell/verifier.ts", "Validates result envelopes, findings, evidence, and run gate completion."],
     ["shell/commit.ts", "Creates verifier-gated commits and explicit manual checkpoints."],
-    ["core/multi-agent/candidate-scoring.ts", "Registers, scores, ranks, selects, rejects, and summarizes candidate outputs."],
     ["core/pipeline/error-feedback.ts", "Turns failures into persisted feedback records and correction tasks."],
     ["shell/trust-audit.ts", "Records provenance, sandbox decisions, host attestations, and acceptance rationale."]
   ],
@@ -53,16 +52,10 @@ const moduleCatalog = {
     ["shell/sandbox-profile.ts", "Resolves named sandbox policy contracts and validates read/write/command/network boundaries."],
     ["shell/harness.ts", "Renders task files for dispatched work."]
   ],
-  "Multi-agent layer": [
-    ["core/multi-agent/runtime.ts", "Persists multi-agent runs, roles, groups, memberships, fanouts, and fanins."],
-    ["core/multi-agent/coordinator.ts", "Owns blackboard topics, messages, context, artifacts, snapshots, and coordinator decisions."],
-    ["core/multi-agent/topology.ts", "Defines and applies official map-reduce, debate, and judge-panel topologies."],
-    ["shell/multi-agent-host.ts", "Provides the preferred host loop for run, status, step, blackboard, score, and select."]
-  ],
   "User and host surfaces": [
-    ["cli.ts", "Routes human CLI commands to runtime, app, topology, multi-agent, and operator flows."],
+    ["cli.ts", "Routes human CLI commands to runtime, app, and operator flows."],
     ["mcp-server.ts", "Exposes JSON-RPC/MCP tool parity for agent hosts."],
-    ["shell/operator-ux.ts", "Formats status, reports, graph, worker, candidate, feedback, commit, and trust summaries."],
+    ["shell/operator-ux.ts", "Formats status, reports, graph, worker, feedback, commit, and trust summaries."],
     ["shell/workflow-app-loader.ts", "Validates app manifests and loads app entrypoints."],
     ["core/workflow-apps/app-schema.ts", "Provides the fluent workflow, phase, task, artifact, and input API."],
     ["shell/scheduler-io.ts", "Runs wall-clock schedules, the desktop scheduler daemon tick, and routine triggers."],
@@ -229,11 +222,8 @@ function renderIndex(target, context) {
   lines.push("");
   lines.push("```text");
   lines.push("workflow app -> runner -> dispatch -> isolated workers");
-  lines.push("    -> results -> feedback/candidates -> verifier gate");
+  lines.push("    -> results -> feedback -> verifier gate");
   lines.push("    -> commit/checkpoint -> report/trust audit");
-  lines.push("");
-  lines.push("multi-agent host -> topology -> blackboard/coordinator");
-  lines.push("    -> fanout/fanin -> candidate score/select");
   lines.push("```");
   lines.push("");
   lines.push("## Source Map");

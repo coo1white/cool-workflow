@@ -40,14 +40,10 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
 const cli_args_1 = require("../../core/util/cli-args");
-const state_explosion_text_1 = require("../../core/format/state-explosion-text");
 const recovery_hint_1 = require("../../core/format/recovery-hint");
 // This file is required at startup for every command. Loading these shell
 // modules only when their handler runs, not at import time, keeps that
 // load cost out of commands that never touch reporting/status/graph.
-function loadStateExplosionCli() {
-    return require("../../shell/state-explosion-cli");
-}
 function loadRunStore() {
     return require("../../shell/run-store");
 }
@@ -82,8 +78,7 @@ function loadOperatorUxText() {
         }
         const result = reportViewCli.reportWriteCli(runId, args.options);
         if (args.options.show || args.options.summary) {
-            const stateExplosion = (0, state_explosion_text_1.formatStateExplosionReport)(loadStateExplosionCli().summaryShowCli(runId, args.options));
-            return { json: result, text: `${reportViewCli.operatorReportText(runId, args.options)}\n\n${stateExplosion}\n` };
+            return { json: result, text: `${reportViewCli.operatorReportText(runId, args.options)}\n` };
         }
         return { json: result, text: `${result.path}\n` };
     },
@@ -362,7 +357,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.serve").mcp.handler = (arg
 registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.serve").payloadIdentical = false;
 registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.serve").reason =
     "Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host, which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.";
-// ---- audit.summary / audit.multi-agent / audit.policy / audit.judge ----
+// ---- audit.summary ----------------------------------------------------
 function loadAuditCli() {
     return require("../../shell/audit-cli");
 }
@@ -372,38 +367,11 @@ function loadAuditCli() {
     handler: (args) => ({ json: loadAuditCli().auditSummaryCli((0, cli_args_1.required)(args.positionals[0], "run id"), args.options) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.summary").mcp.handler = (args) => loadAuditCli().auditSummaryCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-(0, registry_core_1.attachCliBinding)("audit.multi-agent", {
-    path: ["audit", "multi-agent"],
-    jsonMode: "flag",
-    handler: (args) => {
-        const view = loadAuditCli().auditMultiAgentCli((0, cli_args_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: loadOperatorUxText().formatMultiAgentTrustAudit(view) };
-    },
-});
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.multi-agent").mcp.handler = (args) => loadAuditCli().auditMultiAgentCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-(0, registry_core_1.attachCliBinding)("audit.policy", {
-    path: ["audit", "policy"],
-    jsonMode: "flag",
-    handler: (args) => {
-        const view = loadAuditCli().auditPolicyCli((0, cli_args_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: loadOperatorUxText().formatMultiAgentTrustAudit(view) };
-    },
-});
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.policy").mcp.handler = (args) => loadAuditCli().auditPolicyCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-(0, registry_core_1.attachCliBinding)("audit.judge", {
-    path: ["audit", "judge"],
-    jsonMode: "flag",
-    handler: (args) => {
-        const view = loadAuditCli().auditJudgeCli((0, cli_args_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: loadOperatorUxText().formatMultiAgentTrustAudit(view) };
-    },
-});
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.judge").mcp.handler = (args) => loadAuditCli().auditJudgeCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-// GAP: `cw audit worker|provenance|role|blackboard|attest|decision` — the MCP
-// tool rows (cw_audit_worker/provenance/role/blackboard/attest/decision) were
-// declared but had no CLI path binding and their mcp.handler was still
-// notYetImplemented. Wire both surfaces (port of the old cli/handlers/audit.ts
-// arms). `audit worker`/`role`/`decision` read positionals[1] as the entity id.
+// GAP: `cw audit worker|provenance|attest|decision` — the MCP tool rows
+// (cw_audit_worker/provenance/attest/decision) were declared but had no CLI
+// path binding and their mcp.handler was still notYetImplemented. Wire both
+// surfaces (port of the old cli/handlers/audit.ts arms). `audit worker`/
+// `decision` read positionals[1] as the entity id.
 (0, registry_core_1.attachCliBinding)("audit.worker", {
     path: ["audit", "worker"],
     jsonMode: "default",
@@ -416,24 +384,6 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.worker").mcp.handler = (args) 
     handler: (args) => ({ json: loadAuditCli().auditProvenanceCli((0, cli_args_1.required)(args.positionals[0], "run id"), args.options) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.provenance").mcp.handler = (args) => loadAuditCli().auditProvenanceCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-(0, registry_core_1.attachCliBinding)("audit.role", {
-    path: ["audit", "role"],
-    jsonMode: "flag",
-    handler: (args) => {
-        const view = loadAuditCli().auditRoleCli((0, cli_args_1.required)(args.positionals[0], "run id"), (0, cli_args_1.required)(args.positionals[1], "role id"), args.options);
-        return { json: view, text: loadOperatorUxText().formatMultiAgentTrustAudit(view) };
-    },
-});
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.role").mcp.handler = (args) => loadAuditCli().auditRoleCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.roleId ?? args.id), "role id"), args);
-(0, registry_core_1.attachCliBinding)("audit.blackboard", {
-    path: ["audit", "blackboard"],
-    jsonMode: "flag",
-    handler: (args) => {
-        const view = loadAuditCli().auditBlackboardCli((0, cli_args_1.required)(args.positionals[0], "run id"), args.options);
-        return { json: view, text: loadOperatorUxText().formatMultiAgentTrustAudit(view) };
-    },
-});
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.blackboard").mcp.handler = (args) => loadAuditCli().auditBlackboardCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
 (0, registry_core_1.attachCliBinding)("audit.attest", {
     path: ["audit", "attest"],
     jsonMode: "default",

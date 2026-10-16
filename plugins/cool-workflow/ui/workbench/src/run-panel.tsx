@@ -11,7 +11,6 @@ import { C, badgeClass, STAMP } from "./classes";
 import { actionFacts } from "./inspection";
 import { FirstRun } from "./first-run";
 import { DEFAULT_TAB, parseFragment, writeRoute, type TabKey } from "./navigation";
-import { NeedsYou } from "./needs-you";
 import { PANEL_GROUPS, Tabs } from "./tabs";
 import { RawJson } from "./raw-json";
 
@@ -219,8 +218,7 @@ function PanelCard({ name, panel }: { name: string; panel: WorkbenchPanel }) {
 function ActivePanel({ view, activeTab }: { view: WorkbenchRunView; activeTab: TabKey }) {
   const group = PANEL_GROUPS.find((g) => g.key === activeTab) || PANEL_GROUPS[0];
   const panels = view.panels?.[group.key] || {};
-  // Two panel names can map to the same capability (e.g. graph's
-  // compact/criticalPath both come from summary.show) and so carry
+  // Two panel names can map to the same capability and so carry
   // byte-identical payloads; render such a pair once under a merged label
   // instead of showing the same JSON twice under two names.
   const rendered: { names: string[]; panel: WorkbenchPanel }[] = [];
@@ -315,7 +313,7 @@ export function RunPanel({ hasRuns }: { hasRuns: boolean }) {
     <section id="run-panel" className="flex flex-col gap-4 overflow-y-auto px-6 py-5">
       {!runId ? (
         hasRuns ? (
-          <p className="text-base-content/60">Select a run to inspect its graph, blackboard, worker logs, candidate compare, and audit timeline.</p>
+          <p className="text-base-content/60">Select a run to inspect its graph, worker logs, audit timeline, and metrics.</p>
         ) : (
           <FirstRun />
         )
@@ -343,7 +341,6 @@ export function RunPanel({ hasRuns }: { hasRuns: boolean }) {
           {view.lifecycle === "blocked" || view.lifecycle === "failed" ? (
             <p className="alert alert-warning text-[13px]">{`${view.lifecycle} — run 'cw run status ${view.runId}' or 'cw doctor' for next steps`}</p>
           ) : null}
-          <NeedsYou view={view} />
           <Tabs activeTab={activeTab} onSelect={selectTab} />
           <ActivePanel view={view} activeTab={activeTab} />
         </>

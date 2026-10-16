@@ -3,7 +3,7 @@
 //
 // MILESTONE 3. Byte-exact port of the old build's node-projection module,
 // PLUS the `normalizeValue`/`replayStableStringify` pair it depends on
-// (now in src/core/multi-agent/eval-replay.ts). This is the SINGLE source of
+// (defined below). This is the SINGLE source of
 // truth for the 13-field projected-node shape; node-snapshot.ts and (in a
 // later milestone) reclamation.ts's tombstone chain both read from here so
 // the field set can only change in one place.
@@ -29,7 +29,7 @@ const SCRUBBED_TIMESTAMP_KEYS = new Set(["createdAt", "updatedAt", "recordedAt",
  *  body captured at two different wall-clock times, in two different tmp
  *  dirs, is byte-identical). Ported literally from the old build's
  *  multi-agent-eval normalize module — this is the ONE normalizer every
- *  node snapshot/replay/diff/eval-line path shares. */
+ *  node snapshot/replay/diff path shares. */
 function normalizeValue(value) {
     if (Array.isArray(value))
         return value.map(normalizeValue);

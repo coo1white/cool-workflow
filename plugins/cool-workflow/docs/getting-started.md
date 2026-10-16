@@ -96,8 +96,8 @@ cw run resume <run-id> --drive
 That is the whole loop: plan → status → dispatch → report → verify →
 resume. The common command shapes are on the wiki page
 [Commands or API](https://github.com/coo1white/cool-workflow/wiki/Commands-or-API);
-the complete, generated list of every command — topology, multi-agent,
-audit, eval, and the rest — is in [`cli-mcp-parity.7.md`](cli-mcp-parity.7.md).
+the complete, generated list of every command — registry, audit, ledger,
+and the rest — is in [`cli-mcp-parity.7.md`](cli-mcp-parity.7.md).
 
 Run the smallest check that fits the change:
 
@@ -143,19 +143,11 @@ version numbers are in agreement. It does not tag, push, publish, or rewrite fix
 
 `npm run dogfood:release` is the release proof on the real repository. It uses the
 canonical `release-cut` app against this repository in dry-run mode, records CW
-worker outputs from real command logs, scores and picks a release candidate,
-makes a verifier-gated CW state commit, and writes
+worker outputs from real command logs, makes a verifier-gated CW state commit, and writes
 `.cw/runs/<run-id>/dogfood-summary.json`.
 
 Trust audit records are kept under `.cw/runs/<run-id>/audit/`. CW records the
 sandbox profile used by each worker, allowed and denied decisions, where the
-evidence came from, and why picked candidates or verifier-gated commits were
-taken. Multi-agent trust records add role policy, blackboard write audit,
-where each message came from, judge reasons, and policy violations. Look at them with
-`audit summary`, `audit worker`, `audit provenance`, `audit multi-agent`,
-`audit policy`, `audit blackboard`, and `audit judge`.
+evidence came from, and why verifier-gated commits were taken. Look at them
+with `audit summary`, `audit worker`, and `audit provenance`.
 
-Eval/replay artifacts are kept under `.cw/evals/<suite-id>/`. They let a release
-gate prove replay completion, graph/dependency parity, evidence adoption,
-trust/policy/audit parity, judge reasons, candidate scoring, selection, and
-verifier-gated commit readiness without running live agents.

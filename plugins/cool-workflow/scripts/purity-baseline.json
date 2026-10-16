@@ -5,23 +5,11 @@
     ]
   },
   "clockEnvCounts": {
-    "core/multi-agent/candidate-scoring.ts": {
-      "new Date()": 1
-    },
     "core/pipeline/runner.ts": {
       "new Date()": 1
     },
     "core/state/migrations.ts": {
       "process.cwd()": 1
-    },
-    "core/state/state-explosion/digest.ts": {
-      "new Date()": 1
-    },
-    "core/state/state-explosion/graph.ts": {
-      "new Date()": 1
-    },
-    "core/state/state-explosion/report.ts": {
-      "new Date()": 1
     },
     "core/state/state-node.ts": {
       "new Date()": 5

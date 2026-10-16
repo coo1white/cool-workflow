@@ -77,18 +77,20 @@ caseMain(async () => {
     assert.ok(digestCheck, "digest check must be a reported failure");
     assert.equal(digestCheck.code, "ledger-digest-mismatch");
 
-    // Required-argument OR-group: cw_topology_show needs topologyId|id.
+    // Required-argument OR-group: cw_ledger_list needs dir|dirs. (This
+    // used cw_topology_show until that tool went with the multi-agent
+    // family, slim-and-esm step 2.)
     // A missing required argument is a tools/call OUTCOME, so this comes
     // back as a normal result shaped isError: true, not a bare JSON-RPC
     // error. This message matches no recoveryHint branch, so there is no
     // "Try:" line.
-    client.send({ jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "cw_topology_show", arguments: {} } });
+    client.send({ jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "cw_ledger_list", arguments: {} } });
     const [missingOrGroup] = await client.waitForCount(1, 10000);
     assert.equal(missingOrGroup.error, undefined, "a failed tools/call is a result, not an error");
     assert.equal(missingOrGroup.result.isError, true);
     assert.equal(
       missingOrGroup.result.content[0].text,
-      "MCP tool cw_topology_show missing required argument: topologyId or id",
+      "MCP tool cw_ledger_list missing required argument: dir or dirs",
     );
   } finally {
     client.close();

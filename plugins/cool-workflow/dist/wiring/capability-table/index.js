@@ -35,7 +35,6 @@ require("./state");
 require("./exec-backend");
 require("./pipeline");
 require("./trust-ledger");
-require("./multi-agent");
 require("./scheduling-registry");
 require("./reporting");
 require("./workflow-apps");

@@ -90,22 +90,6 @@ report chain. See `references/commands.md` for the exact invocations.
 - **Workflow apps** — discover, validate, plan, package, and scaffold apps;
   canonical apps are `architecture-review`, `pr-review-fix-ci`, `release-cut`,
   `research-synthesis`.
-- **Topologies** — `map-reduce`, `debate`, and `judge-panel` as deterministic
-  userland recipes, not hidden autonomous coordination.
-- **Multi-agent host surface** — high-level `run -> status -> step ->
-  blackboard -> score -> select` plus operator views (dependencies, failures,
-  adopted evidence), wrapping the low-level runtime state and the coordination
-  filesystem.
-- **Coordinator / blackboard** — durable shared substrate (topics, messages,
-  context frames, artifact refs, snapshots, coordinator decisions).
-- **Trust / policy / audit** — inspect role authority, message provenance,
-  blackboard write decisions, and judge/panel rationale; missing
-  policy/evidence/provenance/rationale fail closed.
-- **State explosion management** — derived, provenance-backed digests for runs
-  too large to read; summaries never delete raw records and fail closed when
-  stale.
-- **Eval & replay** — deterministic snapshot/replay/compare/score/gate/report
-  for release-gate evidence under `.cw/evals/<suite-id>/`.
 - **Sandbox profiles** — named CW policy contracts (read/write paths, command,
   network, environment, host enforcement); CW validates, the host enforces.
 - **Scheduling & routines** — loop/cron/reminder schedules and API/GitHub
@@ -126,9 +110,9 @@ When installed from a GitHub package source, the host resolves the package root
 from the source snapshot.
 
 **For the full command catalog and the matching MCP tool surface, read
-`references/commands.md`.** It covers apps, topologies, the multi-agent host and
-low-level state, eval/replay, blackboard/coordinator, sandbox profiles, commit/
-state/summaries, scheduling/routines, and release scripts.
+`references/commands.md`.** It covers apps, plan/dispatch/result/report,
+sandbox profiles, commit/state/summaries, scheduling/routines, and release
+scripts.
 
 ## CLI / MCP Parity
 
@@ -157,8 +141,8 @@ findings without evidence.
 
 Run `npm run release:check` before tagging a release. It is a dry-run gate that
 builds, type-checks, runs tests, validates canonical apps and the golden path,
-checks old run fixtures, runs the multi-agent / topology / CLI-MCP / operator /
-trust-audit / eval-replay / dogfood smoke coverage, and verifies version
+checks old run fixtures, runs the CLI-MCP / operator / trust-audit / dogfood
+smoke coverage, and verifies version
 synchronization — without tagging, pushing, publishing, or mutating fixtures.
 Use `npm run dogfood:release` to exercise the canonical `release-cut` app
 against this repo in dry-run mode. See `references/commands.md` for the full

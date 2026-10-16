@@ -208,7 +208,6 @@ semantics. Nothing in the first audit log is ever edited or wiped.
 - `docs/run-registry-control-plane.7.md` — the v0.1.28 archive overlay this extends.
 - `docs/node-snapshot-diff-replay.7.md` — the v0.1.35 snapshot engine reconstruction sits beside.
 - `docs/control-plane-scheduling.7.md` — the v0.1.37 policy-as-data line of work.
-- `docs/team-collaboration.7.md` — the v0.1.32 append-only log sealed in the skeleton.
 
 ## Durable State & Locking (v0.1.40)
 

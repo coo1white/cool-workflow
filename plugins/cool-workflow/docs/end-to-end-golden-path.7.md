@@ -15,7 +15,7 @@ The command uses only Node.js standard library APIs and the public CW CLI. It
 does not use the network, sleeps, hidden daemon state, or real subagents.
 
 v0.1.13 adds `test/mcp-app-surface-smoke.js`. This is a near deterministic proof
-that drives the same app/worker/candidate/commit/operator chain over MCP stdio
+that drives the same app/worker/commit/operator chain over MCP stdio
 JSON-RPC, in place of direct CLI commands.
 
 ## What It Proves
@@ -23,8 +23,8 @@ JSON-RPC, in place of direct CLI commands.
 The runner works through this chain:
 
 ```text
-workflow app -> plan -> dispatch -> isolated worker -> candidate scoring
--> verifier -> gated commit -> report
+workflow app -> plan -> dispatch -> isolated worker -> verifier
+-> gated commit -> report
 ```
 
 It uses the first-class `end-to-end-golden-path` app in
@@ -41,16 +41,7 @@ cw plan end-to-end-golden-path --repo <tmp> --question "..."
 cw dispatch <run-id> --limit 1 --sandbox readonly
 cw worker manifest <run-id> <worker-id>
 cw worker output <run-id> <worker-id> <result.md>
-cw candidate register <run-id> --worker <worker-id> --id golden-candidate
-cw candidate score <run-id> golden-candidate \
-  --criterion correctness=4 \
-  --criterion evidence=4 \
-  --criterion fit=2 \
-  --maxTotal 10 \
-  --evidence <file:line>
-cw candidate rank <run-id>
-cw candidate select <run-id> golden-candidate --reason "golden path verified"
-cw commit <run-id> --selection <selection-id> \
+cw commit <run-id> --verifier <verifier-node-id> \
   --reason "golden path verifier-gated commit"
 cw report <run-id>
 cw status <run-id>
@@ -61,6 +52,11 @@ cw report <run-id> --show
 After dispatch, the script reads the worker manifest it made, and writes a
 good Markdown result to the worker's named `result.md`. The result has in it
 a `cw:result` JSON fence with file:line evidence.
+
+The commit names the verifier node the accepted worker output made. Up to
+the multi-agent family's removal the path went through `cw candidate
+register|score|rank|select` and `cw commit --selection`; those verbs are
+gone (see release-and-migration(7), "Removed Surfaces").
 
 ## Files Written
 
@@ -81,10 +77,6 @@ The runner makes a temporary workspace under the OS temp directory:
       result.md
     results/
     nodes/
-    candidates/
-      golden-candidate/
-        scores/
-      ranking.json
     commits/
 ```
 
@@ -97,19 +89,16 @@ The golden path checks durable state, not just exit codes:
 
 - run state has the workflow app id and version metadata in it
 - MCP hosts can do the flow again with `cw_app_run`, `cw_dispatch`,
-  `cw_worker_manifest`, `cw_worker_output`, `cw_candidate_score`,
-  `cw_candidate_select`, `cw_commit`, and operator summary tools
+  `cw_worker_manifest`, `cw_worker_output`, `cw_commit`, and operator
+  summary tools
 - dispatch keeps a record of a worker id and `readonly` sandbox profile
 - the worker manifest has the worked-out sandbox policy data in it
 - the worker gets to `verified`
 - result and verifier nodes are there
 - the verifier node holds evidence
-- `golden-candidate` gets to `verified` after selection
-- candidate score and ranking files are there
 - the last commit has `verifierGated: true` and `checkpoint: false`
-- the last commit points to the selection, candidate, verifier node, and
-  evidence
-- the report names the workflow app, candidates, and verifier-gated commit
+- the last commit points to the verifier node and evidence
+- the report names the workflow app and the verifier-gated commit
 - operator status, graph, report, and summary commands can look at the run
 - no ErrorFeedback records are made
 

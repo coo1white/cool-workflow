@@ -24,9 +24,9 @@ Every verb is on both surfaces: the CLI (`cw ledger ...`) and MCP
 (`cw_ledger_propose`, `cw_ledger_review`, `cw_ledger_verify`, `cw_ledger_list`),
 so an agent can mint and check entries in-process, not only from a shell.
 
-`cw ledger` is a NEW verb. It does not touch `cw handoff`, which is a separate
-collaboration primitive (ownership transfer of a run/task) — see
-[team-collaboration](team-collaboration.7.md).
+`cw ledger` is a NEW verb. It was kept apart from `cw handoff`, the old
+run/task ownership transfer verb, which went with the multi-agent family
+(see release-and-migration(7), "Removed Surfaces").
 
 ## Why a ledger, not a shared folder
 
