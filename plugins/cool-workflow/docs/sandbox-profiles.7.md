@@ -143,7 +143,9 @@ refused with `sandbox-write-denied` and the message "write path resolves
 through a symlink outside sandbox profile <id>: <path> -> <real path>". Both
 sides are compared as real paths, so a run under a symlinked temp root (macOS
 `/var` -> `/private/var`) is not refused. `cw result` makes the same check on
-the worker's `result.md` before it copies the operator file there. Runtime
+the worker's `result.md` before it copies the operator file there, and so
+does the drive before it writes a result-cache hit or a sub-workflow result
+there; a refused drive write is a failed hop (retry, then park). Runtime
 helpers also give `sandbox-read-denied`, `sandbox-network-denied`, and
 `sandbox-command-denied` for hosts that want to note down those decisions through
 CW.

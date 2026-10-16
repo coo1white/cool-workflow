@@ -54,6 +54,7 @@ import { firstRunnablePhase, runnableTaskIds, updatePhaseStatuses } from "../cor
 import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir, runStateIsCurrent, RunStateConflictError } from "./run-store";
 import { createDispatchManifest } from "./dispatch";
 import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope, reopenParkedWorker } from "./worker-isolation";
+import { validateSandboxWrite } from "./sandbox-profile";
 import { createStateNode } from "../core/state/state-node";
 import { appendRunNode } from "./node-store";
 import { runPipelineStage } from "../core/pipeline/runner";
@@ -350,6 +351,15 @@ function previousPhaseResultsDigest(run: WorkflowRun, task: { id: string; phase:
   return sha256(JSON.stringify(records));
 }
 
+/** Check a worker's result.md BEFORE the drive itself writes it (a cache
+ *  hit or a sub-workflow result), as `cw result` does before its copy: a
+ *  result.md left as a symlink would make the write go through it, outside
+ *  the boundary. recordWorkerOutput checks the path again after the write. */
+function assertResultWritable(manifest: ReturnType<typeof showWorkerManifest>, workerId: string): void {
+  const violation = manifest.sandboxPolicy ? validateSandboxWrite(manifest.sandboxPolicy, manifest.resultPath, workerId) : null;
+  if (violation) throw new Error(violation.message);
+}
+
 function writeResultCache(file: string, content: string): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
@@ -464,6 +474,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
   if (cachePath && fs.existsSync(cachePath)) {
     emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
     try {
+      assertResultWritable(manifest, workerId);
       fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
       withTrustAuditBatch(run, () => {
       // Not gated by requireAttestedTelemetry here: the underlying result was
@@ -614,7 +625,7 @@ function runSubWorkflow(
   run: WorkflowRun,
   selected: WorkflowRun["tasks"][number],
   workerId: string,
-  manifest: { resultPath: string },
+  manifest: ReturnType<typeof showWorkerManifest>,
   spec: { appId: string; inputs?: Record<string, string>; bindResult?: string },
   deferPersist = false
 ): DriveStep {
@@ -672,6 +683,7 @@ function runSubWorkflow(
     return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} produced no ${spec.bindResult || "report"}`, deferPersist, deferPersist ? run : undefined);
   }
   try {
+    assertResultWritable(manifest, workerId);
     fs.writeFileSync(manifest.resultPath, childBytes, "utf8");
     recordWorkerOutput(run, workerId, manifest.resultPath);
     // Cross-link the child run onto the parent's delegate task + a tamper-

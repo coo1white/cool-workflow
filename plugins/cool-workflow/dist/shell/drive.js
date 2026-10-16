@@ -63,6 +63,7 @@ const dispatch_1 = require("../core/pipeline/dispatch");
 const run_store_1 = require("./run-store");
 const dispatch_2 = require("./dispatch");
 const worker_isolation_1 = require("./worker-isolation");
+const sandbox_profile_1 = require("./sandbox-profile");
 const state_node_1 = require("../core/state/state-node");
 const node_store_1 = require("./node-store");
 const runner_1 = require("../core/pipeline/runner");
@@ -306,6 +307,15 @@ function previousPhaseResultsDigest(run, task) {
         return undefined;
     return (0, hash_1.sha256)(JSON.stringify(records));
 }
+/** Check a worker's result.md BEFORE the drive itself writes it (a cache
+ *  hit or a sub-workflow result), as `cw result` does before its copy: a
+ *  result.md left as a symlink would make the write go through it, outside
+ *  the boundary. recordWorkerOutput checks the path again after the write. */
+function assertResultWritable(manifest, workerId) {
+    const violation = manifest.sandboxPolicy ? (0, sandbox_profile_1.validateSandboxWrite)(manifest.sandboxPolicy, manifest.resultPath, workerId) : null;
+    if (violation)
+        throw new Error(violation.message);
+}
 function writeResultCache(file, content) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const tmp = `${file}.${process.pid}.tmp`;
@@ -408,6 +418,7 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     if (cachePath && fs.existsSync(cachePath)) {
         emitProgress(`↺ ${selected.label || selected.id} (${selected.phase}) — accepting cached result`);
         try {
+            assertResultWritable(manifest, workerId);
             fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
             (0, trust_audit_1.withTrustAuditBatch)(run, () => {
                 // Not gated by requireAttestedTelemetry here: the underlying result was
@@ -603,6 +614,7 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
         return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} produced no ${spec.bindResult || "report"}`, deferPersist, deferPersist ? run : undefined);
     }
     try {
+        assertResultWritable(manifest, workerId);
         fs.writeFileSync(manifest.resultPath, childBytes, "utf8");
         (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
         // Cross-link the child run onto the parent's delegate task + a tamper-

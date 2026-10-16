@@ -131,7 +131,9 @@ Boundary violations are rejected worker outputs. They are not taken into result
 state. Sandbox write denials use `sandbox-write-denied`; this takes in a
 `result.md` (or a worker folder above it) that is a symlink to a place outside
 the worker output paths, so CW never reads or copies a file from outside the
-boundary through it. Unknown and invalid
+boundary through it. CW also never writes through it: `cw result`, a
+result-cache hit, and a sub-workflow result each check `result.md` before
+they write it. Unknown and invalid
 profiles use `sandbox-profile-not-found` and `sandbox-profile-invalid`.
 
 A repo-review worker (a task that sets `reviewsRepo`) whose on-disk file evidence
