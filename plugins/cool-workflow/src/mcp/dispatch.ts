@@ -18,6 +18,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { findCapabilityByMcpTool, mcpToolDefinitions } from "../core/capability-table";
 import type { McpToolDefinition } from "../core/capability-table";
+import { coerceMcpScalar } from "../core/util/cli-args";
 
 /** `toolDefinitions()` — the full, ordered `tools/list` array. */
 export function toolDefinitions(): McpToolDefinition[] {
@@ -56,11 +57,14 @@ export function requiredToolArguments(name: string, value: unknown): Record<stri
  *  a success-shaped WRONG answer (the "create a run first" payload). Coerce
  *  top-level scalars to their string form so an MCP arg behaves exactly like
  *  the CLI's argv, which is always strings. Arrays/objects (e.g.
- *  authorizedRoles) pass through untouched; null/undefined stay absent. */
+ *  authorizedRoles) pass through untouched; null/undefined stay absent.
+ *  JSON `false` stays a real `false` (core/util/cli-args.ts
+ *  coerceMcpScalar): its string form "false" read as ON through every
+ *  `Boolean(args.x)` flag read. */
 function coerceScalarArgs(args: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(args)) {
-    out[key] = typeof value === "number" || typeof value === "boolean" || typeof value === "bigint" ? String(value) : value;
+    out[key] = coerceMcpScalar(value);
   }
   return out;
 }

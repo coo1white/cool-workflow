@@ -1,6 +1,6 @@
 # Cool Workflow Project Index
 
-Generated from the current repository code on 2026-10-01 by `npm run sync:project-index`.
+Generated from the current repository code on 2026-10-16 by `npm run sync:project-index`.
 
 ## Snapshot
 
@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-10-01 by `npm run sync:projec
 - Source modules: `158`
 - Workflow apps: `8`
 - Docs: `59`
-- Smoke tests: `278`
+- Smoke tests: `279`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -406,6 +406,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [man-run-registry-traversal-smoke.js](../test/man-run-registry-traversal-smoke.js)
 - [manifest-vendor-registry-failclosed-smoke.js](../test/manifest-vendor-registry-failclosed-smoke.js)
 - [mcp-app-surface-smoke.js](../test/mcp-app-surface-smoke.js)
+- [mcp-boolean-false-arg-smoke.js](../test/mcp-boolean-false-arg-smoke.js)
 - [mcp-control-process-responsiveness-smoke.js](../test/mcp-control-process-responsiveness-smoke.js)
 - [mcp-ping-and-arg-coercion-smoke.js](../test/mcp-ping-and-arg-coercion-smoke.js)
 - [mcp-protocol-version-smoke.js](../test/mcp-protocol-version-smoke.js)

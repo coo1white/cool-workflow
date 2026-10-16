@@ -54,6 +54,7 @@ exports.callTool = callTool;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const capability_table_1 = require("../core/capability-table");
+const cli_args_1 = require("../core/util/cli-args");
 /** `toolDefinitions()` — the full, ordered `tools/list` array. */
 function toolDefinitions() {
     return (0, capability_table_1.mcpToolDefinitions)();
@@ -89,11 +90,14 @@ function requiredToolArguments(name, value) {
  *  a success-shaped WRONG answer (the "create a run first" payload). Coerce
  *  top-level scalars to their string form so an MCP arg behaves exactly like
  *  the CLI's argv, which is always strings. Arrays/objects (e.g.
- *  authorizedRoles) pass through untouched; null/undefined stay absent. */
+ *  authorizedRoles) pass through untouched; null/undefined stay absent.
+ *  JSON `false` stays a real `false` (core/util/cli-args.ts
+ *  coerceMcpScalar): its string form "false" read as ON through every
+ *  `Boolean(args.x)` flag read. */
 function coerceScalarArgs(args) {
     const out = {};
     for (const [key, value] of Object.entries(args)) {
-        out[key] = typeof value === "number" || typeof value === "boolean" || typeof value === "bigint" ? String(value) : value;
+        out[key] = (0, cli_args_1.coerceMcpScalar)(value);
     }
     return out;
 }
