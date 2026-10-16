@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-10-16 by `npm run sync:projec
 - Source modules: `131`
 - Workflow apps: `7`
 - Docs: `48`
-- Smoke tests: `260`
+- Smoke tests: `266`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -310,11 +310,13 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [doctor-audit-integrity-repair-smoke.js](../test/doctor-audit-integrity-repair-smoke.js)
 - [doctor-smoke.js](../test/doctor-smoke.js)
 - [dogfood-architecture-review-smoke.js](../test/dogfood-architecture-review-smoke.js)
+- [dogfood-npm-pack-shape-smoke.js](../test/dogfood-npm-pack-shape-smoke.js)
 - [dogfood-release-smoke.js](../test/dogfood-release-smoke.js)
 - [drive-async-real-signal-smoke.js](../test/drive-async-real-signal-smoke.js)
 - [drive-concurrency-flag-smoke.js](../test/drive-concurrency-flag-smoke.js)
 - [drive-concurrent-round-sigkill-smoke.js](../test/drive-concurrent-round-sigkill-smoke.js)
 - [drive-exhaustion-blocked-smoke.js](../test/drive-exhaustion-blocked-smoke.js)
+- [drive-operator-write-lost-update-smoke.js](../test/drive-operator-write-lost-update-smoke.js)
 - [drive-round-cache-serial-smoke.js](../test/drive-round-cache-serial-smoke.js)
 - [drive-run-mutex-smoke.js](../test/drive-run-mutex-smoke.js)
 - [drive-ticker-smoke.js](../test/drive-ticker-smoke.js)
@@ -420,16 +422,19 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [remote-link-git-smoke.js](../test/remote-link-git-smoke.js)
 - [report-answer-smoke.js](../test/report-answer-smoke.js)
 - [report-bundle-smoke.js](../test/report-bundle-smoke.js)
+- [report-html-href-smoke.js](../test/report-html-href-smoke.js)
 - [report-open-smoke.js](../test/report-open-smoke.js)
 - [report-pubkey-pin-smoke.js](../test/report-pubkey-pin-smoke.js)
 - [report-verify-bundle-smoke.js](../test/report-verify-bundle-smoke.js)
 - [result-normalize-smoke.js](../test/result-normalize-smoke.js)
+- [resume-anchor-mismatch-smoke.js](../test/resume-anchor-mismatch-smoke.js)
 - [resume-parked-smoke.js](../test/resume-parked-smoke.js)
 - [robustness-failclosed-smoke.js](../test/robustness-failclosed-smoke.js)
 - [robustness-hardening-smoke.js](../test/robustness-hardening-smoke.js)
 - [root-layout-smoke.js](../test/root-layout-smoke.js)
 - [run-all-agent-env-hermetic-smoke.js](../test/run-all-agent-env-hermetic-smoke.js)
 - [run-all-json-summary-smoke.js](../test/run-all-json-summary-smoke.js)
+- [run-all-timeout-header-smoke.js](../test/run-all-timeout-header-smoke.js)
 - [run-archive-intake-limits-smoke.js](../test/run-archive-intake-limits-smoke.js)
 - [run-export-cross-machine-smoke.js](../test/run-export-cross-machine-smoke.js)
 - [run-export-import-smoke.js](../test/run-export-import-smoke.js)
@@ -501,6 +506,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [worker-accept-path-architecture-smoke.js](../test/worker-accept-path-architecture-smoke.js)
 - [worker-isolation-smoke.js](../test/worker-isolation-smoke.js)
 - [worker-off-target-smoke.js](../test/worker-off-target-smoke.js)
+- [worker-result-symlink-smoke.js](../test/worker-result-symlink-smoke.js)
 - [worker-retry-count-smoke.js](../test/worker-retry-count-smoke.js)
 - [workflow-app-framework-smoke.js](../test/workflow-app-framework-smoke.js)
 
