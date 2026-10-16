@@ -25,9 +25,9 @@ const WORKFLOWS = path.join(REPO_ROOT, ".github", "workflows");
 const PINS = {
   "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
   "oven-sh/setup-bun": "0c5077e51419868618aeaa5fe8019c62421857d6",
-  "actions/setup-node": "820762786026740c76f36085b0efc47a31fe5020",
-  "github/codeql-action/init": "b96794f015dfd88f77b49b1c93e0fa7110f94c63",
-  "github/codeql-action/analyze": "b96794f015dfd88f77b49b1c93e0fa7110f94c63",
+  "actions/setup-node": "949feb2413d6458794dcd2491c4babbbce0c15c1",
+  "github/codeql-action/init": "24c54180a607b1449ed407dd24f251e4e9147c8d",
+  "github/codeql-action/analyze": "24c54180a607b1449ed407dd24f251e4e9147c8d",
   "gitleaks/gitleaks-action": "e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e",
   "actions/upload-pages-artifact": "fc324d3547104276b827a68afc52ff2a11cc49c9",
   "actions/deploy-pages": "368f82528645a54fb793d4d04e342629a3f51346",
