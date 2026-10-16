@@ -92,6 +92,9 @@
     "tailwindcss": "4.3.3",
     "typescript": "^7.0.2"
   },
+  "overrides": {
+    "@parcel/watcher": "2.6.0"
+  },
   "keywords": [
     "agent",
     "workflow",
