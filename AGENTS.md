@@ -66,7 +66,7 @@ runtime does OS-specific file locking and TMPDIR work. The required
 checks for merge are still the two ubuntu legs, Node 18 and 22.)
 
 (2026-10-16: a `release-rehearsal` job, NOT required, runs
-`release-flow.js --check` with a stub reviewer and `dogfood-release
+`release-flow.js --check --local-tests` with a stub reviewer and `dogfood-release
 --smoke` on Node 24 with the bundled and the newest npm, on PRs that touch
 release tooling (and main pushes that do); see
 `plugins/cool-workflow/docs/release-tooling.7.md`.)
@@ -444,8 +444,16 @@ short, and simple to add to. Do not use it for guesses.)
   (the v0.1.97 codex case: two REJECTs in <65 s vs a ~12-min gate). Review intent
   is wired through as `CW_RELEASE_REVIEW=1`; the wrapper raises effort and opens
   the sandbox to workspace-write. Never trust a read-only/low-effort verdict.
-- **What the gate actually runs.** `release-gate.js` = build, `test:gate` (full
-  suite), diff-substance / test-evidence checks, branch-naming. It does
+- **What the gate actually runs.** `release-gate.js` = build, tests,
+  diff-substance / test-evidence checks, branch-naming. In a cut
+  (`release-flow.js`, so `npm run release`) the tests step is by default
+  the green required CI checks (`check (18)`, `check (22)`; list in
+  `scripts/release-ci-checks.js`) on the exact reviewed SHA, read with
+  `gh`, failing closed on pending/red/missing/error; `--local-tests` or
+  `CW_RELEASE_LOCAL_TESTS=1` runs the full `test:gate` suite locally
+  instead (operator's yes 2026-10-16, intent
+  `2026-10-16-release-gate-ci.md`). `release-gate.js` alone, as
+  `release.yml` runs it, still runs the full suite. It does
   NOT run `readme:check` or the dogfood release-cut — those live only in the
   broader `release:check`.
 - **If a version bump leaves `dist/core/version.js` stale**, it is the tsc incremental
@@ -772,7 +780,10 @@ package.json — same convention as the VERIFY step above):
    X.Y.Z` in their own terminal
    (`plugins/cool-workflow/scripts/release-oneclick.js`). It fail-fasts
    on every known precondition BEFORE the gate/vendor/
-   reviewer spend anything, runs the gated cut, pushes ONLY the tag
+   reviewer spend anything, waits for the required CI checks on the cut
+   commit, runs the gated cut (its test step is those green checks, not a
+   second local suite run; `--local-tests` when CI cannot be reached),
+   pushes ONLY the tag
    (`refs/tags/vX.Y.Z` — the verdict commit is a one-hop leaf on the
    reviewed commit; no branch push, so branch protection never blocks
    it), creates the GitHub Release, then waits for `release-gate` +
@@ -900,21 +911,21 @@ Until that public key is committed, every check stays exactly as before
 
 ### Cutting efficiently (wall-clock)
 
-The full test suite can run up to five times across one cut (`release-flow`'s
-own gate, the independent reviewer's gate pass, a local `release:check`, the
-tag's `release-gate` CI, and the PR's CI). To keep a cut to ~15-20 minutes
-in place of an hour:
+The full test suite used to run up to five times across one cut. Now the
+cut's own gate takes the green required CI checks on the reviewed commit in
+place of a local run, and the reviewer does not run the gate, so the suite
+runs in the PR's CI, the `main` CI, and the tag's `release-gate` CI (plus a
+local `release:check` if you choose). To keep a cut short:
 
 - **Cut on a quiet machine.** The suite is parallel-friendly but ~3x slower
   under CPU contention; do not run a cut while a number of
   workflows/agents are in a fight for cores.
-- **Two gate passes is the top.** `release-flow` runs the gate once, then
-  the independent reviewer runs it one more time (zero-trust). The reviewer
-  has orders to run it EXACTLY ONCE (`agents/release-reviewer.md` step 2) —
-  a deterministic gate cannot make a different verdict on a re-run, so a
-  third pass is pure waste.
+- **One gate pass.** `release-flow` runs the gate once; the reviewer has
+  orders not to run it again (`agents/release-reviewer.md` step 2) and may
+  confirm the CI checks with `gh` instead — a deterministic gate cannot
+  make a different verdict on a re-run.
 - **You can let the separate local `release:check` go before pushing.**
-  The cut's gate + the reviewer's independent gate + the tag's
+  The cut's gate + the tag's
   `release-gate` CI already take care of it; pushing and letting CI gate is
   quicker (a tag/branch is cheap to redo if CI reds). Keep the local check
   only when you cannot get to CI.

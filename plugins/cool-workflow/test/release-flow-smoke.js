@@ -41,6 +41,11 @@ assert.ok(fs.existsSync(REVIEWER_PROMPT), "release reviewer prompt must exist");
   assert.match(prompt, /control plane has already run the deterministic gate/i, "the control plane, not the reviewer, owns the deterministic gate");
   assert.match(prompt, /kind: semantic-review/, "reviewer rejections require a semantic-review kind");
   assert.doesNotMatch(prompt, /Run the deterministic gate yourself/i, "reviewer must not repeat the control-plane gate");
+  // The gate's test step may stand on the green required CI checks on the
+  // exact reviewed sha (2026-10-16 intent: release-gate-ci); the reviewer is
+  // told so, and how to confirm it.
+  assert.match(prompt, /satisfied by the green required CI checks[\s\S]*exact reviewed\s+SHA/, "step 2: the gate may take the green required CI checks on the reviewed sha");
+  assert.match(prompt, /gh api repos\/\{owner\}\/\{repo\}\/commits\/<HEAD>\/check-runs/, "step 2: the reviewer may confirm the checks itself");
   // The one POLA exception: an operator-chosen default change, taken only
   // with all three checks; one missing is still a POLA break.
   assert.match(prompt, /Operator-approved breaking change \(the ONE exception, and to POLA\s+only\)/, "the POLA exception is named and scoped to POLA");

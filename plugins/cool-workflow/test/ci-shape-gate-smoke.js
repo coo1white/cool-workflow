@@ -36,6 +36,10 @@ const LABELS = ["ubuntu-latest", "macos-latest"];
 // The ci.yml jobs branch protection requires for merge (AGENTS.md: the
 // `check` legs). The release rehearsal must never join this set.
 const REQUIRED_JOBS = ["check"];
+// The check-run names the release gate takes in place of a local test run
+// (scripts/release-ci-checks.js, the one list). Each must be a leg of the
+// ci.yml `check` job: "check (<node-version>)".
+const { REQUIRED_CHECKS } = require("../scripts/release-ci-checks.js");
 const REHEARSAL_JOB = "release-rehearsal";
 const EXCEPTIONS = ["codeql.yml", "gitleaks.yml", "pages.yml", "npm-publish.yml"];
 // GITHUB_TOKEN too: on Gitea it is empty in schedule and dispatch runs; write github.token.
@@ -126,12 +130,24 @@ function gate(workflowsDir, repoRoot) {
       faults.push(`ci.yml: ${REHEARSAL_JOB} does not run on the bundled and the latest npm`);
     }
     if (!/release-flow\.js --check/.test(rehearsal)) faults.push(`ci.yml: ${REHEARSAL_JOB} does not run release-flow.js --check`);
+    // The rehearsal runs beside the required checks, so it cannot wait on
+    // them: it must run the gate's test step locally.
+    if (!/^\s+- run: node scripts\/release-flow\.js --check --local-tests$/m.test(rehearsal)) faults.push(`ci.yml: ${REHEARSAL_JOB} must run release-flow.js --check --local-tests`);
     if (!/CW_AGENT_COMMAND:.*test\/fixtures\/release-rehearsal-reviewer\.js \{\{input\}\}/.test(rehearsal)) {
       faults.push(`ci.yml: ${REHEARSAL_JOB} reviewer is not the committed stub`);
     }
     if (/CW_RELEASE_VERDICT_PRIVKEY|--push|npm publish|secrets\./.test(rehearsal)) {
       faults.push(`ci.yml: ${REHEARSAL_JOB} must hold no signing key and never push or publish`);
     }
+  }
+
+  // 9. every check the release gate requires is a leg of the `check` matrix
+  const checkJob = jobBlock(textByFile.get("ci.yml") || "", "check");
+  const nodeMatrix = (checkJob.match(/node-version:\s*\[([^\]]*)\]/) || [, ""])[1]
+    .split(",").map((v) => v.trim().replace(/^["']|["']$/g, "")).filter(Boolean);
+  for (const name of REQUIRED_CHECKS) {
+    const m = name.match(/^check \((.+)\)$/);
+    if (!m || !nodeMatrix.includes(m[1])) faults.push(`ci.yml: release required check "${name}" is not a leg of the check job`);
   }
 
   // 3. release.yml has no cancel-in-progress: true
@@ -247,5 +263,17 @@ withFault((dir) => {
   const p = path.join(dir, "ci.yml");
   fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace('npm: ["bundled", "latest"]', 'npm: ["bundled"]'));
 }, "bundled and the latest npm");
+
+// 8e. the rehearsal waiting on the CI checks it runs beside
+withFault((dir) => {
+  const p = path.join(dir, "ci.yml");
+  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace("- run: node scripts/release-flow.js --check --local-tests", "- run: node scripts/release-flow.js --check"));
+}, "must run release-flow.js --check --local-tests");
+
+// 9. a required release check whose Node leg was dropped from the matrix
+withFault((dir) => {
+  const p = path.join(dir, "ci.yml");
+  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace('node-version: ["18", "22", "24"]', 'node-version: ["22", "24"]'));
+}, 'release required check "check (18)" is not a leg');
 
 console.log("ci-shape-gate-smoke: ok");

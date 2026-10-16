@@ -162,10 +162,13 @@ jobs:
   # operator's machine during a real cut. Gated per job like
   # steering-config-gate above: a step reads the changed files with git and
   # sets an output; later steps run only when it says yes. It runs the real
-  # flow in check mode: version sync, release-flow.js --check (the
-  # deterministic gate: build, full test:gate, substance, test evidence,
+  # flow in check mode: version sync, release-flow.js --check --local-tests
+  # (the deterministic gate: build, full test:gate, substance, test evidence,
   # branch naming; then the reviewer spawn and verdict check), and
-  # dogfood-release --smoke (npm pack --dry-run --json). The reviewer is a
+  # dogfood-release --smoke (npm pack --dry-run --json). --local-tests is
+  # needed here: by default the gate's test step reads the required `check`
+  # runs on the commit, and this job runs beside them, so it cannot wait on
+  # them. The reviewer is a
   # STUB (test/fixtures/release-rehearsal-reviewer.js), there is no signing
   # key, and nothing is tagged, pushed, or published. The npm leg runs the
   # newest npm as well as the one bundled with Node 24: npm 12 changed the
@@ -219,7 +222,7 @@ jobs:
         if: steps.changed.outputs.run == 'true'
       # GITHUB_HEAD_REF (set on a PR) is what release-gate.js judges for
       # branch naming on the detached merge checkout.
-      - run: node scripts/release-flow.js --check
+      - run: node scripts/release-flow.js --check --local-tests
         if: steps.changed.outputs.run == 'true'
         env:
           CW_AGENT_COMMAND: node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.js {{input}}
