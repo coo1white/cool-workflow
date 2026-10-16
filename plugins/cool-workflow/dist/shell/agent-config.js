@@ -6,7 +6,8 @@
 // the old build's agent-config module.
 //
 // Resolution order per field: flags > env > a durable
-// $CW_HOME/agent-config.json > auto-detect > none. NO SECRETS IN COMMITTED
+// $CW_HOME/agent-config.json > auto-detect > none. The command and its args
+// are one field: both come from the first layer that sets a command. NO SECRETS IN COMMITTED
 // STATE: the durable config holds a command-TEMPLATE + endpoint + operator-
 // chosen model only; a secret-looking arg is stripped before persisting or
 // showing.
@@ -226,8 +227,12 @@ function resolveAgentConfig(args = {}, env = process.env) {
     const flagCfg = agentConfigFromArgs(args);
     const envCfg = agentConfigFromEnv(env);
     const fileCfg = loadAgentConfigFile(env);
-    const command = expandBuiltinAgentCommand(firstDefined(flagCfg.command, envCfg.command, fileCfg?.command));
-    const cfgArgs = firstDefined(flagCfg.args, envCfg.args, fileCfg?.args);
+    // Command and args are ONE unit: the layer that supplies the command
+    // supplies its args too. A lower layer's args are never attached to a
+    // higher layer's command (they were written for a different binary).
+    const commandLayer = [flagCfg, envCfg, fileCfg].find((layer) => layer && layer.command !== undefined);
+    const command = expandBuiltinAgentCommand(commandLayer?.command);
+    let cfgArgs = commandLayer ? commandLayer.args : firstDefined(flagCfg.args, envCfg.args, fileCfg?.args);
     const endpoint = firstDefined(flagCfg.endpoint, envCfg.endpoint, fileCfg?.endpoint);
     const model = firstDefined(flagCfg.model, envCfg.model, fileCfg?.model);
     const timeoutMs = firstDefined(flagCfg.timeoutMs, envCfg.timeoutMs, fileCfg?.timeoutMs);
@@ -256,6 +261,8 @@ function resolveAgentConfig(args = {}, env = process.env) {
             // wrapper that spawns the found binary itself.
             const template = detected === "gemini" ? "gemini-cli" : detected;
             finalCommand = expandBuiltinAgentCommand(`builtin:${template}`);
+            // The builtin template carries its own argv; no layer's args attach.
+            cfgArgs = undefined;
             finalSource = "auto";
             if (!finalModel)
                 finalModel = `builtin:${template}`;

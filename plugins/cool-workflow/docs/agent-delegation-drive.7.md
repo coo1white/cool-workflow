@@ -221,8 +221,12 @@ on hand. Two replays with different injected `now` are byte-identical in body
 WHICH agent (claude / codex / ollama / an HTTP endpoint) is **policy put as
 DATA** — a command-template and/or endpoint worked out from flags > env
 (`CW_AGENT_COMMAND` / `CW_AGENT_ENDPOINT` / `CW_AGENT_MODEL`) > a durable
-`$CW_HOME/agent-config.json`. claude / codex / ollama are CONFIGS, never CW
-dependencies. No secrets are written into the config or `.cw/`: it holds a
+`$CW_HOME/agent-config.json`. The command and its args are one unit: both
+come from the first layer that sets a command. Args from a lower layer are
+never put on a higher layer's command (a one-word `CW_AGENT_COMMAND`, or
+`-codex`, does not take the args a config file stored for another command).
+When auto-detect picks the command, no layer's args are used.
+claude / codex / ollama are CONFIGS, never CW dependencies. No secrets are written into the config or `.cw/`: it holds a
 command-template + endpoint + operator-chosen model only; recorded command/args
 are secret-stripped.
 
