@@ -33,9 +33,23 @@ const PINS = {
   "actions/deploy-pages": "368f82528645a54fb793d4d04e342629a3f51346",
 };
 const LABELS = ["ubuntu-latest", "macos-latest"];
+// The ci.yml jobs branch protection requires for merge (AGENTS.md: the
+// `check` legs). The release rehearsal must never join this set.
+const REQUIRED_JOBS = ["check"];
+const REHEARSAL_JOB = "release-rehearsal";
 const EXCEPTIONS = ["codeql.yml", "gitleaks.yml", "pages.yml", "npm-publish.yml"];
 // GITHUB_TOKEN too: on Gitea it is empty in schedule and dispatch runs; write github.token.
 const BANNED_TOKENS = ["CT_GITEA_TOKEN", "CI_VENDOR_TOKEN", "AUTOMERGE_TOKEN", "RENOVATE_TOKEN", "GITHUB_TOKEN"];
+
+/** The text of one top-level job under jobs: in a workflow, or "" when absent. */
+function jobBlock(text, id) {
+  const lines = text.split("\n");
+  const start = lines.findIndex((l) => l === `  ${id}:`);
+  if (start < 0) return "";
+  let end = start + 1;
+  while (end < lines.length && !/^ {2}[A-Za-z0-9_-]+:/.test(lines[end]) && !/^\S/.test(lines[end])) end += 1;
+  return lines.slice(start, end).join("\n");
+}
 
 /** Every fault the gate finds in one .github/workflows/ directory, as strings. */
 function gate(workflowsDir, repoRoot) {
@@ -90,6 +104,35 @@ function gate(workflowsDir, repoRoot) {
 
   // 3. ci.yml has a job id `check`
   if (!/^\s{2}check:/m.test(textByFile.get("ci.yml") || "")) faults.push("ci.yml: no job id \"check\"");
+
+  // 8. ci.yml has the release-rehearsal job: not a required check, every
+  //    action pinned by full SHA, gated by a changed-files step, run on the
+  //    bundled and the newest npm, with the stub reviewer and no key.
+  const rehearsal = jobBlock(textByFile.get("ci.yml") || "", REHEARSAL_JOB);
+  if (!rehearsal) {
+    faults.push(`ci.yml: no job id "${REHEARSAL_JOB}"`);
+  } else {
+    if (REQUIRED_JOBS.includes(REHEARSAL_JOB) || /^\s{4}name:\s*["']?check\b/m.test(rehearsal)) {
+      faults.push(`ci.yml: ${REHEARSAL_JOB} must not be a required check`);
+    }
+    const uses = [...rehearsal.matchAll(/uses:\s*(\S+)/g)].map((m) => m[1]);
+    if (!uses.length) faults.push(`ci.yml: ${REHEARSAL_JOB} uses no actions`);
+    for (const u of uses) {
+      const m = u.match(/^([^@]+)@([0-9a-f]{40})$/);
+      if (!m || PINS[m[1]] !== m[2]) faults.push(`ci.yml: ${REHEARSAL_JOB} action not pinned by full SHA: ${u}`);
+    }
+    if (!/^\s+- id: changed$/m.test(rehearsal)) faults.push(`ci.yml: ${REHEARSAL_JOB} has no changed-files step`);
+    if (!/npm:\s*\["bundled",\s*"latest"\]/.test(rehearsal)) {
+      faults.push(`ci.yml: ${REHEARSAL_JOB} does not run on the bundled and the latest npm`);
+    }
+    if (!/release-flow\.js --check/.test(rehearsal)) faults.push(`ci.yml: ${REHEARSAL_JOB} does not run release-flow.js --check`);
+    if (!/CW_AGENT_COMMAND:.*test\/fixtures\/release-rehearsal-reviewer\.js \{\{input\}\}/.test(rehearsal)) {
+      faults.push(`ci.yml: ${REHEARSAL_JOB} reviewer is not the committed stub`);
+    }
+    if (/CW_RELEASE_VERDICT_PRIVKEY|--push|npm publish|secrets\./.test(rehearsal)) {
+      faults.push(`ci.yml: ${REHEARSAL_JOB} must hold no signing key and never push or publish`);
+    }
+  }
 
   // 3. release.yml has no cancel-in-progress: true
   if (/cancel-in-progress:\s*true/.test(textByFile.get("release.yml") || "")) {
@@ -177,5 +220,32 @@ withFault((dir) => {
   const p = path.join(dir, "scheduled.yml");
   fs.writeFileSync(p, fs.readFileSync(p, "utf8") + "\n# ${{ secrets.CT_GITEA_TOKEN }}\n");
 }, "retired secrets.CT_GITEA_TOKEN");
+
+// 8a. the release-rehearsal job removed
+withFault((dir) => {
+  const p = path.join(dir, "ci.yml");
+  const text = fs.readFileSync(p, "utf8");
+  fs.writeFileSync(p, `${text.slice(0, text.indexOf("\n  release-rehearsal:"))}\n`);
+}, 'no job id "release-rehearsal"');
+
+// 8b. a rehearsal action pinned by tag, not by SHA
+withFault((dir) => {
+  const p = path.join(dir, "ci.yml");
+  const text = fs.readFileSync(p, "utf8");
+  const at = text.indexOf("\n  release-rehearsal:");
+  fs.writeFileSync(p, text.slice(0, at) + text.slice(at).replace(/actions\/setup-node@[0-9a-f]{40}/, "actions/setup-node@v7"));
+}, "release-rehearsal action not pinned by full SHA");
+
+// 8c. the rehearsal given the required check's name
+withFault((dir) => {
+  const p = path.join(dir, "ci.yml");
+  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace("  release-rehearsal:\n", "  release-rehearsal:\n    name: check\n"));
+}, "must not be a required check");
+
+// 8d. the latest-npm leg dropped
+withFault((dir) => {
+  const p = path.join(dir, "ci.yml");
+  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace('npm: ["bundled", "latest"]', 'npm: ["bundled"]'));
+}, "bundled and the latest npm");
 
 console.log("ci-shape-gate-smoke: ok");

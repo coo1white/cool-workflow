@@ -364,6 +364,37 @@ an ungated tag gives a plain caveat instead and warns on stderr — the notes ne
 claim a review that is not there. Test seam: `CW_RELEASE_FLOW_GH_CMD` puts a stub in place of the `gh`
 binary (spawned `shell:false`) so the smoke runs it offline.
 
+### CI release rehearsal
+
+The `release-rehearsal` job in `.github/workflows/ci.yml` goes through the
+release flow on every PR that changes release tooling (`scripts/release-*.js`,
+`scripts/verify-*.js`, `scripts/dogfood-release.js`, `scripts/bump-version.js`,
+`test/run-all.js`, `package.json`, `.cw-release/`, `release.yml`,
+`npm-publish.yml`, `ci.yml`, `agents/release-reviewer.md`, or its stub
+reviewer), on a PR or on a push to `main`, so a break comes to light in CI, not
+on the operator's machine in a real cut. It runs on Node 24 two times: with
+the npm that comes with Node 24, and with the newest npm (npm 12 made a
+change to `npm pack --json` that broke the release check in a real cut). The
+steps, with cwd `plugins/cool-workflow`:
+
+```bash
+npm run build
+npm run version:sync
+CW_AGENT_COMMAND="node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.js {{input}}" \
+  node scripts/release-flow.js --check
+node scripts/dogfood-release.js --smoke
+```
+
+`--check` runs the full deterministic gate (build, `test:gate`, substance,
+test evidence, branch naming; on a PR the branch name is `GITHUB_HEAD_REF`),
+then the reviewer spawn and the verdict check. The reviewer is a stub that
+gives `APPROVED <HEAD>` and fails closed on a bad prompt file; it is never
+a real review. The job has no signing key and does no tag, push, or
+publish. It does not run the `--cut` preflight: with
+`.cw-release/verdict-signing.pub` committed, that preflight needs the
+operator's private key, which never goes into CI. It is not a required
+check.
+
 ### npm publishing trust
 
 The `npm-publish` GitHub Action uses npm Trusted Publishing. GitHub gives the

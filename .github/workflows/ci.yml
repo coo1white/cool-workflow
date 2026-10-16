@@ -156,3 +156,72 @@ jobs:
         if: steps.changed.outputs.run == 'true'
       - run: node test/run-all.js --filter 'release-flow'
         if: steps.changed.outputs.run == 'true'
+
+  # Rehearses the gated release on every PR or main push that touches release
+  # tooling, so a break shows here and not on the
+  # operator's machine during a real cut. Gated per job like
+  # steering-config-gate above: a step reads the changed files with git and
+  # sets an output; later steps run only when it says yes. It runs the real
+  # flow in check mode: version sync, release-flow.js --check (the
+  # deterministic gate: build, full test:gate, substance, test evidence,
+  # branch naming; then the reviewer spawn and verdict check), and
+  # dogfood-release --smoke (npm pack --dry-run --json). The reviewer is a
+  # STUB (test/fixtures/release-rehearsal-reviewer.js), there is no signing
+  # key, and nothing is tagged, pushed, or published. The npm leg runs the
+  # newest npm as well as the one bundled with Node 24: npm 12 changed the
+  # npm pack --json shape and broke the release check on a real cut. Not a
+  # required check; keep it out of branch protection.
+  release-rehearsal:
+    strategy:
+      fail-fast: false
+      matrix:
+        npm: ["bundled", "latest"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: plugins/cool-workflow
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Full history and tags: release-gate.js finds the previous release
+          # tag by semver and fails closed on a shallow clone.
+          fetch-depth: 0
+      - id: changed
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
+            base="$(git rev-list --max-parents=0 HEAD)"
+          fi
+          if git diff --name-only "$base" "${{ github.sha }}" | grep -qE '^(plugins/cool-workflow/scripts/(release-[^/]*|verify-[^/]*|dogfood-release|bump-version)\.js|plugins/cool-workflow/test/(run-all|fixtures/release-rehearsal-reviewer)\.js|plugins/cool-workflow/package\.json|plugins/cool-workflow/agents/release-reviewer\.md|\.cw-release/.*|\.github/workflows/(ci|release|npm-publish)\.yml)$'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.changed.outputs.run == 'true'
+        with:
+          node-version: "24"
+      - run: npm install -g npm@latest
+        if: steps.changed.outputs.run == 'true' && matrix.npm == 'latest'
+      - run: node --version && npm --version
+        if: steps.changed.outputs.run == 'true'
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        if: steps.changed.outputs.run == 'true'
+        with:
+          bun-version: 1.4.1
+      - run: bun install --frozen-lockfile --ignore-scripts
+        if: steps.changed.outputs.run == 'true'
+      # The release scripts call npm, not bun: run them the same way here.
+      - run: npm run build
+        if: steps.changed.outputs.run == 'true'
+      - run: npm run version:sync
+        if: steps.changed.outputs.run == 'true'
+      # GITHUB_HEAD_REF (set on a PR) is what release-gate.js judges for
+      # branch naming on the detached merge checkout.
+      - run: node scripts/release-flow.js --check
+        if: steps.changed.outputs.run == 'true'
+        env:
+          CW_AGENT_COMMAND: node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.js {{input}}
+      - run: node scripts/dogfood-release.js --smoke
+        if: steps.changed.outputs.run == 'true'
