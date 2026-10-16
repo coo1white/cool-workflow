@@ -64,6 +64,7 @@ const dispatch_1 = require("./dispatch");
 const commit_1 = require("./commit");
 const worker_isolation_1 = require("./worker-isolation");
 const observability_1 = require("./observability");
+const sandbox_profile_1 = require("./sandbox-profile");
 const run_store_1 = require("./run-store");
 const report_1 = require("./report");
 const report_view_cli_1 = require("./report-view-cli");
@@ -798,6 +799,11 @@ function recordResultRun(args) {
         // the operator file at the worker's OWN result.md (which IS inside the write
         // boundary), then record that internal path exactly like a driven worker.
         const manifest = (0, worker_isolation_1.showWorkerManifest)(run, workerId);
+        // Check the staging target BEFORE the copy: a result.md that a worker left
+        // as a symlink would make the copy write through it, outside the boundary.
+        const stageViolation = manifest.sandboxPolicy ? (0, sandbox_profile_1.validateSandboxWrite)(manifest.sandboxPolicy, manifest.resultPath, workerId) : null;
+        if (stageViolation)
+            throw new Error(stageViolation.message);
         fs.mkdirSync(path.dirname(manifest.resultPath), { recursive: true });
         fs.copyFileSync(absolute, manifest.resultPath);
         const output = (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath, {

@@ -23,6 +23,7 @@ import { createDispatchManifest } from "./dispatch";
 import { commitState } from "./commit";
 import { recordWorkerOutput, showWorkerManifest, getWorkerScope } from "./worker-isolation";
 import { parseUsageFromArgs } from "./observability";
+import { validateSandboxWrite } from "./sandbox-profile";
 import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store";
 import { writeReport } from "./report";
 import { ensureAndOpenReportHtml } from "./report-view-cli";
@@ -769,6 +770,10 @@ export function recordResultRun(args: Record<string, unknown>): Record<string, u
     // the operator file at the worker's OWN result.md (which IS inside the write
     // boundary), then record that internal path exactly like a driven worker.
     const manifest = showWorkerManifest(run, workerId);
+    // Check the staging target BEFORE the copy: a result.md that a worker left
+    // as a symlink would make the copy write through it, outside the boundary.
+    const stageViolation = manifest.sandboxPolicy ? validateSandboxWrite(manifest.sandboxPolicy, manifest.resultPath, workerId) : null;
+    if (stageViolation) throw new Error(stageViolation.message);
     fs.mkdirSync(path.dirname(manifest.resultPath), { recursive: true });
     fs.copyFileSync(absolute, manifest.resultPath);
     const output = recordWorkerOutput(run, workerId, manifest.resultPath, {

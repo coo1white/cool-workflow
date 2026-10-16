@@ -299,7 +299,48 @@ function sandboxPolicyForWorker(profileId, context) {
     };
 }
 function validateSandboxWrite(policy, rawPath, workerId = "") {
-    return validateSandboxPathAccess("write", policy, rawPath, effectiveSandboxWritePaths(policy), workerId);
+    const allowedPaths = effectiveSandboxWritePaths(policy);
+    const violation = validateSandboxPathAccess("write", policy, rawPath, allowedPaths, workerId);
+    if (violation)
+        return violation;
+    return validateWorkerOutputRealPath(policy, rawPath, allowedPaths, workerId);
+}
+/** Symlink check for the WORKER-OWNED write paths (result file, artifacts,
+ *  logs). The worker controls the files under its own worker dir, so a
+ *  symlink there (the result file itself, or a parent dir below the run dir)
+ *  must not move the allowed root: realpath of the candidate is checked
+ *  against the run dir's realpath plus the LEXICAL rest of the allowed path,
+ *  never against a realpath that follows the worker's own symlinks. Both sides
+ *  are realpathed at the anchor, so a symlinked temp root (macOS /var ->
+ *  /private/var) still compares right. Profile writePaths ($cwd and custom
+ *  paths) are operator-chosen and keep the follow-both-sides check above. */
+function validateWorkerOutputRealPath(policy, rawPath, allowedPaths, workerId) {
+    const candidate = path.resolve(rawPath);
+    if (policy.writePaths.some((allowed) => (0, fs_atomic_1.isContainedPath)(candidate, allowed)))
+        return null;
+    const runDir = typeof policy.metadata?.runDir === "string" && policy.metadata.runDir ? path.resolve(policy.metadata.runDir) : undefined;
+    const realCandidate = (0, fs_atomic_1.realResolve)(candidate);
+    const insideWorkerPath = workerOutputPaths(policy).some((allowed) => {
+        const anchor = runDir && isLexicallyUnder(allowed, runDir) ? runDir : path.dirname(allowed);
+        const realAllowed = path.join((0, fs_atomic_1.realResolve)(anchor), path.relative(anchor, allowed));
+        return realCandidate === realAllowed || realCandidate.startsWith(realAllowed + path.sep);
+    });
+    if (insideWorkerPath)
+        return null;
+    return denied("sandbox-write-denied", `Worker ${workerId} write path resolves through a symlink outside sandbox profile ${policy.id}: ${candidate} -> ${realCandidate}`, candidate, allowedPaths);
+}
+function workerOutputPaths(policy) {
+    return [
+        policy.workerOutput.result ? policy.metadata?.resultPath : undefined,
+        policy.workerOutput.artifacts ? policy.metadata?.artifactsDir : undefined,
+        policy.workerOutput.logs ? policy.metadata?.logsDir : undefined,
+    ]
+        .filter((value) => typeof value === "string" && value.length > 0)
+        .map((value) => path.resolve(value));
+}
+function isLexicallyUnder(child, parent) {
+    const rel = path.relative(parent, child);
+    return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 function validateSandboxCommand(policy, command, workerId = "") {
     const normalized = command.trim();

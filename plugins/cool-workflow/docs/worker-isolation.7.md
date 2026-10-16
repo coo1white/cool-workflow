@@ -128,7 +128,10 @@ host contract with `enforcedByCW` and `hostRequired`.
 Missing result files are worker failures that can be retried.
 
 Boundary violations are rejected worker outputs. They are not taken into result
-state. Sandbox write denials use `sandbox-write-denied`; unknown and invalid
+state. Sandbox write denials use `sandbox-write-denied`; this takes in a
+`result.md` (or a worker folder above it) that is a symlink to a place outside
+the worker output paths, so CW never reads or copies a file from outside the
+boundary through it. Unknown and invalid
 profiles use `sandbox-profile-not-found` and `sandbox-profile-invalid`.
 
 A repo-review worker (a task that sets `reviewsRepo`) whose on-disk file evidence
