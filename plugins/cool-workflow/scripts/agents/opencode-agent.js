@@ -175,6 +175,15 @@ child.on("close", (code) => {
     process.stderr.write(`${detail}\n`);
     process.exit(code === null ? 1 : code);
   }
+  // opencode can report a failed run as a { type: "error" } event and still
+  // exit 0, sometimes after mid-run text. That text is not a result: fail
+  // closed with the event's reason, write no result.md, emit no report.
+  if (state.errorText) {
+    const detail = `opencode reported an error (exit 0): ${state.errorText}`;
+    persistStderr(resultPath, childStderr.trim() ? `${detail}\n${childStderr.trim()}` : detail);
+    process.stderr.write(`${detail}\n`);
+    process.exit(1);
+  }
   if (state.invalidJson) {
     const detail = "opencode --format json produced a non-JSONL stdout line - refusing to trust the result";
     persistStderr(resultPath, childStderr.trim() || detail);
