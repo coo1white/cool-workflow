@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-10-16 by `npm run sync:projec
 - Source modules: `158`
 - Workflow apps: `8`
 - Docs: `59`
-- Smoke tests: `285`
+- Smoke tests: `286`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -364,6 +364,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [doctor-audit-integrity-repair-smoke.js](../test/doctor-audit-integrity-repair-smoke.js)
 - [doctor-smoke.js](../test/doctor-smoke.js)
 - [dogfood-architecture-review-smoke.js](../test/dogfood-architecture-review-smoke.js)
+- [dogfood-npm-pack-shape-smoke.js](../test/dogfood-npm-pack-shape-smoke.js)
 - [dogfood-release-smoke.js](../test/dogfood-release-smoke.js)
 - [drive-async-real-signal-smoke.js](../test/drive-async-real-signal-smoke.js)
 - [drive-concurrency-flag-smoke.js](../test/drive-concurrency-flag-smoke.js)

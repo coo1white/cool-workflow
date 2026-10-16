@@ -390,8 +390,12 @@ function packDryRunCommand() {
         "process.stdout.write(r.stdout||'');",
         "process.stderr.write(r.stderr||'');",
         "if(r.status!==0) process.exit(r.status);",
-        "const pack=JSON.parse(r.stdout)[0];",
-        "const files=(pack.files||[]).map(f=>f.path);",
+        // npm <= 11 prints an array; npm 12 prints an object keyed by package
+        // name. Take the one entry either way; anything else fails closed.
+        "const parsed=JSON.parse(r.stdout);",
+        "const pack=Array.isArray(parsed)?parsed[0]:(parsed&&typeof parsed==='object'?Object.values(parsed)[0]:undefined);",
+        "if(!pack||typeof pack!=='object'||!Array.isArray(pack.files)){console.error('npm pack --json gave no package entry with a files list');process.exit(1);}",
+        "const files=pack.files.map(f=>f.path);",
         "const leaked=files.filter(f=>f.startsWith('.cw/')||f.includes('/.cw/'));",
         "if(leaked.length){console.error('npm pack includes .cw files: '+leaked.slice(0,5).join(', '));process.exit(1);}",
         "console.log(JSON.stringify({checked:'npm-pack-dry-run',entryCount:files.length,cwCount:0,filename:pack.filename}));"
@@ -495,4 +499,6 @@ function writeJson(file, value) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
-main();
+if (require.main === module) main();
+
+module.exports = { packDryRunCommand };
