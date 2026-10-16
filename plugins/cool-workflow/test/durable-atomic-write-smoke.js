@@ -6,6 +6,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const { spawnSync } = require("node:child_process");
 const os = require("node:os");
 const path = require("node:path");
 
@@ -79,8 +80,13 @@ const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-durable-"));
   assert.equal(readJson(counterFile).n, 10, "locked RMW never loses an update");
 
   // A pre-existing stale lock (mtime far in the past) is stolen, not deadlocked.
+  // The owner pid must be one that is surely dead: a lock whose owner is alive
+  // is not stolen until the 300 s force window, and a fixed number such as
+  // 9999 can be a live process on a busy runner. A child that has already
+  // exited gives a pid that is dead now.
+  const deadPid = spawnSync(process.execPath, ["-e", ""]).pid;
   const lock = `${counterFile}.lock`;
-  fs.writeFileSync(lock, "9999@stale\n");
+  fs.writeFileSync(lock, `${deadPid}@stale\n`);
   const old = new Date(Date.now() - 60_000);
   fs.utimesSync(lock, old, old);
   let ran = false;
