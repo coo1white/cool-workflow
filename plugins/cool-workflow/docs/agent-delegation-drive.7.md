@@ -226,6 +226,14 @@ come from the first layer that sets a command. Args from a lower layer are
 never put on a higher layer's command (a one-word `CW_AGENT_COMMAND`, or
 `-codex`, does not take the args a config file stored for another command).
 When auto-detect picks the command, no layer's args are used.
+The file keeps the same rule. `backend agent-config set --agent-command <new>`
+with a command that is not the stored one takes only the args given with it
+(in the command string or with `--agent-args`); with none given, the stored
+args are cleared, never kept for the new command. Setting the same command
+again with no args, or setting another field with no `--agent-command`, keeps
+the stored args. Other stored fields (endpoint, model, timeout) are kept.
+(New default in 0.4.0; before, a new command with no args kept the old
+command's args.)
 claude / codex / ollama are CONFIGS, never CW dependencies. No secrets are written into the config or `.cw/`: it holds a
 command-template + endpoint + operator-chosen model only; recorded command/args
 are secret-stripped.

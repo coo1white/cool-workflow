@@ -299,10 +299,15 @@ function redacted(config) {
 function setAgentConfigFile(patch, env = process.env) {
     const current = loadAgentConfigFile(env) || { schemaVersion: 1 };
     const incoming = agentConfigFromArgs(patch);
+    // The command and its args are one unit: a NEW command takes only the args
+    // given with it, never the args stored for the old one. Re-setting the same
+    // command with no args keeps the stored args. Operator-approved default
+    // change for 0.4.0 (2026-10-16, #784).
+    const commandChanged = incoming.command !== undefined && incoming.command !== current.command;
     const merged = {
         schemaVersion: 1,
         command: firstDefined(incoming.command, current.command),
-        args: firstDefined(incoming.args, current.args),
+        args: commandChanged ? incoming.args : firstDefined(incoming.args, current.args),
         endpoint: firstDefined(incoming.endpoint, current.endpoint),
         model: firstDefined(incoming.model, current.model),
         timeoutMs: firstDefined(incoming.timeoutMs, current.timeoutMs),
