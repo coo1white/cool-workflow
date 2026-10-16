@@ -45,6 +45,13 @@ export function evidenceFilePath(raw: unknown): string | null {
   return shape.kind === "file" && shape.pathPart ? shape.pathPart : null;
 }
 
+/** Whether a task id names the verdict/synthesis task whose verifier node
+ *  gates a driven run's final commit — the one task whose file evidence is
+ *  checked on disk at accept time as well as at the commit. */
+export function isVerdictTaskId(taskId: string): boolean {
+  return /^verdict[:/]|^synthesis[:/]/i.test(taskId);
+}
+
 /** Whether opt-in strict resolution is requested via the environment.
  *  Enabled by DEFAULT: file-style evidence locators MUST exist on disk.
  *  `CW_REQUIRE_RESOLVABLE_EVIDENCE=0` restores the prior shape-only

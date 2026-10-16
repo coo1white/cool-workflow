@@ -143,6 +143,14 @@ review; the failure is recorded as durable feedback so the subject swap is
 flagged, never silently accepted. The guard is opt-in — a workflow whose subject
 IS run/release state (e.g. a release preflight) does not set `reviewsRepo`.
 
+A verdict or synthesis worker (task id `verdict:…` or `synthesis:…`) whose task
+requires evidence has its file evidence checked on disk when its result is
+accepted, the same check the final commit makes (`CW_REQUIRE_RESOLVABLE_EVIDENCE`,
+on by default; `0` turns both off). A locator that does not resolve is a worker
+failure that can be retried, `verdict-evidence-unresolvable`: the reason is put at
+the top of `input.md` and the result is not taken in. Under `--drive` the hop is
+tried again, then parked (see agent-delegation-drive(7)).
+
 Verifier failures stay verifier failures. Worker Isolation keeps the worker
 directory and records feedback so the operator can look at or fix the result.
 

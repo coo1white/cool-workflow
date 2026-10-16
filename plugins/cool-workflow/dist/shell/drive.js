@@ -721,7 +721,20 @@ function driveStep(ctx) {
         // Terminal commit: advance the run lifecycle stage as the old build's
         // commit() wrapper did (run.loopStage = "checkpoint").
         run.loopStage = "checkpoint";
-        const commit = (0, commit_1.commitState)(run, { reason: "agent-delegation-drive: audited verdict committed", ...(gate.verifierNodeId ? { verifierNodeId: gate.verifierNodeId } : { allowUnverifiedCheckpoint: true, verifierGated: false }) });
+        let commit;
+        try {
+            commit = (0, commit_1.commitState)(run, { reason: "agent-delegation-drive: audited verdict committed", ...(gate.verifierNodeId ? { verifierNodeId: gate.verifierNodeId } : { allowUnverifiedCheckpoint: true, verifierGated: false }) }, { reuseOpenGateFailure: true });
+        }
+        catch (error) {
+            // Fail closed, but never out of the drive: the gate's refusal is kept
+            // (one failure node + one feedback record, reused on a repeat) and
+            // the run stops blocked with the reason, its report and state saved.
+            if (!(error instanceof commit_1.CommitGateError))
+                throw error;
+            (0, report_1.writeReport)(run);
+            (0, run_store_1.saveCheckpoint)(run);
+            return (0, drive_decide_1.makeStep)("commit", "blocked", { runId: run.id, reason: `final commit blocked: ${error.message}` });
+        }
         (0, report_1.writeReport)(run);
         (0, run_store_1.saveCheckpoint)(run);
         return (0, drive_decide_1.makeStep)("commit", "complete", { runId: run.id, reason: `committed ${commit.id}` });

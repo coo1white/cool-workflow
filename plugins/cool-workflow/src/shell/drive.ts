@@ -60,7 +60,7 @@ import { runPipelineStage } from "../core/pipeline/runner";
 import { writeTaskFiles } from "./harness";
 import { phaseProgressLine } from "./term";
 import { RunPhase, RunTask } from "../core/state/types";
-import { commitState } from "./commit";
+import { commitState, CommitGateError } from "./commit";
 import { writeReport } from "./report";
 import { recordTrustAuditEvent, verifyTrustAudit, withTrustAuditBatch } from "./trust-audit";
 import { resolveAgentConfig } from "./agent-config";
@@ -801,7 +801,18 @@ export function driveStep(ctx: DriveContext): DriveStep {
     // Terminal commit: advance the run lifecycle stage as the old build's
     // commit() wrapper did (run.loopStage = "checkpoint").
     run.loopStage = "checkpoint";
-    const commit = commitState(run, { reason: "agent-delegation-drive: audited verdict committed", ...(gate.verifierNodeId ? { verifierNodeId: gate.verifierNodeId } : { allowUnverifiedCheckpoint: true, verifierGated: false }) });
+    let commit;
+    try {
+      commit = commitState(run, { reason: "agent-delegation-drive: audited verdict committed", ...(gate.verifierNodeId ? { verifierNodeId: gate.verifierNodeId } : { allowUnverifiedCheckpoint: true, verifierGated: false }) }, { reuseOpenGateFailure: true });
+    } catch (error) {
+      // Fail closed, but never out of the drive: the gate's refusal is kept
+      // (one failure node + one feedback record, reused on a repeat) and
+      // the run stops blocked with the reason, its report and state saved.
+      if (!(error instanceof CommitGateError)) throw error;
+      writeReport(run);
+      saveCheckpoint(run);
+      return makeStep("commit", "blocked", { runId: run.id, reason: `final commit blocked: ${error.message}` });
+    }
     writeReport(run);
     saveCheckpoint(run);
     return makeStep("commit", "complete", { runId: run.id, reason: `committed ${commit.id}` });
