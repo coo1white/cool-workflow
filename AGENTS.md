@@ -65,6 +65,12 @@ NON-required checks — the package ships a Homebrew formula and the
 runtime does OS-specific file locking and TMPDIR work. The required
 checks for merge are still the two ubuntu legs, Node 18 and 22.)
 
+(2026-10-16: a `release-rehearsal` job, NOT required, runs
+`release-flow.js --check` with a stub reviewer and `dogfood-release
+--smoke` on Node 24 with the bundled and the newest npm, on PRs that touch
+release tooling (and main pushes that do); see
+`plugins/cool-workflow/docs/release-tooling.7.md`.)
+
 # Iteration Loop
 Each cycle MUST follow this sequence. Do not skip steps.
 
