@@ -92,7 +92,8 @@ function reportMcp(runId, args) {
         result.markdown = fs.readFileSync(result.path, "utf8");
     return result;
 }
-// MCP scalars reach a handler as strings (mcp/dispatch.ts coerceScalarArgs).
+// MCP scalars reach a handler as strings, except JSON `false`, which stays
+// a real `false` (mcp/dispatch.ts coerceScalarArgs).
 function mcpFlag(value) {
     return value === true || value === "true";
 }

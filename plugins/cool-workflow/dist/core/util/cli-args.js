@@ -17,6 +17,7 @@ exports.required = required;
 exports.optionalArg = optionalArg;
 exports.wantsJson = wantsJson;
 exports.parseBoolFlag = parseBoolFlag;
+exports.coerceMcpScalar = coerceMcpScalar;
 /** Require a positional/option value or fail with a copy-pasteable recovery tip. */
 function required(value, label) {
     if (!value) {
@@ -52,4 +53,20 @@ function parseBoolFlag(value, label) {
     if (text === "false" || text === "0" || text === "no" || text === "off" || text === "")
         return false;
     throw new Error(`Invalid boolean value for ${label}: "${String(value)}" (use true or false)`);
+}
+/** Coerce one top-level MCP tool-call argument to the form a CLI-shared
+ *  handler reads. CLI argv is strings (or `true` for a bare flag), so a JSON
+ *  number or `true` becomes its string form (`{"runId": 5}` is run "5", not
+ *  a dropped arg). JSON `false` is the one exception: it stays the real
+ *  boolean `false`. Its string form "false" is a non-empty string, and the
+ *  handlers read flags with `Boolean(args.x)`, so `{"write": false}` used to
+ *  WRITE, `{"all": false}` swept orphans of every age, and
+ *  `{"allowUnverifiedCheckpoint": false}` wrote an unverified checkpoint
+ *  (fail-open). The CLI never makes a real `false`, so CLI bytes do not
+ *  change; a tri-state reader (`parseBoolFlag`) still sees an explicit
+ *  false, not "unset". Arrays, objects, null and undefined pass through. */
+function coerceMcpScalar(value) {
+    if (value === false)
+        return false;
+    return typeof value === "number" || typeof value === "boolean" || typeof value === "bigint" ? String(value) : value;
 }

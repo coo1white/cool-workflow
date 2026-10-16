@@ -47,7 +47,8 @@ export function reportMcp(runId: string, args: Record<string, unknown>): { path:
   return result;
 }
 
-// MCP scalars reach a handler as strings (mcp/dispatch.ts coerceScalarArgs).
+// MCP scalars reach a handler as strings, except JSON `false`, which stays
+// a real `false` (mcp/dispatch.ts coerceScalarArgs).
 function mcpFlag(value: unknown): boolean {
   return value === true || value === "true";
 }

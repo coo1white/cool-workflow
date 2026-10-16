@@ -491,6 +491,12 @@ release:
 There is no "fix it later" path. A surface mismatch blocks the release till the
 registry, the surfaces, and the recorded reasons are in agreement.
 
+Boolean arguments: an MCP tool argument sent as JSON `false` means false, the
+same as leaving the flag out of the CLI (for example `cw_state_check`
+`{"write": false}` does not write, and `cw_orphans_gc` `{"all": false}` keeps
+the age sweep). JSON `true` and numbers still come to the handler as their
+CLI string form (`"true"`, `"5"`).
+
 ## Enforcement & Smoke Coverage
 
 Parity is checked by `scripts/parity-check.js --check`, run by
