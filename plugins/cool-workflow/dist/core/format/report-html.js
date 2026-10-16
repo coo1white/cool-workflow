@@ -15,12 +15,26 @@ const report_css_1 = require("./report-css");
 function escapeHtml(text) {
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
+/** A link target taken from run data (an agent's result file) is a link
+ *  only when it is http, https, mailto, or has no scheme at all (a
+ *  relative path or a #fragment). Anything else (javascript:, data:,
+ *  vbscript:, file:, and so on) fails closed: the `[label](target)` text
+ *  stays as plain, escaped text. A C0 control or a backslash anywhere
+ *  also fails closed, since a browser may drop or fold them into a scheme. */
+function isSafeHref(href) {
+    if (/[\u0000-\u001f\u007f\\]/.test(href))
+        return false;
+    const scheme = href.match(/^([^:/?#]*):/);
+    if (!scheme)
+        return true;
+    return /^(https?|mailto)$/i.test(scheme[1]);
+}
 /** Bold and links, over already-escaped text (escaping never touches
  *  `*`, `[`, `]`, `(`, `)`, so this is safe to run second). */
 function inline(text) {
     return escapeHtml(text)
         .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\[([^\]]+)\]\((\S+?)\)/g, '<a href="$2">$1</a>');
+        .replace(/\[([^\]]+)\]\((\S+?)\)/g, (whole, label, href) => (isSafeHref(href) ? `<a href="${href}">${label}</a>` : whole));
 }
 const isTableRule = (line) => /^\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?$/.test(line.trim());
 const tableCells = (line) => line.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());

@@ -135,6 +135,12 @@ names the file, never a silent no-op:
 cw report --open
 ```
 
+`report.html` makes a link only when its target is `http:`, `https:`,
+`mailto:`, or has no scheme (a relative path or a `#` fragment). Any
+other target from run data, such as `javascript:`, `data:`, `vbscript:`
+or `file:`, stays as plain text in its `[label](target)` form, never a
+link.
+
 A run started from a terminal opens the same page by itself when it
 ends. `--no-open` or `CW_NO_OPEN=1` turns that off; `--json` never opens
 anything.
