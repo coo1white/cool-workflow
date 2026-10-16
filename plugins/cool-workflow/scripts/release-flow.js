@@ -829,6 +829,15 @@ function cut(resultPath, capability) {
   if (headNow !== HEAD) {
     die(`HEAD moved during the release flow (expected ${HEAD.slice(0, 12)}, now ${headNow.slice(0, 12)}) — re-run to restart the flow from the current HEAD`);
   }
+  // The preflight (d) refused a cut with tracked changes, and HEAD has not
+  // moved, so a tracked change now came from the gate or the reviewer. The
+  // reviewer runs in this checkout with whatever tools its vendor CLI allows
+  // (an auto-approving one can edit files), and the `git add -u` below would
+  // sign those edits into the tag unreviewed. Fail closed and name them.
+  const dirtyNow = git(["status", "--porcelain", "-uno"]).out;
+  if (dirtyNow) {
+    die("tracked files changed during the release flow (by the gate or the reviewer) — refusing to sign them into the tag; restore them (git checkout -- .) and re-run", dirtyNow);
+  }
   if (DRY_RUN) { say(`[dry-run] would: bump:version ${cutVersion}, commit verdict, tag v${cutVersion}${PUSH ? `, push refs/tags/v${cutVersion} (tag only, no branch)` : ""}`); return; }
   const bump = spawnSync("npm", ["run", "bump:version", "--", cutVersion], { cwd: pluginRoot, encoding: "utf8", stdio: "inherit" });
   if (bump.status !== 0) die("bump:version failed");
@@ -841,7 +850,8 @@ function cut(resultPath, capability) {
   // untracked stray (e.g. the reviewer's narration transcript, which carries the
   // operator's local home path) must never ride into the immutable tag commit
   // (that tripped pii-redaction-smoke and red-failed release-gate for v0.1.96).
-  // `git add -u` touches tracked files only, so no untracked file can be swept in;
+  // `git add -u` touches tracked files only, so no untracked file can be swept in,
+  // and the dirty check above means the only tracked changes are bump + sync's;
   // the verdict (and its .sig sidecar, when verdict signing is configured) are
   // the only new paths the cut is allowed to add. Check every add's exit code:
   // a swallowed git-add failure (a read-only object store, a locked index) used

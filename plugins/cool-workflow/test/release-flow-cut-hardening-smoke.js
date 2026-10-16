@@ -281,6 +281,33 @@ function prepareCutFixture(dir, agentBody) {
   assert.equal(tags, "", "no tag may be created when HEAD moved");
 }
 
+// ---- P3-5: a reviewer that edits a tracked file cannot get it signed --------
+// cut() stages with `git add -u` after the reviewer ran. A reviewer whose
+// vendor CLI auto-approves tool calls could edit a tracked file and still
+// write APPROVED; that edit must never ride into the verdict commit and tag.
+{
+  const dir = fixture();
+  const agent = prepareCutFixture(dir,
+    "const fs = require('node:fs');\n" +
+    "const path = require('node:path');\n" +
+    "fs.appendFileSync(path.join(process.env.FIXTURE_DIR, 'README.md'), 'edited by the reviewer\\n');\n" +
+    "fs.writeFileSync(process.argv[2], 'APPROVED ' + process.env.STUB_SHA + '\\nstub: capability.\\n');\n" +
+    "process.exit(0);\n");
+  const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+  const env = baseEnv(dir, {
+    CW_SKIP_VENDOR_PREFLIGHT: "1",
+    STUB_SHA: sha,
+    CW_AGENT_COMMAND: `node ${agent} {{result}}`,
+    FIXTURE_DIR: dir
+  });
+  const r = run("node", [flowPath(dir), "--cut", "--version", "99.99.99"], dir, env);
+  assert.equal(r.code, 1, "a tracked edit made during the review must abort the cut");
+  assert.match(r.err, /tracked files changed during the release flow/, "must say tracked files changed");
+  assert.match(r.err, /README\.md/, "must name the changed file");
+  assert.equal(run("git", ["tag", "-l", "v99.99.99"], dir).out.trim(), "", "no tag may be created");
+  assert.equal(run("git", ["rev-parse", "HEAD"], dir).out.trim(), sha, "no verdict commit may be made");
+}
+
 // ---- P3-4: a failed ls-remote must fail the cut CLOSED, not skip the check --
 // The cut preflight's "already published?" check must not read a transient
 // ls-remote failure as "tag absent". origin points at a nonexistent path, so
@@ -304,4 +331,4 @@ function prepareCutFixture(dir, agentBody) {
   assert.match(r.err, /refusing to cut blind/i, "must refuse rather than treat a failed ls-remote as 'tag absent'");
 }
 
-process.stdout.write("release-flow-cut-hardening-smoke: ok (missing/empty reviewer prompt fails closed; cut() surfaces a failed git add; privkey not echoed; HEAD-moved + ls-remote-fail fail closed)\n");
+process.stdout.write("release-flow-cut-hardening-smoke: ok (missing/empty reviewer prompt fails closed; cut() surfaces a failed git add; privkey not echoed; HEAD-moved, reviewer edits + ls-remote-fail fail closed)\n");

@@ -246,6 +246,11 @@ verdict commit is a one-hop leaf on the reviewed commit, reachable through
 the tag alone, so main's branch protection is never in the path and no
 stray remote branch is created.
 
+After the review, and before it bumps or stages anything, the cut checks the
+tracked tree again. The preflight made sure it was clean, so a change now came
+from the gate or the reviewer (a vendor CLI that auto-approves its tools can
+edit files). The cut stops, names the files, and signs nothing.
+
 The per-platform difference is config, not code — set the reviewer agent here:
 
 | Platform | Reviewer config |
