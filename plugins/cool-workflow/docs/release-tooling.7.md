@@ -328,6 +328,36 @@ workflow, and npm adds provenance for the package. The workflow does not use a
 long-lived `NPM_TOKEN`, so no publish token with two-factor bypass is kept in
 GitHub secrets.
 
+### Where CI takes the verdict verifier from
+
+Both `release.yml` (gate job) and `npm-publish.yml` check the tag's signed
+verdict with `scripts/verify-release-verdict.js` and its helpers
+(`verify-verdict-signature.js`, `verify-bump-reproduction.js`,
+`fake-date-for-reproduction.js`). CI never runs the tag's own copy of these
+files: the checked-out tree IS the tag under judgment, and a tag whose
+verifier is `process.exit(0)` would pass any check that runs it. So a step
+named "Take the release verifier from origin/main, not from the tag" first
+fetches `origin/main`, copies each file out with
+`git show origin/main:plugins/cool-workflow/scripts/<file>` into
+`$RUNNER_TEMP/cw-release-verifier/`, and the next step runs it from there,
+with the tag checkout as its working directory (the repo being judged). If
+`origin/main` cannot be fetched or lacks any of the files, the step fails and
+nothing is published (fail closed). The public key, as before, also comes
+from `origin/main`.
+
+On a tag push, `release.yml` itself comes from the tag, so there this is
+defense in depth. `npm-publish.yml` runs by `workflow_run`, which uses the
+default branch's copy of the workflow, so its check is one a tag cannot
+edit. This holds only while `main` stays protected (no force push, changes
+by PR only).
+
+`release-oneclick.js` resume: when the `vX.Y.Z` tag is only local (the cut's
+tag push failed), the resume pushes it only after it checks that the tag
+commit carries `.cw-release/review-<tag~1>.verdict` whose first line is
+`APPROVED <tag~1>`, with a `.sig` that `verify-verdict-signature.js`
+accepts against `origin/main`'s `.cw-release/verdict-signing.pub`. Anything
+less is refused and nothing is pushed.
+
 0.1.51
 
 0.1.76

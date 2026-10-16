@@ -94,6 +94,36 @@ function extractRunLine(yamlPath, stepName) {
 
 const gateScript = extractRunLine(GATE_YML, "Verify reviewer verdict was committed");
 const publishScript = extractRunBlock(PUBLISH_YML, "Verify the dispatched ref is a real, gated release tag");
+// The step that copies the verifier out of origin/main into $RUNNER_TEMP —
+// one per workflow, run (byte-for-byte as extracted) before each verify step.
+const VERIFIER_STEP = "Take the release verifier from origin/main, not from the tag";
+const gateFetchScript = extractRunBlock(GATE_YML, VERIFIER_STEP);
+const publishFetchScript = extractRunBlock(PUBLISH_YML, VERIFIER_STEP);
+
+// The verifier must NEVER run from the checked-out tree: in CI that tree IS
+// the tag under judgment, so a tag whose own verify-release-verdict.js is
+// `process.exit(0)` would pass. It must run from the $RUNNER_TEMP copy taken
+// out of origin/main by the step above (fails on the old workflows, which ran
+// `node scripts/verify-release-verdict.js` / `node plugins/cool-workflow/scripts/...`).
+for (const [label, script, fetchScript, yml] of [
+  ["release.yml", gateScript, gateFetchScript, GATE_YML],
+  ["npm-publish.yml", publishScript, publishFetchScript, PUBLISH_YML]
+]) {
+  assert.match(script, /node "\$RUNNER_TEMP\/cw-release-verifier\/verify-release-verdict\.js"/,
+    `${label} must run the verifier copied out of origin/main into $RUNNER_TEMP`);
+  assert.doesNotMatch(script, /node\s+(\S*\/)?scripts\/verify-release-verdict\.js/,
+    `${label} must not run the tag's own scripts/verify-release-verdict.js`);
+  assert.match(fetchScript, /git fetch [^\n]*origin \+refs\/heads\/main:refs\/remotes\/origin\/main/,
+    `${label} must fetch origin/main in the verifying job`);
+  for (const f of ["verify-release-verdict.js", "verify-verdict-signature.js", "verify-bump-reproduction.js", "fake-date-for-reproduction.js"])
+    assert.ok(fetchScript.includes(f), `${label} must copy ${f} out of origin/main`);
+  assert.match(fetchScript, /git show "origin\/main:plugins\/cool-workflow\/scripts\/\$f"/,
+    `${label} must read the verifier files from origin/main`);
+  // The copy step must come before the verify step in the same job.
+  const text = fs.readFileSync(yml, "utf8");
+  assert.ok(text.indexOf(`name: ${VERIFIER_STEP}`) < text.indexOf(script.split("\n").find((l) => l.includes("verify-release-verdict.js")).trim()),
+    `${label} must copy the verifier before it runs it`);
+}
 
 // Sanity: both extracted texts must actually delegate to the shared verdict
 // script — proves the extraction landed on real content, not an empty/wrong
@@ -236,6 +266,12 @@ function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = fa
   // the entire point of the fix: the ref the attacker's own tag commit cannot
   // rewrite.
   git(["update-ref", "refs/remotes/origin/main", R2], dir);
+  // The verifier-copy step really fetches origin/main, so give the fixture a
+  // real origin: a bare clone taken NOW (main == R2). Later attack commits in
+  // the fixture never reach it, just as a tag push never moves main.
+  const originDir = `${dir}-origin.git`;
+  git(["clone", "-q", "--bare", dir, originDir], dir);
+  git(["remote", "add", "origin", originDir], dir);
 
   if (forgedHeadVerdict) {
     // A forged verdict "approving" HEAD (R2) itself, with a bogus signature —
@@ -287,10 +323,15 @@ function replayVerdictOntoBackdoor(dir, R) {
  *  given scenario (not just by reading the calling bash's structure): if the
  *  overall check still passes AND the marker is absent, the stub was never
  *  called. */
+const POISONED = new Map();
 function poisonBumpReproScript(dir) {
   const scriptPath = path.join(dir, "plugins", "cool-workflow", "scripts", "verify-bump-reproduction.js");
   const markerPath = path.join(dir, "bump-repro-invoked.marker");
-  fs.writeFileSync(scriptPath, `#!/usr/bin/env node\nrequire("node:fs").writeFileSync(${JSON.stringify(markerPath)}, "");\nprocess.exit(1);\n`);
+  const stub = `#!/usr/bin/env node\nrequire("node:fs").writeFileSync(${JSON.stringify(markerPath)}, "");\nprocess.exit(1);\n`;
+  fs.writeFileSync(scriptPath, stub);
+  // CI runs the copy taken out of origin/main, not the tree's — so the stub
+  // is also put over that copy (see runWorkflow) once it is made.
+  POISONED.set(fs.realpathSync(dir), stub);
   return markerPath;
 }
 
@@ -319,6 +360,24 @@ function runScript(script, cwd, env) {
   return { code: r.status, out: r.stdout || "", err: r.stderr || "" };
 }
 
+/** Runs a workflow's verifier-copy step and then its verify step, as one job
+ *  would: same cwd, a fresh RUNNER_TEMP. A failing copy step stops the job
+ *  (the verify step never runs), as in GitHub Actions. */
+function runWorkflow(fetchScript, verifyScript, cwd, env = {}) {
+  const runnerTemp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-wf-runner-temp-"));
+  const jobEnv = { RUNNER_TEMP: runnerTemp, ...env };
+  const f = runScript(fetchScript, cwd, jobEnv);
+  if (f.code !== 0) return { ...f, fetchFailed: true };
+  const repo = fs.realpathSync(git(["rev-parse", "--show-toplevel"], cwd));
+  if (POISONED.has(repo))
+    fs.writeFileSync(path.join(runnerTemp, "cw-release-verifier", "verify-bump-reproduction.js"), POISONED.get(repo));
+  const r = runScript(verifyScript, cwd, jobEnv);
+  return { code: r.code, out: f.out + r.out, err: f.err + r.err };
+}
+function runGate(dir, env) {
+  return runWorkflow(gateFetchScript, gateScript, dir, env);
+}
+
 // ============================================================================
 // release.yml — runs from the repo root (no working-directory override)
 // ============================================================================
@@ -326,7 +385,7 @@ function runScript(script, cwd, env) {
 // (a) no pubkey committed -> grep-only fallback, unchanged legacy behavior
 {
   const { dir } = buildFixture({ committedPubkey: false });
-  const r = runScript(gateScript, dir);
+  const r = runGate(dir);
   assert.equal(r.code, 0, `(a) no pubkey should pass grep-only:\n${r.err}`);
   assert.match(r.out, /no verdict-signing\.pub committed yet/, "(a) should report the no-pubkey fallback");
 }
@@ -334,7 +393,7 @@ function runScript(script, cwd, env) {
 // (b) pubkey committed + valid signature -> passes, signature verified
 {
   const { dir } = buildFixture({ committedPubkey: true, sigFor: "real" });
-  const r = runScript(gateScript, dir);
+  const r = runGate(dir);
   assert.equal(r.code, 0, `(b) valid signature should pass:\n${r.err}`);
   assert.match(r.out, /signature verified/, "(b) should report signature verified");
 }
@@ -342,14 +401,14 @@ function runScript(script, cwd, env) {
 // (c) pubkey committed, verdict present, NO .sig -> fails closed
 {
   const { dir } = buildFixture({ committedPubkey: true, sigFor: undefined });
-  const r = runScript(gateScript, dir);
+  const r = runGate(dir);
   assert.notEqual(r.code, 0, "(c) missing .sig must fail closed once a pubkey is committed");
 }
 
 // (d) pubkey committed + verdict tampered after signing -> stale signature, fails closed
 {
   const { dir } = buildFixture({ committedPubkey: true, sigFor: "real", tamperAfterSigning: true });
-  const r = runScript(gateScript, dir);
+  const r = runGate(dir);
   assert.notEqual(r.code, 0, "(d) a verdict edited after signing must fail closed (stale signature)");
 }
 
@@ -358,7 +417,7 @@ function runScript(script, cwd, env) {
 // genuine valid verdict at HEAD~1 and still pass.
 {
   const { dir } = buildFixture({ committedPubkey: true, sigFor: "real", forgedHeadVerdict: true });
-  const r = runScript(gateScript, dir);
+  const r = runGate(dir);
   assert.equal(r.code, 0, `(e) loop must continue past a forged HEAD candidate to the valid HEAD~1 one:\n${r.err}\n${r.out}`);
   assert.match(r.out, /has no valid signature — trying the other candidate/, "(e) should report trying the next candidate");
   assert.match(r.out, /signature verified/, "(e) should ultimately verify the real HEAD~1 verdict");
@@ -372,7 +431,7 @@ function runScript(script, cwd, env) {
 {
   const { dir, R } = buildFixture({ committedPubkey: true, sigFor: "real" });
   replayVerdictOntoBackdoor(dir, R);
-  const r = runScript(gateScript, dir);
+  const r = runGate(dir);
   assert.notEqual(r.code, 0, `(f) a replayed verdict on a backdoored commit must be rejected:\n${r.out}`);
   assert.match(r.out, /does not reproduce as its deterministic bump/, "(f) should explain the tree mismatch");
 }
@@ -386,7 +445,7 @@ function runScript(script, cwd, env) {
   const { dir, HEAD } = buildFixture({ committedPubkey: true, sigFor: "real" });
   const marker = poisonBumpReproScript(dir);
   plantVerdictAtLiteralHead(dir, HEAD);
-  const r = runScript(gateScript, dir);
+  const r = runGate(dir);
   assert.equal(r.code, 0, `(g) a verdict for the literal tag commit must pass without needing reproduction:\n${r.err}\n${r.out}`);
   assert.ok(!fs.existsSync(marker), "(g) verify-bump-reproduction.js must never be invoked when C == SHA");
 }
@@ -396,7 +455,7 @@ function runScript(script, cwd, env) {
 {
   const { dir } = buildFixture({ committedPubkey: false });
   const marker = poisonBumpReproScript(dir);
-  const r = runScript(gateScript, dir);
+  const r = runGate(dir);
   assert.equal(r.code, 0, `(h) no-pubkey fallback must pass without needing reproduction:\n${r.err}\n${r.out}`);
   assert.ok(!fs.existsSync(marker), "(h) verify-bump-reproduction.js must never be invoked when no pubkey is committed");
 }
@@ -408,7 +467,7 @@ function runScript(script, cwd, env) {
 // never be silently treated as "reproduction succeeded".
 {
   const { dir } = buildFixture({ committedPubkey: true, sigFor: "real", breakParentInstall: true });
-  const r = runScript(gateScript, dir);
+  const r = runGate(dir);
   assert.notEqual(r.code, 0, `(i) a failing bun install must fail closed, not silently pass:\n${r.out}`);
   assert.match(r.out + r.err, /bun install failed/, "(i) should identify bun install as the failing step");
 }
@@ -437,7 +496,7 @@ function runScript(script, cwd, env) {
   const wrongShaVerdict = path.join(dir, ".cw-release", `review-${X}.verdict`);
   fs.writeFileSync(wrongShaVerdict, fs.readFileSync(genuineVerdict));
   fs.writeFileSync(`${wrongShaVerdict}.sig`, fs.readFileSync(genuineSig));
-  const r = runScript(gateScript, dir);
+  const r = runGate(dir);
   assert.notEqual(r.code, 0, `(j) a verdict whose content approves a DIFFERENT sha than its own filename must be rejected:\n${r.out}`);
   assert.match(r.out, /No committed APPROVED verdict/, "(j) should report no valid verdict found for the attacker commit");
 }
@@ -453,7 +512,7 @@ function runScript(script, cwd, env) {
 {
   const { dir } = buildFixture({ committedPubkey: true, sigFor: undefined });
   fs.rmSync(path.join(dir, ".cw-release", "verdict-signing.pub"), { force: true });
-  const r = runScript(gateScript, dir);
+  const r = runGate(dir);
   assert.notEqual(
     r.code,
     0,
@@ -467,7 +526,7 @@ function runScript(script, cwd, env) {
 // ============================================================================
 
 function runPublishScript(fixture, env) {
-  return runScript(publishScript, path.join(fixture.dir, "plugins", "cool-workflow"), { TAG_REF: "v9.9.9", ...env });
+  return runWorkflow(publishFetchScript, publishScript, path.join(fixture.dir, "plugins", "cool-workflow"), { TAG_REF: "v9.9.9", ...env });
 }
 
 // (a) no pubkey committed -> grep-only fallback
@@ -562,6 +621,63 @@ function runPublishScript(fixture, env) {
     0,
     `(i) deleting the tree's own pubkey copy must not fall back to no-signature-required, since origin/main still has it:\n${r.out}`
   );
+}
+
+// ============================================================================
+// THE TAG SHIPS ITS OWN VERIFIER: a tag whose tree replaces
+// scripts/verify-release-verdict.js with `process.exit(0)` (no verdict, no
+// signature at all). The old workflows ran the checked-out copy — i.e. the
+// tag's — and passed. CI must run origin/main's copy and fail closed.
+// ============================================================================
+function neuterVerifierAndTag(dir, tag) {
+  const p = path.join(dir, "plugins", "cool-workflow", "scripts", "verify-release-verdict.js");
+  fs.writeFileSync(p, "#!/usr/bin/env node\nprocess.exit(0);\n");
+  fs.writeFileSync(path.join(dir, "attacker-payload.txt"), "never reviewed\n");
+  git(["add", "-A"], dir);
+  git(["commit", "-q", "-m", "chore: bump version (tag ships its own verifier)"], dir);
+  git(["tag", "-a", tag, "-m", tag], dir);
+}
+{
+  const fixture = buildFixture({ committedPubkey: true, sigFor: "real" });
+  neuterVerifierAndTag(fixture.dir, "v-neuter");
+  const g = runGate(fixture.dir);
+  assert.notEqual(g.code, 0, `(neuter) release.yml must not trust the tag's own exit-0 verifier:\n${g.out}`);
+  assert.match(g.out, /No committed APPROVED verdict/, "(neuter) release.yml must run origin/main's verifier, which finds no verdict");
+  const p = runPublishScript(fixture, { TAG_REF: "v-neuter" });
+  assert.notEqual(p.code, 0, `(neuter) npm-publish.yml must not trust the tag's own exit-0 verifier:\n${p.out}`);
+  assert.match(p.out, /No committed APPROVED verdict/, "(neuter) npm-publish.yml must run origin/main's verifier, which finds no verdict");
+}
+
+// origin/main cannot be fetched -> the copy step fails, nothing is verified
+// with the tag's own copy (fail closed).
+{
+  const fixture = buildFixture({ committedPubkey: true, sigFor: "real" });
+  git(["remote", "set-url", "origin", path.join(fixture.dir, "no-such-origin.git")], fixture.dir);
+  const g = runGate(fixture.dir);
+  assert.notEqual(g.code, 0, "(no-origin) release.yml must fail closed when origin/main cannot be fetched");
+  assert.ok(g.fetchFailed, "(no-origin) release.yml must stop at the copy step");
+  const p = runPublishScript(fixture);
+  assert.notEqual(p.code, 0, "(no-origin) npm-publish.yml must fail closed when origin/main cannot be fetched");
+  assert.ok(p.fetchFailed, "(no-origin) npm-publish.yml must stop at the copy step");
+}
+
+// origin/main lacks a verifier file -> the copy step fails closed instead of
+// falling back to the tag's copy.
+{
+  const fixture = buildFixture({ committedPubkey: true, sigFor: "real" });
+  const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-wf-origin-edit-"));
+  git(["clone", "-q", `${fixture.dir}-origin.git`, work], work);
+  git(["config", "user.email", "t@t"], work);
+  git(["config", "user.name", "t"], work);
+  git(["config", "commit.gpgsign", "false"], work);
+  git(["rm", "-q", "plugins/cool-workflow/scripts/verify-verdict-signature.js"], work);
+  git(["commit", "-q", "-m", "drop a verifier helper"], work);
+  git(["push", "-q", "origin", "HEAD:main"], work);
+  for (const [label, r] of [["release.yml", runGate(fixture.dir)], ["npm-publish.yml", runPublishScript(fixture)]]) {
+    assert.notEqual(r.code, 0, `(missing-on-main) ${label} must fail closed when origin/main lacks a verifier file`);
+    assert.ok(r.fetchFailed, `(missing-on-main) ${label} must stop at the copy step`);
+    assert.match(r.err, /origin\/main has no plugins\/cool-workflow\/scripts\/verify-verdict-signature\.js/, `(missing-on-main) ${label} must say which file is missing`);
+  }
 }
 
 // ============================================================================

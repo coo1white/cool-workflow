@@ -56,6 +56,33 @@ jobs:
       - name: Run deterministic release gate
         run: node plugins/cool-workflow/scripts/release-gate.js
 
+      - name: Take the release verifier from origin/main, not from the tag
+        # The checked-out tree IS the tag under judgment: a tag whose own
+        # scripts/verify-release-verdict.js is `process.exit(0)` would pass any
+        # check that runs it. So the verifier (and every local file it loads) is
+        # read out of origin/main -- a ref the tag being judged cannot rewrite --
+        # into $RUNNER_TEMP, and the next step runs it from there against the
+        # tag checkout (its cwd). If origin/main cannot be fetched or lacks any
+        # of these files, this step fails and nothing goes on (fail closed).
+        # This step sits AFTER the gate (tag code) on purpose: copied any
+        # earlier, release-gate.js could rewrite the copies before they run.
+        # (On a tag push this whole file comes from the tag too, so here it is
+        # defense in depth; npm-publish.yml, run by workflow_run from the
+        # default branch's own copy, is the check a tag cannot edit.)
+        run: |
+          git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main
+          VDIR="$RUNNER_TEMP/cw-release-verifier"
+          rm -rf "$VDIR"
+          mkdir -p "$VDIR"
+          printf '{"type":"commonjs"}\n' > "$VDIR/package.json"
+          for f in verify-release-verdict.js verify-verdict-signature.js verify-bump-reproduction.js fake-date-for-reproduction.js; do
+            if ! git show "origin/main:plugins/cool-workflow/scripts/$f" > "$VDIR/$f" || [ ! -s "$VDIR/$f" ]; then
+              echo "origin/main has no plugins/cool-workflow/scripts/$f -- refusing to verify with the tag's own copy" >&2
+              exit 1
+            fi
+          done
+          echo "release verifier taken from origin/main $(git rev-parse origin/main)"
+
       - name: Verify reviewer verdict was committed
         # The whole check (candidate loop, signature, bump-reproduction, and
         # the pubkey-from-origin/main rule) lives in the shared script — its
@@ -63,7 +90,7 @@ jobs:
         # Keeping this run: to one line also keeps the script's "::error::"
         # fail text out of the log of a green run (Actions prints a run:
         # step's full source before executing it).
-        run: node plugins/cool-workflow/scripts/verify-release-verdict.js --context "The release flow was bypassed."
+        run: node "$RUNNER_TEMP/cw-release-verifier/verify-release-verdict.js" --context "The release flow was bypassed."
 
   release:
     needs: gate

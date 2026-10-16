@@ -43,6 +43,7 @@
 // binaries (single executable token, spawned shell:false) for smoke stubs.
 
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
@@ -134,12 +135,56 @@ function ensureTagPushedOnResume() {
     die("could not reach origin to check the tag — fix network/auth and re-run to resume.", remote.err);
   }
   if (remote.out) return; // already on origin — nothing to do
+  verifyLocalTagVerdict();
   say(`tag v${version} is local-only (the cut's tag push must have failed) — re-pushing refs/tags/v${version}.`);
   const push = git(["push", "origin", `refs/tags/v${version}`]);
   if (push.code !== 0) {
     die("re-push of the local-only tag failed (nothing else was done) — fix the issue and re-run to resume.", push.err);
   }
   say(`re-pushed refs/tags/v${version} to origin.`);
+}
+
+// A local-only vX.Y.Z tag is not proof of a cut: any local `git tag` (a hand
+// tag, a stale tag from a failed run) looks the same to alreadyCut(). So
+// before the resume pushes one, it must carry what cut() puts there: at the
+// tag commit, .cw-release/review-<tag~1>.verdict whose first line is EXACTLY
+// "APPROVED <tag~1>", plus a .sig that verify-verdict-signature.js (the same
+// check CI and the tag hook use) accepts against the public key as committed
+// on origin/main (never the tag's own copy). Anything less: refuse, push
+// nothing (fail closed). CI still runs the full check (bump reproduction
+// too) on the pushed tag; this only keeps the resume from pushing a tag CI
+// is sure to refuse — or one that never went through the gate at all.
+function verifyLocalTagVerdict() {
+  const tag = `v${version}`;
+  const refuse = (why, extra) =>
+    die(`local-only tag ${tag} ${why} — refusing to push it (it does not look like a gated cut). Inspect it, delete it if it is not yours, and re-run.`, extra);
+  const parent = git(["rev-parse", "--verify", `${tag}~1^{commit}`]);
+  if (parent.code !== 0 || !/^[0-9a-f]{40,64}$/.test(parent.out)) refuse("has no parent commit", parent.err);
+  const verdictRel = `.cw-release/review-${parent.out}.verdict`;
+  const verdict = gitRaw(["show", `${tag}:${verdictRel}`]);
+  if (verdict.code !== 0 || verdict.out.length === 0) refuse(`carries no ${verdictRel}`);
+  if (verdict.out.toString("utf8").split("\n", 1)[0] !== `APPROVED ${parent.out}`) {
+    refuse(`has a ${verdictRel} whose first line is not "APPROVED ${parent.out}"`);
+  }
+  const sig = gitRaw(["show", `${tag}:${verdictRel}.sig`]);
+  if (sig.code !== 0 || sig.out.length === 0) refuse(`carries no ${verdictRel}.sig`);
+  const fetch = git(["fetch", "origin", "main", "--quiet"]);
+  if (fetch.code !== 0) die("git fetch origin main failed — the verdict's public key must come from the REAL main tip; fix network/auth and re-run to resume.", fetch.err);
+  const pub = gitRaw(["show", "origin/main:.cw-release/verdict-signing.pub"]);
+  if (pub.code !== 0 || pub.out.length === 0) refuse("cannot be checked: origin/main has no .cw-release/verdict-signing.pub");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-oneclick-verdict-"));
+  let check;
+  try {
+    const files = { verdict: path.join(tmp, "review.verdict"), sig: path.join(tmp, "review.verdict.sig"), pub: path.join(tmp, "verdict-signing.pub") };
+    fs.writeFileSync(files.verdict, verdict.out);
+    fs.writeFileSync(files.sig, sig.out);
+    fs.writeFileSync(files.pub, pub.out);
+    check = spawnSync(process.execPath, [path.join(scriptsDir, "verify-verdict-signature.js"), files.verdict, files.sig, files.pub], { encoding: "utf8" });
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+  if (check.status !== 0) refuse(`has a ${verdictRel} with no valid signature`, (check.stderr || "").trim());
+  say(`local-only tag ${tag}: APPROVED verdict for ${parent.out} found, signature verified.`);
 }
 
 // ---- stage 0: preflight -----------------------------------------------------

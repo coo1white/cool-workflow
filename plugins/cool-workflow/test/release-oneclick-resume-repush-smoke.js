@@ -11,6 +11,13 @@
 //     tag never reached origin. A resume must RE-PUSH a local-only tag before
 //     it starts the CI wait.
 //
+//   Finding #1c: a local-only tag is NOT proof of a cut (a hand `git tag`
+//     looks the same). Before the resume pushes one, the tag commit must carry
+//     .cw-release/review-<tag~1>.verdict whose first line is "APPROVED
+//     <tag~1>", with a .sig that verifies against origin/main's
+//     .cw-release/verdict-signing.pub. Anything less is refused, nothing is
+//     pushed.
+//
 //   Finding #14 (P2): the npm-publish wait filtered runs by
 //     `Date.now()` captured at resume time. On a resume minutes/days after the
 //     gate finished, that cutoff sits in the future relative to the already-
@@ -30,6 +37,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
@@ -45,9 +53,11 @@ function tmp() {
 
 // A stub `git`: records every argv line to GIT_STUB_REC and answers just the
 // handful of commands the resume path issues. The tag exists LOCALLY (tag -l),
-// and whether it is on origin is toggled by GIT_STUB_REMOTE_HAS_TAG. A verdict
-// `git show` returns non-zero so the (informational) main-record PR is skipped
-// and the run goes straight to the CI wait.
+// and whether it is on origin is toggled by GIT_STUB_REMOTE_HAS_TAG. `git show`
+// answers only for the tag's tree and origin/main (writeTrees below), so the
+// local-only tag check has its verdict, .sig and public key; the stage-3
+// record's show of the tag sha returns non-zero, so the (informational)
+// main-record PR is skipped and the run goes straight to the CI wait.
 function writeGitStub(dir) {
   const stub = path.join(dir, "git-stub.js");
   fs.writeFileSync(stub, `#!/usr/bin/env node
@@ -62,7 +72,15 @@ if (a[0] === "ls-remote") {
 }
 if (a[0] === "push") { process.exit(0); }
 if (a[0] === "rev-parse") { process.stdout.write("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\\n"); process.exit(0); }
-if (a[0] === "show") { process.stderr.write("fatal: path does not exist\\n"); process.exit(1); }
+if (a[0] === "show") {
+  // Answer from on-disk stand-ins for the tag's tree and origin/main's tree;
+  // anything else (the stage-3 record's show of <sha>:...) does not exist.
+  const m = /^(v${VERSION}|origin\\/main):(.+)$/.exec(a[1] || "");
+  const root = m && (m[1] === "origin/main" ? process.env.GIT_STUB_MAIN_TREE : process.env.GIT_STUB_TAG_TREE);
+  const p = root && require("node:path").join(root, m[2]);
+  if (p && fs.existsSync(p)) { process.stdout.write(fs.readFileSync(p)); process.exit(0); }
+  process.stderr.write("fatal: path does not exist\\n"); process.exit(1);
+}
 process.exit(0);
 `);
   fs.chmodSync(stub, 0o755);
@@ -100,7 +118,32 @@ process.exit(0);
   return stub;
 }
 
-function run(dir, env, timeoutMs) {
+const SHA = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"; // what the stub's rev-parse answers
+const KEYS = crypto.generateKeyPairSync("ed25519");
+const OTHER_KEYS = crypto.generateKeyPairSync("ed25519");
+
+// Writes the two stand-in trees. verdict: "signed" (good), "none", "badsig"
+// (signed by another key), "wrongline" (signed, but approves another sha).
+// pubkey: whether origin/main has .cw-release/verdict-signing.pub.
+function writeTrees(dir, { verdict = "signed", pubkey = true } = {}) {
+  const tagTree = path.join(dir, "tag-tree");
+  const mainTree = path.join(dir, "main-tree");
+  fs.mkdirSync(path.join(tagTree, ".cw-release"), { recursive: true });
+  fs.mkdirSync(path.join(mainTree, ".cw-release"), { recursive: true });
+  if (verdict !== "none") {
+    const body = Buffer.from(verdict === "wrongline" ? `APPROVED ${"0".repeat(40)}\ncap.\n` : `APPROVED ${SHA}\ncap.\n`);
+    const key = verdict === "badsig" ? OTHER_KEYS.privateKey : KEYS.privateKey;
+    const v = path.join(tagTree, ".cw-release", `review-${SHA}.verdict`);
+    fs.writeFileSync(v, body);
+    fs.writeFileSync(`${v}.sig`, `${crypto.sign(null, body, key).toString("base64")}\n`);
+  }
+  if (pubkey) {
+    fs.writeFileSync(path.join(mainTree, ".cw-release", "verdict-signing.pub"), KEYS.publicKey.export({ type: "spki", format: "pem" }));
+  }
+  return { GIT_STUB_TAG_TREE: tagTree, GIT_STUB_MAIN_TREE: mainTree };
+}
+
+function run(dir, env, timeoutMs, trees) {
   const gitStub = writeGitStub(dir);
   const ghStub = writeGhStub(dir);
   const rec = path.join(dir, "git-rec.txt");
@@ -113,6 +156,7 @@ function run(dir, env, timeoutMs) {
       CW_ONECLICK_GIT_CMD: gitStub,
       CW_ONECLICK_GH_CMD: ghStub,
       GIT_STUB_REC: rec,
+      ...writeTrees(dir, trees),
       ...env
     }
   });
@@ -143,6 +187,30 @@ function run(dir, env, timeoutMs) {
     "a tag already on origin must not be re-pushed");
 }
 
+// ---- Finding #1c: an unverified local-only tag is refused, never pushed ------
+// Each of these pushed the tag on the old code (no check before the push).
+for (const [label, trees, why] of [
+  ["no verdict in the tag", { verdict: "none" }, /carries no \.cw-release\/review-deadbeef[0-9a-f]*\.verdict/],
+  ["verdict signed by another key", { verdict: "badsig" }, /with no valid signature/],
+  ["verdict approving another sha", { verdict: "wrongline" }, /first line is not "APPROVED deadbeef/],
+  ["no public key on origin/main", { pubkey: false }, /origin\/main has no \.cw-release\/verdict-signing\.pub/]
+]) {
+  const dir = tmp();
+  const r = run(dir, { GH_STUB_SCENARIO: "gate-fail" }, 20000, trees);
+  assert.notEqual(r.code, 0, `(${label}) the resume must fail closed`);
+  assert.match(r.err, /refusing to push it/, `(${label}) must say it refuses to push`);
+  assert.match(r.err, why, `(${label}) must say why`);
+  assert.doesNotMatch(r.rec, /(^|\n)push /, `(${label}) an unverified local-only tag must never be pushed`);
+  assert.doesNotMatch(r.err, /release FAILED/, `(${label}) must stop before the CI wait`);
+}
+// ...and the good case says it checked (Finding #1a above already proves the push).
+{
+  const dir = tmp();
+  const r = run(dir, { GH_STUB_SCENARIO: "gate-fail" }, 20000);
+  assert.match(r.out, /APPROVED verdict for deadbeef[0-9a-f]* found, signature verified/, "a verified local-only tag must say it was checked");
+  assert.match(r.rec, /(^|\n)show origin\/main:\.cw-release\/verdict-signing\.pub(\n|$)/, "the public key must come from origin/main");
+}
+
 // ---- Finding #14: npm-publish cutoff comes from the gate's completion time ---
 // The gate completed in the PAST (updatedAt 2020) and the npm-publish run was
 // created just after it (also 2020). Under the fix the cutoff is that past gate
@@ -158,4 +226,4 @@ function run(dir, env, timeoutMs) {
     "the npm-publish wait must SEE the already-completed run (cutoff from the gate's own completion, not resume-time now)");
 }
 
-process.stdout.write("release-oneclick-resume-repush-smoke: ok (local-only tag re-pushed on resume; on-origin tag left alone; npm-publish cutoff from the gate's completion time)\n");
+process.stdout.write("release-oneclick-resume-repush-smoke: ok (local-only tag re-pushed on resume only with a signed APPROVED verdict; on-origin tag left alone; npm-publish cutoff from the gate's completion time)\n");
