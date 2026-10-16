@@ -38,6 +38,14 @@ interface SandboxProfileLike {
   enforcement: { enforcedByCW: string[]; hostRequired: string[] };
 }
 
+/** One report head line: every control character (newline, CR, ESC and the
+ *  rest of C0, and DEL; not tab) becomes a space, so a value from state.json
+ *  such as `workflow.title` cannot start a new line in report.md. A value
+ *  with no control character comes back byte-identical. */
+function oneLine(value: string): string {
+  return value.replace(/[\u0000-\u0008\u000a-\u001f\u007f]/g, " ");
+}
+
 function formatInputList(value: unknown): string {
   if (Array.isArray(value)) return value.join("; ");
   return value ? String(value) : "";
@@ -367,21 +375,21 @@ export function writeReport(run: WorkflowRun): string {
   const sourceLabel = workflowApp?.metadata?.domain === "research" && !run.inputs.sourceUrl ? "Source" : "Repository";
   const lifecycle = runLifecycle(run);
   const report = [
-    `# ${run.workflow.title}`,
+    `# ${oneLine(String(run.workflow.title))}`,
     "",
     `- Run: ${run.id}`,
-    `- Workflow: ${run.workflow.id}`,
+    `- Workflow: ${oneLine(String(run.workflow.id))}`,
     ...(workflowApp
-      ? [`- Workflow App: ${workflowApp.id}@${workflowApp.version}`, `- Workflow App Source: ${workflowApp.source?.manifestPath || workflowApp.source?.entrypointPath || workflowApp.source?.path || ""}`]
+      ? [`- Workflow App: ${oneLine(`${workflowApp.id}@${workflowApp.version}`)}`, `- Workflow App Source: ${oneLine(String(workflowApp.source?.manifestPath || workflowApp.source?.entrypointPath || workflowApp.source?.path || ""))}`]
       : []),
     `- Created: ${run.createdAt}`,
     `- Updated: ${run.updatedAt}`,
-    `- ${sourceLabel}: ${String(run.inputs.repo || run.cwd)}`,
+    `- ${sourceLabel}: ${oneLine(String(run.inputs.repo || run.cwd))}`,
     ...(run.inputs.sourceUrl
-      ? [`- Source: ${String(run.inputs.sourceUrl)}${run.inputs.sourceCommit ? `@${String(run.inputs.sourceCommit)}` : ""}`]
+      ? [`- Source: ${oneLine(`${String(run.inputs.sourceUrl)}${run.inputs.sourceCommit ? `@${String(run.inputs.sourceCommit)}` : ""}`)}`]
       : []),
-    `- Question: ${String(run.inputs.question || "")}`,
-    `- Invariants: ${formatInputList(run.inputs.invariant)}`,
+    `- Question: ${oneLine(String(run.inputs.question || ""))}`,
+    `- Invariants: ${oneLine(formatInputList(run.inputs.invariant))}`,
     `- Loop Stage: ${run.loopStage}`,
     `- Verdict: ${lifecycle === "completed" ? "PASS" : lifecycle.toUpperCase()}`,
     "",

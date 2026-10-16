@@ -148,6 +148,10 @@ function plan(app, options) {
     const cwd = path.resolve(String(inputs.cwd || inputs.repo || process.cwd()));
     const injectedRunId = typeof options.runId === "string" && options.runId.trim() ? options.runId.trim() : undefined;
     delete inputs.runId;
+    // An injected id (`--arg runId=...`, MCP `arg`) names a folder under
+    // .cw/runs: refuse anything but one safe path segment (fail closed).
+    if (injectedRunId !== undefined)
+        (0, fs_atomic_1.assertSafeRunId)(injectedRunId);
     const runId = injectedRunId || createRunId(app.workflow.id);
     const runDir = path.join(cwd, ".cw", "runs", runId);
     const paths = (0, run_paths_1.createRunPaths)(runDir);

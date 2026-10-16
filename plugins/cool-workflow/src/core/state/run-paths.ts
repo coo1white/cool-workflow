@@ -8,7 +8,7 @@
 // full .cw/runs/<run-id>/ layout".
 
 import * as path from "node:path";
-import { RunPaths } from "./types";
+import { RunAuditPaths, RunPaths } from "./types";
 
 /** The 16-key RunPaths object, all joined under `runDir`. */
 export function createRunPaths(runDir: string): RunPaths {
@@ -30,4 +30,37 @@ export function createRunPaths(runDir: string): RunPaths {
     blackboardDir: path.join(runDir, "blackboard"),
     topologiesDir: path.join(runDir, "topologies"),
   };
+}
+
+const AUDIT_FILES: Array<["eventLogPath" | "summaryPath" | "indexPath", string]> = [
+  ["eventLogPath", "events.jsonl"],
+  ["summaryPath", "summary.json"],
+  ["indexPath", "index.json"],
+];
+
+/** Make a loaded run's `paths` (and the audit paths under them) again from
+ *  `runDir`, the folder the run's state.json was really found in. The
+ *  stored values are never trusted as write targets: a state.json from a
+ *  cloned repo can point them anywhere, and a repo that was moved keeps
+ *  its old absolute paths. Keys keep their stored order, so a run whose
+ *  stored paths were already right saves byte-identical; a stored key that
+ *  is not one of createRunPaths' keys is dropped. Audit path keys are set
+ *  only where the stored audit block has them. Changes `run` in place. */
+export function rebindRunPaths<T extends { paths: RunPaths; audit?: RunAuditPaths }>(run: T, runDir: string): T {
+  const fresh = createRunPaths(runDir) as unknown as Record<string, string>;
+  const stored = (run.paths && typeof run.paths === "object" ? run.paths : {}) as unknown as Record<string, unknown>;
+  const paths: Record<string, string> = {};
+  for (const key of Object.keys(stored)) {
+    if (Object.prototype.hasOwnProperty.call(fresh, key)) paths[key] = fresh[key];
+  }
+  for (const key of Object.keys(fresh)) {
+    if (!Object.prototype.hasOwnProperty.call(paths, key)) paths[key] = fresh[key];
+  }
+  run.paths = paths as unknown as RunPaths;
+  if (run.audit && typeof run.audit === "object") {
+    for (const [key, file] of AUDIT_FILES) {
+      if (Object.prototype.hasOwnProperty.call(run.audit, key)) run.audit[key] = path.join(fresh.auditDir, file);
+    }
+  }
+  return run;
 }

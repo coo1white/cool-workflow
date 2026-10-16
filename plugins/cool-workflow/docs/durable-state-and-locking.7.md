@@ -65,6 +65,34 @@ and `triggers.json`. Two additions close it for the run state itself:
   inside `fn` (`saveCheckpoint`, worker-failure persists) keep their own
   lock calls unchanged. Cross-process behavior is untouched.
 
+### Run paths come from where the run is (unreleased)
+
+A run's `state.json` keeps a `paths` block (`runDir`, `state`, `report`,
+`tasksDir`, `auditDir`, and the rest) and an `audit` block
+(`eventLogPath`, `summaryPath`, `indexPath`). These are records, not
+orders. Every load of a run (`loadRunFromCwd`, `RunRegistry.loadRun`)
+makes them again from the folder its `state.json` was really found in,
+`<repo>/.cw/runs/<run-id>/`, and never uses the stored values as places
+to write:
+
+- A `state.json` in a cloned repo cannot point `paths.report` (or any
+  other path) out of its run folder; `cw report` writes only inside it.
+- A repo that was moved writes into its new place, not the old one.
+- Stored paths that are already right come back byte-identical, so a
+  normal run saves the same bytes as before. A stored `paths` key that
+  CW does not make is dropped on load.
+
+The report head (`# <title>`, `- Workflow:`, `- Question:`, and the other
+`- ` lines over the first section) puts a space in place of any control
+character (newline, CR, ESC, the rest of C0, DEL), so a value from
+`state.json` cannot add a line to `report.md`. A value with no control
+character is unchanged.
+
+`plan` takes an injected run id (`--arg runId=...`, or the MCP `arg`)
+only when it is one safe path segment (`[A-Za-z0-9._:-]`, not `.` or
+`..`); any other value is refused with `Unsafe run id: ...` before any
+folder is made.
+
 ## Reclamation durability (the write-ahead seam, v0.1.40)
 
 The v0.1.39 reclamation transaction proved the *tombstone* crash-safe, but the

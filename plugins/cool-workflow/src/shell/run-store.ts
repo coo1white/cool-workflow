@@ -13,13 +13,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { assertSafeRunId, readJson, withFileLock, writeJson, writePartsDurable } from "./fs-atomic";
-import { createRunPaths } from "../core/state/run-paths";
+import { createRunPaths, rebindRunPaths } from "../core/state/run-paths";
 import { migrateRunState, StateMigrationResult } from "../core/state/migrations";
 import { WorkflowRun, StateArtifact, RunPaths } from "../core/state/types";
 import { sha256 } from "../core/hash";
 import { flushPendingTrustAudit } from "./trust-audit";
 
-export { createRunPaths };
+export { createRunPaths, rebindRunPaths };
 
 /** `mkdirSync` (recursive) every always-written directory. `artifacts`,
  *  `feedback`, `candidates`, `multi-agent`, `blackboard`, and `topologies`
@@ -152,7 +152,9 @@ export function assertNotSuspectedDataLoss(runId: string, result: StateMigration
  *  refuses a state.json that lost its core fields (workflow, paths) while
  *  the run dir still has real content next to it, rather than silently
  *  returning it as a fresh empty run; else returns the migrated
- *  WorkflowRun in memory. */
+ *  WorkflowRun in memory, its `paths` and audit paths made again from the
+ *  run dir it was found in (`rebindRunPaths`) — stored paths are never
+ *  trusted as write targets. */
 export function loadRunFromCwd(runId: string, cwd = process.cwd()): WorkflowRun {
   if (!runId) throw new Error("Missing run id");
   assertSafeRunId(runId);
@@ -162,6 +164,7 @@ export function loadRunFromCwd(runId: string, cwd = process.cwd()): WorkflowRun 
   if (result.report.status === "unsupported") {
     throw new Error(`Unsupported CW run state: ${result.report.errors.join("; ")}`);
   }
+  rebindRunPaths(result.run, path.resolve(path.dirname(statePath)));
   assertNotSuspectedDataLoss(runId, result);
   return result.run;
 }

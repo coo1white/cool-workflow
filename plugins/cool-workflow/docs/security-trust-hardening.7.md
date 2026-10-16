@@ -51,6 +51,13 @@ The agent host must still make certain of OS-level read isolation, write isolati
 limits on process execution, limits on network, and environment filtering.
 The audit layer lets you look at that boundary; it is not a kernel.
 
+A run's `state.json` is data, not a list of places to write: each load
+makes the run's `paths` and audit paths again from the run folder it was
+found in, and the report head turns control characters in stored values
+into spaces. An injected run id must be one safe path segment. See
+`docs/durable-state-and-locking.7.md`, "Run paths come from where the run
+is".
+
 ## Requiring Attested Telemetry
 
 `CW_REQUIRE_ATTESTED_TELEMETRY=1` (or `--require-attested-telemetry`, or a

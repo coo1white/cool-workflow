@@ -44,7 +44,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createRunPaths = void 0;
+exports.rebindRunPaths = exports.createRunPaths = void 0;
 exports.ensureRunDirs = ensureRunDirs;
 exports.hashArtifactFile = hashArtifactFile;
 exports.loadRunStateFile = loadRunStateFile;
@@ -66,6 +66,7 @@ const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
 const run_paths_1 = require("../core/state/run-paths");
 Object.defineProperty(exports, "createRunPaths", { enumerable: true, get: function () { return run_paths_1.createRunPaths; } });
+Object.defineProperty(exports, "rebindRunPaths", { enumerable: true, get: function () { return run_paths_1.rebindRunPaths; } });
 const migrations_1 = require("../core/state/migrations");
 const hash_1 = require("../core/hash");
 const trust_audit_1 = require("./trust-audit");
@@ -196,7 +197,9 @@ function assertNotSuspectedDataLoss(runId, result) {
  *  refuses a state.json that lost its core fields (workflow, paths) while
  *  the run dir still has real content next to it, rather than silently
  *  returning it as a fresh empty run; else returns the migrated
- *  WorkflowRun in memory. */
+ *  WorkflowRun in memory, its `paths` and audit paths made again from the
+ *  run dir it was found in (`rebindRunPaths`) — stored paths are never
+ *  trusted as write targets. */
 function loadRunFromCwd(runId, cwd = process.cwd()) {
     if (!runId)
         throw new Error("Missing run id");
@@ -208,6 +211,7 @@ function loadRunFromCwd(runId, cwd = process.cwd()) {
     if (result.report.status === "unsupported") {
         throw new Error(`Unsupported CW run state: ${result.report.errors.join("; ")}`);
     }
+    (0, run_paths_1.rebindRunPaths)(result.run, path.resolve(path.dirname(statePath)));
     assertNotSuspectedDataLoss(runId, result);
     return result.run;
 }
