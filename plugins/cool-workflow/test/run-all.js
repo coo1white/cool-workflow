@@ -327,6 +327,9 @@ function runSmoke(file) {
   return new Promise((resolve) => {
     const startedAt = process.hrtime.bigint();
     const sandbox = makeSandbox();
+    // A smoke's own `@cw-smoke: timeout <seconds>` header raises its limit
+    // above the default; it never lowers it.
+    const timeoutMs = Math.max(PER_TEST_TIMEOUT_MS, parseMetadata(file).timeoutMs || 0);
     const child = spawn(process.execPath, [path.join(testDir, file)], {
       cwd: sandbox.cwd,
       env: sandbox.env,
@@ -345,7 +348,7 @@ function runSmoke(file) {
       setTimeout(() => {
         try { child.kill("SIGKILL"); } catch { /* already dead */ }
       }, 3000).unref();
-    }, PER_TEST_TIMEOUT_MS);
+    }, timeoutMs);
 
     const finish = (result) => {
       clearTimeout(timer);
@@ -359,7 +362,7 @@ function runSmoke(file) {
     child.on("close", (code) => {
       const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
       const output = [stdout, stderr].filter(Boolean).join("");
-      finish({ file, ok: code === 0 && !timedOut, code, elapsedMs, output, stdout, stderr, timedOut });
+      finish({ file, ok: code === 0 && !timedOut, code, elapsedMs, output, stdout, stderr, timedOut, timeoutMs });
     });
     child.on("error", (error) => {
       const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
@@ -463,7 +466,7 @@ async function main() {
     const bailNote = bailed ? " [BAIL]" : "";
     process.stdout.write(`\n${"=".repeat(70)}\nFailures:${bailNote}\n`);
     for (const failure of failures) {
-      const why = failure.timedOut ? ` (TIMEOUT after ${PER_TEST_TIMEOUT_MS}ms)` : "";
+      const why = failure.timedOut ? ` (TIMEOUT after ${failure.timeoutMs || PER_TEST_TIMEOUT_MS}ms)` : "";
       const retryInfo = failure.retries > 0 ? ` [after ${failure.retries} retries]` : "";
       process.stdout.write(`\n--- ${failure.file} (exit ${failure.code})${why}${retryInfo} ---\n`);
       if (failure.stderr && failure.stderr.trim()) {

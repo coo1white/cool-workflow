@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 
+// @cw-smoke: timeout 600
+// (One case builds ~1.2 GB in memory on purpose, to pass V8's per-string
+// limit; on a machine with less free memory it runs well past 120s.)
 // batch-output-overflow-smoke — a verbose agent in a concurrent batch must
 // never strand its siblings. Before this fix, the batch delegate child
 // buffered EVERY job's stdout in memory and printed one JSON array only once
