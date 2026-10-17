@@ -3,7 +3,7 @@
 // SHAPE must fail closed, like bad bytes do.
 //
 // queue.json is durable state under the fail-closed rule (conformance:
-// sched-corrupt-fail-closed.case.js). Bad bytes already threw, but a file
+// sched-corrupt-fail-closed.case.mjs). Bad bytes already threw, but a file
 // whose `entries` was not an array read as an EMPTY queue — and the next
 // queueAdd, under the lock, wrote a fresh file over the broken one. This
 // pins the fix: every bad shape throws, and the broken bytes stay put.

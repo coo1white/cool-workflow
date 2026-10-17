@@ -40,7 +40,7 @@ npm run build
 npm run check
 npm run test:coverage          # the full smoke suite under the 80% coverage floor
 npm run test:unit              # the pure core/ unit tests
-node ../../v2/conformance/run.js --bin dist/cli.js   # byte-exact CLI conformance
+node ../../v2/conformance/run.mjs --bin dist/cli.js   # byte-exact CLI conformance
 npm run release:check -- --skip-tests   # every other gate (parity, manifests, index, lang policy, ...)
 ```
 

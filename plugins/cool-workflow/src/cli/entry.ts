@@ -9,7 +9,7 @@
 // the error path is styled (bold "cw:", red message, dim "Try:"), TTY/
 // env-gated exactly as SPEC/reporting-ux.md's "Color rule" describes.
 // Every conformance case still pipes with NO_COLOR=1 by default (lib.js),
-// so byte content there is unaffected; cli-color-env.case.js exercises
+// so byte content there is unaffected; cli-color-env.case.mjs exercises
 // the FORCE_COLOR/NO_COLOR/CW_NO_COLOR branches explicitly.
 
 import { parseArgv } from "./parseargv.js";

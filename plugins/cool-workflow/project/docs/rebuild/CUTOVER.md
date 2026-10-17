@@ -70,7 +70,7 @@ Wire the 101-case conformance suite into CI, run against the SHIPPING
 `plugins/cool-workflow/dist/cli.js` (already 101/101). This locks the product's
 observable behavior as a black-box regression net now, and becomes the objective
 "runtime unchanged" proof for every later phase.
-**Gate:** CI runs `v2/conformance/run.js --bin <shipping cli>` green.
+**Gate:** CI runs `v2/conformance/run.mjs --bin <shipping cli>` green.
 
 ### Phase 1 — Test-structure reconciliation
 Triage the 173 `plugins/cool-workflow/test/*-smoke.js` into:
@@ -108,7 +108,7 @@ confirm `workflow-app-loader` resolves the co-located `apps/`; bump version to a
 major (`0.2.0` — total internal rewrite, identical external behavior);
 regenerate all manifests.
 **Gate (the full product gate):** `npm run build` + the adapted smoke suite +
-`v2/conformance/run.js --bin dist/cli.js` (101/101) + `release:check` all green,
+`v2/conformance/run.mjs --bin dist/cli.js` (101/101) + `release:check` all green,
 run in CI, twice for flakiness.
 
 ### Phase 5 — Ship
@@ -119,7 +119,7 @@ keep `v2/conformance/` as a permanent black-box regression suite in CI.
 
 ## Verification (standing, every phase)
 
-- `v2/conformance/run.js --bin <build>` stays 101/101 — the runtime-unchanged proof.
+- `v2/conformance/run.mjs --bin <build>` stays 101/101 — the runtime-unchanged proof.
 - The adapted 173-smoke suite green before Phase 4 ships.
 - `release:check` green before Phase 5.
 - Dogfood: run the `release-cut` app on this repo (CW releases itself).

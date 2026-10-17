@@ -16,7 +16,7 @@
 // EITHER the full run OR a complete tombstone, never half-deleted.
 //
 // tombstoneHash reproducibility: `freeable` MUST be sorted by path bytes
-// BEFORE it is hashed (this is exactly what the tombstonesort-*.case.js
+// BEFORE it is hashed (this is exactly what the tombstonesort-*.case.mjs
 // conformance cases pin) — see `planReclamation`'s explicit sort below.
 //
 // Evidence: SPEC/scheduling-registry.md sections E, F, G.

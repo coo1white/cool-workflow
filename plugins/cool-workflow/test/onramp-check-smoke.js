@@ -59,13 +59,13 @@ function contract(files) {
 }
 
 // Runtime behavior proven by a new/changed black-box conformance case
-// (v2/conformance/cases/*.case.js, no test/*-smoke.js or test/**/*.test.js
+// (v2/conformance/cases/*.case.mjs, no test/*-smoke.js or test/**/*.test.js
 // touched) also satisfies the same gate — a third equally valid proof
 // layer.
 {
   const report = contract([
     "plugins/cool-workflow/src/shell/drive.ts",
-    "v2/conformance/cases/lockstale-steal-and-respect.case.js"
+    "v2/conformance/cases/lockstale-steal-and-respect.case.mjs"
   ]);
   assert.ok(!codes(report).includes("runtime-smoke-required"), codes(report).join(", "));
 }

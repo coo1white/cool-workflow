@@ -53,7 +53,7 @@ function initialize(params) {
 
 // ---- 3. No requested version at all (empty params) keeps the old pinned
 // reply byte-for-byte — the same initialize shape the conformance suite's
-// mcp-basic.case.js sends. -----------------------------------------------
+// mcp-basic.case.mjs sends. ----------------------------------------------
 {
   const line = initialize({});
   assert.ok(!line.error, `initialize must not error: ${JSON.stringify(line.error)}`);

@@ -403,7 +403,7 @@ spine, then the CLI/MCP parity layer built on top of a now-stable capability set
 agent/topology, then scheduling/registry/reclamation, then reporting/observability/workbench,
 then workflow apps last (they compose everything below them).
 
-Each milestone names its SPEC subsystem(s) and the `v2/conformance/run.js --filter <pattern>`
+Each milestone names its SPEC subsystem(s) and the `v2/conformance/run.mjs --filter <pattern>`
 that must go green — against the REAL BUILT v2 CLI — before the next milestone starts. Per the
 conformance README's own rule, a filter that fails against v2 but ALSO fails replayed against
 the old build is a wrong case, fix the case first.
@@ -517,7 +517,7 @@ the old build is a wrong case, fix the case first.
     since milestone 2 already built the dispatch mechanism — no dispatch code changes at this
     step. Confirm the live payload-identical probe (`payloadProbePlan()`, ported literally)
     matches `--json` bytes to MCP `tools/call` bytes for every capability marked
-    `payloadIdentical`. Then run `v2/conformance/run.js --bin <v2 build>` with NO filter. 100%
+    `payloadIdentical`. Then run `v2/conformance/run.mjs --bin <v2 build>` with NO filter. 100%
     green, both against v2 directly and re-confirmed green against the old build for any case
     touched during authoring, is the definition of done for the rebuild.
 
@@ -532,7 +532,7 @@ estimated — replacing the two-proposal ranges the first pass could only guess 
 | `src/` lines | ~46,620 | **35,438** (24% fewer) — toward the upper half of the original 18,000-32,000 estimate range, because business logic (collapse rules, gate error-code tables, hash-chain math, the ~25 commit-gate error codes) was kept as literal ports at real size, exactly as the plan intended; the cut came almost entirely from the CLI/MCP dedup below, not from shrinking business logic. |
 | CLI/MCP hand-written surface | ~3,200 lines (40 handler files + 196-arm switch + 1000-line tool-definitions array), kept in sync by a separate drift-check script | one `core/capability-table.ts` + two generic dispatchers (`cli/dispatch.ts`, `mcp/dispatch.ts`); parity is structural — there is one row per capability, not four hand-written artifacts, so there is nothing left for a drift check to catch. |
 | Orchestrator facade | 1000+ line class, 141 forwarding methods | 0 forwarding boilerplate — every capability is a `core/`/`shell/` function reached through the generic dispatcher via a capability-table row. |
-| `v2/conformance/cases/*.case.js` (black-box suite) | n/a (this suite is new) | **101 cases**, up from the 26 that existed before this rebuild started (below the original ~140 aspiration — later milestones leaned on this black-box suite itself as the primary verification tool rather than also authoring the full aspirational volume of pure-function unit tests; see the shortfall noted below). |
+| `v2/conformance/cases/*.case.mjs` (black-box suite) | n/a (this suite is new) | **101 cases**, up from the 26 that existed before this rebuild started (below the original ~140 aspiration — later milestones leaned on this black-box suite itself as the primary verification tool rather than also authoring the full aspirational volume of pure-function unit tests; see the shortfall noted below). |
 | `v2/test/*.test.js` (pure `core/` unit tests) | n/a (did not exist as a separable tier) | **152 files** (6 from milestone 0 + 146 added in a follow-up pass covering every `core/` subsystem: state kernel, state-explosion, pipeline, trust/ledger, multi-agent kernel, multi-agent collaboration/eval-replay, format/workflow-apps, capability-table's lookup mechanism) — exceeds the original ~90-120 target. This pass caught 5 real defects the 101-case black-box suite had never caught: 4 `core/` purity violations (a function calling `new Date()` directly instead of taking a clock parameter, breaking byte-stable replay) and one genuine byte-exact-port regression (`runner.ts`'s `evidenceSatisfied` had silently dropped a `contract.evidencePolicy.requireEvidence` check the old build performs) — all fixed and reverified against the old build's real source, not assumed. |
 | Unit test loop (all 152 tests, each its own `node` process) | n/a | **~13.5s** — under the 15s target. |
 | Full black-box conformance loop (101 cases, `--concurrency auto`) | **~86s** (measured against the OLD build with the SAME 101-case suite) | **~24s** — about 3.6x faster on the identical suite, most likely because each `cw` invocation has less code to load and parse per process spawn; this is a real, measured win, not the build-time claim below. |
@@ -659,11 +659,11 @@ are kept as literal ports at their current size, because they are complex FOR A 
 
 A build loop reads this file plus `plugins/cool-workflow/project/docs/rebuild/SPEC/*.md`, then implements one build-order milestone at
 a time under `v2/src/`, following the module layout and byte-compat rules above. After each
-milestone it runs `node v2/conformance/run.js --bin <path to the v2 build> --filter <that
+milestone it runs `node v2/conformance/run.mjs --bin <path to the v2 build> --filter <that
 milestone's pattern>` and does not start the next milestone until that filter is 100% green —
 per the conformance suite's own rule, a failing case is first checked against the OLD build,
 and fixed as a wrong case if it fails there too, before it is ever treated as a real v2
-regression. The FULL suite (`node v2/conformance/run.js --bin <v2 build>`, no `--filter`) going
+regression. The FULL suite (`node v2/conformance/run.mjs --bin <v2 build>`, no `--filter`) going
 green is the definition of done for the whole rebuild.
 
 ## Status: rebuild complete

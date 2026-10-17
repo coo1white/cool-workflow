@@ -29,7 +29,7 @@ If any check has status `fail`, the command exits with code 1.
 
 `cw fix` takes no options of its own; its output is always the plain fix-command
 text (a `--json` flag is silently ignored — this byte behavior is pinned by
-`v2/conformance/cases/report-fix.case.js`). For a machine-readable report of the
+`v2/conformance/cases/report-fix.case.mjs`). For a machine-readable report of the
 same checks, use `cw doctor --json`: its `checks` array carries every fix string.
 
 ## EXIT CODES
