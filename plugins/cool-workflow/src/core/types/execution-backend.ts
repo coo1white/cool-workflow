@@ -264,6 +264,9 @@ export interface AgentChildOutcome {
    *  (non-zero exit). Written to <workerDir>/logs/agent-stderr.log for the
    *  person to read; never part of the recorded evidence. */
   stderr?: string;
+  /** Set when the batch child stopped this job at its time limit: the limit
+   *  in ms. agent.ts reports it as a timeout, not as a spawn failure. */
+  timedOutMs?: number;
 }
 
 export interface ExecutionProvenance {
@@ -281,6 +284,8 @@ export interface ExecutionResultEnvelope {
   result: ResultEnvelope;
   evidence: string[];
   provenance: ExecutionProvenance;
+  /** Set only on a refusal because the agent ran past its time limit (0.3.3): the limit in ms. */
+  timedOutMs?: number;
 }
 
 export interface AgentDelegationConfig {

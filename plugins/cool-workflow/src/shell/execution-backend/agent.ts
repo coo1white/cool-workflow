@@ -404,6 +404,7 @@ interface BatchDelegateLine {
   exitCode?: number | null;
   stdout?: string;
   stderr?: string;
+  timedOutMs?: unknown;
 }
 
 /** Parse the delegate child's NDJSON stdout and reconcile it against `jobs`
@@ -412,7 +413,8 @@ interface BatchDelegateLine {
  *  time, never decode the whole combined buffer as one string). */
 export function reconcileBatchOutcomes(
   jobs: readonly unknown[],
-  child: { error?: Error | null; status: number | null; stdout?: string | Buffer | null }
+  child: { error?: Error | null; status: number | null; stdout?: string | Buffer | null },
+  limitMs?: number
 ): AgentChildOutcome[] {
   const buf = Buffer.isBuffer(child.stdout) ? child.stdout : Buffer.from(String(child.stdout || ""), "utf8");
   const byIndex = new Map<number, AgentChildOutcome>();
@@ -434,10 +436,15 @@ export function reconcileBatchOutcomes(
       exitCode: typeof parsed.exitCode === "number" ? parsed.exitCode : null,
       ...(typeof parsed.stderr === "string" && parsed.stderr ? { stderr: parsed.stderr } : {}),
       stdout: String(parsed.stdout || ""),
+      ...(typeof parsed.timedOutMs === "number" && parsed.timedOutMs > 0 ? { timedOutMs: parsed.timedOutMs } : {}),
     });
   }
+  // 0.3.3: a whole-batch ETIMEDOUT says it timed out, and after how long.
+  const timedOut = child.error && (child.error as NodeJS.ErrnoException).code === "ETIMEDOUT" && typeof limitMs === "number";
   const reason = child.error
-    ? messageOf(child.error)
+    ? timedOut
+      ? `timed out after ${limitMs}ms (${messageOf(child.error)})`
+      : messageOf(child.error)
     : typeof child.status === "number" && child.status !== 0
       ? `batch delegate exited with ${child.status}`
       : "batch delegate produced no outcome for this job";
@@ -461,7 +468,7 @@ export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[
     } catch (error) {
       child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
     }
-    return reconcileBatchOutcomes(jobs, child);
+    return reconcileBatchOutcomes(jobs, child, maxTimeout + 30000);
   });
 }
 
@@ -492,7 +499,7 @@ export function runEndpointBatchOutcomes(jobs: AgentEndpointJob[]): AgentChildOu
   } catch (error) {
     child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
   }
-  return reconcileBatchOutcomes(jobs, child);
+  return reconcileBatchOutcomes(jobs, child, maxTimeout + 30000);
 }
 
 // ---------------------------------------------------------------------------
@@ -606,10 +613,10 @@ export function runAgentProcess(
         // the wrapper in cw's group.
         reapRecordedVendor(vendorPidFile);
         const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
-        return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
+        return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
           ...attestation,
           handle: handleOut,
-        });
+        }), timedOutMs: timeoutMs };
       }
       // Non-timeout paths: a wrapper that ran to any normal end removed its own
       // sidecar on exit; clear any stray file best-effort so tmp cannot grow.
@@ -622,9 +629,21 @@ export function runAgentProcess(
       };
     }
     if (outcome.exitCode !== 0 && outcome.stderr) persistAgentStderr(subst.result, outcome.stderr);
+    // 0.3.3: a batch job stopped at its limit uses the serial timeout words.
+    if (outcome.timedOutMs) {
+      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+      return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${outcome.timedOutMs}ms and was killed`, {
+        ...attestation,
+        handle: handleOut,
+      }), timedOutMs: outcome.timedOutMs };
+    }
     if (outcome.spawnError) {
       const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
-      return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process failed to spawn: ${outcome.spawnError}`, {
+      // 0.3.3: a whole-batch failure is not a spawn failure; the agent did start.
+      const summary = outcome.spawnError.startsWith("batch delegate failed:")
+        ? `agent delegation failed: ${outcome.spawnError}`
+        : `agent process failed to spawn: ${outcome.spawnError}`;
+      return refusedEnvelope(descriptor, policy, label, "delegation-failed", summary, {
         ...attestation,
         handle: handleOut,
       });

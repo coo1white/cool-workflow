@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-10-17 by `npm run sync:projec
 - Source modules: `131`
 - Workflow apps: `7`
 - Docs: `48`
-- Smoke tests: `276`
+- Smoke tests: `277`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -262,6 +262,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [audit-verify-smoke.mjs](../test/audit-verify-smoke.mjs)
 - [backend-registry-smoke.mjs](../test/backend-registry-smoke.mjs)
 - [batch-delegate-error-flush-smoke.mjs](../test/batch-delegate-error-flush-smoke.mjs)
+- [batch-job-timeout-smoke.mjs](../test/batch-job-timeout-smoke.mjs)
 - [batch-output-overflow-smoke.mjs](../test/batch-output-overflow-smoke.mjs)
 - [bench-run-smoke.mjs](../test/bench-run-smoke.mjs)
 - [block-unapproved-tag-smoke.mjs](../test/block-unapproved-tag-smoke.mjs)
