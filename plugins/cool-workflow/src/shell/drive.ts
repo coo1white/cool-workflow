@@ -1343,6 +1343,40 @@ function reopenParked(ctx: DriveContext): string[] {
   return taskIds;
 }
 
+/** The one round loop behind drive() and driveAsync(), run under the drive
+ *  lock: reopen parked workers when asked, then up to maxIter rounds with
+ *  the stop-signal check at the top of each, and last the DriveResult.
+ *  It yields after every round that did work; drive() goes straight on,
+ *  driveAsync() first awaits yieldToEventLoop() so a queued SIGINT/SIGTERM
+ *  can reach onStopSignal. That yield is the only place the two callers
+ *  may differ. */
+function* driveRounds(ctx: DriveContext, options: DriveOptions, runId: string): Generator<void, DriveResult, void> {
+  const reopened = options.reopenParked ? reopenParked(ctx) : [];
+  const steps: DriveStep[] = [];
+  const run0 = loadRun(ctx);
+  const plannedWorkers = run0.tasks.length;
+  const maxIter = maxIterations(plannedWorkers, maxLoopExpansion(run0), ctx.policy);
+  const emitPhaseProgress = createPhaseProgressEmitter();
+
+  let exhaustedMaxIterations = !options.once;
+  const stopSignal = createStopSignalController(runId);
+  stopSignal.install();
+  try {
+    for (let i = 0; i < maxIter; i++) {
+      if (stopSignal.getInterruptedBy()) break;
+      if (!driveOneRound(ctx, options, steps, emitPhaseProgress)) {
+        exhaustedMaxIterations = false;
+        break;
+      }
+      yield;
+    }
+  } finally {
+    stopSignal.remove();
+  }
+
+  return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy(), reopened);
+}
+
 /** Drive a run: `--once` advances exactly one step; otherwise run to
  *  completion, park, or a blocked stop. Fully synchronous, byte-identical
  *  to every prior release -- see the file comment above DRIVE_STOP_SIGNALS
@@ -1359,29 +1393,10 @@ export function drive(runId: string, cwd: string, options: DriveOptions = {}): D
   // own probe-before-lock.
   const runDir = resolveRunDir(runId, cwd);
   return withDriveLock(runDir, runId, () => {
-    const reopened = options.reopenParked ? reopenParked(ctx) : [];
-    const steps: DriveStep[] = [];
-    const run0 = loadRun(ctx);
-    const plannedWorkers = run0.tasks.length;
-    const maxIter = maxIterations(plannedWorkers, maxLoopExpansion(run0), ctx.policy);
-    const emitPhaseProgress = createPhaseProgressEmitter();
-
-    let exhaustedMaxIterations = !options.once;
-    const stopSignal = createStopSignalController(runId);
-    stopSignal.install();
-    try {
-      for (let i = 0; i < maxIter; i++) {
-        if (stopSignal.getInterruptedBy()) break;
-        if (!driveOneRound(ctx, options, steps, emitPhaseProgress)) {
-          exhaustedMaxIterations = false;
-          break;
-        }
-      }
-    } finally {
-      stopSignal.remove();
-    }
-
-    return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy(), reopened);
+    const rounds = driveRounds(ctx, options, runId);
+    let next = rounds.next();
+    while (!next.done) next = rounds.next();
+    return next.value;
   });
 }
 
@@ -1391,9 +1406,8 @@ export function drive(runId: string, cwd: string, options: DriveOptions = {}): D
  *  chance to dispatch a queued SIGINT/SIGTERM to onStopSignal before the
  *  next round's synchronous spawnSync work begins; the loop then sees
  *  the interrupted flag at the top of its next iteration exactly like
- *  drive() already checks it. Shares driveOneRound/createStopSignalController/
- *  finalizeDriveResult with drive(), so the two can only ever differ in
- *  this one respect. Intended for the live, potentially-long-running
+ *  drive() already checks it. Runs the same driveRounds() loop as
+ *  drive(), so the two can only ever differ in this one respect. Intended for the live, potentially-long-running
  *  entry points (CLI `--drive`, the MCP run.drive.step tool) where a
  *  user's Ctrl-C or a supervisor's SIGTERM must actually be able to stop
  *  the run; internal/recursive/test callers that don't need this keep
@@ -1414,30 +1428,13 @@ export async function driveAsync(runId: string, cwd: string, options: DriveOptio
   // Resolve the run dir before the mutex — see drive() above.
   const runDir = resolveRunDir(runId, cwd);
   return withDriveLockAsync(runDir, runId, async () => {
-    const reopened = options.reopenParked ? reopenParked(ctx) : [];
-    const steps: DriveStep[] = [];
-    const run0 = loadRun(ctx);
-    const plannedWorkers = run0.tasks.length;
-    const maxIter = maxIterations(plannedWorkers, maxLoopExpansion(run0), ctx.policy);
-    const emitPhaseProgress = createPhaseProgressEmitter();
-
-    let exhaustedMaxIterations = !options.once;
-    const stopSignal = createStopSignalController(runId);
-    stopSignal.install();
-    try {
-      for (let i = 0; i < maxIter; i++) {
-        if (stopSignal.getInterruptedBy()) break;
-        if (!driveOneRound(ctx, options, steps, emitPhaseProgress)) {
-          exhaustedMaxIterations = false;
-          break;
-        }
-        await yieldToEventLoop();
-      }
-    } finally {
-      stopSignal.remove();
+    const rounds = driveRounds(ctx, options, runId);
+    let next = rounds.next();
+    while (!next.done) {
+      await yieldToEventLoop();
+      next = rounds.next();
     }
-
-    return finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterations, stopSignal.getInterruptedBy(), reopened);
+    return next.value;
   });
 }
 
