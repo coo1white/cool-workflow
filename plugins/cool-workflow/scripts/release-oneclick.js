@@ -486,7 +486,9 @@ function runRecordAndWaitStage() {
     timeoutMs: 10 * 60 * 1000,
     intervalMs: 15000,
     probe: () => {
-      const view = spawnSync("npm", ["view", "cool-workflow", "version"], { encoding: "utf8" });
+      // --prefer-online: ask the registry each poll, never npm's cached
+      // packument, which can still name the old version for many minutes.
+      const view = spawnSync("npm", ["view", "cool-workflow", "version", "--prefer-online"], { encoding: "utf8" });
       if (view.status !== 0) return { error: true };
       return view.stdout.trim() === version ? { done: true } : {};
     }
