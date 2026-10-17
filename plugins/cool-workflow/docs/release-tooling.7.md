@@ -399,6 +399,22 @@ new tags get no CHANGELOG body. Only for an old tag, cut when that file was
 still in the tree, is the `## x.y.z` CHANGELOG section, as it was at that tag,
 put into the notes as well.
 
+Above the "Provenance & audit" footer, the notes have a **"What changed"**
+part, one page at most, made by `scripts/release-notes.mjs` with no model
+call. It reads the pull request titles between the previous tag and this one
+(`git log --first-parent`; a merge commit gives the first line of its body,
+any other commit its subject) and keeps only the `feat:` and `fix:` ones
+(`feat(x):` and `fix(x):` as well). It has one line that says what the
+release is (`cool-workflow x.y.z: N new features and M fixes since vA.B.C.`),
+at most six short bullets (features first, then fixes; the `feat:`/`fix:`
+start and any end `(...)`, such as `(#123)`, taken off), one link to the
+User Guide on the wiki, and one link to the full compare, which says how many
+more changes are there when there are over six. When there is no feat or fix,
+the line says the release is upkeep, in place of an empty list. It fails
+closed: with no previous release tag, or when `git log` fails, the notes have
+no "What changed" part (the body is the same as before this part came in),
+and stderr says why; it never makes up a change list.
+
 This step is **distribution upside, not a correctness gate**: the load-bearing
 artifacts (the tag and the provenance-attested npm publish) are there already when it
 runs. So `gh` is **not** part of the node/git portability floor — it runs
