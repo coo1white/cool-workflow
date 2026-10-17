@@ -155,11 +155,11 @@ function main() {
     "scripts/golden-path.mjs",
     "scripts/canonical-apps.mjs",
     "scripts/dogfood-release.mjs",
-    "test/dogfood-release-smoke.js",
-    "test/mcp-app-surface-smoke.js",
-    "test/canonical-workflow-apps-smoke.js",
-    "test/workflow-app-framework-smoke.js",
-    "test/operator-ux-smoke.js"
+    "test/dogfood-release-smoke.mjs",
+    "test/mcp-app-surface-smoke.mjs",
+    "test/canonical-workflow-apps-smoke.mjs",
+    "test/workflow-app-framework-smoke.mjs",
+    "test/operator-ux-smoke.mjs"
   ];
   // The version appears in THREE forms across scripts/tests: plain (`0.1.32`),
   // a regex literal (`0\.1\.32`, from `assert.match(report, /...@0\.1\.32/)`),

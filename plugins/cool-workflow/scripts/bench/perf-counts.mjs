@@ -2,7 +2,7 @@
 
 // bench/perf-counts.mjs — the perf ratchet (intent:
 // project/docs/intent/2026-09-archive.md, the perf-ratchets part). Consumer:
-// test/perf-ratchet-smoke.js, which runs `--check` on every PR.
+// test/perf-ratchet-smoke.mjs, which runs `--check` on every PR.
 //
 // Runs the journeys a person waits on, each under perf-count-hook.mjs, and
 // prints exact counts — CW modules loaded, state.json reads, whole-state JSON

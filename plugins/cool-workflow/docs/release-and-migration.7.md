@@ -164,7 +164,7 @@ A state file written by an older CW with `multiAgent`, `blackboard`,
 `topologies`, `candidates`, or `candidateSelections` data still loads,
 checks, reports, exports, and resumes. Those fields are kept as data, just as
 CW keeps any other user data; no command reads them as live state any more.
-`test/legacy-multi-agent-state-smoke.js` holds this.
+`test/legacy-multi-agent-state-smoke.mjs` holds this.
 
 ## Node Floor: 22.13
 
@@ -182,7 +182,7 @@ of 2026-09-28 is decision D4 in
 - Why 22.13: it is the first Node 22 in which `require()` of an ES module
   works with no flag and writes nothing to stderr. 22.11 cannot do it, and
   22.12 does it but writes an `ExperimentalWarning`.
-  `test/node-floor-require-esm-smoke.js` loads an ES module with `require()`
+  `test/node-floor-require-esm-smoke.mjs` loads an ES module with `require()`
   on the Node in use and fails on any stderr output.
 
 Saved run state is not changed by this: a run made on an older Node loads,

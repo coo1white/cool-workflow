@@ -78,8 +78,8 @@ jobs:
       # the remaining parity, manifest, version-sync, golden-path, canonical-apps,
       # and eval gates without running the same suite a second time.
       - run: bun run test:coverage
-      # Pure core/ unit tests (test/**/*.test.js), separate from the smoke suite
-      # above — see test/run-unit.js's header. release:check --skip-tests also
+      # Pure core/ unit tests (test/**/*.test.mjs), separate from the smoke suite
+      # above — see test/run-unit.mjs's header. release:check --skip-tests also
       # skips this by name, so it does not run twice.
       - run: bun run test:unit
       - run: bun run release:check -- --skip-tests
@@ -100,7 +100,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Full history, same as the ubuntu legs. test:gate runs
-          # verify-bump-reproduction-smoke.js, which reads this repo's REAL
+          # verify-bump-reproduction-smoke.mjs, which reads this repo's REAL
           # release history (the v0.2.2 approved-parent/tagged-commit pair).
           # The default depth-1 checkout does not have those objects, so the
           # test dies with "exists on disk, but not in <commit>".
@@ -154,7 +154,7 @@ jobs:
           bun-version: 1.4.1
       - run: bun install --frozen-lockfile --ignore-scripts
         if: steps.changed.outputs.run == 'true'
-      - run: node test/run-all.js --filter 'release-flow'
+      - run: node test/run-all.mjs --filter 'release-flow'
         if: steps.changed.outputs.run == 'true'
 
   # Rehearses the gated release on every PR or main push that touches release
@@ -169,7 +169,7 @@ jobs:
   # needed here: by default the gate's test step reads the required `check`
   # runs on the commit, and this job runs beside them, so it cannot wait on
   # them. The reviewer is a
-  # STUB (test/fixtures/release-rehearsal-reviewer.js), there is no signing
+  # STUB (test/fixtures/release-rehearsal-reviewer.mjs), there is no signing
   # key, and nothing is tagged, pushed, or published. The npm leg runs the
   # newest npm as well as the one bundled with Node 24: npm 12 changed the
   # npm pack --json shape and broke the release check on a real cut. Not a
@@ -225,6 +225,6 @@ jobs:
       - run: node scripts/release-flow.mjs --check --local-tests
         if: steps.changed.outputs.run == 'true'
         env:
-          CW_AGENT_COMMAND: node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.js {{input}}
+          CW_AGENT_COMMAND: node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.mjs {{input}}
       - run: node scripts/dogfood-release.mjs --smoke
         if: steps.changed.outputs.run == 'true'

@@ -147,7 +147,7 @@ stdoutSha256:sha256:<hex>
 Running CW's own self-verify (`node dist/cli.js list`) through `node`, `shell`,
 and `bun` gives byte-identical `result` and `evidence`; only
 `provenance.backendId` (and the attestation detail) is not the same. The
-`test/execution-backends-smoke.js` gate proves this, proves the fail-closed
+`test/execution-backends-smoke.mjs` gate proves this, proves the fail-closed
 refusals, proves the kept provenance and delegation handles, and proves the
 verifier/registry stay backend-agnostic.
 

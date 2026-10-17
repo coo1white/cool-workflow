@@ -108,7 +108,7 @@ export function migrateRunStateFile(statePath, options = {}) {
 }
 /** ONLY tasksDir/commitsDir (plus the audit event log, checked separately
  *  below) — deliberately NOT every directory a run's `paths` can carry.
- *  Verified empirically (via test/run-fixture-compat-smoke.js's real
+ *  Verified empirically (via test/run-fixture-compat-smoke.mjs's real
  *  fixtures) that several other candidate directories are unsafe signals:
  *  a plain `cw status`/`cw graph` READ already writes cache/derived files
  *  as a side effect — `audit/summary.json` + `audit/index.json`

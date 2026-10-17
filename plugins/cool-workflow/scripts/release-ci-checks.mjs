@@ -8,9 +8,9 @@
 //                                   reviewer input and the verdict commit)
 //   - scripts/release-oneclick.mjs  (waits for the checks on the cut commit
 //                                   before the cut stage)
-//   - test/ci-shape-gate-smoke.js  (pins REQUIRED_CHECKS to the ci.yml
+//   - test/ci-shape-gate-smoke.mjs  (pins REQUIRED_CHECKS to the ci.yml
 //                                   `check` matrix)
-//   - test/release-gate-ci-checks-smoke.js
+//   - test/release-gate-ci-checks-smoke.mjs
 //
 // REQUIRED_CHECKS is the ONE place the release tooling names the required
 // checks. It must stay equal to main's branch protection (AGENTS.md: the

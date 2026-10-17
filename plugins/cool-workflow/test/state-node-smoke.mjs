@@ -1,0 +1,110 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import {
+  assertNodeSatisfiesContract,
+  createStateNode,
+  linkStateNodes,
+  recordNodeError,
+  transitionStateNode,
+  validatePipelineContract,
+} from "../dist/core/state/state-node.js";
+import { createDefaultPipelineContract } from "../dist/core/pipeline/contract.js";
+
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-state-node-"));
+const resultPath = path.join(tmp, "result.md");
+fs.writeFileSync(resultPath, "verified result\n", "utf8");
+
+const contract = createDefaultPipelineContract();
+validatePipelineContract(contract);
+
+const resultNode = createStateNode({
+  id: "node:result",
+  kind: "result",
+  status: "completed",
+  loopStage: "observe",
+  artifacts: [{ id: "result", kind: "markdown", path: resultPath }],
+  evidence: [{ id: "result", source: "cw:result", locator: "file.ts:1" }]
+});
+
+assert.equal(resultNode.schemaVersion, 1);
+assert.equal(resultNode.kind, "result");
+
+const verifiedNode = transitionStateNode(resultNode, {
+  status: "verified",
+  loopStage: "adjust"
+});
+assert.equal(verifiedNode.status, "verified");
+
+const committedNode = transitionStateNode(verifiedNode, {
+  status: "committed",
+  loopStage: "checkpoint"
+});
+assert.equal(committedNode.status, "committed");
+
+assert.throws(
+  () => transitionStateNode(resultNode, { status: "committed" }),
+  /cannot transition from completed to committed/
+);
+
+assertNodeSatisfiesContract(resultNode, contract, "verify");
+
+const missingEvidence = createStateNode({
+  id: "node:missing-evidence",
+  kind: "result",
+  status: "completed",
+  loopStage: "observe",
+  artifacts: [{ id: "result", kind: "markdown", path: resultPath }]
+});
+assert.throws(
+  () => assertNodeSatisfiesContract(missingEvidence, contract, "verify"),
+  /missing required evidence/
+);
+
+const missingArtifact = createStateNode({
+  id: "node:missing-artifact",
+  kind: "dispatch",
+  status: "completed",
+  loopStage: "observe",
+  artifacts: [{ id: "result", kind: "markdown", path: path.join(tmp, "missing.md") }],
+  evidence: [{ id: "result", source: "test" }]
+});
+assert.throws(
+  // v2 made core/ pure: assertNodeSatisfiesContract takes an injected path-exists
+  // predicate (default () => true). The old build called fs.existsSync inline;
+  // pass it here to preserve the original artifact-existence check.
+  () => assertNodeSatisfiesContract(missingArtifact, contract, "result", (p) => fs.existsSync(p)),
+  /path does not exist/
+);
+
+assert.throws(
+  () => assertNodeSatisfiesContract(resultNode, contract, "commit"),
+  /does not accept node kind result/
+);
+
+const verifierNode = createStateNode({
+  id: "node:verifier",
+  kind: "verifier",
+  status: "verified",
+  loopStage: "adjust",
+  evidence: [{ id: "result", source: "test" }]
+});
+assertNodeSatisfiesContract(verifierNode, contract, "commit");
+
+const failedNode = recordNodeError(resultNode, {
+  code: "test-error",
+  message: "Readable failure",
+  path: resultPath
+});
+assert.equal(failedNode.status, "failed");
+assert.equal(failedNode.errors[0].code, "test-error");
+assert.equal(failedNode.errors[0].nodeId, resultNode.id);
+
+const [parent, child] = linkStateNodes(verifierNode, committedNode);
+assert.deepEqual(parent.children, [committedNode.id]);
+assert.deepEqual(child.parents, [verifierNode.id]);
+
+process.stdout.write("state-node-smoke: ok\n");

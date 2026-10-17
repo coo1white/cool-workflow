@@ -664,7 +664,7 @@ async function payloadParity() {
       // jsonMode is the single source for the CLI's --json policy; this probe only
       // appends --json for "flag" verbs and JSON.parse-es the result. The human
       // rendering and "default"-verb no-flag JSON are pinned to cap.cli.jsonMode by
-      // the companion test/cli-jsonmode-parity-smoke.js, so cli.ts can't silently
+      // the companion test/cli-jsonmode-parity-smoke.mjs, so cli.ts can't silently
       // re-encode that policy by hand and drift from this registry data.
       if (target.kind !== "global" && target.kind !== "run") throw new Error(`Unknown payload probe target kind: ${target.kind}`);
       const cliArgv = target.kind === "run"

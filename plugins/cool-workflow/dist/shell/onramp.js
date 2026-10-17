@@ -6,7 +6,7 @@
 // The classification in evaluateOnrampContract works on path STRINGS only
 // (it never stats files) — which cuts both ways: it never breaks on a
 // missing file, but it also never notices when a literal it matches
-// against has moved. test/onramp-check-smoke.js checks every
+// against has moved. test/onramp-check-smoke.mjs checks every
 // CURATED_SMOKE_MAP row against the real tree.
 import fs from "node:fs";
 import path from "node:path";
@@ -14,47 +14,47 @@ import { spawnSync } from "node:child_process";
 export const CURATED_SMOKE_MAP = [
     {
         patterns: ["src/shell/doctor.ts", "src/shell/onramp.ts", "scripts/onramp-check.mjs"],
-        smokes: ["doctor-smoke.js", "onramp-check-smoke.js"]
+        smokes: ["doctor-smoke.mjs", "onramp-check-smoke.mjs"]
     },
     {
         patterns: ["README.md", "docs/getting-started.md", "docs/index.md"],
-        smokes: ["quickstart-readme-path-smoke.js", "doctor-smoke.js"]
+        smokes: ["quickstart-readme-path-smoke.mjs", "doctor-smoke.mjs"]
     },
     {
         patterns: ["src/cli.ts", "src/cli/"],
-        smokes: ["cli-command-surface-smoke.js", "cli-jsonmode-parity-smoke.js", "cli-mcp-parity-smoke.js"]
+        smokes: ["cli-command-surface-smoke.mjs", "cli-jsonmode-parity-smoke.mjs", "cli-mcp-parity-smoke.mjs"]
     },
     {
         patterns: ["src/shell/orchestrator.ts"],
-        smokes: ["cli-mcp-parity-smoke.js"]
+        smokes: ["cli-mcp-parity-smoke.mjs"]
     },
     {
         patterns: ["src/core/capability-table.ts", "src/core/capability-data.ts", "src/wiring/capability-table/", "scripts/parity-check.mjs"],
-        smokes: ["cli-mcp-parity-smoke.js", "cli-jsonmode-parity-smoke.js", "parity-doc-sync-smoke.js"]
+        smokes: ["cli-mcp-parity-smoke.mjs", "cli-jsonmode-parity-smoke.mjs", "parity-doc-sync-smoke.mjs"]
     },
     {
         patterns: ["src/mcp-server.ts", "src/mcp/"],
-        smokes: ["mcp-surface-registry-smoke.js", "mcp-app-surface-smoke.js", "cli-mcp-parity-smoke.js"]
+        smokes: ["mcp-surface-registry-smoke.mjs", "mcp-app-surface-smoke.mjs", "cli-mcp-parity-smoke.mjs"]
     },
     {
         patterns: ["src/shell/run-export.ts", "src/shell/run-export-cli.ts", "src/core/state/types.ts"],
-        smokes: ["run-export-import-smoke.js", "run-export-restore-resume-smoke.js", "run-inspect-archive-smoke.js"]
+        smokes: ["run-export-import-smoke.mjs", "run-export-restore-resume-smoke.mjs", "run-inspect-archive-smoke.mjs"]
     },
     {
         patterns: ["src/shell/pipeline-cli.ts", "src/shell/drive.ts", "src/shell/agent-config.ts"],
-        smokes: ["quickstart-smoke.js", "quickstart-check-smoke.js", "agent-delegation-drive-smoke.js"]
+        smokes: ["quickstart-smoke.mjs", "quickstart-check-smoke.mjs", "agent-delegation-drive-smoke.mjs"]
     },
     {
         patterns: ["src/shell/telemetry-", "src/core/trust/telemetry-"],
-        smokes: ["telemetry-ledger-smoke.js", "telemetry-attestation-smoke.js", "telemetry-verify-signatures-smoke.js"]
+        smokes: ["telemetry-ledger-smoke.mjs", "telemetry-attestation-smoke.mjs", "telemetry-verify-signatures-smoke.mjs"]
     },
     {
         patterns: ["src/shell/workbench", "ui/workbench/"],
-        smokes: ["web-desktop-workbench-smoke.js"]
+        smokes: ["web-desktop-workbench-smoke.mjs"]
     },
     {
         patterns: ["src/shell/scheduler-io.ts", "src/shell/scheduling-io.ts"],
-        smokes: ["schedule-routine-daemon-smoke.js", "sched-policy-validation-smoke.js"]
+        smokes: ["schedule-routine-daemon-smoke.mjs", "sched-policy-validation-smoke.mjs"]
     }
 ];
 export function optionEnabled(value) {
@@ -189,7 +189,7 @@ export function buildDoctorOnramp(options = {}) {
                         {
                             id: "target-smoke",
                             title: "Run the closest smoke",
-                            command: nodeSmokeCommand(cwd, "doctor-smoke.js"),
+                            command: nodeSmokeCommand(cwd, "doctor-smoke.mjs"),
                             reason: "Replace this smoke name with the one that covers your changed path."
                         },
                         {
@@ -348,16 +348,16 @@ export function evaluateOnrampContract(files, options = {}) {
     const appFiles = classifiable.filter((file) => file.startsWith("plugins/cool-workflow/apps/"));
     const typeFiles = classifiable.filter((file) => file.startsWith("plugins/cool-workflow/src/core/types/") && file.endsWith(".ts"));
     const surfaceFiles = classifiable.filter(isSurfaceFile);
-    const smokeFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+-smoke\.js$/.test(file));
+    const smokeFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+-smoke\.mjs$/.test(file));
     // A second, parallel test layer: pure `core/` logic proven by
-    // `test/**/*.test.js` under `npm run test:unit`, run and gated separately
-    // from the black-box `test/*-smoke.js` suite. A cycle that proves its fix
+    // `test/**/*.test.mjs` under `npm run test:unit`, run and gated separately
+    // from the black-box `test/*-smoke.mjs` suite. A cycle that proves its fix
     // with a unit test only (no smoke touched) is a real, complete cycle.
-    const unitTestFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+\.test\.js$/.test(file));
+    const unitTestFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+\.test\.mjs$/.test(file));
     // The black-box conformance suite (v2/conformance/cases/*.case.mjs) is a
     // third, equally real proof layer — CI-gated on every push, and the one
     // North Star Track C leans on. A cycle proven end to end by a new or
-    // changed conformance case (with no test/*-smoke.js or test/**/*.test.js
+    // changed conformance case (with no test/*-smoke.mjs or test/**/*.test.mjs
     // touched) is a real, complete cycle too.
     const conformanceCaseFiles = normalized.filter((file) => /^v2\/conformance\/cases\/.+\.case\.mjs$/.test(file));
     const docFiles = normalized.filter(isDocFile);
@@ -368,7 +368,7 @@ export function evaluateOnrampContract(files, options = {}) {
         issues.push({
             code: "runtime-smoke-required",
             detail: "Runtime or app changes must include at least one smoke test change.",
-            fix: "Add or update a focused test/*-smoke.js file for the changed behavior.",
+            fix: "Add or update a focused test/*-smoke.mjs file for the changed behavior.",
             files: [...runtimeFiles, ...appFiles]
         });
     }
@@ -420,7 +420,7 @@ export function recommendSmokeTests(files, cwd = process.cwd()) {
         if (!pluginPath.startsWith("src/"))
             continue;
         const base = path.basename(pluginPath, ".ts");
-        const direct = `${base}-smoke.js`;
+        const direct = `${base}-smoke.mjs`;
         if (available.includes(direct))
             smokes.add(direct);
         const tokens = base.split(/[^a-zA-Z0-9]+/).filter((token) => token.length >= 3);
@@ -524,7 +524,7 @@ function availableSmokeTests(cwd) {
     const source = detectSourceCheckout(cwd);
     const testDir = source ? path.join(source.packageDir, "test") : path.join(path.resolve(cwd), "test");
     try {
-        return fs.readdirSync(testDir).filter((file) => file.endsWith("-smoke.js")).sort();
+        return fs.readdirSync(testDir).filter((file) => file.endsWith("-smoke.mjs")).sort();
     }
     catch {
         return [];

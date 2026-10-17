@@ -14,7 +14,7 @@ npm run golden-path
 The command uses only Node.js standard library APIs and the public CW CLI. It
 does not use the network, sleeps, hidden daemon state, or real subagents.
 
-v0.1.13 adds `test/mcp-app-surface-smoke.js`. This is a near deterministic proof
+v0.1.13 adds `test/mcp-app-surface-smoke.mjs`. This is a near deterministic proof
 that drives the same app/worker/commit/operator chain over MCP stdio
 JSON-RPC, in place of direct CLI commands.
 

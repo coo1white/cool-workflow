@@ -1,0 +1,92 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+import { createDefaultPipelineContract } from "../dist/core/pipeline/contract.js";
+// v2 dropped the createPipelineRunner() factory; the runner is now free
+// functions in core/pipeline/runner. runPipelineStage gained a 5th
+// runnerOptions arg (contractId/pathExists/persist); advancePipeline keeps
+// its (run, runnerOptions) shape.
+import { runPipelineStage, advancePipeline } from "../dist/core/pipeline/runner.js";
+import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
+import { appendRunNode, createStateNode, upsertRunContract } from "../dist/core/state/state-node.js";
+
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-auto-advance-"));
+const paths = createRunPaths(path.join(tmp, ".cw", "runs", "auto-advance"));
+ensureRunDirs(paths);
+
+const run = {
+  schemaVersion: 1,
+  id: "auto-advance",
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  cwd: tmp,
+  workflow: {
+    id: "auto-advance",
+    title: "Auto Advance",
+    summary: "",
+    limits: { maxAgents: 1, maxConcurrentAgents: 1 }
+  },
+  inputs: {},
+  loopStage: "interpret",
+  phases: [],
+  tasks: [],
+  dispatches: [],
+  commits: [],
+  paths,
+  nodes: [],
+  contracts: []
+};
+saveCheckpoint(run);
+
+// --- 1. Default behavior: autoAdvance OFF, failure halts ---
+const contract1 = createDefaultPipelineContract();
+upsertRunContract(run, contract1);
+
+const input1 = appendRunNode(run, createStateNode({
+  id: "auto-advance:input:1",
+  kind: "input",
+  status: "completed",
+  loopStage: "interpret",
+  artifacts: [{ id: "state", kind: "json", path: paths.state }],
+  contractId: contract1.id
+}));
+
+// Create a plan node (successful) to set up a second input
+// v2: runPipelineStage(run, stageId, inputNodeId, options, runnerOptions).
+// Options (outputNodeId/outputStatus/artifacts) stay in arg 4 as before.
+const plan = runPipelineStage(run, "plan", input1.id, {
+  outputNodeId: "auto-advance:task:1",
+  outputStatus: "pending",
+  artifacts: [{ id: "task", kind: "markdown", path: path.join(paths.tasksDir, "t.md") }]
+});
+assert.equal(plan.status, "advanced");
+
+// Now we have 2 input nodes: the original input and the task node
+// Dispatch from the input should succeed; dispatch from the task (wrong kind) should fail
+// With autoAdvance OFF, advancePipeline should return "failed" on first failure
+
+const resultNoAdvance = advancePipeline(run, { contractId: contract1.id });
+// Should have found at least one runnable stage and run it
+assert.ok(resultNoAdvance.stages.length > 0, "should have at least one stage");
+
+// --- 2. autoAdvance ON: failure should try next runnable stage ---
+const contract2 = createDefaultPipelineContract();
+contract2.failurePolicy = { autoAdvance: true };
+contract2.id = "cw.pipeline.auto-advance";
+upsertRunContract(run, contract2);
+
+const resultAuto = advancePipeline(run, { contractId: contract2.id });
+
+// With autoAdvance, if the first runnable stage fails, it should try subsequent ones
+assert.ok(resultAuto.stages.length > 0, "should have at least one stage with autoAdvance");
+// The key assertion: autoAdvance does not change behavior for successful stages,
+// but when stages fail, it tries alternatives instead of failing immediately.
+assert.ok(
+  resultAuto.status === "advanced" || resultAuto.stages.length > 1,
+  `autoAdvance should advance or try multiple stages, got status=${resultAuto.status} stages=${resultAuto.stages.length}`
+);
+
+process.stdout.write("pipeline-auto-advance-smoke: ok\n");

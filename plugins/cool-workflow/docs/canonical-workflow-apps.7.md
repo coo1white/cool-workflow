@@ -140,7 +140,7 @@ evidence-required verification or synthesis/verdict tasks, checks sandbox
 profile hints, checks unique task ids, and checks that duplicate ids do not break
 discovery.
 
-`npm test` takes in `test/canonical-workflow-apps-smoke.js`, which does the
+`npm test` takes in `test/canonical-workflow-apps-smoke.mjs`, which does the
 same core assertions again against generated `dist/`.
 
 ## Framework Pressure

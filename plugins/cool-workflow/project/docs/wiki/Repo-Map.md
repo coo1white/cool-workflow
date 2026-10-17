@@ -1,7 +1,7 @@
 # Repo Map
 
 What every top-level folder and file is for, one line each — most are fixed
-by a tool, a test, or the release chain. `test/root-layout-smoke.js` holds
+by a tool, a test, or the release chain. `test/root-layout-smoke.mjs` holds
 this list: a new root entry is named there with its reason in the same diff.
 
 | Place | What it is |

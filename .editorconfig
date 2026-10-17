@@ -1,5 +1,5 @@
 # One text style for every editor, the style the tree already has.
-# plugins/cool-workflow/test/root-layout-smoke.js checks the tracked tree
+# plugins/cool-workflow/test/root-layout-smoke.mjs checks the tracked tree
 # keeps it (LF, a final newline, no tab indents).
 root = true
 

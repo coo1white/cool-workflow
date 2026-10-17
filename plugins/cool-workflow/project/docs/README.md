@@ -5,7 +5,7 @@ never ship (they are outside the npm `files` list). The man pages that do
 ship, the contract for users, are in [`../../docs/`](../../docs/).
 
 Every entry in this folder has one line below;
-`test/docs-layout-smoke.js` fails when an entry and this list do not
+`test/docs-layout-smoke.mjs` fails when an entry and this list do not
 agree.
 
 ## Plans and records

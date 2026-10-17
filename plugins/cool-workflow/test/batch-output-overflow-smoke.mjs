@@ -1,0 +1,309 @@
+#!/usr/bin/env node
+// @cw-smoke: timeout 600
+// (One case builds ~1.2 GB in memory on purpose, to pass V8's per-string
+// limit; on a machine with less free memory it runs well past 120s.)
+// batch-output-overflow-smoke — a verbose agent in a concurrent batch must
+// never strand its siblings. Before this fix, the batch delegate child
+// buffered EVERY job's stdout in memory and printed one JSON array only once
+// every job had settled; the parent's spawnSync capped its OWN captured
+// stdout at a flat 512MB regardless of batch size. Once combined job output
+// crossed that cap, spawnSync threw ENOBUFS and EVERY job in the batch (not
+// just the big ones) was marked failed — a real repro: 25 jobs x 30MB output
+// permanently parked all 25, 0 completed. The fix streams one NDJSON line per
+// job the instant it settles, so a job whose line already arrived keeps its
+// real outcome regardless of what happens to the rest of the batch.
+//
+// Three scenarios:
+//   1. Unit-level: feed reconcileBatchOutcomes a synthetic delegate stdout
+//      with one complete line, one missing index, and one truncated
+//      (mid-kill) trailing line, alongside a synthetic batch-level error —
+//      the sharpest, fastest regression guard for the reconciliation logic.
+//   2. Integration-level: a REAL 5-job batch through runAgentBatchOutcomes —
+//      2 small jobs, 2 jobs each returning ~25MB of output, 1 forced hang —
+//      proves large output doesn't strand small siblings, and a per-job kill
+//      is still distinguishable from a batch-wide reconciliation miss.
+//   3. Unit-level, V8 string-limit guard: a combined delegate buffer well
+//      past V8's per-string character ceiling (0x1fffffe8, ~512MB). Before
+//      this fix, spawnSync's own `encoding:"utf8"` option decoded the WHOLE
+//      combined buffer as one JS string up front and THREW ("Cannot create
+//      a string longer than 0x1fffffe8 characters") — an uncaught crash
+//      inside spawnSync itself, not a graceful child.error, found while
+//      re-running the 25x30MB repro after removing the flat 512MB cap. This
+//      proves reconcileBatchOutcomes only ever decodes one line (bounded by
+//      the delegate's own per-job cap) at a time, so it never approaches
+//      that ceiling no matter how large the combined batch output gets.
+//   4. Integration-level, UTF-8 chunk-boundary guard: the delegate child's
+//      stdout "data" handler used to run `chunk.toString()` on each raw
+//      chunk in isolation. When a multi-byte UTF-8 character's bytes were
+//      split across two separate stdout reads (a real possibility on any
+//      OS pipe), each half decoded to a REPLACEMENT CHARACTER (U+FFFD)
+//      instead of the real character — silent corruption of recorded agent
+//      output. A single job writes a 3-byte character split across two
+//      delayed writes; the test asserts the recovered stdout is the exact
+//      original string, proving the fix (a per-job StringDecoder that
+//      buffers an incomplete trailing sequence across chunk boundaries)
+//      reassembles the character correctly.
+
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+const pluginRoot = path.resolve(import.meta.dirname, "..");
+// v2 moved the execution-backend agent module under dist/shell/.
+import { reconcileBatchOutcomes, runAgentBatchOutcomes } from "../dist/shell/execution-backend/agent.js";
+
+function unitLevelReconciliation() {
+  const jobs = [{}, {}, {}]; // reconcileBatchOutcomes only reads jobs.length
+  const child = {
+    error: new Error("spawnSync ENOBUFS"),
+    status: null,
+    // index 0: one complete NDJSON line. index 1: no line at all (never
+    // arrived). index 2: a line truncated mid-write by a hard kill — dropped
+    // by the unconditional "pop the trailing segment" rule, never parsed.
+    stdout: '{"i":0,"exitCode":0,"stdout":"a"}\n{"i":2,"exitCo'
+  };
+  const settled = reconcileBatchOutcomes(jobs, child);
+  assert.equal(settled.length, 3, "outcomes array stays index-aligned with jobs");
+  assert.deepEqual(settled[0], { exitCode: 0, stdout: "a" }, "a fully-streamed line recovers its real outcome");
+  assert.equal(settled[1].exitCode, null, "a job whose line never arrived fails closed");
+  assert.match(settled[1].spawnError, /batch delegate failed: spawnSync ENOBUFS/, "missing-line failure carries the batch-level reason");
+  assert.equal(settled[2].exitCode, null, "a truncated trailing line fails closed, not a parse crash");
+  assert.match(settled[2].spawnError, /batch delegate failed: spawnSync ENOBUFS/, "truncated-line failure carries the batch-level reason");
+  console.log("batch-output-overflow-smoke: reconcileBatchOutcomes recovers per-line, fails closed per-line ok");
+}
+
+function writeStub(file) {
+  const lines = [
+    'const fs = require("fs");',
+    "const resultPath = process.argv[2];",
+    "const behavior = process.argv[3];",
+    'if (behavior === "hang") {',
+    "  setInterval(() => {}, 1000);",
+    '} else if (behavior === "big") {',
+    '  const chunk = "x".repeat(1024 * 1024);',
+    "  let remaining = 25 * 1024 * 1024;",
+    "  while (remaining > 0) {",
+    "    const n = Math.min(chunk.length, remaining);",
+    "    fs.writeSync(1, chunk.slice(0, n));",
+    "    remaining -= n;",
+    "  }",
+    '  process.stdout.write(JSON.stringify({ model: "stub-m" }));',
+    "  process.exit(0);",
+    '} else if (behavior === "too-big") {',
+    '  const chunk = "y".repeat(1024 * 1024);',
+    "  let remaining = 35 * 1024 * 1024;",
+    "  while (remaining > 0) {",
+    "    const n = Math.min(chunk.length, remaining);",
+    "    fs.writeSync(1, chunk.slice(0, n));",
+    "    remaining -= n;",
+    "  }",
+    '  process.stdout.write(JSON.stringify({ model: "stub-m" }));',
+    "  process.exit(0);",
+    '} else if (behavior === "escape-heavy") {',
+    "  // 20MB RAW of a control char: UNDER the child's 32MB raw-stdout cap,",
+    "  // but JSON-escaping turns each byte into \\u0001 (6 bytes), so the",
+    "  // serialized NDJSON line is ~120MB.",
+    '  const chunk = "\\u0001".repeat(1024 * 1024);',
+    "  let remaining = 20 * 1024 * 1024;",
+    "  while (remaining > 0) {",
+    "    const n = Math.min(chunk.length, remaining);",
+    "    fs.writeSync(1, chunk.slice(0, n));",
+    "    remaining -= n;",
+    "  }",
+    "  process.exit(0);",
+    "} else {",
+    '  process.stdout.write(JSON.stringify({ model: "stub-m" }));',
+    "  process.exit(0);",
+    "}"
+  ];
+  fs.writeFileSync(file, lines.join("\n"), "utf8");
+  return file;
+}
+
+function integrationLevelLargeOutput() {
+  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-overflow-")));
+  try {
+    const stub = writeStub(path.join(work, "stub.js"));
+    const jobFor = (behavior, timeoutMs) => ({
+      binary: process.execPath,
+      args: [stub, path.join(work, `${behavior}-result.md`), behavior],
+      cwd: work,
+      timeoutMs
+    });
+    // index 0,1: small quick jobs. index 2: forced hang. index 3,4: ~25MB output each.
+    const jobs = [
+      jobFor("small", 10000),
+      jobFor("small", 10000),
+      jobFor("hang", 500),
+      jobFor("big", 10000),
+      jobFor("big", 10000)
+    ];
+    const settled = runAgentBatchOutcomes(jobs);
+    assert.equal(settled.length, 5, "outcomes stay index-aligned with the 5-job batch");
+
+    for (const index of [0, 1]) {
+      assert.equal(settled[index].exitCode, 0, `small job ${index} exits 0`);
+      assert.equal(settled[index].spawnError, undefined, `small job ${index} carries no spawnError`);
+      assert.match(settled[index].stdout, /stub-m/, `small job ${index} keeps its real stdout`);
+    }
+    for (const index of [3, 4]) {
+      assert.equal(settled[index].exitCode, 0, `big job ${index} exits 0 despite ~25MB of output`);
+      assert.equal(settled[index].spawnError, undefined, `big job ${index} carries no spawnError`);
+      assert.ok(settled[index].stdout.length > 20 * 1024 * 1024, `big job ${index} output was not truncated or lost (got ${settled[index].stdout.length} bytes)`);
+    }
+    // A per-job kill settles via the normal close handler (exitCode:null, no
+    // spawnError) — distinct from the reconciliation-miss fail-closed default
+    // (which DOES set spawnError). This distinguishes "one job was killed" from
+    // "the whole batch's output was lost."
+    assert.equal(settled[2].exitCode, null, "the hung job is killed and reports no exit code");
+    assert.equal(settled[2].spawnError, undefined, "a per-job kill is not a batch-wide reconciliation miss");
+    console.log("batch-output-overflow-smoke: large output in a batch never strands its small siblings ok");
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true });
+  }
+}
+
+function integrationLevelCapExceeded() {
+  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-cap-")));
+  try {
+    const stub = writeStub(path.join(work, "stub.js"));
+    const jobFor = (behavior, timeoutMs) => ({
+      binary: process.execPath,
+      args: [stub, path.join(work, `${behavior}-result.md`), behavior],
+      cwd: work,
+      timeoutMs
+    });
+    const settled = runAgentBatchOutcomes([
+      jobFor("small", 10000),
+      jobFor("too-big", 10000),
+      jobFor("small", 10000)
+    ]);
+    assert.equal(settled.length, 3, "outcomes stay index-aligned with a cap-exceeded job");
+    assert.equal(settled[0].exitCode, 0, "small sibling before cap-exceeded job succeeds");
+    assert.equal(settled[2].exitCode, 0, "small sibling after cap-exceeded job succeeds");
+    assert.equal(settled[1].exitCode, null, "cap-exceeded job fails closed");
+    assert.match(settled[1].spawnError || "", /stdout exceeded .* byte cap/, "cap-exceeded job names stdout cap");
+    assert.equal(settled[1].stdout, "", "truncated stdout is not treated as evidence");
+    console.log("batch-output-overflow-smoke: stdout cap exceeded fails one job closed without stranding siblings ok");
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true });
+  }
+}
+
+function integrationLevelEscapedLineCap() {
+  // The child used to cap only the RAW stdout bytes (32MB) but wrote the
+  // ESCAPED serialization — JSON escaping grows bytes (quotes/backslashes
+  // 2x, control chars up to 6x), while the parent grants only
+  // maxBuffer = 34MB * jobs.length for the COMBINED NDJSON stream. So a job
+  // whose raw output was comfortably under the raw cap could still emit a
+  // serialized line far past the parent's budget: spawnSync threw ENOBUFS
+  // and the WHOLE batch (including small, innocent siblings) failed with
+  // "batch delegate failed: ...ENOBUFS". This is a REAL 3-job batch through
+  // runAgentBatchOutcomes: 20MB raw of a control char (under the 32MB raw
+  // cap) escapes to a ~120MB line against a 3-job 102MB parent budget.
+  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-escape-")));
+  try {
+    const stub = writeStub(path.join(work, "stub.js"));
+    const jobFor = (behavior, timeoutMs) => ({
+      binary: process.execPath,
+      args: [stub, path.join(work, `${behavior}-result.md`), behavior],
+      cwd: work,
+      timeoutMs
+    });
+    const settled = runAgentBatchOutcomes([
+      jobFor("small", 10000),
+      jobFor("escape-heavy", 30000),
+      jobFor("small", 10000)
+    ]);
+    assert.equal(settled.length, 3, "outcomes stay index-aligned with an escape-heavy job");
+    assert.equal(settled[1].exitCode, null, "escape-heavy job fails closed");
+    assert.match(
+      settled[1].spawnError || "",
+      /exceeded .* byte cap/,
+      `escape-heavy job names the line cap, not a batch-wide ENOBUFS (got: ${settled[1].spawnError})`
+    );
+    assert.equal(settled[1].stdout, "", "oversized escaped output is not treated as evidence");
+    for (const index of [0, 2]) {
+      assert.equal(settled[index].spawnError, undefined, `small sibling ${index} is not stranded by the escape-heavy job (got: ${settled[index].spawnError})`);
+      assert.equal(settled[index].exitCode, 0, `small sibling ${index} keeps its real exit code`);
+      assert.match(settled[index].stdout, /stub-m/, `small sibling ${index} keeps its real stdout`);
+    }
+    console.log("batch-output-overflow-smoke: escape-heavy output is capped on the SERIALIZED line, batch survives ok");
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true });
+  }
+}
+
+function unitLevelPastV8StringLimit() {
+  const jobCount = 20;
+  const perJobChars = 30 * 1024 * 1024; // 30MB per job, under the delegate's 32MB cap
+  const chunk = "a".repeat(perJobChars);
+  const newline = Buffer.from("\n", "utf8");
+  // Concat per-line Buffers directly — never join the lines as one JS
+  // string first, which would hit the very same V8 ceiling this test
+  // exists to guard against, just one step earlier.
+  const pieces = [];
+  for (let i = 0; i < jobCount; i++) {
+    pieces.push(Buffer.from(JSON.stringify({ i, exitCode: 0, stdout: chunk }), "utf8"), newline);
+  }
+  const buf = Buffer.concat(pieces);
+  const v8StringCeiling = 0x1fffffe8;
+  assert.ok(buf.length > v8StringCeiling, `combined buffer (${buf.length} bytes) must exceed V8's per-string ceiling (${v8StringCeiling}) to exercise this guard`);
+
+  const jobs = new Array(jobCount).fill({});
+  const settled = reconcileBatchOutcomes(jobs, { error: null, status: 0, stdout: buf });
+  assert.equal(settled.length, jobCount, "outcomes stay index-aligned across a combined buffer past V8's string limit");
+  for (let i = 0; i < jobCount; i++) {
+    assert.equal(settled[i].exitCode, 0, `job ${i} recovers its real exit code`);
+    assert.equal(settled[i].stdout.length, perJobChars, `job ${i} recovers its full ~30MB output intact`);
+  }
+  console.log("batch-output-overflow-smoke: reconcileBatchOutcomes survives combined output past V8's per-string limit ok");
+}
+
+function writeUtf8SplitStub(file) {
+  // Writes the FIRST 2 bytes of a 3-byte UTF-8 character (U+4E2D "中":
+  // 0xE4 0xB8 0xAD), then — after a real async delay so the OS pipe
+  // delivers it as a SEPARATE "data" event — writes the final byte plus a
+  // trailing ASCII marker "A" and exits. This reliably straddles a chunk
+  // boundary mid-character.
+  const lines = [
+    'const zhong = Buffer.from([0xE4, 0xB8, 0xAD]);',
+    "fs.writeSync(1, zhong.subarray(0, 2));",
+    "setTimeout(() => {",
+    "  const rest = Buffer.concat([zhong.subarray(2), Buffer.from('A', 'utf8')]);",
+    "  fs.writeSync(1, rest);",
+    "  process.exit(0);",
+    "}, 20);"
+  ];
+  fs.writeFileSync(file, ['const fs = require("fs");', ...lines].join("\n"), "utf8");
+  return file;
+}
+
+function integrationLevelUtf8ChunkBoundary() {
+  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-utf8-")));
+  try {
+    const stub = writeUtf8SplitStub(path.join(work, "utf8-stub.js"));
+    const jobs = [{ binary: process.execPath, args: [stub], cwd: work, timeoutMs: 10000 }];
+    const settled = runAgentBatchOutcomes(jobs);
+    assert.equal(settled.length, 1, "outcomes stay index-aligned for a single-job batch");
+    assert.equal(settled[0].exitCode, 0, "the utf8-split job exits 0");
+    assert.equal(settled[0].spawnError, undefined, "the utf8-split job carries no spawnError");
+    assert.equal(settled[0].stdout, "中" + "A", "a multi-byte char split across a chunk boundary reassembles intact, not as replacement chars");
+    console.log("batch-output-overflow-smoke: a UTF-8 char split across a stdout chunk boundary reassembles intact ok");
+  } finally {
+    fs.rmSync(work, { recursive: true, force: true });
+  }
+}
+
+function main() {
+  unitLevelReconciliation();
+  integrationLevelLargeOutput();
+  integrationLevelCapExceeded();
+  integrationLevelEscapedLineCap();
+  unitLevelPastV8StringLimit();
+  integrationLevelUtf8ChunkBoundary();
+  console.log("batch-output-overflow-smoke: ok (streamed NDJSON recovers per-job outcomes even under batch-level failure)");
+}
+
+main();

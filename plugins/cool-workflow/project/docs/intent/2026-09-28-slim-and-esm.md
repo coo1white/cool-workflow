@@ -479,6 +479,45 @@ Found in step 6:
   `scripts/parity-check.mjs` in its patterns, so `cw doctor --onramp`
   in a CW checkout names the new paths.
 
+Found in step 7:
+
+- `test/` had 414 code files, not 470 less the deleted ones as a guess:
+  271 smokes, 140 unit tests, the two runners and one fixture
+  (`release-rehearsal-reviewer`). All 414 are `.mjs` now; the runners
+  find `test/*-smoke.mjs` and `test/**/*.test.mjs`, and the counts are
+  the same before and after (271 and 140). `test/package.json` went. The
+  rest of `test/` is data and kept its names: six `state.json` run
+  fixtures, `smoke-durations.json` (its keys now name `.mjs` files) and
+  the README.
+- The codemod read each file as a syntax tree, not by text: 2,097
+  top-level `require` lines became `import` lines; 68 `require` calls
+  inside a function or an expression became one `import` at the top (a
+  lazy load of `dist/` or a builtin now loads at start; no `dist/` module
+  reads its env at load but `perf-trace.ts`, which no test sets); the
+  one computed `require(mod)` (`dead-export-removal-guard`) became
+  `await import()`. No test file needs `createRequire`. Paths with no
+  `.js` (`require("../dist/shell/term")`) got their `.js`.
+- The one test that loads an app file (`apps/` stays CommonJS, D6) takes
+  its default export, which is the old `module.exports`.
+- Strings that a test writes out as a script stay CommonJS on purpose:
+  fake agents, a `gh` stub, app files and `node -e` text all run from a
+  temp dir with a `.js` name or no extension, so Node reads them as
+  CommonJS as before. One was not: the probe smoke that
+  `run-all-agent-env-hermetic` writes is named `-smoke.mjs` now, so its
+  one `require` line became an `import` line.
+- No assertion changed in what it checks. Five tests name a file kind in
+  their check and now say `.mjs`: `release-pipeline-hygiene` and
+  `ci-shape-gate` (the `ci.yml` lines), `smoke-duration-scheduling` (the
+  runner output it reads), `citation-check-smoke` (its fake test files)
+  and `test-layout-smoke`, which also refuses a test left with the old
+  `-smoke.js` or `.test.js` name, since no runner would read it.
+- Outside `test/`: the npm scripts, `ci.yml`, `citation-check.mjs` (it
+  scans `test/**/*.mjs`), `sync-project-index.mjs` (it counts
+  `*-smoke.mjs`), `new-feature.mjs` (its smoke stub is an ES module),
+  `onramp.ts` (its patterns and smoke names; `cw doctor --onramp` names
+  the new paths), and every live doc that named a test file. Intent,
+  audit, rebuild-spec and plan files keep the old names as history.
+
 Found in step 8:
 
 - "All 115 conformance files load `dist/` with `require`" was wrong. No
@@ -515,9 +554,9 @@ Found in step 8:
 | 1 Release tooling off the family (D3) | done | #752 |
 | 2 Delete the D1 family and cut its hooks | done | #770 |
 | 3 Comment and helper sweep (compress-src) | comment part done; helper part done on its branch, PR to come | #799 |
-| 4 Node floor (D4) | done on its branch, PR to come; the operator changes branch protection at merge | |
-| 5 ESM src + dist | done on its branch, PR to come | |
-| 6 Scripts to .mjs | done on its branch, PR to come | |
-| 7 Tests to .mjs | | |
-| 8 Conformance to .mjs | done on its branch, PR to come | |
+| 4 Node floor (D4) | done | #804 |
+| 5 ESM src + dist | done | #805 |
+| 6 Scripts to .mjs | done | #807 |
+| 7 Tests to .mjs | done on its branch, PR to come | |
+| 8 Conformance to .mjs | done | #806 |
 | 9 Closing ledger and receipt | | |

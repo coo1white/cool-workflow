@@ -35,7 +35,7 @@ function main() {
 
   const version = JSON.parse(fs.readFileSync(path.join(pluginRoot, "package.json"), "utf8")).version;
   const docRel = `docs/${slug}.7.md`;
-  const testRel = `test/${slug}-smoke.js`;
+  const testRel = `test/${slug}-smoke.mjs`;
 
   // 1. docs/<slug>.7.md — title + version line satisfy version:sync checkIncludes.
   writeNew(path.join(pluginRoot, docRel), `# ${title}
@@ -67,15 +67,14 @@ run state loads unchanged.
 cli-mcp-parity(7), web-desktop-workbench(7), security-trust-hardening(7)
 `);
 
-  // 2. test/<slug>-smoke.js — runnable stub; the "<slug>-smoke" marker satisfies
+  // 2. test/<slug>-smoke.mjs — runnable stub; the "<slug>-smoke" marker satisfies
   //    version:sync; replace the stub assertion with real coverage.
-  writeNew(path.join(pluginRoot, testRel), `"use strict";
-// ${slug}-smoke (v${version}). TODO prove, end to end:
+  writeNew(path.join(pluginRoot, testRel), `// ${slug}-smoke (v${version}). TODO prove, end to end:
 //   1. the happy path produces the expected durable records;
 //   2. the fail-closed rule actually refuses ambiguous/missing input;
 //   3. cw <cmd> --json === cw_<cmd> (CLI <-> MCP parity).
 
-const assert = require("node:assert/strict");
+import assert from "node:assert/strict";
 
 function main() {
   // TODO: build a run, exercise the feature, assert on durable state.
@@ -93,7 +92,7 @@ main();
   // 3. Gate-file edits to make by hand (printed, never auto-applied).
   process.stdout.write(`Remaining wiring (edit by hand — kept manual so a scaffold can't break a gate):\n\n`);
   process.stdout.write(`  docs/index.md\n    add:  N. [${title}](${slug}.7.md) - ${summary}\n\n`);
-  process.stdout.write(`  test/run-all.js  finds test/*-smoke.js on its own — nothing to add.\n\n`);
+  process.stdout.write(`  test/run-all.mjs  finds test/*-smoke.mjs on its own — nothing to add.\n\n`);
   process.stdout.write(`  scripts/release-check.mjs  "docs presence" list\n    add:  "${docRel}",\n\n`);
   process.stdout.write(`  scripts/version-sync-check.mjs  (assert the new surfaces carry the version)\n`);
   process.stdout.write(`    checkIncludes("plugins/cool-workflow/${docRel}", "${title}", checks);\n`);

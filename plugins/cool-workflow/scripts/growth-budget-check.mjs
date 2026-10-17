@@ -10,7 +10,7 @@
 // A frozen path with no trailing `/` is one file; a path ending `/` is a
 // directory and covers every tracked file under it.
 //
-// Test override (used by test/growth-budget-check-smoke.js so the real repo
+// Test override (used by test/growth-budget-check-smoke.mjs so the real repo
 // is never touched):
 //   CW_GROWTH_ROOT         git root to scan, in place of the real repo root
 //   CW_GROWTH_SRC_PATH     src dir, repo-root-relative, in place of the real one

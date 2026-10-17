@@ -9,7 +9,7 @@
 // never gets extra chrome).
 //
 // Uses the same fakeStream({isTTY, write, text()}) shape as
-// test/cli-progress-summary-smoke.js so this stays fast (no real terminal,
+// test/cli-progress-summary-smoke.mjs so this stays fast (no real terminal,
 // no spawned CLI process) and directly exercises the TTY gate.
 
 const assert = require("node:assert/strict");

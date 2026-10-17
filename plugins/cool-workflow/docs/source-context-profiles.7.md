@@ -144,8 +144,8 @@ The smoke test checks that:
 Run:
 
 ```bash
-node test/source-context-profile-smoke.js
-node test/source-context-external-repo-smoke.js
+node test/source-context-profile-smoke.mjs
+node test/source-context-external-repo-smoke.mjs
 ```
 
 ## FreeBSD Discipline
