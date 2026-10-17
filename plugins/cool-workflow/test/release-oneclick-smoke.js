@@ -40,6 +40,13 @@ assert.ok(fs.existsSync(ONECLICK), "release-oneclick.js must exist");
     !/CW_RELEASE_VERDICT_PRIVKEY/.test(src.replace(/\/\/[^\n]*/g, "")),
     "oneclick code must never read CW_RELEASE_VERDICT_PRIVKEY (comments may mention it)"
   );
+  // The npm confirmation must ask the registry, not npm's cache: a cached
+  // packument kept the v0.3.1 confirm on the old version past its 10 minutes.
+  assert.match(
+    src,
+    /spawnSync\("npm", \["view", "cool-workflow", "version", "--prefer-online"\]/,
+    "the npm confirmation must pass --prefer-online"
+  );
 }
 
 function run(args, env = {}) {
