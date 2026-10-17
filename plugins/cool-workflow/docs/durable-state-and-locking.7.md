@@ -88,6 +88,13 @@ back over the operator's write, with no error. Now:
   refuses with the same message when the file changed after the drive's last
   load or save, so a write that lands in any other part of a round is never
   overwritten either.
+- The same is true of every other writer that takes the `state.json` lock:
+  `cw worker fail`, `cw feedback collect|task|resolve`, `cw audit attest`
+  and the MCP tools that do the same. Feedback, a worker record or an audit
+  note made during a live drive is kept; the drive refuses its own save
+  rather than write over it (commit a805c239;
+  `test/drive-feedback-write-kept-smoke.mjs`). Audit events go to their own
+  append-only log (`audit/events.jsonl`), not into `state.json`.
 
 ### Run paths come from where the run is (unreleased)
 
