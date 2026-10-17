@@ -4,6 +4,39 @@
 // worker.*, feedback.*, audit.*) CLI bindings. Split out of
 // core/capability-table.ts, byte-for-byte (extracted with sed, not
 // retyped).
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
 const cli_args_1 = require("../../core/util/cli-args");
@@ -139,15 +172,19 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("metrics.summary").mcp.handler = (arg
 function loadWorkerIsolation() {
     return require("../../shell/worker-isolation");
 }
+const workerPath = __importStar(require("node:path"));
 function workerSummaryCli(args) {
     const runId = (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id");
-    const run = loadRunStore().loadRunFromCwd(runId, (0, cli_args_1.cwdArg)(args));
+    const run = loadRunStore().loadRunFromCwd(runId, invocationCwdFor(args));
     return loadWorkerIsolation().summarizeWorkers(run);
 }
 function workerSummaryText(args) {
     const runId = (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id");
-    const run = loadRunStore().loadRunFromCwd(runId, (0, cli_args_1.cwdArg)(args));
+    const run = loadRunStore().loadRunFromCwd(runId, invocationCwdFor(args));
     return loadWorkerIsolation().formatWorkerSummaryText(run);
+}
+function invocationCwdFor(args) {
+    return typeof args.cwd === "string" && args.cwd.trim() ? workerPath.resolve(args.cwd) : process.cwd();
 }
 // jsonMode "flag": human `Workers` panel by default, canonical JSON under
 // --json (old build's worker.summary was flag, cli/handlers/worker.ts).
