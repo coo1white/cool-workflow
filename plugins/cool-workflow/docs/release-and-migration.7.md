@@ -137,8 +137,8 @@ multi-agent state under `multiAgent`, while unknown user data stays kept.
 
 The multi-agent family was taken out (slim-and-esm program, step 2; the
 operator's yes of 2026-09-28 is in
-`project/docs/intent/2026-09-28-slim-and-esm.md`, decision D1). These are no
-longer part of CW, on the CLI or over MCP:
+`project/docs/intent/2026-09-archive.md`, the slim-and-ESM part, decision
+D1). These are no longer part of CW, on the CLI or over MCP:
 
 - CLI verbs: `cw multi-agent`, `cw topology`, `cw blackboard`,
   `cw coordinator`, `cw candidate`, `cw eval`, `cw summary`, `cw approve`,
@@ -171,7 +171,7 @@ CW keeps any other user data; no command reads them as live state any more.
 The release after 0.3.1 needs Node.js 22.13 or newer; 0.3.1 is the last
 release for Node 18 and 20 (slim-and-esm program, step 4; the operator's yes
 of 2026-09-28 is decision D4 in
-`project/docs/intent/2026-09-28-slim-and-esm.md`).
+`project/docs/intent/2026-09-archive.md`, the slim-and-ESM part).
 
 - `package.json` `engines.node` is `>=22.13.0`. npm gives a warning when the
   Node in use is older.

@@ -8,7 +8,7 @@
 // project/docs/rebuild/PLAN.md's lint carve-out for this exact file (Target
 // shape, core/trust/telemetry-attestation.ts comment) — this remains
 // otherwise pure (no fs, no process.env, no clock; `resolveTrustPublicKey`'s
-// lazy `require("node:fs")` is the one exception, so a bundle that never
+// lazy `process.getBuiltinModule("node:fs")` is the one exception, so a bundle that never
 // resolves a key path pays no fs cost).
 //
 // Evidence: SPEC/ledger-trust.md "The signing model", "Attestation

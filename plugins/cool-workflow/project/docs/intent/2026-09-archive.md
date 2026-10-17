@@ -5477,3 +5477,951 @@ nowhere) and the interrupted / iteration-limit reasons' resume spelling
 | 6. no color under `TERM=dumb` | done | #743 |
 | 7. one resume spelling | done | #744 |
 | 8. `workers` on the end line; this record | done | this PR |
+
+---
+
+<!-- archived from 2026-09-04-compress-src.md on 2026-10-17 -->
+
+# Less code, same behaviour: comments and shared helpers
+
+Intent and spec in ONE file, in the shape `AGENTS.md` "Intent files (the
+playbook)" asks for. Source: the operator on 2026-09-04, after raising
+the runtime source-context guard to 50,250 for the report feature:
+"我担心的是代码过于膨胀 ... 帮我看看整体压缩的办法", then "先做路一加路二，
+写成规格排在 README 之后". Path one is comment history; path two is
+duplicate helpers. Path three (deleting unused platform surfaces) is a
+product decision the operator will take block by block, not here.
+
+## Intent
+
+The tree gets smaller with no change in what it does. Comments that
+tell where code came from, when, or what an older version did go;
+comments that say what the code does now, why, or what must not change
+stay. Small helper functions copied into many files become one shared
+copy each. After this program the runtime guard sits well under its
+50,250 ceiling again, and the comment ceiling is tightened to the new
+measured number so the gain cannot leak back.
+
+## Measured facts (checked by command before design)
+
+- `src/` is 49,848 lines: shell 29,408, core 14,603, wiring 4,408, cli
+  699, mcp 686. Comment lines (first non-space `//` or `*`): 7,205, with
+  the growth ceiling at 7,571. Tests are 66,874 lines in 459 files and
+  are outside the runtime guard.
+- Comment lines that match history words: 683 in all, by pattern:
+  "old build / old flat / pre-rebuild / rebuild" 418; "MILESTONE" 267;
+  "cut-over / port of / ported from / extracted with sed" 182;
+  "byte-for-byte / byte-exact / byte-compat" 126; "audit / reviewer
+  found" 122; version tags 14 (patterns overlap). A matching line is
+  usually one line of a longer block, so the whole block is the real
+  size; a first read of `src/shell/drive.ts` (319 comment lines) puts
+  the history share near half.
+- Files with the most comment lines: `shell/drive.ts` 319,
+  `shell/trust-audit.ts` 234, `shell/fs-atomic.ts` 205,
+  `shell/pipeline-cli.ts` 189, `shell/worker-isolation.ts` 170,
+  `mcp/server.ts` 165, `shell/execution-backend/agent.ts` 160,
+  `core/capability-data.ts` 158.
+- Duplicate helpers, defined as a function of the same name in three or
+  more files: `unique` 11, `optionalString` 9, `invocationCwd` 8, `now`
+  7, `messageOf` 7, `isRecord` 7, `countBy` 7, `compact` 7,
+  `safeFileName` 6, `truncate` 5, `sha` 5. Eight file headers say the
+  copy is kept "as a local copy" on purpose. `src/core/util/` exists
+  with three files (107 lines). The one-way rule (`test/one-way-boundary-smoke.js`)
+  lets shell import core, never the other way; `purity:check` keeps
+  clock, env and fs out of core, so `now` and `invocationCwd` (they read
+  the clock and `process.cwd`) can only be shared inside shell.
+- Rules that bind every edit: comments cite files, never line numbers
+  (`citation:check`); the frozen-path ceilings in
+  `manifest/growth-budget.json` may go down, never up; the sweep of
+  2026-09-03 showed a zero-caller export can still be a contract
+  (schema inventory, version-sync literal pins), so nothing is deleted
+  by name alone.
+- md count: 135/135 when this file was written; it lands after the
+  README program's closing PR archives the closed freeze intent.
+
+## Paths weighed (complexity / upkeep / cost / can it be undone)
+
+- Comments: (1) delete every comment: throws away real "why" notes;
+  (2) delete only comments that tell history (where from, when, what
+  an older build did), keep "what" and "why", one rule applied file by
+  file with the diff read by the manager: chosen; (3) a script that
+  strips comments by pattern: blind, would cut live notes that happen
+  to say "rebuild". Chosen: 2, with the patterns above as the finding
+  aid, not the rule.
+- Helpers: (a) leave the copies, as eight headers ask: 400 lines of
+  the same code in eleven shapes, and each copy drifts; (b) one shared
+  pure module in `core/util/` for the pure ones and one shell module
+  for the two that touch the clock or cwd, merging only bodies that are
+  the same or differ in a way the body table shows is harmless: chosen;
+  (c) a big shared utility module for everything: the thing the eight
+  headers rightly feared. Chosen: b; the "local copy" headers go with
+  the copies, and `AGENTS.md` gets one line that names the new rule.
+- Effect framework: rejected for good (see the archive).
+
+## Rules for every PR in this program
+
+Same as the last programs: isolated worktree, `npm ci` first, Plan
+committed and a draft PR opened before any stop, all gates before push
+with the pass lines quoted, three-dot diffs, CodeQL green before
+auto-merge, max 3 rounds, the manager reads the pushed diff, a
+stand-down is the last message a worker gets. No behaviour change: the
+full gate and `release:check` must pass with no test edited except
+where a test asserts on a comment or on a helper's module path.
+
+## History goes, "what" and "why" stay (code PR, comments only)
+
+Files: any file under `src/`; `manifest/growth-budget.json` (tighten
+only).
+
+1. Plan step, measured before edits: for each of the twelve files with
+   the most comment lines, count the comment lines and mark each block
+   H (history: where from, when, older build, milestone, audit that
+   found it, byte-for-byte port) or K (keep: what it does, why, a
+   contract, a gotcha, a file citation). Put the counts in the draft
+   PR. Then do the same for every other file with ten or more comment
+   lines, in the same table.
+2. Delete the H blocks. A block that mixes H and K keeps its K
+   sentences. No code line changes. No comment gains a line number.
+3. After the sweep, set `srcCommentLines.maxCount` in
+   `growth-budget.json` to the new measured count plus 50, and lower
+   any frozen path's `measured` and `maxLines` to its new count. Never
+   raise a number.
+4. Smoke: none new; `growth:check`, `citation:check` and the full gate
+   are the proof. The PR body quotes comment lines before and after
+   and src lines before and after.
+
+Budget: src net <= -1,500 (the aim is -2,000 or more), zero non-comment
+lines changed, no new files.
+
+## One copy of each small helper (code PR, after the first merges)
+
+Files: new `src/core/util/common.ts` (pure helpers), new
+`src/shell/cli-common.ts` (`now`, `invocationCwd`), the files that
+hold the copies, `test/util-common-smoke.js` (new, the program's one
+new test file), `AGENTS.md` (one line).
+
+1. Plan step, measured before code: a table with one row per helper
+   name: every file that defines it, the body length, and whether the
+   bodies are the same. Helpers whose bodies differ in meaning (not
+   only in names or spacing) stay where they are and are listed as
+   kept, with the reason.
+2. Move each same-body helper once into the shared module, delete the
+   copies, add the import lines. `truncate` in `shell/term.ts` is
+   width-aware and is expected to stay; the plain string `truncate` is
+   the one that merges. Nothing else in any file changes.
+3. Delete the eight "kept as a local copy" header sentences that no
+   longer hold. `AGENTS.md`, in "# FreeBSD Engineering Discipline" or the
+   nearest rules part, gets one line: "A pure helper of twenty lines or
+   less that three files need lives once in `src/core/util/`; a copy is
+   a bug."
+4. Smoke: `test/util-common-smoke.js` calls each shared helper with the
+   inputs the old copies' own tests used, and asserts
+   `test/one-way-boundary-smoke.js` and `purity:check` stay green.
+5. Frozen paths that lose a copy: lower their numbers in
+   `growth-budget.json` in the same PR.
+
+Budget: src net <= -250 (the aim is -350), new files: 2 src, 1 test,
+smoke <= +80.
+
+## Closing ledger and receipt (docs PR, last)
+
+1. Receipt at
+   `plugins/cool-workflow/project/docs/audits/compress-src-receipt-<date>.json`,
+   same shape as the earlier receipts: `commit`, `version`, checks:
+   `src-lines-down` (src total before and after, after < before by at
+   least 1,750), `comment-lines-down` (before, after, new ceiling),
+   `runtime-guard-room` (the profile smoke's runtime count and the
+   50,250 ceiling, room >= 1,500), `no-behaviour-change` (full gate
+   green, release:check 18/18, no test changed except the two kinds
+   named above), `frozen-tightened-only` (every frozen number in the
+   manifest is <= its value on the day the program started),
+   `helpers-once` (each merged helper name is defined in exactly one
+   file under src). `verdict` pass only if all pass.
+2. Fill the three sections below and the ledger. Archive nothing new.
+
+Budget: docs only.
+
+## Acceptance
+
+- Manager (per PR): CI green, CodeQL green, Plan + before/after in the
+  body, budget held, Chain line, no internal labels in committed text.
+- Architect (program): the receipt's six checks pass; a reader opening
+  `src/shell/drive.ts` sees comments that say what and why and no
+  comment that says where the code came from.
+
+## Architecture snapshot diff (claims this program makes stale)
+
+- `src/` comments that were out of date, not history, were made true in
+  #799 (no code changed): `help.ts`, `cli/dispatch.ts`,
+  `workflow-apps.ts`, `doctor.ts`, `registry-core.ts` and
+  `capability-data.ts` (196 tools), `trust-audit.ts`, `app-run-cli.ts`.
+- `AGENTS.md`, "Gates & repo mechanics": one new line, "A pure helper of
+  twenty lines or less that three files need lives once in
+  `src/core/util/`; a copy is a bug", naming `cli-args.ts` as today's
+  home and the test that holds it (#800).
+- `manifest/growth-budget.json`: `srcCommentLines` 6,227 to 5,531 and the
+  nine frozen paths lowered (#799).
+
+Closed by step 9 of `2026-09-28-slim-and-esm.md`, which ran this spec as
+its step 3; that program's receipt
+(`project/docs/audits/slim-and-esm-receipt-2026-10-17.json`) stands for
+the receipt planned above, and the two files joined the archive
+together.
+
+## What this spec got wrong (recorded at close)
+
+Found in the comment PR (run as step 3 of `2026-09-28-slim-and-esm.md`,
+numbers measured again on `b73733d2`, after the D1 delete):
+
+- The tree it measured is gone. `src/` was 36,053 lines in 131 files
+  (shell 23,002, core 8,212, wiring 3,328, mcp 776 + 35, cli 691 + 9),
+  not 49,848. Comment lines by the `growth:check` count were 6,167 (the
+  manifest said 5,999 as of 2026-10-16; the five refactors #793 to #797
+  had put 168 back, leaving only 60 lines of room under 6,227). With
+  `/*` lines counted too, as the slim-and-esm file counts them: 6,947.
+- History lines were 536, not 683, by the same patterns ("rebuild" 309,
+  "milestone" 186, "port of" 146, "byte-for-byte" 192, audit 2, version
+  tags 9). Step 2 took many history blocks with the files they were in.
+- The budget of src net -1,500 (aim -2,000) does not hold on this tree.
+  Taking out every H block, and keeping the K sentences of mixed blocks,
+  gave src 36,053 to 35,355 (-698) and comment lines 6,167 to 5,481
+  (-686). History-pattern lines went 536 to 65; what is left is file
+  citations (`project/docs/rebuild/PLAN.md`, the SPEC "Rebuild risks"
+  items) and pinned byte contracts, which are K. A larger cut would need
+  K comments to go, which this spec rules out.
+- `src/shell/drive.ts` was 378 comment lines, and its history share was
+  near a tenth (-37), not near half.
+- Some comments were not history but out of date, and would mislead a
+  reader, so they were made true in the same pass (no code changed):
+  `help.ts` called the run-export family not yet built; `cli/dispatch.ts`
+  and `workflow-apps.ts` named switch arms and a `next` placeholder that
+  are gone; `doctor.ts` said `--onramp` was not wired; `registry-core.ts`
+  and `capability-data.ts` said 196 tools; `trust-audit.ts` named
+  multi-agent callers; `app-run-cli.ts` said both tools are MCP-only.
+- "No test edited except where a test asserts on a comment" missed a
+  pin outside `test/`: `scripts/version-sync-check.js` asks
+  `src/shell/pipeline-cli.ts` to hold the word `planSummary`, and the
+  only place it was is a history comment. The comment that took its
+  place keeps the word and names the pin; `dogfood-release-smoke` found
+  it.
+- The proof that no code line changed is stronger than reading the diff:
+  `tsc --removeComments` of `src/` before and after gives the same bytes
+  for all 131 output files.
+- The duplicate-helper table is out of date: `invocationCwd`, `now`,
+  `sha`, `safeFileName` and `truncate` no longer have three copies
+  (#795 put the cwd and flag readers in `core/util/cli-args.ts`). Three
+  or more copies now: `optionalString` 8 (7 the same), `messageOf` 7
+  (all the same), `isRecord` 7 (4 spellings, one meaning), `countBy` 4
+  (3 bodies), `stringOption` 3, `req` 3 (the same), `compactMetadata` 3
+  (3 bodies). A new shared module is one more module load on every
+  command that loads a copy, and `test/perf-ratchet-smoke.js` lets no
+  module count go up, so the helper PR has to keep the count or put the
+  helpers in a module those paths already load.
+- md count: 124/124 at this PR, not 135/135.
+
+Found in the helper PR (measured again on `9201eaef`, after #799):
+
+- The plan names two new modules, `core/util/common.ts` and
+  `shell/cli-common.ts`. Neither was made. `now` and `invocationCwd` had
+  no copies left (#795), and a new pure module would be one more load on
+  `doctor`, `app list` and `drive`, which load copies today. The shared
+  helpers went into `core/util/cli-args.ts`, which every command and the
+  MCP server already load. The perf counts did not move: version 27, help
+  27, status 27, doctor 42, app list 42, MCP initialize 24, drive 92.
+- `optionalString` needed no new home: `cli-args.ts` already had
+  `optionalArg` with the same body. The copies were nine, not eight:
+  `state-cli.ts` had it as `optionalStringArg`, and `ledger-cli.ts` as
+  `stringOption`. Seven became `optionalArg`. Two of them were exported
+  with no caller (`optionalString` from `report-view-cli.ts`,
+  `optionalStringArg` from `state-cli.ts`); they stay as names for
+  `optionalArg`, since a zero-caller export can still be a contract.
+- Merged into `cli-args.ts`: `isRecord` (7 copies, 4 spellings with one
+  answer for every input), `messageOf` (7), `countBy` (4; the
+  `operator-ux.ts` copy runs the key function twice, which gives the same
+  counts for the plain field reads its callers pass), and `req` (3), now
+  `requireArg`, since `required` there has a different message.
+  `compactMetadata` had two copies with the same body
+  (`core/pipeline/error-feedback.ts` and `shell/error-feedback-io.ts`); the
+  shell one now imports the core one.
+- Kept, with reason: `optionalString` in `audit-cli.ts` (it also takes an
+  array's first string); `optionalString` in
+  `wiring/capability-table/registry-core.ts` and `stringOption` in
+  `orchestrator.ts` (capability surface files: an edit there needs a
+  shipped-docs edit by the onramp rule, and there is nothing to say);
+  `stringOption` in the frozen `scheduler-io.ts` (its one twin is the
+  `orchestrator.ts` copy, so no third user); `compactMetadata` in
+  `sandbox-profile.ts` (its home is not loaded by `cw app list`, which
+  loads `sandbox-profile.ts`, and its `Object.fromEntries` body differs
+  from the loop on a `__proto__` key). `errMessage` in `drive.ts` has the
+  `messageOf` body but was not in the table, and was left.
+- No "kept as a local copy" header sentences were left to delete; they
+  had gone with the files and comments of the steps before.
+- The budget of src net -250 (aim -350) does not hold: src 35,355 to
+  35,263 (-92), comment lines 5,481 to 5,488 (+7, one doc line per shared
+  helper and a header note on why they sit in `cli-args.ts`). No new src
+  file. The planned smoke became a unit test,
+  `test/core/util/cli-args-sharedhelpers.test.js` (so the project index
+  does not change): it runs each shared helper against the old bodies and
+  fails if a merged helper gets a second definition in `src/`.
+
+## Status ledger
+
+| Item | State | PR |
+|---|---|---|
+| Intent + spec (this file) | done | |
+| History goes, "what" and "why" stay | done | #799 |
+| One copy of each small helper | done | #800 |
+| Closing ledger and receipt | done in the slim-and-esm close; no separate receipt | the slim-and-esm step 9 PR |
+
+---
+
+<!-- archived from 2026-09-28-slim-and-esm.md on 2026-10-17 -->
+
+# A smaller tree, then one module form: cut the multi-agent family, go ESM
+
+Intent and spec in ONE file, in the shape `AGENTS.md` "Intent files (the
+playbook)" asks for. Source: the operator on 2026-09-28: "利用TS和.mjs重构
+项目，目前太臃肿了"; asked for the depth, the answers were "我想全面ESM，
+值得吗" and "同时删冻结面". This file answers the question (see "Is full
+ESM worth it") and puts every choice that breaks a public surface in the
+decision table for a yes or no, block by block.
+
+## Intent
+
+The tree gets much smaller, and then has one module form. First, the
+frozen multi-agent family (multi-agent runtime, coordinator and
+topology, candidates and eval, collaboration, evidence reasoning,
+orchestrator, state explosion) goes, with its CLI verbs, MCP tools,
+tests and man pages. Next, the comment and helper sweep already specified
+in `2026-09-04-compress-src.md` runs on the smaller tree. Last, with the
+Node floor raised to a supported line, the source compiles to ES modules
+and the scripts, tests and conformance suite move to `.mjs`, one layer
+per PR. The core path (`cw -q`, resume, report, doctor, demo tamper,
+app list/run, export/restore, the 12 core MCP tools) keeps working at
+every step.
+
+## Measured facts (checked by command, 2026-09-28, on `b6e1478`)
+
+Size:
+
+- `src/` is 50,282 lines in 158 `.ts` files: shell 29,833, core
+  14,583, wiring 4,340, mcp 785, cli 697. Comment lines (first
+  non-space `//`, `*` or `/*`): 8,249. `growth:check`: md 133/135,
+  src comments 7,344/7,571 by its own count, 23 frozen paths within
+  ceiling.
+- `dist/` is 158 `.js` files, 44,621 lines, 2,429,727 bytes, committed.
+- `scripts/`: 63 files, 11,763 lines. `test/`: 470 files, 68,211 lines
+  (278 smokes, 189 unit tests). `v2/conformance/`: 115 files, 9,946
+  lines. Man pages: 59 files, 13,540 lines; `project/docs/`: 50 `.md`
+  files, 17,935 lines.
+- Largest source files: `shell/reclamation-io.ts` 1,728,
+  `shell/run-registry-io.ts` 1,408, `shell/drive.ts` 1,392,
+  `core/multi-agent/runtime.ts` 1,273, `shell/worker-isolation.ts`
+  1,156, `shell/trust-audit.ts` 1,058.
+- The capability table has 241 capabilities: 198 MCP tools, 241 CLI
+  bindings, 43 CLI-only.
+- `2026-09-04-compress-src.md` is specified but not started: no commit
+  on `main` carries its work.
+
+The frozen paths named in `AGENTS.md` (the 23 in `growth-budget.json`)
+come to 16,028 lines in 33 files. By block, with the files outside the
+frozen set that import each block:
+
+| Block | Lines | Files | Imported from (non-frozen) |
+|---|---|---|---|
+| multi-agent | 6,927 | 11 | `shell/dispatch.ts`, `shell/worker-isolation.ts`, `shell/commit.ts`, `shell/report.ts`, `shell/operator-ux.ts`, `shell/operator-ux-text.ts`, `shell/trust-policy-io.ts`, `core/state/validation.ts`, `wiring/capability-table/multi-agent.ts` |
+| state explosion | 1,852 | 6 | `shell/report.ts`, `core/format/state-explosion-text.ts`, three wiring slices |
+| reclamation | 1,729 | 1 | `shell/registry-cli.ts`, wiring scheduling slice |
+| candidates + eval | 1,121 | 3 | `shell/report.ts`, `shell/operator-ux.ts`, wiring multi-agent slice |
+| scheduling | 1,061 | 2 | `shell/registry-cli.ts`, wiring scheduling slice |
+| coordinator + topology | 1,008 | 2 | `shell/report.ts`, `shell/operator-ux.ts`, wiring multi-agent slice |
+| collaboration + workbench | 890 | 4 | `shell/commit.ts` (review gate), two wiring slices |
+| evidence reasoning | 749 | 1 | only frozen files (`multi-agent-cli.ts` and others) |
+| telemetry demo | 411 | 1 | `shell/demo-cli.ts` (`cw demo tamper`), `shell/telemetry-cli.ts` |
+| orchestrator | 230 | 1 | only frozen files |
+| observability intake | 83 | 1 | `shell/observability.ts` (re-export) |
+
+- In that table, `collaboration-io.ts` is 259 lines and the three
+  Workbench files are 627. The wiring multi-agent slice is 709 lines.
+- Four files on the `cw -q` path call into the multi-agent family:
+  `dispatch.ts` (`attachDispatchToMultiAgent`), `worker-isolation.ts`
+  (`recordMultiAgentWorkerOutput`, `getAgentMembership`), `commit.ts`
+  (`reviewGateErrors`, `commitReviewProvenance`,
+  `selfActorIdsForCandidate`), `report.ts` (state-explosion, candidate,
+  multi-agent, blackboard and operator-digest summaries).
+- Grouped by tool-name prefix (a rough split; each PR's plan step gives
+  the exact rows), about 107 of the 198 MCP tools belong to frozen
+  families: multi-agent and blackboard 39, scheduling, routines and
+  queue 26, candidates and eval 14, collaboration and workbench 13,
+  coordinator and topology 8, reclamation 3, evidence 2, state
+  explosion 1, telemetry 1. None of the 12 core MCP tools is among them.
+- 48 file names in `test/` and 17 man pages are named after frozen
+  families.
+- Release tooling reads this family: `scripts/dogfood-release.js`
+  registers and scores a candidate (`registerCandidate`,
+  `scoreCandidate`); `scripts/release-check.js`, `release-gate.js` and
+  `release-flow.js` name multi-agent, candidate, blackboard or judge
+  items. The "Required manual review" steps 5 to 10 in `AGENTS.md` ask
+  for the multi-agent docs and smokes and `npm run eval:replay`.
+- Other earlier decisions touch it: the Workbench stays (owner,
+  2026-09-07, `sdlc/unify-js-architecture/`);
+  `scripts/architecture-review-fast.js --schedule-full` uses a schedule;
+  `cw demo tamper` (core path) runs `telemetry-demo.ts`.
+
+Module form:
+
+- `package.json` has `"type": "commonjs"`, `engines.node >=18`. tsconfig
+  has `module` and `moduleResolution` `NodeNext`, `target` `ES2022`.
+  CI runs Node 18, 22 (both required) and 24 (not required).
+- In `src/`: 67 `require(` calls in 21 files, most of them the lazy
+  loads that keep a command or MCP call to the modules it needs (for
+  example `wiring/capability-table/registry-core.ts` and
+  `exec-backend.ts`; `mcp/server.ts` loads `./resources` only on a
+  resources request, which `perf-ratchet-smoke` holds); `__dirname` 17
+  in 11 files; `require.main === module` once
+  (`mcp/tool-process.ts`); 791 relative imports with no file extension
+  in 133 files.
+- `workflow-app-loader.ts` writes app scaffolds as `module.exports =
+  (...) => ...`: the app file form is a user-facing contract.
+- Outside `src/`: 412 of 470 test files, 26 of 63 scripts and all 115
+  conformance files load `dist/` with `require`. Two scripts use
+  `import` (`scripts/bench/bench-k6.js`, `workbench-k6-deep.js`, k6
+  scripts). One `.mjs` file exists (`ui/workbench/postcss.config.mjs`).
+- On the Node 22.22 in the sandbox: `require()` of an ES module works
+  (`require(esm) ok`); `node file.mts` runs with type stripping and
+  writes 0 bytes to stderr; an `enum` is refused; a `.mts` file under
+  `node_modules/` is refused with
+  `ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING`. `scripts/` is in the
+  npm `files` list, so a shipped script cannot be `.mts`.
+- Node 18 reached end of life on 2025-04-30 and Node 20 on 2026-04-30
+  (Node release schedule); Node 22 is supported to 2027-04-30.
+
+## Is full ESM worth it
+
+Short answer: not for size, yes for form, and only in the cheap way,
+last.
+
+- It makes the tree no smaller. A `require` becomes an `import` line for
+  line; the 791 extension fixes and the `createRequire` lines add a
+  little. Every gain in size in this program comes from the deletions
+  and the sweep, not from ESM.
+- It is cheap only on a Node floor of 22 (the exact minor is pinned by
+  measurement in the floor PR). There, a lazy load stays synchronous
+  (`createRequire(import.meta.url)` plus `require(esm)`), so no handler
+  turns async and the perf ratchet's module counts hold, and CJS tests
+  can go on loading an ESM `dist/` while they wait for their own turn.
+  On a Node 18 floor none of that is possible (see below).
+- It touches about 806 files (158 src, 63 scripts, 470 tests, 115
+  conformance). Doing it after the deletions cuts that by the files
+  deleted, so ESM goes last.
+- What it buys: one module form across the repo, `import.meta` in place
+  of `__dirname`, top-level `await` in tests and scripts, and the end of
+  support for two Node lines that no longer get security fixes.
+
+## Paths weighed (complexity / upkeep / cost / can it be undone)
+
+- ESM: (1) stay CommonJS: no work, no risk, but the form stays mixed and
+  the Node 18 leg stays on a dead runtime; (2) full ESM on the Node 18
+  floor: `require(esm)` does not exist there, so every lazy load becomes
+  an async `import()` (the whole CLI and MCP dispatch path turns async)
+  or an eager load (the perf ratchet goes red), and all 552 files that
+  `require` `dist/` must change in the same PR; very hard, can not be
+  undone in parts: turned down; (3) raise the floor to Node 22 first,
+  then move one layer per PR, `dist/` first with CJS callers still
+  working through `require(esm)`: each PR can be reverted alone until
+  the last: chosen, if the operator says yes to D5.
+- TS for scripts: (a) `.mts` run by Node's type stripping: refused under
+  `node_modules/`, so the shipped bin, MCP server and agent wrappers
+  would break for npm users: turned down for shipped files; (b) compile
+  scripts with `tsc` as well: a second build output to ship and keep in
+  step with `dist/`: turned down; (c) `.mjs` with JSDoc types where they
+  help, checked by the same `tsc` with `checkJs` only if a PR shows it
+  finds real faults: chosen. `src/` stays TS.
+- Deletion: (i) keep the frozen paths as they are: the 16,028 lines and
+  about 107 tools stay; (ii) delete every frozen path: breaks
+  `cw demo tamper`, the Workbench decision of 2026-09-07 and
+  `--schedule-full`; (iii) delete the multi-agent family, keep the
+  blocks on the core path or kept by an earlier decision, and cut the
+  four core-path hooks first: chosen.
+
+## Decisions for the operator (a yes or no each, before the code PRs)
+
+| # | Decision | Proposed |
+|---|---|---|
+| D1 | Delete the multi-agent family: multi-agent (6,927), coordinator + topology (1,008), candidates + eval (1,121), `collaboration-io.ts` (259), evidence reasoning (749), orchestrator (230), state explosion (1,852), the wiring multi-agent slice (709). About 12,855 src lines; the exact tool count per block is in each PR's plan. `report.md` loses its multi-agent, blackboard, candidate and state-explosion parts; `cw commit` loses the review gate. | yes, block by block (a no on one block keeps it and its hooks) |
+| D2 | Keep: Workbench files (owner decision of 2026-09-07), scheduling and routines (`--schedule-full`), reclamation (disk bound for `.cw/runs/`), telemetry demo (`cw demo tamper`), observability intake (core path). | keep; the operator can flip any one to delete |
+| D3 | Release tooling: `dogfood-release.js` stops making a candidate and score; `release-check.js`, `release-gate.js`, `release-flow.js` drop multi-agent, candidate and judge items; `AGENTS.md` "Required manual review" steps 5 to 10 and `eval:replay` go. This is release code, so it needs its own yes. | yes, in step 1, its own PR |
+| D4 | Raise `engines.node` from `>=18` to `>=22.x` (minor pinned by measurement); CI matrix 22 and 24; branch protection's required checks change from `check (18)` + `check (22)` to `check (22)` + `check (24)` (a GitHub settings step only the operator can do); Homebrew formula and docs say the new floor. | yes |
+| D5 | Full ESM, in the order below. | yes, after D4 |
+| D6 | App files keep the `module.exports` form (user contract); the loader reads them through `createRequire`; `apps/` gets a one-line `package.json` with `"type": "commonjs"`. | keep |
+
+Answered by the operator on 2026-09-28: yes to all six, D1 to D6.
+
+## Rules for every PR in this program
+
+Same as the last programs: one PR per step below, a Plan with measured
+numbers in the draft PR before any code, all gates before push with the
+pass lines quoted (`npm run build`, `test:gate`, `test:unit`,
+conformance, `citation:check`, `growth:check`, `release:check` from the
+floor PR on), `dist/` rebuilt after the last `src/` edit and committed in
+the same commit. A deletion PR lowers every number it touches in
+`growth-budget.json` and `perf-ceilings.json`, removes the frozen rows
+it empties in `AGENTS.md`, regenerates `cli-mcp-parity.7.md`, and syncs
+the project index. No behavior of a kept command changes, except the
+report and commit changes D1 names. A PR that finds a fact here wrong
+records it in "What this spec got wrong" in the same commit.
+
+## Steps (one PR each, in this order)
+
+The D1 blocks are one import cycle (see "What this spec got wrong"), so
+they go in one PR, and each hook is cut in that same PR. Release
+tooling is cut loose first, in its own PR, since it is release code.
+
+1. **Release tooling off the family** (D3; release code). 
+   `dogfood-release.js` stops registering, scoring and selecting a
+   candidate and still ends with `ready-dry-run`; `release-check.js`,
+   `release-gate.js` and `release-flow.js` drop the multi-agent,
+   candidate, judge and `eval:replay` items; `AGENTS.md` "Required
+   manual review" steps 5 to 10 go. The D1 code is still there and still
+   works; only the release path stops needing it. Proof: `release:check`
+   and `dogfood:release` pass; `release-flow` and `release-oneclick`
+   smokes pass.
+2. **Delete the D1 family and cut its hooks** (code). One PR: the files
+   in D1, the wiring multi-agent slice, their capability rows, tests and
+   man pages; the hooks in `dispatch.ts`, `worker-isolation.ts`,
+   `commit.ts`, `report.ts`, `operator-ux.ts`, `operator-ux-text.ts`,
+   `trust-policy-io.ts` and `core/state/validation.ts`; `contract.show`
+   moved out of `multi-agent-cli.ts` first; the `pdca-blackboard-loop`
+   app deleted or rewritten, as the plan step shows. A state file written
+   by an older version, with multi-agent, blackboard or candidate fields,
+   still loads (a saved-state test). `AGENTS.md`: the frozen rows D1
+   empties go, and "Product Direction & Moat" stops naming the
+   blackboard as an asset to use more, saying it was removed and why.
+   Proof: the core-path receipts' commands still pass; parity doc and
+   project index regenerated; every number in `growth-budget.json` and
+   `perf-ceilings.json` it touches goes down.
+3. **Comment and helper sweep** (code): `2026-09-04-compress-src.md` as
+   written, its numbers re-measured on the smaller tree first. Its file
+   stays the spec for this step.
+4. **Node floor** (config, docs, CI; D4). Measure and pin the lowest
+   22.x minor where `require(esm)` is on by default and a test loads an
+   ES module `dist/` with no warning on stderr.
+5. **ESM `src/` and `dist/`** (code). `"type": "module"`; `.js` on every
+   relative import (codemod, then read); one `createRequire` per file
+   that lazy-loads; `import.meta.dirname` for `__dirname`;
+   `tool-process.ts` main check by URL; `test/`, `scripts/` and
+   `v2/conformance/` each get a one-line `{"type": "commonjs"}`
+   `package.json` until their own step removes it. Proof: perf ratchet
+   counts unchanged; `cw version` wall time before and after in the PR.
+6. **Scripts to `.mjs`** (code). 63 files; `bin` paths and the
+   Homebrew formula follow; `scripts/package.json` goes.
+7. **Tests to `.mjs`** (code). 470 files less the deleted ones;
+   `run-all.js` and `run-unit.js` discover `.mjs`;
+   `test-layout-smoke.js` follows; `test/package.json` goes.
+8. **Conformance to `.mjs`** (code). Still shares no code with the
+   package; `v2/conformance/package.json` goes.
+9. **Closing ledger and receipt** (docs). Receipt at
+   `project/docs/audits/slim-and-esm-receipt-<date>.json` with checks:
+   `src-lines-down` (before 50,282; after), `mcp-tools-down` (before
+   198; after), `core-path-green` (the two 2026-09-02 receipts' commands
+   re-run), `one-module-form` (no `require(` outside `createRequire`
+   lines and app loading, no CJS file outside `apps/`),
+   `node-floor` (engines, CI matrix, required checks),
+   `frozen-tightened-only`. `verdict` pass only if all pass. Then this
+   file and `2026-09-04-compress-src.md` join `2026-09-archive.md`.
+
+Budget (whole program, to check at close): src at or under 36,000
+lines (50,282 less about 12,855 from D1 and about 1,750 from step 3);
+MCP tools at or under 130; test files at or under 440; man pages at or
+under 48; new files only the three temporary `package.json`s
+(each removed by its step), `apps/package.json`, and the receipt.
+
+## Acceptance
+
+- Manager (per PR): CI green on the required checks, CodeQL green, Plan
+  and before/after numbers in the body, budget held, no kept command's
+  output changed except as D1 names.
+- Architect (program): the receipt's checks pass; a new reader finds one
+  module form, one Node floor, and no frozen multi-agent code in the
+  tree.
+
+## Architecture snapshot diff (claims this program makes stale)
+
+Live doc claims that got old, and where each was made true:
+
+- `AGENTS.md` "Frozen surfaces": 23 frozen paths in twelve groups, among
+  them multi-agent, coordinator and topology, candidates and eval,
+  collaboration, evidence reasoning and state explosion. Now 9 paths in
+  six groups (scheduling, workbench, orchestrator, telemetry demo,
+  observability intake, reclamation). Fixed in #770.
+- `AGENTS.md` "Product Direction & Moat" named the blackboard as an asset
+  to use more; it now says it was removed, and why (#770). "Required
+  manual review" steps 5 to 10 and `eval:replay` went (#752).
+- `AGENTS.md`, CI part: required checks `check (18)` and `check (22)`,
+  `engines: >=18`. Now `check (22)` and `check (24)`, `>=22.13.0` (#804);
+  the sentence that a PR waits on a `check (18)` that never comes is
+  past tense since the operator's change of 2026-10-17 (this PR).
+- `AGENTS.md`, file names: `test/*-smoke.js`, `run-all.js`,
+  `test-layout-smoke.js`, `perf-ratchet-smoke.js`,
+  `cli-args-sharedhelpers.test.js` and the release scripts' `.js` names.
+  Now `.mjs` (#807 for scripts, #809 for tests). The helper rule line
+  ("a copy is a bug") came in with #800.
+- `docs/cli-mcp-parity.7.md`: 241 capabilities, 198 MCP tools. Now 157
+  and 123 (#770).
+- `docs/release-and-migration.7.md`: gained "Removed Surfaces: The
+  Multi-Agent Family" (#770), "Node Floor: 22.13" (#804) and "Module
+  Form" (#805); its two links to this file now name the archive (this
+  PR).
+- `docs/doctor.7.md` and `cw doctor`: node check `(>= 18)`, now
+  `(>= 22.13)` (#804). The wiki's Quickstart and the Homebrew formula
+  comment say Node.js 22.13 (#804).
+- `src/` comments: `registry-core.ts` and `capability-data.ts` said 196
+  tools, `trust-audit.ts` named multi-agent callers (#799);
+  `core/trust/telemetry-attestation.ts` said its one fs read is a lazy
+  `require("node:fs")`, which step 5 made `process.getBuiltinModule`
+  (this PR).
+- `workflows/README.md` named a conformance case that step 2 deleted
+  (#806).
+- `project/docs/BACKLOG.md`, the `checkJs` row: its link to this file
+  now names the archive (this PR).
+
+## What this spec got wrong (recorded at close)
+
+Found before step 1, by reading the capability table's wiring:
+
+- D1 removes 75 capabilities and 75 MCP tools (198 to 123), not "about
+  107": the prefix split counted scheduling, routines, queue and
+  reclamation tools, which D2 keeps. None of the 12 core tools goes.
+- `contract.show` (`cw_contract_show`, "Show a run's pipeline
+  contract") is wired through `multi-agent-cli.ts` but reads the run's
+  own contract. It stays; the step that deletes `multi-agent-cli.ts`
+  moves it first.
+- D1 also takes: `handoff` (run and task owner change, in the
+  collaboration part of `multi-agent-cli.ts`) and five multi-agent audit
+  views: `audit.multi-agent`, `audit.policy`, `audit.role`,
+  `audit.judge`, `audit.blackboard`. `cw ledger` (the cross-agent
+  ledger) is a different surface and stays.
+- `commit` keeps its evidence check (`core/trust/evidence-grounding`)
+  and its verifier gate; it loses the review gate and the candidate and
+  selection gate options (step 2).
+- The first plan had "cut the core-path hooks" as its own step before
+  six block-by-block deletions. That does not work: each hook is how a
+  D1 feature is joined to the run (dispatch attaches to the multi-agent
+  run, worker output is recorded into it, the commit review gate is the
+  collaboration feature, report and operator-ux sum up each block), so
+  cutting them first leaves every D1 command half broken for five PRs.
+  And the D1 blocks are one import cycle: `multi-agent-cli.ts` wires all
+  of them, and `core/multi-agent/` holds candidate scoring,
+  collaboration, coordinator, topology and eval replay; every other
+  block imports the multi-agent block back. So D1 goes in one PR with
+  its hooks, after the release tooling is cut loose. Fourteen steps
+  became nine.
+
+Found in step 1:
+
+- `shell/orchestrator.ts` is not part of the multi-agent family. It is
+  the `CoolWorkflowRunner` facade that `scripts/dogfood-release.js`,
+  `scripts/dogfood-architecture-review.js` and three tests load; its
+  header calls it an intentional keep. The fan-in table counted only
+  importers under `src/`, so it missed the scripts. It stays; step 1
+  took out its three candidate verbs, its one tie to D1.
+- The word "candidate" in `release-gate.js` and `release-flow.js` means a
+  git branch or a release candidate, not the D1 candidate store. Only
+  `dogfood-release.js`, `release-check.js`, `version-sync-check.js`,
+  `package.json` (`eval:replay`) and the CI `steering-config-gate` job
+  tied release tooling to D1.
+
+Found in step 2:
+
+- The numbers: src 50,265 to 35,664 lines (158 to 131 files); MCP
+  tools 198 to 123 and capabilities 241 to 157 (34 CLI-only); tracked
+  test files 478 to 388; `*.7.md` man pages 52 to 41; conformance
+  cases 106 to 88.
+- Kept commands whose output changes, as D1 names them: `report.md`
+  loses State Size & Compaction, Multi-Agent Runtime, Blackboard /
+  Coordinator, Acceptance Rationale and Candidates; `cw status` and
+  `cw operator status` lose the candidate, topology, multi-agent and
+  blackboard panels (the `--summary` hint now reads "use --verbose for
+  full worker/feedback/commit/trust panels"); the operator graph has no
+  candidate, selection, topology, multi-agent or blackboard nodes;
+  `cw commit` with no gate now says "Verifier-gated commit requires
+  --verifier".
+- The Workbench was a hook too, not only a D2 keep: its PANEL_MAP read
+  eleven D1 capabilities. It keeps four groups (`graph.operator`,
+  `worker.summary`, `audit.summary`, `metrics.report`). The page's
+  "what needs you" strip read only D1 panels, so it went; showing
+  "none" from no source would have been a false green.
+- `acceptanceRationale` on a commit was made only for a candidate and
+  selection commit, so a `--verifier` commit's record is byte-for-byte
+  the same as before.
+- `cw audit provenance --candidate` stays: the audit reader still reads
+  the candidates and selections an older CW left in `state.json`.
+  Those fields (`multiAgent`, `blackboard`, `topologies`,
+  `candidates`, `candidateSelections`) stay in the schema as data;
+  `test/legacy-multi-agent-state-smoke.js` loads such a state, reads it
+  through every kept view, and moves it forward to a verifier commit.
+- `contract.show` moved to `shell/state-cli.ts` (`contractShowCli`).
+  `pdca-blackboard-loop` was deleted, not rewritten: its whole point was
+  the blackboard, and `workflow-app-framework-demo` already shows a
+  small app.
+- `summary refresh` was the vehicle of the lock-steal conformance case;
+  that case now drives `cw commit --allow-unverified-checkpoint`, which
+  takes the same lock. Eighteen D1-only cases went, among them
+  `locale-independent-ordering` (it proved eval replay across locales)
+  and `eventhashundef-scoreid-round-trip` (its only CLI way in was
+  `multi-agent score`).
+- `project/docs/rebuild/SPEC/`: `multi-agent.md`, its surface file and
+  the twelve `cli-help` captures of removed verbs went. The other SPEC
+  files are the pinned capture of the old build and keep their D1 rows
+  as that record.
+
+Found in step 3:
+
+- The program budget took about 1,750 src lines from step 3. On the
+  smaller tree the comment part gave 698 (src 36,053 to 35,355), as
+  step 2 had already taken most of the history comments with the files
+  they were in. The numbers and the reason are in
+  `2026-09-04-compress-src.md`, "What this spec got wrong".
+- The helper part gave 92 more (src 35,355 to 35,263), not about 250: a
+  new shared module would raise the module ratchet, so the helpers went
+  into `core/util/cli-args.ts`, and copies with other bodies, or in
+  capability surface files, stayed. Details in the same part of
+  `2026-09-04-compress-src.md`.
+
+Found in step 4:
+
+- The floor is 22.13.0, not 22.12.0. Measured on 2026-10-17 with the
+  `node-linux-x64` builds from npm: a CommonJS file doing `require()` of
+  a file under a `{"type": "module"}` `package.json`. 22.11.0:
+  `ERR_REQUIRE_ESM`, exit 1. 22.12.0: loads, exit 0, but writes an
+  `ExperimentalWarning` (463 bytes on stderr). 22.13.0, 22.22.0 and
+  24.22.0: loads, 0 bytes on stderr. Under `node_modules/` (an npm
+  install) 22.12.0 is silent too, but a repo checkout (tests, scripts,
+  conformance) is not under `node_modules/`, so 22.12 would warn on
+  every test load once step 5 lands. `engines.node` is `>=22.13.0`;
+  `test/node-floor-require-esm-smoke.js` holds it on the Node in use.
+- `cw doctor`'s node check said `(>= 18)`; it now checks the same
+  floor, `(>= 22.13)`, so `engines` and doctor do not say two things.
+  This is a changed output of a kept command, under D4;
+  `docs/doctor.7.md` and `docs/release-and-migration.7.md` say it, and
+  the conformance case `report-doctor` follows.
+- Version checks below the floor were left as they are: `build-css.js`
+  and `build-ui.js` (both Node 20+) are now always true on a
+  supported Node; taking them out is a clean-up, not part of the floor.
+- `.github/workflows/` legs pinned to `"22"` (release, pages, publish,
+  scheduled) take the newest 22.x, so they are above the floor; none
+  needed a change.
+
+Found in step 5:
+
+- `tsconfig.json` was already `"module": "NodeNext"`, so the one switch
+  that makes `tsc` give out ES modules is `"type": "module"` in
+  `package.json`; `tsconfig.json` did not change.
+- On the smaller tree the codemod put `.js` (or `/index.js`) on 624
+  relative specifiers in 110 of 131 files, not 791 in 133. `__dirname` was
+  15 uses in 9 files, not 17 in 11. `createRequire` is in 12 files: the 9
+  capability-table slices, `drive.ts`, `workflow-app-loader.ts` (it also
+  loads the app files) and `mcp/server.ts`. Five lazy loads were of Node
+  builtins, not CW modules: four in `shell/` became plain imports (a
+  builtin is not a CW module, so no count moves);
+  `core/trust/telemetry-attestation.ts` uses
+  `process.getBuiltinModule("node:fs")`, since `core/` may not import
+  `node:module`, and `scripts/purity-gate.js` now reads that form as a
+  module name, so the baseline still holds its `node:fs` line.
+- `apps/` was not the only CommonJS folder inside the package:
+  `workflows/` (the old `<name>.workflow.js` files, also `module.exports`)
+  got the same one-line `package.json`, and
+  `project/docs/scripts/verify-audit-cites.js` took two `import` lines.
+  `v2/conformance/` has no `package.json` above it, so Node read it as
+  CommonJS already; it got its file anyway, as the step says, so a checkout
+  under a `"type": "module"` folder does not change it.
+- The perf ratchet's module count went blind: `Module._extensions` sees
+  no ES module, so the counts fell to 2 to 12. The hook now counts at the
+  load step of `module.registerHooks` (Node 22.15 and up), which sees
+  `require()` and `import` alike, and every count is the same as before
+  (version, help, status 27; doctor, app list 42; MCP 24; drive 92).
+  Below 22.15 the hook says no, and `perf-ratchet-smoke`,
+  `wiring-lazy-shell-imports-smoke` and `advise-no-run` print a skip line;
+  CI runs the newest 22 and 24.
+- An ES module's exports cannot be patched, and calls between ES modules
+  do not go through them: two tests that patched `dist/` exports
+  (`deferred-checkpoint-batching`, `sigint-sigterm-drive-loop`) now watch
+  the rename onto `state.json` that each `saveCheckpoint` makes. Tests
+  that patch `node:fs` call `syncBuiltinESMExports()` (nine more files),
+  four tests that matched CommonJS output text or import paths were
+  brought up to date, and `dist-drift-check-smoke` copies
+  `scripts/package.json` into its sandbox.
+- "Is full ESM worth it" said nothing about speed. ES modules load more
+  slowly: `cw version` from a packed install, 41 runs each by turns, middle
+  value 59.7 ms before and 69.7 ms after on Node 22.22, 59.3 to 68.4 on
+  22.13, 55.5 to 60.8 on 24.22. `import()` in `scripts/cw.js` in place
+  of `require()` gave nothing (66.6 ms).
+- The packed tarball has 338 files, not 335 (the three new
+  `package.json`s that ship); `cw version`, `cw help`, `cw doctor --json`,
+  `cw app list` and an MCP `tools/list` give the same bytes as before on
+  Node 22.13, 22.22 and 24.22, with the install path made the same.
+- One thing a user can see does change: `dist/` exports are fixed, so
+  code outside CW that put new values on them no longer changes what CW
+  does. `docs/release-and-migration.7.md` ("Module Form") says this and
+  that app files stay CommonJS.
+
+Found in step 6:
+
+- `scripts/` had 66 `.js` files, not 63. 50 became `.mjs`. 16 keep their
+  `.js` name and are ES modules under the package's `"type": "module"`:
+  14 are paths a user may run or keep in a config — `scripts/cw.js` (the
+  bin), `scripts/mcp-server.js`, `scripts/architecture-review-fast.js` and
+  `scripts/source-context.js` (man-page commands whose `--help` names
+  them), nine files in `scripts/agents/` (the seven vendor wrappers,
+  whose path `builtin:<name>` expands to and `cw doctor` and a saved
+  `agent-config.json` carry, and the two attest tools), and
+  `scripts/children/http-delegate-child.js` (its name is in
+  `cw backend probe remote` output). The other two, `bench/bench-k6.js`
+  and `bench/workbench-k6-deep.js`, are k6 scripts, not Node files. So
+  the `bin` paths, the Homebrew formula (it only names `bump-version.mjs`
+  in a comment) and the conformance case that runs
+  `scripts/agents/codex-agent.js` did not change.
+- Three lazy `require()`s of sibling scripts, and seven `require()`s of
+  `dist/` by a built path (in four files), became plain imports.
+  `createRequire` is in two files, `release-flow.mjs` and
+  `release-preflight.mjs`, for their lazy `dist/` loads, which must stay
+  sync and must say "run `npm run build` first" when `dist/` is missing.
+  `validate-run-state-schema.mjs` loads `dist/` with `import()`. The
+  deepseek and opencode-routed gemini wrappers set their env, then
+  `await import("./opencode-agent.js")`: a static import would run first.
+- The perf hook is preloaded with `--import` now; every count is the same.
+- `onramp.ts` names `scripts/onramp-check.mjs` and
+  `scripts/parity-check.mjs` in its patterns, so `cw doctor --onramp`
+  in a CW checkout names the new paths.
+
+Found in step 7:
+
+- `test/` had 414 code files, not 470 less the deleted ones as a guess:
+  271 smokes, 140 unit tests, the two runners and one fixture
+  (`release-rehearsal-reviewer`). All 414 are `.mjs` now; the runners
+  find `test/*-smoke.mjs` and `test/**/*.test.mjs`, and the counts are
+  the same before and after (271 and 140). `test/package.json` went. The
+  rest of `test/` is data and kept its names: six `state.json` run
+  fixtures, `smoke-durations.json` (its keys now name `.mjs` files) and
+  the README.
+- The codemod read each file as a syntax tree, not by text: 2,097
+  top-level `require` lines became `import` lines; 68 `require` calls
+  inside a function or an expression became one `import` at the top (a
+  lazy load of `dist/` or a builtin now loads at start; no `dist/` module
+  reads its env at load but `perf-trace.ts`, which no test sets); the
+  one computed `require(mod)` (`dead-export-removal-guard`) became
+  `await import()`. No test file needs `createRequire`. Paths with no
+  `.js` (`require("../dist/shell/term")`) got their `.js`.
+- The one test that loads an app file (`apps/` stays CommonJS, D6) takes
+  its default export, which is the old `module.exports`.
+- Strings that a test writes out as a script stay CommonJS on purpose:
+  fake agents, a `gh` stub, app files and `node -e` text all run from a
+  temp dir with a `.js` name or no extension, so Node reads them as
+  CommonJS as before. One was not: the probe smoke that
+  `run-all-agent-env-hermetic` writes is named `-smoke.mjs` now, so its
+  one `require` line became an `import` line.
+- No assertion changed in what it checks. Five tests name a file kind in
+  their check and now say `.mjs`: `release-pipeline-hygiene` and
+  `ci-shape-gate` (the `ci.yml` lines), `smoke-duration-scheduling` (the
+  runner output it reads), `citation-check-smoke` (its fake test files)
+  and `test-layout-smoke`, which also refuses a test left with the old
+  `-smoke.js` or `.test.js` name, since no runner would read it.
+- Outside `test/`: the npm scripts, `ci.yml`, `citation-check.mjs` (it
+  scans `test/**/*.mjs`), `sync-project-index.mjs` (it counts
+  `*-smoke.mjs`), `new-feature.mjs` (its smoke stub is an ES module),
+  `onramp.ts` (its patterns and smoke names; `cw doctor --onramp` names
+  the new paths), and every live doc that named a test file. Intent,
+  audit, rebuild-spec and plan files keep the old names as history.
+
+Found in step 8:
+
+- "All 115 conformance files load `dist/` with `require`" was wrong. No
+  conformance file loads `dist/`: the suite is black box, and it starts
+  `dist/cli.js` and `dist/mcp-server.js` as child processes. Of the 115
+  files, 97 were code (88 cases, `run.js`, `lib.js` and 7 fixture
+  helpers), 7,758 lines now as `.mjs`; the rest are the README, 16 `.txt`
+  fixtures and the step 5 `package.json`, which this step takes out.
+- Twelve `require()` calls were inside a function body (`node:path`,
+  `node:fs`, `node:os`); each became one `import` at the top. Two
+  `require` strings stay, as data: a comment, and the text of a helper
+  script that `lockstale-steal-and-respect` writes into its own tmp dir.
+- `workflows/README.md` still named `multiagent-app-list.case.js`, a case
+  that went in step 2; the line now names only the smoke that pins the
+  legacy ids.
+- `exechard-codex-sandbox-fail-closed` runs
+  `scripts/agents/codex-agent.js` by its path, as CW does (no code is
+  shared). When step 6 gives that file a new name, the case path changes
+  in the same PR.
+- `src/shell/onramp.ts` counted a changed `.case.js` file as proof; it now
+  counts `.case.mjs`, and `onramp-check-smoke` uses an `.mjs` case path.
+- Conformance gives the same result per case before and after (86 of 88 in
+  this sandbox both times, the same two, `report-doctor` and
+  `report-fix`, which see the `claude` on its PATH).
+
+Found at close (step 9, measured on `2a0e5f62`; the receipt is
+`project/docs/audits/slim-and-esm-receipt-2026-10-17.json`):
+
+- The numbers: src 50,282 to 35,316 lines (158 to 131 files), under
+  the 36,000 budget; MCP tools 198 to 123, under 130; tracked test files
+  478 to 422, under 440; man pages (`docs/*.md`, the count the measured
+  facts used) 59 to 48, at the line (`docs/*.7.md` 52 to 41).
+- Step 3 gave 790 src lines (698 comments, 92 helpers), not about
+  1,750. The budget still held, as step 2 took 14,601, not about 12,855.
+- The budget line "new files only the three temporary `package.json`s,
+  `apps/package.json`, and the receipt" was missed by four lasting files,
+  and three of them the steps themselves ask for: the saved-state test
+  of step 2 (`legacy-multi-agent-state-smoke`), the shared-helper test of
+  the compress-src spec (`cli-args-sharedhelpers.test`), the floor test
+  of step 4 (`node-floor-require-esm-smoke`), and `workflows/package.json`
+  (step 5 found a second CommonJS folder). The line was written without
+  reading the steps' own proofs.
+- "No CJS file outside `apps/`" was too wide as words go. Inside the
+  package and the conformance suite, which steps 5 to 8 moved, it holds
+  (with `workflows/` as the second app-file folder). Outside them nine
+  CommonJS files are left that the program never counted: the repo
+  root's `scripts/download-stats.js` and `scripts/mirror-to-gitea.js`
+  (no `package.json` above them; the second is the Gitea mirror the
+  operator runs by hand or from launchd, so its name stays), and the
+  seven bun tests in `ui/workbench/tests/`, a separate sub-package that
+  bun runs in either form. The receipt's `one-module-form` check says
+  this scope and names the nine. Moving them is a small program of its
+  own, not part of this close.
+- The compress-src spec planned its own closing receipt
+  (`compress-src-receipt-<date>.json`, six checks). Step 3 ran that spec
+  inside this program, so this receipt stands for it: its numbers are in
+  `src-lines-down` and `frozen-tightened-only`, and its "What this spec
+  got wrong" says why `helpers-once` holds for the merged helpers only.
+- Step 3's ledger row said the helper part had no PR yet; it is #800.
+  Step 7's row said the same; it is #809. Step 8 (#806) merged before
+  step 7, with no harm, as the conformance suite shares no code with the
+  tests.
+- The required checks on `main` are a GitHub setting no repo file holds;
+  `node-floor` takes the operator's word of 2026-10-17 for that part.
+
+## Acceptance results
+
+- Manager (per PR): all ten program PRs (#751, #752, #770, #799, #800,
+  #804, #805, #806, #807, #809) merged through `main`'s branch
+  protection, which takes the required checks green.
+  The budget held but for the new-files line above.
+- Architect (program): the receipt's six checks pass, verdict pass. A new
+  reader finds one module form in the package and the conformance suite
+  (app files kept CommonJS by D6), one Node floor (`>=22.13.0`, CI 22
+  and 24), and no frozen multi-agent code in `src/`; the nine CommonJS
+  files outside that scope are named above.
+
+## Status ledger
+
+| Item | State | PR |
+|---|---|---|
+| Intent + spec (this file) | done | #751 |
+| D1-D6 answered | yes, all six (operator, 2026-09-28) | #751 |
+| 1 Release tooling off the family (D3) | done | #752 |
+| 2 Delete the D1 family and cut its hooks | done | #770 |
+| 3 Comment and helper sweep (compress-src) | done | #799, #800 |
+| 4 Node floor (D4) | done | #804 |
+| 5 ESM src + dist | done | #805 |
+| 6 Scripts to .mjs | done | #807 |
+| 7 Tests to .mjs | done | #809 |
+| 8 Conformance to .mjs | done | #806 |
+| 9 Closing ledger and receipt | done; this file and `2026-09-04-compress-src.md` joined `2026-09-archive.md` | this PR |

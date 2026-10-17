@@ -74,7 +74,7 @@ floor's Node line and the newest one are each tested. The operator changes
 `main`'s branch protection in the same window as that PR's merge, as
 only the operator can: Settings -> Branches -> the `main` rule ->
 required status checks: take out `check (18)`, add `check (24)`, keep
-`check (22)`. Until then a PR waits on a `check (18)` that never comes.
+`check (22)`. The operator made that change and said so on 2026-10-17.
 The macOS leg stays not required.)
 
 (2026-10-16: a `release-rehearsal` job, NOT required, runs

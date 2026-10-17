@@ -1,0 +1,61 @@
+{
+  "program": "2026-09-28-slim-and-esm",
+  "commit": "2a0e5f629613d5b75bf511f6697c1d0a2d3d44cb",
+  "baseCommit": "b6e14780b5e57d87ca4b48088029c8cbc8ad14a2",
+  "version": "0.3.1",
+  "startedAt": "2026-10-17T10:40:00Z",
+  "finishedAt": "2026-10-17T11:00:01Z",
+  "machine": "Linux, Node 22.22.0, dist/ built from the commit above, the 0.3.1 tarball packed from it and installed into a private prefix, the real claude CLI (2.1.302) as the agent, a new four-file git project with a todo `done` command as the sample",
+  "checks": [
+    {
+      "id": "src-lines-down",
+      "pass": true,
+      "command": "find src -name '*.ts' -print0 | xargs -0 cat | wc -l (cwd plugins/cool-workflow), on the base commit and on the commit above",
+      "seen": "before 50,282 lines in 158 .ts files (b6e1478); after 35,316 lines in 131 .ts files: -14,966 (-29.8%). Comment lines (first non-space //, * or /*): 8,249 before, 6,272 after.",
+      "note": "Budget: at or under 36,000. Met, 684 lines under."
+    },
+    {
+      "id": "mcp-tools-down",
+      "pass": true,
+      "command": "node --input-type=module -e 'import { CAPABILITY_REGISTRY as R } from \"./dist/core/capability-table.js\"; console.log(R.length, R.filter(c=>c.mcp).length)'",
+      "seen": "157 123: 157 capabilities and 123 MCP tools, before 241 and 198. docs/cli-mcp-parity.7.md says the same (\"157 capabilities, 123 MCP tools\").",
+      "note": "Budget: at or under 130. Met. The 12 core MCP tools (what `tools/list` gives with no profile) are all still there."
+    },
+    {
+      "id": "core-path-green",
+      "pass": true,
+      "command": "the commands of four-fixes-receipt-2026-09-02.json and run-folder-receipt-2026-09-02.json, as listed below, with the packed 0.3.1 install",
+      "seen": "A-retry and run-folder D: cw -q \"How does the done command mark an item finished and where can it go wrong?\" --repo <sample> -claude: exit 0, \"status\": \"complete\", plannedWorkers 14, completedWorkers 14, parkedWorkers 0, all four phases (Map 6, Assess 6, Verify 1, Verdict 1), commitId state-0007, report.md written with Verdict: PASS, 165 s (10:56:02 to 10:58:47). D-no-empty-dirs: find .cw/runs/<id> -type d -empty printed nothing (0 of 22 directories empty). B-resume-flag: cw --resume --run <id> from a folder that is not the sample: \"cw: Run not found: <id>\\n  Try: cw run list\", exit 1, the same text the 2026-09-02 receipt took as a pass; from inside the sample it printed the complete run's JSON. B-resume-repo: cw run resume <id> --drive --repo <sample> from another folder: \"Resume <id> [completed] loopStage=checkpoint (resolved from repo, valid)\", drive=complete workers=14/14, exit 0. C-refuse-non-git: cw -q \"what is here\" -claude in a new empty folder: \"cw: <path> is not a git project. Run cw inside a project, or pass --repo <path>.\", exit 1, 267 ms, nothing written. D-onramp-user-words: cw doctor --onramp in the sample: exit 0, 'Quick start (3 steps)', 'Onramp' with 'First Run' and 'No Agent?'; no 'Surface Guard', 'Release Gate', parity:check or doctor-smoke line.",
+      "note": "Six of six checks pass, among them the D-no-empty-dirs check that failed on 2026-09-02 and passed later that day."
+    },
+    {
+      "id": "one-module-form",
+      "pass": true,
+      "command": "git ls-files '*.cjs' '*.cts'; git ls-files '*package.json' and the \"type\" in each; grep -rlE '\\brequire\\(' src and grep -rl createRequire src; every tracked .js and .mjs file under plugins/cool-workflow/dist, scripts, test, project/docs/scripts and v2/conformance parsed as an ES module (sourceType module) with acorn, a measuring aid outside the repo, counting calls whose callee is the name require",
+      "seen": "0 .cjs or .cts files. package.json files: plugins/cool-workflow \"type\": \"module\"; apps/ and workflows/ {\"type\": \"commonjs\"} (app and old workflow files, module.exports, D6); ui/workbench no type (the bun sub-package). src/: require( is in 17 files; 12 make require with createRequire(import.meta.url) (9 capability-table slices, drive.ts, workflow-app-loader.ts, which also loads the app files, mcp/server.ts), and in the other 5 the word is in a comment (4) or in the text of a script a child node runs (remote-source.ts). Parsed as ES modules with no error: dist 131 files (42 require calls, all in the 12 createRequire files), scripts 64 (5 calls, all in release-flow.mjs and release-preflight.mjs, which use createRequire), test 414 (0), project/docs/scripts 1 (0), v2/conformance 97 (0). scripts/ keeps 16 .js names: 14 are ES modules under \"type\": \"module\" and 2 (bench/bench-k6.js, bench/workbench-k6-deep.js) are k6 scripts, not Node files, and were not parsed.",
+      "note": "Scope, said plainly: the package (plugins/cool-workflow, less the ui/workbench bun sub-package) and v2/conformance, which is what steps 5 to 8 moved. Outside that scope 9 CommonJS files are left that the program never counted or planned: the repo root's scripts/download-stats.js and scripts/mirror-to-gitea.js (no package.json above them, require lines), and the 7 bun tests ui/workbench/tests/*.test.js (require lines; bun runs both forms). They are recorded in the program file's 'What this spec got wrong'; a strict repo-wide reading of 'no CJS file outside apps/' would fail on them, and on workflows/."
+    },
+    {
+      "id": "node-floor",
+      "pass": true,
+      "command": "grep -n '\"node\"' plugins/cool-workflow/package.json; grep -n 'node-version' .github/workflows/ci.yml; grep -n REQUIRED_CHECKS plugins/cool-workflow/scripts/release-ci-checks.mjs",
+      "seen": "engines.node \">=22.13.0\"; the check job's matrix node-version [\"22\", \"24\"]; REQUIRED_CHECKS [\"check (22)\", \"check (24)\"]; AGENTS.md names the same two required checks.",
+      "note": "The required checks on main are a GitHub setting that only the operator can change and no file here holds. The operator confirmed on 2026-10-17 that the main rule now requires check (22) and check (24), not check (18)."
+    },
+    {
+      "id": "frozen-tightened-only",
+      "pass": true,
+      "command": "git log --reverse b6e1478..HEAD -- plugins/cool-workflow/manifest/growth-budget.json, then git show <sha>:plugins/cool-workflow/manifest/growth-budget.json for each and compare every frozen maxLines with the one before",
+      "seen": "Two commits changed the file. 41738ec9 (#770, step 2): frozen paths 23 to 9 (14 dropped with their files), workbench.ts 269 to 266, orchestrator.ts 229 to 206, md maxCount 135 to 124, srcCommentLines maxCount 7,571 to 6,227. e035de80 (#799, step 3): all 9 went down (scheduler-io 730 to 726, scheduling-io 329 to 318, workbench 266 to 264, workbench-host 340 to 336, workbench-text 18 to 15, orchestrator 206 to 200, telemetry-demo 410 to 409, observability-intake 82 to 79, reclamation-io 1,728 to 1,717), srcCommentLines maxCount 6,227 to 5,531. No number went up, and no frozen path was added. growth:check on the commit above: md=124/124, src-comments=5490/5531, frozen=9 paths within ceiling.",
+      "note": "This PR lowers trackedMarkdownFiles to 122/122, as it takes two intent files into the archive."
+    }
+  ],
+  "budget": [
+    { "item": "src lines at or under 36,000", "measured": 35316, "met": true },
+    { "item": "MCP tools at or under 130", "measured": 123, "met": true },
+    { "item": "test files at or under 440", "measured": 422, "met": true, "note": "git ls-files test | wc -l: 414 code files (.mjs) and 8 data files; 478 before" },
+    { "item": "man pages at or under 48", "measured": 48, "met": true, "note": "docs/*.md, the count the measured facts used (59 before); docs/*.7.md is 41, 52 before" },
+    { "item": "new files only the three temporary package.json files, apps/package.json and the receipt", "met": false, "note": "The three temporary package.json files (scripts/, test/, v2/conformance/) came in with #805 and each went with its step. Four lasting files that the line did not name came in too: workflows/package.json (#805, a second CommonJS folder), test/legacy-multi-agent-state-smoke (#770, the saved-state test step 2 asks for), test/core/util/cli-args-sharedhelpers.test (#800, the test the compress-src spec asks for) and test/node-floor-require-esm-smoke (#804, the test step 4 asks for)." }
+  ],
+  "verdict": "pass"
+}
