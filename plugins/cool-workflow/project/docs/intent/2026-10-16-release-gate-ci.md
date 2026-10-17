@@ -342,3 +342,44 @@ FreeBSD rule 1). The bytes that change, 0.3.2 to 0.3.3:
 
 With no agent set, or an HTTP endpoint only, doctor's bytes do not change.
 The other checks keep their bytes. Doctor never prints env values.
+
+### Terminal display: the » mark, and progress lines that no longer fight
+
+Before 0.3.3 went out, the operator was asked what more to put in it. The
+question, word for word, as it was shown (in Chinese): "0.3.3 发布前，还要加哪些？（可多选；都不选就直接发 0.3.3）"
+In English: "Before 0.3.3 goes out, what more should go in? (Pick any
+number; pick none and 0.3.3 goes out as it is.)"
+
+Two of the answers picked, word for word, with the words shown under
+them:
+
+- "把 ⇉ 换成常见符号" — "换成几乎所有字体都有的符号，不再显示方框。只影响终端里的进度提示。"
+  In English: "Put a common mark in place of ⇉": use a mark that nearly
+  every font has, so no box is shown. Only the progress lines in the
+  terminal are changed.
+- "修正进度行互相打架" — "Verify/Verdict 阶段不再重复刷 ● claude: reading…，也不再两条进度挤在一行。只影响终端显示。"
+  In English: "Stop the progress lines fighting": in the Verify and
+  Verdict phases, `● claude: reading…` is no longer printed again and
+  again, and two progress lines are no longer joined into one. Only what
+  the terminal shows is changed.
+
+The operator's full answer, word for word (2026-10-17): "doctor 真的运行一次 agent,把 ⇉ 换成常见符号,修正进度行互相打架"
+
+So these two changes are approved under the POLA exception (AGENTS.md,
+FreeBSD rule 1). Bytes change only in `[drive]` progress on stderr, which
+is on only on a TTY or with `CW_DRIVE_PROGRESS=1`; a piped run's stdout
+and stderr keep their bytes. `docs/agent-delegation-drive.7.md` says the
+new behavior ("One writer at a time on the terminal", "» marks a
+concurrent round"); the version raise comes in the 0.3.3 bump PR.
+
+| Change | Before (0.3.2) | 0.3.3 | Code |
+|---|---|---|---|
+| Concurrent round line | `[drive] ⇉ concurrent round: N agents …` | `[drive] » concurrent round: N agents …` | `src/shell/drive.ts` |
+| Active parallel phase line | `[drive] ==> Map ⇉ (0/2)` | `[drive] ==> Map » (0/2)` | `src/shell/term.ts` `phaseProgressLine` |
+| `[drive]   … <Phase> still working — Ns` in a serial hop whose agent draws a live view on the terminal | written into the view: joined to the spinner row, and one more `● …` row left behind at each tick | not written while the view holds the `CW_DRIVE_TTY_CLAIM` file | `scripts/children/drive-ticker.mjs`, `scripts/agents/agent-adapter-core.mjs` `createRenderer`, `src/shell/execution-backend/agent.ts` |
+
+Why `»` (U+00BB): it is in Latin-1, so every terminal font has it
+(Cascadia, Consolas, DejaVu Sans Mono, Menlo); `⇉` (U+21C9, in the Arrows
+block) is not in every one of them, and Windows Terminal on WSL showed a
+box. ASCII `>>` was weighed and turned down: `==> Map >> (0/2)` is hard to
+tell from the `==>` mark itself, and `»` keeps the one-column shape.

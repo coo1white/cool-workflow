@@ -271,7 +271,7 @@ an answer with `file:line` evidence (the `## Answer` part of
 |---|---|---|---|
 | Start | the process is up (`cw --version`, `cw help`) | 0.1 s | 55 ms |
 | Plan | first `[drive] ==> <Phase> (<done>/<total>)` line on stderr (TTY only) | 1 s | 0.2 s |
-| Each wait | a new line at least every 10 s while a worker runs | 10 s | yes: `[drive]   … <Phase> still working — 10s` |
+| Each wait | a new line at least every 10 s while a worker runs | 10 s | yes: `[drive]   … <Phase> still working — 10s`; since 0.3.3 a shipped wrapper's live view, redrawn in place, takes its place in a serial hop |
 | End | `✓ Report: <path>`, `✓ Status: complete — N/N workers`, `Next:` | 5 min | 233 s and 259 s (real agents, default review) |
 | Read | `## Answer` with evidence, one file read away | — | yes |
 

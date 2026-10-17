@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-10-17 by `npm run sync:projec
 - Source modules: `131`
 - Workflow apps: `7`
 - Docs: `48`
-- Smoke tests: `278`
+- Smoke tests: `279`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -326,6 +326,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [drive-round-cache-serial-smoke.mjs](../test/drive-round-cache-serial-smoke.mjs)
 - [drive-run-mutex-smoke.mjs](../test/drive-run-mutex-smoke.mjs)
 - [drive-ticker-smoke.mjs](../test/drive-ticker-smoke.mjs)
+- [drive-ticker-tty-smoke.mjs](../test/drive-ticker-tty-smoke.mjs)
 - [durable-atomic-write-smoke.mjs](../test/durable-atomic-write-smoke.mjs)
 - [end-to-end-demo-smoke.mjs](../test/end-to-end-demo-smoke.mjs)
 - [end-to-end-golden-path-smoke.mjs](../test/end-to-end-golden-path-smoke.mjs)

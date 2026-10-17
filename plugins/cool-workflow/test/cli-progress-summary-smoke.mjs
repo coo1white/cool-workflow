@@ -3,7 +3,7 @@
 // Homebrew-grade UX surfaces added in 0.1.90, and — critically — that they NEVER leak
 // into the data channel:
 //
-//   1. term.ts house style (unit): phaseProgressLine renders `==> Map ✓ (6/6)` / `==> Assess ⇉ (3/6)`.
+//   1. term.ts house style (unit): phaseProgressLine renders `==> Map ✓ (6/6)` / `==> Assess » (3/6)`.
 //   2. live phase progress (integration): a real drive with a deterministic STUB agent
 //      emits `==> <Phase>` boundary lines on stderr, while `--json` stdout stays byte-clean
 //      (parses; zero `==>` / `Report:` / ANSI-escape leakage).
@@ -34,7 +34,8 @@ function fakeStream(isTTY) {
 {
   const plain = fakeStream(false); // non-TTY => no ANSI, easy to assert
   assert.equal(term.phaseProgressLine("Map", 6, 6, "parallel", plain), "==> Map ✓ (6/6)", "finished phase => ✓ + N/N");
-  assert.equal(term.phaseProgressLine("Assess", 3, 6, "parallel", plain), "==> Assess ⇉ (3/6)", "active parallel phase => ⇉");
+  assert.equal(term.phaseProgressLine("Assess", 3, 6, "parallel", plain), "==> Assess » (3/6)", "active parallel phase => »");
+  assert.ok(!term.phaseProgressLine("Assess", 3, 6, "parallel", plain).includes("⇉"), "0.3.3: no ⇉, which some terminal fonts do not have");
   assert.equal(term.phaseProgressLine("Verdict", 0, 1, "sequential", plain), "==> Verdict … (0/1)", "active sequential phase => …");
   console.log("summary: phaseProgressLine renders ==> Phase glyph (done/total) ok");
 }

@@ -62,7 +62,7 @@ function cwEnv(gate, extraEnv) {
 }
 
 const ARGS = [cwBin, "-q", "How does routing work?", "--fast", "--json"];
-const ROUND = /^\[drive\] ⇉ concurrent round: (\d+) agents? spawning in parallel, may take minutes…$/m;
+const ROUND = /^\[drive\] » concurrent round: (\d+) agents? spawning in parallel, may take minutes…$/m;
 const SPAWN = /^\[drive\] → \S.* \([^)]+\) — spawning agent, may take minutes…$/gm;
 const SPAWN_LINE = /^\[drive\] → \S.* \([^)]+\) — spawning agent, may take minutes…$/;
 
@@ -94,6 +94,8 @@ try {
     try {
       assert.ok(await waitFor(() => ROUND.test(stderr), 60000), `a concurrent round starts (stderr: ${stderr})`);
       const width = Number(stderr.match(ROUND)[1]);
+      // 0.3.3: » in place of ⇉, which some terminal fonts do not have.
+      assert.ok(!stderr.includes("⇉"), `no ⇉ in the progress lines (stderr: ${stderr})`);
       assert.ok(width > 1, "the round runs more than one agent");
       assert.ok(await waitFor(() => started(gate) >= width, 60000), "every agent of the round has started and is waiting");
       const early = await waitFor(() => (stderr.match(SPAWN) || []).length >= width, 20000);

@@ -122,8 +122,18 @@ function createRenderer(opts = {}) {
   let cursorHidden = false;
   let current = null;   // { label, startedAt, failed }
 
+  // 0.3.3: while this live view redraws on the terminal it holds the file cw
+  // names in CW_DRIVE_TTY_CLAIM, so drive's still-working ticker (which
+  // writes to the same terminal) keeps quiet and cannot break the redraw.
+  const claimFile = interactive ? String(env.CW_DRIVE_TTY_CLAIM || "") : "";
+  let claimed = false;
+  const claim = () => {
+    if (!claimFile || claimed) return;
+    try { fs.writeFileSync(claimFile, `${process.pid}\n`); claimed = true; } catch { /* advisory */ }
+  };
   const restoreCursor = () => {
     if (cursorHidden) { try { stderr.write(ANSI.showCursor); } catch { /* noop */ } cursorHidden = false; }
+    if (claimed) { try { fs.unlinkSync(claimFile); } catch { /* already gone */ } claimed = false; }
   };
   // Cursor hygiene: ALWAYS restore on exit / Ctrl-C / kill, even on crash.
   const onSignal = (sig) => { stop(); process.exit(sig === "SIGINT" ? 130 : 143); };
@@ -178,6 +188,7 @@ function createRenderer(opts = {}) {
   // Redraw the rolling window (recent ● rows + their ⎿ results + the live spinner) in place.
   const renderBlock = () => {
     if (!interactive) return;
+    claim();
     if (!cursorHidden) { stderr.write(ANSI.hideCursor); cursorHidden = true; }
     eraseBlock();
     const width = cols();

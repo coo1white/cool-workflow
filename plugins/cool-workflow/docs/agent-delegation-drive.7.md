@@ -461,9 +461,29 @@ never polluted.
   progress is on (a TTY, or `CW_DRIVE_PROGRESS=1`), so a piped run's bytes do
   not change, and `--quiet` turns it off with the other `[drive]` lines.
   `CW_DRIVE_TICK_MS` sets the time between lines; `0` turns them off.
+- **One writer at a time on the terminal (new in 0.3.3).** In a serial hop
+  (Verify, Verdict) the agent's stderr is the terminal itself, and a shipped
+  wrapper's live view redraws its rows in place. Before 0.3.3 the
+  `still working` line was written into that view: it was joined to the
+  end of the spinner row, and every tick left one more
+  `● claude: reading the repo (read-only)…` row behind. Now, while it is
+  drawing, the live view puts a claim file at the path cw gives it in
+  `CW_DRIVE_TTY_CLAIM`, and the ticker writes no line while that file is
+  there; the view's own changing time is the sign of life. A wrapper of your
+  own that writes nothing never makes the file, so it still gets the
+  `still working` line. A concurrent round is as before: its agents' stderr
+  is not the terminal, and only the ticker writes. cw takes the file away
+  after each hop, even after a timeout. Only the bytes on a TTY, or with
+  `CW_DRIVE_PROGRESS=1`, are changed; a piped run's bytes are the same
+  (`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
+  for 0.3.3").
+- **» marks a concurrent round (new in 0.3.3).** The concurrent round line
+  and the active parallel phase line use `»` (U+00BB). Before 0.3.3 they
+  used `⇉` (U+21C9), which is not in some terminal fonts and came out as a
+  box (Windows Terminal on WSL). The rest of each line is the same.
 - **Each worker's start line, in a concurrent round.** A round that runs
   agents side by side prints
-  `[drive] ⇉ concurrent round: N agents spawning in parallel, may take minutes…`
+  `[drive] » concurrent round: N agents spawning in parallel, may take minutes…`
   and then, at once, one
   `[drive] → <label> (<phase>) — spawning agent, may take minutes…` line for
   each worker, in task order, while the agents run. Before 0.3.2 these lines
@@ -479,7 +499,7 @@ never polluted.
   timeout gets no such line by default, since it parks at once (see "A
   timeout parks at once" above); when a caller's `maxTimeoutAttempts` allows
   another try, its time limit is given short: `timed out after 10m`. After every
-  concurrent round the active phase line (`[drive] ==> Map ⇉ (0/6)`) prints
+  concurrent round the active phase line (`[drive] ==> Map » (0/6)`) prints
   again, so each round has its own end line; before 0.3.3 it printed only
   after the first round of a phase. Same rules as every `[drive]` line:
   stderr only, progress on only.

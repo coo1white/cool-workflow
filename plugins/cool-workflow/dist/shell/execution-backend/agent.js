@@ -46,6 +46,10 @@ const AGENT_NETWORK_ENV = new Set(["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO
 function vendorPidFilePath() {
     return path.join(os.tmpdir(), `cw-agent-vendor-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.pid`);
 }
+/** 0.3.3: a live agent view holds this file (CW_DRIVE_TTY_CLAIM); drive's ticker keeps quiet then. */
+export function driveTtyClaimPath() {
+    return path.join(os.tmpdir(), `cw-drive-tty-${process.pid}.claim`);
+}
 /** Reap the vendor process a shipped wrapper recorded, then remove the sidecar.
  *  A wrapper that exited cleanly already removed the file, so this is a no-op
  *  then; only a wrapper cw SIGKILLed on a timeout leaves a live vendor PID
@@ -508,7 +512,7 @@ export function runAgentProcess(descriptor, policy, request, label, attestation)
             // stop itself. Not a forwarded secret; it is cw plumbing, so it stays out
             // of `built.forwarded` / the trust-audit forwarded list.
             const vendorPidFile = vendorPidFilePath();
-            const childEnv = { ...built.env, CW_AGENT_VENDOR_PIDFILE: vendorPidFile };
+            const childEnv = { ...built.env, CW_AGENT_VENDOR_PIDFILE: vendorPidFile, ...(streamStderr ? { CW_DRIVE_TTY_CLAIM: driveTtyClaimPath() } : {}) };
             const child = withPerfTraceGroup("agent-wait", () => spawnSync(resolved.binary, realArgs, {
                 cwd: request.cwd,
                 env: childEnv,
@@ -524,6 +528,11 @@ export function runAgentProcess(descriptor, policy, request, label, attestation)
                 killSignal: "SIGKILL",
                 stdio: ["ignore", "pipe", streamStderr ? "inherit" : "pipe"],
             }));
+            if (streamStderr)
+                try {
+                    fs.unlinkSync(driveTtyClaimPath());
+                }
+                catch { /* not claimed */ }
             // A timeout surfaces as child.error with code ETIMEDOUT (status null,
             // signal set). Classify it FIRST, or the generic spawnError branch
             // below would report it as "agent process failed to spawn".
