@@ -28,7 +28,7 @@ cw doctor --onramp # short path for users and code work
 cw doctor --onramp --changed-from origin/main
 ```
 
-It checks the Node version (v18+), whether an agent backend is set up (and its
+It checks the Node version (v22.13+), whether an agent backend is set up (and its
 binary is on `$PATH`), whether `git` is there (for commit provenance), and
 whether the home registry and the working-dir `.cw` state are writable. It is
 read-only — it makes nothing on disk. It exits non-zero only on a blocking

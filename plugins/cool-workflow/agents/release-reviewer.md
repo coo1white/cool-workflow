@@ -26,8 +26,8 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
 2. The release control plane has already run the deterministic gate. Do NOT
    run it again and do NOT reject with a claim that its tests failed. A gate
    failure is control-plane evidence, not model judgment. The gate's test
-   step may be satisfied by the green required CI checks (`check (18)` and
-   `check (22)`, completed with conclusion `success`) on the exact reviewed
+   step may be satisfied by the green required CI checks (`check (22)` and
+   `check (24)`, completed with conclusion `success`) on the exact reviewed
    SHA, in place of a local full test run; the context below says which
    mode the gate used and, for CI mode, the run URLs it relied on. You may
    confirm those checks yourself, read-only:

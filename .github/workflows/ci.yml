@@ -18,7 +18,7 @@ jobs:
   check:
     strategy:
       matrix:
-        node-version: ["18", "22", "24"]
+        node-version: ["22", "24"]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -45,9 +45,9 @@ jobs:
       # fails here, not on a user's screen.
       - run: bun run build:css && git diff --exit-code -- src/core/format/report-css.ts
       # The Workbench is a Next static export, built here (out/ is not
-      # committed: Turbopack chunk names differ by platform). Node 18 cannot
-      # build Next 16, so this runs on the Node 22 leg only; the other legs
-      # test the host's fallback. bun is already set up above.
+      # committed: Turbopack chunk names differ by platform). It runs on the
+      # Node 22 leg only; the Node 24 leg tests the host's fallback. bun is
+      # already set up above.
       - run: bun install --frozen-lockfile
         if: matrix.node-version == '22'
         working-directory: plugins/cool-workflow/ui/workbench
@@ -89,7 +89,7 @@ jobs:
   # runs the platform-sensitive core (build, conformance, full smoke suite,
   # unit tests) on one Node version. The platform-free gates (audit, dist
   # drift, release:check) stay on the ubuntu legs only. Not a required
-  # check for merge; the two ubuntu legs (18, 22) keep that role.
+  # check for merge; the two ubuntu legs (22, 24) keep that role.
   cool-workflow-macos:
     runs-on: macos-latest
     timeout-minutes: 30

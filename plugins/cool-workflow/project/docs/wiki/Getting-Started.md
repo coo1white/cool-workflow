@@ -9,7 +9,7 @@ a fast command reference.*
 
 ## What you need first
 
-- **Node.js v18 or newer** — check with `node --version`.
+- **Node.js v22.13 or newer** — check with `node --version`.
 - **One agent CLI** on your `PATH` for the real review in Step 3: `claude`,
   `codex`, `gemini`, `opencode`, or `muse`. An "agent CLI" is a command-line AI tool
   that can read code and answer questions — for example, Claude Code gives you

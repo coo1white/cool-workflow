@@ -29,7 +29,7 @@ const FLOW = path.join(pluginRoot, "scripts", "release-flow.js");
 const REVIEWER = path.join(pluginRoot, "test", "fixtures", "release-rehearsal-reviewer.js");
 const { REQUIRED_CHECKS, evaluateCheckRuns } = require("../scripts/release-ci-checks.js");
 
-assert.deepEqual([...REQUIRED_CHECKS], ["check (18)", "check (22)"], "the required list names the two ubuntu legs main's branch protection requires");
+assert.deepEqual([...REQUIRED_CHECKS], ["check (22)", "check (24)"], "the required list names the two ubuntu legs main's branch protection requires");
 
 let caseId = 0;
 function git(dir, args) {
@@ -88,14 +88,14 @@ const run = (name, status, conclusion, extra) => Object.assign({
   app: { slug: "github-actions" }
 }, extra || {});
 let runs;
-if (mode === "green") runs = [run("check (18)", "completed", "success"), run("check (22)", "completed", "success"), run("check (24)", "completed", "failure")];
-else if (mode === "red") runs = [run("check (18)", "completed", "failure"), run("check (22)", "completed", "success")];
-else if (mode === "cancelled") runs = [run("check (18)", "completed", "success"), run("check (22)", "completed", "cancelled")];
-else if (mode === "missing") runs = [run("check (18)", "completed", "success"), run("check (24)", "completed", "success")];
-else if (mode === "pending") runs = [run("check (18)", "completed", "success"), run("check (22)", "in_progress", null)];
-else if (mode === "otherapp") runs = [run("check (18)", "completed", "success"), run("check (22)", "completed", "success", { app: { slug: "someone-else" } })];
-else if (mode === "othersha") runs = [run("check (18)", "completed", "success"), run("check (22)", "completed", "success", { head_sha: "0".repeat(40) })];
-else if (mode === "rerun") runs = [run("check (18)", "completed", "success"), run("check (22)", "completed", "success"), run("check (22)", "completed", "failure")];
+if (mode === "green") runs = [run("check (22)", "completed", "success"), run("check (24)", "completed", "success"), run("release-rehearsal", "completed", "failure")];
+else if (mode === "red") runs = [run("check (22)", "completed", "failure"), run("check (24)", "completed", "success")];
+else if (mode === "cancelled") runs = [run("check (22)", "completed", "success"), run("check (24)", "completed", "cancelled")];
+else if (mode === "missing") runs = [run("check (22)", "completed", "success"), run("release-rehearsal", "completed", "success")];
+else if (mode === "pending") runs = [run("check (22)", "completed", "success"), run("check (24)", "in_progress", null)];
+else if (mode === "otherapp") runs = [run("check (22)", "completed", "success"), run("check (24)", "completed", "success", { app: { slug: "someone-else" } })];
+else if (mode === "othersha") runs = [run("check (22)", "completed", "success"), run("check (24)", "completed", "success", { head_sha: "0".repeat(40) })];
+else if (mode === "rerun") runs = [run("check (22)", "completed", "success"), run("check (24)", "completed", "success"), run("check (24)", "completed", "failure")];
 else if (mode === "garbage") { process.stdout.write("not json"); process.exit(0); }
 else if (mode === "error") { process.stderr.write("HTTP 401: Bad credentials\\n"); process.exit(1); }
 else { process.stderr.write("unknown stub mode\\n"); process.exit(2); }
@@ -139,22 +139,22 @@ const evidence = (fx) => path.join(fx.dir, ".cw-release", `gate-ci-${fx.sha}.jso
   const ev = JSON.parse(fs.readFileSync(evidence(fx), "utf8"));
   assert.equal(ev.mode, "ci");
   assert.equal(ev.sha, fx.sha);
-  assert.deepEqual(ev.checks.map((c) => [c.name, c.status, c.conclusion]), [["check (18)", "completed", "success"], ["check (22)", "completed", "success"]],
-    "the evidence names exactly the required checks (a red non-required check (24) does not count either way)");
+  assert.deepEqual(ev.checks.map((c) => [c.name, c.status, c.conclusion]), [["check (22)", "completed", "success"], ["check (24)", "completed", "success"]],
+    "the evidence names exactly the required checks (a red non-required release-rehearsal does not count either way)");
   assert.match(r.out, /\[2\/5\] tests — from the required CI checks/);
-  assert.match(r.out, /check \(22\): completed \/ success https:\/\/github\.com\/acme\/widget\/actions\/runs\/1\/job\/22/);
+  assert.match(r.out, /check \(24\): completed \/ success https:\/\/github\.com\/acme\/widget\/actions\/runs\/1\/job\/24/);
   assert.match(r.out, /\[5\/5\] branch naming/, "the cheap local steps still run");
 }
 
 // ---- 2. every way of not being green fails closed, suite NOT spawned -------
 for (const [mode, why] of [
-  ["red", /check \(18\): completed with conclusion failure/],
-  ["cancelled", /check \(22\): completed with conclusion cancelled/],
-  ["missing", /check \(22\): no check run from github-actions/],
-  ["pending", /check \(22\): in_progress \(not completed yet\)/],
-  ["otherapp", /check \(22\): no check run from github-actions/],
-  ["othersha", /check \(22\): no check run from github-actions/],
-  ["rerun", /check \(22\): completed with conclusion failure/],
+  ["red", /check \(22\): completed with conclusion failure/],
+  ["cancelled", /check \(24\): completed with conclusion cancelled/],
+  ["missing", /check \(24\): no check run from github-actions/],
+  ["pending", /check \(24\): in_progress \(not completed yet\)/],
+  ["otherapp", /check \(24\): no check run from github-actions/],
+  ["othersha", /check \(24\): no check run from github-actions/],
+  ["rerun", /check \(24\): completed with conclusion failure/],
   ["garbage", /reply is not JSON/],
   ["error", /exited 1: HTTP 401: Bad credentials/]
 ]) {
@@ -212,9 +212,9 @@ for (const [mode, why] of [
   assert.equal(evaluateCheckRuns(null, sha).state, "missing");
   assert.equal(evaluateCheckRuns({ check_runs: [] }, sha).state, "missing");
   const g = (name, status, conclusion) => ({ name, status, conclusion, head_sha: sha, app: { slug: "github-actions" } });
-  assert.equal(evaluateCheckRuns({ check_runs: [g("check (18)", "completed", "success"), g("check (22)", "queued", null)] }, sha).state, "pending");
-  assert.equal(evaluateCheckRuns({ check_runs: [g("check (18)", "completed", "skipped"), g("check (22)", "queued", null)] }, sha).state, "failure", "a red check wins over a pending one");
-  assert.equal(evaluateCheckRuns({ check_runs: [g("check (18)", "completed", "success"), g("check (22)", "completed", "success")] }, sha).ok, true);
+  assert.equal(evaluateCheckRuns({ check_runs: [g("check (22)", "completed", "success"), g("check (24)", "queued", null)] }, sha).state, "pending");
+  assert.equal(evaluateCheckRuns({ check_runs: [g("check (22)", "completed", "skipped"), g("check (24)", "queued", null)] }, sha).state, "failure", "a red check wins over a pending one");
+  assert.equal(evaluateCheckRuns({ check_runs: [g("check (22)", "completed", "success"), g("check (24)", "completed", "success")] }, sha).ok, true);
 }
 
 // ---- 7. release-flow.js: CI mode by default, local suite only on opt-in ----
@@ -235,8 +235,8 @@ function lastJson(out) {
   assert.equal(lastJson(r.out).gateTests, "ci");
   const input = fs.readFileSync(path.join(fx.dir, ".cw-release", `review-input-${fx.sha}.md`), "utf8");
   assert.match(input, /^- Gate test step: ci — the required CI checks were completed\/success on this exact commit/m, "the reviewer is told which mode the gate used");
-  assert.match(input, /^ {2}- check \(18\): success https:\/\/github\.com\/acme\/widget\/actions\/runs\/1\/job\/18$/m, "and the run URL it relied on");
-  assert.match(input, /^ {2}- check \(22\): success https:\/\/github\.com\/acme\/widget\/actions\/runs\/1\/job\/22$/m);
+  assert.match(input, /^ {2}- check \(22\): success https:\/\/github\.com\/acme\/widget\/actions\/runs\/1\/job\/22$/m, "and the run URL it relied on");
+  assert.match(input, /^ {2}- check \(24\): success https:\/\/github\.com\/acme\/widget\/actions\/runs\/1\/job\/24$/m);
   assert.match(input, new RegExp(`gh api repos/\\{owner\\}/\\{repo\\}/commits/${fx.sha}/check-runs`), "the reviewer is shown how to confirm it");
 }
 {

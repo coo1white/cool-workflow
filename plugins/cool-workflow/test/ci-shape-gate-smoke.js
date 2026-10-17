@@ -273,7 +273,7 @@ withFault((dir) => {
 // 9. a required release check whose Node leg was dropped from the matrix
 withFault((dir) => {
   const p = path.join(dir, "ci.yml");
-  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace('node-version: ["18", "22", "24"]', 'node-version: ["22", "24"]'));
-}, 'release required check "check (18)" is not a leg');
+  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace('node-version: ["22", "24"]', 'node-version: ["22"]'));
+}, 'release required check "check (24)" is not a leg');
 
 console.log("ci-shape-gate-smoke: ok");

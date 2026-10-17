@@ -44,7 +44,8 @@ is green. Never use `--admin` to bypass CI checks. Never merge with a
 red or pending CI run.
 
 `main` has branch protection turned on: the two CI checks
-(`check` on `ubuntu-latest`, Node 18 and 22) must be green
+(`check` on `ubuntu-latest`, Node 22 and 24: `check (22)` and
+`check (24)`) must be green
 before a merge, with `enforce_admins` on so there is no bypass, even
 for the repo owner. Force-pushes and branch deletion on `main` are
 also blocked. No required-review rule is set, since this repo has one
@@ -63,7 +64,18 @@ ends of.)
 (2026-08-24: a Node 24 ubuntu leg and one macOS leg were added as
 NON-required checks — the package ships a Homebrew formula and the
 runtime does OS-specific file locking and TMPDIR work. The required
-checks for merge are still the two ubuntu legs, Node 18 and 22.)
+checks for merge were then still the two ubuntu legs, Node 18 and 22.)
+
+(Slim-and-esm step 4, decision D4, operator's yes 2026-09-28: the Node
+floor went up to `engines: >=22.13.0`, the first Node 22 that loads an ES
+module with `require()` and writes nothing to stderr. The `check` matrix
+is now Node 22 and 24, and both are the required checks, so the
+floor's Node line and the newest one are each tested. The operator changes
+`main`'s branch protection in the same window as that PR's merge, as
+only the operator can: Settings -> Branches -> the `main` rule ->
+required status checks: take out `check (18)`, add `check (24)`, keep
+`check (22)`. Until then a PR waits on a `check (18)` that never comes.
+The macOS leg stays not required.)
 
 (2026-10-16: a `release-rehearsal` job, NOT required, runs
 `release-flow.js --check --local-tests` with a stub reviewer and `dogfood-release
@@ -447,7 +459,7 @@ short, and simple to add to. Do not use it for guesses.)
 - **What the gate actually runs.** `release-gate.js` = build, tests,
   diff-substance / test-evidence checks, branch-naming. In a cut
   (`release-flow.js`, so `npm run release`) the tests step is by default
-  the green required CI checks (`check (18)`, `check (22)`; list in
+  the green required CI checks (`check (22)`, `check (24)`; list in
   `scripts/release-ci-checks.js`) on the exact reviewed SHA, read with
   `gh`, failing closed on pending/red/missing/error; `--local-tests` or
   `CW_RELEASE_LOCAL_TESTS=1` runs the full `test:gate` suite locally

@@ -27,7 +27,7 @@ caseMain(() => {
   assert.equal(human.status, 0, "warnings alone must not fail the exit code");
   assert.equal(human.stderr, "");
   assert.match(human.stdout, /^cw doctor\n/);
-  assert.match(human.stdout, /  ✓ node: Node v\d+\.\d+\.\d+ \(>= 18\)\.\n/);
+  assert.match(human.stdout, /  ✓ node: Node v\d+\.\d+\.\d+ \(>= 22\.13\)\.\n/);
   assert.match(
     human.stdout,
     /  ! agent: No agent backend configured — `demo` and `--preview` work, but a real run reports status: blocked\.\n/

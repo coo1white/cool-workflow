@@ -173,8 +173,8 @@ let checks = 0;
   );
   checks += 5;
 
-  // The three matrix legs and the macOS leg must stay untouched.
-  assert.match(raw, /node-version: \["18", "22", "24"\]/, "the three cool-workflow matrix legs must be unchanged");
+  // The two matrix legs and the macOS leg must stay untouched.
+  assert.match(raw, /node-version: \["22", "24"\]/, "the two check matrix legs must be unchanged");
   assert.match(raw, /^ {2}cool-workflow-macos:$/m, "the macOS leg must still be defined");
   checks += 2;
 }

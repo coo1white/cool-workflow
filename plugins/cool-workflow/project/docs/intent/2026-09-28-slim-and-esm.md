@@ -373,6 +373,30 @@ Found in step 3:
   capability surface files, stayed. Details in the same part of
   `2026-09-04-compress-src.md`.
 
+Found in step 4:
+
+- The floor is 22.13.0, not 22.12.0. Measured on 2026-10-17 with the
+  `node-linux-x64` builds from npm: a CommonJS file doing `require()` of
+  a file under a `{"type": "module"}` `package.json`. 22.11.0:
+  `ERR_REQUIRE_ESM`, exit 1. 22.12.0: loads, exit 0, but writes an
+  `ExperimentalWarning` (463 bytes on stderr). 22.13.0, 22.22.0 and
+  24.22.0: loads, 0 bytes on stderr. Under `node_modules/` (an npm
+  install) 22.12.0 is silent too, but a repo checkout (tests, scripts,
+  conformance) is not under `node_modules/`, so 22.12 would warn on
+  every test load once step 5 lands. `engines.node` is `>=22.13.0`;
+  `test/node-floor-require-esm-smoke.js` holds it on the Node in use.
+- `cw doctor`'s node check said `(>= 18)`; it now checks the same
+  floor, `(>= 22.13)`, so `engines` and doctor do not say two things.
+  This is a changed output of a kept command, under D4;
+  `docs/doctor.7.md` and `docs/release-and-migration.7.md` say it, and
+  the conformance case `report-doctor` follows.
+- Version checks below the floor were left as they are: `build-css.js`
+  and `build-ui.js` (both Node 20+) are now always true on a
+  supported Node; taking them out is a clean-up, not part of the floor.
+- `.github/workflows/` legs pinned to `"22"` (release, pages, publish,
+  scheduled) take the newest 22.x, so they are above the floor; none
+  needed a change.
+
 (the rest filled at close)
 
 ## Status ledger
@@ -384,7 +408,7 @@ Found in step 3:
 | 1 Release tooling off the family (D3) | done | #752 |
 | 2 Delete the D1 family and cut its hooks | done | #770 |
 | 3 Comment and helper sweep (compress-src) | comment part done; helper part done on its branch, PR to come | #799 |
-| 4 Node floor (D4) | | |
+| 4 Node floor (D4) | done on its branch, PR to come; the operator changes branch protection at merge | |
 | 5 ESM src + dist | | |
 | 6 Scripts to .mjs | | |
 | 7 Tests to .mjs | | |
