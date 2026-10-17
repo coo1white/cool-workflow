@@ -9,7 +9,7 @@ Generated from the current repository code on 2026-10-17 by `npm run sync:projec
 - Source modules: `131`
 - Workflow apps: `7`
 - Docs: `48`
-- Smoke tests: `275`
+- Smoke tests: `276`
 - Repository: https://github.com/coo1white/cool-workflow
 
 ## Architecture
@@ -378,6 +378,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [node-floor-require-esm-smoke.mjs](../test/node-floor-require-esm-smoke.mjs)
 - [node-snapshot-diff-replay-smoke.mjs](../test/node-snapshot-diff-replay-smoke.mjs)
 - [npm-global-install-smoke.mjs](../test/npm-global-install-smoke.mjs)
+- [npm-local-install-smoke.mjs](../test/npm-local-install-smoke.mjs)
 - [npm-trusted-publish-smoke.mjs](../test/npm-trusted-publish-smoke.mjs)
 - [numeric-flag-parsing-smoke.mjs](../test/numeric-flag-parsing-smoke.mjs)
 - [observability-cost-accounting-smoke.mjs](../test/observability-cost-accounting-smoke.mjs)

@@ -7,11 +7,25 @@ Start from a new clone:
 
 ```bash
 cd plugins/cool-workflow
-npm install
+bun install --frozen-lockfile
 npm run build
 npm link         # puts the `cw` command on your PATH
 cw app list
 ```
+
+This checkout is set up with bun (one tool, one lockfile: `bun.lock`).
+Do not run `npm install`, `pnpm install`, or `yarn install` here. Nothing
+stops them at install time: `package.json` has no `preinstall` (or other
+install-time) script, because `package.json` goes out in the npm package,
+and a script there would run on every user's install as well. From 0.2.8 to
+0.3.2 such a guard did that, and `npm i cool-workflow` and
+`npx cool-workflow` were broken by it. The bun rule is now kept by the test
+gate and CI: `test/package-manager-gate-smoke.mjs` goes red when it sees a
+`package-lock.json` (or another second lockfile), npm's
+`node_modules/.package-lock.json`, or an install-time script, and CI puts in
+the pinned bun and runs `bun install --frozen-lockfile`.
+`test/npm-local-install-smoke.mjs` makes certain that a user's local install
+and `npx` keep working.
 
 No `npm link`? Every `cw <args>` line on this page also works as
 `node scripts/cw.js <args>` from this directory.
