@@ -3,7 +3,9 @@
 // Pins: package.json engines.node is ">=22.13.0"; the Node running the suite
 // is at or above it; `cw doctor`'s node check names the same floor; and, on
 // the Node in use, a CommonJS caller loads an ES module `dist/` with
-// require() — no flag, exit 0, the right exports, and NOTHING on stderr.
+// require() — no flag, exit 0, the right exports, and NOTHING on stderr;
+// and this package's own committed dist/ is that ES module, with exports a
+// caller cannot change (section 4).
 //
 // Why 22.13.0 (measured 2026-10-17 with the node-linux-x64 builds from npm,
 // a CJS file doing require() of a "type": "module" file):
@@ -93,6 +95,61 @@ for (const root of [checkout, installed]) {
   const r = load(caller, env);
   assert.equal(r.code, 0);
   assert.match(r.err, /ExperimentalWarning/, "a warning on stderr is seen");
+}
+
+// ---- 4. the REAL dist/ is an ES module, and its exports are fixed ----------
+// Sections 2 and 3 use a toy dist/ under a temp dir, so they stay green if
+// this package's own dist/ goes back to CommonJS. This section loads the
+// committed dist/ itself, the way a CommonJS user does (require(), as on an
+// npm install), and asserts what only an ES module build gives:
+//   - require() returns a module namespace (Symbol.toStringTag "Module"),
+//     not a plain `exports` object, and writes nothing to stderr;
+//   - putting a new value on an export throws a TypeError in strict code and
+//     is a no-op in sloppy code, so the export keeps its value
+//     (docs/release-and-migration.7.md, "Module Form").
+// Against a CommonJS dist/ (e.g. v0.3.1's) require() gives a plain object
+// ("[object Object]"), the strict assignment does not throw, and the new
+// value takes, so each assert below fails.
+{
+  const realDist = path.join(pluginRoot, "dist");
+  const targets = [path.join(realDist, "core", "version.js"), path.join(realDist, "shell", "doctor.js")];
+  const caller = path.join(base, "real-dist-caller.cjs");
+  fs.writeFileSync(caller, [
+    "const targets = JSON.parse(process.argv[2]);",
+    "const out = [];",
+    "for (const file of targets) {",
+    "  const ns = require(file);",
+    "  const name = Object.keys(ns).sort()[0];",
+    "  const before = ns[name];",
+    "  let strictError = null;",
+    "  try { (function () { \"use strict\"; ns[name] = \"changed-by-caller\"; })(); } catch (e) { strictError = e.constructor.name; }",
+    "  ns[name] = \"changed-by-caller\";",
+    "  out.push({",
+    "    tag: Object.prototype.toString.call(ns),",
+    "    toStringTag: ns[Symbol.toStringTag] || null,",
+    "    name,",
+    "    strictError,",
+    "    kept: ns[name] === before",
+    "  });",
+    "}",
+    "process.stdout.write(JSON.stringify(out) + \"\\n\");",
+    ""
+  ].join("\n"));
+  const r = spawnSync(process.execPath, [caller, JSON.stringify(targets)], { encoding: "utf8", env });
+  assert.equal(r.status, 0, `require() of the real dist/ must load:\n${r.stderr}`);
+  assert.equal(r.stderr, "", `require() of the real dist/ must write nothing to stderr; got:\n${r.stderr}`);
+  const results = JSON.parse(r.stdout);
+  assert.equal(results.length, targets.length);
+  for (const [i, res] of results.entries()) {
+    const file = path.relative(pluginRoot, targets[i]);
+    assert.equal(res.tag, "[object Module]", `${file}: require() must give an ES module namespace, not CommonJS exports`);
+    assert.equal(res.toStringTag, "Module", `${file}: Symbol.toStringTag is "Module"`);
+    assert.equal(res.strictError, "TypeError", `${file}: assigning to export ${res.name} must throw a TypeError in strict code`);
+    assert.equal(res.kept, true, `${file}: export ${res.name} must keep its value after a sloppy assignment`);
+  }
+  // the version export is the real one, so this is the package's own build
+  const vr = spawnSync(process.execPath, ["-e", `process.stdout.write(require(${JSON.stringify(targets[0])}).CURRENT_COOL_WORKFLOW_VERSION)`], { encoding: "utf8", env });
+  assert.equal(vr.stdout, pkg.version, "the real dist/core/version.js names the package version");
 }
 
 fs.rmSync(base, { recursive: true, force: true });

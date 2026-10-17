@@ -192,12 +192,27 @@ checks and resumes the same way on 22.13 or newer.
 
 From the release after 0.3.1, `dist/` is ES modules (`"type": "module"` in
 `package.json`; slim-and-esm program, step 5, decision D5). The commands,
-their output, their exit codes and the MCP tools do not change.
+their exit codes and the MCP tools do not change. Their output does not
+change, with these exceptions, which go out in 0.3.2 with the operator's
+dated yes (`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator
+decisions for 0.3.2 (2026-10-17)"; see doctor(7)):
+
+- `cw doctor`'s node check says `(>= 22.13)` where it said `(>= 18)`, and
+  its fail text and fix say `v22.13` and `22.13+` where they said `v18`
+  and `18+` (the Node floor above).
+- `cw doctor --onramp`, in a CW checkout, names `.mjs` test and script
+  paths (`test/doctor-smoke.mjs`, `scripts/onramp-check.mjs`) where it
+  named `.js` ones.
+
+The module form itself:
 
 - A CommonJS file that does `require()` of a `dist/` file goes on working
-  on Node 22.13 or newer: it gets the module's named exports. The exports
-  are fixed: code that put a new value on a `dist/` export to change what
-  CW does inside no longer has that effect.
+  on Node 22.13 or newer: it gets the module's namespace, with its named
+  exports. The exports are fixed: putting a new value on a `dist/` export
+  throws a `TypeError` in strict code and does nothing in other code, so it
+  no longer changes what CW does inside.
+  `test/node-floor-require-esm-smoke.mjs` loads the real `dist/` this way
+  and fails if it is CommonJS or if such an assignment takes effect.
 - Workflow app files stay CommonJS (`module.exports = ...`, decision D6):
   `apps/` and `workflows/` each have a `package.json` that says
   `"type": "commonjs"`, and the loader reads app files with `require()`.
