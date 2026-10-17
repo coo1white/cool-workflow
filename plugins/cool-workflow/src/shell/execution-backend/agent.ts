@@ -34,7 +34,7 @@ import {
 import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local";
 import { delegatedEnvelope, refusedEnvelope } from "./envelopes";
 import { withPerfTraceGroup } from "../perf-trace";
-import { splitAgentCommandLine, substituteAgentArg } from "../../core/util/cli-args";
+import { agentCommandArgv, splitAgentCommandLine, substituteAgentArg } from "../../core/util/cli-args";
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -150,10 +150,13 @@ export function resolveAgentInvocation(
     const parts = splitAgentCommandLine(envCommand);
     binary = parts[0];
     if (!delegation.args) rawArgs = parts.slice(1);
-  } else if (binary && !delegation.args && /\s/.test(binary)) {
-    const parts = splitAgentCommandLine(binary);
-    binary = parts[0];
-    rawArgs = parts.slice(1);
+  } else if (binary && /\s/.test(binary)) {
+    // A command of more than one word ("claude -p") is never a binary name;
+    // its first word is. The other words go first, then any explicit
+    // delegation args: the same argv the release reviewer builds.
+    const argv = agentCommandArgv(binary, delegation.args);
+    binary = argv.binary;
+    rawArgs = argv.args;
   }
   return { binary, rawArgs, endpoint, model, timeoutMs: request.timeoutMs };
 }
