@@ -342,7 +342,7 @@ const BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", ".."
  *  by index. See SPEC/execution-backend.md "Concurrent batch" for the
  *  byte-boundary rationale (split on the raw newline byte, one line at a
  *  time, never decode the whole combined buffer as one string). */
-export function reconcileBatchOutcomes(jobs, child) {
+export function reconcileBatchOutcomes(jobs, child, limitMs) {
     const buf = Buffer.isBuffer(child.stdout) ? child.stdout : Buffer.from(String(child.stdout || ""), "utf8");
     const byIndex = new Map();
     let lineStart = 0;
@@ -367,10 +367,15 @@ export function reconcileBatchOutcomes(jobs, child) {
             exitCode: typeof parsed.exitCode === "number" ? parsed.exitCode : null,
             ...(typeof parsed.stderr === "string" && parsed.stderr ? { stderr: parsed.stderr } : {}),
             stdout: String(parsed.stdout || ""),
+            ...(typeof parsed.timedOutMs === "number" && parsed.timedOutMs > 0 ? { timedOutMs: parsed.timedOutMs } : {}),
         });
     }
+    // 0.3.3: a whole-batch ETIMEDOUT says it timed out, and after how long.
+    const timedOut = child.error && child.error.code === "ETIMEDOUT" && typeof limitMs === "number";
     const reason = child.error
-        ? messageOf(child.error)
+        ? timedOut
+            ? `timed out after ${limitMs}ms (${messageOf(child.error)})`
+            : messageOf(child.error)
         : typeof child.status === "number" && child.status !== 0
             ? `batch delegate exited with ${child.status}`
             : "batch delegate produced no outcome for this job";
@@ -395,7 +400,7 @@ export function runAgentBatchOutcomes(jobs) {
         catch (error) {
             child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
         }
-        return reconcileBatchOutcomes(jobs, child);
+        return reconcileBatchOutcomes(jobs, child, maxTimeout + 30000);
     });
 }
 // Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
@@ -426,7 +431,7 @@ export function runEndpointBatchOutcomes(jobs) {
     catch (error) {
         child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
     }
-    return reconcileBatchOutcomes(jobs, child);
+    return reconcileBatchOutcomes(jobs, child, maxTimeout + 30000);
 }
 // ---------------------------------------------------------------------------
 // The stateful agent runners (spawn + settle): runAgentProcess,
@@ -554,9 +559,21 @@ export function runAgentProcess(descriptor, policy, request, label, attestation)
         }
         if (outcome.exitCode !== 0 && outcome.stderr)
             persistAgentStderr(subst.result, outcome.stderr);
+        // 0.3.3: a batch job stopped at its limit uses the serial timeout words.
+        if (outcome.timedOutMs) {
+            const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+            return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${outcome.timedOutMs}ms and was killed`, {
+                ...attestation,
+                handle: handleOut,
+            });
+        }
         if (outcome.spawnError) {
             const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
-            return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process failed to spawn: ${outcome.spawnError}`, {
+            // 0.3.3: a whole-batch failure is not a spawn failure; the agent did start.
+            const summary = outcome.spawnError.startsWith("batch delegate failed:")
+                ? `agent delegation failed: ${outcome.spawnError}`
+                : `agent process failed to spawn: ${outcome.spawnError}`;
+            return refusedEnvelope(descriptor, policy, label, "delegation-failed", summary, {
                 ...attestation,
                 handle: handleOut,
             });

@@ -262,6 +262,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [audit-verify-smoke.mjs](../test/audit-verify-smoke.mjs)
 - [backend-registry-smoke.mjs](../test/backend-registry-smoke.mjs)
 - [batch-delegate-error-flush-smoke.mjs](../test/batch-delegate-error-flush-smoke.mjs)
+- [batch-job-timeout-smoke.mjs](../test/batch-job-timeout-smoke.mjs)
 - [batch-output-overflow-smoke.mjs](../test/batch-output-overflow-smoke.mjs)
 - [bench-run-smoke.mjs](../test/bench-run-smoke.mjs)
 - [block-unapproved-tag-smoke.mjs](../test/block-unapproved-tag-smoke.mjs)

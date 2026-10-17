@@ -10,7 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
-import { DEFAULT_SCHEDULING_POLICY, countCompleted, countParked, exitCodeFromEvidence, finalDriveStatus, hasTerminalCommit, makeStep, maxIterations, priorAttempts, reopenableParkedTaskIds, retryOrPark, roundWidth, selectDriveTask, terminalOrConfigStep, incrementalCacheKey, incrementalDelegationDigest, defaultCacheKey, cacheFileName, MAX_SUB_WORKFLOW_DEPTH, } from "../core/pipeline/drive-decide.js";
+import { DEFAULT_SCHEDULING_POLICY, countCompleted, countParked, exitCodeFromEvidence, finalDriveStatus, hasTerminalCommit, hopRetryLine, makeStep, maxIterations, priorAttempts, reopenableParkedTaskIds, retryOrPark, roundWidth, selectDriveTask, terminalOrConfigStep, incrementalCacheKey, incrementalDelegationDigest, defaultCacheKey, cacheFileName, MAX_SUB_WORKFLOW_DEPTH, } from "../core/pipeline/drive-decide.js";
 import { maxLoopExpansion, evaluateLoopStop, cloneLoopRoundTasks, loopControlNodeId, } from "../core/pipeline/loop-expansion.js";
 import { firstRunnablePhase, runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch.js";
 import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir, runStateIsCurrent, RunStateConflictError } from "./run-store.js";
@@ -300,6 +300,8 @@ function handleHop(ctx, task, workerId, reason, deferPersist = false, sharedRun)
     recordWorkerRetryAttempt(run, workerId, decided.attempts, reason);
     if (!deferPersist)
         saveCheckpoint(run, DRIVE_SAVE);
+    // 0.3.3: say why, and which try comes next (progress lines only).
+    emitProgress(hopRetryLine(String(task.label || task.id), task.phase, reason, decided.attempts, ctx.policy));
     return makeStep("fulfill", "failed", { runId: ctx.runId, taskId: task.id, phase: task.phase, backendId: "agent", attempts: decided.attempts, reason });
 }
 function renderSubInputs(spec, parentInputs) {
@@ -993,11 +995,15 @@ function roundPhaseLabel(run) {
     const name = phase ? phase.name || phase.id : "";
     return name ? name.charAt(0).toUpperCase() + name.slice(1) : "";
 }
+/** `again` (new in 0.3.3): print the active phase's line even when that
+ *  phase was already announced — driveOneRound passes it after every
+ *  concurrent round, so each round ends with its own `==> <Phase> (k/n)`
+ *  line, not only the first. */
 function createPhaseProgressEmitter() {
     const announcedPhaseComplete = new Set();
     let activePhaseId;
     const titleCase = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : s);
-    return (run) => {
+    return (run, again = false) => {
         for (const ph of run.phases || []) {
             const phaseTaskIds = new Set(ph.taskIds);
             const phaseTasks = run.tasks.filter((task) => phaseTaskIds.has(task.id));
@@ -1013,7 +1019,7 @@ function createPhaseProgressEmitter() {
                 }
                 continue;
             }
-            if (ph.id !== activePhaseId) {
+            if (ph.id !== activePhaseId || again) {
                 activePhaseId = ph.id;
                 emitProgress(phaseProgressLine(label, done, total, ph.mode, process.stderr));
             }
@@ -1034,7 +1040,7 @@ function driveOneRound(ctx, options, steps, emitPhaseProgress) {
     // re-read+re-parse state.json even though nothing on disk changed
     // between them — reads that only reflect the mutations THIS round's
     // own steps make, which the shared in-memory object already carries.
-    const { roundSteps, roundRun } = withPerfTraceGroup("round", () => withRoundCache(ctx, () => withDriveTicker(roundPhaseLabel(loadRun(ctx)), () => {
+    const { roundSteps, roundRun, concurrent } = withPerfTraceGroup("round", () => withRoundCache(ctx, () => withDriveTicker(roundPhaseLabel(loadRun(ctx)), () => {
         const width = roundWidth(loadRun(ctx), options.concurrency);
         // width>1 (an explicit --concurrency>1, or an auto-width parallel
         // phase) runs the whole round through driveConcurrentRound — one or
@@ -1042,7 +1048,7 @@ function driveOneRound(ctx, options, steps, emitPhaseProgress) {
         // end. `--once` still stops after this ONE round even though a round
         // can yield multiple steps.
         const stepsOfRound = width > 1 ? driveConcurrentRound(ctx, width) : [driveStep(ctx)];
-        return { roundSteps: stepsOfRound, roundRun: loadRun(ctx) };
+        return { roundSteps: stepsOfRound, roundRun: loadRun(ctx), concurrent: width > 1 };
     })));
     for (const stepResult of roundSteps)
         steps.push(stepResult);
@@ -1051,7 +1057,7 @@ function driveOneRound(ctx, options, steps, emitPhaseProgress) {
     // phase and any phase that just finished. Uses the run the round just
     // advanced and saved, not a second read of the file it wrote; goes to
     // stderr so stdout stays clean.
-    emitPhaseProgress(roundRun);
+    emitPhaseProgress(roundRun, concurrent);
     const last = roundSteps[roundSteps.length - 1];
     if (options.once)
         return false;

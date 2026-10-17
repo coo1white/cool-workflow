@@ -152,6 +152,25 @@ agent (`CW_AGENT_ENDPOINT`) POSTs all N delegations at once through the HTTP
 batch delegate child. A cache-hit task still settles on the serial path inside
 the same round. An unconfigured agent still refuses (it is never a fake pass).
 
+**Time limit in a concurrent round (new in 0.3.3).** Each agent of a round has
+its own time limit (`CW_AGENT_TIMEOUT_MS`, 600000 ms = 10 minutes by default).
+At the limit the batch delegate child sends SIGTERM, and SIGKILL 5 s later, to
+the agent's whole process group (POSIX; on Windows to the agent process only),
+so a wrapper script and every process it started are stopped together. The
+agent's outcome then settles at once as a timeout, and the hop is refused with
+`agent process timed out after <ms>ms and was killed`, the same words as a
+serial run. If some process outside the group still keeps the agent's output
+open after the agent itself has ended, the child waits 2 s
+(`CW_BATCH_EXIT_GRACE_MS`), then settles the agent with what it has. Before
+0.3.3 only the agent's top process was stopped: a child of a wrapper script
+kept the output open, the whole round waited for the outer backstop (the
+largest limit + 30 s), and each agent whose output was kept open was refused
+as `agent process failed to spawn: batch delegate failed: ... ETIMEDOUT`.
+Agents of the same round that ended in time kept their results then, and
+still do (each writes its own line the moment it ends). When the whole batch
+child does go past that backstop, the refusal now reads
+`agent delegation failed: batch delegate failed: timed out after <ms>ms (...)`.
+
 ## Overlapping phases (`overlapPrevious`)
 
 Phases run one after another: a phase starts only when every task of the
@@ -435,6 +454,15 @@ never polluted.
   only the time they print is new (`project/docs/intent/2026-10-16-release-gate-ci.md`,
   "Operator decisions for 0.3.2"). Like every `[drive]` line they go to
   stderr only when progress is on, so a piped run's bytes do not change.
+- **Why a step is tried again (new in 0.3.3).** When an agent hop fails and
+  the worker has tries left, one line says why and which try comes next:
+  `[drive] ✗ <label> (<phase>) — timed out after 10m; trying again (2/3)`.
+  A time limit is given short (`10m`, `1m 30s`, `45s`); any other reason is
+  the refusal text after its label, cut to 120 characters. After every
+  concurrent round the active phase line (`[drive] ==> Map ⇉ (0/6)`) prints
+  again, so each round has its own end line; before 0.3.3 it printed only
+  after the first round of a phase. Same rules as every `[drive]` line:
+  stderr only, progress on only.
 - **Verbosity.** Default is compact: the current action + folded tool lines, with
   the model's narration/reasoning HIDDEN. `--verbose` (sets `CW_VERBOSE=1`)
   surfaces the full narration inline. (`--full` was taken out on 2026-09-28: it

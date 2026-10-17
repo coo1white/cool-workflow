@@ -120,6 +120,34 @@ export function retryOrPark(priorAttempts, policy, reason) {
     }
     return { status: "retryable", attempts };
 }
+/** A time limit in ms as short text: `10m`, `1m 30s`, `45s`, `500ms`. */
+export function shortDuration(ms) {
+    if (ms < 1000)
+        return `${ms}ms`;
+    const total = Math.round(ms / 1000);
+    if (total < 60)
+        return `${total}s`;
+    const seconds = total % 60;
+    return seconds ? `${Math.floor(total / 60)}m ${seconds}s` : `${Math.floor(total / 60)}m`;
+}
+/** The short "why" for the `[drive] ✗` retry line: a timeout becomes
+ *  `timed out after 10m`; any other reason keeps the text after its first
+ *  ` — ` (the part past the task label and refusal kind), cut to 120
+ *  characters. New in 0.3.3. */
+export function shortHopReason(reason) {
+    const timeout = /timed out after (\d+)ms/.exec(reason);
+    if (timeout)
+        return `timed out after ${shortDuration(Number(timeout[1]))}`;
+    const dash = reason.indexOf(" — ");
+    const tail = (dash >= 0 ? reason.slice(dash + 3) : reason).trim();
+    return tail.length > 120 ? `${tail.slice(0, 119)}…` : tail;
+}
+/** `handleHop`'s retry progress line, without the `[drive] ` lead:
+ *  `✗ <label> (<phase>) — <why>; trying again (<next>/<max>)`, where
+ *  `attempts` is the count of tries so far. New in 0.3.3. */
+export function hopRetryLine(label, phase, reason, attempts, policy) {
+    return `✗ ${label} (${phase}) — ${shortHopReason(reason)}; trying again (${attempts + 1}/${policy.maxAttempts})`;
+}
 /** `handleHop`'s attempt-accounting rule: prior attempts = max(in-memory
  *  count, the worker scope's persisted retryCount). */
 export function priorAttempts(inMemoryAttempts, persistedRetryCount) {

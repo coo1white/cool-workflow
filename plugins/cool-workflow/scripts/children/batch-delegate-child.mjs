@@ -18,7 +18,9 @@
 // parent cannot infer which line belongs to which job without it). stderr is
 // drained (a full pipe must never wedge a child); a job that exits non-zero
 // also sends the last 8 KB of it back as `stderr` on its line. A kill yields
-// exitCode null — the no-exit-code refusal.
+// exitCode null — the no-exit-code refusal. A job stopped at its time limit
+// also carries `timedOutMs` (new in 0.3.3), and the stop reaches the job's
+// whole process group (see killJob below).
 //
 // THE RED LINE: this child only `spawn`s the operator-resolved agent binary with
 // shell:false. It imports NO model SDK and reads NO credentials.
@@ -32,11 +34,33 @@
 // already uses) and lets each one's own `close` handler settle it normally;
 // a second signal escalates straight to SIGKILL and exits immediately.
 const children = new Set();
-function killAllChildren(signal) {
-  for (const child of children) {
-    try { child.kill(signal); } catch {}
+// New in 0.3.3: on POSIX each job is spawned as the leader of its own process
+// group (detached: true), so a stop reaches the job's WHOLE tree — a wrapper
+// script and the vendor CLI (or any other child) it started — not only its
+// top process. Before, a per-job timeout killed the wrapper, but a child of
+// the wrapper kept the job's stdout pipe open, so the job never settled and
+// the whole batch ran on to the parent's spawnSync timeout (every job then
+// failed as `batch delegate failed: ... ETIMEDOUT`). Windows has no process
+// groups; there the old top-process kill stays.
+const GROUP_KILL = process.platform !== "win32";
+function killJob(child, signal) {
+  if (GROUP_KILL && child.pid) {
+    try { process.kill(-child.pid, signal); return; } catch {}
   }
+  try { child.kill(signal); } catch {}
 }
+function killAllChildren(signal) {
+  for (const child of children) killJob(child, signal);
+}
+// Backstop for a process that left the job's group (e.g. it called setsid)
+// and still holds the job's stdout pipe: once the job's own process has
+// exited, wait this long for its pipes to close, then stop reading them and
+// settle the job anyway. Default 2s; CW_BATCH_EXIT_GRACE_MS overrides it
+// (opt-in, e.g. for tests).
+const EXIT_GRACE_MS = (() => {
+  const raw = Number(process.env.CW_BATCH_EXIT_GRACE_MS);
+  return Number.isFinite(raw) && raw >= 0 ? raw : 2000;
+})();
 // Bounded self-exit deadline after the FIRST stop signal (finding #2). The
 // escalation above forwards SIGTERM, then SIGKILLs every TRACKED child at +5s.
 // But a job's own grandchild is NOT tracked here, and if it inherited the
@@ -59,6 +83,10 @@ function onStopSignal(signal) {
     return;
   }
   stopSignalReceived = true;
+  // A stopped batch exits with the signal's code even when every job then
+  // settles and the loop empties on its own (now that a job's whole group is
+  // stopped, that is the common case, not only the deadline below).
+  process.exitCode = signal === "SIGINT" ? 130 : 143;
   killAllChildren("SIGTERM");
   setTimeout(() => killAllChildren("SIGKILL"), 5000).unref();
   // unref'd on purpose: when the batch stops cleanly (every child settles and
@@ -152,14 +180,21 @@ process.stdin.on("end", () => {
       // we never write to and never close, so a vendor CLI that reads stdin to
       // EOF blocks until its own timeout instead of getting an immediate EOF.
       // Mirrors the serial path (agent.ts runAgentProcess stdio ["ignore",...]).
-      child = spawn(job.binary, job.args, { cwd: job.cwd, env: job.env || process.env, shell: false, stdio: ["ignore", "pipe", "pipe"] });
+      // detached (POSIX only): the job leads its own process group, so the
+      // timeout and stop kills below reach every process the job started.
+      child = spawn(job.binary, job.args, { cwd: job.cwd, env: job.env || process.env, shell: false, stdio: ["ignore", "pipe", "pipe"], detached: GROUP_KILL });
     } catch (error) {
       settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout: "" });
       return;
     }
     children.add(child);
-    const term = setTimeout(() => { try { child.kill("SIGTERM"); } catch {} }, job.timeoutMs);
-    const kill = setTimeout(() => { try { child.kill("SIGKILL"); } catch {} }, job.timeoutMs + 5000);
+    // timedOut marks a job this child stopped at its time limit, so its line
+    // says so (`timedOutMs`, new in 0.3.3, additive) instead of looking like
+    // any other kill.
+    let timedOut = false;
+    const term = setTimeout(() => { timedOut = true; killJob(child, "SIGTERM"); }, job.timeoutMs);
+    const kill = setTimeout(() => killJob(child, "SIGKILL"), job.timeoutMs + 5000);
+    const timeoutField = () => (timedOut ? { timedOutMs: job.timeoutMs } : {});
     child.stdout.on("data", (d) => {
       const chunk = Buffer.isBuffer(d) ? d : Buffer.from(String(d));
       stdoutBytes += chunk.length;
@@ -196,10 +231,11 @@ process.stdin.on("end", () => {
       // bytes still held in the decoder for a not-yet-complete trailing
       // multi-byte character must be flushed or they are silently lost.
       flushDecoder();
-      settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout });
+      settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout, ...timeoutField() });
     });
-    child.on("close", (code) => {
-      clearTimeout(term); clearTimeout(kill);
+    let grace;
+    const finish = (code) => {
+      clearTimeout(term); clearTimeout(kill); clearTimeout(grace);
       children.delete(child);
       if (stdoutTruncated) {
         settle({ spawnError: `stdout exceeded ${CAP} byte cap (${stdoutBytes} bytes)`, exitCode: null, stdout: "" });
@@ -207,7 +243,20 @@ process.stdin.on("end", () => {
       }
       flushDecoder();
       const failedTail = typeof code === "number" && code !== 0 && stderrTail.trim() ? { stderr: stderrTail } : {};
-      settle({ exitCode: typeof code === "number" ? code : null, stdout, ...failedTail });
+      settle({ exitCode: typeof code === "number" ? code : null, stdout, ...failedTail, ...timeoutField() });
+    };
+    // The job's own process is gone. Its pipes normally close at once and
+    // "close" settles it; if a process outside its group still holds them,
+    // settle after EXIT_GRACE_MS anyway, with the exit code we have.
+    child.on("exit", (code) => {
+      grace = setTimeout(() => {
+        if (settled) return;
+        if (timedOut) killJob(child, "SIGKILL");
+        try { child.stdout.destroy(); } catch {}
+        try { child.stderr.destroy(); } catch {}
+        finish(code);
+      }, EXIT_GRACE_MS);
     });
+    child.on("close", (code) => finish(code));
   });
 });
