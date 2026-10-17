@@ -162,7 +162,7 @@ merged, its file joins `intent/<year>-<month>-archive.md`, text kept
 as is, so the .md count does not grow with every program.
 All engineering docs live in one tree, `plugins/cool-workflow/project/docs/`,
 with `README.md` there as its map (stage 3 program plans are in its
-`sdlc/`). `test/docs-layout-smoke.js` holds the map and the file names.
+`sdlc/`). `test/docs-layout-smoke.mjs` holds the map and the file names.
 
 # North Star
 Every cycle must trace to one of these validated-use-case tracks:
@@ -514,14 +514,14 @@ short, and simple to add to. Do not use it for guesses.)
 
 #### Gates & repo mechanics
 
-- **Tests are auto-discovered from `test/*-smoke.js`** by `run-all.js` — a new
+- **Tests are auto-discovered from `test/*-smoke.mjs`** by `run-all.mjs` — a new
   smoke runs the moment it lands, but it bumps the smoke count in
   `plugins/cool-workflow/docs/project-index.md`, so run `npm run sync:project-index`
   or `index:check` fails.
 - **Unit tests sit in folders that mirror `src/`** (a test of
   `src/core/state/run-paths.ts` goes in `test/core/state/`); smokes stay
-  flat at the top of `test/`. `test/test-layout-smoke.js` holds this shape.
-- **CW's own work is held by a count ratchet.** `test/perf-ratchet-smoke.js`
+  flat at the top of `test/`. `test/test-layout-smoke.mjs` holds this shape.
+- **CW's own work is held by a count ratchet.** `test/perf-ratchet-smoke.mjs`
   fails when a count in `scripts/bench/perf-ceilings.json` (modules loaded,
   state reads, whole-state JSON round trips, fsyncs, git processes) goes up,
   and also when it goes down: lock a gain by lowering the ceiling in the same
@@ -530,7 +530,7 @@ short, and simple to add to. Do not use it for guesses.)
   in `src/core/util/`; a copy is a bug.** Today that is `cli-args.ts`, a
   module every command already loads, so sharing adds no module load (a new
   module would raise the ratchet above). Copies whose bodies differ in what
-  they do stay apart. `test/core/util/cli-args-sharedhelpers.test.js` holds
+  they do stay apart. `test/core/util/cli-args-sharedhelpers.test.mjs` holds
   the merged ones to one home.
 - **Two docs trees, different gate scope AND different distribution scope.**
   `plugins/cool-workflow/docs/` is the shipped man-page tree: `sync-project-index.mjs`
@@ -551,7 +551,7 @@ short, and simple to add to. Do not use it for guesses.)
   currently structural (a directory boundary), not just a convention. Do not move it
   without re-litigating this tradeoff.
 - **Every root entry is named, with its reason, in `ROOT_ENTRIES`** in
-  `plugins/cool-workflow/test/root-layout-smoke.js`; a new root file is added
+  `plugins/cool-workflow/test/root-layout-smoke.mjs`; a new root file is added
   there in the same diff. The same smoke holds the `.editorconfig` text style
   (LF, a final newline, no tab indents) outside the byte-exact paths.
 - **Man-page sync is binding.** A shipped behavior change must update the matching

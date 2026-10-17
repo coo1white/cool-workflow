@@ -1,0 +1,547 @@
+#!/usr/bin/env node
+// run-all — the smoke-test runner.
+//
+// Replaces the previous 30-deep `&&` chain in package.json's "test" script.
+// That chain had three defects this runner fixes:
+//   1. First failure aborted the rest, so one broken smoke hid every smoke after
+//      it. Here every smoke runs; failures are collected and reported together.
+//   2. No isolation/reporting — output was an undifferentiated stream. Here each
+//      smoke runs in its own child process with a per-file PASS/FAIL + duration.
+//   3. The list was hand-maintained, so a smoke could exist on disk yet never
+//      run (multi-agent-eval-replay-smoke.mjs was silently dropped this way).
+//      Here the suite is DISCOVERED from test/*-smoke.mjs — fail closed: a new
+//      smoke is included the moment it lands, nothing to forget to wire up.
+//
+// Portable by design: node only, no test framework, no new dependency — same
+// constraint the rest of the repo's tooling holds to (node/npm/git only).
+//
+// Parallel-safe by construction: every smoke runs in its OWN private cwd with
+// its OWN state roots (CW_HOME/XDG_STATE_HOME/HOME/TMPDIR all point at a
+// per-child tmpdir, torn down after). That isolates the two roots CW writes —
+// the repo `.cw/` (resolved from cwd) and the home registry (resolved from
+// CW_HOME) — so concurrent smokes never share `.cw/`, the home registry, or a
+// file lock. This replaces the previous "some smokes race on the shared
+// package .cw/" hazard that forced sequential execution.
+//
+// Default is auto (cores-capped parallel). The tag-gate (release-gate.mjs) forces
+// sequential via CW_TEST_CONCURRENCY=1 to stay deterministic. Override anytime:
+// CW_TEST_CONCURRENCY=4 or --concurrency.
+//
+// v0.1.88 additions (P3-stage1/P3-stage2/P3-stage3):
+//   --filter <regex> | CW_TEST_FILTER       — run only smokes matching pattern
+//   CW_TEST_TIMEOUT_MS (default 120000)      — per-test timeout
+//   --retry <n> | CW_TEST_RETRY              — retry failed tests up to n times
+//   stdout/stderr separated in captured output
+//   --bail | CW_TEST_BAIL=1                  — stop after first failure
+//   // CW_SKIP: <reason>                     — skip convention, detected from file header
+//   --sample <n>                             — random subset (coverage-gate fast estimation)
+//   // @cw-smoke: tags <a,b>                 — metadata from file header (tags, timeout, inline)
+
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import childProcessModule from "node:child_process";
+
+const testDir = import.meta.dirname;
+const packageDir = path.resolve(testDir, "..");
+const SELF = path.basename(import.meta.filename);
+
+// Concurrency precedence: `--concurrency <n|auto>` (portable, Windows-safe) >
+// CW_TEST_CONCURRENCY env > auto default. The release-gate forces sequential
+// via CW_TEST_CONCURRENCY=1.
+//
+// `auto` is cores-aware AND capped: it prefers os.availableParallelism() (which
+// respects CPU affinity, so it is sane in many containers) and falls back to
+// os.cpus(); the Math.min cap bounds oversubscription even when the count is
+// over-reported (a CPU-quota container reports HOST cores), and the suite sees no
+// benefit past ~8 anyway. Floor of 2 so `auto` is always actually parallel.
+function argConcurrency() {
+  const args = process.argv.slice(2);
+  const eq = args.find((a) => a.startsWith("--concurrency="));
+  if (eq) return eq.slice("--concurrency=".length);
+  const i = args.indexOf("--concurrency");
+  return i >= 0 ? args[i + 1] : undefined;
+}
+function argValue(name) {
+  const args = process.argv.slice(2);
+  const eq = args.find((a) => a.startsWith(`${name}=`));
+  if (eq) return eq.slice(name.length + 1);
+  const i = args.indexOf(name);
+  return i >= 0 ? args[i + 1] : undefined;
+}
+function resolveConcurrency() {
+  const raw = argConcurrency() ?? process.env.CW_TEST_CONCURRENCY;
+  if (raw === "auto" || raw === undefined) {
+    const cores = (typeof os.availableParallelism === "function" ? os.availableParallelism() : 0) || os.cpus().length || 4;
+    return Math.min(16, Math.max(2, cores - 1));
+  }
+  return Math.max(1, Number(raw) || 1);
+}
+const concurrency = resolveConcurrency();
+const jsonSummaryPath = argValue("--json-summary");
+
+// --filter <regex> | CW_TEST_FILTER — run only smokes whose filename matches.
+// The pattern is a developer-facing regex BY DESIGN (author == runner, no
+// trust boundary crossed) — an invalid one gets a clear error, not a stack.
+const filterRaw = argValue("--filter") ?? process.env.CW_TEST_FILTER;
+let filterPattern = null;
+if (filterRaw) {
+  try {
+    filterPattern = new RegExp(filterRaw);
+  } catch (error) {
+    process.stderr.write(`run-all: invalid --filter regex: ${error.message}\n`);
+    process.exit(2);
+  }
+}
+
+// --retry <n> | CW_TEST_RETRY — retry a failed smoke up to n more times.
+const retryRaw = argValue("--retry") ?? process.env.CW_TEST_RETRY;
+const maxRetries = Math.max(0, Number(retryRaw) || 0);
+
+// Per-test timeout: CW_TEST_TIMEOUT_MS (default 120s).
+const PER_TEST_TIMEOUT_MS = Math.max(1000, Number(process.env.CW_TEST_TIMEOUT_MS) || 120000);
+
+// --bail | CW_TEST_BAIL=1 — stop after first failure.
+const bail = process.argv.includes("--bail") || process.env.CW_TEST_BAIL === "1";
+
+// --sample <n> — run a random subset of N smokes (used by coverage-gate --sample).
+const sampleRaw = argValue("--sample");
+const sampleCount = sampleRaw ? Math.max(1, Number(sampleRaw) || 0) : undefined;
+
+// --fast | CW_TEST_FAST=1 — skip smokes tagged "slow" (@cw-smoke: tags slow).
+const fastMode = process.argv.includes("--fast") || process.env.CW_TEST_FAST === "1";
+
+// Test metadata: parse @cw-smoke annotations from the first 20 lines.
+// Supported: @cw-smoke: timeout <seconds>, @cw-smoke: filter <tag>
+function parseMetadata(file) {
+  const content = fs.readFileSync(path.join(testDir, file), "utf8");
+  const firstLines = content.split("\n").slice(0, 20).join("\n");
+  const meta = {};
+  for (const match of firstLines.matchAll(/\/\/\s*@cw-smoke:\s*(\S+)(?:\s+(.+))?/g)) {
+    const key = match[1];
+    const value = (match[2] || "").trim();
+    if (key === "timeout" && /^\d+s?$/.test(value)) {
+      meta.timeoutMs = parseInt(value, 10) * 1000;
+    }
+    if (key === "tags") meta.tags = value.split(/,\s*/).filter(Boolean);
+    if (key === "inline") meta.inline = value !== "false" && value !== "0";
+    // Allow tags embedded in another key's value (e.g. "timeout 240 tags slow")
+    const tagsMatch = value.match(/\btags\s+([a-z,]+)/i);
+    if (tagsMatch) {
+      meta.tags = (meta.tags || []).concat(tagsMatch[1].split(/,\s*/).filter(Boolean));
+    }
+  }
+  return meta;
+}
+
+// CW_SKIP convention: if a smoke's first 10 lines contain `// CW_SKIP: <reason>`,
+// it is skipped with the reason recorded. Use for temporarily disabling a smoke.
+function checkSkip(file) {
+  const content = fs.readFileSync(path.join(testDir, file), "utf8");
+  const firstLines = content.split("\n").slice(0, 10).join("\n");
+  const match = firstLines.match(/\/\/\s*CW_SKIP:\s*(.+)/);
+  return match ? match[1].trim() : null;
+}
+
+// Deterministic --sample selection. Kept INLINE (no sibling import) so the
+// runner stays a self-contained, copy-able script — the meta-smokes copy
+// run-all.mjs alone into a temp dir, and CW's tooling is node-only with zero
+// dependency. The subset must be reproducible (replay-determinism), so rank
+// files by a stable FNV-1a hash of the name instead of a per-run random shuffle.
+function sampleHash(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return h >>> 0;
+}
+
+// A static, committed snapshot of each smoke's last-observed elapsedMs (see
+// smoke-durations.json next to this file), used purely as a SCHEDULING hint —
+// never a correctness gate, never required to be fresh. Two real problems this
+// closes, both found by measuring an actual run rather than guessing:
+//   1. The parallel pool used to pull pooledSmokes in plain alphabetical
+//      (filesystem discovery) order. The single slowest smoke (36s) landed
+//      near the END of that order; once the other workers ran dry of shorter
+//      work near the tail, they sat idle waiting on it alone instead of
+//      overlapping its 36s with other work from the start.
+//   2. `--sample N` (the fast-estimation subset `npm test`/coverage-gate use)
+//      ranked candidates by file-name hash alone, with zero signal about
+//      actual runtime cost -- purely by hash luck, a future slow smoke could
+//      land in the "fast" sample and silently make the everyday feedback loop
+//      slow, with nothing to notice or prevent it.
+// Fails open on any read/parse error -- a missing or stale snapshot degrades
+// to the neutral (median) default below, never to a crash; this file is a
+// scheduling hint, not run-state.
+function loadKnownDurations() {
+  try {
+    const raw = fs.readFileSync(path.join(testDir, "smoke-durations.json"), "utf8");
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
+  } catch {
+    // missing/corrupt snapshot -- fall through to an empty map (median default for everything)
+  }
+  return {};
+}
+const knownDurations = loadKnownDurations();
+const knownDurationValues = Object.values(knownDurations)
+  .filter((v) => typeof v === "number" && Number.isFinite(v) && v > 0)
+  .sort((a, b) => a - b);
+const MEDIAN_KNOWN_DURATION_MS = knownDurationValues.length ? knownDurationValues[Math.floor(knownDurationValues.length / 2)] : 1000;
+/** A file with no recorded duration (new, renamed, or a stale/missing
+ *  snapshot) defaults to the median of every OTHER known duration -- not the
+ *  fastest (which would wrongly favor it for --sample) nor the slowest
+ *  (which would always push it to the very front of the parallel pool), a
+ *  neutral middle-of-the-road guess until a real measurement exists for it. */
+function durationOf(file) {
+  const known = knownDurations[file];
+  return typeof known === "number" && Number.isFinite(known) && known > 0 ? known : MEDIAN_KNOWN_DURATION_MS;
+}
+
+/** Pick `count` items from `files` deterministically: rank by KNOWN DURATION
+ *  first (fastest first, so the fast-estimation subset stays fast even as
+ *  slower smokes are added elsewhere in the suite), then by file-name hash as
+ *  a tie-breaker among equal/unknown-duration files (still a pure, reproducible
+ *  function of the file SET -- never a per-run random shuffle). count >= length
+ *  returns all files sorted. */
+function deterministicSample(files, count) {
+  const n = Math.max(0, Math.min(Number(count) || 0, files.length));
+  if (n >= files.length) return [...files].sort();
+  return [...files]
+    .sort((a, b) => durationOf(a) - durationOf(b) || sampleHash(a) - sampleHash(b) || (a < b ? -1 : a > b ? 1 : 0))
+    .slice(0, n)
+    .sort();
+}
+
+let smokes = fs
+  .readdirSync(testDir)
+  .filter((file) => file.endsWith("-smoke.mjs"))
+  .sort();
+
+if (smokes.length === 0) {
+  process.stderr.write(`${SELF}: no test/*-smoke.mjs files found — refusing to pass vacuously.\n`);
+  process.exit(1);
+}
+
+// Apply filter before split so skipped smokes don't consume a serial-only slot.
+if (filterPattern) {
+  const before = smokes.length;
+  smokes = smokes.filter((file) => filterPattern.test(file));
+  if (smokes.length === 0) {
+    process.stderr.write(`${SELF}: filter "${filterRaw}" matched no smoke files (had ${before} total).\n`);
+    process.exit(1);
+  }
+}
+
+// --sample <n>: pick a deterministic subset (e.g. for fast coverage estimation).
+// Applied after filter but before skip, so skipped smokes are excluded from the
+// sample. The subset is reproducible for the same set of files — see the inline
+// deterministicSample() above (a stable file-name hash, not a per-run random
+// shuffle, which would vary every run and break the runner's replay-determinism).
+if (sampleCount && sampleCount < smokes.length) {
+  smokes = deterministicSample(smokes, sampleCount);
+}
+
+// CW_SKIP convention: detect skipped smokes before splitting into pool/serial.
+const skippedReasons = new Map();
+const fastSkipped = [];
+const eligibleSmokes = [];
+for (const file of smokes) {
+  const reason = checkSkip(file);
+  if (reason) {
+    skippedReasons.set(file, reason);
+    continue;
+  }
+  if (fastMode && (parseMetadata(file).tags || []).includes("slow")) {
+    fastSkipped.push(file);
+    continue;
+  }
+  eligibleSmokes.push(file);
+}
+
+// Contention-sensitive smokes can be kept out of the parallel pool. Configurable
+// via CW_TEST_SERIAL_ONLY=file1.js,file2.js (env), or the hardcoded set.
+// The list is currently empty because the former timing smokes now prove
+// concurrency from child start/end intervals rather than whole-smoke wall-clock
+// thresholds.
+const serialEnv = (process.env.CW_TEST_SERIAL_ONLY || "").trim();
+const SERIAL_ONLY = new Set(serialEnv ? serialEnv.split(",").map((s) => s.trim()).filter(Boolean) : []);
+// Longest-known-duration first: a worker pool drains a shared queue in order,
+// so whichever file sits at the tail only starts once every worker ahead of
+// it is free -- a slow file stranded near the end (alphabetical discovery
+// order has no relationship to runtime cost) runs alone on an otherwise-idle
+// pool instead of overlapping with the rest of the suite's work from the
+// start. Ties (equal or both-unknown/median duration) keep their stable
+// relative order (Array.prototype.sort is a stable sort), so this never
+// disturbs anything for files with no measured difference.
+const pooledSmokes = eligibleSmokes.filter((file) => !SERIAL_ONLY.has(file)).sort((a, b) => durationOf(b) - durationOf(a));
+const serialSmokes = eligibleSmokes.filter((file) => SERIAL_ONLY.has(file));
+
+// Ambient agent/backend/release configuration must NEVER leak from the parent
+// env into a smoke child. CW_NO_AUTO_AGENT (set in makeSandbox) only blocks
+// PATH auto-detection; an explicit CW_AGENT_COMMAND/CW_AGENT_ENDPOINT set in
+// the parent still resolves (flags > env > file, see
+// src/shell/agent-config.ts), so a fail-closed / no-agent / blocked smoke
+// would false-FAIL. That is exactly how `release-flow.mjs --cut` rejected at
+// the gate when the reviewer was set via the CW_AGENT_COMMAND *env var*: it
+// leaked into the gate's `npm test` child, yet `npm run release:check` — run
+// without it — passed. The SAME event hit CW_RELEASE_VERDICT_PRIVKEY (#598):
+// an operator's real signing key leaked into release-oneclick-smoke.mjs's
+// child and let a "must fail" case pass for the wrong reason. Strip the
+// whole ambient set HERE so the sandbox is the one guard for every smoke,
+// not each smoke's own hand-rolled top. Keep in sync with the env layer of
+// src/shell/agent-config.ts (agentConfigFromEnv), CW_BACKEND
+// (execution-backend selection), and release-flow.mjs's signing key.
+const AGENT_ENV_KEYS = [
+  "CW_AGENT_COMMAND",
+  "CW_AGENT_ENDPOINT",
+  "CW_AGENT_MODEL",
+  "CW_AGENT_TIMEOUT_MS",
+  "CW_AGENT_ATTEST_PUBKEY",
+  "CW_AGENT_ATTEST_PRIVKEY",
+  "CW_REQUIRE_ATTESTED_TELEMETRY",
+  "CW_BACKEND",
+  "CW_RELEASE_VERDICT_PRIVKEY",
+];
+
+// Build a private, fully-isolated sandbox for one smoke child: a unique cwd plus
+// state-root env so the smoke's repo `.cw/` (cwd-derived) and home registry
+// (CW_HOME-derived, default ~/.local/state — shared otherwise) land in throwaway
+// dirs. No smoke reads anything relative to cwd (imports resolve against the\n// test file, spawns use absolute import.meta.dirname paths), so the private cwd is safe.
+function makeSandbox() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-"));
+  const cwd = path.join(root, "cwd");
+  const home = path.join(root, "home");
+  const tmp = path.join(root, "tmp");
+  for (const dir of [cwd, home, tmp]) fs.mkdirSync(dir, { recursive: true });
+  const env = { ...process.env, CW_HOME: home, XDG_STATE_HOME: home, HOME: home, TMPDIR: tmp, CW_NO_AUTO_AGENT: "1", CW_REQUIRE_RESOLVABLE_EVIDENCE: "0" };
+  for (const key of AGENT_ENV_KEYS) delete env[key];
+  return { root, cwd, env };
+}
+
+function runSmoke(file) {
+  return new Promise((resolve) => {
+    const startedAt = process.hrtime.bigint();
+    const sandbox = makeSandbox();
+    // A smoke's own `@cw-smoke: timeout <seconds>` header raises its limit
+    // above the default; it never lowers it.
+    const timeoutMs = Math.max(PER_TEST_TIMEOUT_MS, parseMetadata(file).timeoutMs || 0);
+    const child = spawn(process.execPath, [path.join(testDir, file)], {
+      cwd: sandbox.cwd,
+      env: sandbox.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => (stdout += chunk));
+    child.stderr.on("data", (chunk) => (stderr += chunk));
+
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+      // If still alive after 3s, SIGKILL.
+      setTimeout(() => {
+        try { child.kill("SIGKILL"); } catch { /* already dead */ }
+      }, 3000).unref();
+    }, timeoutMs);
+
+    const finish = (result) => {
+      clearTimeout(timer);
+      try {
+        fs.rmSync(sandbox.root, { recursive: true, force: true });
+      } catch {
+        // best-effort teardown; a leaked tmpdir must never fail a smoke
+      }
+      resolve(result);
+    };
+    child.on("close", (code) => {
+      const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
+      const output = [stdout, stderr].filter(Boolean).join("");
+      finish({ file, ok: code === 0 && !timedOut, code, elapsedMs, output, stdout, stderr, timedOut, timeoutMs });
+    });
+    child.on("error", (error) => {
+      const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
+      const output = [stdout, stderr, error.message].filter(Boolean).join("\n");
+      finish({ file, ok: false, code: null, elapsedMs, output, stdout, stderr, timedOut: false });
+    });
+  });
+}
+
+// Run one smoke with optional retries. Returns the final result. Each retry gets
+// a fresh sandbox. If all attempts fail, the LAST failure's output is preserved
+// for the failure report; the retry count is recorded in the result.
+async function runSmokeWithRetry(file) {
+  let lastResult = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const result = await runSmoke(file);
+    lastResult = result;
+    lastResult.retries = attempt;
+    if (result.ok) break;
+    // Don't retry timeout or crash failures (only assertion/semantic failures).
+    if (result.timedOut) break;
+  }
+  return lastResult;
+}
+
+async function main() {
+  const wallStartedAt = process.hrtime.bigint();
+
+  const filterNote = filterPattern ? ` (filter: ${filterRaw})` : "";
+  const retryNote = maxRetries > 0 ? ` (max-retries: ${maxRetries})` : "";
+  const skipNote = skippedReasons.size > 0 ? ` (${skippedReasons.size} skipped)` : "";
+  const sampleNote = sampleCount && sampleCount < eligibleSmokes.length + skippedReasons.size ? ` (--sample ${sampleCount})` : "";
+  const bailNote = bail ? " (--bail)" : "";
+  const fastNote = fastMode ? ` (${fastSkipped.length} fast-skipped)` : "";
+  process.stdout.write(
+    `Running ${eligibleSmokes.length} smoke(s) — concurrency ${concurrency}` +
+      filterNote +
+      retryNote +
+      skipNote +
+      sampleNote +
+      fastNote +
+      bailNote +
+      (concurrency === 1
+        ? " (sequential; set CW_TEST_CONCURRENCY to parallelize)"
+        : serialSmokes.length
+          ? ` (${pooledSmokes.length} pooled + ${serialSmokes.length} serial-only)`
+          : "") +
+      "\n\n",
+  );
+
+  const results = [];
+  let bailed = false;
+
+  // Phase 1 — the parallel pool: every state-isolated smoke, up to `concurrency`.
+  let next = 0;
+  async function worker() {
+    while (next < pooledSmokes.length && !bailed) {
+      const file = pooledSmokes[next++];
+      const result = await runSmokeWithRetry(file);
+      results.push(result);
+      const tag = result.ok ? "PASS" : "FAIL";
+      const timedOutNote = result.timedOut ? " [TIMEOUT]" : "";
+      const retryNote = result.retries > 0 ? ` [retry ${result.retries}/${maxRetries}]` : "";
+      process.stdout.write(`  ${tag}  ${file}  (${result.elapsedMs}ms)${timedOutNote}${retryNote}\n`);
+      if (!result.ok && bail) bailed = true;
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, pooledSmokes.length) }, worker));
+
+  // Phase 2 — contention-sensitive timing benchmarks, run ALONE on the now-quiet
+  // cpu so their wall-clock assertions measure CW, not co-tenant pool load.
+  for (const file of serialSmokes) {
+    if (bailed) break;
+    const result = await runSmokeWithRetry(file);
+    results.push(result);
+    const tag = result.ok ? "PASS" : "FAIL";
+    const timedOutNote = result.timedOut ? " [TIMEOUT]" : "";
+    const retryNote = result.retries > 0 ? ` [retry ${result.retries}/${maxRetries}]` : "";
+    process.stdout.write(`  ${tag}  ${file}  (${result.elapsedMs}ms) [serial-only]${timedOutNote}${retryNote}\n`);
+    if (!result.ok && bail) bailed = true;
+  }
+
+  results.sort((a, b) => a.file.localeCompare(b.file));
+  const failures = results.filter((r) => !r.ok);
+
+  // Print skipped smokes first (they did not run).
+  if (skippedReasons.size > 0) {
+    process.stdout.write(`\n${"=".repeat(70)}\nSkipped (CW_SKIP):\n`);
+    for (const [file, reason] of skippedReasons) {
+      process.stdout.write(`  SKIP  ${file}  — ${reason}\n`);
+    }
+  }
+  if (fastSkipped.length > 0) {
+    process.stdout.write(`\nFast-skipped (tags slow; remove @cw-smoke: tags slow or unset CW_TEST_FAST to include):\n`);
+    for (const file of fastSkipped) {
+      process.stdout.write(`  ${file}\n`);
+    }
+  }
+
+  if (failures.length > 0) {
+    const bailNote = bailed ? " [BAIL]" : "";
+    process.stdout.write(`\n${"=".repeat(70)}\nFailures:${bailNote}\n`);
+    for (const failure of failures) {
+      const why = failure.timedOut ? ` (TIMEOUT after ${failure.timeoutMs || PER_TEST_TIMEOUT_MS}ms)` : "";
+      const retryInfo = failure.retries > 0 ? ` [after ${failure.retries} retries]` : "";
+      process.stdout.write(`\n--- ${failure.file} (exit ${failure.code})${why}${retryInfo} ---\n`);
+      if (failure.stderr && failure.stderr.trim()) {
+        process.stdout.write(`[stderr]\n${failure.stderr.trimEnd()}\n`);
+      }
+      if (failure.stdout && failure.stdout.trim()) {
+        process.stdout.write(`[stdout]\n${failure.stdout.trimEnd()}\n`);
+      }
+      // CI diagnostics: show who changed the failing smoke last and when.
+      if (process.env.CI) {
+        try {
+          const gitLog = childProcessModule.spawnSync("git", [
+            "log", "-1", "--oneline", "--", path.join(testDir, failure.file)
+          ], { cwd: packageDir, encoding: "utf8" });
+          if (gitLog.stdout && gitLog.stdout.trim()) {
+            process.stdout.write(`[git log] ${gitLog.stdout.trim()}\n`);
+          }
+        } catch {
+          // git not available — silent, not a failure.
+        }
+      }
+    }
+  }
+
+  const totalMs = results.reduce((sum, r) => sum + r.elapsedMs, 0);
+  const wallElapsedMs = Number((process.hrtime.bigint() - wallStartedAt) / 1000000n);
+  const bailSuffix = bailed ? " (bailed)" : "";
+  const skipSuffix = (skippedReasons.size > 0 || fastSkipped.length > 0) ? ` (${skippedReasons.size + fastSkipped.length} skipped)` : "";
+  process.stdout.write(
+    `\n${"=".repeat(70)}\n` +
+      `${results.length - failures.length}/${results.length} passed` +
+      `, ${failures.length} failed${bailSuffix}${skipSuffix} — ${totalMs}ms total\n`,
+  );
+
+  if (jsonSummaryPath) {
+    writeJsonSummary(jsonSummaryPath, {
+      schemaVersion: 1,
+      concurrency,
+      wallElapsedMs,
+      sumChildElapsedMs: totalMs,
+      maxRetries,
+      perTestTimeoutMs: PER_TEST_TIMEOUT_MS,
+      filter: filterRaw || undefined,
+      bail: bail || undefined,
+      skipped: skippedReasons.size > 0 ? [...skippedReasons.entries()].map(([file, reason]) => ({ file, reason })) : undefined,
+      results: results.map((result) => ({
+        file: result.file,
+        ok: result.ok,
+        code: result.code,
+        elapsedMs: result.elapsedMs,
+        ...(result.retries > 0 ? { retries: result.retries } : {}),
+        ...(result.timedOut ? { timedOut: result.timedOut } : {})
+      })),
+      slowest: [...results]
+        .sort((a, b) => b.elapsedMs - a.elapsedMs)
+        .slice(0, 10)
+        .map((result) => ({
+          file: result.file,
+          ok: result.ok,
+          code: result.code,
+          elapsedMs: result.elapsedMs,
+          ...(result.retries > 0 ? { retries: result.retries } : {}),
+          ...(result.timedOut ? { timedOut: result.timedOut } : {})
+        }))
+    });
+  }
+
+  process.exit(failures.length === 0 ? 0 : 1);
+}
+
+function writeJsonSummary(file, summary) {
+  const absolute = path.resolve(file);
+  fs.mkdirSync(path.dirname(absolute), { recursive: true });
+  fs.writeFileSync(absolute, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
+}
+
+main().catch((error) => {
+  process.stderr.write(`${SELF}: runner crashed: ${error.stack || error.message}\n`);
+  process.exit(1);
+});

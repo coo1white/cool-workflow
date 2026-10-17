@@ -16,7 +16,7 @@
 // then treats a failure as a warning, never a stop.
 //
 // This is a LIVE check: it spends real tokens on each named vendor. It is
-// meant for a machine with those keys/logins, NOT the offline CI test suite. The offline smoke (test/vendor-preflight-smoke.js) exercises
+// meant for a machine with those keys/logins, NOT the offline CI test suite. The offline smoke (test/vendor-preflight-smoke.mjs) exercises
 // this script's LOGIC with PATH shims, no keys.
 //
 // Zero runtime dependency: node + git only. stdout is data (the matrix), stderr

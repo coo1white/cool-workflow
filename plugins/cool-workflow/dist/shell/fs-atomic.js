@@ -453,7 +453,7 @@ export function withFileLock(targetPath, fn) {
         // processes could each `open(wx)` + write + read back and each see
         // ONLY ITS OWN content, meaning the OS was not actually serializing
         // the two creates against each other (see
-        // test/fs-atomic-lock-steal-race-smoke.js for the reproduction). A
+        // test/fs-atomic-lock-steal-race-smoke.mjs for the reproduction). A
         // readback-verification pass added on top of `open(wx)` still could
         // not close this, because the underlying create itself was the
         // unreliable step, not just the later unlink. `link(2)`'s exclusivity

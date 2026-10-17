@@ -83,8 +83,8 @@ existing worker, commit, operator report, and audit tools.
 `npm test` and `npm run release:check` run:
 
 ```bash
-node test/dogfood-release-smoke.js
-node test/dogfood-architecture-review-smoke.js
+node test/dogfood-release-smoke.mjs
+node test/dogfood-architecture-review-smoke.mjs
 ```
 
 The smoke test runs `scripts/dogfood-release.mjs --smoke --json`. It still
@@ -143,7 +143,7 @@ It is cut into two halves, just like the release dogfood above:
   report. `node scripts/dogfood-architecture-review.mjs --smoke --json` gives back
   `{ ok: true, mode: "smoke" }` with a `reportPath` and `auditSummaryPath` that
   are there, the Verdict node accepted, and `audit.byKind["worker.agent-delegation"]
-  >= 1`. This is checked under `npm test` (`test/dogfood-release-smoke.js`).
+  >= 1`. This is checked under `npm test` (`test/dogfood-release-smoke.mjs`).
 
 - **Live full-drive (MAINTAINER-RUN, OUT OF CI).** With a REAL set-up agent
   (`CW_AGENT_COMMAND`, e.g. `claude -p {{input}}` / `codex exec`, or

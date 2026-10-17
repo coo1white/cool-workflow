@@ -170,7 +170,7 @@ CI holds is a set of exact counts that do not move:
 cold commands, MCP `initialize`, and a 16-worker stub drive) under
 `scripts/bench/perf-count-hook.mjs`. It counts CW modules loaded,
 `state.json` reads, whole-state JSON round trips, fsyncs, renames and
-git processes. `test/perf-ratchet-smoke.js` fails when a count goes
+git processes. `test/perf-ratchet-smoke.mjs` fails when a count goes
 above its ceiling in `scripts/bench/perf-ceilings.json`, and also when
 it goes below: a gain is locked by lowering the ceiling in the same
 diff (`node scripts/bench/perf-counts.mjs --update`, which never raises

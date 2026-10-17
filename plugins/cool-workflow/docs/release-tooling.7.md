@@ -37,7 +37,7 @@ node scripts/new-feature.mjs <slug> "<Title>" ["summary"]
 ```
 
 Builds the per-tag boilerplate frame: the `docs/<slug>.7.md` skeleton and a
-runnable `test/<slug>-smoke.js` stub, then PRINTS the exact
+runnable `test/<slug>-smoke.mjs` stub, then PRINTS the exact
 gate-file edits (capability registry, `version:sync` assertions, the `docs presence`
 list, the `npm test` chain). Gate files are printed, never changed on their own, so a
 new frame can never quietly break a release gate.
@@ -69,7 +69,7 @@ only the relative image/link URLs npm cannot render (`docs/assets/*` to
 `raw.githubusercontent.com`, `](LICENSE)`/`](plugins/...)` to `.../blob/main/...`),
 so the npm page and the GitHub page stay identical. Edit the GitHub `README.md`,
 then run `npm run sync:readme`; `readme:check` fails the gate if they drift. The
-teeth live in `test/readme-sync-smoke.js`.
+teeth live in `test/readme-sync-smoke.mjs`.
 
 For timing work, the smoke runner can write a JSON timing report without changing
 the normal output:
@@ -125,7 +125,7 @@ conscious choice: slim something else first (delete a stale `.md`, cut a
 narrating comment) — always a valid way to pay for growth — or raise the
 ceiling in `manifest/growth-budget.json` with the freshly measured number
 written into the commit message, not only the new cap. Teeth live in
-`test/growth-budget-check-smoke.js`.
+`test/growth-budget-check-smoke.mjs`.
 
 ## PR CI Merge Notes
 
@@ -139,7 +139,7 @@ out of the PR.
 
 Treat CI as the source of truth for what blocks the merge. Read the failed step
 first, fix only that drift, then push again. A common drift is the npm README:
-when `readme-sync-smoke.js` says the package README is stale, run
+when `readme-sync-smoke.mjs` says the package README is stale, run
 `npm run sync:readme`, add only `plugins/cool-workflow/README.md`, and let CI run
 again.
 
@@ -266,7 +266,7 @@ made by GitHub Actions for that sha, `completed`, with conclusion
 `success`. The required checks are the ones `main`'s branch protection
 requires, `check (22)` and `check (24)` (the ubuntu legs of `ci.yml`'s
 `check` job). They are named in one place, `REQUIRED_CHECKS` in
-`scripts/release-ci-checks.mjs`, and `test/ci-shape-gate-smoke.js` fails when
+`scripts/release-ci-checks.mjs`, and `test/ci-shape-gate-smoke.mjs` fails when
 a name there is not a leg of that job. The other four steps still run
 locally; they take seconds.
 
@@ -423,7 +423,7 @@ binary (spawned `shell:false`) so the smoke runs it offline.
 The `release-rehearsal` job in `.github/workflows/ci.yml` goes through the
 release flow on every PR that changes release tooling (`scripts/release-*.js`,
 `scripts/verify-*.js`, `scripts/dogfood-release.mjs`, `scripts/bump-version.mjs`,
-`test/run-all.js`, `package.json`, `.cw-release/`, `release.yml`,
+`test/run-all.mjs`, `package.json`, `.cw-release/`, `release.yml`,
 `npm-publish.yml`, `ci.yml`, `agents/release-reviewer.md`, or its stub
 reviewer), on a PR or on a push to `main`, so a break comes to light in CI, not
 on the operator's machine in a real cut. It runs on Node 24 two times: with
@@ -434,7 +434,7 @@ steps, with cwd `plugins/cool-workflow`:
 ```bash
 npm run build
 npm run version:sync
-CW_AGENT_COMMAND="node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.js {{input}}" \
+CW_AGENT_COMMAND="node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.mjs {{input}}" \
   node scripts/release-flow.mjs --check --local-tests
 node scripts/dogfood-release.mjs --smoke
 ```

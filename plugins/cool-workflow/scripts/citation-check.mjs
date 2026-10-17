@@ -7,20 +7,20 @@
 // some file's basename under src/, scripts/, test/, or apps/; a full
 // `dir/name.ext` path must exist at the plugin or repo root. (b)
 // src/**/*.ts, scripts/**/*.{js,mjs} — every line, every repo-path-shaped token
-// must exist; a `:line` suffix fails on its own (R1). (c) test/**/*.js —
+// must exist; a `:line` suffix fails on its own (R1). (c) test/**/*.mjs —
 // same as (b), but only on `//` lines; fixture strings are data.
 // A repo-path token is the longest [A-Za-z0-9_./-] run ending in
 // .ts/.js/.mjs/.json/.md whose first segment is src, scripts, test, apps,
 // docs, project, v2, plugins, or .github — so `project/docs/<slug>.md`
 // resolves but a bare `docs/<slug>.md` inside it does not. Kept as before:
 // placeholders (`<>`, `*`), project/docs/**, and release-history.md.
-// (e) src/**/*.ts, scripts/**/*.{js,mjs}, test/**/*.js — no line's comment or
+// (e) src/**/*.ts, scripts/**/*.{js,mjs}, test/**/*.mjs — no line's comment or
 // string text may carry one of the nine stale cut-over-audit marker
 // phrases (see STALE_MARKER_PARTS below), case-insensitive and
 // whole-phrase (so an everyday phrase sharing just its first word never
 // false-matches).
 //
-// Test overrides (real files untouched, see test/citation-check-smoke.js):
+// Test overrides (real files untouched, see test/citation-check-smoke.mjs):
 //   CW_CITATION_DOCS  doc files to scan, comma-set, in place of the real set
 //   CW_CITATION_ROOT  one root for both token resolution and the fake
 //                     src/scripts/test/apps tree, in place of plugin+repo
@@ -150,7 +150,7 @@ function main() {
   const tree = ["src", "scripts", "test", "apps"].map((d) => walk(path.join(scanRoot, d)));
   const basenames = new Set([].concat(...tree).map((f) => path.basename(f)));
   const srcFiles = tree[0].filter((f) => f.endsWith(".ts")).concat(tree[1].filter((f) => /\.m?js$/.test(f)));
-  const testFiles = tree[2].filter((f) => f.endsWith(".js"));
+  const testFiles = tree[2].filter((f) => f.endsWith(".mjs"));
 
   let cited = 0;
   const dead = [];

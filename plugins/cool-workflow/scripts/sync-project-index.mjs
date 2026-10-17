@@ -66,7 +66,7 @@ function main() {
   const apps = listApps();
   const docs = listMarkdown(path.join(pluginRoot, "docs"));
   const sourceFiles = listFilesRecursive(path.join(pluginRoot, "src"), ".ts");
-  const smokeTests = listFiles(path.join(pluginRoot, "test"), ".js").filter((file) => file.endsWith("-smoke.js"));
+  const smokeTests = listFiles(path.join(pluginRoot, "test"), ".mjs").filter((file) => file.endsWith("-smoke.mjs"));
   const context = { apps, docs, sourceFiles, smokeTests };
 
   // Fail closed if the hand-maintained moduleCatalog references a src module that

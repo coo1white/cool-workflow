@@ -8,7 +8,7 @@
 // was ever exercised) and no gate noticed. This script makes that class of
 // regression visible and blocking.
 //
-// MECHANISM (this file): spawn test/run-all.js with NODE_V8_COVERAGE set —
+// MECHANISM (this file): spawn test/run-all.mjs with NODE_V8_COVERAGE set —
 // Node's built-in inspector coverage, inherited by every child process the
 // smokes spawn (CLI invocations, MCP server, workers), so the numbers reflect
 // the real end-to-end surface. Merge the per-process reports byte-wise
@@ -63,7 +63,7 @@ const covDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-coverage-"));
 
 function runSuite() {
   return new Promise((resolve) => {
-    const args = [path.join(packageDir, "test", "run-all.js")];
+    const args = [path.join(packageDir, "test", "run-all.mjs")];
     const concurrency = flagValue("--concurrency");
     if (concurrency) args.push("--concurrency", concurrency);
     const sample = flagValue("--sample");

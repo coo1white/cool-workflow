@@ -9,7 +9,7 @@ the `apps/` format still resolves.
 This is deliberate duplication, not drift to clean up: each file here
 registers its OWN distinct id (`legacy-architecture-review`,
 `legacy-research-synthesis`), pinned by
-`plugins/cool-workflow/test/workflow-app-framework-smoke.js`. `cw list` /
+`plugins/cool-workflow/test/workflow-app-framework-smoke.mjs`. `cw list` /
 `cw app list` show both the real app and its legacy id side by side
 (`src/shell/workflow-app-loader.ts` discovers both roots).
 

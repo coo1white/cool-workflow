@@ -22,7 +22,7 @@
 //
 // The exported `MustBeOneWay<...>` aliases below are the welds: adding a
 // callable field anywhere inside a boundary type breaks `npm run build`. The
-// negative-fixture smoke (one-way-boundary-smoke.js) proves the failure mode
+// negative-fixture smoke (one-way-boundary-smoke.mjs) proves the failure mode
 // stays real (a violating fixture must NOT compile) and that these welds stay
 // present in source.
 

@@ -25,13 +25,13 @@ node run.mjs --bin <new build cli.js>                        # new build — the
 node run.mjs --bin ... --filter ledger                       # one area
 ```
 
-## Why `run.mjs` looks like `test/run-all.js`
+## Why `run.mjs` looks like `test/run-all.mjs`
 
 `run.mjs`'s discover-and-run shape is copied from the plugin's own
-`test/*-smoke.js` runner, `plugins/cool-workflow/test/run-all.js`, on
+`test/*-smoke.mjs` runner, `plugins/cool-workflow/test/run-all.mjs`, on
 purpose (see that file's own header note). This is by design, not an
 accident to clean up: this suite is the net that judges every change to
 the runtime, so it must never share code with the thing it judges. A bug
 in a shared runner could weaken the net at the exact time it needs to
 hold. Keep the copy; do not replace it with an `import`/`require` of
-`test/run-all.js`.
+`test/run-all.mjs`.

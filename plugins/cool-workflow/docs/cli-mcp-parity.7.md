@@ -426,7 +426,7 @@ dispatcher lookup used by `dispatch(args)`, reads MCP `tools/list` from a live
 server, and runs CLI-process to MCP payload probes. There is no grep over built
 dispatch source.
 
-`test/cli-mcp-parity-smoke.js` proves the contract from end to end. It checks
+`test/cli-mcp-parity-smoke.mjs` proves the contract from end to end. It checks
 registry ⇄ CLI ⇄ MCP coverage (every declared capability is found on its declared
 surfaces and nothing live is undeclared), makes sure `--json` output is equal to
 the MCP payload for every `payloadIdentical` capability, makes sure of the

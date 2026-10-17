@@ -39,7 +39,7 @@ git diff --check
 Use smoke tests directly for narrow verification:
 
 ```bash
-node test/<name>-smoke.js
+node test/<name>-smoke.mjs
 ```
 
 ## Output Rules

@@ -319,7 +319,7 @@ apps/architecture-review/app.json
 apps/pr-review-fix-ci/app.json
 apps/release-cut/app.json
 apps/research-synthesis/app.json
-test/workflow-app-framework-smoke.js
-test/canonical-workflow-apps-smoke.js
+test/workflow-app-framework-smoke.mjs
+test/canonical-workflow-apps-smoke.mjs
 ```
 0.1.51

@@ -10,7 +10,7 @@
 //   node run.mjs --bin ../../plugins/cool-workflow/dist/cli.js
 //   node run.mjs --bin ../src-build/cli.js --filter ledger
 //
-// Design copied from the old test/run-all.js on purpose: discover, do
+// Design copied from the old test/run-all.mjs on purpose: discover, do
 // not hand-list; run each case in its own child with its own private
 // work dir; collect all failures; report together. Zero dependencies.
 
