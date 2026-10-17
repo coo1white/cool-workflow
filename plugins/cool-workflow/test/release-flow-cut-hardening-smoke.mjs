@@ -39,6 +39,8 @@ const REAL_PREFLIGHT = path.resolve(import.meta.dirname, "..", "scripts", "relea
 assert.ok(fs.existsSync(REAL_PREFLIGHT), "release-preflight.mjs must exist");
 const REAL_CI_CHECKS = path.resolve(import.meta.dirname, "..", "scripts", "release-ci-checks.mjs");
 assert.ok(fs.existsSync(REAL_CI_CHECKS), "release-ci-checks.mjs must exist");
+const REAL_NOTES = path.resolve(import.meta.dirname, "..", "scripts", "release-notes.mjs");
+assert.ok(fs.existsSync(REAL_NOTES), "release-notes.mjs must exist");
 // The real agent-command parser, which release-flow loads from dist next to
 // agent-config.
 const REAL_CLI_ARGS = path.resolve(import.meta.dirname, "..", "dist", "core", "util", "cli-args.js");
@@ -75,6 +77,7 @@ function fixture() {
   fs.copyFileSync(REAL_TAGS, path.join(dir, "scripts", "release-tags.mjs"));
   fs.copyFileSync(REAL_PREFLIGHT, path.join(dir, "scripts", "release-preflight.mjs"));
   fs.copyFileSync(REAL_CI_CHECKS, path.join(dir, "scripts", "release-ci-checks.mjs"));
+  fs.copyFileSync(REAL_NOTES, path.join(dir, "scripts", "release-notes.mjs"));
   fs.writeFileSync(path.join(dir, "README.md"), "x\n");
   run("git", ["add", "-A"], dir);
   run("git", ["commit", "-q", "-m", "init"], dir);
