@@ -55,7 +55,7 @@ function tool(name, args) {
       capabilities: {},
       clientInfo: { name: "mcp-app-surface-smoke", version: "1.0.0" }
     });
-    assert.equal(init.serverInfo.version, "0.3.2");
+    assert.equal(init.serverInfo.version, "0.3.3");
 
     const listed = await rpc("tools/list", {});
     const toolNames = new Set(listed.tools.map((entry) => entry.name));
@@ -97,7 +97,7 @@ function tool(name, args) {
       sandbox: "readonly"
     });
     assert.equal(appRun.appId, "end-to-end-golden-path");
-    assert.equal(appRun.appVersion, "0.3.2");
+    assert.equal(appRun.appVersion, "0.3.3");
     assert.equal(appRun.pendingTasks, 1);
     assert.ok(fs.existsSync(appRun.statePath));
 
