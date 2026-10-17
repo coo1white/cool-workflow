@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 "use strict";
 
-// release-doctor-smoke — pins `npm run release:doctor` (scripts/release-doctor.js)
-// and the shared checks in scripts/release-preflight.js, which
-// `npm run release -- X.Y.Z` (scripts/release-oneclick.js) now runs FIRST.
+// release-doctor-smoke — pins `npm run release:doctor` (scripts/release-doctor.mjs)
+// and the shared checks in scripts/release-preflight.mjs, which
+// `npm run release -- X.Y.Z` (scripts/release-oneclick.mjs) now runs FIRST.
 //
 // Why: a real cut on an operator machine failed LATE, one problem at a time,
 // after a 10-minute gate — a leftover release/vX.Y.Z-cut branch at an old
@@ -25,11 +25,11 @@ const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const DOCTOR = path.join(pluginRoot, "scripts", "release-doctor.js");
-const PREFLIGHT = path.join(pluginRoot, "scripts", "release-preflight.js");
-const ONECLICK = path.join(pluginRoot, "scripts", "release-oneclick.js");
-assert.ok(fs.existsSync(DOCTOR), "release-doctor.js must exist");
-assert.ok(fs.existsSync(PREFLIGHT), "release-preflight.js must exist");
+const DOCTOR = path.join(pluginRoot, "scripts", "release-doctor.mjs");
+const PREFLIGHT = path.join(pluginRoot, "scripts", "release-preflight.mjs");
+const ONECLICK = path.join(pluginRoot, "scripts", "release-oneclick.mjs");
+assert.ok(fs.existsSync(DOCTOR), "release-doctor.mjs must exist");
+assert.ok(fs.existsSync(PREFLIGHT), "release-preflight.mjs must exist");
 
 const VERSION = "1.2.3";
 const KEY_TEXT = "DUMMY-KEY-BYTES-THE-DOCTOR-MUST-NEVER-READ";
@@ -77,18 +77,18 @@ function world() {
   fs.writeFileSync(path.join(seed, ".cw-release", "verdict-signing.pub"), publicKey.export({ type: "spki", format: "pem" }));
   fs.writeFileSync(path.join(seed, ".gitignore"), ".cw/\n");
   fs.writeFileSync(path.join(seed, "README.md"), "x\n");
-  // Enough of the package layout for release-oneclick.js to run from a copy
+  // Enough of the package layout for release-oneclick.mjs to run from a copy
   // (its repoRoot is two levels above its plugin root) and for the doctor to
   // read the default version.
   const pkgDir = path.join(seed, "plugins", "cool-workflow");
   fs.mkdirSync(path.join(pkgDir, "scripts"), { recursive: true });
   fs.mkdirSync(path.join(pkgDir, "dist", "shell"), { recursive: true });
   fs.writeFileSync(path.join(pkgDir, "package.json"), JSON.stringify({ name: "fixture", version: VERSION }, null, 2) + "\n");
-  fs.copyFileSync(ONECLICK, path.join(pkgDir, "scripts", "release-oneclick.js"));
-  fs.copyFileSync(PREFLIGHT, path.join(pkgDir, "scripts", "release-preflight.js"));
-  // release-oneclick.js also requires the required-CI-checks reader (its cut
+  fs.copyFileSync(ONECLICK, path.join(pkgDir, "scripts", "release-oneclick.mjs"));
+  fs.copyFileSync(PREFLIGHT, path.join(pkgDir, "scripts", "release-preflight.mjs"));
+  // release-oneclick.mjs also requires the required-CI-checks reader (its cut
   // stage waits on those checks).
-  fs.copyFileSync(path.join(pluginRoot, "scripts", "release-ci-checks.js"), path.join(pkgDir, "scripts", "release-ci-checks.js"));
+  fs.copyFileSync(path.join(pluginRoot, "scripts", "release-ci-checks.mjs"), path.join(pkgDir, "scripts", "release-ci-checks.mjs"));
   fs.writeFileSync(path.join(pkgDir, "dist", "shell", "agent-config.js"),
     "\"use strict\";\n" +
     "function resolveAgentConfig(flags, env) {\n" +
@@ -330,15 +330,15 @@ function noSecret(w, r) {
 }
 
 // ---- Case: `npm run release` runs the same checks FIRST ---------------------
-// A copy of release-oneclick.js sits in the fixture (its repoRoot is derived
+// A copy of release-oneclick.mjs sits in the fixture (its repoRoot is derived
 // from its own path). With a dirty tree and a missing reviewer it must stop in
-// stage 0 and name BOTH problems — before release-flow.js (absent from the
+// stage 0 and name BOTH problems — before release-flow.mjs (absent from the
 // fixture) or any bump/cut stage is reached.
 {
   const w = world();
   fs.writeFileSync(path.join(w.work, "README.md"), "edited\n");
   const env = { ...w.env, CW_AGENT_COMMAND: "/nonexistent/grok-review -p {{input}}" };
-  const r = spawnSync(process.execPath, [path.join(w.work, "plugins", "cool-workflow", "scripts", "release-oneclick.js"), VERSION], {
+  const r = spawnSync(process.execPath, [path.join(w.work, "plugins", "cool-workflow", "scripts", "release-oneclick.mjs"), VERSION], {
     cwd: w.work,
     encoding: "utf8",
     env,

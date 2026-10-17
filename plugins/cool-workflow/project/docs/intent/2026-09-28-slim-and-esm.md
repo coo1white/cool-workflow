@@ -450,6 +450,35 @@ Found in step 5:
   does. `docs/release-and-migration.7.md` ("Module Form") says this and
   that app files stay CommonJS.
 
+Found in step 6:
+
+- `scripts/` had 66 `.js` files, not 63. 50 became `.mjs`. 16 keep their
+  `.js` name and are ES modules under the package's `"type": "module"`:
+  14 are paths a user may run or keep in a config — `scripts/cw.js` (the
+  bin), `scripts/mcp-server.js`, `scripts/architecture-review-fast.js` and
+  `scripts/source-context.js` (man-page commands whose `--help` names
+  them), nine files in `scripts/agents/` (the seven vendor wrappers,
+  whose path `builtin:<name>` expands to and `cw doctor` and a saved
+  `agent-config.json` carry, and the two attest tools), and
+  `scripts/children/http-delegate-child.js` (its name is in
+  `cw backend probe remote` output). The other two, `bench/bench-k6.js`
+  and `bench/workbench-k6-deep.js`, are k6 scripts, not Node files. So
+  the `bin` paths, the Homebrew formula (it only names `bump-version.mjs`
+  in a comment) and the conformance case that runs
+  `scripts/agents/codex-agent.js` did not change.
+- Three lazy `require()`s of sibling scripts, and seven `require()`s of
+  `dist/` by a built path (in four files), became plain imports.
+  `createRequire` is in two files, `release-flow.mjs` and
+  `release-preflight.mjs`, for their lazy `dist/` loads, which must stay
+  sync and must say "run `npm run build` first" when `dist/` is missing.
+  `validate-run-state-schema.mjs` loads `dist/` with `import()`. The
+  deepseek and opencode-routed gemini wrappers set their env, then
+  `await import("./opencode-agent.js")`: a static import would run first.
+- The perf hook is preloaded with `--import` now; every count is the same.
+- `onramp.ts` names `scripts/onramp-check.mjs` and
+  `scripts/parity-check.mjs` in its patterns, so `cw doctor --onramp`
+  in a CW checkout names the new paths.
+
 Found in step 8:
 
 - "All 115 conformance files load `dist/` with `require`" was wrong. No
@@ -488,7 +517,7 @@ Found in step 8:
 | 3 Comment and helper sweep (compress-src) | comment part done; helper part done on its branch, PR to come | #799 |
 | 4 Node floor (D4) | done on its branch, PR to come; the operator changes branch protection at merge | |
 | 5 ESM src + dist | done on its branch, PR to come | |
-| 6 Scripts to .mjs | | |
+| 6 Scripts to .mjs | done on its branch, PR to come | |
 | 7 Tests to .mjs | | |
 | 8 Conformance to .mjs | done on its branch, PR to come | |
 | 9 Closing ledger and receipt | | |

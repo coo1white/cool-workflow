@@ -2,8 +2,8 @@
 // cli-args-agentcommand — pins the one agent-command parser in
 // core/util/cli-args.ts. It took the place of four copies of the same
 // white-space split: shell/agent-config.ts (splitCommand), shell/execution-backend/agent.ts
-// (resolveAgentInvocation), scripts/release-flow.js and
-// scripts/release-preflight.js (plus doctor.ts's first-token read). Each old
+// (resolveAgentInvocation), scripts/release-flow.mjs and
+// scripts/release-preflight.mjs (plus doctor.ts's first-token read). Each old
 // copy is kept below as written and checked against the shared parser, so
 // the argv bytes stay the same for every input.
 
@@ -68,7 +68,7 @@ assert.deepEqual(splitAgentCommand("claude", undefined), { command: "claude", ar
 assert.deepEqual(splitAgentCommand("claude -p", ["x"]), { command: "claude -p", args: ["x"] }, "explicit args win; the command stays whole");
 assert.deepEqual(splitAgentCommand(undefined, ["x"]), { command: undefined, args: ["x"] });
 
-// agentCommandArgv: release-flow.js / release-preflight.js spawn argv.
+// agentCommandArgv: release-flow.mjs / release-preflight.mjs spawn argv.
 for (const line of lines) {
   for (const args of argSets) {
     assert.deepEqual(agentCommandArgv(line, args), oldReleaseArgv(line, args), JSON.stringify([line, args]));
@@ -80,7 +80,7 @@ assert.deepEqual(agentCommandArgv("node /abs/w.js {{input}} {{result}}", undefin
 });
 assert.deepEqual(agentCommandArgv("claude -p", ["x"]), { binary: "claude", args: ["-p", "x"] }, "inline tokens first, then explicit args");
 
-// substituteAgentArg: one fill for agent.ts and release-flow.js.
+// substituteAgentArg: one fill for agent.ts and release-flow.mjs.
 const map = { input: "in.md", result: "out.json", model: "", prompt: "$& $1 text" };
 for (const arg of ["{{input}}", "--out={{result}}", "{{model}}", "{{unknown}}", "{{input}}{{result}}", "{{ input }}", "{{prompt}}", "plain"]) {
   assert.equal(substituteAgentArg(arg, map), oldSubstitute(arg, map), arg);

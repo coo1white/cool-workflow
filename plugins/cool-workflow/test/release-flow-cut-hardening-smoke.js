@@ -2,7 +2,7 @@
 "use strict";
 
 // release-flow-cut-hardening-smoke — pins two hardening fixes in
-// scripts/release-flow.js:
+// scripts/release-flow.mjs:
 //
 //   Finding #13 (P2): reviewerPromptBody() returned "" when
 //     agents/release-reviewer.md was missing, so the flow shipped the reviewer
@@ -14,7 +14,7 @@
 //     was swallowed and only surfaced later as a confusing "verdict commit
 //     failed". Each add must check its own exit code and die on failure.
 //
-// Both are exercised against a COPY of release-flow.js dropped into a throwaway
+// Both are exercised against a COPY of release-flow.mjs dropped into a throwaway
 // git fixture, so the real repo (which always ships agents/release-reviewer.md)
 // is never touched and no real cut mutates anything. The copied script resolves
 // its own pluginRoot from __dirname, so a fixture with no agents/ spec, or a
@@ -33,12 +33,14 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const REAL_FLOW = path.resolve(__dirname, "..", "scripts", "release-flow.js");
-assert.ok(fs.existsSync(REAL_FLOW), "release-flow.js must exist");
-const REAL_TAGS = path.resolve(__dirname, "..", "scripts", "release-tags.js");
-assert.ok(fs.existsSync(REAL_TAGS), "release-tags.js must exist");
-const REAL_PREFLIGHT = path.resolve(__dirname, "..", "scripts", "release-preflight.js");
-assert.ok(fs.existsSync(REAL_PREFLIGHT), "release-preflight.js must exist");
+const REAL_FLOW = path.resolve(__dirname, "..", "scripts", "release-flow.mjs");
+assert.ok(fs.existsSync(REAL_FLOW), "release-flow.mjs must exist");
+const REAL_TAGS = path.resolve(__dirname, "..", "scripts", "release-tags.mjs");
+assert.ok(fs.existsSync(REAL_TAGS), "release-tags.mjs must exist");
+const REAL_PREFLIGHT = path.resolve(__dirname, "..", "scripts", "release-preflight.mjs");
+assert.ok(fs.existsSync(REAL_PREFLIGHT), "release-preflight.mjs must exist");
+const REAL_CI_CHECKS = path.resolve(__dirname, "..", "scripts", "release-ci-checks.mjs");
+assert.ok(fs.existsSync(REAL_CI_CHECKS), "release-ci-checks.mjs must exist");
 // The real agent-command parser, which release-flow loads from dist next to
 // agent-config.
 const REAL_CLI_ARGS = path.resolve(__dirname, "..", "dist", "core", "util", "cli-args.js");
@@ -62,7 +64,7 @@ function resolveRealGit() {
   return p;
 }
 
-// A git fixture whose scripts/release-flow.js is a COPY of the real one, so its
+// A git fixture whose scripts/release-flow.mjs is a COPY of the real one, so its
 // pluginRoot resolves to the fixture (not the real checkout).
 function fixture() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-cut-hard-${caseId++}-`));
@@ -71,16 +73,17 @@ function fixture() {
   run("git", ["config", "user.name", "t"], dir);
   run("git", ["config", "commit.gpgsign", "false"], dir);
   fs.mkdirSync(path.join(dir, "scripts"), { recursive: true });
-  fs.copyFileSync(REAL_FLOW, path.join(dir, "scripts", "release-flow.js"));
-  fs.copyFileSync(REAL_TAGS, path.join(dir, "scripts", "release-tags.js"));
-  fs.copyFileSync(REAL_PREFLIGHT, path.join(dir, "scripts", "release-preflight.js"));
+  fs.copyFileSync(REAL_FLOW, path.join(dir, "scripts", "release-flow.mjs"));
+  fs.copyFileSync(REAL_TAGS, path.join(dir, "scripts", "release-tags.mjs"));
+  fs.copyFileSync(REAL_PREFLIGHT, path.join(dir, "scripts", "release-preflight.mjs"));
+  fs.copyFileSync(REAL_CI_CHECKS, path.join(dir, "scripts", "release-ci-checks.mjs"));
   fs.writeFileSync(path.join(dir, "README.md"), "x\n");
   run("git", ["add", "-A"], dir);
   run("git", ["commit", "-q", "-m", "init"], dir);
   return dir;
 }
 function flowPath(dir) {
-  return path.join(dir, "scripts", "release-flow.js");
+  return path.join(dir, "scripts", "release-flow.mjs");
 }
 function baseEnv(dir, extra = {}) {
   const home = path.join(dir, ".cw-home");

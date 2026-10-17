@@ -13,7 +13,7 @@ source of truth, and the mechanical surfaces are DERIVED from it, fail-closed.
 ## bump:version
 
 ```text
-node scripts/bump-version.js <new-version>
+node scripts/bump-version.mjs <new-version>
 npm run bump:version -- 0.1.33
 ```
 
@@ -27,13 +27,13 @@ TARGETED `old -> new` replace, so older references (a past `minVersion`, a
 `pre-vX` note, a fixed demo version) are kept. It then builds `dist/` again, runs
 `version:sync`, and reports the prose-doc surfaces that are left.
 
-`version-sync-check.js` reads the looked-for version from `package.json`, so the
+`version-sync-check.mjs` reads the looked-for version from `package.json`, so the
 checker can never get out of step with the bump source.
 
 ## new:feature
 
 ```text
-node scripts/new-feature.js <slug> "<Title>" ["summary"]
+node scripts/new-feature.mjs <slug> "<Title>" ["summary"]
 ```
 
 Builds the per-tag boilerplate frame: the `docs/<slug>.7.md` skeleton and a
@@ -45,7 +45,7 @@ new frame can never quietly break a release gate.
 ## forward-ref
 
 ```text
-node scripts/forward-ref-docs.js "<Title>" "<summary>"
+node scripts/forward-ref-docs.mjs "<Title>" "<summary>"
 ```
 
 Adds a `## <Title> (vX)` forward-reference section at the end of every doc `version:sync`
@@ -64,7 +64,7 @@ canonical-apps, golden-path, parity, vendor-manifest drift, and `version:sync`.
 
 The drift gates `index:check` (`docs/project-index.md`) and `readme:check`
 (`plugins/cool-workflow/README.md`) also run here. The npm package README is
-GENERATED from the repo-root `README.md` by `scripts/sync-readme.js` — it changes
+GENERATED from the repo-root `README.md` by `scripts/sync-readme.mjs` — it changes
 only the relative image/link URLs npm cannot render (`docs/assets/*` to
 `raw.githubusercontent.com`, `](LICENSE)`/`](plugins/...)` to `.../blob/main/...`),
 so the npm page and the GitHub page stay identical. Edit the GitHub `README.md`,
@@ -202,7 +202,7 @@ Release-readiness checks now check the committed blob (`git show HEAD:<path>`) a
 
 Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.46), vendor-adapter registry (v0.1.47), state auto-compaction and P2 fixes (v0.1.48), plus CI content-surface determinism hardening (v0.1.49).
 
-## Multi-platform release flow (`scripts/release-flow.js`)
+## Multi-platform release flow (`scripts/release-flow.mjs`)
 
 The gated release ritual — deterministic gate → independent reviewer → verdict →
 (tag) — is now ONE zero-dependency Node orchestrator that runs the same under any
@@ -220,21 +220,21 @@ places. Other rejection text is invalid reviewer output: the cut stops, no tag
 is made, and it is not a verified code rejection.
 
 ```bash
-# the operator's one-command release (scripts/release-oneclick.js — preflight,
+# the operator's one-command release (scripts/release-oneclick.mjs — preflight,
 # gated cut, tag-only push, CI wait, npm confirmation, verdict-record PR):
 npm run release -- 0.2.4
 # fast preflight first (seconds, no tests; release runs the same checks first):
 npm run release:doctor -- 0.2.4
 # check only (gate + independent review, no mutation):
-node plugins/cool-workflow/scripts/release-flow.js --check
+node plugins/cool-workflow/scripts/release-flow.mjs --check
 # the same, with the full test suite run on this machine (CI cannot be reached):
-node plugins/cool-workflow/scripts/release-flow.js --check --local-tests
+node plugins/cool-workflow/scripts/release-flow.mjs --check --local-tests
 # cut a tag once review is green (when --push, also creates the GitHub Release):
-node plugins/cool-workflow/scripts/release-flow.js --cut --version 0.1.77 [--push] [--no-release]
-# run ONLY the cut's fail-fast preflight (seconds; used by release-oneclick.js):
-node plugins/cool-workflow/scripts/release-flow.js --cut --version 0.1.77 --push --preflight-only
+node plugins/cool-workflow/scripts/release-flow.mjs --cut --version 0.1.77 [--push] [--no-release]
+# run ONLY the cut's fail-fast preflight (seconds; used by release-oneclick.mjs):
+node plugins/cool-workflow/scripts/release-flow.mjs --cut --version 0.1.77 --push --preflight-only
 # backfill / re-create the GitHub Release for an already-pushed tag (no gate/cut):
-node plugins/cool-workflow/scripts/release-flow.js --release --version 0.1.77 [--soft]
+node plugins/cool-workflow/scripts/release-flow.mjs --release --version 0.1.77 [--soft]
 ```
 
 A `--cut` starts with a fail-fast **preflight** (added after the v0.2.3 cut,
@@ -255,9 +255,9 @@ stray remote branch is created.
 (New default from 0.3.1; the operator's yes is in
 `project/docs/intent/2026-10-16-release-gate-ci.md`.)
 
-The gate (`scripts/release-gate.js`) has five steps: build, tests,
-substance, test evidence, branch naming. By default `release-flow.js` (and
-so `npm run release`) runs the gate as `release-gate.js --tests-from-ci`:
+The gate (`scripts/release-gate.mjs`) has five steps: build, tests,
+substance, test evidence, branch naming. By default `release-flow.mjs` (and
+so `npm run release`) runs the gate as `release-gate.mjs --tests-from-ci`:
 the tests step does NOT run `npm run test:gate` on the operator's machine.
 It reads GitHub's check runs for the exact HEAD sha
 (`gh api repos/<owner>/<repo>/commits/<sha>/check-runs`, owner and repo from
@@ -266,7 +266,7 @@ made by GitHub Actions for that sha, `completed`, with conclusion
 `success`. The required checks are the ones `main`'s branch protection
 requires, `check (22)` and `check (24)` (the ubuntu legs of `ci.yml`'s
 `check` job). They are named in one place, `REQUIRED_CHECKS` in
-`scripts/release-ci-checks.js`, and `test/ci-shape-gate-smoke.js` fails when
+`scripts/release-ci-checks.mjs`, and `test/ci-shape-gate-smoke.js` fails when
 a name there is not a leg of that job. The other four steps still run
 locally; they take seconds.
 
@@ -277,7 +277,7 @@ green; a `gh` that is not installed, not logged in, or gives an error; an
 fails the gate with the reason and its fix (wait for CI, push the commit,
 fix the red check in a normal PR), and nothing falls back to a local run.
 On a pass the gate writes `.cw-release/gate-ci-<sha>.json` (not tracked)
-with the checks and their run URLs. `release-flow.js` takes it back, fails
+with the checks and their run URLs. `release-flow.mjs` takes it back, fails
 closed when it is missing or does not show every required check green on
 HEAD, and puts the mode and the run URLs into the reviewer input. Its last
 JSON object gets a `gateTests` key: `ci`, `local`, or `override` (the gate
@@ -291,13 +291,13 @@ there, before the gate.
 The old way is an opt-in, for when CI cannot be reached:
 
 ```bash
-node scripts/release-flow.js --cut --version X.Y.Z --push --local-tests
+node scripts/release-flow.mjs --cut --version X.Y.Z --push --local-tests
 npm run release -- X.Y.Z --local-tests
 CW_RELEASE_LOCAL_TESTS=1 npm run release -- X.Y.Z
 ```
 
 With it, the gate runs the full `test:gate` suite here, as before 0.3.1,
-and GitHub is not asked. `release-gate.js` run by hand, with no flag, is
+and GitHub is not asked. `release-gate.mjs` run by hand, with no flag, is
 also unchanged: the tag-push gate in `release.yml` runs the full suite in
 CI. Test seam: `CW_RELEASE_GATE_GH_CMD` puts a stub in place of the `gh`
 binary the gate runs (spawned `shell:false`).
@@ -306,7 +306,7 @@ binary the gate runs (spawned `shell:false`).
 
 ```text
 npm run release:doctor [-- X.Y.Z] [--json] [--offline]
-node scripts/release-doctor.js [X.Y.Z] [--json] [--offline]
+node scripts/release-doctor.mjs [X.Y.Z] [--json] [--offline]
 ```
 
 A fast release preflight: a few seconds, no test suite, no gate, no
@@ -321,7 +321,7 @@ version is by default the one in `plugins/cool-workflow/package.json`.
 | `cut-branch` | a local `release/vX.Y.Z-cut` branch is not at `origin/main` (old code from an earlier cut) | `git branch -D release/vX.Y.Z-cut` (never deleted for you) |
 | `clean-tree` | `git status --porcelain -uno` is not empty | commit or stash |
 | `cw-dir` | (warning) a `.cw/` folder is at the repo root | `rm -rf <repo>/.cw` |
-| `reviewer` | the reviewer config `release-flow.js` reads (`CW_AGENT_COMMAND` > `agent-config.json` > auto-detect; else `CW_AGENT_ENDPOINT`) is not set, or its first argv token is not an executable file (a full path, or on `PATH`); the reviewer is never run | `export CW_AGENT_COMMAND=...` |
+| `reviewer` | the reviewer config `release-flow.mjs` reads (`CW_AGENT_COMMAND` > `agent-config.json` > auto-detect; else `CW_AGENT_ENDPOINT`) is not set, or its first argv token is not an executable file (a full path, or on `PATH`); the reviewer is never run | `export CW_AGENT_COMMAND=...` |
 | `signing-key` | `.cw-release/verdict-signing.pub` is committed and `CW_RELEASE_VERDICT_PRIVKEY` is not set, or is not a readable regular file (the key is never read or printed) | `export CW_RELEASE_VERDICT_PRIVKEY=~/.cw-keys/verdict-signing.key` |
 | `git-identity` | `user.email` is not set; a warning when it is not a `@users.noreply.github.com` address (GitHub may say no to the push with GH007) | `git config user.email "<id>+<login>@users.noreply.github.com"` |
 | `gh` | (warning) `gh auth status` fails — the GitHub Release then falls back to CI's auto-generated notes | `gh auth login` |
@@ -335,8 +335,8 @@ check fails (warnings are allowed) and 1 when one does. `--offline` does not
 do the fetch, the `ls-remote` and the `gh` check.
 
 `npm run release -- X.Y.Z` runs the same checks FIRST, in its stage 0 (the
-code is one file, `scripts/release-preflight.js`, used by the doctor, by
-`release-oneclick.js`, and by `release-flow.js --cut`'s own preflight), and
+code is one file, `scripts/release-preflight.mjs`, used by the doctor, by
+`release-oneclick.mjs`, and by `release-flow.mjs --cut`'s own preflight), and
 stops before anything is done when one fails, with only the problem lines on
 stderr. Two differences there: a `vX.Y.Z` tag that is already there is never
 seen by stage 0 (the resume goes straight to stage 3), and an old
@@ -422,7 +422,7 @@ binary (spawned `shell:false`) so the smoke runs it offline.
 
 The `release-rehearsal` job in `.github/workflows/ci.yml` goes through the
 release flow on every PR that changes release tooling (`scripts/release-*.js`,
-`scripts/verify-*.js`, `scripts/dogfood-release.js`, `scripts/bump-version.js`,
+`scripts/verify-*.js`, `scripts/dogfood-release.mjs`, `scripts/bump-version.mjs`,
 `test/run-all.js`, `package.json`, `.cw-release/`, `release.yml`,
 `npm-publish.yml`, `ci.yml`, `agents/release-reviewer.md`, or its stub
 reviewer), on a PR or on a push to `main`, so a break comes to light in CI, not
@@ -435,8 +435,8 @@ steps, with cwd `plugins/cool-workflow`:
 npm run build
 npm run version:sync
 CW_AGENT_COMMAND="node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.js {{input}}" \
-  node scripts/release-flow.js --check --local-tests
-node scripts/dogfood-release.js --smoke
+  node scripts/release-flow.mjs --check --local-tests
+node scripts/dogfood-release.mjs --smoke
 ```
 
 `--check --local-tests` runs the full deterministic gate (build, `test:gate`, substance,
@@ -462,9 +462,9 @@ GitHub secrets.
 ### Where CI takes the verdict verifier from
 
 Both `release.yml` (gate job) and `npm-publish.yml` check the tag's signed
-verdict with `scripts/verify-release-verdict.js` and its helpers
-(`verify-verdict-signature.js`, `verify-bump-reproduction.js`,
-`fake-date-for-reproduction.js`). CI never runs the tag's own copy of these
+verdict with `scripts/verify-release-verdict.mjs` and its helpers
+(`verify-verdict-signature.mjs`, `verify-bump-reproduction.mjs`,
+`fake-date-for-reproduction.mjs`). CI never runs the tag's own copy of these
 files: the checked-out tree IS the tag under judgment, and a tag whose
 verifier is `process.exit(0)` would pass any check that runs it. So a step
 named "Take the release verifier from origin/main, not from the tag" first
@@ -482,10 +482,10 @@ default branch's copy of the workflow, so its check is one a tag cannot
 edit. This holds only while `main` stays protected (no force push, changes
 by PR only).
 
-`release-oneclick.js` resume: when the `vX.Y.Z` tag is only local (the cut's
+`release-oneclick.mjs` resume: when the `vX.Y.Z` tag is only local (the cut's
 tag push failed), the resume pushes it only after it checks that the tag
 commit carries `.cw-release/review-<tag~1>.verdict` whose first line is
-`APPROVED <tag~1>`, with a `.sig` that `verify-verdict-signature.js`
+`APPROVED <tag~1>`, with a `.sig` that `verify-verdict-signature.mjs`
 accepts against `origin/main`'s `.cw-release/verdict-signing.pub`. Anything
 less is refused and nothing is pushed.
 
@@ -522,7 +522,7 @@ npm test parallel, 4-vendor wrappers (Claude/Codex/Gemini/OpenCode), Homebrew-st
 
 ## 0.1.88 (v0.1.88)
 
-The release flow now captures the reviewer's verdict from agent stdout (`release-flow.js`), so the cut records the gate decision deterministically instead of relying on a hand-entered verdict; the kernel runtime stays untouched.
+The release flow now captures the reviewer's verdict from agent stdout (`release-flow.mjs`), so the cut records the gate decision deterministically instead of relying on a hand-entered verdict; the kernel runtime stays untouched.
 
 ## 0.1.89 (v0.1.89)
 

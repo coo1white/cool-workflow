@@ -1,5 +1,5 @@
 "use strict";
-// bench-run-smoke — first regression net for scripts/bench/run.js (the bench
+// bench-run-smoke — first regression net for scripts/bench/run.mjs (the bench
 // runner had NO tests as a shell script; the Node port gets one).
 //
 // The full bench path is NOT run here: it drives real plan+drive rounds against
@@ -14,12 +14,12 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const script = path.join(pluginRoot, "scripts", "bench", "run.js");
+const script = path.join(pluginRoot, "scripts", "bench", "run.mjs");
 
 // 1. The script parses (guards against a broken commit of an operator tool
 //    that nothing else in the suite loads).
 let res = cp.spawnSync(process.execPath, ["--check", script], { encoding: "utf8" });
-assert.equal(res.status, 0, `run.js must parse\nSTDERR:\n${res.stderr}`);
+assert.equal(res.status, 0, `run.mjs must parse\nSTDERR:\n${res.stderr}`);
 
 // 2. Unknown agent fails fast: exit 1, named on stderr, nothing on stdout
 //    (stdout is reserved for the final CSV line).

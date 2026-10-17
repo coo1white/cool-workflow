@@ -41,7 +41,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const batchChildScript = path.join(pluginRoot, "scripts", "children", "batch-delegate-child.js");
+const batchChildScript = path.join(pluginRoot, "scripts", "children", "batch-delegate-child.mjs");
 
 // The first 2 of 3 bytes of U+4E2D "中" (0xE4 0xB8 0xAD) — an incomplete
 // trailing sequence a StringDecoder must buffer, not decode outright.

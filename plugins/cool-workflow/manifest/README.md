@@ -14,7 +14,7 @@ manifests are policy.
 ## Edit here, generate the rest
 
 - **Source of truth:** `plugin.manifest.json` (this directory). Edit only this.
-- **Generator:** `../scripts/gen-manifests.js`.
+- **Generator:** `../scripts/gen-manifests.mjs`.
 
 ```bash
 npm run gen:manifests          # regenerate every vendor manifest

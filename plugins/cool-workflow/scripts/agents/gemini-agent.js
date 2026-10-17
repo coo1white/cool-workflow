@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // gemini-agent.js - Gemini CLI adapter for CW Agent Delegation Drive.
 //
@@ -14,8 +13,8 @@
 // stdout: one JSON object { model, usage, result } for CW provenance.
 // stderr: optional live trace when CW_AGENT_STREAM=1 and attached to a TTY.
 
-const path = require("node:path");
-const {
+import path from "node:path";
+import {
   buildFailureDetail,
   buildPrompt,
   createRenderer,
@@ -26,7 +25,7 @@ const {
   recordVendorPid,
   spawnVendor,
   writeResult
-} = require("./agent-adapter-core");
+} from "./agent-adapter-core.mjs";
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];

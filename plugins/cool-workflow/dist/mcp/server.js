@@ -18,7 +18,7 @@
 //     below) get a second content[1] advisory block naming the untrusted
 //     field path(s) — content[0].text itself is always exactly this, byte-
 //     identical to the CLI's --json output, which is all the CLI/MCP parity
-//     gate (scripts/parity-check.js) ever compares;
+//     gate (scripts/parity-check.mjs) ever compares;
 //   - any other method: error -32601 if the request has an `id` key,
 //     otherwise NO reply at all (mcp.md:22,427-428);
 //   - a request with `"id": null` DOES get an error answer for an unknown
@@ -144,7 +144,7 @@ export function negotiateProtocolVersion(requested) {
 // field path(s), within the listed tool's result object, that hold such
 // stored text — content[0].text (the actual payload, byte-identical to what
 // the CLI's --json prints, and the ONLY thing the CLI/MCP parity gate in
-// scripts/parity-check.js compares) is never touched; the advisory rides
+// scripts/parity-check.mjs compares) is never touched; the advisory rides
 // along as a second content block instead.
 //
 // This list is deliberately exhaustive over every MCP tool reachable from

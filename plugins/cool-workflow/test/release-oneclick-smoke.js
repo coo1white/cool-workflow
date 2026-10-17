@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 "use strict";
 
-// release-oneclick-smoke — exercises scripts/release-oneclick.js, the
+// release-oneclick-smoke — exercises scripts/release-oneclick.mjs, the
 // operator's one-command release orchestrator (npm run release -- X.Y.Z).
 //
 // Scope: the FAIL-FAST layer and the red lines. The orchestrator's stages 1-3
-// are thin sequencing over gh/git/release-flow.js that only a real release
+// are thin sequencing over gh/git/release-flow.mjs that only a real release
 // exercises end to end (the same reason every release-flow --cut smoke case
 // is --dry-run: a non-dry-run run would mutate the real checkout). What this
 // smoke pins:
@@ -23,8 +23,8 @@ const { spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
-const ONECLICK = path.join(pluginRoot, "scripts", "release-oneclick.js");
-assert.ok(fs.existsSync(ONECLICK), "release-oneclick.js must exist");
+const ONECLICK = path.join(pluginRoot, "scripts", "release-oneclick.mjs");
+assert.ok(fs.existsSync(ONECLICK), "release-oneclick.mjs must exist");
 
 // ---- red lines (static) -----------------------------------------------------
 {
@@ -35,7 +35,7 @@ assert.ok(fs.existsSync(ONECLICK), "release-oneclick.js must exist");
   }
   assert.ok(!/api[._-]?key/i.test(src), "oneclick must not handle an API key");
   // The operator boundary: the signing key env var is never read here — it is
-  // forwarded implicitly to release-flow.js's own signVerdictIfConfigured().
+  // forwarded implicitly to release-flow.mjs's own signVerdictIfConfigured().
   assert.ok(
     !/CW_RELEASE_VERDICT_PRIVKEY/.test(src.replace(/\/\/[^\n]*/g, "")),
     "oneclick code must never read CW_RELEASE_VERDICT_PRIVKEY (comments may mention it)"
@@ -73,7 +73,7 @@ function treeState() {
   const before = treeState();
   const r = run([]);
   assert.notEqual(r.code, 0, "missing version must fail");
-  assert.match(r.err, /usage: node scripts\/release-oneclick\.js X\.Y\.Z/, "should print usage");
+  assert.match(r.err, /usage: node scripts\/release-oneclick\.mjs X\.Y\.Z/, "should print usage");
   assert.equal(treeState(), before, "a usage error must not touch the tree");
 }
 

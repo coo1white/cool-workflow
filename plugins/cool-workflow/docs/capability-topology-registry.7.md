@@ -79,14 +79,14 @@ call into — there is no fallback dynamic dispatch.
 1. `CAPABILITY_REGISTRY` declares every capability once — one row per capability.
 2. CLI: `cli.ts` matches the command in its explicit `switch` and calls the core `entry`.
 3. MCP: `mcp-server.ts` matches the tool name in its explicit `switch` and calls the same `entry`.
-4. The parity gate (`scripts/parity-check.js --check`) fails closed on any drift:
+4. The parity gate (`scripts/parity-check.mjs --check`) fails closed on any drift:
    a CLI command or MCP tool live on one surface but absent on the other or
    undeclared, an undeclared payload divergence, or a surface-specific capability
    with no recorded `reason`.
 
 ### How many capabilities
 
-Run `node plugins/cool-workflow/scripts/parity-check.js --check` and read
+Run `node plugins/cool-workflow/scripts/parity-check.mjs --check` and read
 `registrySize` for the live count (199 at the time of writing). The full
 CLI <-> MCP matrix lives in `docs/cli-mcp-parity.7.md`, which is generated from
 the same registry.

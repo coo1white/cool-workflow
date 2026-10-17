@@ -47,25 +47,25 @@ jobs:
         # install still installs DEV tooling (tsc, etc), and that dev tooling
         # is CODE that runs here, inside a job that feeds the publish job's
         # OIDC-privileged install. Pinning it to the tracked, reviewed
-        # bun.lock (kept in sync by scripts/version-sync-check.js) is what
+        # bun.lock (kept in sync by scripts/version-sync-check.mjs) is what
         # buys real control over what code runs in CI -- do not "fix" this
         # back to a plain `bun install`. --ignore-scripts: a poisoned
         # transitive install script must not get to run here either.
         run: bun install --frozen-lockfile --ignore-scripts --cwd plugins/cool-workflow
 
       - name: Run deterministic release gate
-        run: node plugins/cool-workflow/scripts/release-gate.js
+        run: node plugins/cool-workflow/scripts/release-gate.mjs
 
       - name: Take the release verifier from origin/main, not from the tag
         # The checked-out tree IS the tag under judgment: a tag whose own
-        # scripts/verify-release-verdict.js is `process.exit(0)` would pass any
+        # scripts/verify-release-verdict.mjs is `process.exit(0)` would pass any
         # check that runs it. So the verifier (and every local file it loads) is
         # read out of origin/main -- a ref the tag being judged cannot rewrite --
         # into $RUNNER_TEMP, and the next step runs it from there against the
         # tag checkout (its cwd). If origin/main cannot be fetched or lacks any
         # of these files, this step fails and nothing goes on (fail closed).
         # This step sits AFTER the gate (tag code) on purpose: copied any
-        # earlier, release-gate.js could rewrite the copies before they run.
+        # earlier, release-gate.mjs could rewrite the copies before they run.
         # (On a tag push this whole file comes from the tag too, so here it is
         # defense in depth; npm-publish.yml, run by workflow_run from the
         # default branch's own copy, is the check a tag cannot edit.)
@@ -75,7 +75,7 @@ jobs:
           rm -rf "$VDIR"
           mkdir -p "$VDIR"
           printf '{"type":"commonjs"}\n' > "$VDIR/package.json"
-          for f in verify-release-verdict.js verify-verdict-signature.js verify-bump-reproduction.js fake-date-for-reproduction.js; do
+          for f in verify-release-verdict.mjs verify-verdict-signature.mjs verify-bump-reproduction.mjs fake-date-for-reproduction.mjs; do
             if ! git show "origin/main:plugins/cool-workflow/scripts/$f" > "$VDIR/$f" || [ ! -s "$VDIR/$f" ]; then
               echo "origin/main has no plugins/cool-workflow/scripts/$f -- refusing to verify with the tag's own copy" >&2
               exit 1
@@ -90,7 +90,7 @@ jobs:
         # Keeping this run: to one line also keeps the script's "::error::"
         # fail text out of the log of a green run (Actions prints a run:
         # step's full source before executing it).
-        run: node "$RUNNER_TEMP/cw-release-verifier/verify-release-verdict.js" --context "The release flow was bypassed."
+        run: node "$RUNNER_TEMP/cw-release-verifier/verify-release-verdict.mjs" --context "The release flow was bypassed."
 
   release:
     needs: gate

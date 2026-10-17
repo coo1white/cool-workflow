@@ -465,7 +465,7 @@ is proven live by the release. Every builtin has a wrapper and an offline
 smoke that checks the wrapper's shape with stand-in commands, but no release
 waits on a live call to any other vendor, and a change in a vendor's own CLI
 can break its wrapper before a smoke sees it. To check vendors live, run
-`node scripts/vendor-preflight.js --vendors codex,gemini` (it spends tokens on
+`node scripts/vendor-preflight.mjs --vendors codex,gemini` (it spends tokens on
 each), or set `CW_PREFLIGHT_VENDORS` for a release cut, where a failure is a
 warning, not a stop. Reports of a broken wrapper are welcome.
 

@@ -1,7 +1,7 @@
 // package-manager-gate-smoke — the bun gate from spec.md R8 (source text
 // only). Red when: packageManager is not the exact bun pin; bun.lock is
 // missing; a package-lock.json, pnpm-lock.yaml, or yarn.lock is present;
-// preinstall does not name check-package-manager.js; bunfig.toml lacks
+// preinstall does not name check-package-manager.mjs; bunfig.toml lacks
 // [install] exact = true; or a line under .github/workflows/ installs with
 // npm ci, npm install, pnpm install, or yarn install (a plain `npm install
 // -g <tool>`, pinning a global CLI, is not a project-dependency install and
@@ -31,7 +31,7 @@ function gate(repoRoot, pluginRoot) {
     if (fs.existsSync(path.join(pluginRoot, name))) faults.push(`second lockfile present: ${name}`);
   }
   const preinstall = (pkg.scripts && pkg.scripts.preinstall) || "";
-  if (!preinstall.includes("check-package-manager.js")) faults.push(`preinstall does not name check-package-manager.js: ${preinstall || "unset"}`);
+  if (!preinstall.includes("check-package-manager.mjs")) faults.push(`preinstall does not name check-package-manager.mjs: ${preinstall || "unset"}`);
   const bunfigPath = path.join(pluginRoot, "bunfig.toml");
   const bunfig = fs.existsSync(bunfigPath) ? fs.readFileSync(bunfigPath, "utf8") : "";
   if (!/\bexact\s*=\s*true\b/.test(bunfig)) faults.push("bunfig.toml missing [install] exact = true");

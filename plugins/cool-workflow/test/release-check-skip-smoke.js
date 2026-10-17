@@ -8,7 +8,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const releaseCheck = path.join(pluginRoot, "scripts", "release-check.js");
+const releaseCheck = path.join(pluginRoot, "scripts", "release-check.mjs");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-release-check-skip-"));
 const bin = path.join(tmp, "bin");
 const log = path.join(tmp, "commands.log");

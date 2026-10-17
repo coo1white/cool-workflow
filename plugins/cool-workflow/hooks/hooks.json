@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/block-unapproved-tag.js"
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/scripts/block-unapproved-tag.mjs"
           }
         ]
       }

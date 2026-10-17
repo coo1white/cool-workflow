@@ -7,7 +7,7 @@ command does ONLY step 1, the agent-prep half. Step 2 — running the gate,
 the independent reviewer, signing the verdict, creating the tag, and
 publishing — is the OPERATOR's own command, `npm run release -- X.Y.Z`, run
 in their own terminal where `CW_RELEASE_VERDICT_PRIVKEY` is set. Never run
-`release-oneclick.js` or `release-flow.js --cut`, and never create a tag by
+`release-oneclick.mjs` or `release-flow.mjs --cut`, and never create a tag by
 hand — those steps need the signing key, which an agent must never read or
 hold.
 

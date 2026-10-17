@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // opencode-agent.js - OpenCode CLI adapter for CW Agent Delegation Drive.
 //
@@ -19,8 +18,8 @@
 // via execution-backend boundary controls. If OpenCode adds a cleaner read-only
 // flag, prefer that here.
 
-const path = require("node:path");
-const {
+import path from "node:path";
+import {
   buildFailureDetail,
   buildPrompt,
   createRenderer,
@@ -31,7 +30,7 @@ const {
   recordVendorPid,
   spawnVendor,
   writeResult
-} = require("./agent-adapter-core");
+} from "./agent-adapter-core.mjs";
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];

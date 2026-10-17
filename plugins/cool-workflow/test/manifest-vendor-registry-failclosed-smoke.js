@@ -11,7 +11,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const generator = path.join(pluginRoot, "scripts", "gen-manifests.js");
+const generator = path.join(pluginRoot, "scripts", "gen-manifests.mjs");
 
 function filesUnder(root) {
   const found = [];
@@ -32,13 +32,13 @@ function fixture(source) {
   const manifest = path.join(root, "plugins", "cool-workflow", "manifest");
   fs.mkdirSync(scripts, { recursive: true });
   fs.mkdirSync(manifest, { recursive: true });
-  fs.copyFileSync(generator, path.join(scripts, "gen-manifests.js"));
+  fs.copyFileSync(generator, path.join(scripts, "gen-manifests.mjs"));
   fs.writeFileSync(path.join(manifest, "plugin.manifest.json"), `${JSON.stringify(source, null, 2)}\n`);
   return root;
 }
 
 function run(root) {
-  return spawnSync(process.execPath, [path.join(root, "plugins", "cool-workflow", "scripts", "gen-manifests.js")], {
+  return spawnSync(process.execPath, [path.join(root, "plugins", "cool-workflow", "scripts", "gen-manifests.mjs")], {
     cwd: root,
     encoding: "utf8",
   });

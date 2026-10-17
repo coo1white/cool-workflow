@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// block-unapproved-tag-smoke — exercises scripts/block-unapproved-tag.js, the
+// block-unapproved-tag-smoke — exercises scripts/block-unapproved-tag.mjs, the
 // PreToolUse hook that blocks `git tag`/tag-push unless both the gate marker
 // and an APPROVED reviewer verdict exist for HEAD.
 //
@@ -21,10 +21,10 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
-const HOOK = path.resolve(__dirname, "..", "scripts", "block-unapproved-tag.js");
-assert.ok(fs.existsSync(HOOK), "block-unapproved-tag.js must exist");
-const VERIFY_SCRIPT = path.resolve(__dirname, "..", "scripts", "verify-verdict-signature.js");
-assert.ok(fs.existsSync(VERIFY_SCRIPT), "verify-verdict-signature.js must exist");
+const HOOK = path.resolve(__dirname, "..", "scripts", "block-unapproved-tag.mjs");
+assert.ok(fs.existsSync(HOOK), "block-unapproved-tag.mjs must exist");
+const VERIFY_SCRIPT = path.resolve(__dirname, "..", "scripts", "verify-verdict-signature.mjs");
+assert.ok(fs.existsSync(VERIFY_SCRIPT), "verify-verdict-signature.mjs must exist");
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-hook-"));
 function git(args) {
@@ -38,11 +38,11 @@ git(["config", "user.name", "t"]);
 git(["config", "commit.gpgsign", "false"]);
 fs.writeFileSync(path.join(dir, "README.md"), "x\n");
 // The hook resolves the verify script at $REPO_ROOT/plugins/cool-workflow/scripts/
-// verify-verdict-signature.js — mirror that layout in this throwaway fixture so
+// verify-verdict-signature.mjs — mirror that layout in this throwaway fixture so
 // the pubkey-committed cases below can actually reach it.
 const fixtureScriptsDir = path.join(dir, "plugins", "cool-workflow", "scripts");
 fs.mkdirSync(fixtureScriptsDir, { recursive: true });
-fs.copyFileSync(VERIFY_SCRIPT, path.join(fixtureScriptsDir, "verify-verdict-signature.js"));
+fs.copyFileSync(VERIFY_SCRIPT, path.join(fixtureScriptsDir, "verify-verdict-signature.mjs"));
 git(["add", "-A"]);
 git(["commit", "-q", "-m", "init"]);
 const sha = git(["rev-parse", "HEAD"]);

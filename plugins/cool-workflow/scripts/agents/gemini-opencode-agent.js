@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // gemini-opencode-agent.js - Gemini (via opencode) adapter for CW Agent Delegation.
 //
@@ -22,4 +21,5 @@
 process.env.CW_OPENCODE_LABEL = "gemini";
 process.env.CW_OPENCODE_MODEL = process.env.CW_GEMINI_MODEL || "google/gemini-3.7-flash";
 
-require("./opencode-agent.js");
+// A dynamic import, so the env above is set before the runner reads it.
+await import("./opencode-agent.js");

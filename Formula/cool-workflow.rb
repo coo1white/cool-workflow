@@ -4,7 +4,7 @@ class CoolWorkflow < Formula
   # git url + tag (no sha256): the git tag is the integrity pin, so there is no
   # post-publish checksum step. Homebrew reads the version FROM the tag, so the
   # tag is the one version surface — auto-bumped by
-  # plugins/cool-workflow/scripts/bump-version.js and gated by version:sync.
+  # plugins/cool-workflow/scripts/bump-version.mjs and gated by version:sync.
   url "https://github.com/coo1white/cool-workflow.git", tag: "v0.3.1"
   license "BSD-2-Clause"
 

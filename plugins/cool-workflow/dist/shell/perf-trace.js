@@ -1,6 +1,6 @@
 // shell/perf-trace.ts — opt-in cold-path timing evidence for the benchmark
 // runner. This is not a product log: it is off unless CW_BENCH_TRACE_FILE is
-// set by scripts/bench/run.js, and it writes one JSON report when the drive
+// set by scripts/bench/run.mjs, and it writes one JSON report when the drive
 // process ends. Normal CLI and MCP work do not see it.
 import * as fs from "node:fs";
 const TRACE_FILE = process.env.CW_BENCH_TRACE_FILE || "";

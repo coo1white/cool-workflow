@@ -37,9 +37,9 @@ const LABELS = ["ubuntu-latest", "macos-latest"];
 // `check` legs). The release rehearsal must never join this set.
 const REQUIRED_JOBS = ["check"];
 // The check-run names the release gate takes in place of a local test run
-// (scripts/release-ci-checks.js, the one list). Each must be a leg of the
+// (scripts/release-ci-checks.mjs, the one list). Each must be a leg of the
 // ci.yml `check` job: "check (<node-version>)".
-const { REQUIRED_CHECKS } = require("../scripts/release-ci-checks.js");
+const { REQUIRED_CHECKS } = require("../scripts/release-ci-checks.mjs");
 const REHEARSAL_JOB = "release-rehearsal";
 const EXCEPTIONS = ["codeql.yml", "gitleaks.yml", "pages.yml", "npm-publish.yml"];
 // GITHUB_TOKEN too: on Gitea it is empty in schedule and dispatch runs; write github.token.
@@ -129,10 +129,10 @@ function gate(workflowsDir, repoRoot) {
     if (!/npm:\s*\["bundled",\s*"latest"\]/.test(rehearsal)) {
       faults.push(`ci.yml: ${REHEARSAL_JOB} does not run on the bundled and the latest npm`);
     }
-    if (!/release-flow\.js --check/.test(rehearsal)) faults.push(`ci.yml: ${REHEARSAL_JOB} does not run release-flow.js --check`);
+    if (!/release-flow\.mjs --check/.test(rehearsal)) faults.push(`ci.yml: ${REHEARSAL_JOB} does not run release-flow.mjs --check`);
     // The rehearsal runs beside the required checks, so it cannot wait on
     // them: it must run the gate's test step locally.
-    if (!/^\s+- run: node scripts\/release-flow\.js --check --local-tests$/m.test(rehearsal)) faults.push(`ci.yml: ${REHEARSAL_JOB} must run release-flow.js --check --local-tests`);
+    if (!/^\s+- run: node scripts\/release-flow\.mjs --check --local-tests$/m.test(rehearsal)) faults.push(`ci.yml: ${REHEARSAL_JOB} must run release-flow.mjs --check --local-tests`);
     if (!/CW_AGENT_COMMAND:.*test\/fixtures\/release-rehearsal-reviewer\.js \{\{input\}\}/.test(rehearsal)) {
       faults.push(`ci.yml: ${REHEARSAL_JOB} reviewer is not the committed stub`);
     }
@@ -267,8 +267,8 @@ withFault((dir) => {
 // 8e. the rehearsal waiting on the CI checks it runs beside
 withFault((dir) => {
   const p = path.join(dir, "ci.yml");
-  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace("- run: node scripts/release-flow.js --check --local-tests", "- run: node scripts/release-flow.js --check"));
-}, "must run release-flow.js --check --local-tests");
+  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace("- run: node scripts/release-flow.mjs --check --local-tests", "- run: node scripts/release-flow.mjs --check"));
+}, "must run release-flow.mjs --check --local-tests");
 
 // 9. a required release check whose Node leg was dropped from the matrix
 withFault((dir) => {

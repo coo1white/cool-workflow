@@ -25,7 +25,7 @@
 // file lock. This replaces the previous "some smokes race on the shared
 // package .cw/" hazard that forced sequential execution.
 //
-// Default is auto (cores-capped parallel). The tag-gate (release-gate.js) forces
+// Default is auto (cores-capped parallel). The tag-gate (release-gate.mjs) forces
 // sequential via CW_TEST_CONCURRENCY=1 to stay deterministic. Override anytime:
 // CW_TEST_CONCURRENCY=4 or --concurrency.
 //
@@ -285,7 +285,7 @@ const serialSmokes = eligibleSmokes.filter((file) => SERIAL_ONLY.has(file));
 // PATH auto-detection; an explicit CW_AGENT_COMMAND/CW_AGENT_ENDPOINT set in
 // the parent still resolves (flags > env > file, see
 // src/shell/agent-config.ts), so a fail-closed / no-agent / blocked smoke
-// would false-FAIL. That is exactly how `release-flow.js --cut` rejected at
+// would false-FAIL. That is exactly how `release-flow.mjs --cut` rejected at
 // the gate when the reviewer was set via the CW_AGENT_COMMAND *env var*: it
 // leaked into the gate's `npm test` child, yet `npm run release:check` — run
 // without it — passed. The SAME event hit CW_RELEASE_VERDICT_PRIVKEY (#598):
@@ -294,7 +294,7 @@ const serialSmokes = eligibleSmokes.filter((file) => SERIAL_ONLY.has(file));
 // whole ambient set HERE so the sandbox is the one guard for every smoke,
 // not each smoke's own hand-rolled top. Keep in sync with the env layer of
 // src/shell/agent-config.ts (agentConfigFromEnv), CW_BACKEND
-// (execution-backend selection), and release-flow.js's signing key.
+// (execution-backend selection), and release-flow.mjs's signing key.
 const AGENT_ENV_KEYS = [
   "CW_AGENT_COMMAND",
   "CW_AGENT_ENDPOINT",

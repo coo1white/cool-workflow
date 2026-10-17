@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // HTTP delegate child (extracted from execution-backend.ts so it is a real,
 // greppable, lint-able file instead of an embedded `node -e` template string —
@@ -22,7 +21,7 @@
   // own and a split char decoded to U+FFFD on both sides — silently corrupting
   // a > ~64KB non-ASCII job (this project's prompts are frequently Chinese), or
   // making the outer JSON.parse throw so the delegation refused. Matches the
-  // batch-delegate-child.js reader.
+  // batch-delegate-child.mjs reader.
   process.stdin.setEncoding("utf8");
   const read = () => new Promise((res) => { let b = ""; process.stdin.on("data", (c) => { if (b.length < MAX_STDIN_BYTES) b += c; }); process.stdin.on("end", () => res(b)); });
   try {

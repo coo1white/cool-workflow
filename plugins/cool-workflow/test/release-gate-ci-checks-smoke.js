@@ -5,16 +5,16 @@
 // required CI checks on the exact commit, in place of a local test:gate run
 // (project/docs/intent/2026-10-16-release-gate-ci.md).
 //
-// Each case runs the REAL scripts/release-gate.js (and, at the end, the real
-// scripts/release-flow.js) in a throwaway git fixture whose plugin
+// Each case runs the REAL scripts/release-gate.mjs (and, at the end, the real
+// scripts/release-flow.mjs) in a throwaway git fixture whose plugin
 // package.json has build: true and a test:gate that writes a SUITE MARKER
 // file. A stub `gh` on CW_RELEASE_GATE_GH_CMD answers the check-runs call
 // with canned JSON and logs its argv. So a case can prove both what the gate
 // decided and whether the local suite was spawned at all.
 //
-// Fails before the change: release-gate.js has no --tests-from-ci (the suite
+// Fails before the change: release-gate.mjs has no --tests-from-ci (the suite
 // always runs, the marker is always written, gh is never asked), and
-// release-flow.js runs the suite by default and has no gateTests key.
+// release-flow.mjs runs the suite by default and has no gateTests key.
 // Portable: node + git only, isolated tmpdir, no network.
 
 const assert = require("node:assert/strict");
@@ -24,10 +24,10 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const GATE = path.join(pluginRoot, "scripts", "release-gate.js");
-const FLOW = path.join(pluginRoot, "scripts", "release-flow.js");
+const GATE = path.join(pluginRoot, "scripts", "release-gate.mjs");
+const FLOW = path.join(pluginRoot, "scripts", "release-flow.mjs");
 const REVIEWER = path.join(pluginRoot, "test", "fixtures", "release-rehearsal-reviewer.js");
-const { REQUIRED_CHECKS, evaluateCheckRuns } = require("../scripts/release-ci-checks.js");
+const { REQUIRED_CHECKS, evaluateCheckRuns } = require("../scripts/release-ci-checks.mjs");
 
 assert.deepEqual([...REQUIRED_CHECKS], ["check (22)", "check (24)"], "the required list names the two ubuntu legs main's branch protection requires");
 
@@ -217,7 +217,7 @@ for (const [mode, why] of [
   assert.equal(evaluateCheckRuns({ check_runs: [g("check (22)", "completed", "success"), g("check (24)", "completed", "success")] }, sha).ok, true);
 }
 
-// ---- 7. release-flow.js: CI mode by default, local suite only on opt-in ----
+// ---- 7. release-flow.mjs: CI mode by default, local suite only on opt-in ----
 function runFlow(fx, mode, args, extra) {
   const e = env(fx, mode, { CW_AGENT_COMMAND: `node ${REVIEWER} {{input}}`, ...(extra || {}) });
   const r = spawnSync(process.execPath, [FLOW, ...args], { cwd: fx.dir, encoding: "utf8", env: e });

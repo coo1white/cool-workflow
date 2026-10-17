@@ -1,6 +1,6 @@
 "use strict";
 const assert=require("node:assert/strict"),cp=require("node:child_process"),fs=require("node:fs"),path=require("node:path");
-const root=path.resolve(__dirname,"../../.."),runner=path.join(root,"scripts/bench/workbench-load.js"),k6=path.join(root,"scripts/bench/workbench-k6-deep.js");
+const root=path.resolve(__dirname,"../../.."),runner=path.join(root,"scripts/bench/workbench-load.mjs"),k6=path.join(root,"scripts/bench/workbench-k6-deep.js");
 // runner is a #!/usr/bin/env node script; run under bun test, this must still
 // check it with node --check (process.execPath here is the bun binary, which
 // has no --check flag).

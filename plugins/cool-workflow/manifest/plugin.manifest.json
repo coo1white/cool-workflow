@@ -77,7 +77,7 @@
       "pluginRootVar": "./"
     }
   },
-  "_comment_vendors": "VENDOR ADAPTER REGISTRY (v0.1.47). Each vendor declares its outputs as templates over the source fields above. Adding a new AI platform: add ONE entry here — no gen-manifests.js changes needed. Templates use {{path.to.field}} interpolation; {{pluginRootVar}} resolves to the vendor's pluginRootVar.",
+  "_comment_vendors": "VENDOR ADAPTER REGISTRY (v0.1.47). Each vendor declares its outputs as templates over the source fields above. Adding a new AI platform: add ONE entry here — no gen-manifests.mjs changes needed. Templates use {{path.to.field}} interpolation; {{pluginRootVar}} resolves to the vendor's pluginRootVar.",
   "vendors": {
     "claude": {
       "outputs": [

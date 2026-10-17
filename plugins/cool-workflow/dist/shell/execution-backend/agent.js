@@ -337,7 +337,7 @@ export function prepareEndpointJob(request) {
 // import.meta.dirname is dist/shell/execution-backend at runtime — THREE levels up
 // (execution-backend -> shell -> dist -> package root) reaches scripts/,
 // a sibling of dist/, not two (dist/scripts/... is never compiled/copied).
-const BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "batch-delegate-child.js");
+const BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "batch-delegate-child.mjs");
 /** Parse the delegate child's NDJSON stdout and reconcile it against `jobs`
  *  by index. See SPEC/execution-backend.md "Concurrent batch" for the
  *  byte-boundary rationale (split on the raw newline byte, one line at a
@@ -399,13 +399,13 @@ export function runAgentBatchOutcomes(jobs) {
     });
 }
 // Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
-const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-batch-delegate-child.js");
+const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-batch-delegate-child.mjs");
 /** Run a batch of ENDPOINT (HTTP-delegate) jobs concurrently; outcomes
  *  index-align with jobs. The endpoint sibling of runAgentBatchOutcomes: one
- *  spawnSync of http-batch-delegate-child.js POSTs all N at once from a single
+ *  spawnSync of http-batch-delegate-child.mjs POSTs all N at once from a single
  *  process, so `--concurrency N` with an endpoint agent runs N delegations in
  *  parallel instead of serially. The child streams the SAME NDJSON line shape as
- *  batch-delegate-child.js — `{i, spawnError?, exitCode, stdout}` — so the same
+ *  batch-delegate-child.mjs — `{i, spawnError?, exitCode, stdout}` — so the same
  *  reconcileBatchOutcomes reads it (byte-boundary split on a Buffer, index-aligned,
  *  every job that produced no full line failed closed). Env is inherited (the
  *  serial runAgentEndpoint likewise runs the child with the full process env for

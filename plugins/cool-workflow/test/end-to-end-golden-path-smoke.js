@@ -6,7 +6,7 @@ const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const output = execFileSync(process.execPath, [path.join(pluginRoot, "scripts/golden-path.js"), "--json", "--cleanup"], {
+const output = execFileSync(process.execPath, [path.join(pluginRoot, "scripts/golden-path.mjs"), "--json", "--cleanup"], {
   cwd: pluginRoot,
   encoding: "utf8"
 });

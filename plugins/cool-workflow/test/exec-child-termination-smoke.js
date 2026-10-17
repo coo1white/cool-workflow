@@ -31,7 +31,7 @@ const { spawn } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
 const { runAgentBatchOutcomes } = require(path.join(pluginRoot, "dist/shell/execution-backend/agent.js"));
-const DELEGATE_SCRIPT = path.join(pluginRoot, "scripts/children/batch-delegate-child.js");
+const DELEGATE_SCRIPT = path.join(pluginRoot, "scripts/children/batch-delegate-child.mjs");
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));

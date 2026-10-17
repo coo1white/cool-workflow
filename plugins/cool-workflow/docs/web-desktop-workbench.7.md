@@ -99,7 +99,7 @@ behind "raw payload", byte for byte the `--json` payload.
 
 The page itself is a Next 16.3.0 + React 19.2.8 static export, built in
 its own sub-package (`ui/workbench/`, bun as the installer) and read as
-plain files from `out/` (not committed; `node scripts/build-ui.js` builds
+plain files from `out/` (not committed; `node scripts/build-ui.mjs` builds
 it). Tailwind 4 + daisyUI 5 give the look; the two JSON routes below are
 unchanged, and the export ships no network call of its own. The theme
 follows the OS light/dark setting (daisyUI's `cool-dark`/`cool-light`

@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // source-context — opt-in JSONL source context exporter.
 //
@@ -7,12 +6,12 @@
 // mechanism: enumerate tracked files for a git ref, classify them through the
 // selected profile, hash the committed bytes, and print JSONL to stdout.
 
-const crypto = require("node:crypto");
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 
-const pluginRoot = path.resolve(__dirname, "..");
+const pluginRoot = path.resolve(import.meta.dirname, "..");
 const defaultRepoRoot = path.resolve(pluginRoot, "..", "..");
 let repoRoot = defaultRepoRoot;
 const DEFAULT_PROFILE_FILE = path.join(pluginRoot, "manifest", "source-context-profiles.json");

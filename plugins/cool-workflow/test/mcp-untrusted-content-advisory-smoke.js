@@ -18,7 +18,7 @@
 // UNTRUSTED_RESULT_FIELDS get a SECOND content block (content[1]) naming the
 // exact field path(s); content[0].text — the actual payload, byte-identical
 // to the CLI's --json output — is NEVER touched, so this cannot affect the
-// CLI/MCP parity gate (scripts/parity-check.js only ever reads
+// CLI/MCP parity gate (scripts/parity-check.mjs only ever reads
 // content[0].text; confirmed separately via `npm run parity:check`).
 //
 // Portable: node + git only, isolated tmpdir. Talks to the real

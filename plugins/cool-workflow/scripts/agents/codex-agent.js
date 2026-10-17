@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // codex-agent.js - Codex CLI adapter for CW Agent Delegation Drive.
 //
@@ -28,14 +27,14 @@
 // to earn its verdict. A read-only sandbox can't execute that gate, so the model
 // is structurally unable to verify and tends to fabricate a REJECTED. The release
 // path therefore sets CW_RELEASE_REVIEW=1 (a vendor-agnostic signal from
-// release-flow.js): on that signal this wrapper raises reasoning to "high" and
+// release-flow.mjs): on that signal this wrapper raises reasoning to "high" and
 // opens the sandbox to "workspace-write" so codex can run the gate it is judging.
 // Explicit CW_CODEX_REASONING_EFFORT / CW_CODEX_SANDBOX always win over the signal.
 
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const {
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import {
   buildPrompt,
   createRenderer,
   emitReport,
@@ -45,7 +44,7 @@ const {
   recordVendorPid,
   spawnVendor,
   writeResult
-} = require("./agent-adapter-core");
+} from "./agent-adapter-core.mjs";
 
 // codex exec --json (>=0.139) emits NO model field in its JSONL (only thread/turn
 // events + usage). For provenance, fall back to the model codex is configured to

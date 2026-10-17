@@ -9,7 +9,7 @@
 // Math.random().
 //
 // These live in core/, not cli/io.ts: a cli/-layer file may
-// not be imported by wiring/ (see scripts/purity-gate.js's layer rule),
+// not be imported by wiring/ (see scripts/purity-gate.mjs's layer rule),
 // but every wiring/capability-table/*.ts slice called these three pure
 // functions directly to coerce its own handler's args. Shared by CLI argv
 // (cli/dispatch.ts, the wiring slices) AND MCP tool-call args (the same

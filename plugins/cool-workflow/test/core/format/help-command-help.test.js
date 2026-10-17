@@ -83,7 +83,7 @@ function noSuggestion() {
   assert.ok(flagsHeaderIndex > -1, "a bare 'Flags' header appears for a single-row flagged verb");
   const onrampLine = lines.find((l) => l.includes("--onramp"));
   assert.ok(onrampLine, "the --onramp flag is documented");
-  // The parity help-token parser (scripts/parity-check.js's cliHelpTokens)
+  // The parity help-token parser (scripts/parity-check.mjs's cliHelpTokens)
   // treats a line as a command token ONLY when it starts with exactly 2
   // spaces (2-space indent, not 4+). This line must fail that test, i.e.
   // NOT start with exactly 2 spaces — it must start with 4 or more.

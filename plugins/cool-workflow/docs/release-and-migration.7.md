@@ -202,6 +202,15 @@ their output, their exit codes and the MCP tools do not change.
   `apps/` and `workflows/` each have a `package.json` that says
   `"type": "commonjs"`, and the loader reads app files with `require()`.
   An app outside the package loads as before.
+- `scripts/` is ES modules too (step 6). The tools for this repo (release,
+  gates, generators, bench) are now `scripts/<name>.mjs`, and `npm run`
+  names them. A path a user may put in a config or run by hand keeps its
+  name and is an ES module under the same `package.json`:
+  `scripts/cw.js` (the `cw` and `cool-workflow` bins),
+  `scripts/mcp-server.js`, `scripts/architecture-review-fast.js`,
+  `scripts/source-context.js`, the agent wrappers in `scripts/agents/`
+  (`builtin:<name>` and a saved `agent-config.json` point at them), and
+  `scripts/children/http-delegate-child.js` (named in backend probe output).
 
 ## Unsupported Cases
 

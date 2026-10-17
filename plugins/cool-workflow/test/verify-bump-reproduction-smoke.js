@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 "use strict";
 
-// verify-bump-reproduction-smoke — exercises scripts/verify-bump-reproduction.js
+// verify-bump-reproduction-smoke — exercises scripts/verify-bump-reproduction.mjs
 // against THIS REPO'S REAL git history (not a toy fixture), which is the only
-// way to prove it actually works with the real bump-version.js/
-// sync-project-index.js (canonical-apps list, manifest propagation, dist/
+// way to prove it actually works with the real bump-version.mjs/
+// sync-project-index.mjs (canonical-apps list, manifest propagation, dist/
 // regeneration, and all). verdict-signing-workflow-smoke.js's fixtures use
 // stub npm scripts to test the orchestration cheaply; this test proves the
 // orchestration ALSO works against the genuinely complex real tooling.
@@ -32,7 +32,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const REAL_REPO_ROOT = path.resolve(__dirname, "..", "..", "..");
-const SCRIPT_REL = "plugins/cool-workflow/scripts/verify-bump-reproduction.js";
+const SCRIPT_REL = "plugins/cool-workflow/scripts/verify-bump-reproduction.mjs";
 assert.ok(fs.existsSync(path.join(REAL_REPO_ROOT, SCRIPT_REL)), `${SCRIPT_REL} must exist`);
 
 // A real, historical approved-parent -> tagged-release pair from this repo's
@@ -81,7 +81,7 @@ git(["cat-file", "-e", `${REAL_TAGGED}:${REAL_VERDICT_REL}`], REAL_REPO_ROOT);
 }
 
 // A `git clone` gets its OWN remote (the local clone-source path), unlike
-// `git worktree add` (what verify-bump-reproduction.js itself always uses),
+// `git worktree add` (what verify-bump-reproduction.mjs itself always uses),
 // which shares the real repo's remote config automatically — confirmed
 // empirically, and the reason the script itself needs no remote-pinning
 // logic. Pin the clone's remote to match the real repo's here, in the TEST

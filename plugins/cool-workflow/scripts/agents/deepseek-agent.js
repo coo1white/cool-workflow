@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // deepseek-agent.js - DeepSeek (via opencode) adapter for CW Agent Delegation Drive.
 //
@@ -20,4 +19,5 @@
 process.env.CW_OPENCODE_LABEL = "deepseek";
 process.env.CW_OPENCODE_MODEL = process.env.CW_DEEPSEEK_MODEL || "deepseek/deepseek-v4-flash";
 
-require("./opencode-agent.js");
+// A dynamic import, so the env above is set before the runner reads it.
+await import("./opencode-agent.js");

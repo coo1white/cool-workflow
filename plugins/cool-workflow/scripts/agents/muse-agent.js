@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // muse-agent.js - Muse Code CLI adapter for CW Agent Delegation Drive.
 //
@@ -17,9 +16,9 @@
 // result. `model` is self-reported: the id passed via --model, default
 // "muse-spark-1.3-contributor" (CW_MUSE_MODEL overrides).
 
-const fs = require("node:fs");
-const path = require("node:path");
-const {
+import fs from "node:fs";
+import path from "node:path";
+import {
   buildFailureDetail,
   buildPrompt,
   createRenderer,
@@ -30,7 +29,7 @@ const {
   recordVendorPid,
   spawnVendor,
   writeResult
-} = require("./agent-adapter-core");
+} from "./agent-adapter-core.mjs";
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];

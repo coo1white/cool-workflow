@@ -18,7 +18,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { recordVendorPid } = require(path.join(pluginRoot, "scripts/agents/agent-adapter-core.js"));
+const { recordVendorPid } = require(path.join(pluginRoot, "scripts/agents/agent-adapter-core.mjs"));
 const { reapRecordedVendor } = require(path.join(pluginRoot, "dist/shell/execution-backend/agent.js"));
 
 function tmpPidFile() {
@@ -84,7 +84,7 @@ const tick = () => new Promise((r) => setImmediate(r));
   //    the runtime resolves builtin:<name> from — a hand-kept list here went
   //    stale once (it missed gemini-opencode-agent.js) and cannot see a future
   //    vendor at all. A wrapper passes when it calls recordVendorPid(child)
-  //    itself, or when it re-exports (requires) another manifest wrapper that
+  //    itself, or when it re-exports (imports) another manifest wrapper that
   //    does — one hop, the shape deepseek and the opencode-routed gemini use.
   {
     const agentsDir = path.join(pluginRoot, "scripts/agents");
@@ -95,7 +95,7 @@ const tick = () => new Promise((r) => setImmediate(r));
     for (const wrapper of wrappers) {
       if (callsReaper(wrapper)) continue;
       const src = fs.readFileSync(path.join(agentsDir, wrapper), "utf8");
-      const hop = /require\(["']\.\/([\w-]+\.js)["']\)/.exec(src);
+      const hop = /import\(["']\.\/([\w-]+\.js)["']\)/.exec(src);
       assert.ok(
         hop && wrappers.includes(hop[1]) && callsReaper(hop[1]),
         `${wrapper} must call recordVendorPid(child) after spawning its vendor, or re-export a manifest wrapper that does`
