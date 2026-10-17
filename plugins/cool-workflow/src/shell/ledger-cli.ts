@@ -19,15 +19,12 @@ import {
   verifyLedgerEntry,
 } from "../core/trust/ledger";
 import { listLedgerEntries, LedgerListResult, LedgerUnionResult, unionLedgerEntries } from "./ledger-io";
+import { optionalArg } from "../core/util/cli-args";
 
 /** Coerce a repeatable/comma-joined list option to a clean string[]. */
 function listOption(value: unknown): string[] {
   const parts = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
   return parts.map((p) => String(p).trim()).filter(Boolean);
-}
-
-function stringOption(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
 function required(value: string | undefined, label: string): string {
@@ -41,10 +38,10 @@ function nowIso(): string {
 
 export function ledgerProposeCli(options: Record<string, unknown>): ReturnType<typeof buildLedgerProposal> {
   return buildLedgerProposal({
-    from: required(stringOption(options.from), "--from <agent/repo>"),
-    to: required(stringOption(options.to), "--to <agent/repo>"),
-    title: required(stringOption(options.title), "--title <text>"),
-    rationale: required(stringOption(options.rationale), "--rationale <text>"),
+    from: required(optionalArg(options.from), "--from <agent/repo>"),
+    to: required(optionalArg(options.to), "--to <agent/repo>"),
+    title: required(optionalArg(options.title), "--title <text>"),
+    rationale: required(optionalArg(options.rationale), "--rationale <text>"),
     targetFiles: listOption(options.files),
     // Do NOT trim the diff: it is a unified patch (payload, not a
     // label), and trimming strips the trailing newline `git apply`
@@ -72,14 +69,14 @@ export function ledgerProposeMcp(args: Record<string, unknown>): ReturnType<type
 }
 
 export function ledgerReviewCli(options: Record<string, unknown>): ReturnType<typeof buildLedgerReview> {
-  const verdictRaw = required(stringOption(options.verdict), "--verdict <approved|rejected>").toUpperCase();
+  const verdictRaw = required(optionalArg(options.verdict), "--verdict <approved|rejected>").toUpperCase();
   if (verdictRaw !== "APPROVED" && verdictRaw !== "REJECTED") {
     throw new Error('--verdict must be "approved" or "rejected".');
   }
   return buildLedgerReview({
-    from: required(stringOption(options.from), "--from <agent/repo>"),
-    to: required(stringOption(options.to), "--to <agent/repo>"),
-    target: required(stringOption(options.target), "--target <proposal-id|pr-ref>"),
+    from: required(optionalArg(options.from), "--from <agent/repo>"),
+    to: required(optionalArg(options.to), "--to <agent/repo>"),
+    target: required(optionalArg(options.target), "--target <proposal-id|pr-ref>"),
     verdict: verdictRaw as LedgerVerdict,
     findings: listOption(options.findings),
     createdAt: nowIso(),
@@ -121,7 +118,7 @@ const BAD_JSON_APPLY: LedgerApplyResult = {
 };
 
 function readLedgerEntryInput(options: Record<string, unknown>): string {
-  const file = stringOption(options.file);
+  const file = optionalArg(options.file);
   try {
     // --file <path>, else read the entry from stdin (fd 0).
     return fs.readFileSync(file || 0, "utf8");
@@ -167,7 +164,7 @@ export function ledgerListCli(options: Record<string, unknown>): LedgerListResul
   const input = options["ledger-dir"] ?? options.dir;
   const dirs = Array.isArray(input) ? input.map(String).filter(Boolean) : [];
   if (dirs.length > 1) return unionLedgerEntries(dirs);
-  const dir = required(dirs[0] || stringOption(input), "--ledger-dir <ledger-directory>");
+  const dir = required(dirs[0] || optionalArg(input), "--ledger-dir <ledger-directory>");
   return listLedgerEntries(dir);
 }
 
@@ -185,6 +182,6 @@ export function ledgerListMcp(args: Record<string, unknown>): LedgerListResult |
   const dirsArg = args.dirs;
   const dirs = Array.isArray(dirsArg) ? dirsArg.map(String).filter(Boolean) : [];
   if (dirs.length > 1) return unionLedgerEntries(dirs);
-  const dir = required(dirs[0] || stringOption(args.dir), "dir");
+  const dir = required(dirs[0] || optionalArg(args.dir), "dir");
   return listLedgerEntries(dir);
 }

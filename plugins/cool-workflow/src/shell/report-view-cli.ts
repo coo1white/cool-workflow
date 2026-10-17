@@ -10,17 +10,13 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { cwdArg, flagOn } from "../core/util/cli-args";
+import { cwdArg, flagOn, optionalArg } from "../core/util/cli-args";
 import { spawnSync } from "node:child_process";
 import { loadRunFromCwd } from "./run-store";
 import { reportAnswer, writeReport } from "./report";
 import { adviseNoRun, buildOperatorGraph, summarizeOperatorRun, summarizeRun } from "./operator-ux";
 import { formatOperatorGraph, formatOperatorReport, formatOperatorStatus, formatOperatorSummary } from "./operator-ux-text";
 import { reportToHtml } from "../core/format/report-html";
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 
 /** `cw report <run-id>` — writes report.md fresh and returns just its
  *  path (the CLI binding prints ONLY this path + "\n" to stdout; `--json`
@@ -136,4 +132,4 @@ export function graphText(runId: string, args: Record<string, unknown>): string 
   return formatOperatorGraph(buildOperatorGraph(run));
 }
 
-export { optionalString };
+export { optionalArg as optionalString };

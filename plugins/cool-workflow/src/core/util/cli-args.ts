@@ -15,6 +15,12 @@
 // (cli/dispatch.ts, the wiring slices) AND MCP tool-call args (the same
 // wiring slices' MCP handler bodies) — see core/util/numeric-flag.ts for
 // the same CLI/MCP-shared framing.
+//
+// It also keeps the one copy of a few small pure helpers that three or
+// more files need (requireArg, isRecord, messageOf, countBy). They are
+// here, not in a new module, because every command already loads this
+// one: a new module would be one more load on each path that uses them,
+// and scripts/bench/perf-ceilings.json lets no module count go up.
 
 import * as path from "node:path";
 
@@ -31,6 +37,34 @@ export function required(value: string | undefined, label: string): string {
 /** Normalize an optional CLI arg to a trimmed non-empty string, else undefined. */
 export function optionalArg(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+/** Require a value: `String(value)` unless that is empty (or the value is
+ *  undefined/null), which throws `Missing <label>` with no tip. */
+export function requireArg(value: unknown, label: string): string {
+  const s = value === undefined || value === null ? "" : String(value);
+  if (!s) throw new Error(`Missing ${label}`);
+  return s;
+}
+
+/** True for a non-null object that is not an array. */
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** A thrown value's text: an Error's message, else `String(error)`. */
+export function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Count values by the key each one maps to, in first-seen key order. */
+export function countBy<T>(values: T[], key: (value: T) => string): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const value of values) {
+    const bucket = key(value);
+    counts[bucket] = (counts[bucket] || 0) + 1;
+  }
+  return counts;
 }
 
 /** True when the caller asked for JSON output (`--json` or `--format json`). */

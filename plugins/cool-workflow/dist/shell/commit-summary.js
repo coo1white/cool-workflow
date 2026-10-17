@@ -36,15 +36,9 @@ function summarizeOperatorCommits(run) {
         commits: rows,
     };
 }
-function req(value, label) {
-    const s = value === undefined || value === null ? "" : String(value);
-    if (!s)
-        throw new Error(`Missing ${label}`);
-    return s;
-}
 /** Thin adapter both front doors call: summarizeOperatorCommits(loadRun(runId)). */
 function commitSummaryCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
+    const run = (0, run_store_1.loadRunFromCwd)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
     return summarizeOperatorCommits(run);
 }
 /** `cw commit summary <run>` human text: a `Commits` rollup with the

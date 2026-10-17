@@ -56,6 +56,7 @@ exports.resolveTrustPublicKey = resolveTrustPublicKey;
 exports.signTelemetry = signTelemetry;
 exports.verifyTelemetrySignatures = verifyTelemetrySignatures;
 const crypto = __importStar(require("node:crypto"));
+const cli_args_1 = require("../util/cli-args");
 /** `telemetry-attestation module`'s `stableStringify` — sorts keys
  *  recursively, AND maps a top-level `undefined` input to the literal
  *  string `"null"`. Divergent from `core/hash.ts`'s
@@ -88,9 +89,6 @@ function canonicalTelemetryPayload(usage, ctx) {
         // payload, so every pre-result-coverage signature still verifies.
         ...(ctx.resultDigest !== undefined ? { resultDigest: ctx.resultDigest } : {}),
     });
-}
-function messageOf(error) {
-    return error instanceof Error ? error.message : String(error);
 }
 function numberAt(usage, ...keys) {
     for (const key of keys) {
@@ -136,7 +134,7 @@ function verifyTelemetryAttestation(usage, signatureB64, trustPublicKeyPem, ctx)
         publicKey = crypto.createPublicKey(trustPublicKeyPem);
     }
     catch (error) {
-        return { status: "unattested", reason: `trust key unreadable: ${messageOf(error)}` };
+        return { status: "unattested", reason: `trust key unreadable: ${(0, cli_args_1.messageOf)(error)}` };
     }
     let signature;
     try {
@@ -163,7 +161,7 @@ function verifyTelemetryAttestation(usage, signatureB64, trustPublicKeyPem, ctx)
             ok = matches({ ...ctx, resultDigest: undefined });
     }
     catch (error) {
-        return { status: "unattested", reason: `verification error: ${messageOf(error)}` };
+        return { status: "unattested", reason: `verification error: ${(0, cli_args_1.messageOf)(error)}` };
     }
     return ok
         ? { status: "attested", algorithm: "ed25519", ...(coversResult ? { coversResult: true } : {}) }

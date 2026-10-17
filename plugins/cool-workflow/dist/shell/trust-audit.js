@@ -62,6 +62,7 @@ const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const hash_1 = require("../core/hash");
 const fs_atomic_1 = require("./fs-atomic");
+const cli_args_1 = require("../core/util/cli-args");
 exports.TRUST_AUDIT_SCHEMA_VERSION = 1;
 function trustAuditPaths(run) {
     const dir = run.paths.auditDir || path.join(run.paths.runDir, "audit");
@@ -611,14 +612,6 @@ function normalizeEvidence(run, evidence, provenance) {
         },
     }));
 }
-function countBy(values, key) {
-    const counts = {};
-    for (const value of values) {
-        const bucket = key(value);
-        counts[bucket] = (counts[bucket] || 0) + 1;
-    }
-    return counts;
-}
 /** Groups events by a key field once, so each row below is an O(1) Map
  *  lookup instead of an O(events) `.filter()` re-scan per id (O(ids x
  *  events) otherwise). */
@@ -648,7 +641,7 @@ function workerRows(events, run) {
             workerId,
             taskId: worker?.taskId || scoped.find((e) => e.taskId)?.taskId,
             sandboxProfileId: worker?.sandboxProfileId || scoped.find((e) => e.sandboxProfileId)?.sandboxProfileId,
-            decisions: countBy(scoped, (e) => e.decision),
+            decisions: (0, cli_args_1.countBy)(scoped, (e) => e.decision),
             denied: scoped.filter((e) => e.decision === "denied" || e.decision === "rejected").length,
             feedbackIds: unique(scoped.flatMap((e) => e.feedbackIds || [])).sort(),
         };
@@ -758,10 +751,10 @@ function summarizeTrustAudit(run, options = {}) {
         eventLogPath: audit.eventLogPath,
         indexPath: audit.indexPath,
         summaryPath: audit.summaryPath,
-        byKind: countBy(events, (event) => event.kind),
-        byDecision: countBy(events, (event) => event.decision),
-        bySource: countBy(events, (event) => event.source),
-        bySandboxProfile: countBy(events.filter((event) => event.sandboxProfileId), (event) => event.sandboxProfileId || "none"),
+        byKind: (0, cli_args_1.countBy)(events, (event) => event.kind),
+        byDecision: (0, cli_args_1.countBy)(events, (event) => event.decision),
+        bySource: (0, cli_args_1.countBy)(events, (event) => event.source),
+        bySandboxProfile: (0, cli_args_1.countBy)(events.filter((event) => event.sandboxProfileId), (event) => event.sandboxProfileId || "none"),
         workers: workerRows(events, run),
         candidates: candidateRows(events, run),
         commits: commitRows(events, run),

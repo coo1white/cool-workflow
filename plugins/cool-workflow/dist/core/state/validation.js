@@ -30,14 +30,12 @@ exports.RecordValidationError = void 0;
 exports.validateWorkerScope = validateWorkerScope;
 exports.validateNodeSnapshot = validateNodeSnapshot;
 exports.validateNodeReplayRun = validateNodeReplayRun;
-function isRecord(value) {
-    return value !== null && typeof value === "object" && !Array.isArray(value);
-}
+const cli_args_1 = require("../util/cli-args");
 function isString(value) {
     return typeof value === "string";
 }
 function isObjectArray(value) {
-    return Array.isArray(value) && value.every((entry) => isRecord(entry));
+    return Array.isArray(value) && value.every((entry) => (0, cli_args_1.isRecord)(entry));
 }
 function isStringArray(value) {
     return Array.isArray(value) && value.every((entry) => typeof entry === "string");
@@ -75,7 +73,7 @@ exports.RecordValidationError = RecordValidationError;
 // may be absent).
 // ---------------------------------------------------------------------------
 function workerScopeReason(value) {
-    if (!isRecord(value))
+    if (!(0, cli_args_1.isRecord)(value))
         return { reason: "not an object" };
     if (value.schemaVersion !== 1)
         return { field: "schemaVersion", reason: "must equal 1" };
@@ -116,16 +114,16 @@ function validateWorkerScope(value) {
     return value;
 }
 function nodeSnapshotBodyReason(value, prefix) {
-    if (!isRecord(value))
+    if (!(0, cli_args_1.isRecord)(value))
         return { field: prefix, reason: "must be a NodeSnapshotBody object" };
     const requiredStrings = ["id", "kind", "status", "loopStage"];
     for (const field of requiredStrings) {
         if (!isString(value[field]))
             return { field: `${prefix}.${String(field)}`, reason: "must be a string" };
     }
-    if (!isRecord(value.inputs))
+    if (!(0, cli_args_1.isRecord)(value.inputs))
         return { field: `${prefix}.inputs`, reason: "must be an object" };
-    if (!isRecord(value.outputs))
+    if (!(0, cli_args_1.isRecord)(value.outputs))
         return { field: `${prefix}.outputs`, reason: "must be an object" };
     if (!isObjectArray(value.artifacts))
         return { field: `${prefix}.artifacts`, reason: "must be a StateArtifact[]" };
@@ -140,7 +138,7 @@ function nodeSnapshotBodyReason(value, prefix) {
     return undefined;
 }
 function nodeSnapshotReason(value) {
-    if (!isRecord(value))
+    if (!(0, cli_args_1.isRecord)(value))
         return { reason: "not an object" };
     if (value.schemaVersion !== 1)
         return { field: "schemaVersion", reason: "must equal 1" };
@@ -160,7 +158,7 @@ function validateNodeSnapshot(value) {
     return value;
 }
 function nodeReplayRunReason(value) {
-    if (!isRecord(value))
+    if (!(0, cli_args_1.isRecord)(value))
         return { reason: "not an object" };
     if (value.schemaVersion !== 1)
         return { field: "schemaVersion", reason: "must equal 1" };

@@ -9,6 +9,7 @@
 // Evidence: SPEC/pipeline-run.md "Error feedback — error-feedback module".
 
 import { StateArtifact, StateEvidence, StateNodeError } from "../state/types";
+import { countBy } from "../util/cli-args";
 
 export const ERROR_FEEDBACK_SCHEMA_VERSION = 1;
 
@@ -139,7 +140,8 @@ export function feedbackKey(value: {
   );
 }
 
-function compactMetadata(metadata: Record<string, unknown>): Record<string, unknown> | undefined {
+/** A copy of `metadata` without its undefined values; undefined when none are left. */
+export function compactMetadata(metadata: Record<string, unknown>): Record<string, unknown> | undefined {
   const compacted: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(metadata)) if (value !== undefined) compacted[key] = value;
   return Object.keys(compacted).length ? compacted : undefined;
@@ -221,13 +223,4 @@ export function summarizeFeedback(records: ErrorFeedbackRecord[]): {
     bySeverity: countBy(records, (r) => r.severity),
     byClassification: countBy(records, (r) => r.classification),
   };
-}
-
-function countBy<T>(values: T[], key: (value: T) => string): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const value of values) {
-    const bucket = key(value);
-    counts[bucket] = (counts[bucket] || 0) + 1;
-  }
-  return counts;
 }

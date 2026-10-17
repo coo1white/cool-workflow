@@ -12,9 +12,7 @@ const node_child_process_1 = require("node:child_process");
 const probes_1 = require("./probes");
 const local_1 = require("./local");
 const envelopes_1 = require("./envelopes");
-function messageOf(error) {
-    return error instanceof Error ? error.message : String(error);
-}
+const cli_args_1 = require("../../core/util/cli-args");
 /** buildContainerEnvArgs — build the `-e NAME=value` args passed into the
  *  container run command. Pulled out as its own pure function so it can be
  *  checked without a real docker/podman on the box (see local.ts's
@@ -93,7 +91,7 @@ function runContainer(descriptor, policy, request, label, handle, attestation) {
     // name the signal, result.signal is never recorded). Mirrors agent.ts.
     const result = (0, node_child_process_1.spawnSync)(runtime, runArgs, { cwd, encoding: "utf8", timeout: request.timeoutMs || 600000, maxBuffer: 32 * 1024 * 1024, killSignal: "SIGKILL" });
     if (result.error) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `${runtime} run failed: ${messageOf(result.error)}`, attestation);
+        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `${runtime} run failed: ${(0, cli_args_1.messageOf)(result.error)}`, attestation);
     }
     const exitCode = typeof result.status === "number" ? result.status : null;
     if (exitCode === 125 || exitCode === null) {

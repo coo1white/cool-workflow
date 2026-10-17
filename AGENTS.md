@@ -514,6 +514,12 @@ short, and simple to add to. Do not use it for guesses.)
   state reads, whole-state JSON round trips, fsyncs, git processes) goes up,
   and also when it goes down: lock a gain by lowering the ceiling in the same
   diff (`node scripts/bench/perf-counts.js --update`, which never raises one).
+- **A pure helper of twenty lines or less that three files need lives once
+  in `src/core/util/`; a copy is a bug.** Today that is `cli-args.ts`, a
+  module every command already loads, so sharing adds no module load (a new
+  module would raise the ratchet above). Copies whose bodies differ in what
+  they do stay apart. `test/core/util/cli-args-sharedhelpers.test.js` holds
+  the merged ones to one home.
 - **Two docs trees, different gate scope AND different distribution scope.**
   `plugins/cool-workflow/docs/` is the shipped man-page tree: `sync-project-index.js`
   indexes it (non-recursively — one directory level only), and it is in

@@ -18,30 +18,24 @@ const commit_1 = require("./commit");
 const report_1 = require("./report");
 const operator_ux_1 = require("./operator-ux");
 const agent_config_1 = require("./agent-config");
-function req(value, label) {
-    const s = value === undefined || value === null ? "" : String(value);
-    if (!s)
-        throw new Error(`Missing ${label}`);
-    return s;
-}
 /** `--allow-unattested` (CLI: dashed key; MCP: allowUnattested). */
 function allowUnattestedOption(args) {
     return Boolean(args.allowUnattested ?? args["allow-unattested"]);
 }
 function workerListCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
+    const run = (0, run_store_1.loadRunFromCwd)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
     return (0, worker_isolation_1.listWorkerScopes)(run, { status: typeof args.status === "string" ? args.status : undefined });
 }
 function workerShowCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
-    const scope = (0, worker_isolation_1.getWorkerScope)(run, req(args.workerId, "worker id"));
+    const run = (0, run_store_1.loadRunFromCwd)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
+    const scope = (0, worker_isolation_1.getWorkerScope)(run, (0, cli_args_1.requireArg)(args.workerId, "worker id"));
     if (!scope)
         throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
     return scope;
 }
 function workerManifestCli(args) {
-    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
-        const scope = (0, worker_isolation_1.getWorkerScope)(run, req(args.workerId, "worker id"));
+    return (0, run_store_1.withRunStateLock)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
+        const scope = (0, worker_isolation_1.getWorkerScope)(run, (0, cli_args_1.requireArg)(args.workerId, "worker id"));
         if (!scope)
             throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
         const manifest = (0, worker_isolation_1.writeWorkerManifest)(run, scope);
@@ -59,24 +53,24 @@ function workerManifestCli(args) {
  *  tasks.completed, workers.byStatus, and loopStage. The drive loop does these
  *  same steps itself around the bare accept, so it never routes through here. */
 function workerOutputCli(args) {
-    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
-        (0, worker_isolation_1.recordWorkerOutput)(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {
+    return (0, run_store_1.withRunStateLock)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
+        (0, worker_isolation_1.recordWorkerOutput)(run, (0, cli_args_1.requireArg)(args.workerId, "worker id"), (0, cli_args_1.requireArg)(args.resultPath, "result file"), {
             requireAttestedTelemetry: (0, agent_config_1.resolveAgentConfig)(args).requireAttestedTelemetry,
             allowUnattested: allowUnattestedOption(args),
         });
         run.loopStage = "observe";
         (0, dispatch_1.updatePhaseStatuses)(run);
         (0, drive_1.maybeExpandLoop)(run);
-        (0, commit_1.commitState)(run, `worker:${req(args.workerId, "worker id")}:result`);
+        (0, commit_1.commitState)(run, `worker:${(0, cli_args_1.requireArg)(args.workerId, "worker id")}:result`);
         (0, report_1.writeReport)(run);
         (0, run_store_1.saveCheckpoint)(run);
         return (0, operator_ux_1.summarizeRun)(run);
     });
 }
 function workerFailCli(args) {
-    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
-        const message = String(args.message || req(args.resultPath, "failure message"));
-        const scope = (0, worker_isolation_1.recordWorkerFailure)(run, req(args.workerId, "worker id"), message, {
+    return (0, run_store_1.withRunStateLock)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
+        const message = String(args.message || (0, cli_args_1.requireArg)(args.resultPath, "failure message"));
+        const scope = (0, worker_isolation_1.recordWorkerFailure)(run, (0, cli_args_1.requireArg)(args.workerId, "worker id"), message, {
             code: typeof args.code === "string" ? args.code : undefined,
             path: typeof args.path === "string" ? args.path : undefined,
             retryable: args.retryable !== undefined ? Boolean(args.retryable) : undefined,
@@ -89,9 +83,9 @@ function workerFailCli(args) {
  *  allowed) and signals a violation through a non-zero exit code, not just
  *  stdout — a validate verb must report an invalid verdict via its exit code. */
 function workerValidateCli(args) {
-    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
+    return (0, run_store_1.withRunStateLock)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
         const target = args.path || args.resultPath;
-        const violation = (0, worker_isolation_1.validateWorkerBoundary)(run, req(args.workerId, "worker id"), target ? { path: String(target) } : {});
+        const violation = (0, worker_isolation_1.validateWorkerBoundary)(run, (0, cli_args_1.requireArg)(args.workerId, "worker id"), target ? { path: String(target) } : {});
         (0, run_store_1.saveCheckpoint)(run);
         return { violation, exitCode: violation ? 1 : undefined };
     });

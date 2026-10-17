@@ -12,6 +12,7 @@ import { safeFileName, writeJson } from "./fs-atomic";
 import { StateArtifact, StateEvidence, WorkflowRun } from "../core/state/types";
 import {
   buildFeedbackRecord,
+  compactMetadata,
   ErrorFeedbackClassification,
   ErrorFeedbackRecord,
   ErrorFeedbackSeverity,
@@ -99,14 +100,6 @@ export function recordFeedback(run: WorkflowRun, input: RecordFeedbackInput, opt
 function stringMetadata(metadata: Record<string, unknown> | undefined, key: string): string | undefined {
   const value = metadata?.[key];
   return typeof value === "string" ? value : undefined;
-}
-
-function compactMetadata(metadata: Record<string, unknown>): Record<string, unknown> | undefined {
-  const compacted: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(metadata)) {
-    if (value !== undefined) compacted[key] = value;
-  }
-  return Object.keys(compacted).length ? compacted : undefined;
 }
 
 function mergeById<T extends { id: string }>(existing: T[], next: T[]): T[] {

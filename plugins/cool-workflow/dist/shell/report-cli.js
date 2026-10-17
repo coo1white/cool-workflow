@@ -46,16 +46,13 @@ const cli_args_1 = require("../core/util/cli-args");
 const run_export_1 = require("./run-export");
 const run_store_1 = require("./run-store");
 const term_1 = require("./term");
-function optionalString(value) {
-    return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
 function reportBundleCli(runId, args) {
     if (!runId)
         throw new Error("report bundle requires a run id (cw report bundle <run-id>)");
     const base = (0, cli_args_1.cwdArg)(args);
     const run = (0, run_store_1.loadRunFromCwd)(runId, base);
-    const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
+    const output = (0, cli_args_1.optionalArg)(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
     const outputPath = path.resolve(base, output);
     if (SYSTEM_DIRS.test(outputPath)) {
         throw new Error(`Refusing to write archive to a system directory: ${output}`);
@@ -64,11 +61,11 @@ function reportBundleCli(runId, args) {
     // re-verifies offline. Default falls back to the same env the verify
     // gate reads, so a single configured key both attests at record-time
     // and travels with the export.
-    const trustKeyArg = optionalString(args["with-trust-key"] || args.withTrustKey || args.trustKey || args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+    const trustKeyArg = (0, cli_args_1.optionalArg)(args["with-trust-key"] || args.withTrustKey || args.trustKey || args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
     const exported = (0, run_export_1.exportRun)(run, outputPath, { trustPublicKey: trustKeyArg });
-    const extractReportTo = optionalString(args["extract-report"] || args.extractReport || args.extractReportTo);
+    const extractReportTo = (0, cli_args_1.optionalArg)(args["extract-report"] || args.extractReport || args.extractReportTo);
     const verification = (0, run_export_1.verifyReportBundle)(exported.path, {
-        pubkey: optionalString(args.pubkey || args.pubKey || args.publicKey),
+        pubkey: (0, cli_args_1.optionalArg)(args.pubkey || args.pubKey || args.publicKey),
         extractReportTo: extractReportTo ? path.resolve(base, extractReportTo) : undefined,
         strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
         requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs),
@@ -85,12 +82,12 @@ function reportBundleCli(runId, args) {
 }
 function reportVerifyBundleCli(args) {
     const base = (0, cli_args_1.cwdArg)(args);
-    const archive = optionalString(args.archive || args.path || args.file || args.bundle);
+    const archive = (0, cli_args_1.optionalArg)(args.archive || args.path || args.file || args.bundle);
     if (!archive)
         throw new Error("report verify-bundle requires a bundle path (positional, --archive, --path, --file, or --bundle)");
-    const extractReportTo = optionalString(args["extract-report"] || args.extractReport || args.extractReportTo);
+    const extractReportTo = (0, cli_args_1.optionalArg)(args["extract-report"] || args.extractReport || args.extractReportTo);
     return (0, run_export_1.verifyReportBundle)(path.resolve(base, archive), {
-        pubkey: optionalString(args.pubkey || args.pubKey || args.publicKey),
+        pubkey: (0, cli_args_1.optionalArg)(args.pubkey || args.pubKey || args.publicKey),
         extractReportTo: extractReportTo ? path.resolve(base, extractReportTo) : undefined,
         strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
         requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs),

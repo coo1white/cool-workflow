@@ -220,11 +220,56 @@ numbers measured again on `b73733d2`, after the D1 delete):
   helpers in a module those paths already load.
 - md count: 124/124 at this PR, not 135/135.
 
+Found in the helper PR (measured again on `9201eaef`, after #799):
+
+- The plan names two new modules, `core/util/common.ts` and
+  `shell/cli-common.ts`. Neither was made. `now` and `invocationCwd` had
+  no copies left (#795), and a new pure module would be one more load on
+  `doctor`, `app list` and `drive`, which load copies today. The shared
+  helpers went into `core/util/cli-args.ts`, which every command and the
+  MCP server already load. The perf counts did not move: version 27, help
+  27, status 27, doctor 42, app list 42, MCP initialize 24, drive 92.
+- `optionalString` needed no new home: `cli-args.ts` already had
+  `optionalArg` with the same body. The copies were nine, not eight:
+  `state-cli.ts` had it as `optionalStringArg`, and `ledger-cli.ts` as
+  `stringOption`. Seven became `optionalArg`. Two of them were exported
+  with no caller (`optionalString` from `report-view-cli.ts`,
+  `optionalStringArg` from `state-cli.ts`); they stay as names for
+  `optionalArg`, since a zero-caller export can still be a contract.
+- Merged into `cli-args.ts`: `isRecord` (7 copies, 4 spellings with one
+  answer for every input), `messageOf` (7), `countBy` (4; the
+  `operator-ux.ts` copy runs the key function twice, which gives the same
+  counts for the plain field reads its callers pass), and `req` (3), now
+  `requireArg`, since `required` there has a different message.
+  `compactMetadata` had two copies with the same body
+  (`core/pipeline/error-feedback.ts` and `shell/error-feedback-io.ts`); the
+  shell one now imports the core one.
+- Kept, with reason: `optionalString` in `audit-cli.ts` (it also takes an
+  array's first string); `optionalString` in
+  `wiring/capability-table/registry-core.ts` and `stringOption` in
+  `orchestrator.ts` (capability surface files: an edit there needs a
+  shipped-docs edit by the onramp rule, and there is nothing to say);
+  `stringOption` in the frozen `scheduler-io.ts` (its one twin is the
+  `orchestrator.ts` copy, so no third user); `compactMetadata` in
+  `sandbox-profile.ts` (its home is not loaded by `cw app list`, which
+  loads `sandbox-profile.ts`, and its `Object.fromEntries` body differs
+  from the loop on a `__proto__` key). `errMessage` in `drive.ts` has the
+  `messageOf` body but was not in the table, and was left.
+- No "kept as a local copy" header sentences were left to delete; they
+  had gone with the files and comments of the steps before.
+- The budget of src net -250 (aim -350) does not hold: src 35,355 to
+  35,263 (-92), comment lines 5,481 to 5,488 (+7, one doc line per shared
+  helper and a header note on why they sit in `cli-args.ts`). No new src
+  file. The planned smoke became a unit test,
+  `test/core/util/cli-args-sharedhelpers.test.js` (so the project index
+  does not change): it runs each shared helper against the old bodies and
+  fails if a merged helper gets a second definition in `src/`.
+
 ## Status ledger
 
 | Item | State | PR |
 |---|---|---|
 | Intent + spec (this file) | open | |
-| History goes, "what" and "why" stay | done on its branch, PR to come | |
-| One copy of each small helper | | |
+| History goes, "what" and "why" stay | done | #799 |
+| One copy of each small helper | done on its branch, PR to come | |
 | Closing ledger and receipt | | |

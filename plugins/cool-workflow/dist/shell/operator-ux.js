@@ -50,18 +50,13 @@ const path = __importStar(require("node:path"));
 const dispatch_1 = require("../core/pipeline/dispatch");
 const trust_audit_1 = require("./trust-audit");
 const collate_1 = require("../core/util/collate");
-function countBy(values, key) {
-    const counts = {};
-    for (const value of values)
-        counts[key(value)] = (counts[key(value)] || 0) + 1;
-    return counts;
-}
+const cli_args_1 = require("../core/util/cli-args");
 function firstRunnablePhase(run) {
     return run.phases.find((phase) => phase.status === "pending" || phase.status === "running");
 }
 function summarizeWorkersCounts(run) {
     const workers = run.workers || [];
-    return { total: workers.length, byStatus: countBy(workers, (w) => w.status) };
+    return { total: workers.length, byStatus: (0, cli_args_1.countBy)(workers, (w) => w.status) };
 }
 /** `summarizeRun` — used by `cw status <id> --json` and `cw report
  *  <id>`'s internals. */
@@ -100,7 +95,7 @@ function summarizePhases(run) {
     return run.phases.map((phase) => {
         const taskIds = new Set(phase.taskIds);
         const phaseTasks = run.tasks.filter((t) => taskIds.has(t.id));
-        const byStatus = countBy(phaseTasks, (t) => t.status);
+        const byStatus = (0, cli_args_1.countBy)(phaseTasks, (t) => t.status);
         return { id: phase.id, name: phase.name, status: phase.status, tasks: { total: phaseTasks.length, ...byStatus } };
     });
 }
@@ -108,7 +103,7 @@ function summarizeTasks(tasks) {
     const byId = (status) => tasks.filter((t) => t.status === status).map((t) => t.id);
     return {
         total: tasks.length,
-        byStatus: countBy(tasks, (t) => t.status),
+        byStatus: (0, cli_args_1.countBy)(tasks, (t) => t.status),
         pending: byId("pending"),
         running: byId("running"),
         failed: byId("failed"),
@@ -119,9 +114,9 @@ function summarizeOperatorFeedback(run) {
     const records = (run.feedback || []);
     return {
         total: records.length,
-        byStatus: countBy(records, (r) => r.status),
-        bySeverity: countBy(records, (r) => r.severity),
-        byClassification: countBy(records, (r) => r.classification),
+        byStatus: (0, cli_args_1.countBy)(records, (r) => r.status),
+        bySeverity: (0, cli_args_1.countBy)(records, (r) => r.severity),
+        byClassification: (0, cli_args_1.countBy)(records, (r) => r.classification),
     };
 }
 function summarizeOperatorCommits(run) {
@@ -138,7 +133,7 @@ function summarizeOperatorWorkers(run) {
     const workers = (run.workers || []).slice().sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id));
     return {
         total: workers.length,
-        byStatus: countBy(workers, (w) => w.status),
+        byStatus: (0, cli_args_1.countBy)(workers, (w) => w.status),
         workers: workers.map((w) => ({ id: w.id, taskId: w.taskId, status: w.status, manifestPath: w.workerDir, resultPath: w.resultPath })),
     };
 }

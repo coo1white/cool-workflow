@@ -10,9 +10,6 @@ const cli_args_1 = require("../core/util/cli-args");
 const telemetry_attestation_1 = require("../core/trust/telemetry-attestation");
 const run_store_1 = require("./run-store");
 const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
-function optionalString(value) {
-    return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 function telemetryVerifyCli(runId, args) {
     if (!runId)
         throw new Error("telemetry verify requires a run id (cw telemetry verify <run-id>)");
@@ -22,7 +19,7 @@ function telemetryVerifyCli(runId, args) {
     // public key (--pubkey / CW_AGENT_ATTEST_PUBKEY) additionally RE-RUNS
     // the ed25519 check over each `attested` record's stored raw usage
     // rather than trusting that verdict.
-    const trustPublicKeyInput = optionalString(args.pubkey || args.pubKey || args.publicKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+    const trustPublicKeyInput = (0, cli_args_1.optionalArg)(args.pubkey || args.pubKey || args.publicKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
     const trustPublicKey = (0, telemetry_attestation_1.resolveTrustPublicKey)(trustPublicKeyInput);
     const keyChecks = trustPublicKeyInput && !trustPublicKey ? [{ name: "signature-key", pass: false, code: "telemetry-pubkey-unreadable" }] : [];
     const sig = (0, telemetry_attestation_1.verifyTelemetrySignatures)(v.records, trustPublicKey);

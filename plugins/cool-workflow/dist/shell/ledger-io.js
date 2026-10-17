@@ -48,9 +48,7 @@ exports.unionLedgerEntries = unionLedgerEntries;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const ledger_1 = require("../core/trust/ledger");
-function isRecord(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
+const cli_args_1 = require("../core/util/cli-args");
 /** Read every `*.json` in `dir`, verify each entry fail-closed, and
  *  report. `allOk` is false if any entry is tampered, malformed, or
  *  unreadable — so the receiving side refuses the whole inbox rather
@@ -111,7 +109,7 @@ function listLedgerEntries(dir) {
             };
         }
         const result = (0, ledger_1.verifyLedgerEntry)(raw);
-        const rec = isRecord(raw) ? raw : {};
+        const rec = (0, cli_args_1.isRecord)(raw) ? raw : {};
         return {
             file: name,
             id: result.id,

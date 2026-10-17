@@ -16,6 +16,12 @@
 // (cli/dispatch.ts, the wiring slices) AND MCP tool-call args (the same
 // wiring slices' MCP handler bodies) — see core/util/numeric-flag.ts for
 // the same CLI/MCP-shared framing.
+//
+// It also keeps the one copy of a few small pure helpers that three or
+// more files need (requireArg, isRecord, messageOf, countBy). They are
+// here, not in a new module, because every command already loads this
+// one: a new module would be one more load on each path that uses them,
+// and scripts/bench/perf-ceilings.json lets no module count go up.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -52,6 +58,10 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.required = required;
 exports.optionalArg = optionalArg;
+exports.requireArg = requireArg;
+exports.isRecord = isRecord;
+exports.messageOf = messageOf;
+exports.countBy = countBy;
 exports.wantsJson = wantsJson;
 exports.parseBoolFlag = parseBoolFlag;
 exports.boolWord = boolWord;
@@ -73,6 +83,31 @@ function required(value, label) {
 /** Normalize an optional CLI arg to a trimmed non-empty string, else undefined. */
 function optionalArg(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+/** Require a value: `String(value)` unless that is empty (or the value is
+ *  undefined/null), which throws `Missing <label>` with no tip. */
+function requireArg(value, label) {
+    const s = value === undefined || value === null ? "" : String(value);
+    if (!s)
+        throw new Error(`Missing ${label}`);
+    return s;
+}
+/** True for a non-null object that is not an array. */
+function isRecord(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+/** A thrown value's text: an Error's message, else `String(error)`. */
+function messageOf(error) {
+    return error instanceof Error ? error.message : String(error);
+}
+/** Count values by the key each one maps to, in first-seen key order. */
+function countBy(values, key) {
+    const counts = {};
+    for (const value of values) {
+        const bucket = key(value);
+        counts[bucket] = (counts[bucket] || 0) + 1;
+    }
+    return counts;
 }
 /** True when the caller asked for JSON output (`--json` or `--format json`). */
 function wantsJson(options) {

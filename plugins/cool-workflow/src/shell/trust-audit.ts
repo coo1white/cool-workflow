@@ -16,6 +16,7 @@ import * as path from "node:path";
 import { eventHashInput, sha256, stableHash } from "../core/hash";
 import { durableAppendFileSync, logEndsWithNewline, safeFileName, withFileLock, writeJson, writeTextDurable } from "./fs-atomic";
 import { StateEvidence, WorkflowRun } from "../core/state/types";
+import { countBy } from "../core/util/cli-args";
 
 export const TRUST_AUDIT_SCHEMA_VERSION = 1;
 
@@ -764,15 +765,6 @@ export function normalizeEvidence(
       note: provenance.note || (entry.provenance as Record<string, unknown> | undefined)?.note,
     } as unknown as StateEvidence["provenance"],
   }));
-}
-
-function countBy<T>(values: T[], key: (v: T) => string): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const value of values) {
-    const bucket = key(value);
-    counts[bucket] = (counts[bucket] || 0) + 1;
-  }
-  return counts;
 }
 
 export interface TrustAuditSummary {

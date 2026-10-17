@@ -367,6 +367,11 @@ Found in step 3:
   step 2 had already taken most of the history comments with the files
   they were in. The numbers and the reason are in
   `2026-09-04-compress-src.md`, "What this spec got wrong".
+- The helper part gave 92 more (src 35,355 to 35,263), not about 250: a
+  new shared module would raise the module ratchet, so the helpers went
+  into `core/util/cli-args.ts`, and copies with other bodies, or in
+  capability surface files, stayed. Details in the same part of
+  `2026-09-04-compress-src.md`.
 
 (the rest filled at close)
 
@@ -378,7 +383,7 @@ Found in step 3:
 | D1-D6 answered | yes, all six (operator, 2026-09-28) | #751 |
 | 1 Release tooling off the family (D3) | done | #752 |
 | 2 Delete the D1 family and cut its hooks | done | #770 |
-| 3 Comment and helper sweep (compress-src) | comment part done on its branch, PR to come; helper part open | |
+| 3 Comment and helper sweep (compress-src) | comment part done; helper part done on its branch, PR to come | #799 |
 | 4 Node floor (D4) | | |
 | 5 ESM src + dist | | |
 | 6 Scripts to .mjs | | |

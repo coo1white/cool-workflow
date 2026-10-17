@@ -39,6 +39,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.optionalStringArg = void 0;
 exports.checkState = checkState;
 exports.migrationList = migrationList;
 exports.migrationCheck = migrationCheck;
@@ -53,10 +54,10 @@ exports.nodeDiffCli = nodeDiffCli;
 exports.nodeReplayCli = nodeReplayCli;
 exports.nodeReplayVerifyCli = nodeReplayVerifyCli;
 exports.contractShowCli = contractShowCli;
-exports.optionalStringArg = optionalStringArg;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const cli_args_1 = require("../core/util/cli-args");
+Object.defineProperty(exports, "optionalStringArg", { enumerable: true, get: function () { return cli_args_1.optionalArg; } });
 const fs_atomic_1 = require("./fs-atomic");
 const run_store_1 = require("./run-store");
 const node_store_1 = require("./node-store");
@@ -65,9 +66,6 @@ const node_snapshot_1 = require("../core/state/node-snapshot");
 const dispatch_1 = require("../core/pipeline/dispatch");
 const runner_1 = require("../core/pipeline/runner");
 const numeric_flag_1 = require("../core/util/numeric-flag");
-function optionalStringArg(value) {
-    return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 // ---------------------------------------------------------------------
 // state.check
 // ---------------------------------------------------------------------

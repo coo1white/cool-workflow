@@ -49,9 +49,7 @@ const path = __importStar(require("node:path"));
 const node_child_process_1 = require("node:child_process");
 const envelopes_1 = require("./envelopes");
 const local_1 = require("./local");
-function messageOf(error) {
-    return error instanceof Error ? error.message : String(error);
-}
+const cli_args_1 = require("../../core/util/cli-args");
 /** Resolves scripts/children/http-delegate-child.js next to the compiled
  *  module. Throws the exact broken-installation message when missing. */
 function delegateChildScript() {
@@ -109,7 +107,7 @@ function runHttpDelegation(descriptor, policy, request, label, handle, attestati
         maxBuffer: 32 * 1024 * 1024,
     });
     if (child.error) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `${descriptor.id} delegation failed: ${messageOf(child.error)}`, attestation);
+        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `${descriptor.id} delegation failed: ${(0, cli_args_1.messageOf)(child.error)}`, attestation);
     }
     let parsed;
     try {

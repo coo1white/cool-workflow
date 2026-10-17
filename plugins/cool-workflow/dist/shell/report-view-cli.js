@@ -42,6 +42,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.optionalString = void 0;
 exports.reportWriteCli = reportWriteCli;
 exports.reportMcp = reportMcp;
 exports.resolveReportRunId = resolveReportRunId;
@@ -55,19 +56,16 @@ exports.operatorReportCli = operatorReportCli;
 exports.operatorReportText = operatorReportText;
 exports.graphCli = graphCli;
 exports.graphText = graphText;
-exports.optionalString = optionalString;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const cli_args_1 = require("../core/util/cli-args");
+Object.defineProperty(exports, "optionalString", { enumerable: true, get: function () { return cli_args_1.optionalArg; } });
 const node_child_process_1 = require("node:child_process");
 const run_store_1 = require("./run-store");
 const report_1 = require("./report");
 const operator_ux_1 = require("./operator-ux");
 const operator_ux_text_1 = require("./operator-ux-text");
 const report_html_1 = require("../core/format/report-html");
-function optionalString(value) {
-    return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 /** `cw report <run-id>` — writes report.md fresh and returns just its
  *  path (the CLI binding prints ONLY this path + "\n" to stdout; `--json`
  *  prints `{path}`). */

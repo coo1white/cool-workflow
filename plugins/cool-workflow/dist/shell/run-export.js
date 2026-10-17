@@ -58,6 +58,7 @@ const run_store_1 = require("./run-store");
 const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
 const telemetry_attestation_1 = require("../core/trust/telemetry-attestation");
 const trust_audit_1 = require("./trust-audit");
+const cli_args_1 = require("../core/util/cli-args");
 /** Export a run to a portable JSON archive with run-local bytes and
  *  digests. */
 function exportRun(run, outputPath, options = {}) {
@@ -250,7 +251,7 @@ function verifyImportedRun(run) {
             ok: false,
             manifestPath,
             checkedFiles: 0,
-            checks: [{ name: "import-manifest", pass: false, code: "invalid-import-manifest", path: manifestPath, actual: messageOf(error) }],
+            checks: [{ name: "import-manifest", pass: false, code: "invalid-import-manifest", path: manifestPath, actual: (0, cli_args_1.messageOf)(error) }],
         };
     }
     const currentManifestDigest = digestManifest(manifest.files.map((file) => ({ ...file, contentBase64: "" })));
@@ -306,14 +307,14 @@ function inspectArchive(archivePath) {
         limits = archiveIntakeLimits();
     }
     catch (error) {
-        return { ...base, checks: [{ name: "archive-limit", pass: false, code: "archive-limit-invalid", actual: messageOf(error) }] };
+        return { ...base, checks: [{ name: "archive-limit", pass: false, code: "archive-limit-invalid", actual: (0, cli_args_1.messageOf)(error) }] };
     }
     let bytes;
     try {
         bytes = readArchiveBytes(archivePath, limits);
     }
     catch (error) {
-        const message = messageOf(error);
+        const message = (0, cli_args_1.messageOf)(error);
         const limited = message.startsWith("Archive raw byte limit exceeded:");
         return { ...base, checks: [{ name: limited ? "archive-limit" : "archive", pass: false, code: limited ? "archive-limit-raw-bytes" : "archive-unreadable", path: archivePath, actual: message }] };
     }
@@ -323,7 +324,7 @@ function inspectArchive(archivePath) {
         raw = JSON.parse(bytes.toString("utf8"));
     }
     catch (error) {
-        return { ...base, checks: [{ name: "archive", pass: false, code: "archive-invalid-json", path: archivePath, actual: messageOf(error) }] };
+        return { ...base, checks: [{ name: "archive", pass: false, code: "archive-invalid-json", path: archivePath, actual: (0, cli_args_1.messageOf)(error) }] };
     }
     if (raw.schemaVersion !== 1) {
         return {
@@ -367,7 +368,7 @@ function inspectArchive(archivePath) {
         };
     }
     catch (error) {
-        return { ...base, schemaSupported: true, checks: [{ name: "archive", pass: false, code: "archive-malformed", path: archivePath, actual: messageOf(error) }] };
+        return { ...base, schemaSupported: true, checks: [{ name: "archive", pass: false, code: "archive-malformed", path: archivePath, actual: (0, cli_args_1.messageOf)(error) }] };
     }
 }
 function importManifestPath(run) {
@@ -531,7 +532,7 @@ function verifyReportBundle(archivePath, options = {}) {
         }
     }
     catch (error) {
-        failedChecks.push({ name: "restore", code: messageOf(error) });
+        failedChecks.push({ name: "restore", code: (0, cli_args_1.messageOf)(error) });
     }
     finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -727,7 +728,7 @@ function validateArchiveIntake(files, limits) {
     }
 }
 function archiveLimitCheck(error) {
-    const actual = messageOf(error);
+    const actual = (0, cli_args_1.messageOf)(error);
     const code = actual.startsWith("Archive file count limit exceeded:")
         ? "archive-limit-file-count"
         : actual.startsWith("Archive content byte limit exceeded:")
@@ -934,7 +935,4 @@ function safeArchiveBasename(value) {
  *  change, but a truly different key (different base64 body) does. */
 function normalizePem(pem) {
     return (pem || "").replace(/\s+/g, "");
-}
-function messageOf(error) {
-    return error instanceof Error ? error.message : String(error);
 }

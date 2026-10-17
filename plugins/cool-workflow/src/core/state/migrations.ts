@@ -18,6 +18,7 @@ import {
 } from "../version";
 import { REQUIRED_ARRAY_KEYS, REQUIRED_RECORD_KEYS, REQUIRED_TOP_LEVEL_KEYS } from "./schema";
 import { LoopStage, WorkflowRun } from "./types";
+import { isRecord } from "../util/cli-args";
 
 export type StateCompatibilityStatus = "current" | "migrated" | "normalized" | "unsupported";
 
@@ -569,10 +570,6 @@ function stringValue(value: unknown): string | undefined {
 
 function isLoopStage(value: unknown): value is LoopStage {
   return ["interpret", "act", "observe", "adjust", "checkpoint"].includes(String(value));
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function take<T>(value: T, owned: boolean | undefined): T {

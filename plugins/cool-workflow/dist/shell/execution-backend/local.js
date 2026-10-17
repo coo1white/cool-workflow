@@ -15,9 +15,7 @@ exports.executeLocal = executeLocal;
 const node_child_process_1 = require("node:child_process");
 const hash_1 = require("../../core/hash");
 const probes_1 = require("./probes");
-function messageOf(error) {
-    return error instanceof Error ? error.message : String(error);
-}
+const cli_args_1 = require("../../core/util/cli-args");
 /** CW's OWN secrets that must NEVER reach ANY child process — on any backend
  *  (local/container/remote/agent), regardless of policy.env.inherit / expose /
  *  deny. Each is read only by parent-side tooling, so no spawned child ever
@@ -138,7 +136,7 @@ function executeLocal(descriptor, request, label, attestation, spawnStyle) {
     if (isTTY)
         process.stderr.write(`✓ Done (${elapsedMs}ms)\n`);
     const exitCode = typeof result.status === "number" ? result.status : null;
-    const spawnError = result.error ? messageOf(result.error) : undefined;
+    const spawnError = result.error ? (0, cli_args_1.messageOf)(result.error) : undefined;
     const stdout = String(result.stdout || "");
     const digest = (0, hash_1.sha256)(stdout);
     const status = spawnError ? "failed" : exitCode === 0 ? "completed" : "failed";

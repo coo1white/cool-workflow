@@ -52,6 +52,7 @@ exports.derivePhases = derivePhases;
 const path = __importStar(require("node:path"));
 const version_1 = require("../version");
 const schema_1 = require("./schema");
+const cli_args_1 = require("../util/cli-args");
 exports.RUN_STATE_MIGRATIONS = [
     {
         from: version_1.LEGACY_RUN_STATE_SCHEMA_VERSION,
@@ -142,7 +143,7 @@ function migrateRunState(input, options = {}) {
         errors: [],
         suspectedDataLoss: false,
     };
-    if (!isRecord(input)) {
+    if (!(0, cli_args_1.isRecord)(input)) {
         report.status = "unsupported";
         report.errors.push("Run state must be a JSON object.");
         return { run: {}, report };
@@ -199,7 +200,7 @@ function reverseRunState(input, targetSchemaVersion, options = {}) {
         errors: [],
         suspectedDataLoss: false,
     };
-    if (!isRecord(input)) {
+    if (!(0, cli_args_1.isRecord)(input)) {
         report.status = "unsupported";
         report.errors.push("Run state must be a JSON object.");
         return { run: {}, report };
@@ -291,7 +292,7 @@ function normalizeRunState(state, context) {
     ensureArray(state, "nodes", context);
     ensureArray(state, "contracts", context);
     ensureArray(state, "feedback", context);
-    if (!isRecord(state.audit)) {
+    if (!(0, cli_args_1.isRecord)(state.audit)) {
         if (state.audit !== undefined)
             context.errors.push("audit must be an object when present.");
         setValue(state, "audit", {
@@ -305,7 +306,7 @@ function normalizeRunState(state, context) {
     ensureArray(state, "sandboxProfiles", context);
     ensureArray(state, "candidates", context);
     ensureArray(state, "candidateSelections", context);
-    if (!isRecord(state.multiAgent)) {
+    if (!(0, cli_args_1.isRecord)(state.multiAgent)) {
         if (state.multiAgent !== undefined)
             context.errors.push("multiAgent must be an object when present.");
         setValue(state, "multiAgent", { schemaVersion: 1, runs: [], roles: [], groups: [], memberships: [], fanouts: [], fanins: [] }, context, "multiAgent state is required");
@@ -321,7 +322,7 @@ function normalizeRunState(state, context) {
             }
         }
     }
-    if (!isRecord(state.blackboard)) {
+    if (!(0, cli_args_1.isRecord)(state.blackboard)) {
         if (state.blackboard !== undefined)
             context.errors.push("blackboard must be an object when present.");
         setValue(state, "blackboard", { schemaVersion: 1, boards: [], topics: [], messages: [], contexts: [], artifacts: [], snapshots: [], decisions: [] }, context, "blackboard state is required");
@@ -337,7 +338,7 @@ function normalizeRunState(state, context) {
             }
         }
     }
-    if (!isRecord(state.topologies)) {
+    if (!(0, cli_args_1.isRecord)(state.topologies)) {
         if (state.topologies !== undefined)
             context.errors.push("topologies must be an object when present.");
         setValue(state, "topologies", { schemaVersion: 1, runs: [] }, context, "topologies state is required");
@@ -352,7 +353,7 @@ function normalizeRunState(state, context) {
         }
     }
     if (state.collaboration !== undefined) {
-        if (!isRecord(state.collaboration)) {
+        if (!(0, cli_args_1.isRecord)(state.collaboration)) {
             context.errors.push("collaboration must be an object when present.");
             setValue(state, "collaboration", { schemaVersion: 1, approvals: [], comments: [], handoffs: [] }, context, "collaboration must be an object");
         }
@@ -384,7 +385,7 @@ function validateMigratedRunState(state, report) {
         report.errors.push(`Expected schemaVersion ${version_1.CURRENT_RUN_STATE_SCHEMA_VERSION}; found ${String(state.schemaVersion)}.`);
     }
     for (const key of schema_1.REQUIRED_RECORD_KEYS) {
-        if (key in state && !isRecord(state[key]))
+        if (key in state && !(0, cli_args_1.isRecord)(state[key]))
             report.errors.push(`${key} must be an object.`);
     }
     for (const key of schema_1.REQUIRED_ARRAY_KEYS) {
@@ -393,14 +394,14 @@ function validateMigratedRunState(state, report) {
     }
 }
 function detectSchemaVersion(value) {
-    if (!isRecord(value) || value.schemaVersion === undefined)
+    if (!(0, cli_args_1.isRecord)(value) || value.schemaVersion === undefined)
         return version_1.LEGACY_RUN_STATE_SCHEMA_VERSION;
     if (!Number.isInteger(value.schemaVersion))
         return Number.POSITIVE_INFINITY;
     return Number(value.schemaVersion);
 }
 function schemaVersionDescription(input, detected) {
-    if (!isRecord(input))
+    if (!(0, cli_args_1.isRecord)(input))
         return "non-object";
     if (input.schemaVersion === undefined)
         return String(version_1.LEGACY_RUN_STATE_SCHEMA_VERSION);
@@ -409,7 +410,7 @@ function schemaVersionDescription(input, detected) {
     return `invalid (${typeof input.schemaVersion}: ${String(input.schemaVersion)})`;
 }
 function ensureRecord(state, key, context, reason) {
-    if (isRecord(state[key]))
+    if ((0, cli_args_1.isRecord)(state[key]))
         return state[key];
     if (state[key] !== undefined)
         context.errors.push(`${key} must be an object when present.`);
@@ -436,7 +437,7 @@ function setValue(state, key, value, context, reason, reportPath = key) {
 function derivePhases(tasks) {
     const byPhase = new Map();
     for (const task of tasks) {
-        if (!isRecord(task))
+        if (!(0, cli_args_1.isRecord)(task))
             continue;
         const phase = stringValue(task.phase) || "Workflow";
         const taskId = stringValue(task.id);
@@ -459,8 +460,8 @@ function derivePhases(tasks) {
 }
 function tasksForPhaseCompleted(tasks, taskIds) {
     return taskIds.every((taskId) => {
-        const task = tasks.find((candidate) => isRecord(candidate) && candidate.id === taskId);
-        return isRecord(task) && task.status === "completed";
+        const task = tasks.find((candidate) => (0, cli_args_1.isRecord)(candidate) && candidate.id === taskId);
+        return (0, cli_args_1.isRecord)(task) && task.status === "completed";
     });
 }
 function titleize(value) {
@@ -479,9 +480,6 @@ function stringValue(value) {
 }
 function isLoopStage(value) {
     return ["interpret", "act", "observe", "adjust", "checkpoint"].includes(String(value));
-}
-function isRecord(value) {
-    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 function take(value, owned) {
     return owned ? value : clone(value);

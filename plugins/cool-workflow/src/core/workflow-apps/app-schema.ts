@@ -16,6 +16,8 @@
 // live in shell/ (see shell/workflow-app-loader.ts), per the core/shell
 // split.
 
+import { isRecord } from "../util/cli-args";
+
 export interface WorkflowInputDefinition {
   name: string;
   type?: string;
@@ -325,10 +327,6 @@ function issue(code: string, message: string, pathName?: string): WorkflowAppVal
 function joinPath(basePath: string | undefined, segment: string): string | undefined {
   if (!basePath) return segment;
   return `${basePath}.${segment}`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function isNonEmptyString(value: unknown): value is string {
