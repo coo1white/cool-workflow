@@ -91,6 +91,11 @@ function emitProgress(message) {
     if (progressEnabled())
         reporter.progress(`[drive] ${message}`);
 }
+/** The `→ <label> (<phase>) — spawning agent` line, one text for the serial
+ *  path and the concurrent round (which prints it at round start). */
+function spawningAgentLine(task, dispatched) {
+    return `→ ${task.label || task.id} (${task.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`;
+}
 // A sign of life while a round waits on its agents: every agent wait is a
 // spawnSync, so this process cannot print until the round ends. A small
 // separate process (scripts/children/drive-ticker.mjs) prints
@@ -407,7 +412,10 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         emitProgress(`⧉ ${selected.label || selected.id} (${selected.phase}) — sub-workflow ${subWorkflow.appId}…`);
         return runSubWorkflow(ctx, run, selected, workerId, manifest, subWorkflow, deferPersist);
     }
-    emitProgress(`→ ${selected.label || selected.id} (${selected.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`);
+    // A concurrent round printed this line at round start, when the agent was
+    // spawned (prepareConcurrentOutcomes); here it only settles the outcome.
+    if (!preparedOutcome)
+        emitProgress(spawningAgentLine(selected, dispatched));
     const envelope = runBackend({
         schemaVersion: 1,
         runId: ctx.runId,
@@ -759,6 +767,9 @@ function prepareConcurrentOutcomes(ctx, batch) {
     const endpointTaskIds = [];
     // The worker each spawned or delegated task runs as, to check after the wait.
     const spawnedWorkers = new Map();
+    // Each spawned or delegated task's `spawning agent` line, in batch order,
+    // printed when the round starts (not after its wait, as before 0.3.2).
+    const spawningLines = [];
     // Set whenever a task's status flips pending -> running (workerId
     // assigned) this round, regardless of whether it later becomes a real
     // spawn job, an endpoint job, a cache hit, or a sub-workflow task. That
@@ -828,6 +839,7 @@ function prepareConcurrentOutcomes(ctx, batch) {
                 jobs.push(job);
                 jobTaskIds.push(taskId);
                 spawnedWorkers.set(taskId, workerId);
+                spawningLines.push(spawningAgentLine(task, false));
                 continue;
             }
             // Endpoint-configured agent: no CLI binary to batch-spawn, but its HTTP
@@ -840,12 +852,15 @@ function prepareConcurrentOutcomes(ctx, batch) {
                 endpointJobs.push(endpointJob);
                 endpointTaskIds.push(taskId);
                 spawnedWorkers.set(taskId, workerId);
+                spawningLines.push(spawningAgentLine(task, false));
             }
         }
     });
     const totalJobs = jobs.length + endpointJobs.length;
     if (totalJobs) {
         emitProgress(`⇉ concurrent round: ${totalJobs} agent${totalJobs > 1 ? "s" : ""} spawning in parallel, may take minutes…`);
+        for (const line of spawningLines)
+            emitProgress(line);
     }
     if (totalJobs || dispatchedThisRound) {
         // Every task above that reached "pending" got dispatched (workerId

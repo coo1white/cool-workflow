@@ -425,6 +425,16 @@ never polluted.
   progress is on (a TTY, or `CW_DRIVE_PROGRESS=1`), so a piped run's bytes do
   not change, and `--quiet` turns it off with the other `[drive]` lines.
   `CW_DRIVE_TICK_MS` sets the time between lines; `0` turns them off.
+- **Each worker's start line, in a concurrent round.** A round that runs
+  agents side by side prints
+  `[drive] ⇉ concurrent round: N agents spawning in parallel, may take minutes…`
+  and then, at once, one
+  `[drive] → <label> (<phase>) — spawning agent, may take minutes…` line for
+  each worker, in task order, while the agents run. Before 0.3.2 these lines
+  came only after the whole round ended. The text of the lines is the same;
+  only the time they print is new (`project/docs/intent/2026-10-16-release-gate-ci.md`,
+  "Operator decisions for 0.3.2"). Like every `[drive]` line they go to
+  stderr only when progress is on, so a piped run's bytes do not change.
 - **Verbosity.** Default is compact: the current action + folded tool lines, with
   the model's narration/reasoning HIDDEN. `--verbose` (sets `CW_VERBOSE=1`)
   surfaces the full narration inline. (`--full` was taken out on 2026-09-28: it
