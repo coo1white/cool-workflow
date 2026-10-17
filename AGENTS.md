@@ -95,8 +95,8 @@ Each cycle MUST follow this sequence. Do not skip steps.
 The stack for every project under `~/Developer` is in
 `~/Developer/TECH-SPEC.md` (that file wins). Two exceptions here:
 - Hosting: the main copy is on GitHub (Pages and npm publish run on
-  GitHub Actions). `git.coolwhite.space/coo1white/cool-workflow` is a
-  mirror only, pushed by `node scripts/mirror-to-gitea.js` by hand or
+  GitHub Actions). A private Gitea copy is a mirror only, pushed to the
+  clone's `gitea` remote by `node scripts/mirror-to-gitea.js` by hand or
   from a launchd job. Never open a PR there.
 - The Workbench (`plugins/cool-workflow/ui/workbench/`) is a Next
   16.3.0 + React 19.2.8 static export (owner's decision 2026-09-07;
