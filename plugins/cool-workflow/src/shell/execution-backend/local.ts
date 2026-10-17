@@ -27,7 +27,7 @@ export const CW_NEVER_FORWARD_ENV: ReadonlySet<string> = new Set([
   "CW_BENCH_TRACE_FILE", // benchmark trace path — parent drive only
 ]);
 
-export function buildChildEnv(policy: ResolvedSandboxPolicy, baseEnv: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+export function buildChildEnv(policy: Pick<ResolvedSandboxPolicy, "env">, baseEnv: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   // deny must win regardless of inherit: a custom profile combining
   // inherit:true with deny:[...] (a valid, normalized combination — see
   // sandbox-profile.ts's normalizeEnv) means "everything EXCEPT these".

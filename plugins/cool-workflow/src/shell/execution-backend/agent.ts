@@ -89,7 +89,7 @@ export function reapRecordedVendor(pidFile: string): boolean {
 }
 
 export function buildAgentChildEnv(
-  policy: ResolvedSandboxPolicy,
+  policy: Pick<ResolvedSandboxPolicy, "env">,
   baseEnv: NodeJS.ProcessEnv = process.env
 ): { env: NodeJS.ProcessEnv; forwarded: string[] } {
   const env = buildChildEnv(policy, baseEnv);

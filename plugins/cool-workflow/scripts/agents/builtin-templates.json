@@ -9,5 +9,16 @@
     "opencode": "opencode-agent.js",
     "deepseek": "deepseek-agent.js",
     "muse": "muse-agent.js"
+  },
+  "versionProbe": {
+    "comment": "The vendor CLI each template above runs. `cw doctor` runs `<cli> --version` once to check that it starts. A template with no entry here (deepseek: HTTP, no CLI) is not probed.",
+    "clis": {
+      "claude": "claude",
+      "codex": "codex",
+      "gemini": "opencode",
+      "gemini-cli": "gemini",
+      "opencode": "opencode",
+      "muse": "muse"
+    }
   }
 }

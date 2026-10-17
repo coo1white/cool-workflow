@@ -15,7 +15,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { boolWord } from "../core/util/cli-args.js";
 import { writeJson } from "./fs-atomic.js";
-import { splitAgentCommand } from "../core/util/cli-args.js";
+import { agentCommandArgv, splitAgentCommand } from "../core/util/cli-args.js";
 import { stripSecretArgs } from "./execution-backend/agent.js";
 import { AgentDelegationConfig } from "./execution-backend/types.js";
 
@@ -130,14 +130,32 @@ function detectAgentFromPath(env: NodeJS.ProcessEnv = process.env): string | und
   return undefined;
 }
 
+const AGENTS_DIR = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
+
+function builtinManifest(): { templates?: Record<string, string>; versionProbe?: { clis?: Record<string, string> } } {
+  return JSON.parse(fs.readFileSync(path.join(AGENTS_DIR, "builtin-templates.json"), "utf8"));
+}
+
+export type AgentProbeTarget = { cli: string } | { skip: string };
+
+export function agentProbeTarget(command: string | undefined, args?: string[]): AgentProbeTarget | undefined {
+  if (!command) return undefined;
+  const manifest = builtinManifest();
+  const clis = manifest.versionProbe?.clis || {};
+  const { binary: bin, args: [script] } = agentCommandArgv(command, args);
+  for (const [name, file] of Object.entries(manifest.templates || {})) {
+    if (path.basename(bin) === "node" && script && path.resolve(script) === path.join(AGENTS_DIR, file)) {
+      return clis[name] ? { cli: clis[name] } : { skip: `builtin:${name} has no vendor CLI` };
+    }
+  }
+  return Object.values(clis).includes(path.basename(bin).replace(/\.(exe|cmd|bat)$/i, "")) ? { cli: bin } : { skip: "custom command" };
+}
+
 function builtinAgentTemplates(): Record<string, string> {
-  const agentsDir = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
-  const manifest = JSON.parse(fs.readFileSync(path.join(agentsDir, "builtin-templates.json"), "utf8")) as {
-    templates?: Record<string, string>;
-  };
+  const manifest = builtinManifest();
   const out: Record<string, string> = {};
   for (const [name, script] of Object.entries(manifest.templates || {})) {
-    out[name] = `node ${path.join(agentsDir, script)} {{input}} {{result}}`;
+    out[name] = `node ${path.join(AGENTS_DIR, script)} {{input}} {{result}}`;
   }
   return out;
 }
