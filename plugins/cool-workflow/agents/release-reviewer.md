@@ -64,8 +64,9 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
         and a date, not an agent's summary of what they might want;
      2. the matching `plugins/cool-workflow/docs/*.7.md` says what the new
         default is, changed in this same range;
-     3. the release raises the minor version from the previous tag while
-        the version is 0.x (0.2.8 → 0.3.0), or the major version from 1.0.
+     3. the release raises the version from the previous tag: while the
+        version is 0.x, any raise, a patch raise included (0.3.0 → 0.3.1,
+        the operator's choice of 2026-10-17); from 1.0, the major version.
      If any one is missing, it is a POLA violation → REJECT. The other
      checks above (spec accretion, test quality, mechanism-not-policy,
      Rule of Silence, fail-closed, man-page sync) still apply in full.

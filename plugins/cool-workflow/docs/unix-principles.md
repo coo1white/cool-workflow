@@ -208,7 +208,8 @@ evidence digest are not changed.) One exception: a default the operator
 chooses to change. Three things must all be true. An intent file keeps the
 operator's own yes, in their words, with a date. The matching `docs/*.7.md`
 says what the new default is, in the same release. The release puts up the
-minor version (0.x) or the major version (from 1.0). If one of the three is
+version (on 0.x a patch step is enough, 0.3.0 to 0.3.1; from 1.0, the major
+version). If one of the three is
 not there, it is a POLA break, and the release reviewer says no.
 
 **Mechanism, not policy.** The kernel gives mechanisms; policy is data in

@@ -122,7 +122,7 @@ registry finds the run in, and the fix:
 `Cannot resume: run <run-id> is not in <named> (the folder named by --repo); the registry finds it in <owner> (fail closed; nothing was resumed). Run again with --repo <owner>, or add --scope home to look across the registry.`
 Give `--scope home` with the folder to look across the registry as before.
 With no folder named, resume still finds the run by id across the
-registry. (New default in 0.4.0; before, a named folder that did not hold
+registry. (New default in 0.3.1; before, a named folder that did not hold
 the run was quietly passed over for the folder that did.)
 
 `run resume <run-id> --drive` (or `--once` for a single step) hands the found

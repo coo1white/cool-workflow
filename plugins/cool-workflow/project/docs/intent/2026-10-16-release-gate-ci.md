@@ -19,7 +19,8 @@ operator's machine. The suite already ran in CI on the same commit. The
 gate's test step now takes the checks `main`'s branch protection requires,
 green on GitHub for the exact reviewed SHA, and fails closed on anything
 less. The local full run stays as an opt-in for when CI cannot be reached.
-This changes a release default, so it goes out in the next minor (0.4.0).
+This changes a release default, so it goes out in the next release (0.3.1;
+see "Operator decision on version numbers" below).
 
 ## Measured facts (2026-10-16)
 
@@ -99,7 +100,7 @@ This changes a release default, so it goes out in the next minor (0.4.0).
 ## Acceptance
 
 - The new smoke and every release smoke pass; the full suite passes in CI.
-- The 0.4.0 cut runs `npm run release -- 0.4.0` with no local test suite,
+- The 0.3.1 cut runs `npm run release -- 0.3.1` with no local test suite,
   and the reviewer input names the two green runs.
 
 ## Architecture snapshot diff (claims this program makes stale)
@@ -121,14 +122,15 @@ This changes a release default, so it goes out in the next minor (0.4.0).
 | 1. `release:doctor` preflight | done | #780 |
 | 2. CI release rehearsal | done | #781 |
 | 3. Gate takes the green CI on the reviewed commit | in this PR | this PR |
-| Ships in 0.4.0 (minor raise) | after merge | — |
+| Ships in 0.3.1 (version raise) | after merge | — |
 
-## Operator decisions for 0.4.0 (2026-10-16)
+## Operator decisions for 0.3.1 (2026-10-16)
 
-Two more default changes go out in 0.4.0 under the POLA exception
+Two more default changes go out in 0.3.1 under the POLA exception
 (`AGENTS.md`, FreeBSD rule 1: the operator's own dated yes here, the
-matching `docs/*.7.md` in the same diff, and a minor version raise at
-release). The questions were put to the operator in plain words, as
+matching `docs/*.7.md` in the same diff, and a version raise at
+release). (Written as 0.4.0 at first; see the next part.) The
+questions were put to the operator in plain words, as
 written here:
 
 1. "`cw run resume <id> --repo X`: if the run isn't in folder X, it
@@ -144,3 +146,17 @@ The operator's answer, word for word (2026-10-16): "ok to all"
 |---|---|---|---|
 | 1. A folder named with `--repo`/`--cwd` holds `run resume` to that folder | #786 | `claude/trusting-wozniak-d0z17o-resume-repo-strict` | `docs/run-registry-control-plane.7.md`, `docs/agent-delegation-drive.7.md` |
 | 2. A changed `--agent-command` clears the stored args | #784 | `claude/trusting-wozniak-d0z17o-agent-config-set-args` | `docs/agent-delegation-drive.7.md` |
+
+## Operator decision on version numbers (2026-10-17)
+
+The POLA exception asked for a minor version raise on 0.x (0.3.0 to 0.4.0)
+when a default changes. The operator chose patch steps instead. Their
+words, as written (2026-10-17): "I prefer v0.3.1, 0.3.2, 0.3.3 ....." and
+"no, we just release v0.3.0, next release will be v0.3.1, not v0.4.0".
+
+So on 0.x the third check of the exception is now "the release raises the
+version", a patch raise included. The other two checks (the operator's
+dated yes here, the man page in the same range) are unchanged. Changed in
+the same diff: `AGENTS.md` FreeBSD rule 1, `agents/release-reviewer.md`
+check 3, `docs/unix-principles.md`, `docs/release-tooling.7.md`, and
+every "0.4.0" in the man pages, code notes and tests, now "0.3.1".
