@@ -11,7 +11,7 @@
 // without hand-maintaining a second, deeper copy of the capability
 // table's subcommand shape.
 
-import { MORE_COMMANDS_TOKENS } from "./help";
+import { MORE_COMMANDS_TOKENS } from "./help.js";
 
 /** The full top-level completion word list: `help`/`doctor` (absent from
  *  MORE_COMMANDS_TOKENS — see help.ts) plus every token formatHelp's

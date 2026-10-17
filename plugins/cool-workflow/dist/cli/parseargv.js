@@ -1,4 +1,3 @@
-"use strict";
 // cli/parseargv.ts — parseArgv, KNOWN_COMMANDS, suggestCommand.
 //
 // Pure. See plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 15 and SPEC/cli-surface.md "Argument
@@ -17,10 +16,6 @@
 //     with "-" (single or double dash); otherwise the value is `true`;
 //   - "--key=value" gives a value that may itself start with "-";
 //   - a repeated option becomes an array of values.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.KNOWN_COMMANDS = void 0;
-exports.parseArgv = parseArgv;
-exports.suggestCommand = suggestCommand;
 /** src/shell/orchestrator.ts — single-dash short-flag table. */
 const SHORT_FLAG_TABLE = {
     q: "question",
@@ -50,7 +45,7 @@ function appendOption(options, key, value) {
         options[key] = value;
     }
 }
-function parseArgv(argv) {
+export function parseArgv(argv) {
     const command = argv.length > 0 ? argv[0] : "";
     const rest = argv.slice(1);
     const positionals = [];
@@ -105,7 +100,7 @@ function parseArgv(argv) {
  *  wart (see plugins/cool-workflow/project/docs/rebuild/PLAN.md "Kept byte-for-byte").
  *  "update" is not here: no code is behind the verb, so having it here
  *  would make `cw update` say "Did you mean: update?". */
-exports.KNOWN_COMMANDS = new Set([
+export const KNOWN_COMMANDS = new Set([
     "help", "list", "doctor", "info", "search", "man", "init", "quickstart",
     "plan", "status", "next", "dispatch", "result", "state", "commit", "report",
     "app", "sandbox", "backend", "contract", "node", "feedback", "worker",
@@ -143,12 +138,12 @@ function levenshtein(a, b) {
  *  NOT resolve, so a distance-0 self-match (an alias token like
  *  `audit-run` that IS in KNOWN_COMMANDS but has no help rows of its own)
  *  would be a hint that points at the very thing the user just typed. */
-function suggestCommand(input) {
+export function suggestCommand(input) {
     if (!input || input.length < 2)
         return undefined;
     let best;
     let bestDistance = Infinity;
-    for (const candidate of exports.KNOWN_COMMANDS) {
+    for (const candidate of KNOWN_COMMANDS) {
         if (candidate === input)
             continue;
         const distance = levenshtein(input, candidate);

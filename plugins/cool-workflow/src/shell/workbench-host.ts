@@ -21,7 +21,7 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as path from "node:path";
 import { URL } from "node:url";
-import { buildWorkbenchIndex, buildWorkbenchRunView, buildWorkbenchServeDescriptor, parseWorkbenchPort, workbenchUiRoot, WorkbenchServeDescriptor } from "./workbench";
+import { buildWorkbenchIndex, buildWorkbenchRunView, buildWorkbenchServeDescriptor, parseWorkbenchPort, workbenchUiRoot, WorkbenchServeDescriptor } from "./workbench.js";
 
 // `[::1]` is the form Node's URL parser returns for a bracketed IPv6
 // literal Host header (verified); the bare `::1` covers a non-bracketed

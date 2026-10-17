@@ -1,8 +1,6 @@
-"use strict";
 // wiring/capability-table/exec-backend.ts — CLI bindings for the execution
 // backend, agent spawn and sandbox: sandbox.*, backend.*, app.run.
-Object.defineProperty(exports, "__esModule", { value: true });
-const registry_core_1 = require("./registry-core");
+import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
 // Execution backend, agent spawn, sandbox CLI bindings:
 // sandbox.list|show|validate, backend.list|show|probe,
 // backend.agent.config.show|set, doctor, fix. Handler BODIES live in
@@ -12,75 +10,77 @@ const registry_core_1 = require("./registry-core");
 // rows in MCP_TOOL_DATA — this section layers a `cli` binding onto them
 // (attachCliBinding) and sets their real `mcp.handler`.
 // ---------------------------------------------------------------------
-const cli_args_1 = require("../../core/util/cli-args");
+import { optionalArg, required, wantsJson } from "../../core/util/cli-args.js";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 // This slice is required unconditionally at startup for every command; every
 // shell import below is lazy (require()'d only inside the handler that
 // actually uses it), so a command that never touches doctor/fix/sandbox/
 // backend/app.run never pays any of these shell modules' require cost.
 function loadDoctor() {
-    return require("../../shell/doctor");
+    return require("../../shell/doctor.js");
 }
 function loadAppRunCli() {
-    return require("../../shell/app-run-cli");
+    return require("../../shell/app-run-cli.js");
 }
 function loadExecBackendCli() {
-    return require("../../shell/exec-backend-cli");
+    return require("../../shell/exec-backend-cli.js");
 }
-(0, registry_core_1.attachCliBinding)("sandbox.list", {
+attachCliBinding("sandbox.list", {
     path: ["sandbox", "list"],
     jsonMode: "default",
     handler: (args) => ({ json: loadExecBackendCli().listSandboxProfilesCli(args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.list").mcp.handler = (args) => loadExecBackendCli().listSandboxProfilesCli(args);
+REGISTRY_BY_CAPABILITY.get("sandbox.list").mcp.handler = (args) => loadExecBackendCli().listSandboxProfilesCli(args);
 // cw_sandbox_choose + cw_app_run: wire the MCP rows to their shell bodies.
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.choose").mcp.handler = (args) => loadAppRunCli().sandboxChooseCli(args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("app.run").mcp.handler = (args) => loadAppRunCli().appRunCli(args);
-(0, registry_core_1.attachCliBinding)("sandbox.show", {
+REGISTRY_BY_CAPABILITY.get("sandbox.choose").mcp.handler = (args) => loadAppRunCli().sandboxChooseCli(args);
+REGISTRY_BY_CAPABILITY.get("app.run").mcp.handler = (args) => loadAppRunCli().appRunCli(args);
+attachCliBinding("sandbox.show", {
     path: ["sandbox", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadExecBackendCli().showSandboxProfileCli((0, cli_args_1.required)(args.positionals[0], "profile id"), args.options) }),
+    handler: (args) => ({ json: loadExecBackendCli().showSandboxProfileCli(required(args.positionals[0], "profile id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.show").mcp.handler = (args) => loadExecBackendCli().showSandboxProfileCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.profileId), "profile id"), args);
-(0, registry_core_1.attachCliBinding)("sandbox.validate", {
+REGISTRY_BY_CAPABILITY.get("sandbox.show").mcp.handler = (args) => loadExecBackendCli().showSandboxProfileCli(required(optionalArg(args.profileId), "profile id"), args);
+attachCliBinding("sandbox.validate", {
     path: ["sandbox", "validate"],
     jsonMode: "default",
     handler: (args) => {
-        const result = loadExecBackendCli().validateSandboxProfileCli((0, cli_args_1.required)(args.positionals[0], "profile file"), args.options);
+        const result = loadExecBackendCli().validateSandboxProfileCli(required(args.positionals[0], "profile file"), args.options);
         return { json: result, exitCode: result.valid ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.validate").mcp.handler = (args) => loadExecBackendCli().validateSandboxProfileCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.profileFile), "profile file"), args);
+REGISTRY_BY_CAPABILITY.get("sandbox.validate").mcp.handler = (args) => loadExecBackendCli().validateSandboxProfileCli(required(optionalArg(args.profileFile), "profile file"), args);
 // PARITY: `sandbox.choose` is a BOTH-surface capability per SPEC/mcp.md:
 // the same shell body serves the cli.handler too, so the CLI front door and
 // the parity payload probe both reach it (no new business logic).
-(0, registry_core_1.attachCliBinding)("sandbox.choose", {
+attachCliBinding("sandbox.choose", {
     path: ["sandbox", "choose"],
     jsonMode: "default",
     handler: (args) => ({ json: loadAppRunCli().sandboxChooseCli(args.options) }),
 });
-(0, registry_core_1.attachCliBinding)("backend.list", {
+attachCliBinding("backend.list", {
     path: ["backend", "list"],
     jsonMode: "default",
     handler: () => ({ json: loadExecBackendCli().listBackendsCli() }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.list").mcp.handler = () => loadExecBackendCli().listBackendsCli();
-(0, registry_core_1.attachCliBinding)("backend.show", {
+REGISTRY_BY_CAPABILITY.get("backend.list").mcp.handler = () => loadExecBackendCli().listBackendsCli();
+attachCliBinding("backend.show", {
     path: ["backend", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadExecBackendCli().showBackendCli((0, cli_args_1.required)(args.positionals[0], "backend id")) }),
+    handler: (args) => ({ json: loadExecBackendCli().showBackendCli(required(args.positionals[0], "backend id")) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.show").mcp.handler = (args) => loadExecBackendCli().showBackendCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.backendId), "backend id"));
-(0, registry_core_1.attachCliBinding)("backend.probe", {
+REGISTRY_BY_CAPABILITY.get("backend.show").mcp.handler = (args) => loadExecBackendCli().showBackendCli(required(optionalArg(args.backendId), "backend id"));
+attachCliBinding("backend.probe", {
     path: ["backend", "probe"],
     jsonMode: "default",
     handler: (args) => ({ json: loadExecBackendCli().probeBackendCli(args.positionals[0], args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args) => loadExecBackendCli().probeBackendCli((0, cli_args_1.optionalArg)(args.backendId), args);
+REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args) => loadExecBackendCli().probeBackendCli(optionalArg(args.backendId), args);
 // `backend agent config [show]` = read-only; `backend agent config set
 // ...` = mutating. CLI path is ["backend", "agent"] (2 tokens, matching
 // dispatchTable's supported path lengths); the remaining positionals
 // ("config", "show"/"set") are read inside the handler.
-(0, registry_core_1.attachCliBinding)("backend.agent.config.show", {
+attachCliBinding("backend.agent.config.show", {
     path: ["backend", "agent"],
     helpPath: ["backend", "agent", "config"],
     jsonMode: "default",
@@ -99,7 +99,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args)
 // capability); dispatchTable itself never reaches this row, because
 // `backend.agent.config.show`'s row is found first by
 // findCapabilityByCliPath's linear scan and its handler covers both actions.
-(0, registry_core_1.attachCliBinding)("backend.agent.config.set", {
+attachCliBinding("backend.agent.config.set", {
     path: ["backend", "agent"],
     helpPath: ["backend", "agent", "config"],
     jsonMode: "default",
@@ -110,16 +110,16 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args)
         return { json: loadExecBackendCli().backendAgentConfigShow(args.options) };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.show").mcp.handler = (args) => loadExecBackendCli().backendAgentConfigShow(args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").mcp.handler = (args) => loadExecBackendCli().backendAgentConfigSet(args);
+REGISTRY_BY_CAPABILITY.get("backend.agent.config.show").mcp.handler = (args) => loadExecBackendCli().backendAgentConfigShow(args);
+REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").mcp.handler = (args) => loadExecBackendCli().backendAgentConfigSet(args);
 // PARITY: `backend.agent.config.set` mutates $CW_HOME/agent-config.json
 // (secret-stripped) before returning the effective config; both surfaces
 // perform the same write, so it is a documented opt-out from the
 // read-payload probe, not an undocumented divergence.
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").payloadIdentical = false;
-registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
+REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
     "Mutating: persists $CW_HOME/agent-config.json (secret-stripped) before returning the effective config; both surfaces perform the same write — it is a surface-mutating verb, not a read probe.";
-(0, registry_core_1.addCliOnlyCapability)("doctor", "Diagnose the host for setup problems (Node version, agent backend, agent binary on PATH, git, writable home/repo state) and print an actionable fix per check.", {
+addCliOnlyCapability("doctor", "Diagnose the host for setup problems (Node version, agent backend, agent binary on PATH, git, writable home/repo state) and print an actionable fix per check.", {
     path: ["doctor"],
     jsonMode: "flag",
     handler: (args) => {
@@ -130,7 +130,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
         // (its last joined element is ""), so its case needs one MORE explicit
         // "\n" here to keep the trailing blank line; cli/dispatch.ts's generic
         // renderer only appends "\n" when the text does NOT already end in one.
-        const text = (0, cli_args_1.wantsJson)(args.options) ? undefined : args.options.fix ? `${doctor.formatDoctorFixes(report)}\n` : doctor.formatDoctorReport(report);
+        const text = wantsJson(args.options) ? undefined : args.options.fix ? `${doctor.formatDoctorFixes(report)}\n` : doctor.formatDoctorReport(report);
         return { json: report, text, exitCode: report.ok ? undefined : 1 };
     },
     // The flags `cw help doctor` lists, checked against this handler and
@@ -147,7 +147,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
     // unknown flag (TTY-only; see cli/global-flags.ts).
     flagsComplete: true,
 }, "Environment diagnostics are inherently local to the CLI host — Node version, $PATH, $CW_HOME/cwd writability. An MCP client diagnosing the server process's environment is not meaningful; agents already receive the same readiness facts in their typed results (e.g. status: blocked, agentConfigured). Inspired by `brew doctor`.");
-(0, registry_core_1.addCliOnlyCapability)("fix", "Print consolidated fix commands for CW setup issues.", {
+addCliOnlyCapability("fix", "Print consolidated fix commands for CW setup issues.", {
     path: ["fix"],
     jsonMode: "human",
     handler: (args) => {

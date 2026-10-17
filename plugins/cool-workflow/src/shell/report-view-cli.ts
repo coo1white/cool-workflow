@@ -10,13 +10,13 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { cwdArg, flagOn, optionalArg } from "../core/util/cli-args";
+import { cwdArg, flagOn, optionalArg } from "../core/util/cli-args.js";
 import { spawnSync } from "node:child_process";
-import { loadRunFromCwd } from "./run-store";
-import { reportAnswer, writeReport } from "./report";
-import { adviseNoRun, buildOperatorGraph, summarizeOperatorRun, summarizeRun } from "./operator-ux";
-import { formatOperatorGraph, formatOperatorReport, formatOperatorStatus, formatOperatorSummary } from "./operator-ux-text";
-import { reportToHtml } from "../core/format/report-html";
+import { loadRunFromCwd } from "./run-store.js";
+import { reportAnswer, writeReport } from "./report.js";
+import { adviseNoRun, buildOperatorGraph, summarizeOperatorRun, summarizeRun } from "./operator-ux.js";
+import { formatOperatorGraph, formatOperatorReport, formatOperatorStatus, formatOperatorSummary } from "./operator-ux-text.js";
+import { reportToHtml } from "../core/format/report-html.js";
 
 /** `cw report <run-id>` — writes report.md fresh and returns just its
  *  path (the CLI binding prints ONLY this path + "\n" to stdout; `--json`

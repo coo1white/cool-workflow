@@ -1,4 +1,3 @@
-"use strict";
 // shell/workbench-host.ts — the localhost-only, read-only Workbench HTTP
 // server: `cw workbench serve`.
 //
@@ -16,49 +15,12 @@
 //
 // Evidence: SPEC/reporting-ux.md "Workbench" (HTTP behavior, allowed
 // hostnames, serve descriptor stdout line), invariant 11.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorkbenchHost = void 0;
-exports.formatServeHint = formatServeHint;
-exports.printServeHint = printServeHint;
-const crypto = __importStar(require("node:crypto"));
-const fs = __importStar(require("node:fs"));
-const http = __importStar(require("node:http"));
-const path = __importStar(require("node:path"));
-const node_url_1 = require("node:url");
-const workbench_1 = require("./workbench");
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as http from "node:http";
+import * as path from "node:path";
+import { URL } from "node:url";
+import { buildWorkbenchIndex, buildWorkbenchRunView, buildWorkbenchServeDescriptor, parseWorkbenchPort, workbenchUiRoot } from "./workbench.js";
 // `[::1]` is the form Node's URL parser returns for a bracketed IPv6
 // literal Host header (verified); the bare `::1` covers a non-bracketed
 // header that our fallback split still yields. parseHostname below yields
@@ -69,7 +31,7 @@ const ALLOWED_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
  *  `"["`. Returns undefined when the header cannot be parsed at all. */
 function parseHostname(hostHeader) {
     try {
-        return new node_url_1.URL(`http://${hostHeader}`).hostname;
+        return new URL(`http://${hostHeader}`).hostname;
     }
     catch {
         // A non-bracketed IPv6 literal (`::1`) is not a valid URL authority, so
@@ -86,7 +48,7 @@ function isTTY(stream) {
 /** Pure text for the human-friendly serve hint line. Kept separate from
  *  the TTY gate below so it is directly unit-testable with no fake stream
  *  at all: just a port number in, one line of text out. */
-function formatServeHint(boundPort) {
+export function formatServeHint(boundPort) {
     return `workbench serving at http://127.0.0.1:${boundPort} (Ctrl-C to stop)`;
 }
 /** Prints the human hint line to STDERR only, and only on a real
@@ -94,7 +56,7 @@ function formatServeHint(boundPort) {
  *  the cw -q end summary: silent when the stream is not a TTY, so
  *  a piped/non-interactive run (and the existing STDOUT descriptor line)
  *  never changes at all. */
-function printServeHint(boundPort, stream = process.stderr) {
+export function printServeHint(boundPort, stream = process.stderr) {
     if (!isTTY(stream))
         return;
     stream.write(`${formatServeHint(boundPort)}\n`);
@@ -142,7 +104,7 @@ function fallbackIndexHtml(descriptor) {
 </html>
 `;
 }
-class WorkbenchHost {
+export class WorkbenchHost {
     args;
     token;
     server;
@@ -153,7 +115,7 @@ class WorkbenchHost {
     /** The serve descriptor; `boundPort` is filled in only after `listen()`
      *  actually binds (an ephemeral `--port 0` resolves to its real port). */
     descriptor(once, boundPort) {
-        return (0, workbench_1.buildWorkbenchServeDescriptor)({ ...this.args, once }, boundPort);
+        return buildWorkbenchServeDescriptor({ ...this.args, once }, boundPort);
     }
     checkAuth(req, url) {
         if (!this.token)
@@ -183,7 +145,7 @@ class WorkbenchHost {
             }
             let url;
             try {
-                url = new node_url_1.URL(req.url || "/", "http://127.0.0.1");
+                url = new URL(req.url || "/", "http://127.0.0.1");
             }
             catch {
                 sendJson(res, 400, { error: "bad request: invalid URL" });
@@ -211,7 +173,7 @@ class WorkbenchHost {
             // the FALLBACK page embeds the serve descriptor with the absolute repo
             // root path, so a missing UI keeps it behind the token.
             if (!this.checkAuth(req, url)) {
-                const uiIndexInstalled = fs.existsSync(path.resolve((0, workbench_1.workbenchUiRoot)(), "out", "index.html")) || fs.existsSync(path.resolve((0, workbench_1.workbenchUiRoot)(), "index.html"));
+                const uiIndexInstalled = fs.existsSync(path.resolve(workbenchUiRoot(), "out", "index.html")) || fs.existsSync(path.resolve(workbenchUiRoot(), "index.html"));
                 if (route.startsWith("/api/") || ((route === "/" || route === "/ui") && !uiIndexInstalled)) {
                     sendJson(res, 401, { error: "unauthorized: token mismatch" });
                     return;
@@ -229,13 +191,13 @@ class WorkbenchHost {
                 // `cwd`, reading run data from any directory the serving user can
                 // read, past the repo the operator chose to serve.
                 const text = url.searchParams.get("text") || undefined;
-                sendJson(res, 200, (0, workbench_1.buildWorkbenchIndex)({ ...this.args, scope, ...(text ? { text } : {}) }));
+                sendJson(res, 200, buildWorkbenchIndex({ ...this.args, scope, ...(text ? { text } : {}) }));
                 return;
             }
             const runMatch = route.match(/^\/api\/run\/([^/]+)$/);
             if (runMatch) {
                 const runId = runMatch[1];
-                sendJson(res, 200, (0, workbench_1.buildWorkbenchRunView)(runId, this.args));
+                sendJson(res, 200, buildWorkbenchRunView(runId, this.args));
                 return;
             }
             if (route === "/" || route === "/ui" || route.startsWith("/ui/")) {
@@ -249,7 +211,7 @@ class WorkbenchHost {
         }
     }
     serveUiAsset(pathname, res) {
-        const uiRoot = (0, workbench_1.workbenchUiRoot)();
+        const uiRoot = workbenchUiRoot();
         const relative = pathname === "/" || pathname === "/ui" ? "index.html" : pathname.replace(/^\/ui\//, "");
         // The Next export wins; what is not in it still comes from the old flat
         // files. Both sit under uiRoot, so the one guard below covers both.
@@ -285,7 +247,7 @@ class WorkbenchHost {
             // with the clear message rather than node's opaque ERR_SOCKET_BAD_PORT.
             let requestedPort;
             try {
-                requestedPort = (0, workbench_1.parseWorkbenchPort)(this.args.port);
+                requestedPort = parseWorkbenchPort(this.args.port);
             }
             catch (error) {
                 reject(error);
@@ -328,7 +290,7 @@ class WorkbenchHost {
         // real CLI. Fail closed the same clean way as --require-token: one `cw:`
         // stderr line + exit 1 + return, never a crash and never a bound server.
         try {
-            (0, workbench_1.parseWorkbenchPort)(this.args.port);
+            parseWorkbenchPort(this.args.port);
         }
         catch (error) {
             process.stderr.write(`cw: ${error instanceof Error ? error.message : String(error)}\n`);
@@ -362,4 +324,3 @@ class WorkbenchHost {
         await new Promise(() => { });
     }
 }
-exports.WorkbenchHost = WorkbenchHost;

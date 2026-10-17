@@ -1,8 +1,6 @@
-"use strict";
 // wiring/capability-table/basics.ts — CLI bindings for version, list,
 // status, sandbox.list, completion and search.
-Object.defineProperty(exports, "__esModule", { value: true });
-const registry_core_1 = require("./registry-core");
+import { attachCliBinding, addCliOnlyCapability, listBundledWorkflows, listBundledSandboxProfiles, statusPayload } from "./registry-core.js";
 // ---------------------------------------------------------------------
 // CLI bindings for version, list, status, sandbox.list. `version` is
 // cli-only per SPEC/mcp.md's declared one-surface list (`help` is handled
@@ -13,33 +11,35 @@ const registry_core_1 = require("./registry-core");
 // or process.exitCode directly — cli/dispatch.ts's generic executor
 // performs the actual write.
 // ---------------------------------------------------------------------
-const version_1 = require("../../core/version");
-const help_1 = require("../../core/format/help");
-const completion_1 = require("../../core/format/completion");
-const cli_args_1 = require("../../core/util/cli-args");
+import { CURRENT_COOL_WORKFLOW_VERSION } from "../../core/version.js";
+import { formatSearchResults, formatWorkflowList } from "../../core/format/help.js";
+import { formatCompletionScript } from "../../core/format/completion.js";
+import { optionalArg } from "../../core/util/cli-args.js";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 // This whole module is required unconditionally at startup for EVERY
 // command (see wiring/capability-table/index.ts) — a top-level import of
 // `shell/workflow-app-loader` here means even `cw --version` pays its
 // load cost, though only `search`'s handler ever calls it.
 function loadWorkflowAppLoader() {
-    return require("../../shell/workflow-app-loader");
+    return require("../../shell/workflow-app-loader.js");
 }
-(0, registry_core_1.addCliOnlyCapability)("version", "Print the current cool-workflow version.", {
+addCliOnlyCapability("version", "Print the current cool-workflow version.", {
     path: ["version"],
     jsonMode: "default",
-    handler: () => ({ text: `${version_1.CURRENT_COOL_WORKFLOW_VERSION}\n` }),
+    handler: () => ({ text: `${CURRENT_COOL_WORKFLOW_VERSION}\n` }),
 }, "version is a local, no-run-state print; the old build never gave it an MCP peer.");
 /** `cw completion <bash|zsh|fish>` — a static shell-completion script for
  *  the top-level command word list (core/format/completion.ts). CLI-only:
  *  a shell-integration script is meaningless as an MCP tool result. */
-(0, registry_core_1.addCliOnlyCapability)("completion", "Print a shell-completion script for the top-level cw commands (bash, zsh, or fish).", {
+addCliOnlyCapability("completion", "Print a shell-completion script for the top-level cw commands (bash, zsh, or fish).", {
     path: ["completion"],
     jsonMode: "human",
     handler: (args) => {
-        const shell = (0, cli_args_1.optionalArg)(args.positionals[0]);
+        const shell = optionalArg(args.positionals[0]);
         if (!shell)
             throw new Error('Missing shell name.\n  Try: cw completion bash|zsh|fish');
-        return { text: (0, completion_1.formatCompletionScript)(shell) };
+        return { text: formatCompletionScript(shell) };
     },
 }, "shell-completion output is a script for the user's OWN shell to source, not data an MCP client could use — CLI-only, same reasoning as doctor/fix.");
 /** `cw search <keyword>` — filters the SAME real app discovery `cw list`
@@ -49,7 +49,7 @@ function loadWorkflowAppLoader() {
  *  capture: it says "description," but the filter below matches `summary`
  *  (there is no `description` field), so the summary stays accurate to
  *  current fields. */
-(0, registry_core_1.addCliOnlyCapability)("search", "Search bundled workflows by id/title/summary keyword.", {
+addCliOnlyCapability("search", "Search bundled workflows by id/title/summary keyword.", {
     path: ["search"],
     jsonMode: "flag",
     handler: (args) => {
@@ -63,25 +63,25 @@ function loadWorkflowAppLoader() {
             String(a.summary).toLowerCase().includes(lower) ||
             String(a.id).toLowerCase().includes(lower))
             .map((a) => ({ id: String(a.id), title: String(a.title), summary: String(a.summary) }));
-        return { json: results, text: (0, help_1.formatSearchResults)(keyword, results) };
+        return { json: results, text: formatSearchResults(keyword, results) };
     },
 }, "CLI-only discovery helper over the same real app data cw list shows; no MCP client needs a free-text search tool alongside cw_list's structured output.");
-(0, registry_core_1.attachCliBinding)("list", {
+attachCliBinding("list", {
     path: ["list"],
     jsonMode: "default",
-    handler: () => ({ json: (0, registry_core_1.listBundledWorkflows)() }),
+    handler: () => ({ json: listBundledWorkflows() }),
     // On a TTY (and only there — piped bytes stay the exact same JSON, see
     // cli/dispatch.ts's shouldRenderHuman) render one "<id> — <title>" line
     // per workflow plus the next-step footer.
-    humanRender: help_1.formatWorkflowList,
+    humanRender: formatWorkflowList,
 });
-(0, registry_core_1.attachCliBinding)("status", {
+attachCliBinding("status", {
     path: ["status"],
     jsonMode: "flag",
-    handler: (args) => ({ json: (0, registry_core_1.statusPayload)(args.positionals[0]) }),
+    handler: (args) => ({ json: statusPayload(args.positionals[0]) }),
 });
-(0, registry_core_1.attachCliBinding)("sandbox.list", {
+attachCliBinding("sandbox.list", {
     path: ["sandbox", "list"],
     jsonMode: "default",
-    handler: () => ({ json: (0, registry_core_1.listBundledSandboxProfiles)() }),
+    handler: () => ({ json: listBundledSandboxProfiles() }),
 });

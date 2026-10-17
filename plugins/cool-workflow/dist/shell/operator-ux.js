@@ -1,4 +1,3 @@
-"use strict";
 // shell/operator-ux.ts — the operator console surface: `cw status`,
 // `cw graph`, `cw operator status|report|graph`.
 //
@@ -8,60 +7,22 @@
 // `operator status`, and the deterministic run graph.
 //
 // Evidence: SPEC/reporting-ux.md "Operator UX human text", "Exit codes".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.adviseNoRun = void 0;
-exports.summarizeRun = summarizeRun;
-exports.summarizeOperatorRun = summarizeOperatorRun;
-exports.buildOperatorGraph = buildOperatorGraph;
-const path = __importStar(require("node:path"));
-const dispatch_1 = require("../core/pipeline/dispatch");
-const trust_audit_1 = require("./trust-audit");
-const collate_1 = require("../core/util/collate");
-const cli_args_1 = require("../core/util/cli-args");
+import * as path from "node:path";
+import { updatePhaseStatuses } from "../core/pipeline/dispatch.js";
+import { summarizeTrustAudit } from "./trust-audit.js";
+import { stableCompare } from "../core/util/collate.js";
+import { countBy } from "../core/util/cli-args.js";
 function firstRunnablePhase(run) {
     return run.phases.find((phase) => phase.status === "pending" || phase.status === "running");
 }
 function summarizeWorkersCounts(run) {
     const workers = run.workers || [];
-    return { total: workers.length, byStatus: (0, cli_args_1.countBy)(workers, (w) => w.status) };
+    return { total: workers.length, byStatus: countBy(workers, (w) => w.status) };
 }
 /** `summarizeRun` — used by `cw status <id> --json` and `cw report
  *  <id>`'s internals. */
-function summarizeRun(run) {
-    (0, dispatch_1.updatePhaseStatuses)(run);
+export function summarizeRun(run) {
+    updatePhaseStatuses(run);
     const workerSummary = summarizeWorkersCounts(run);
     const createdAtMs = Date.parse(run.createdAt);
     const updatedAtMs = Date.parse(run.updatedAt);
@@ -89,13 +50,12 @@ function summarizeRun(run) {
 }
 // `cw status` with no run id: the fixed advice, now in a core module every
 // command loads; re-exported so existing importers keep working.
-var recovery_hint_1 = require("../core/format/recovery-hint");
-Object.defineProperty(exports, "adviseNoRun", { enumerable: true, get: function () { return recovery_hint_1.adviseNoRun; } });
+export { adviseNoRun } from "../core/format/recovery-hint.js";
 function summarizePhases(run) {
     return run.phases.map((phase) => {
         const taskIds = new Set(phase.taskIds);
         const phaseTasks = run.tasks.filter((t) => taskIds.has(t.id));
-        const byStatus = (0, cli_args_1.countBy)(phaseTasks, (t) => t.status);
+        const byStatus = countBy(phaseTasks, (t) => t.status);
         return { id: phase.id, name: phase.name, status: phase.status, tasks: { total: phaseTasks.length, ...byStatus } };
     });
 }
@@ -103,7 +63,7 @@ function summarizeTasks(tasks) {
     const byId = (status) => tasks.filter((t) => t.status === status).map((t) => t.id);
     return {
         total: tasks.length,
-        byStatus: (0, cli_args_1.countBy)(tasks, (t) => t.status),
+        byStatus: countBy(tasks, (t) => t.status),
         pending: byId("pending"),
         running: byId("running"),
         failed: byId("failed"),
@@ -114,13 +74,13 @@ function summarizeOperatorFeedback(run) {
     const records = (run.feedback || []);
     return {
         total: records.length,
-        byStatus: (0, cli_args_1.countBy)(records, (r) => r.status),
-        bySeverity: (0, cli_args_1.countBy)(records, (r) => r.severity),
-        byClassification: (0, cli_args_1.countBy)(records, (r) => r.classification),
+        byStatus: countBy(records, (r) => r.status),
+        bySeverity: countBy(records, (r) => r.severity),
+        byClassification: countBy(records, (r) => r.classification),
     };
 }
 function summarizeOperatorCommits(run) {
-    const commits = [...(run.commits || [])].sort((left, right) => (0, collate_1.stableCompare)(left.createdAt, right.createdAt) || (0, collate_1.stableCompare)(left.id, right.id));
+    const commits = [...(run.commits || [])].sort((left, right) => stableCompare(left.createdAt, right.createdAt) || stableCompare(left.id, right.id));
     return {
         total: commits.length,
         verifierGated: commits.filter((c) => c.verifierGated).length,
@@ -130,10 +90,10 @@ function summarizeOperatorCommits(run) {
     };
 }
 function summarizeOperatorWorkers(run) {
-    const workers = (run.workers || []).slice().sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id));
+    const workers = (run.workers || []).slice().sort((a, b) => stableCompare(a.id, b.id));
     return {
         total: workers.length,
-        byStatus: (0, cli_args_1.countBy)(workers, (w) => w.status),
+        byStatus: countBy(workers, (w) => w.status),
         workers: workers.map((w) => ({ id: w.id, taskId: w.taskId, status: w.status, manifestPath: w.workerDir, resultPath: w.resultPath })),
     };
 }
@@ -175,15 +135,15 @@ function adviseNextSteps(run, ctx) {
 /** `cw operator status <id> --json` — a wider payload than `summarizeRun`
  *  (different capability, per SPEC/reporting-ux.md: "cw operator status
  *  <id> --json is a DIFFERENT, wider payload than cw status --json"). */
-function summarizeOperatorRun(run) {
-    (0, dispatch_1.updatePhaseStatuses)(run);
+export function summarizeOperatorRun(run) {
+    updatePhaseStatuses(run);
     const app = run.workflow.app;
     const phases = summarizePhases(run);
     const tasks = summarizeTasks(run.tasks);
     const workers = summarizeOperatorWorkers(run);
     const feedback = summarizeOperatorFeedback(run);
     const commits = summarizeOperatorCommits(run);
-    const trust = (0, trust_audit_1.summarizeTrustAudit)(run, { persist: run.__cwWorkbenchReadOnlyProjection !== true });
+    const trust = summarizeTrustAudit(run, { persist: run.__cwWorkbenchReadOnlyProjection !== true });
     const activePhase = phases.find((p) => p.status === "running") || phases.find((p) => p.status === "pending");
     const blockedReasons = [];
     for (const worker of workers.workers) {
@@ -216,7 +176,7 @@ function workerManifestPath(worker) {
 /** `cw graph <id>`. Nodes/edges sort deterministically (kind then id
  *  for nodes; from/to/label for edges, de-duplicated), per SPEC/
  *  reporting-ux.md invariant 12. */
-function buildOperatorGraph(run) {
+export function buildOperatorGraph(run) {
     const nodes = new Map();
     const edgeKeys = new Set();
     const edges = [];
@@ -276,7 +236,7 @@ function buildOperatorGraph(run) {
         if (feedback.taskId)
             addEdge(`${run.id}:task:${feedback.taskId}`, `${run.id}:feedback:${feedback.id}`);
     }
-    const sortedNodes = [...nodes.values()].sort((a, b) => (0, collate_1.stableCompare)(a.kind, b.kind) || (0, collate_1.stableCompare)(a.id, b.id));
-    const sortedEdges = edges.slice().sort((a, b) => (0, collate_1.stableCompare)(a.from, b.from) || (0, collate_1.stableCompare)(a.to, b.to) || (0, collate_1.stableCompare)(a.label || "", b.label || ""));
+    const sortedNodes = [...nodes.values()].sort((a, b) => stableCompare(a.kind, b.kind) || stableCompare(a.id, b.id));
+    const sortedEdges = edges.slice().sort((a, b) => stableCompare(a.from, b.from) || stableCompare(a.to, b.to) || stableCompare(a.label || "", b.label || ""));
     return { runId: run.id, nodes: sortedNodes, edges: sortedEdges };
 }

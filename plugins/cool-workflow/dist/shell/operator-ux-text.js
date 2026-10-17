@@ -1,4 +1,3 @@
-"use strict";
 // shell/operator-ux-text.ts — human-readable rendering for the operator
 // console surface (`cw status`, `cw graph`, `cw operator status|report|
 // graph`). Lives in shell/ (not core/format/) because it calls term.ts's
@@ -9,16 +8,10 @@
 // formatOperatorGraph (`cw graph`).
 //
 // Evidence: SPEC/reporting-ux.md "Operator UX human text".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatOperatorSummary = formatOperatorSummary;
-exports.formatOperatorStatus = formatOperatorStatus;
-exports.formatOperatorReport = formatOperatorReport;
-exports.formatOperatorGraph = formatOperatorGraph;
-exports.formatFeedbackSummaryText = formatFeedbackSummaryText;
-const term_1 = require("./term");
-const collate_1 = require("../core/util/collate");
+import { dim } from "./term.js";
+import { stableCompare } from "../core/util/collate.js";
 function formatCounts(counts) {
-    const entries = Object.entries(counts).sort(([a], [b]) => (0, collate_1.stableCompare)(a, b));
+    const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
     if (!entries.length)
         return "none";
     return entries.map(([k, v]) => `${k}=${v}`).join(", ");
@@ -34,7 +27,7 @@ function formatRecommendations(actions) {
     return lines;
 }
 /** Compact summary — `cw status <id> --summary`/`--brief`. */
-function formatOperatorSummary(summary) {
+export function formatOperatorSummary(summary) {
     return [
         `Run: ${summary.runId}`,
         `Workflow: ${summary.workflowId}${summary.appId ? ` (${summary.appId}@${summary.appVersion || "unknown"})` : ""}`,
@@ -45,7 +38,7 @@ function formatOperatorSummary(summary) {
         "Next Action",
         ...formatRecommendations(summary.nextActions),
         "",
-        (0, term_1.dim)("(use --verbose for full worker/feedback/commit/trust panels)"),
+        dim("(use --verbose for full worker/feedback/commit/trust panels)"),
     ].join("\n");
 }
 function formatWorkerPanel(summary) {
@@ -75,7 +68,7 @@ function formatTrustPanel(summary) {
 }
 /** The full `cw status <id>` human render, in panel order
  *  (worker/feedback/commit, then trust and the report path). */
-function formatOperatorStatus(summary) {
+export function formatOperatorStatus(summary) {
     return [
         formatOperatorSummary(summary),
         "",
@@ -98,7 +91,7 @@ function formatTaskList(tasks) {
 }
 /** `cw report <id> --show`: the Resource Commands tail plus
  *  Active/Pending Tasks and Evidence sections. */
-function formatOperatorReport(summary, evidencePaths) {
+export function formatOperatorReport(summary, evidencePaths) {
     return [
         formatOperatorStatus(summary),
         "",
@@ -126,7 +119,7 @@ function groupBy(values, key) {
     return groups;
 }
 /** `cw graph <id>` human render. */
-function formatOperatorGraph(graph) {
+export function formatOperatorGraph(graph) {
     const lines = [`Run Graph: ${graph.runId}`, "", "Nodes"];
     const groups = groupBy(graph.nodes, (node) => node.kind);
     for (const kind of Object.keys(groups).sort()) {
@@ -146,7 +139,7 @@ function formatOperatorGraph(graph) {
 }
 /** `cw feedback summary <run>` human text: a `Feedback` rollup with
  *  status/severity/classification counts. */
-function formatFeedbackSummaryText(summary) {
+export function formatFeedbackSummaryText(summary) {
     return [
         "Feedback",
         `  total=${summary.total}; status=${formatCounts(summary.byStatus)}`,

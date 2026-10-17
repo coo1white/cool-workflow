@@ -1,4 +1,3 @@
-"use strict";
 // src/core/workflow-apps/app-schema.ts — workflow-app manifest + workflow DSL
 // types, a pure builder API (`workflow`, `phase`, `parallel`, `loop`,
 // `agent`, `artifact`, `subWorkflow`, `input`), and full manifest
@@ -16,26 +15,8 @@
 // entrypoint, and `cw app list/show/validate/init/package` discovery,
 // live in shell/ (see shell/workflow-app-loader.ts), per the core/shell
 // split.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorkflowAppValidationError = void 0;
-exports.slugify = slugify;
-exports.workflow = workflow;
-exports.phase = phase;
-exports.parallel = parallel;
-exports.loop = loop;
-exports.agent = agent;
-exports.subWorkflow = subWorkflow;
-exports.artifact = artifact;
-exports.input = input;
-exports.createWorkflowApi = createWorkflowApi;
-exports.validateWorkflowDefinition = validateWorkflowDefinition;
-exports.validateWorkflowApp = validateWorkflowApp;
-exports.assertValidWorkflowApp = assertValidWorkflowApp;
-exports.isWorkflowAppCompatible = isWorkflowAppCompatible;
-exports.validationIssuesFromError = validationIssuesFromError;
-exports.workflowAppRunMetadata = workflowAppRunMetadata;
-const cli_args_1 = require("../util/cli-args");
-function slugify(value) {
+import { isRecord } from "../util/cli-args.js";
+export function slugify(value) {
     return String(value)
         .trim()
         .toLowerCase()
@@ -43,7 +24,7 @@ function slugify(value) {
         .replace(/^-|-$/g, "")
         .replace(/-{2,}/g, "-");
 }
-function workflow(definition) {
+export function workflow(definition) {
     if (!definition.id)
         throw new Error("workflow.id is required");
     if (!definition.title)
@@ -57,14 +38,14 @@ function workflow(definition) {
         ...definition,
     };
 }
-function phase(name, tasks, options = {}) {
+export function phase(name, tasks, options = {}) {
     if (!name)
         throw new Error("phase name is required");
     if (!Array.isArray(tasks))
         throw new Error(`phase ${name} tasks must be an array`);
     return { id: slugify(name), name, status: "pending", tasks, ...options };
 }
-function parallel(name, tasks, options = {}) {
+export function parallel(name, tasks, options = {}) {
     return phase(name, tasks, { mode: "parallel", ...options });
 }
 /** A BOUNDED DYNAMIC LOOP phase: `tasks` are a per-round template. After each
@@ -72,7 +53,7 @@ function parallel(name, tasks, options = {}) {
  *  another round (a fresh appended phase with the same tasks, round-suffixed
  *  ids) or stop; capped at `maxRounds`. Sugar over phase() that sets `loop`;
  *  plain phases are unaffected. */
-function loop(name, tasks, spec, options = {}) {
+export function loop(name, tasks, spec, options = {}) {
     if (!spec || typeof spec.maxRounds !== "number" || spec.maxRounds < 1) {
         throw new Error(`loop ${name} requires a positive integer maxRounds`);
     }
@@ -99,14 +80,14 @@ function task(kind, id, prompt, options) {
         ...options,
     };
 }
-function agent(id, prompt, options = {}) {
+export function agent(id, prompt, options = {}) {
     return task("agent", id, prompt, options);
 }
 /** A task fulfilled by an inline SUB-WORKFLOW: instead of spawning an agent,
  *  the drive plans + drives the child `appId` and binds its report back as
  *  this task's result. The prompt is recorded for provenance but is not sent
  *  to an agent. */
-function subWorkflow(id, appId, options = {}) {
+export function subWorkflow(id, appId, options = {}) {
     if (!appId)
         throw new Error(`subWorkflow task ${id} requires an appId`);
     const { inputs, bindResult, prompt, ...rest } = options;
@@ -115,18 +96,18 @@ function subWorkflow(id, appId, options = {}) {
         subWorkflow: { appId, ...(inputs ? { inputs } : {}), ...(bindResult ? { bindResult } : {}) },
     });
 }
-function artifact(id, prompt, options = {}) {
+export function artifact(id, prompt, options = {}) {
     return task("artifact", id, prompt, options);
 }
-function input(name, options = {}) {
+export function input(name, options = {}) {
     if (!name)
         throw new Error("input name is required");
     return { name, ...options };
 }
-function createWorkflowApi() {
+export function createWorkflowApi() {
     return { workflow, phase, parallel, loop, agent, artifact, subWorkflow, input };
 }
-class WorkflowAppValidationError extends Error {
+export class WorkflowAppValidationError extends Error {
     issues;
     constructor(message, issues) {
         super(`${message}: ${issues.map((one) => one.message).join("; ")}`);
@@ -134,7 +115,6 @@ class WorkflowAppValidationError extends Error {
         this.issues = issues;
     }
 }
-exports.WorkflowAppValidationError = WorkflowAppValidationError;
 function issue(code, message, pathName) {
     return { code, message, path: pathName };
 }
@@ -166,15 +146,15 @@ function compareSemver(left, right) {
     return 0;
 }
 function isWorkflowDefinition(value) {
-    return ((0, cli_args_1.isRecord)(value) &&
+    return (isRecord(value) &&
         isNonEmptyString(value.id) &&
         isNonEmptyString(value.title) &&
         Array.isArray(value.phases) &&
-        (0, cli_args_1.isRecord)(value.limits) &&
+        isRecord(value.limits) &&
         Array.isArray(value.inputs));
 }
 function isWorkflowEntrypoint(value) {
-    return (0, cli_args_1.isRecord)(value) && "entrypoint" in value && !("phases" in value);
+    return isRecord(value) && "entrypoint" in value && !("phases" in value);
 }
 function validateAppId(value, issues, pathName) {
     if (!isNonEmptyString(value)) {
@@ -199,12 +179,12 @@ function validateAuthor(value, issues, pathName) {
         return;
     if (isNonEmptyString(value))
         return;
-    if ((0, cli_args_1.isRecord)(value) && isNonEmptyString(value.name))
+    if (isRecord(value) && isNonEmptyString(value.name))
         return;
     issues.push(issue("workflow-app-author", "Workflow app author must be a string or object with name", pathName));
 }
 function validateLimits(value, issues, pathName) {
-    if (!(0, cli_args_1.isRecord)(value)) {
+    if (!isRecord(value)) {
         issues.push(issue("workflow-limits", "Workflow limits are required", pathName));
         return;
     }
@@ -230,7 +210,7 @@ function validateInputDefinitions(inputs, issues, pathName, options = { optional
     const seen = new Set();
     for (const [index, inputDefinition] of inputs.entries()) {
         const inputPath = joinPath(pathName, String(index));
-        if (!(0, cli_args_1.isRecord)(inputDefinition)) {
+        if (!isRecord(inputDefinition)) {
             issues.push(issue("workflow-input", "Workflow input must be an object", inputPath));
             continue;
         }
@@ -286,7 +266,7 @@ function validateSandboxProfileReferences(profiles, issues, pathName, bundledIds
 function validateCompatibility(value, issues, pathName, currentVersion) {
     if (value === undefined)
         return;
-    if (!(0, cli_args_1.isRecord)(value)) {
+    if (!isRecord(value)) {
         issues.push(issue("workflow-app-compatibility", "Workflow app compatibility must be an object", pathName));
         return;
     }
@@ -330,7 +310,7 @@ function validateEntrypoint(value, issues, pathName) {
     }
 }
 function validateTask(taskDefinition, issues, pathName, seenTaskIds, options) {
-    if (!(0, cli_args_1.isRecord)(taskDefinition)) {
+    if (!isRecord(taskDefinition)) {
         issues.push(issue("workflow-task", "Workflow task must be an object", pathName));
         return;
     }
@@ -367,7 +347,7 @@ function validateTask(taskDefinition, issues, pathName, seenTaskIds, options) {
     }
 }
 function validatePhase(phaseDefinition, issues, pathName, seenPhaseIds, phaseIndex) {
-    if (!(0, cli_args_1.isRecord)(phaseDefinition)) {
+    if (!isRecord(phaseDefinition)) {
         issues.push(issue("workflow-phase", "Workflow phase must be an object", pathName));
         return;
     }
@@ -400,7 +380,7 @@ function validatePhase(phaseDefinition, issues, pathName, seenPhaseIds, phaseInd
             }
             // A task that reads earlier results cannot start before they exist.
             const reader = Array.isArray(phaseValue.tasks)
-                ? phaseValue.tasks.find((t) => (0, cli_args_1.isRecord)(t) && (0, cli_args_1.isRecord)(t.resultCache) && t.resultCache.includeCompletedResults === "previous-phases")
+                ? phaseValue.tasks.find((t) => isRecord(t) && isRecord(t.resultCache) && t.resultCache.includeCompletedResults === "previous-phases")
                 : undefined;
             if (reader) {
                 issues.push(issue("workflow-phase-overlap", `Task ${String(reader.id)} reads previous-phase results, so its phase cannot overlap the phase before it`, joinPath(pathName, "overlapPrevious")));
@@ -409,7 +389,7 @@ function validatePhase(phaseDefinition, issues, pathName, seenPhaseIds, phaseInd
     }
     if (phaseValue.loop !== undefined) {
         const loopValue = phaseValue.loop;
-        if (!(0, cli_args_1.isRecord)(loopValue)) {
+        if (!isRecord(loopValue)) {
             issues.push(issue("workflow-phase-loop", "Workflow phase loop must be an object", joinPath(pathName, "loop")));
         }
         else {
@@ -417,7 +397,7 @@ function validatePhase(phaseDefinition, issues, pathName, seenPhaseIds, phaseInd
                 issues.push(issue("workflow-phase-loop-maxrounds", "loop.maxRounds must be a positive integer", joinPath(pathName, "loop.maxRounds")));
             }
             const until = loopValue.until;
-            const validUntil = (0, cli_args_1.isRecord)(until) &&
+            const validUntil = isRecord(until) &&
                 ((until.kind === "predicate" && isNonEmptyString(until.ref)) ||
                     (until.kind === "budget-target" && typeof until.target === "number" && until.target > 0));
             if (!validUntil) {
@@ -437,19 +417,19 @@ function validatePhases(phases, limits, issues, pathName, options) {
     for (const [phaseIndex, phaseDefinition] of phases.entries()) {
         const phasePath = joinPath(pathName, String(phaseIndex));
         validatePhase(phaseDefinition, issues, phasePath, seenPhaseIds, phaseIndex);
-        if (!(0, cli_args_1.isRecord)(phaseDefinition) || !Array.isArray(phaseDefinition.tasks))
+        if (!isRecord(phaseDefinition) || !Array.isArray(phaseDefinition.tasks))
             continue;
         for (const [taskIndex, taskDefinition] of phaseDefinition.tasks.entries()) {
             taskCount += 1;
             validateTask(taskDefinition, issues, joinPath(joinPath(phasePath, "tasks"), String(taskIndex)), seenTaskIds, options);
         }
     }
-    if ((0, cli_args_1.isRecord)(limits) && Number.isInteger(Number(limits.maxAgents)) && taskCount > Number(limits.maxAgents)) {
+    if (isRecord(limits) && Number.isInteger(Number(limits.maxAgents)) && taskCount > Number(limits.maxAgents)) {
         issues.push(issue("workflow-limits", `Workflow defines ${taskCount} tasks but limits.maxAgents is ${String(limits.maxAgents)}`, joinPath(pathName, "limits.maxAgents")));
     }
 }
-function validateWorkflowDefinition(candidate, context, issues = [], basePath = "workflow", options = {}) {
-    if (!(0, cli_args_1.isRecord)(candidate)) {
+export function validateWorkflowDefinition(candidate, context, issues = [], basePath = "workflow", options = {}) {
+    if (!isRecord(candidate)) {
         issues.push(issue("workflow-invalid", "Workflow definition must be an object", basePath));
         return issues;
     }
@@ -476,10 +456,10 @@ function validateWorkflowDefinition(candidate, context, issues = [], basePath = 
     return issues;
 }
 /** The full `cw app validate` check, with pinned issue codes/messages. Never throws. */
-function validateWorkflowApp(candidate, context, options = {}) {
+export function validateWorkflowApp(candidate, context, options = {}) {
     const issues = [];
     const appPath = options.appPath;
-    if (!(0, cli_args_1.isRecord)(candidate)) {
+    if (!isRecord(candidate)) {
         return { valid: false, appPath, issues: [issue("workflow-app-invalid", "Workflow app must be an object", appPath)] };
     }
     const app = candidate;
@@ -521,7 +501,7 @@ function validateWorkflowApp(candidate, context, options = {}) {
         issues,
     };
 }
-function assertValidWorkflowApp(candidate, context, options = {}) {
+export function assertValidWorkflowApp(candidate, context, options = {}) {
     const result = validateWorkflowApp(candidate, context, options);
     if (!result.valid) {
         throw new WorkflowAppValidationError("Invalid workflow app", result.issues);
@@ -530,14 +510,14 @@ function assertValidWorkflowApp(candidate, context, options = {}) {
 /** `isAppCompatible` (WorkflowAppSummary.compatible): re-validate and check
  *  ONLY for a `workflow-app-incompatible` issue — see PLAN.md rebuild risk
  *  #3. */
-function isWorkflowAppCompatible(app, context) {
+export function isWorkflowAppCompatible(app, context) {
     return !validateWorkflowApp(app, context).issues.some((one) => one.code === "workflow-app-incompatible");
 }
 /** `validationIssuesFromError` — turns any thrown error (typically a
  *  `WorkflowAppValidationError`) into an issues array for the
  *  `{valid:false, issues}` catch-branch shape `cw app validate` needs on
  *  an unresolvable target. */
-function validationIssuesFromError(error) {
+export function validationIssuesFromError(error) {
     if (error instanceof WorkflowAppValidationError)
         return error.issues;
     return [{ code: "workflow-app-invalid", message: error instanceof Error ? error.message : String(error) }];
@@ -545,7 +525,7 @@ function validationIssuesFromError(error) {
 /** Byte-exact render of the workflow-app run-metadata block that lands in
  *  `run.workflow.app` (report.md's "Workflow App:" line reads
  *  `run.workflow.app.id`/`.version`). */
-function workflowAppRunMetadata(app) {
+export function workflowAppRunMetadata(app) {
     return {
         schemaVersion: 1,
         id: app.id,

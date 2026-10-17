@@ -1,4 +1,3 @@
-"use strict";
 // cli/dispatch.ts — the generic CLI executor over core/capability-table.ts.
 //
 // `dispatch(args)` first tries the CAPABILITY TABLE: it looks up the row
@@ -10,17 +9,12 @@
 // `dispatchLegacy` below is a small switch for the entry-level verbs no
 // capability-table row can fully own (bare help, `help <topic>`, and
 // `ledger`'s unknown-subcommand usage error). It is never extended.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.KNOWN_COMMANDS = void 0;
-exports.shouldRenderHuman = shouldRenderHuman;
-exports.dispatch = dispatch;
-const help_1 = require("../core/format/help");
-const capability_table_1 = require("../core/capability-table");
-const parseargv_1 = require("./parseargv");
-Object.defineProperty(exports, "KNOWN_COMMANDS", { enumerable: true, get: function () { return parseargv_1.KNOWN_COMMANDS; } });
-const io_1 = require("./io");
-const cli_args_1 = require("../core/util/cli-args");
-const global_flags_1 = require("./global-flags");
+import { formatCommandHelp } from "../core/format/help.js";
+import { findCapabilityByCliPath, } from "../core/capability-table.js";
+import { KNOWN_COMMANDS, suggestCommand } from "./parseargv.js";
+import { printJson, styledHelp } from "./io.js";
+import { wantsJson } from "../core/util/cli-args.js";
+import { warnUnknownFlags } from "./global-flags.js";
 function firstPositional(args, index = 0) {
     return args.positionals[index];
 }
@@ -34,8 +28,8 @@ function firstPositional(args, index = 0) {
  *  the output mode (cli-color-env pipes with FORCE_COLOR=1 and must stay
  *  JSON). Pure of the injectable `stream` (default process.stdout),
  *  following shell/workbench-host.ts's printServeHint pattern. */
-function shouldRenderHuman(jsonMode, options, hasHumanRender, stream = process.stdout) {
-    return jsonMode === "default" && !(0, cli_args_1.wantsJson)(options) && hasHumanRender && Boolean(stream.isTTY);
+export function shouldRenderHuman(jsonMode, options, hasHumanRender, stream = process.stdout) {
+    return jsonMode === "default" && !wantsJson(options) && hasHumanRender && Boolean(stream.isTTY);
 }
 /** Writes a `CliHandlerResult` to stdout and applies its exit code, per
  *  the row's `jsonMode`:
@@ -54,15 +48,15 @@ function renderCliResult(result, cli, options) {
             process.exitCode = result.exitCode;
         return;
     }
-    const useJson = cli.jsonMode === "default" || (cli.jsonMode === "flag" && (0, cli_args_1.wantsJson)(options));
+    const useJson = cli.jsonMode === "default" || (cli.jsonMode === "flag" && wantsJson(options));
     if (useJson && result.json !== undefined) {
-        (0, io_1.printJson)(result.json);
+        printJson(result.json);
     }
     else if (result.text !== undefined) {
         process.stdout.write(result.text.endsWith("\n") ? result.text : `${result.text}\n`);
     }
     else if (result.json !== undefined) {
-        (0, io_1.printJson)(result.json);
+        printJson(result.json);
     }
     if (result.exitCode !== undefined)
         process.exitCode = result.exitCode;
@@ -82,7 +76,7 @@ async function dispatchTable(args) {
     if (args.positionals.length > 0)
         candidates.push([args.command, args.positionals[0]]);
     for (const candidatePath of candidates.slice().reverse()) {
-        const row = (0, capability_table_1.findCapabilityByCliPath)(candidatePath);
+        const row = findCapabilityByCliPath(candidatePath);
         if (!row || !row.cli)
             continue;
         const consumed = candidatePath.length - 1; // path[0] is the command itself, already consumed
@@ -93,7 +87,7 @@ async function dispatchTable(args) {
         // Rows that declare a complete flag list get the TTY-only unknown-flag
         // warning (one stderr line; stdout and the exit code never change —
         // see cli/global-flags.ts).
-        (0, global_flags_1.warnUnknownFlags)(row.cli, args.options);
+        warnUnknownFlags(row.cli, args.options);
         const result = await row.cli.handler(cliArgs);
         renderCliResult(result, row.cli, args.options);
         return true;
@@ -106,16 +100,16 @@ async function dispatchTable(args) {
 function dispatchLegacy(args) {
     switch (args.command) {
         case "": {
-            process.stdout.write((0, io_1.styledHelp)());
+            process.stdout.write(styledHelp());
             return;
         }
         case "help": {
             const topic = firstPositional(args);
             if (topic) {
-                process.stdout.write((0, help_1.formatCommandHelp)(topic, parseargv_1.suggestCommand));
+                process.stdout.write(formatCommandHelp(topic, suggestCommand));
             }
             else {
-                process.stdout.write((0, io_1.styledHelp)());
+                process.stdout.write(styledHelp());
             }
             return;
         }
@@ -128,7 +122,7 @@ function dispatchLegacy(args) {
             throw new Error("Usage: cw ledger propose|review|verify|apply|list [options]");
         }
         default: {
-            const hint = (0, parseargv_1.suggestCommand)(args.command);
+            const hint = suggestCommand(args.command);
             const tail = hint ? `. Did you mean: ${hint}?` : "";
             throw new Error(`Unknown command: ${args.command}${tail}`);
         }
@@ -141,8 +135,11 @@ function dispatchLegacy(args) {
  *
  *  Tries the capability table FIRST (real rows always win), then falls
  *  back to the entry-level switch. */
-async function dispatch(args) {
+export async function dispatch(args) {
     if (await dispatchTable(args))
         return;
     dispatchLegacy(args);
 }
+/** Re-exported so cli/entry.ts (and tests) can check membership without a
+ *  second import path. */
+export { KNOWN_COMMANDS };

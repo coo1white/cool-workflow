@@ -58,12 +58,15 @@
 //     }], isError: true }, same `resultMessage` helper as the success
 //     path. The envelope-level "missing field: name" check above still answers -32000.
 
-import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version";
-import { recoveryHint } from "../core/format/recovery-hint";
-import { toolDefinitions } from "./dispatch";
-import { ToolProcessExecutor } from "./tool-process";
-import { MCP_CORE_TOOLS } from "../core/capability-data";
-import type { McpToolDefinition } from "../core/capability-table";
+import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version.js";
+import { recoveryHint } from "../core/format/recovery-hint.js";
+import { toolDefinitions } from "./dispatch.js";
+import { ToolProcessExecutor } from "./tool-process.js";
+import { MCP_CORE_TOOLS } from "../core/capability-data.js";
+import type { McpToolDefinition } from "../core/capability-table.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
 
@@ -244,7 +247,7 @@ async function handleRequest(message: JsonRpcRequest, tools: ToolProcessExecutor
         // these off too.
         // Loaded here, not at the top: initialize and tools/list stay under
         // the perf ratchet's module ceiling (scripts/bench/perf-ceilings.json).
-        const resources = require("./resources") as typeof import("./resources");
+        const resources = require("./resources.js") as typeof import("./resources.js");
         if (!toolPermitted("cw_report", authority)) throw new resources.ResourceError(-32601, `MCP ${message.method} disabled by policy: cw_report`);
         const params = (message.params ?? {}) as Record<string, unknown>;
         const result = message.method === "resources/list" ? { resources: resources.listReportResources() } : resources.readReportResource(params.uri);

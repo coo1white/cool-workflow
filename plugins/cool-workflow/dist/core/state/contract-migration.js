@@ -1,4 +1,3 @@
-"use strict";
 // core/state/contract-migration.ts — declared migration registry + prover.
 //
 // Kept under state/ (not pipeline/) since every symbol it needs —
@@ -9,18 +8,12 @@
 // Evidence: SPEC/state-core.md "contract-migration module — declared
 // migration registry + prover", "MigrationVerdict / MigrationProof JSON",
 // "Contract-migration prover invariants".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CONTRACT_MIGRATION_SCHEMA_VERSION = void 0;
-exports.listMigrationContracts = listMigrationContracts;
-exports.resolveChain = resolveChain;
-exports.checkMigration = checkMigration;
-exports.proveMigration = proveMigration;
-const hash_1 = require("../hash");
-const version_1 = require("../version");
-const migrations_1 = require("./migrations");
-const cli_args_1 = require("../util/cli-args");
-exports.CONTRACT_MIGRATION_SCHEMA_VERSION = 1;
-const RUN_STATE_EDGES = migrations_1.RUN_STATE_MIGRATIONS.map((step) => ({
+import { stableHash } from "../hash.js";
+import { CURRENT_RUN_STATE_SCHEMA_VERSION, LEGACY_RUN_STATE_SCHEMA_VERSION, MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION, WORKFLOW_APP_SCHEMA_VERSION, } from "../version.js";
+import { findMigrationPath, migrateRunState, RUN_STATE_MIGRATIONS } from "./migrations.js";
+import { isRecord } from "../util/cli-args.js";
+export const CONTRACT_MIGRATION_SCHEMA_VERSION = 1;
+const RUN_STATE_EDGES = RUN_STATE_MIGRATIONS.map((step) => ({
     contract: "run-state",
     from: step.from,
     to: step.to,
@@ -31,18 +24,18 @@ const RUN_STATE_EDGES = migrations_1.RUN_STATE_MIGRATIONS.map((step) => ({
         dropsNothing: true,
     },
 }));
-function listMigrationContracts() {
+export function listMigrationContracts() {
     return [
         {
             contract: "run-state",
-            currentVersion: version_1.CURRENT_RUN_STATE_SCHEMA_VERSION,
-            minVersion: version_1.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION,
+            currentVersion: CURRENT_RUN_STATE_SCHEMA_VERSION,
+            minVersion: MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION,
             edges: RUN_STATE_EDGES,
         },
         {
             contract: "workflow-app",
-            currentVersion: version_1.WORKFLOW_APP_SCHEMA_VERSION,
-            minVersion: version_1.WORKFLOW_APP_SCHEMA_VERSION,
+            currentVersion: WORKFLOW_APP_SCHEMA_VERSION,
+            minVersion: WORKFLOW_APP_SCHEMA_VERSION,
             edges: [],
         },
     ];
@@ -54,14 +47,14 @@ function getContract(contractId) {
     return contract;
 }
 function detectVersion(contractId, snapshot) {
-    const declared = (0, cli_args_1.isRecord)(snapshot) && typeof snapshot.schemaVersion === "number" ? snapshot.schemaVersion : undefined;
+    const declared = isRecord(snapshot) && typeof snapshot.schemaVersion === "number" ? snapshot.schemaVersion : undefined;
     if (typeof declared === "number")
         return declared;
-    return contractId === "run-state" ? version_1.LEGACY_RUN_STATE_SCHEMA_VERSION : 0;
+    return contractId === "run-state" ? LEGACY_RUN_STATE_SCHEMA_VERSION : 0;
 }
 /** Fail-closed reachability: detected -> current using the DAG path
  *  resolver (run-state) or a simple edge walk (workflow-app). */
-function resolveChain(contract, detected) {
+export function resolveChain(contract, detected) {
     if (detected < contract.minVersion) {
         return {
             reachable: false,
@@ -77,7 +70,7 @@ function resolveChain(contract, detected) {
         };
     }
     if (contract.contract === "run-state") {
-        const resolved = (0, migrations_1.findMigrationPath)(migrations_1.RUN_STATE_MIGRATIONS, detected, contract.currentVersion);
+        const resolved = findMigrationPath(RUN_STATE_MIGRATIONS, detected, contract.currentVersion);
         if (!resolved.reachable)
             return { reachable: false, chain: [], error: resolved.error };
         const chain = [detected];
@@ -111,7 +104,7 @@ function resolveChain(contract, detected) {
 }
 /** Dry-run verdict: detect, resolve, and (run-state) run the migration to
  *  report. */
-function checkMigration(contractId, snapshot) {
+export function checkMigration(contractId, snapshot) {
     const contract = getContract(contractId);
     const detectedVersion = detectVersion(contractId, snapshot);
     const resolved = resolveChain(contract, detectedVersion);
@@ -127,7 +120,7 @@ function checkMigration(contractId, snapshot) {
         return { ...base, status: "unsupported", changes: 0, errors: [resolved.error || "unreachable"] };
     }
     if (contractId === "run-state") {
-        const { report } = (0, migrations_1.migrateRunState)(snapshot, { dryRun: true });
+        const { report } = migrateRunState(snapshot, { dryRun: true });
         return { ...base, status: report.status, changes: report.changes.length, errors: report.errors };
     }
     return { ...base, status: "current", changes: 0, errors: [] };
@@ -135,9 +128,9 @@ function checkMigration(contractId, snapshot) {
 /** Append-only proof: every key in the source survives into the output
  *  (recursive). */
 function keysSurvive(source, output) {
-    if (!(0, cli_args_1.isRecord)(source))
+    if (!isRecord(source))
         return true;
-    if (!(0, cli_args_1.isRecord)(output))
+    if (!isRecord(output))
         return false;
     for (const key of Object.keys(source)) {
         if (!(key in output))
@@ -149,9 +142,9 @@ function keysSurvive(source, output) {
 }
 /** Round-trip / non-destruction prover. Fail-closed: an unsupported
  *  verdict never transforms and never claims a positive proof. */
-function proveMigration(contractId, snapshot) {
+export function proveMigration(contractId, snapshot) {
     const verdict = checkMigration(contractId, snapshot);
-    const sourceHash = (0, hash_1.stableHash)(snapshot);
+    const sourceHash = stableHash(snapshot);
     const errors = [...verdict.errors];
     let validatesAtCurrent = false;
     let appendOnly = false;
@@ -159,12 +152,12 @@ function proveMigration(contractId, snapshot) {
     let result = snapshot;
     if (verdict.status !== "unsupported") {
         if (contractId === "run-state") {
-            const migrated = (0, migrations_1.migrateRunState)(snapshot);
+            const migrated = migrateRunState(snapshot);
             result = migrated.run;
             validatesAtCurrent =
-                migrated.report.status !== "unsupported" && (0, cli_args_1.isRecord)(result) && result.schemaVersion === version_1.CURRENT_RUN_STATE_SCHEMA_VERSION;
+                migrated.report.status !== "unsupported" && isRecord(result) && result.schemaVersion === CURRENT_RUN_STATE_SCHEMA_VERSION;
             appendOnly = keysSurvive(snapshot, result);
-            const reRun = (0, migrations_1.migrateRunState)(result, { dryRun: true });
+            const reRun = migrateRunState(result, { dryRun: true });
             idempotent = reRun.report.changes.length === 0 && reRun.report.status === "current";
         }
         else {
@@ -173,10 +166,10 @@ function proveMigration(contractId, snapshot) {
             idempotent = true;
         }
     }
-    const sourceImmutable = (0, hash_1.stableHash)(snapshot) === sourceHash;
-    const resultHash = (0, hash_1.stableHash)(result);
+    const sourceImmutable = stableHash(snapshot) === sourceHash;
+    const resultHash = stableHash(result);
     const pass = validatesAtCurrent && appendOnly && idempotent && sourceImmutable && errors.length === 0;
-    const fingerprint = (0, hash_1.stableHash)({
+    const fingerprint = stableHash({
         contract: contractId,
         detectedVersion: verdict.detectedVersion,
         chain: verdict.chain,

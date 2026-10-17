@@ -1,4 +1,3 @@
-"use strict";
 // shell/commit.ts — commitState: the imperative wrapper around
 // core/pipeline/commit-gate.ts's pure gate resolution.
 //
@@ -6,58 +5,19 @@
 // node's disk write via the pipeline runner).
 //
 // Evidence: SPEC/pipeline-run.md "Commit gate — commit module".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CommitGateError = void 0;
-exports.readGitHead = readGitHead;
-exports.readHeadFromFiles = readHeadFromFiles;
-exports.unresolvedRunFileEvidence = unresolvedRunFileEvidence;
-exports.commitState = commitState;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const node_child_process_1 = require("node:child_process");
-const fs_atomic_1 = require("./fs-atomic");
-const commit_gate_1 = require("../core/pipeline/commit-gate");
-const contract_1 = require("../core/pipeline/contract");
-const runner_1 = require("../core/pipeline/runner");
-const node_store_1 = require("./node-store");
-const state_node_1 = require("../core/state/state-node");
-const trust_audit_1 = require("./trust-audit");
-const evidence_grounding_1 = require("../core/trust/evidence-grounding");
-const error_feedback_io_1 = require("./error-feedback-io");
-class CommitGateError extends Error {
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { execFileSync } from "node:child_process";
+import { writeJson } from "./fs-atomic.js";
+import { formatCommitId, gateFailureSeq, resolveCommitGate } from "../core/pipeline/commit-gate.js";
+import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract.js";
+import { runPipelineStage } from "../core/pipeline/runner.js";
+import { appendRunNode, writeRunNode } from "./node-store.js";
+import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/state-node.js";
+import { normalizeEvidence, recordTrustAuditEvent } from "./trust-audit.js";
+import { unresolvedFileEvidence as pureUnresolvedFileEvidence, requireResolvableEvidence } from "../core/trust/evidence-grounding.js";
+import { recordFeedback } from "./error-feedback-io.js";
+export class CommitGateError extends Error {
     structured;
     feedbackId;
     stateNodeId;
@@ -69,7 +29,6 @@ class CommitGateError extends Error {
         this.stateNodeId = options.stateNodeId;
     }
 }
-exports.CommitGateError = CommitGateError;
 function normalizeCommitOptions(input) {
     if (typeof input === "string")
         return { reason: input || "manual", source: "runtime" };
@@ -93,19 +52,19 @@ function normalizeCommitOptions(input) {
 // discovery env, bare repo, other owner, mount boundary, no getuid) asks git.
 const SHA = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const GIT_ENV = ["GIT_DIR", "GIT_WORK_TREE", "GIT_COMMON_DIR", "GIT_CEILING_DIRECTORIES", "GIT_DISCOVERY_ACROSS_FILESYSTEM", "GIT_OBJECT_DIRECTORY", "GIT_NAMESPACE"];
-function readGitHead(cwd) {
+export function readGitHead(cwd) {
     const fast = readHeadFromFiles(cwd);
     if (fast !== undefined)
         return fast;
     try {
-        return (0, node_child_process_1.execFileSync)("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000 }).trim();
+        return execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], timeout: 5000 }).trim();
     }
     catch {
         return undefined;
     }
 }
 /** The sha from the files, or undefined for "ask git". */
-function readHeadFromFiles(cwd) {
+export function readHeadFromFiles(cwd) {
     if (GIT_ENV.some((name) => process.env[name] !== undefined) || typeof process.getuid !== "function")
         return undefined;
     try {
@@ -150,8 +109,8 @@ function backingResultFor(run, verifierNodeId) {
  *  strict mode is off. One base-dir set (run cwd, process cwd, run dir) for
  *  the verdict accept check (worker-isolation.ts) and the commit gate below,
  *  so the two can not disagree on the same locator. */
-function unresolvedRunFileEvidence(run, evidence) {
-    return (0, evidence_grounding_1.unresolvedFileEvidence)(evidence, Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir])), { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) });
+export function unresolvedRunFileEvidence(run, evidence) {
+    return pureUnresolvedFileEvidence(evidence, Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir])), { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) });
 }
 /** commitState(run, input) — resolves the gate, writes the failure node +
  *  throws on any error; on success writes the snapshot + commit node and
@@ -160,15 +119,15 @@ function unresolvedRunFileEvidence(run, evidence) {
  *  failures for the same verifier node, throw with that record and add no
  *  second failure node or feedback record — a resume that runs the same
  *  blocked commit again does not pile them up. */
-function commitState(run, input, behavior = {}) {
+export function commitState(run, input, behavior = {}) {
     const options = normalizeCommitOptions(input);
     const now = new Date().toISOString();
     const { result: backingResult, requiresEvidence } = backingResultFor(run, options.verifierNodeId || (options.reason.startsWith("result:") ? run.tasks.find((t) => t.id === options.reason.slice(7))?.verifierNodeId : undefined));
-    const gate = (0, commit_gate_1.resolveCommitGate)(run, options, {
+    const gate = resolveCommitGate(run, options, {
         now,
         backingResult,
         taskRequiresEvidence: requiresEvidence,
-        unresolvedFileEvidence: (0, evidence_grounding_1.requireResolvableEvidence)() ? (evidence) => unresolvedRunFileEvidence(run, evidence) : undefined,
+        unresolvedFileEvidence: requireResolvableEvidence() ? (evidence) => unresolvedRunFileEvidence(run, evidence) : undefined,
     });
     if (gate.errors.length) {
         if (behavior.reuseOpenGateFailure) {
@@ -179,12 +138,12 @@ function commitState(run, input, behavior = {}) {
         throw recordCommitGateFailure(run, options, gate);
     }
     fs.mkdirSync(run.paths.commitsDir, { recursive: true });
-    const id = (0, commit_gate_1.formatCommitId)((run.commits || []).length + 1);
+    const id = formatCommitId((run.commits || []).length + 1);
     const snapshotPath = path.join(run.paths.commitsDir, `${id}.json`);
     const audit = gate.verifierGated
-        ? (0, trust_audit_1.recordTrustAuditEvent)(run, { kind: "commit.gate", decision: "accepted", source: "cw-validated", nodeId: gate.verifierNodeId, commitId: id, evidence: gate.evidence })
+        ? recordTrustAuditEvent(run, { kind: "commit.gate", decision: "accepted", source: "cw-validated", nodeId: gate.verifierNodeId, commitId: id, evidence: gate.evidence })
         : undefined;
-    const evidence = (0, trust_audit_1.normalizeEvidence)(run, gate.evidence, { source: gate.verifierGated ? "cw-validated" : "runtime-derived", verifierNodeId: gate.verifierNodeId, commitId: id, auditEventIds: audit ? [audit.id] : [] });
+    const evidence = normalizeEvidence(run, gate.evidence, { source: gate.verifierGated ? "cw-validated" : "runtime-derived", verifierNodeId: gate.verifierNodeId, commitId: id, auditEventIds: audit ? [audit.id] : [] });
     const commit = {
         id,
         createdAt: now,
@@ -212,14 +171,14 @@ function commitState(run, input, behavior = {}) {
     // a `run` key back out of a commits/<id>.json file (see
     // docs/run-retention-reclamation.7.md), and embedding the growing run
     // would make total commit-dir bytes grow like N^2 in the number of commits.
-    (0, fs_atomic_1.writeJson)(snapshotPath, { commit });
+    writeJson(snapshotPath, { commit });
     run.commits.push(commit);
     return commit;
 }
 function recordCommitNode(run, commit, options, gate) {
     const verifierNode = gate.verifierNodeId ? findNode(run, gate.verifierNodeId) : undefined;
     if (commit.verifierGated && verifierNode) {
-        const commitResult = (0, runner_1.runPipelineStage)(run, "commit", verifierNode.id, {
+        const commitResult = runPipelineStage(run, "commit", verifierNode.id, {
             outputNodeId: `${run.id}:commit:${commit.id}`,
             outputStatus: "committed",
             loopStage: "checkpoint",
@@ -227,10 +186,10 @@ function recordCommitNode(run, commit, options, gate) {
             artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
             evidence: commit.evidence || verifierNode.evidence,
             metadata: { ...(options.metadata || {}), reason: options.reason, commitId: commit.id, verifierGated: true, checkpoint: false, verifierNodeId: verifierNode.id },
-        }, { persist: false, persistNode: node_store_1.writeRunNode, pathExists: fs.existsSync });
+        }, { persist: false, persistNode: writeRunNode, pathExists: fs.existsSync });
         return commitResult.outputNodeId;
     }
-    const checkpointNode = (0, state_node_1.createStateNode)({
+    const checkpointNode = createStateNode({
         id: `${run.id}:checkpoint:${commit.id}`,
         kind: "commit",
         status: "completed",
@@ -238,10 +197,10 @@ function recordCommitNode(run, commit, options, gate) {
         inputs: { reason: options.reason, commitId: commit.id },
         outputs: { snapshotPath: commit.snapshotPath, gitHead: commit.gitHead, verifierGated: false, checkpoint: true },
         artifacts: [{ id: "snapshot", kind: "json", path: commit.snapshotPath }],
-        contractId: contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
+        contractId: DEFAULT_PIPELINE_CONTRACT_ID,
         metadata: { ...(options.metadata || {}), verifierGated: false, checkpoint: true },
     });
-    (0, node_store_1.appendRunNode)(run, checkpointNode);
+    appendRunNode(run, checkpointNode);
     return checkpointNode.id;
 }
 function gateFailureList(errors) {
@@ -261,14 +220,14 @@ function openGateFailure(run, gate) {
 }
 function recordCommitGateFailure(run, options, gate) {
     const first = gate.errors[0] || { code: "commit-gate-blocked", message: "Verifier-gated commit blocked", at: new Date().toISOString(), retryable: false };
-    const node = (0, state_node_1.recordNodeError)((0, state_node_1.createStateNode)({
-        id: `${run.id}:commit-gate-failed:${(0, commit_gate_1.gateFailureSeq)(run)}`,
+    const node = recordNodeError(createStateNode({
+        id: `${run.id}:commit-gate-failed:${gateFailureSeq(run)}`,
         kind: "error",
         status: "pending",
         loopStage: "checkpoint",
         inputs: { reason: options.reason, verifierNodeId: gate.verifierNodeId },
         evidence: gate.evidence,
-        contractId: contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
+        contractId: DEFAULT_PIPELINE_CONTRACT_ID,
         metadata: {
             ...(options.metadata || {}),
             verifierGated: true,
@@ -278,18 +237,18 @@ function recordCommitGateFailure(run, options, gate) {
             gate: gate.metadata,
         },
     }), first);
-    const persisted = (0, node_store_1.appendRunNode)(run, node);
+    const persisted = appendRunNode(run, node);
     if (gate.verifierNodeId)
         linkAdditionalParent(run, gate.verifierNodeId, persisted.id);
     // Record the block as append-only operator feedback so the codes
     // (commit-verifier-not-found / missing-evidence / …) are not lost: the
     // commit gate's failure must surface visibly, not silently.
-    const feedback = (0, error_feedback_io_1.recordFeedback)(run, {
+    const feedback = recordFeedback(run, {
         source: options.source === "cli" ? "cli" : "verifier",
         error: first,
         nodeId: persisted.id,
         stageId: "commit",
-        contractId: contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
+        contractId: DEFAULT_PIPELINE_CONTRACT_ID,
         retryable: false,
         evidence: gate.evidence,
         artifacts: [],
@@ -306,7 +265,7 @@ function linkAdditionalParent(run, parentId, childId) {
     const child = findNode(run, childId);
     if (!parent || !child)
         return;
-    const [linkedParent, linkedChild] = (0, state_node_1.linkStateNodes)(parent, child);
-    (0, node_store_1.appendRunNode)(run, linkedParent);
-    (0, node_store_1.appendRunNode)(run, linkedChild);
+    const [linkedParent, linkedChild] = linkStateNodes(parent, child);
+    appendRunNode(run, linkedParent);
+    appendRunNode(run, linkedChild);
 }

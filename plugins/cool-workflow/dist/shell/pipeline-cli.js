@@ -1,4 +1,3 @@
-"use strict";
 // shell/pipeline-cli.ts — CLI-facing entry points for the pipeline/drive
 // spine: planRun, runDrivePreview, runDriveStep, quickstartRun,
 // dispatchRun, recordResultRun, commitRun.
@@ -8,71 +7,29 @@
 // into the shapes core/capability-table.ts's CLI bindings call.
 //
 // Evidence: SPEC/pipeline-run.md "CLI / MCP surface (capability layer)".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.planRun = planRun;
-exports.runDrivePreview = runDrivePreview;
-exports.runDriveStep = runDriveStep;
-exports.quickstartRun = quickstartRun;
-exports.formatQuickstartHuman = formatQuickstartHuman;
-exports.dispatchRun = dispatchRun;
-exports.recordResultRun = recordResultRun;
-exports.commitRun = commitRun;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const readlinePromises = __importStar(require("node:readline/promises"));
-const numeric_flag_1 = require("../core/util/numeric-flag");
-const cli_args_1 = require("../core/util/cli-args");
-const safe_json_1 = require("../core/format/safe-json");
-const pipeline_1 = require("./pipeline");
-const workflow_app_loader_1 = require("./workflow-app-loader");
-const drive_1 = require("./drive");
-const dispatch_1 = require("./dispatch");
-const commit_1 = require("./commit");
-const worker_isolation_1 = require("./worker-isolation");
-const observability_1 = require("./observability");
-const sandbox_profile_1 = require("./sandbox-profile");
-const run_store_1 = require("./run-store");
-const report_1 = require("./report");
-const report_view_cli_1 = require("./report-view-cli");
-const reporter_1 = require("./reporter");
-const agent_config_1 = require("./agent-config");
-const remote_source_1 = require("./remote-source");
-const onramp_1 = require("./onramp");
-const trust_audit_1 = require("./trust-audit");
-const report_cli_1 = require("./report-cli");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as readlinePromises from "node:readline/promises";
+import { requiredNumberFlag } from "../core/util/numeric-flag.js";
+import { wantsJson, cwdArg, flagOn } from "../core/util/cli-args.js";
+import { safeJsonStringify } from "../core/format/safe-json.js";
+import { plan } from "./pipeline.js";
+import { loadWorkflowApp, showWorkflowApp, loadWorkflowAppRecordById, isTrustedAppSourcePath, WorkflowAppNotFoundError } from "./workflow-app-loader.js";
+import { driveAsync, drivePreview } from "./drive.js";
+import { createDispatchManifest } from "./dispatch.js";
+import { commitState } from "./commit.js";
+import { recordWorkerOutput, showWorkerManifest, getWorkerScope } from "./worker-isolation.js";
+import { parseUsageFromArgs } from "./observability.js";
+import { validateSandboxWrite } from "./sandbox-profile.js";
+import { loadRunFromCwd, sameRealLocation, saveCheckpoint, withRunStateLock } from "./run-store.js";
+import { writeReport } from "./report.js";
+import { ensureAndOpenReportHtml } from "./report-view-cli.js";
+import { formatQuickstartSummary } from "./reporter.js";
+import { agentConfigured, resolveAgentConfig } from "./agent-config.js";
+import { materializeRemote, isRemoteUrl, validateRemoteUrl, gitAvailable } from "./remote-source.js";
+import { isGitWorkTree } from "./onramp.js";
+import { recordTrustAuditEvent } from "./trust-audit.js";
+import { reportBundleCli } from "./report-cli.js";
 const QUICKSTART_DEFAULT_APP = "architecture-review";
 // `--fast`: the 6-worker review for one focused question (Map and Assess
 // two workers each), in place of the default 14.
@@ -102,12 +59,12 @@ function quickstartNextCommand(appId, repo, args) {
     const command = firstString(args.agentCommand, args["agent-command"]);
     if (command)
         parts.push("--agent-command", shellWord(command));
-    if ((0, cli_args_1.flagOn)(args.bundle))
+    if (flagOn(args.bundle))
         parts.push("--bundle");
     const trustKey = firstString(args["with-trust-key"], args.withTrustKey, args.trustKey);
     if (trustKey)
         parts.push("--with-trust-key", shellWord(trustKey));
-    if ((0, cli_args_1.flagOn)(args["strict-signatures"]) || (0, cli_args_1.flagOn)(args.strictSignatures) || (0, cli_args_1.flagOn)(args.strictSigs))
+    if (flagOn(args["strict-signatures"]) || flagOn(args.strictSignatures) || flagOn(args.strictSigs))
         parts.push("--strict-signatures");
     return parts.join(" ");
 }
@@ -160,8 +117,8 @@ function planInputsFor(args) {
  *  drive the stored folder's run instead. The same real folder (a symlink,
  *  or macOS /var vs /private/var) is not a mismatch and works as before. */
 function loadExistingRunAt(runId, cwd) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, cwd);
-    if (typeof run.cwd === "string" && run.cwd !== cwd && !(0, run_store_1.sameRealLocation)(run.cwd, cwd)) {
+    const run = loadRunFromCwd(runId, cwd);
+    if (typeof run.cwd === "string" && run.cwd !== cwd && !sameRealLocation(run.cwd, cwd)) {
         throw new Error(`Run ${runId} was made for ${run.cwd}, not ${cwd}; refusing to resume it from here (fail closed). Pass --repo ${run.cwd}, or move the run with cw run export and cw run import.`);
     }
     return run;
@@ -173,7 +130,7 @@ function isMissingInput(value) {
 }
 /** Refuses when the repo defaulted to the cwd (no --repo/--dir/--cwd/--link) and that cwd is not a git project. */
 function assertGitProject(repo) {
-    if (!(0, onramp_1.isGitWorkTree)(repo))
+    if (!isGitWorkTree(repo))
         throw new Error(`${repo} is not a git project. Run cw inside a project, or pass --repo <path>.`);
 }
 /** Refuses an explicit local --repo/--dir that names no folder, before
@@ -200,12 +157,12 @@ function assertRepoFolder(repo) {
  *  minimal LoadedWorkflowApp plan() consumes. */
 function resolveWorkflowAppForPlan(appId) {
     try {
-        return (0, workflow_app_loader_1.loadWorkflowApp)(appId);
+        return loadWorkflowApp(appId);
     }
     catch (error) {
-        if (!(error instanceof workflow_app_loader_1.WorkflowAppNotFoundError))
+        if (!(error instanceof WorkflowAppNotFoundError))
             throw error;
-        const record = (0, workflow_app_loader_1.loadWorkflowAppRecordById)(appId);
+        const record = loadWorkflowAppRecordById(appId);
         const author = typeof record.app.author === "string" ? record.app.author : record.app.author?.name;
         const entrypointPath = record.source.entrypointPath || record.source.path;
         return {
@@ -218,13 +175,13 @@ function resolveWorkflowAppForPlan(appId) {
             sandboxProfiles: record.app.sandboxProfiles || record.app.workflow.sandboxProfiles || [],
             sourcePath: record.source.manifestPath || record.source.path,
             entrypointPath,
-            trustedRoot: (0, workflow_app_loader_1.isTrustedAppSourcePath)(entrypointPath),
+            trustedRoot: isTrustedAppSourcePath(entrypointPath),
         };
     }
 }
 /** `cw plan <workflowId>` — real: loads the app, plans a fresh run,
  *  returns the canonical plan summary. */
-function planRun(args) {
+export function planRun(args) {
     const appId = String(args.workflowId || args.app || QUICKSTART_DEFAULT_APP);
     // POLA: `cw plan <app>` does NOT default repo to the caller's cwd (unlike the
     // one-command quickstart). Required inputs are checked first (message
@@ -239,24 +196,24 @@ function planRun(args) {
             throw new Error(`Missing required input --${declared.name}`);
         }
     }
-    const run = (0, pipeline_1.plan)(app, planInputs);
+    const run = plan(app, planInputs);
     // `pendingTasks` is the canonical plan-payload (planSummary) key both `cw
     // plan` and `cw_plan` carry (SPEC/workflow-apps.md); version-sync-check.js
     // pins the planSummary word in this file. `taskCount` stays as a harmless extra.
     const pendingTasks = run.tasks.filter((task) => task.status === "pending").length;
     return { schemaVersion: 1, runId: run.id, workflowId: run.workflow.id, statePath: run.paths.state, reportPath: run.paths.report, pendingTasks, taskCount: run.tasks.length };
 }
-function runDrivePreview(args) {
+export function runDrivePreview(args) {
     const runId = String(args.runId || args.run || "");
-    const cwd = (0, cli_args_1.cwdArg)(args);
-    return (0, drive_1.drivePreview)(runId, cwd, args);
+    const cwd = cwdArg(args);
+    return drivePreview(runId, cwd, args);
 }
 /** `cw run <app|--run id> --drive [--once]` — plans a fresh run (unless
  *  `--run` continues an existing one) and drives it. Uses driveAsync (not
  *  the plain synchronous drive()) so a live multi-round run actually
  *  responds to Ctrl-C/SIGTERM instead of silently ignoring it — see
  *  shell/drive.ts's driveAsync doc comment. */
-async function runDriveStep(args, extra = {}) {
+export async function runDriveStep(args, extra = {}) {
     const existingRunId = String(args.runId || args.run || "");
     const options = {
         ...extra,
@@ -267,18 +224,18 @@ async function runDriveStep(args, extra = {}) {
         incremental: Boolean(args.incremental),
     };
     if (existingRunId) {
-        const cwd = (0, cli_args_1.cwdArg)(args, ["cwd", "repo"]);
+        const cwd = cwdArg(args, ["cwd", "repo"]);
         const run = loadExistingRunAt(existingRunId, cwd);
-        return (0, drive_1.driveAsync)(existingRunId, run.cwd, options);
+        return driveAsync(existingRunId, run.cwd, options);
     }
     const appId = String(args.appId || args.app || args.positionalApp || "");
     if (!appId)
         throw new Error("run --drive requires an app id (or --run <run-id> to continue)");
     if (!args.repo && !args.cwd)
-        args.repo = (0, cli_args_1.cwdArg)(args);
-    const app = (0, workflow_app_loader_1.loadWorkflowApp)(appId);
-    const run = (0, pipeline_1.plan)(app, planInputsFor(args));
-    return (0, drive_1.driveAsync)(run.id, run.cwd, options);
+        args.repo = cwdArg(args);
+    const app = loadWorkflowApp(appId);
+    const run = plan(app, planInputsFor(args));
+    return driveAsync(run.id, run.cwd, options);
 }
 /** `cw quickstart [app] --check` — read-only preflight: does the app
  *  resolve, is the repo readable/writable, is a question set, is an
@@ -291,12 +248,12 @@ function quickstartCheck(appId, args, remoteCandidate) {
     // sanitized URL so the result reports what would be reviewed.
     if (remoteCandidate)
         return remoteQuickstartCheck(appId, args, remoteCandidate);
-    const base = (0, cli_args_1.cwdArg)(args);
+    const base = cwdArg(args);
     const repoArg = typeof args.repo === "string" && args.repo.trim() ? args.repo : base;
     const repo = path.resolve(base, repoArg);
     const checks = [];
     try {
-        (0, workflow_app_loader_1.showWorkflowApp)(appId);
+        showWorkflowApp(appId);
         checks.push({ name: "app", status: "ok", detail: `Workflow app ${appId} is available.` });
     }
     catch {
@@ -345,7 +302,7 @@ function quickstartCheck(appId, args, remoteCandidate) {
     else {
         checks.push({ name: "question", status: "blocked", detail: "Question is missing.", fix: "Pass --question TEXT." });
     }
-    if ((0, agent_config_1.agentConfigured)(args)) {
+    if (agentConfigured(args)) {
         checks.push({ name: "agent", status: "ok", detail: "Agent backend is configured." });
     }
     else {
@@ -359,12 +316,12 @@ function quickstartCheck(appId, args, remoteCandidate) {
     // --bundle preflight: a completed run sealed into a bundle re-verifies offline
     // only with a public trust key. Warn (not block) by default; block only under
     // --strict-signatures where an unkeyed bundle would fail verification.
-    if ((0, cli_args_1.flagOn)(args.bundle)) {
+    if (flagOn(args.bundle)) {
         const trustKey = firstString(args["with-trust-key"], args.withTrustKey, args.trustKey, args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
         if (trustKey) {
             checks.push({ name: "bundle-trust-key", status: "ok", detail: "Bundle trust public key is configured." });
         }
-        else if ((0, cli_args_1.flagOn)(args["strict-signatures"]) || (0, cli_args_1.flagOn)(args.strictSignatures) || (0, cli_args_1.flagOn)(args.strictSigs)) {
+        else if (flagOn(args["strict-signatures"]) || flagOn(args.strictSignatures) || flagOn(args.strictSigs)) {
             checks.push({ name: "bundle-trust-key", status: "blocked", detail: "Strict signature verification needs a public trust key.", fix: "Pass --with-trust-key PATH or set $CW_AGENT_ATTEST_PUBKEY." });
         }
         else {
@@ -377,10 +334,10 @@ function quickstartCheck(appId, args, remoteCandidate) {
 /** `--check` for a `--link`/URL review: validates the URL shape + git tooling
  *  WITHOUT fetching. `repo` carries the sanitized URL. */
 function remoteQuickstartCheck(appId, args, candidate) {
-    const validation = (0, remote_source_1.validateRemoteUrl)(candidate);
+    const validation = validateRemoteUrl(candidate);
     const checks = [];
     try {
-        (0, workflow_app_loader_1.showWorkflowApp)(appId);
+        showWorkflowApp(appId);
         checks.push({ name: "app", status: "ok", detail: `Workflow app ${appId} is available.` });
     }
     catch {
@@ -392,7 +349,7 @@ function remoteQuickstartCheck(appId, args, candidate) {
     else {
         checks.push({ name: "link", status: "blocked", detail: `Remote source is not usable: ${validation.reason}.`, fix: "Pass a git URL (https/ssh/git/file or git@host:repo)." });
     }
-    if ((0, remote_source_1.gitAvailable)()) {
+    if (gitAvailable()) {
         checks.push({ name: "tooling", status: "ok", detail: "git is available to clone the remote." });
     }
     else {
@@ -404,7 +361,7 @@ function remoteQuickstartCheck(appId, args, candidate) {
     else {
         checks.push({ name: "question", status: "blocked", detail: "Question is missing.", fix: "Pass --question TEXT." });
     }
-    if ((0, agent_config_1.agentConfigured)(args)) {
+    if (agentConfigured(args)) {
         checks.push({ name: "agent", status: "ok", detail: "Agent backend is configured." });
     }
     else {
@@ -436,9 +393,9 @@ async function promptForQuestion() {
  *  `quickstartCheck` above). `--preview` is a read-only next-step
  *  projection (never drives), `--resume` advances one step (no --run) or
  *  continues a named run to completion (--run <id>). */
-async function quickstartRun(args) {
+export async function quickstartRun(args) {
     const namedApp = args.appId || args.app || args.workflowId;
-    const fast = (0, cli_args_1.flagOn)(args.fast);
+    const fast = flagOn(args.fast);
     // `--fast` only picks the default app; next to another named app it is a
     // contradiction, so refuse it rather than drop one of the two quietly.
     if (fast && namedApp && String(namedApp) !== QUICKSTART_FAST_APP) {
@@ -452,10 +409,10 @@ async function quickstartRun(args) {
     // downstream is a normal local run.
     const linkArg = typeof args.link === "string" && args.link.trim() ? args.link.trim() : undefined;
     const repoArgRaw = typeof args.repo === "string" && args.repo.trim() ? args.repo.trim() : undefined;
-    const remoteCandidate = linkArg || (repoArgRaw && (0, remote_source_1.isRemoteUrl)(repoArgRaw) ? repoArgRaw : undefined);
+    const remoteCandidate = linkArg || (repoArgRaw && isRemoteUrl(repoArgRaw) ? repoArgRaw : undefined);
     const repoFromCwd = !remoteCandidate && !args.repo && !args.cwd;
     if (repoFromCwd)
-        args.repo = (0, cli_args_1.cwdArg)(args);
+        args.repo = cwdArg(args);
     if (Boolean(args.check))
         return quickstartCheck(appId, args, remoteCandidate);
     // An existing --run <id> never plans a fresh run, so it skips this check.
@@ -495,7 +452,7 @@ async function quickstartRun(args) {
     // bad URL / blocked scheme / missing git / fetch failure throws here.
     let remoteSource;
     if (remoteCandidate) {
-        remoteSource = (0, remote_source_1.materializeRemote)(remoteCandidate, {
+        remoteSource = materializeRemote(remoteCandidate, {
             ref: typeof args.ref === "string" ? args.ref : typeof args.branch === "string" ? args.branch : undefined,
             refresh: Boolean(args.refresh),
         });
@@ -516,12 +473,12 @@ async function quickstartRun(args) {
         let repoCwd = typeof args.cwd === "string" && args.cwd.trim() ? args.cwd : typeof args.repo === "string" ? args.repo : undefined;
         if (!previewRunId) {
             const run = resolveWorkflowAppForPlan(appId);
-            const planned = (0, pipeline_1.plan)(run, planInputsFor(args));
+            const planned = plan(run, planInputsFor(args));
             previewRunId = planned.id;
             repoCwd = planned.cwd;
         }
-        const target = repoCwd && fs.existsSync(repoCwd) ? repoCwd : (0, cli_args_1.cwdArg)(args);
-        return (0, drive_1.drivePreview)(previewRunId, target, args);
+        const target = repoCwd && fs.existsSync(repoCwd) ? repoCwd : cwdArg(args);
+        return drivePreview(previewRunId, target, args);
     }
     const options = {
         // `--resume` with no run id advances a SINGLE step (reuse `--once`), so a
@@ -538,24 +495,24 @@ async function quickstartRun(args) {
     };
     let run;
     if (existingRunId) {
-        run = loadExistingRunAt(existingRunId, (0, cli_args_1.cwdArg)(args, ["cwd", "repo"]));
+        run = loadExistingRunAt(existingRunId, cwdArg(args, ["cwd", "repo"]));
         // A continued run names its own app: with no app and no --fast given,
         // appId is the app the run was planned with, not the default review.
         if (!namedApp && !fast)
             appId = run.workflow.id;
     }
     else {
-        run = (0, pipeline_1.plan)(resolveWorkflowAppForPlan(appId), planInputsFor(args));
+        run = plan(resolveWorkflowAppForPlan(appId), planInputsFor(args));
     }
-    const result = await (0, drive_1.driveAsync)(run.id, run.cwd, options);
-    const finalRun = (0, run_store_1.loadRunFromCwd)(run.id, run.cwd);
-    (0, report_1.writeReport)(finalRun);
+    const result = await driveAsync(run.id, run.cwd, options);
+    const finalRun = loadRunFromCwd(run.id, run.cwd);
+    writeReport(finalRun);
     // Tamper-evident provenance: bind the remote origin (url@sha) into the run's
     // hash-chained trust-audit log so `cw audit verify` re-proves where the code
     // came from. Best-effort — the origin is already in run.inputs/report/result.
     if (remoteSource) {
         try {
-            (0, trust_audit_1.recordTrustAuditEvent)(finalRun, {
+            recordTrustAuditEvent(finalRun, {
                 kind: remoteSource.kind === "archive" ? "source.download" : "source.clone",
                 decision: "recorded",
                 source: "operator-recorded",
@@ -573,13 +530,13 @@ async function quickstartRun(args) {
     // anchors to the run's OWN repo (run.cwd) — quickstart runs cross-directory — but
     // OUTPUT paths resolve against the CALLER's cwd so artifacts land where the
     // operator ran the command.
-    const wantsBundle = (0, cli_args_1.flagOn)(args.bundle);
+    const wantsBundle = flagOn(args.bundle);
     let bundle;
     if (wantsBundle && result.status === "complete") {
-        const callerBase = (0, cli_args_1.cwdArg)(args);
+        const callerBase = cwdArg(args);
         const outArg = firstString(args.output, args.path, args.archive);
         const extractArg = firstString(args["extract-report"], args.extractReport, args.extractReportTo);
-        bundle = (0, report_cli_1.reportBundleCli)(result.runId, {
+        bundle = reportBundleCli(result.runId, {
             ...args,
             cwd: run.cwd,
             output: path.resolve(callerBase, outArg || `${result.runId}.cwrun.json`),
@@ -618,9 +575,9 @@ async function quickstartRun(args) {
     // (the safety rail). `--no-open`/CW_NO_OPEN=1 turns it off; this never
     // runs off a TTY at all (the Rule of Silence).
     let reportOpened;
-    if (Boolean(process.stdout.isTTY) && !(0, cli_args_1.wantsJson)(args) && !(0, cli_args_1.flagOn)(args["no-open"] ?? args.noOpen) && process.env.CW_NO_OPEN !== "1") {
+    if (Boolean(process.stdout.isTTY) && !wantsJson(args) && !flagOn(args["no-open"] ?? args.noOpen) && process.env.CW_NO_OPEN !== "1") {
         try {
-            (0, report_view_cli_1.ensureAndOpenReportHtml)(result.reportPath);
+            ensureAndOpenReportHtml(result.reportPath);
             reportOpened = true;
         }
         catch {
@@ -687,12 +644,12 @@ function stopWhy(r) {
  *  A `--check`/`--preview` payload has no `reportPath`, so it falls back
  *  to the same compact JSON a piped run would have printed — no change
  *  in behavior for those read-only modes. */
-function formatQuickstartHuman(json) {
+export function formatQuickstartHuman(json) {
     const r = json;
     if (typeof r.runId !== "string" || typeof r.status !== "string" || typeof r.reportPath !== "string") {
-        return (0, safe_json_1.safeJsonStringify)(json);
+        return safeJsonStringify(json);
     }
-    const summary = (0, reporter_1.formatQuickstartSummary)({
+    const summary = formatQuickstartSummary({
         runId: r.runId,
         reportPath: r.reportPath,
         status: r.status,
@@ -705,32 +662,32 @@ function formatQuickstartHuman(json) {
     // question has a faster way (TTY only, like the rest of this summary).
     return r.appId === QUICKSTART_DEFAULT_APP && r.status === "complete" ? `${summary}\n  Faster for one question: add --fast (6 workers in place of 14)` : summary;
 }
-function dispatchRun(args) {
+export function dispatchRun(args) {
     const runId = String(args.runId);
     // The whole load -> change -> save cycle holds the state.json lock so a
     // concurrent dispatch/result on the same run cannot drop this update.
-    return (0, run_store_1.withRunStateLock)(runId, (0, cli_args_1.cwdArg)(args), (run) => {
-        const manifest = (0, dispatch_1.createDispatchManifest)(run, (0, numeric_flag_1.requiredNumberFlag)(args.limit, "--limit"), {
+    return withRunStateLock(runId, cwdArg(args), (run) => {
+        const manifest = createDispatchManifest(run, requiredNumberFlag(args.limit, "--limit"), {
             sandboxProfileId: typeof args.sandbox === "string" ? args.sandbox : undefined,
             sandbox: typeof args.sandbox === "string" ? args.sandbox : undefined,
             backendId: typeof args.backend === "string" ? args.backend : undefined,
         });
         if (manifest.dispatchId) {
-            (0, commit_1.commitState)(run, `dispatch:${manifest.dispatchId}`);
-            (0, run_store_1.saveCheckpoint)(run);
-            (0, report_1.writeReport)(run);
+            commitState(run, `dispatch:${manifest.dispatchId}`);
+            saveCheckpoint(run);
+            writeReport(run);
         }
         return manifest;
     });
 }
-function recordResultRun(args) {
+export function recordResultRun(args) {
     const runId = String(args.runId);
     const taskId = String(args.taskId);
     const resultPath = String(args.resultPath);
     // The lock covers the whole cycle: two processes recording results for
     // two tasks of the SAME run would otherwise both load, and the later
     // saveCheckpoint would drop the earlier task's completion.
-    return (0, run_store_1.withRunStateLock)(runId, (0, cli_args_1.cwdArg)(args), (run) => {
+    return withRunStateLock(runId, cwdArg(args), (run) => {
         const task = run.tasks.find((t) => t.id === taskId);
         if (!task || !task.workerId)
             throw new Error(`Unknown task id for run ${runId}: ${taskId}`);
@@ -751,16 +708,16 @@ function recordResultRun(args) {
         // is outside sandbox profile <id>"). So stage the operator file at the
         // worker's OWN result.md (which IS inside the write boundary), then record
         // that internal path exactly like a driven worker.
-        const manifest = (0, worker_isolation_1.showWorkerManifest)(run, workerId);
+        const manifest = showWorkerManifest(run, workerId);
         // Check the staging target BEFORE the copy: a result.md that a worker left
         // as a symlink would make the copy write through it, outside the boundary.
-        const stageViolation = manifest.sandboxPolicy ? (0, sandbox_profile_1.validateSandboxWrite)(manifest.sandboxPolicy, manifest.resultPath, workerId) : null;
+        const stageViolation = manifest.sandboxPolicy ? validateSandboxWrite(manifest.sandboxPolicy, manifest.resultPath, workerId) : null;
         if (stageViolation)
             throw new Error(stageViolation.message);
         fs.mkdirSync(path.dirname(manifest.resultPath), { recursive: true });
         fs.copyFileSync(absolute, manifest.resultPath);
-        const output = (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath, {
-            requireAttestedTelemetry: (0, agent_config_1.resolveAgentConfig)(args).requireAttestedTelemetry,
+        const output = recordWorkerOutput(run, workerId, manifest.resultPath, {
+            requireAttestedTelemetry: resolveAgentConfig(args).requireAttestedTelemetry,
             allowUnattested: Boolean(args.allowUnattested ?? args["allow-unattested"]),
         });
         // Host-attested token usage: record it verbatim as provenance when the
@@ -770,18 +727,18 @@ function recordResultRun(args) {
         // worker.usage for workers with output, and EXCLUDES that task). Attach
         // the usage to the worker scope so the report counts it as an attested
         // unit; task.usage is stamped too, as the task-level record carries it.
-        const usage = (0, observability_1.parseUsageFromArgs)(args, new Date().toISOString());
+        const usage = parseUsageFromArgs(args, new Date().toISOString());
         if (usage) {
             task.usage = usage;
-            const scope = (0, worker_isolation_1.getWorkerScope)(run, workerId);
+            const scope = getWorkerScope(run, workerId);
             if (scope)
                 scope.usage = usage;
         }
         // An accepted result is its own checkpoint commit, not just a bare
         // saveCheckpoint (SPEC/pipeline-run.md's persist-ordering rule).
-        (0, commit_1.commitState)(run, `worker:${workerId}:result`);
-        (0, run_store_1.saveCheckpoint)(run);
-        (0, report_1.writeReport)(run);
+        commitState(run, `worker:${workerId}:result`);
+        saveCheckpoint(run);
+        writeReport(run);
         return output;
     });
 }
@@ -790,16 +747,16 @@ function recordResultRun(args) {
  *  AND the throw path write the report + checkpoint before returning/
  *  re-throwing — a gate failure still leaves the run's report/state current
  *  on disk. */
-function commitRun(args) {
+export function commitRun(args) {
     const runId = String(args.runId);
     // Hold the state.json lock across the whole load -> commit -> save (both the
     // success and the fail-closed catch persist) so a concurrent run mutation
     // cannot drop this commit (lost-update class, matching dispatchRun/recordResultRun).
-    return (0, run_store_1.withRunStateLock)(runId, (0, cli_args_1.cwdArg)(args), (run) => {
+    return withRunStateLock(runId, cwdArg(args), (run) => {
         const allowCheckpoint = Boolean(args.allowUnverifiedCheckpoint || args["allow-unverified-checkpoint"]);
         const hasGateOption = Boolean(args.verifier || args.verifierNode || args["verifier-node"]);
         try {
-            const commit = (0, commit_1.commitState)(run, {
+            const commit = commitState(run, {
                 reason: typeof args.reason === "string" && args.reason ? args.reason : "manual",
                 verifierNodeId: (typeof args.verifier === "string" && args.verifier) ||
                     (typeof args.verifierNode === "string" && args.verifierNode) ||
@@ -809,13 +766,13 @@ function commitRun(args) {
                 allowUnverifiedCheckpoint: allowCheckpoint,
                 source: "cli",
             });
-            (0, report_1.writeReport)(run);
-            (0, run_store_1.saveCheckpoint)(run);
+            writeReport(run);
+            saveCheckpoint(run);
             return { runId: run.id, commit };
         }
         catch (error) {
-            (0, report_1.writeReport)(run);
-            (0, run_store_1.saveCheckpoint)(run);
+            writeReport(run);
+            saveCheckpoint(run);
             throw error;
         }
     });

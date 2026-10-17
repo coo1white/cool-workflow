@@ -14,10 +14,10 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { assertSafeRunId, readJson, withFileLock, writeJson } from "./fs-atomic";
-import { assertNotSuspectedDataLoss, loadRunStateFile, rebindRunPaths } from "./run-store";
-import { fingerprintStrings } from "../core/hash";
-import { LoopStage, RunLinkAnnotation, WorkflowRun } from "../core/state/types";
+import { assertSafeRunId, readJson, withFileLock, writeJson } from "./fs-atomic.js";
+import { assertNotSuspectedDataLoss, loadRunStateFile, rebindRunPaths } from "./run-store.js";
+import { fingerprintStrings } from "../core/hash.js";
+import { LoopStage, RunLinkAnnotation, WorkflowRun } from "../core/state/types.js";
 
 // ---------------------------------------------------------------------------
 // Shared types

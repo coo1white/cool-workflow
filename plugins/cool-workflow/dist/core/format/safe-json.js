@@ -1,4 +1,3 @@
-"use strict";
 // core/format/safe-json.ts — a byte-capped JSON.stringify shared by the CLI's
 // `--json` output (cli/io.ts) and the MCP `tools/call` result (mcp/server.ts).
 //
@@ -14,12 +13,9 @@
 // tools/call try/catch), so this is not a crash fix so much as a "return
 // something useful instead of a cryptic RangeError, or an unusable giant
 // payload" fix.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAX_JSON_OUTPUT_BYTES = void 0;
-exports.safeJsonStringify = safeJsonStringify;
 /** Generous but bounded: comfortably above any real cw result today, far
  *  below V8's ~256M-UTF-16-code-unit ceiling. */
-exports.MAX_JSON_OUTPUT_BYTES = 10 * 1024 * 1024;
+export const MAX_JSON_OUTPUT_BYTES = 10 * 1024 * 1024;
 /** Overflow-notice `detail` (a caught error's message) is truncated to this
  *  many characters — the notice itself must stay small and predictable
  *  regardless of how large the underlying error's message was (e.g. an
@@ -40,7 +36,7 @@ const MAX_DETAIL_CHARS = 500;
  *  unchanged (matching the un-capped form's pre-existing behavior for this
  *  edge case: `content[0].text`/`printJson`'s `${text}` end up printing
  *  literally `undefined`) rather than measured as a byte length. */
-function safeJsonStringify(value, maxBytes = exports.MAX_JSON_OUTPUT_BYTES) {
+export function safeJsonStringify(value, maxBytes = MAX_JSON_OUTPUT_BYTES) {
     let text;
     try {
         text = JSON.stringify(value, null, 2);

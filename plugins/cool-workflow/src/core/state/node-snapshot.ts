@@ -24,8 +24,8 @@
 // replay", "Raw vs. normalized fingerprints", "Snapshot freshness
 // fail-closed".
 
-import { fingerprintStrings } from "../hash";
-import { projectNodeBody, replayStableStringify, normalizeValue } from "./node-projection";
+import { fingerprintStrings } from "../hash.js";
+import { projectNodeBody, replayStableStringify, normalizeValue } from "./node-projection.js";
 import {
   NodeReplayRun,
   NodeReplayVerdict,
@@ -36,7 +36,7 @@ import {
   NodeSnapshotSection,
   StateNode,
   WorkflowRun,
-} from "./types";
+} from "./types.js";
 
 export const NODE_SNAPSHOT_SCHEMA_VERSION = 1;
 

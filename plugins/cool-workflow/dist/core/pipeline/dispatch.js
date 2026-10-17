@@ -1,4 +1,3 @@
-"use strict";
 // core/pipeline/dispatch.ts — nextDispatchTasks, firstRunnablePhase,
 // updatePhaseStatuses, formatDispatchTask, dispatch-id formatting.
 //
@@ -7,18 +6,11 @@
 // shell/drive.ts).
 //
 // Evidence: SPEC/pipeline-run.md "Dispatch — dispatch module".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.firstRunnablePhase = firstRunnablePhase;
-exports.runnableTaskIds = runnableTaskIds;
-exports.updatePhaseStatuses = updatePhaseStatuses;
-exports.formatDispatchTask = formatDispatchTask;
-exports.nextDispatchTasks = nextDispatchTasks;
-exports.formatDispatchId = formatDispatchId;
 /** `firstRunnablePhase(run)` — walks phases in order; a phase with a
  *  running task, or one with a pending task, is the runnable phase; a
  *  phase not fully completed and with nothing pending/running blocks
  *  everything after it (`null`). */
-function firstRunnablePhase(run) {
+export function firstRunnablePhase(run) {
     for (const phase of run.phases) {
         // A Set lookup, not `taskIds.includes()` re-scanned per task: this loop is
         // O(phases x tasks), not O(phases x tasks x taskIds-per-phase) -- the
@@ -41,7 +33,7 @@ function firstRunnablePhase(run) {
  *  those of each phase right after it that declares `overlapPrevious`; the
  *  chain stops at the first phase that does not. With no such phase this is
  *  the first runnable phase's own task ids, as before. */
-function runnableTaskIds(run) {
+export function runnableTaskIds(run) {
     const first = firstRunnablePhase(run);
     if (!first)
         return new Set();
@@ -54,7 +46,7 @@ function runnableTaskIds(run) {
 }
 /** `updatePhaseStatuses(run)` — completed when every task is completed,
  *  running when some task is running or completed, else pending. */
-function updatePhaseStatuses(run) {
+export function updatePhaseStatuses(run) {
     for (const phase of run.phases) {
         const taskIds = new Set(phase.taskIds);
         const phaseTasks = run.tasks.filter((task) => taskIds.has(task.id));
@@ -71,7 +63,7 @@ function updatePhaseStatuses(run) {
 }
 /** `formatDispatchTask(task)` — projection with workerDir/workerResultPath
  *  derived from workerManifestPath. */
-function formatDispatchTask(task) {
+export function formatDispatchTask(task) {
     const workerManifestPath = task.workerManifestPath;
     return {
         id: task.id,
@@ -99,7 +91,7 @@ function formatDispatchTask(task) {
  *  clamped to 0 before reaching `.slice()`, which otherwise treats a
  *  negative end index as "drop that many from the end" instead of "cap at
  *  this many". */
-function nextDispatchTasks(run, limit) {
+export function nextDispatchTasks(run, limit) {
     const taskIds = runnableTaskIds(run);
     if (!taskIds.size)
         return [];
@@ -112,7 +104,7 @@ function nextDispatchTasks(run, limit) {
 /** Dispatch id: `dispatch-<STAMP>-<seq>` (STAMP = ISO with `-`/`:`
  *  stripped, sub-second cut); `CW_DETERMINISTIC_RUN_IDS` ⇒
  *  `dispatch-<seq>`. `seq` is the 4-digit per-run position. */
-function formatDispatchId(seq, now, deterministic) {
+export function formatDispatchId(seq, now, deterministic) {
     const padded = String(seq).padStart(4, "0");
     if (deterministic)
         return `dispatch-${padded}`;

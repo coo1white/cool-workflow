@@ -15,7 +15,7 @@
 // verify", byte-compat items 2 and 11.
 
 import * as crypto from "node:crypto";
-import { messageOf } from "../util/cli-args";
+import { messageOf } from "../util/cli-args.js";
 
 export type TelemetryAttestationStatus = "attested" | "unattested" | "absent";
 
@@ -166,9 +166,9 @@ export function resolveTrustPublicKey(value: string | undefined): string | undef
   if (!trimmed) return undefined;
   if (trimmed.includes("BEGIN") && trimmed.includes("KEY")) return trimmed;
   try {
-    // Lazy require so a bundle that never resolves a key path pays no
+    // Lazy load so a bundle that never resolves a key path pays no
     // fs cost.
-    const fs = require("node:fs") as typeof import("node:fs");
+    const fs = process.getBuiltinModule("node:fs");
     if (fs.existsSync(trimmed)) return fs.readFileSync(trimmed, "utf8");
   } catch {
     /* fall through to undefined */

@@ -9,12 +9,12 @@
 // Evidence: SPEC/reporting-ux.md "Operator UX human text", "Exit codes".
 
 import * as path from "node:path";
-import { WorkflowRun, RunTask, RunPhase, StateCommit, TaskStatus } from "../core/state/types";
-import { WorkerScope } from "./worker-isolation";
-import { updatePhaseStatuses } from "../core/pipeline/dispatch";
-import { summarizeTrustAudit, TrustAuditSummary } from "./trust-audit";
-import { stableCompare } from "../core/util/collate";
-import { countBy } from "../core/util/cli-args";
+import { WorkflowRun, RunTask, RunPhase, StateCommit, TaskStatus } from "../core/state/types.js";
+import { WorkerScope } from "./worker-isolation.js";
+import { updatePhaseStatuses } from "../core/pipeline/dispatch.js";
+import { summarizeTrustAudit, TrustAuditSummary } from "./trust-audit.js";
+import { stableCompare } from "../core/util/collate.js";
+import { countBy } from "../core/util/cli-args.js";
 
 export interface OperatorRecommendation {
   command: string;
@@ -78,7 +78,7 @@ export function summarizeRun(run: WorkflowRun): RunSummary {
 
 // `cw status` with no run id: the fixed advice, now in a core module every
 // command loads; re-exported so existing importers keep working.
-export { adviseNoRun } from "../core/format/recovery-hint";
+export { adviseNoRun } from "../core/format/recovery-hint.js";
 
 export interface OperatorPhaseSummary {
   id: string;

@@ -1,4 +1,3 @@
-"use strict";
 // core/format/report-html.ts — pure markdown -> HTML for report.md.
 //
 // `cw report --open` and the quickstart auto-open (shell/report-view-
@@ -9,9 +8,7 @@
 // the one "## Phase Status" table shape — plus fenced code, links, and
 // bold, the two forms an embedded agent result file can add (report.ts's
 // renderResults drops that file in as is). Never ordered lists.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.reportToHtml = reportToHtml;
-const report_css_1 = require("./report-css");
+import { REPORT_CSS } from "./report-css.js";
 function escapeHtml(text) {
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
@@ -46,7 +43,7 @@ function renderTable(rows) {
 }
 /** Turn one report.md's text into a full HTML page. Text is always
  *  escaped — nothing from the run or an agent's result is ever raw HTML. */
-function reportToHtml(markdown, title = "Report") {
+export function reportToHtml(markdown, title = "Report") {
     const lines = markdown.split("\n");
     // The "- Verdict: WORD" line report.ts writes becomes the round stamp
     // by the title, not a bullet. No line, no stamp (older reports).
@@ -138,6 +135,6 @@ function reportToHtml(markdown, title = "Report") {
         "prose-h2:border-b prose-h2:border-base-300 prose-h2:pb-1.5 prose-h2:font-mono prose-h2:text-[11px] prose-h2:font-semibold prose-h2:uppercase prose-h2:tracking-[.1em] prose-h2:text-base-content/60 " +
         "prose-table:font-mono prose-table:text-[13px] prose-th:font-normal prose-th:uppercase prose-th:text-[11px] prose-th:tracking-[.06em] prose-th:text-base-content/60 [&_tbody_tr:nth-child(even)]:bg-base-200 " +
         "prose-pre:rounded-lg prose-pre:bg-base-200 prose-code:rounded prose-code:bg-base-300 prose-code:px-1 prose-code:before:content-none prose-code:after:content-none prose-a:text-primary";
-    return (`<!doctype html><html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0d1117"><title>${escapeHtml(title)}</title><style>${report_css_1.REPORT_CSS}</style></head>` +
+    return (`<!doctype html><html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#0d1117"><title>${escapeHtml(title)}</title><style>${REPORT_CSS}</style></head>` +
         `<body class="bg-base-100 font-sans text-base-content">${band}<div class="${prose}">${stamp}${body.join("\n")}</div></body></html>`);
 }

@@ -6,19 +6,19 @@
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { APP_CODE_EXECUTION_MODE, RunTask, WorkflowRun } from "../core/state/types";
-import { createRunPaths } from "../core/state/run-paths";
-import { migrateRunState } from "../core/state/migrations";
-import { appendRunNode as pureAppendRunNode, createStateNode, upsertRunContract } from "../core/state/state-node";
-import { createDefaultPipelineContract } from "../core/pipeline/contract";
-import { runPipelineStage } from "../core/pipeline/runner";
-import { LoadedWorkflowApp, workflowAppRunMetadata, WorkflowTaskDefinition } from "../core/workflow-apps/app-schema";
-import { assertSafeRunId, writeJson } from "./fs-atomic";
-import { appendRunNode, writeRunNode } from "./node-store";
-import { ensureRunDirs, saveCheckpoint } from "./run-store";
-import { writeTaskFiles } from "./harness";
-import { writeReport } from "./report";
-import { commitState } from "./commit";
+import { APP_CODE_EXECUTION_MODE, RunTask, WorkflowRun } from "../core/state/types.js";
+import { createRunPaths } from "../core/state/run-paths.js";
+import { migrateRunState } from "../core/state/migrations.js";
+import { appendRunNode as pureAppendRunNode, createStateNode, upsertRunContract } from "../core/state/state-node.js";
+import { createDefaultPipelineContract } from "../core/pipeline/contract.js";
+import { runPipelineStage } from "../core/pipeline/runner.js";
+import { LoadedWorkflowApp, workflowAppRunMetadata, WorkflowTaskDefinition } from "../core/workflow-apps/app-schema.js";
+import { assertSafeRunId, writeJson } from "./fs-atomic.js";
+import { appendRunNode, writeRunNode } from "./node-store.js";
+import { ensureRunDirs, saveCheckpoint } from "./run-store.js";
+import { writeTaskFiles } from "./harness.js";
+import { writeReport } from "./report.js";
+import { commitState } from "./commit.js";
 
 function isMissing(value: unknown): boolean {
   return value === undefined || value === null || value === "";

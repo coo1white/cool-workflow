@@ -9,19 +9,19 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
-import { StateCommit, StateNode, StateNodeError, WorkflowRun } from "../core/state/types";
-import { writeJson } from "./fs-atomic";
-import { formatCommitId, gateFailureSeq, resolveCommitGate } from "../core/pipeline/commit-gate";
-import type { CommitStateOptions } from "../core/pipeline/commit-gate";
-import type { ErrorFeedbackRecord } from "../core/pipeline/error-feedback";
-import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract";
-import { runPipelineStage } from "../core/pipeline/runner";
-import { appendRunNode, writeRunNode } from "./node-store";
-import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/state-node";
-import { ResultEnvelope } from "../core/pipeline/result-normalize";
-import { normalizeEvidence, recordTrustAuditEvent } from "./trust-audit";
-import { unresolvedFileEvidence as pureUnresolvedFileEvidence, requireResolvableEvidence } from "../core/trust/evidence-grounding";
-import { recordFeedback } from "./error-feedback-io";
+import { StateCommit, StateNode, StateNodeError, WorkflowRun } from "../core/state/types.js";
+import { writeJson } from "./fs-atomic.js";
+import { formatCommitId, gateFailureSeq, resolveCommitGate } from "../core/pipeline/commit-gate.js";
+import type { CommitStateOptions } from "../core/pipeline/commit-gate.js";
+import type { ErrorFeedbackRecord } from "../core/pipeline/error-feedback.js";
+import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract.js";
+import { runPipelineStage } from "../core/pipeline/runner.js";
+import { appendRunNode, writeRunNode } from "./node-store.js";
+import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/state-node.js";
+import { ResultEnvelope } from "../core/pipeline/result-normalize.js";
+import { normalizeEvidence, recordTrustAuditEvent } from "./trust-audit.js";
+import { unresolvedFileEvidence as pureUnresolvedFileEvidence, requireResolvableEvidence } from "../core/trust/evidence-grounding.js";
+import { recordFeedback } from "./error-feedback-io.js";
 
 export class CommitGateError extends Error {
   structured: StateNodeError;

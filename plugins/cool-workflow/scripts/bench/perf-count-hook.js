@@ -14,6 +14,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const Module = require("node:module");
 const childProcess = require("node:child_process");
+const { fileURLToPath } = require("node:url");
 
 const OUT = process.env.CW_PERF_COUNT_OUT || "";
 const PLUGIN_ROOT = path.resolve(__dirname, "..", "..");
@@ -33,11 +34,22 @@ const isStateFile = (file) => typeof file === "string" && /[\\/]\.cw[\\/]runs[\\
 const isRunState = (value) =>
   Boolean(value) && typeof value === "object" && !Array.isArray(value) && "workflow" in value && "paths" in value && "nodes" in value;
 
-const loadJs = Module._extensions[".js"];
-Module._extensions[".js"] = function (module, filename) {
-  if (filename.startsWith(PLUGIN_ROOT + path.sep) && !filename.includes(`${path.sep}node_modules${path.sep}`)) counts.modules++;
-  return loadJs.call(this, module, filename);
-};
+// dist/ is ES modules, and an ES module graph never goes through
+// Module._extensions, so a module is counted at the load step of
+// module.registerHooks (Node 22.15+), which sees require() and import alike.
+// On an older Node the count cannot be made, so it fails closed.
+if (typeof Module.registerHooks !== "function") {
+  throw new Error(`perf-count-hook: module.registerHooks is missing on Node ${process.versions.node}; the module count needs Node 22.15 or later`);
+}
+Module.registerHooks({
+  load(url, context, nextLoad) {
+    if (url.startsWith("file:")) {
+      const filename = fileURLToPath(url);
+      if (filename.endsWith(".js") && filename.startsWith(PLUGIN_ROOT + path.sep) && !filename.includes(`${path.sep}node_modules${path.sep}`)) counts.modules++;
+    }
+    return nextLoad(url, context);
+  },
+});
 
 const readFileSync = fs.readFileSync;
 fs.readFileSync = function (file, ...rest) {
@@ -77,6 +89,10 @@ for (const name of ["spawn", "spawnSync", "execFile", "execFileSync"]) {
     return real.call(this, command, ...rest);
   };
 }
+
+// An ES module's named imports of a builtin are a copy made at its first
+// import; this makes them see the counting wrappers above.
+Module.syncBuiltinESMExports();
 
 process.on("exit", () => {
   if (OUT) fs.writeFileSync(OUT, `${stringify(counts)}\n`);

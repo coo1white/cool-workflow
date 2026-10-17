@@ -25,6 +25,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 
@@ -56,10 +57,12 @@ function countRenamesTo(targetPaths, fn) {
     if (targetPaths.includes(dest)) count += 1;
     return originalRenameSync.call(fs, src, dest, ...rest);
   };
+  syncBuiltinESMExports();
   try {
     fn();
   } finally {
     fs.renameSync = originalRenameSync;
+    syncBuiltinESMExports();
   }
   return count;
 }

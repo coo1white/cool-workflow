@@ -1,4 +1,3 @@
-"use strict";
 // shell/workflow-app-loader.ts — the real workflow-app loader + discovery.
 //
 // See src/core/workflow-apps/app-schema.ts's file header for the validation
@@ -25,67 +24,24 @@
 //     need, vs. the minimal `LoadedWorkflowApp` `plan`/`drive` use.
 //   - `showWorkflowApp()` / `validateWorkflowAppTarget()` / `initApp()` /
 //     `packageApp()` — the `cw app show|validate|init|package` bodies.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WorkflowAppNotFoundError = void 0;
-exports.isTrustedAppSourcePath = isTrustedAppSourcePath;
-exports.loadWorkflowApp = loadWorkflowApp;
-exports.loadWorkflowAppRecordById = loadWorkflowAppRecordById;
-exports.listWorkflowApps = listWorkflowApps;
-exports.listWorkflowsShallow = listWorkflowsShallow;
-exports.showWorkflowApp = showWorkflowApp;
-exports.validateWorkflowAppTarget = validateWorkflowAppTarget;
-exports.initWorkflowApp = initWorkflowApp;
-exports.packageWorkflowApp = packageWorkflowApp;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const cli_args_1 = require("../core/util/cli-args");
-const app_schema_1 = require("../core/workflow-apps/app-schema");
-const sandbox_profile_1 = require("./sandbox-profile");
-const version_1 = require("../core/version");
-const collate_1 = require("../core/util/collate");
-class WorkflowAppNotFoundError extends Error {
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { cwdArg } from "../core/util/cli-args.js";
+import { agent, artifact, createWorkflowApi, input, isWorkflowAppCompatible, loop, parallel, phase, slugify, subWorkflow, validateWorkflowApp, validationIssuesFromError, WorkflowAppValidationError, workflow, } from "../core/workflow-apps/app-schema.js";
+import { bundledSandboxProfileIds } from "./sandbox-profile.js";
+import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version.js";
+import { stableCompare } from "../core/util/collate.js";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
+export class WorkflowAppNotFoundError extends Error {
     constructor(appId) {
         super(`Workflow app not found: ${appId}`);
         this.name = "WorkflowAppNotFoundError";
     }
 }
-exports.WorkflowAppNotFoundError = WorkflowAppNotFoundError;
 function walkUpFor(...tail) {
     const roots = [];
-    let dir = __dirname;
+    let dir = import.meta.dirname;
     for (let i = 0; i < 8; i++) {
         roots.push(path.join(dir, "plugins", "cool-workflow", ...tail));
         const parent = path.dirname(dir);
@@ -104,7 +60,7 @@ function walkUpFor(...tail) {
  *  `<pkg>/dist/shell/workflow-app-loader.js`, so `<pkg>` is two hops up. */
 function walkUpForPackageRoot(...tail) {
     const roots = [];
-    let dir = __dirname;
+    let dir = import.meta.dirname;
     for (let i = 0; i < 8; i++) {
         if (fs.existsSync(path.join(dir, "package.json"))) {
             roots.push(path.join(dir, ...tail));
@@ -166,12 +122,12 @@ function findAppDir(appId) {
  *  operator-set CW_APPS_DIR/CW_WORKFLOWS_DIR, and the caller's cwd/apps +
  *  cwd/workflows (the "cw app init" default — must stay unwarned, it is
  *  the normal flow for a user's own local apps). */
-function isTrustedAppSourcePath(resolvedPath) {
+export function isTrustedAppSourcePath(resolvedPath) {
     const roots = [...candidateAppsRoots(), ...candidateWorkflowsRoots()];
     return roots.some((root) => isWithinRoot(path.resolve(root), resolvedPath));
 }
 function validationContext() {
-    return { bundledSandboxProfileIds: (0, sandbox_profile_1.bundledSandboxProfileIds)(), currentCoolWorkflowVersion: version_1.CURRENT_COOL_WORKFLOW_VERSION };
+    return { bundledSandboxProfileIds: bundledSandboxProfileIds(), currentCoolWorkflowVersion: CURRENT_COOL_WORKFLOW_VERSION };
 }
 function authorNameOf(author) {
     if (typeof author === "string")
@@ -209,7 +165,7 @@ function loadedAppFromRecord(record) {
  *  workflow({...})` shape), and returns the interpreted WorkflowDefinition.
  *  A legacy workflow-file id (no `apps/<id>/app.json`) resolves through the
  *  record fallback below. */
-function loadWorkflowApp(appId) {
+export function loadWorkflowApp(appId) {
     const dir = findAppDir(appId);
     if (!dir) {
         // No `apps/<id>/app.json` directory: fall back to the full discovery set
@@ -230,13 +186,13 @@ function loadWorkflowApp(appId) {
         throw new Error(`Workflow app entrypoint must export a factory function: ${entrypointPath}`);
     }
     const definition = selected({
-        ...(0, app_schema_1.createWorkflowApi)(),
-        parallel: app_schema_1.parallel,
-        phase: app_schema_1.phase,
-        workflow: app_schema_1.workflow,
-        agent: app_schema_1.agent,
-        artifact: app_schema_1.artifact,
-        input: app_schema_1.input,
+        ...createWorkflowApi(),
+        parallel,
+        phase,
+        workflow,
+        agent,
+        artifact,
+        input,
     });
     return {
         id: manifest.id,
@@ -260,10 +216,10 @@ function loadWorkflowApp(appId) {
 // ---------------------------------------------------------------------
 // Full discovery: apps/*/app.json + legacy workflows/*.workflow.js
 // ---------------------------------------------------------------------
-const FACTORY_API = { ...(0, app_schema_1.createWorkflowApi)(), parallel: app_schema_1.parallel, phase: app_schema_1.phase, loop: app_schema_1.loop, workflow: app_schema_1.workflow, agent: app_schema_1.agent, artifact: app_schema_1.artifact, subWorkflow: app_schema_1.subWorkflow, input: app_schema_1.input };
+const FACTORY_API = { ...createWorkflowApi(), parallel, phase, loop, workflow, agent, artifact, subWorkflow, input };
 function materializeFactoryExport(entrypointPath, exportName) {
     if (!fs.existsSync(entrypointPath)) {
-        throw new app_schema_1.WorkflowAppValidationError("Invalid workflow app entrypoint", [
+        throw new WorkflowAppValidationError("Invalid workflow app entrypoint", [
             { code: "workflow-app-entrypoint-not-found", message: `Workflow app entrypoint does not exist: ${entrypointPath}`, path: entrypointPath },
         ]);
     }
@@ -272,7 +228,7 @@ function materializeFactoryExport(entrypointPath, exportName) {
     const rawExport = require(entrypointPath);
     const selected = exportName && rawExport && typeof rawExport === "object" ? rawExport[exportName] : rawExport;
     if (exportName && selected === undefined) {
-        throw new app_schema_1.WorkflowAppValidationError("Invalid workflow app entrypoint", [
+        throw new WorkflowAppValidationError("Invalid workflow app entrypoint", [
             { code: "workflow-app-entrypoint-export", message: `Workflow app entrypoint does not export ${exportName}`, path: entrypointPath },
         ]);
     }
@@ -299,7 +255,7 @@ function extractFactoryExport(value, file) {
     if (isWorkflowDefinitionShape(value)) {
         return { workflow: value };
     }
-    throw new app_schema_1.WorkflowAppValidationError("Invalid workflow app entrypoint", [
+    throw new WorkflowAppValidationError("Invalid workflow app entrypoint", [
         { code: "workflow-app-entrypoint-export", message: "Workflow app entrypoint must export a workflow definition, workflow app, or factory", path: file },
     ]);
 }
@@ -323,7 +279,7 @@ function createLegacyWorkflowApp(definition, source) {
         workflow: definition,
         inputs: definition.inputs || [],
         sandboxProfiles: definition.sandboxProfiles || collectWorkflowSandboxProfiles(definition),
-        compatibility: { maxVersion: version_1.CURRENT_COOL_WORKFLOW_VERSION, notes: "Compatibility wrapper for legacy .workflow.js factory files." },
+        compatibility: { maxVersion: CURRENT_COOL_WORKFLOW_VERSION, notes: "Compatibility wrapper for legacy .workflow.js factory files." },
         metadata: { legacyWorkflow: true, sourcePath: source.path },
     };
 }
@@ -351,18 +307,18 @@ function validateEntrypointAppMatchesManifest(entrypointApp, manifest, manifestP
         }
     }
     if (issues.length)
-        throw new app_schema_1.WorkflowAppValidationError("Invalid workflow app manifest", issues);
+        throw new WorkflowAppValidationError("Invalid workflow app manifest", issues);
 }
 function assertValid(app, options) {
-    const result = (0, app_schema_1.validateWorkflowApp)(app, validationContext(), options);
+    const result = validateWorkflowApp(app, validationContext(), options);
     if (!result.valid)
-        throw new app_schema_1.WorkflowAppValidationError("Invalid workflow app", result.issues);
+        throw new WorkflowAppValidationError("Invalid workflow app", result.issues);
 }
 /** Loads one workflow app from an `app.json` manifest path. */
 function loadWorkflowAppFromManifest(manifestPath) {
     const absoluteManifestPath = path.resolve(manifestPath);
     if (!fs.existsSync(absoluteManifestPath)) {
-        throw new app_schema_1.WorkflowAppValidationError("Invalid workflow app manifest", [
+        throw new WorkflowAppValidationError("Invalid workflow app manifest", [
             { code: "workflow-app-manifest-not-found", message: `Workflow app manifest does not exist: ${absoluteManifestPath}`, path: absoluteManifestPath },
         ]);
     }
@@ -371,7 +327,7 @@ function loadWorkflowAppFromManifest(manifestPath) {
         manifest = JSON.parse(fs.readFileSync(absoluteManifestPath, "utf8"));
     }
     catch (error) {
-        throw new app_schema_1.WorkflowAppValidationError("Invalid workflow app manifest", [
+        throw new WorkflowAppValidationError("Invalid workflow app manifest", [
             {
                 code: "workflow-app-manifest-json",
                 message: `Workflow app manifest is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
@@ -379,14 +335,14 @@ function loadWorkflowAppFromManifest(manifestPath) {
             },
         ]);
     }
-    const manifestValidation = (0, app_schema_1.validateWorkflowApp)(manifest, validationContext(), { appPath: absoluteManifestPath });
+    const manifestValidation = validateWorkflowApp(manifest, validationContext(), { appPath: absoluteManifestPath });
     if (!manifestValidation.valid) {
-        throw new app_schema_1.WorkflowAppValidationError("Invalid workflow app manifest", manifestValidation.issues);
+        throw new WorkflowAppValidationError("Invalid workflow app manifest", manifestValidation.issues);
     }
     const workflowField = manifest.workflow;
     const isEntrypoint = Boolean(workflowField && typeof workflowField === "object" && "entrypoint" in workflowField && !("phases" in workflowField));
     if (!isEntrypoint) {
-        throw new app_schema_1.WorkflowAppValidationError("Invalid workflow app manifest", [
+        throw new WorkflowAppValidationError("Invalid workflow app manifest", [
             { code: "workflow-app-entrypoint", message: "Manifest workflow must be an entrypoint object", path: `${absoluteManifestPath}.workflow` },
         ]);
     }
@@ -440,10 +396,10 @@ function listWorkflowAppRecords() {
         ...loadWorkflowFiles(workflowsDir).map((file) => loadWorkflowAppFromEntrypoint(file)),
         ...loadAppManifestFiles(appsDir).map((file) => loadWorkflowAppFromManifest(file)),
     ].sort((left, right) => {
-        const byId = (0, collate_1.stableCompare)(left.app.id, right.app.id);
+        const byId = stableCompare(left.app.id, right.app.id);
         if (byId)
             return byId;
-        return (0, collate_1.stableCompare)(sourcePathOf(left), sourcePathOf(right));
+        return stableCompare(sourcePathOf(left), sourcePathOf(right));
     });
     const seen = new Map();
     for (const record of records) {
@@ -455,7 +411,7 @@ function listWorkflowAppRecords() {
     }
     return records;
 }
-function loadWorkflowAppRecordById(appId) {
+export function loadWorkflowAppRecordById(appId) {
     const record = listWorkflowAppRecords().find((candidate) => candidate.app.id === appId);
     if (!record)
         throw new WorkflowAppNotFoundError(appId);
@@ -484,7 +440,7 @@ function loadWorkflowAppRecordTarget(target) {
         // worker-isolation.ts: unsafe-but-explicit, never silent.
         if (!isTrustedAppSourcePath(resolved)) {
             if (!process.env.CW_ALLOW_EXTERNAL_APP_CODE) {
-                throw new app_schema_1.WorkflowAppValidationError("Untrusted workflow app source", [
+                throw new WorkflowAppValidationError("Untrusted workflow app source", [
                     {
                         code: "workflow-app-untrusted-source",
                         message: `Refusing to load workflow app code outside CW's trusted app roots: ${resolved}. Its workflow.js would run as ordinary Node.js code with full host privileges — CW does not sandbox app code, only delegated agent workers. Set CW_ALLOW_EXTERNAL_APP_CODE=1 to load and execute it anyway.`,
@@ -515,7 +471,7 @@ function summarizeWorkflowAppRecord(record) {
         file: sourcePathOf(record),
         sourceKind: record.source.kind,
         legacy: record.legacy,
-        compatible: (0, app_schema_1.isWorkflowAppCompatible)(record.app, validationContext()),
+        compatible: isWorkflowAppCompatible(record.app, validationContext()),
         inputs: record.app.inputs || workflowDefinition.inputs || [],
         sandboxProfiles,
         phases: workflowDefinition.phases.map((phaseDefinition) => ({ id: phaseDefinition.id, name: phaseDefinition.name, taskCount: phaseDefinition.tasks.length })),
@@ -526,7 +482,7 @@ function summarizeWorkflowAppRecord(record) {
  *  a legacy app's `author` key is OMITTED (never present, never null) —
  *  callers must build the JSON object with the same conditional-spread
  *  discipline used here. */
-function listWorkflowApps() {
+export function listWorkflowApps() {
     return listWorkflowAppRecords().map((record) => summaryToJson(summarizeWorkflowAppRecord(record)));
 }
 function summaryToJson(summary) {
@@ -549,7 +505,7 @@ function summaryToJson(summary) {
 }
 /** `cw list` / `cw_list` — the lighter {id,title,summary,file} view over
  *  the SAME discovered app set. */
-function listWorkflowsShallow() {
+export function listWorkflowsShallow() {
     return listWorkflowAppRecords().map((record) => {
         const summary = summarizeWorkflowAppRecord(record);
         return { id: summary.id, title: summary.title, summary: summary.summary, file: summary.file };
@@ -558,7 +514,7 @@ function listWorkflowsShallow() {
 /** `cw app show <id>` / `cw_app_show`. Throws `WorkflowAppNotFoundError`
  *  on an unknown id (`recoveryHint` in cli/entry.ts turns this into the
  *  `Try: cw app list` tip). */
-function showWorkflowApp(appId) {
+export function showWorkflowApp(appId) {
     const record = loadWorkflowAppRecordById(appId);
     const summary = summarizeWorkflowAppRecord(record);
     return {
@@ -600,15 +556,15 @@ function showWorkflowApp(appId) {
 /** `cw app validate <path-or-id>` / `cw_app_validate`. Never throws — an
  *  unresolvable target gives `{valid:false, appId:target, appPath:target,
  *  issues}`. */
-function validateWorkflowAppTarget(target) {
+export function validateWorkflowAppTarget(target) {
     const resolvedTarget = path.resolve(target);
     try {
         const record = loadWorkflowAppRecordTarget(target);
-        const result = (0, app_schema_1.validateWorkflowApp)(record.app, validationContext(), { appPath: sourcePathOf(record) });
+        const result = validateWorkflowApp(record.app, validationContext(), { appPath: sourcePathOf(record) });
         return { ...result, summary: summarizeWorkflowAppRecord(record) };
     }
     catch (error) {
-        return { valid: false, appId: target, appPath: resolvedTarget, issues: (0, app_schema_1.validationIssuesFromError)(error) };
+        return { valid: false, appId: target, appPath: resolvedTarget, issues: validationIssuesFromError(error) };
     }
 }
 const SYSTEM_DIR_PATTERN = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
@@ -647,18 +603,18 @@ function renderEntrypointTemplate(id, title) {
 function validateGeneratedManifest(manifestPath) {
     try {
         const record = loadWorkflowAppFromManifest(manifestPath);
-        const result = (0, app_schema_1.validateWorkflowApp)(record.app, validationContext(), { appPath: sourcePathOf(record) });
+        const result = validateWorkflowApp(record.app, validationContext(), { appPath: sourcePathOf(record) });
         return { ...result, summary: summarizeWorkflowAppRecord(record) };
     }
     catch (error) {
-        return { valid: false, appId: manifestPath, appPath: path.resolve(manifestPath), issues: (0, app_schema_1.validationIssuesFromError)(error) };
+        return { valid: false, appId: manifestPath, appPath: path.resolve(manifestPath), issues: validationIssuesFromError(error) };
     }
 }
 /** `cw app init <id>` / `cw_app_init`. Writes `app.json` + `workflow.js`
  *  from the templates, refusing system directories and (without
  *  `--force`) an existing app. */
-function initWorkflowApp(appId, options = {}) {
-    const id = (0, app_schema_1.slugify)(appId);
+export function initWorkflowApp(appId, options = {}) {
+    const id = slugify(appId);
     if (!id)
         throw new Error("App id must include at least one letter or digit");
     const title = String(options.title || titleize(id));
@@ -677,7 +633,7 @@ function initWorkflowApp(appId, options = {}) {
     fs.writeFileSync(entrypointPath, renderEntrypointTemplate(id, title), "utf8");
     const validation = validateGeneratedManifest(manifestPath);
     if (!validation.valid) {
-        throw new app_schema_1.WorkflowAppValidationError("Generated workflow app is invalid", validation.issues);
+        throw new WorkflowAppValidationError("Generated workflow app is invalid", validation.issues);
     }
     return { id, manifestPath, entrypointPath };
 }
@@ -685,8 +641,8 @@ function initWorkflowApp(appId, options = {}) {
  *  default package path is anchored under the caller's explicit `cwd`
  *  (`options.cwd`) so the CLI/MCP surfaces never write into the process cwd
  *  when a different working directory was requested — and never chdir. */
-function packageWorkflowApp(appId, options = {}, cwd) {
-    const base = cwd || (0, cli_args_1.cwdArg)(options);
+export function packageWorkflowApp(appId, options = {}, cwd) {
+    const base = cwd || cwdArg(options);
     const record = loadWorkflowAppRecordById(appId);
     const destination = path.resolve(base, String(options.output || path.join(".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`)));
     fs.mkdirSync(path.dirname(destination), { recursive: true });

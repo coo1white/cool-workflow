@@ -9,7 +9,7 @@
 // Evidence: SPEC/pipeline-run.md "loop() expansion — src/loop-
 // expansion.ts + maybeExpandLoop".
 
-import { RunPhase, RunTask, WorkflowRun } from "../state/types";
+import { RunPhase, RunTask, WorkflowRun } from "../state/types.js";
 
 export interface ResultEnvelopeLike {
   findings?: unknown[];

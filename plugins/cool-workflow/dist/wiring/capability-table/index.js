@@ -1,4 +1,3 @@
-"use strict";
 // wiring/capability-table/index.ts — composes the capability table from
 // registry-core (the shared machinery) plus every domain slice, in the
 // EXACT original source order (REGISTRY array order is a pinned
@@ -14,28 +13,13 @@
 // registry-core.ts, core/capability-data.ts, and shell/core as needed —
 // so this file is the only place the full domain list is assembled, and
 // there is no cross-slice circular dependency to reason about.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-__exportStar(require("./registry-core"), exports);
-require("./basics");
-require("./state");
-require("./exec-backend");
-require("./pipeline");
-require("./trust-ledger");
-require("./scheduling-registry");
-require("./reporting");
-require("./workflow-apps");
-__exportStar(require("./parity"), exports);
+export * from "./registry-core.js";
+import "./basics.js";
+import "./state.js";
+import "./exec-backend.js";
+import "./pipeline.js";
+import "./trust-ledger.js";
+import "./scheduling-registry.js";
+import "./reporting.js";
+import "./workflow-apps.js";
+export * from "./parity.js";

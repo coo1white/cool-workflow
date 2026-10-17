@@ -5,10 +5,10 @@
 // report bundle`".
 
 import * as path from "node:path";
-import { cwdArg, optionalArg } from "../core/util/cli-args";
-import { exportRun, verifyReportBundle, ReportBundleVerification } from "./run-export";
-import { loadRunFromCwd } from "./run-store";
-import { bold, doctorGlyph } from "./term";
+import { cwdArg, optionalArg } from "../core/util/cli-args.js";
+import { exportRun, verifyReportBundle, ReportBundleVerification } from "./run-export.js";
+import { loadRunFromCwd } from "./run-store.js";
+import { bold, doctorGlyph } from "./term.js";
 
 export interface ReportBundleResult {
   schemaVersion: 1;

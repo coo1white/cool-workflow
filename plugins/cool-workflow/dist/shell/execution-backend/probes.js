@@ -1,4 +1,3 @@
-"use strict";
 // shell/execution-backend/probes.ts — per-backend readiness probe bodies.
 //
 // Each probe is a pure free function of the host (PATH + configured env);
@@ -6,51 +5,9 @@
 // envelope.
 //
 // Evidence: SPEC/execution-backend.md "Probes".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.hasExecutable = hasExecutable;
-exports.probeNodeBackend = probeNodeBackend;
-exports.probeShellBackend = probeShellBackend;
-exports.probeBunBackend = probeBunBackend;
-exports.probeContainerBackend = probeContainerBackend;
-exports.probeRemoteBackend = probeRemoteBackend;
-exports.probeCiBackend = probeCiBackend;
-exports.probeAgentBackend = probeAgentBackend;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-function hasExecutable(name, env = process.env) {
+import * as fs from "node:fs";
+import * as path from "node:path";
+export function hasExecutable(name, env = process.env) {
     const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
     for (const dir of dirs) {
         const candidate = path.join(dir, name);
@@ -64,7 +21,7 @@ function hasExecutable(name, env = process.env) {
     }
     return false;
 }
-function probeNodeBackend() {
+export function probeNodeBackend() {
     const ok = hasExecutable("node");
     return {
         checks: [{ name: "node-runtime", ok, detail: ok ? "node on PATH" : "node not found on PATH" }],
@@ -72,7 +29,7 @@ function probeNodeBackend() {
         reason: ok ? undefined : "node runtime not found on PATH",
     };
 }
-function probeShellBackend() {
+export function probeShellBackend() {
     const ok = hasExecutable("sh") || fs.existsSync("/bin/sh");
     return {
         checks: [{ name: "posix-shell", ok, detail: ok ? "sh available" : "no POSIX shell found" }],
@@ -80,7 +37,7 @@ function probeShellBackend() {
         reason: ok ? undefined : "POSIX shell not found",
     };
 }
-function probeBunBackend() {
+export function probeBunBackend() {
     const bun = hasExecutable("bun");
     const node = hasExecutable("node");
     return {
@@ -96,7 +53,7 @@ function probeBunBackend() {
                 : undefined,
     };
 }
-function probeContainerBackend() {
+export function probeContainerBackend() {
     const docker = hasExecutable("docker");
     const podman = hasExecutable("podman");
     return {
@@ -109,11 +66,11 @@ function probeContainerBackend() {
     };
 }
 function delegateChildExists() {
-    // __dirname is dist/shell/execution-backend — three levels up reaches
+    // import.meta.dirname is dist/shell/execution-backend — three levels up reaches
     // the package root (scripts/ is a sibling of dist/, not two levels up).
-    return fs.existsSync(path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js"));
+    return fs.existsSync(path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js"));
 }
-function probeRemoteBackend(env = process.env) {
+export function probeRemoteBackend(env = process.env) {
     const endpoint = (env.CW_REMOTE_ENDPOINT || "").trim();
     const scriptOk = delegateChildExists();
     const checks = [
@@ -135,7 +92,7 @@ function probeRemoteBackend(env = process.env) {
                 : "delegate child script is missing",
     };
 }
-function probeCiBackend(env = process.env) {
+export function probeCiBackend(env = process.env) {
     const endpoint = (env.CW_CI_ENDPOINT || "").trim();
     const scriptOk = delegateChildExists();
     const checks = [
@@ -157,7 +114,7 @@ function probeCiBackend(env = process.env) {
                 : "delegate child script is missing",
     };
 }
-function probeAgentBackend(env = process.env) {
+export function probeAgentBackend(env = process.env) {
     // Mirrors remote/ci EXACTLY: unconfigured ⇒ `unverified` (NOT a hard
     // refusal), configured ⇒ `ready`.
     const command = (env.CW_AGENT_COMMAND || "").trim();

@@ -1,4 +1,3 @@
-"use strict";
 // shell/worker-isolation.ts — worker scope allocation, recordWorkerOutput's
 // accept pipeline.
 //
@@ -11,75 +10,29 @@
 // exechard-evidence-triple-hygiene.case.js, exechard-model-attestation-
 // unreported.case.js, exec-agent-secret-redaction.case.js pin the exact
 // shapes here.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WORKER_ISOLATION_SCHEMA_VERSION = void 0;
-exports.getWorkerScope = getWorkerScope;
-exports.writeWorkerManifest = writeWorkerManifest;
-exports.allocateWorkerScope = allocateWorkerScope;
-exports.validateWorkerBoundary = validateWorkerBoundary;
-exports.recordWorkerOutput = recordWorkerOutput;
-exports.recordWorkerFailure = recordWorkerFailure;
-exports.recordWorkerRetryAttempt = recordWorkerRetryAttempt;
-exports.reopenParkedWorker = reopenParkedWorker;
-exports.showWorkerManifest = showWorkerManifest;
-exports.listWorkerScopes = listWorkerScopes;
-exports.summarizeWorkers = summarizeWorkers;
-exports.formatWorkerSummaryText = formatWorkerSummaryText;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const fs_atomic_1 = require("./fs-atomic");
-const node_store_1 = require("./node-store");
-const state_node_1 = require("../core/state/state-node");
-const validation_1 = require("../core/state/validation");
-const contract_1 = require("../core/pipeline/contract");
-const result_normalize_1 = require("../core/pipeline/result-normalize");
-const evidence_grounding_1 = require("../core/trust/evidence-grounding");
-const trust_audit_1 = require("./trust-audit");
-const commit_1 = require("./commit");
-const sandbox_profile_1 = require("./sandbox-profile");
-const registry_1 = require("./execution-backend/registry");
-const error_feedback_io_1 = require("./error-feedback-io");
-const run_store_1 = require("./run-store");
-const verifier_1 = require("./verifier");
-const runner_1 = require("../core/pipeline/runner");
-const hash_1 = require("../core/hash");
-const collate_1 = require("../core/util/collate");
-const telemetry_attestation_1 = require("../core/trust/telemetry-attestation");
-const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
-exports.WORKER_ISOLATION_SCHEMA_VERSION = 1;
+import { createHash } from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { safeFileName, writeJson } from "./fs-atomic.js";
+import { appendRunNode } from "./node-store.js";
+import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/state-node.js";
+import { validateWorkerScope as validateWorkerScopeShape } from "../core/state/validation.js";
+import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract.js";
+import { normalizeResultEnvelope, isEmptyCapture } from "../core/pipeline/result-normalize.js";
+import { isGroundedEvidence, evidenceFilePath, isVerdictTaskId, requireResolvableEvidence } from "../core/trust/evidence-grounding.js";
+import { normalizeEvidence, recordSandboxPathDecision, recordTrustAuditEvent } from "./trust-audit.js";
+import { unresolvedRunFileEvidence } from "./commit.js";
+import { DEFAULT_SANDBOX_PROFILE_ID, effectiveSandboxWritePaths, sandboxPolicyForWorker, validateSandboxWrite, } from "./sandbox-profile.js";
+import { attestSandbox, getBackendDescriptor } from "./execution-backend/registry.js";
+import { recordFeedback, resolveParkFeedback } from "./error-feedback-io.js";
+import { saveCheckpoint } from "./run-store.js";
+import { taskRequiresEvidence } from "./verifier.js";
+import { runPipelineStage } from "../core/pipeline/runner.js";
+import { sha256 } from "../core/hash.js";
+import { stableCompare } from "../core/util/collate.js";
+import { normalizeReportedUsage, resolveTrustPublicKey, verifyTelemetryAttestation } from "../core/trust/telemetry-attestation.js";
+import { appendTelemetryAttestation } from "./telemetry-ledger-io.js";
+export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
 function workerRoot(run) {
     return run.paths.workersDir || path.join(run.paths.runDir, "workers");
 }
@@ -108,7 +61,7 @@ function scopePath(scope) {
  *  SAME task still get a fresh, unique id (workerId is excluded from the
  *  snapshot source fingerprint, so this does not change replay digests). */
 function createWorkerId(run, taskId) {
-    const prefix = `worker-${(0, fs_atomic_1.safeFileName)(taskId)}-`;
+    const prefix = `worker-${safeFileName(taskId)}-`;
     const seq = (run.workers || []).filter((scope) => scope.id.startsWith(prefix)).length + 1;
     return `${prefix}${String(seq).padStart(4, "0")}`;
 }
@@ -120,14 +73,14 @@ function createWorkerId(run, taskId) {
  *  JSON.parse before this runs; a wrong-shape (but parseable) file throws a
  *  RecordValidationError naming the exact broken field. */
 function validateWorkerScope(value) {
-    return (0, validation_1.validateWorkerScope)(value);
+    return validateWorkerScopeShape(value);
 }
-function getWorkerScope(run, workerId) {
+export function getWorkerScope(run, workerId) {
     ensureWorkerState(run);
     const existing = (run.workers || []).find((s) => s.id === workerId);
     if (existing)
         return existing;
-    const file = path.join(workerRoot(run), (0, fs_atomic_1.safeFileName)(workerId), "worker.json");
+    const file = path.join(workerRoot(run), safeFileName(workerId), "worker.json");
     if (!fs.existsSync(file))
         return undefined;
     let scope;
@@ -180,13 +133,13 @@ function upsertWorkerScope(run, scope) {
     const scopes = run.workers || [];
     const index = scopes.findIndex((s) => s.id === scope.id);
     run.workers = (index >= 0 ? scopes.map((s) => (s.id === scope.id ? scope : s)) : [...scopes, scope]);
-    (0, fs_atomic_1.writeJson)(scopePath(scope), scope);
+    writeJson(scopePath(scope), scope);
     return scope;
 }
 function writeWorkerIndex(run) {
     ensureWorkerState(run);
-    (0, fs_atomic_1.writeJson)(path.join(workerRoot(run), "index.json"), {
-        schemaVersion: exports.WORKER_ISOLATION_SCHEMA_VERSION,
+    writeJson(path.join(workerRoot(run), "index.json"), {
+        schemaVersion: WORKER_ISOLATION_SCHEMA_VERSION,
         runId: run.id,
         workers: (run.workers || []).map((scope) => ({
             id: scope.id,
@@ -202,11 +155,11 @@ function writeWorkerIndex(run) {
         })),
     });
 }
-function writeWorkerManifest(run, scope) {
+export function writeWorkerManifest(run, scope) {
     const task = run.tasks.find((t) => t.id === scope.taskId);
     const sandboxProfileId = scope.sandboxProfileId;
     const manifest = {
-        schemaVersion: exports.WORKER_ISOLATION_SCHEMA_VERSION,
+        schemaVersion: WORKER_ISOLATION_SCHEMA_VERSION,
         id: scope.id,
         runId: scope.runId,
         taskId: scope.taskId,
@@ -258,7 +211,7 @@ function writeWorkerManifest(run, scope) {
         output: scope.output,
         metadata: scope.metadata,
     };
-    (0, fs_atomic_1.writeJson)(manifestPath(scope), manifest);
+    writeJson(manifestPath(scope), manifest);
     return manifest;
 }
 // A single injected upstream body is capped so one pathological (or padded)
@@ -287,7 +240,7 @@ function collectPreviousPhaseResults(run, task) {
         .filter((t) => previousTaskIds.has(t.id))
         // stableCompare (not localeCompare): the injected order must not depend on
         // host locale, so a warm re-run's input.md stays byte-identical everywhere.
-        .sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id));
+        .sort((a, b) => stableCompare(a.id, b.id));
     const resultsRoot = run.paths?.resultsDir ? path.resolve(run.paths.resultsDir) : undefined;
     const workersRoot = run.paths?.workersDir ? path.resolve(run.paths.workersDir) : undefined;
     const results = [];
@@ -363,7 +316,7 @@ function writeWorkerInput(run, task, scope) {
         `- Result: ${scope.resultPath}`,
         `- Artifacts: ${scope.artifactsDir} (make it if you need it)`,
         `- Logs: ${scope.logsDir} (make it if you need it)`,
-        `- Sandbox Profile: ${scope.sandboxProfileId || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID}`,
+        `- Sandbox Profile: ${scope.sandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID}`,
         "",
         "## Task",
         "",
@@ -374,7 +327,7 @@ function writeWorkerInput(run, task, scope) {
         "- Write the final Markdown result to result.md.",
         "- Keep extra files under artifacts/ or logs/.",
         `- Read paths: ${(scope.sandboxPolicy?.readPaths || []).join(", ") || "none"}.`,
-        `- Write paths: ${(0, sandbox_profile_1.effectiveSandboxWritePaths)(scope.sandboxPolicy).join(", ") || "none"}.`,
+        `- Write paths: ${effectiveSandboxWritePaths(scope.sandboxPolicy).join(", ") || "none"}.`,
         "- CW enforces result acceptance. The host is responsible for OS/process/network/environment sandbox enforcement.",
         "- Do not mutate state.json, nodes/, feedback/, dispatches/, or commits/ directly.",
         // Opt-in, and appended AFTER the authoritative Boundary so injected upstream
@@ -388,7 +341,7 @@ function writeWorkerInput(run, task, scope) {
     fs.mkdirSync(path.dirname(scope.inputPath), { recursive: true });
     fs.writeFileSync(scope.inputPath, lines.join("\n"), "utf8");
 }
-function allocateWorkerScope(run, task, options = {}) {
+export function allocateWorkerScope(run, task, options = {}) {
     ensureWorkerState(run);
     const existing = task.workerId ? getWorkerScope(run, String(task.workerId)) : undefined;
     if (existing) {
@@ -404,13 +357,13 @@ function allocateWorkerScope(run, task, options = {}) {
     }
     const now = new Date().toISOString();
     const workerId = options.workerId || createWorkerId(run, task.id);
-    const workerDir = path.join(workerRoot(run), (0, fs_atomic_1.safeFileName)(workerId));
+    const workerDir = path.join(workerRoot(run), safeFileName(workerId));
     const inputPath = path.join(workerDir, "input.md");
     const resultPath = path.join(workerDir, "result.md");
     const artifactsDir = path.join(workerDir, "artifacts");
     const logsDir = path.join(workerDir, "logs");
-    const sandboxProfileId = options.sandboxProfileId || sandbox_profile_1.DEFAULT_SANDBOX_PROFILE_ID;
-    const sandboxPolicy = (0, sandbox_profile_1.sandboxPolicyForWorker)(sandboxProfileId, {
+    const sandboxProfileId = options.sandboxProfileId || DEFAULT_SANDBOX_PROFILE_ID;
+    const sandboxPolicy = sandboxPolicyForWorker(sandboxProfileId, {
         cwd: run.cwd,
         runDir: run.paths.runDir,
         workerDir,
@@ -420,17 +373,17 @@ function allocateWorkerScope(run, task, options = {}) {
         logsDir,
         customProfiles: run.customSandboxProfiles,
     });
-    const allowedPaths = (0, sandbox_profile_1.effectiveSandboxWritePaths)(sandboxPolicy);
+    const allowedPaths = effectiveSandboxWritePaths(sandboxPolicy);
     upsertRunSandboxProfile(run, sandboxPolicy);
     // Execution-backend selection (mechanism vs policy): when a backend was
     // explicitly selected, record its sandbox attestation. The dispatch path is a
     // delegate-host execution (the host runs the worker), so the backend enforces
     // only CW's own worker-output acceptance and attests the rest.
     const backendAttestation = options.backendId
-        ? (0, registry_1.attestSandbox)((0, registry_1.getBackendDescriptor)(options.backendId), sandboxPolicy, { mode: "delegate-host" })
+        ? attestSandbox(getBackendDescriptor(options.backendId), sandboxPolicy, { mode: "delegate-host" })
         : undefined;
     const scope = {
-        schemaVersion: exports.WORKER_ISOLATION_SCHEMA_VERSION,
+        schemaVersion: WORKER_ISOLATION_SCHEMA_VERSION,
         id: workerId,
         runId: run.id,
         taskId: task.id,
@@ -456,7 +409,7 @@ function allocateWorkerScope(run, task, options = {}) {
     writeWorkerInput(run, task, scope);
     writeWorkerManifest(run, scope);
     upsertWorkerScope(run, scope);
-    (0, trust_audit_1.recordTrustAuditEvent)(run, {
+    recordTrustAuditEvent(run, {
         kind: "worker.sandbox-profile",
         decision: "recorded",
         source: "runtime-derived",
@@ -467,7 +420,7 @@ function allocateWorkerScope(run, task, options = {}) {
         metadata: { dispatchId: scope.dispatchId, workerDir: scope.workerDir, allowedPaths },
     });
     if (options.backendId && backendAttestation) {
-        (0, trust_audit_1.recordTrustAuditEvent)(run, {
+        recordTrustAuditEvent(run, {
             kind: "worker.backend",
             decision: backendAttestation.status === "refused" ? "denied" : "recorded",
             source: "runtime-derived",
@@ -512,7 +465,7 @@ function requireWorkerTask(run, scope) {
  *  delegated to the host (execute/network/env). */
 function recordSandboxBoundaryEvent(run, scope) {
     const policy = scope.sandboxPolicy;
-    (0, trust_audit_1.recordTrustAuditEvent)(run, {
+    recordTrustAuditEvent(run, {
         kind: "worker.sandbox-boundary",
         decision: "allowed",
         source: "cw-validated",
@@ -534,10 +487,10 @@ function recordSandboxBoundaryEvent(run, scope) {
  *  write-path boundary check for a worker (default target = its result file).
  *  Returns the violation, or null when the write path is allowed (also
  *  recording the sandbox-boundary transparency event on success). */
-function validateWorkerBoundary(run, workerId, options = {}) {
+export function validateWorkerBoundary(run, workerId, options = {}) {
     const scope = requireWorkerScope(run, workerId);
     const rawPath = path.resolve(String(options.path || scope.resultPath));
-    const violation = (0, sandbox_profile_1.validateSandboxWrite)(scope.sandboxPolicy, rawPath, workerId);
+    const violation = validateSandboxWrite(scope.sandboxPolicy, rawPath, workerId);
     if (!violation)
         recordSandboxBoundaryEvent(run, scope);
     return violation;
@@ -558,7 +511,7 @@ function isSourceBundleEvidence(pathPart) {
  *  null. Resolving on disk (the repo's default evidence standard, see
  *  requireResolvableEvidence) means fabricated repo paths cannot pad the ratio. */
 function resolvedEvidenceFile(raw, cwd) {
-    const p = (0, evidence_grounding_1.evidenceFilePath)(raw);
+    const p = evidenceFilePath(raw);
     if (!p)
         return null;
     return fs.existsSync(path.resolve(cwd, p)) ? p : null;
@@ -578,14 +531,14 @@ function offTargetEvidence(evidence, cwd) {
     const cwState = files.filter(isCwRunWorkspace).length;
     return cwState >= 2 && cwState >= files.length - cwState ? { cwState, files: files.length } : null;
 }
-function recordWorkerOutput(run, workerId, resultPath, options = {}) {
+export function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     const scope = requireWorkerScope(run, workerId);
     const task = requireWorkerTask(run, scope);
     const absoluteResultPath = path.resolve(resultPath);
     // Step 1: sandbox boundary + result-file existence + envelope contract.
-    const violation = (0, sandbox_profile_1.validateSandboxWrite)(scope.sandboxPolicy, absoluteResultPath, workerId);
+    const violation = validateSandboxWrite(scope.sandboxPolicy, absoluteResultPath, workerId);
     if (violation) {
-        (0, trust_audit_1.recordSandboxPathDecision)(run, { workerId, taskId: task.id, sandboxProfileId: scope.sandboxProfileId, policySnapshot: scope.sandboxPolicy, target: absoluteResultPath, decision: "denied", metadata: { code: violation.code } });
+        recordSandboxPathDecision(run, { workerId, taskId: task.id, sandboxProfileId: scope.sandboxProfileId, policySnapshot: scope.sandboxPolicy, target: absoluteResultPath, decision: "denied", metadata: { code: violation.code } });
         recordWorkerFailure(run, workerId, violation.message, { code: violation.code, retryable: false });
         throw new Error(violation.message);
     }
@@ -598,14 +551,14 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     const rawResult = fs.readFileSync(absoluteResultPath, "utf8");
     let parsedResult;
     try {
-        parsedResult = (0, result_normalize_1.normalizeResultEnvelope)(rawResult);
+        parsedResult = normalizeResultEnvelope(rawResult);
     }
     catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         recordWorkerFailure(run, workerId, message, { code: "result-parse-error", retryable: true });
         throw error;
     }
-    if ((0, verifier_1.taskRequiresEvidence)(task) && !parsedResult.evidence.some((e) => (0, evidence_grounding_1.isGroundedEvidence)(e))) {
+    if (taskRequiresEvidence(task) && !parsedResult.evidence.some((e) => isGroundedEvidence(e))) {
         const message = `Task ${task.id} requires grounded cw:result evidence (a path-like locator, URL, or namespace:value token — not free text)`;
         recordWorkerFailure(run, workerId, message, { code: "missing-required-evidence", retryable: false });
         throw new Error(message);
@@ -635,8 +588,8 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     // the final commit as a verdict nothing can take back. The condition
     // matches the commit gate's own: a verdict/synthesis task that requires
     // evidence.
-    if ((0, evidence_grounding_1.isVerdictTaskId)(task.id) && task.requiresEvidence && (0, evidence_grounding_1.requireResolvableEvidence)()) {
-        const unresolved = (0, commit_1.unresolvedRunFileEvidence)(run, parsedResult.evidence.map((entry) => String(entry)));
+    if (isVerdictTaskId(task.id) && task.requiresEvidence && requireResolvableEvidence()) {
+        const unresolved = unresolvedRunFileEvidence(run, parsedResult.evidence.map((entry) => String(entry)));
         if (unresolved.length) {
             const message = `Task ${task.id} cites file evidence that does not resolve on disk: ${unresolved.join(", ")}`;
             recordWorkerFailure(run, workerId, message, { code: "verdict-evidence-unresolvable", retryable: true });
@@ -652,11 +605,11 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     // cover the result still verifies (4-field back-compat).
     const delegation = options.agentDelegation;
     const telemetry = delegation
-        ? (0, telemetry_attestation_1.verifyTelemetryAttestation)(delegation.reportedUsage, delegation.usageSignature, (0, telemetry_attestation_1.resolveTrustPublicKey)(delegation.usageTrustPublicKey), {
+        ? verifyTelemetryAttestation(delegation.reportedUsage, delegation.usageSignature, resolveTrustPublicKey(delegation.usageTrustPublicKey), {
             runId: run.id,
             taskId: task.id,
             promptDigest: delegation.promptDigest,
-            resultDigest: (0, hash_1.sha256)(rawResult),
+            resultDigest: sha256(rawResult),
         })
         : undefined;
     // Opt-in fail-closed gate (default off): when the operator requires
@@ -671,7 +624,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     // skips the gate silently, it records a telemetry.gate-override event.
     if (options.requireAttestedTelemetry && (!telemetry || telemetry.status !== "attested")) {
         if (options.allowUnattested) {
-            (0, trust_audit_1.recordTrustAuditEvent)(run, {
+            recordTrustAuditEvent(run, {
                 kind: "telemetry.gate-override",
                 decision: "allowed",
                 source: "operator",
@@ -700,7 +653,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
             // "unreported" value). CW never checks the claim, only labels it.
             modelProvenance: (delegation.model && delegation.model !== "unreported" ? "agent-self-reported" : "absent"),
             promptDigest: delegation.promptDigest,
-            resultDigest: (0, hash_1.sha256)(rawResult),
+            resultDigest: sha256(rawResult),
             command: delegation.command,
             args: delegation.args,
             exitCode: delegation.exitCode,
@@ -710,8 +663,8 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         }
         : undefined;
     // Step 3: accept — the irreversible mutation.
-    const pathAudit = (0, trust_audit_1.recordSandboxPathDecision)(run, { workerId, taskId: task.id, sandboxProfileId: scope.sandboxProfileId, policySnapshot: scope.sandboxPolicy, target: absoluteResultPath, decision: "allowed", metadata: { operation: "worker-output-acceptance" } });
-    const destination = path.join(run.paths.resultsDir, `${(0, fs_atomic_1.safeFileName)(task.id)}.md`);
+    const pathAudit = recordSandboxPathDecision(run, { workerId, taskId: task.id, sandboxProfileId: scope.sandboxProfileId, policySnapshot: scope.sandboxPolicy, target: absoluteResultPath, decision: "allowed", metadata: { operation: "worker-output-acceptance" } });
+    const destination = path.join(run.paths.resultsDir, `${safeFileName(task.id)}.md`);
     fs.mkdirSync(run.paths.resultsDir, { recursive: true });
     fs.copyFileSync(absoluteResultPath, destination);
     task.status = "completed";
@@ -719,8 +672,8 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     task.resultPath = destination;
     task.loopStage = "observe";
     task.result = parsedResult;
-    const evidence = (0, trust_audit_1.normalizeEvidence)(run, parsedResult.evidence.map((entry, index) => ({ id: `result:${index + 1}`, source: "cw:result", locator: entry, summary: entry })), { source: "cw-validated", workerId, taskId: task.id, auditEventIds: [pathAudit.id] });
-    let resultNode = (0, state_node_1.createStateNode)({
+    const evidence = normalizeEvidence(run, parsedResult.evidence.map((entry, index) => ({ id: `result:${index + 1}`, source: "cw:result", locator: entry, summary: entry })), { source: "cw-validated", workerId, taskId: task.id, auditEventIds: [pathAudit.id] });
+    let resultNode = createStateNode({
         id: `${run.id}:result:${task.id}`,
         kind: "result",
         status: "completed",
@@ -733,18 +686,18 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         ],
         evidence,
         parents: task.dispatchId ? [`${run.id}:dispatch:${task.dispatchId}`] : [String(task.stateNodeId || `${run.id}:task:${task.id}`)],
-        contractId: contract_1.DEFAULT_PIPELINE_CONTRACT_ID,
+        contractId: DEFAULT_PIPELINE_CONTRACT_ID,
         metadata: {
             taskId: task.id,
             workerId,
             workerDir: scope.workerDir,
             sandboxProfileId: scope.sandboxProfileId,
             auditEventIds: [pathAudit.id],
-            ...((0, result_normalize_1.isEmptyCapture)(parsedResult) ? { captureWarning: "no findings or evidence captured from result.md" } : {}),
+            ...(isEmptyCapture(parsedResult) ? { captureWarning: "no findings or evidence captured from result.md" } : {}),
             ...(agentDelegationMeta ? { agentDelegation: agentDelegationMeta } : {}),
         },
     });
-    const acceptedAudit = (0, trust_audit_1.recordTrustAuditEvent)(run, {
+    const acceptedAudit = recordTrustAuditEvent(run, {
         kind: "worker.output",
         decision: "accepted",
         source: "cw-validated",
@@ -758,11 +711,11 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         parentEventIds: [pathAudit.id],
         metadata: { destination },
     });
-    resultNode.evidence = (0, trust_audit_1.normalizeEvidence)(run, resultNode.evidence, { source: "cw-validated", workerId, taskId: task.id, resultNodeId: resultNode.id, auditEventIds: [pathAudit.id, acceptedAudit.id] });
-    resultNode = (0, node_store_1.appendRunNode)(run, resultNode);
+    resultNode.evidence = normalizeEvidence(run, resultNode.evidence, { source: "cw-validated", workerId, taskId: task.id, resultNodeId: resultNode.id, auditEventIds: [pathAudit.id, acceptedAudit.id] });
+    resultNode = appendRunNode(run, resultNode);
     task.resultNodeId = resultNode.id;
-    if ((0, result_normalize_1.isEmptyCapture)(parsedResult)) {
-        (0, trust_audit_1.recordTrustAuditEvent)(run, { kind: "worker.capture-warning", decision: "recorded", source: "cw-validated", workerId, taskId: task.id, nodeId: resultNode.id, parentEventIds: [acceptedAudit.id], metadata: { reason: "no findings or evidence captured from result.md", resultPath: destination } });
+    if (isEmptyCapture(parsedResult)) {
+        recordTrustAuditEvent(run, { kind: "worker.capture-warning", decision: "recorded", source: "cw-validated", workerId, taskId: task.id, nodeId: resultNode.id, parentEventIds: [acceptedAudit.id], metadata: { reason: "no findings or evidence captured from result.md", resultPath: destination } });
     }
     if (delegation && agentDelegationMeta) {
         // Track 1 (tamper-evidence): bind this verdict into the append-only,
@@ -771,7 +724,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         // later breaks the chain (verifyTelemetryLedger). Only when a
         // verdict was computed (every agent hop gets one, even "absent").
         const ledgerRecord = agentDelegationMeta.usageAttestation
-            ? (0, telemetry_ledger_io_1.appendTelemetryAttestation)(run, {
+            ? appendTelemetryAttestation(run, {
                 workerId,
                 taskId: task.id,
                 promptDigest: agentDelegationMeta.promptDigest,
@@ -785,7 +738,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
                 attestationReason: agentDelegationMeta.usageAttestationReason,
             })
             : undefined;
-        (0, trust_audit_1.recordTrustAuditEvent)(run, {
+        recordTrustAuditEvent(run, {
             kind: "worker.agent-delegation",
             decision: "recorded",
             source: "host-attested",
@@ -817,7 +770,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         });
     }
     // Step 4: verify — drive the pipeline's "verify" stage off the accepted result.
-    const verifierResult = (0, runner_1.runPipelineStage)(run, "verify", resultNode.id, {
+    const verifierResult = runPipelineStage(run, "verify", resultNode.id, {
         outputNodeId: `${run.id}:verifier:${task.id}`,
         outputStatus: "verified",
         loopStage: "adjust",
@@ -825,11 +778,11 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         artifacts: [{ id: "result", kind: "markdown", path: destination }],
         evidence: resultNode.evidence.length ? resultNode.evidence : [{ id: "result:summary", source: "summary", summary: parsedResult.summary }],
         metadata: { taskId: task.id, workerId, resultNodeId: resultNode.id, sandboxProfileId: scope.sandboxProfileId },
-    }, { persist: false, persistNode: node_store_1.appendRunNode, pathExists: fs.existsSync });
+    }, { persist: false, persistNode: appendRunNode, pathExists: fs.existsSync });
     task.verifierNodeId = verifierResult.outputNodeId;
     // A parked worker a resume ran again: its verified result resolves the park.
     if (verifierResult.status === "advanced")
-        (0, error_feedback_io_1.resolveParkFeedback)(run, workerId, verifierResult.outputNodeId);
+        resolveParkFeedback(run, workerId, verifierResult.outputNodeId);
     // Step 5: completion — persist the worker scope with the verify-derived status.
     const output = { workerId, taskId: task.id, resultPath: absoluteResultPath, recordedAt: new Date().toISOString(), stateNodeId: resultNode.id, verifierNodeId: task.verifierNodeId, auditEventIds: [pathAudit.id, acceptedAudit.id] };
     const reportedModel = agentDelegationMeta && agentDelegationMeta.model && agentDelegationMeta.model !== "unreported" ? agentDelegationMeta.model : undefined;
@@ -846,7 +799,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
             source: "host-attested",
             ...(reportedModel ? { model: reportedModel } : {}),
             modelProvenance: (reportedModel ? "agent-self-reported" : "absent"),
-            ...(0, telemetry_attestation_1.normalizeReportedUsage)(agentDelegationMeta.reportedUsage),
+            ...normalizeReportedUsage(agentDelegationMeta.reportedUsage),
             attestedAt: new Date().toISOString(),
             ...(telemetry ? { attestation: telemetry.status, ...(telemetry.reason ? { attestationReason: telemetry.reason } : {}) } : {}),
             note: "agent-delegation host-attested usage",
@@ -868,26 +821,24 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     return output;
 }
 function sha256Local(value) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const { createHash } = require("node:crypto");
     return `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
 }
-function recordWorkerFailure(run, workerId, error, options = {}) {
+export function recordWorkerFailure(run, workerId, error, options = {}) {
     const scope = requireWorkerScope(run, workerId);
     const task = requireWorkerTask(run, scope);
     const message = error instanceof Error ? error.message : String(error);
     const structured = { code: options.code || "worker-runtime-error", message, at: new Date().toISOString(), path: options.path, retryable: options.retryable ?? false };
-    const failureNodeId = `${run.id}:worker:${(0, fs_atomic_1.safeFileName)(workerId)}:failure:${scope.errors.length + 1}`;
-    let failureNode = (0, state_node_1.recordNodeError)((0, state_node_1.createStateNode)({ id: failureNodeId, kind: "error", status: "pending", loopStage: "adjust", inputs: { workerId, taskId: task.id, dispatchId: scope.dispatchId }, parents: task.stateNodeId ? [String(task.stateNodeId)] : [], contractId: contract_1.DEFAULT_PIPELINE_CONTRACT_ID, metadata: { workerId, taskId: task.id, dispatchId: scope.dispatchId, workerDir: scope.workerDir, sandboxProfileId: scope.sandboxProfileId } }), structured);
+    const failureNodeId = `${run.id}:worker:${safeFileName(workerId)}:failure:${scope.errors.length + 1}`;
+    let failureNode = recordNodeError(createStateNode({ id: failureNodeId, kind: "error", status: "pending", loopStage: "adjust", inputs: { workerId, taskId: task.id, dispatchId: scope.dispatchId }, parents: task.stateNodeId ? [String(task.stateNodeId)] : [], contractId: DEFAULT_PIPELINE_CONTRACT_ID, metadata: { workerId, taskId: task.id, dispatchId: scope.dispatchId, workerDir: scope.workerDir, sandboxProfileId: scope.sandboxProfileId } }), structured);
     if (task.stateNodeId) {
         const parent = (run.nodes || []).find((n) => n.id === task.stateNodeId);
         if (parent) {
-            const [linkedParent, linkedChild] = (0, state_node_1.linkStateNodes)(parent, failureNode);
-            (0, node_store_1.appendRunNode)(run, linkedParent);
+            const [linkedParent, linkedChild] = linkStateNodes(parent, failureNode);
+            appendRunNode(run, linkedParent);
             failureNode = linkedChild;
         }
     }
-    failureNode = (0, node_store_1.appendRunNode)(run, failureNode);
+    failureNode = appendRunNode(run, failureNode);
     if (!structured.retryable)
         task.status = "failed";
     task.loopStage = "adjust";
@@ -905,7 +856,7 @@ function recordWorkerFailure(run, workerId, error, options = {}) {
     }
     // Record the failure as append-only operator feedback so worker.feedbackIds
     // and run.feedback carry it (failed workers must leave a feedback trail).
-    const feedback = (0, error_feedback_io_1.recordFeedback)(run, {
+    const feedback = recordFeedback(run, {
         source: "pipeline-runner",
         error: structured,
         nodeId: failureNode.id,
@@ -915,7 +866,7 @@ function recordWorkerFailure(run, workerId, error, options = {}) {
         artifacts: failureNode.artifacts,
         metadata: { workerId, dispatchId: scope.dispatchId, workerDir: scope.workerDir, sandboxProfileId: scope.sandboxProfileId, sandboxPolicy: scope.sandboxPolicy, allowedPaths: scope.allowedPaths, details: structured.details },
     }, { persist: false });
-    (0, trust_audit_1.recordTrustAuditEvent)(run, { kind: "worker.failure", decision: structured.code === "worker-boundary-violation" || structured.code.startsWith("sandbox-") ? "denied" : "failed", source: structured.code.startsWith("sandbox-") || structured.code === "worker-boundary-violation" ? "cw-validated" : "runtime-derived", workerId, taskId: task.id, nodeId: failureNode.id, feedbackIds: [feedback.id], sandboxProfileId: scope.sandboxProfileId, policySnapshot: scope.sandboxPolicy, normalizedPath: structured.path, metadata: { code: structured.code, dispatchId: scope.dispatchId } });
+    recordTrustAuditEvent(run, { kind: "worker.failure", decision: structured.code === "worker-boundary-violation" || structured.code.startsWith("sandbox-") ? "denied" : "failed", source: structured.code.startsWith("sandbox-") || structured.code === "worker-boundary-violation" ? "cw-validated" : "runtime-derived", workerId, taskId: task.id, nodeId: failureNode.id, feedbackIds: [feedback.id], sandboxProfileId: scope.sandboxProfileId, policySnapshot: scope.sandboxPolicy, normalizedPath: structured.path, metadata: { code: structured.code, dispatchId: scope.dispatchId } });
     const updated = upsertWorkerScope(run, {
         ...scope,
         updatedAt: new Date().toISOString(),
@@ -931,10 +882,10 @@ function recordWorkerFailure(run, workerId, error, options = {}) {
     writeWorkerManifest(run, updated);
     writeWorkerIndex(run);
     if (options.persist !== false)
-        (0, run_store_1.saveCheckpoint)(run);
+        saveCheckpoint(run);
     return updated;
 }
-function recordWorkerRetryAttempt(run, workerId, attempts, reason) {
+export function recordWorkerRetryAttempt(run, workerId, attempts, reason) {
     const scope = requireWorkerScope(run, workerId);
     const updated = upsertWorkerScope(run, {
         ...scope,
@@ -950,14 +901,14 @@ function recordWorkerRetryAttempt(run, workerId, attempts, reason) {
  *  same input.md), with a fresh retry budget. The failure node, the
  *  feedback and the audit events of the park stay; the reopen is its own
  *  audit event. */
-function reopenParkedWorker(run, workerId) {
+export function reopenParkedWorker(run, workerId) {
     const scope = requireWorkerScope(run, workerId);
     const task = requireWorkerTask(run, scope);
     const last = scope.errors[scope.errors.length - 1];
     task.status = "running";
     task.loopStage = "act";
     const updated = upsertWorkerScope(run, { ...scope, updatedAt: new Date().toISOString(), status: "running", retryCount: 0 });
-    (0, trust_audit_1.recordTrustAuditEvent)(run, {
+    recordTrustAuditEvent(run, {
         kind: "worker.reopen",
         decision: "allowed",
         source: "operator-recorded",
@@ -970,20 +921,20 @@ function reopenParkedWorker(run, workerId) {
     writeWorkerIndex(run);
     return updated;
 }
-function showWorkerManifest(run, workerId) {
+export function showWorkerManifest(run, workerId) {
     const scope = requireWorkerScope(run, workerId);
     const task = run.tasks.find((t) => t.id === scope.taskId);
     return { resultPath: scope.resultPath, inputPath: scope.inputPath, manifestPath: manifestPath(scope), workerDir: scope.workerDir, prompt: task?.prompt, sandboxPolicy: scope.sandboxPolicy };
 }
 /** `cw worker list [--status]`. */
-function listWorkerScopes(run, options = {}) {
+export function listWorkerScopes(run, options = {}) {
     ensureWorkerState(run);
     // Reload from disk and merge so a listing reflects the durable truth (and a
     // single corrupt worker.json is skipped, not fatal) — an in-memory-only slice
     // silently drops workers whenever run.workers was reset.
     const merged = mergeScopes(run.workers || [], loadWorkerScopesFromDisk(run));
     run.workers = merged;
-    const workers = merged.slice().sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id));
+    const workers = merged.slice().sort((a, b) => stableCompare(a.id, b.id));
     return options.status ? workers.filter((w) => w.status === options.status) : workers;
 }
 function countByStatus(workers) {
@@ -994,7 +945,7 @@ function countByStatus(workers) {
 }
 /** `cw worker summary <run-id>` — the workbench `worker.summary` panel and
  *  report.ts's own worker rollup share this one function. */
-function summarizeWorkers(run) {
+export function summarizeWorkers(run) {
     const workers = listWorkerScopes(run);
     return {
         total: workers.length,
@@ -1010,7 +961,7 @@ function countBucket(values) {
     return counts;
 }
 function formatCountBucket(counts) {
-    const entries = Object.entries(counts).sort(([a], [b]) => (0, collate_1.stableCompare)(a, b));
+    const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
     if (!entries.length)
         return "none";
     return entries.map(([k, v]) => `${k}=${v}`).join(", ");
@@ -1018,7 +969,7 @@ function formatCountBucket(counts) {
 /** `cw worker summary <run-id>` human text: a `Workers` rollup with
  *  status/sandbox/backend counts and one line per worker naming its
  *  sandbox profile and manifest path. */
-function formatWorkerSummaryText(run) {
+export function formatWorkerSummaryText(run) {
     const workers = listWorkerScopes(run);
     const lines = [
         "Workers",

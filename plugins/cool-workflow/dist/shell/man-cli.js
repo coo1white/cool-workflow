@@ -1,4 +1,3 @@
-"use strict";
 // shell/man-cli.ts — the CLI/MCP-reachable body for `cw man <topic>`.
 //
 // Reads docs/<topic>.7.md, then docs/<topic>.md, then docs/<topic>, and
@@ -8,46 +7,10 @@
 // relative to the plugin root the same way shell/workflow-app-loader.ts's
 // walkUpFor and shell/metrics-cli.ts's pluginRoot() do (walk up from this
 // file's own location looking for a sibling plugins/cool-workflow tree).
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ManPageNotFoundError = void 0;
-exports.readManPage = readManPage;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const fs_atomic_1 = require("./fs-atomic");
-class ManPageNotFoundError extends Error {
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { isContainedPath } from "./fs-atomic.js";
+export class ManPageNotFoundError extends Error {
     topic;
     constructor(topic) {
         super(`Man page not found: ${topic}.\n  Tip: cw list for workflow topics, or browse docs/ for manuals.`);
@@ -55,9 +18,8 @@ class ManPageNotFoundError extends Error {
         this.name = "ManPageNotFoundError";
     }
 }
-exports.ManPageNotFoundError = ManPageNotFoundError;
 function pluginRoot() {
-    let dir = __dirname;
+    let dir = import.meta.dirname;
     for (let i = 0; i < 8; i++) {
         const candidate = path.join(dir, "plugins", "cool-workflow");
         if (fs.existsSync(candidate))
@@ -73,14 +35,14 @@ function pluginRoot() {
  *  `docs/<topic>.7.md`, then `docs/<topic>.md`, then `docs/<topic>` in
  *  that order. Throws `ManPageNotFoundError` when none of the three
  *  candidates exists as a file. */
-function readManPage(topic) {
+export function readManPage(topic) {
     const docsDir = path.join(pluginRoot(), "docs");
     const candidates = [path.join(docsDir, `${topic}.7.md`), path.join(docsDir, `${topic}.md`), path.join(docsDir, topic)];
     for (const candidate of candidates) {
         // A topic containing `..` or an absolute-path escape must never resolve
         // outside docsDir — this bare third candidate would otherwise read any
         // file on disk (e.g. `cw man ../../../../etc/passwd`).
-        if (!(0, fs_atomic_1.isContainedPath)(candidate, docsDir))
+        if (!isContainedPath(candidate, docsDir))
             continue;
         try {
             if (fs.statSync(candidate).isFile())

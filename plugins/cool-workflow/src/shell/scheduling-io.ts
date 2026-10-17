@@ -9,10 +9,10 @@
 // Evidence: SPEC/scheduling-registry.md section D.
 
 import * as fs from "node:fs";
-import { cwdArg, flagOn } from "../core/util/cli-args";
-import { readJson, withFileLock, writeJson } from "./fs-atomic";
-import { compareQueue, RunQueueEntry, RunRegistry } from "./run-registry-io";
-import { requiredNumberFlag } from "../core/util/numeric-flag";
+import { cwdArg, flagOn } from "../core/util/cli-args.js";
+import { readJson, withFileLock, writeJson } from "./fs-atomic.js";
+import { compareQueue, RunQueueEntry, RunRegistry } from "./run-registry-io.js";
+import { requiredNumberFlag } from "../core/util/numeric-flag.js";
 
 export const SCHEDULING_SCHEMA_VERSION = 1;
 

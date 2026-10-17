@@ -15,7 +15,7 @@
 // projection", "normalizeValue ... drops the keys createdAt, updatedAt,
 // recordedAt, selectedAt, replayedAt, generatedAt ...".
 
-import { NodeSnapshotBody, StateNode } from "./types";
+import { NodeSnapshotBody, StateNode } from "./types.js";
 
 const SCRUBBED_TIMESTAMP_KEYS = new Set(["createdAt", "updatedAt", "recordedAt", "selectedAt", "replayedAt", "generatedAt"]);
 

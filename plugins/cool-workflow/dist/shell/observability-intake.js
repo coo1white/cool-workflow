@@ -1,50 +1,13 @@
-"use strict";
 // shell/observability-intake.ts — POLICY as DATA + host-attested usage
 // parsing for shell/observability.ts.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.loadCostPolicy = loadCostPolicy;
-exports.parseUsageFromArgs = parseUsageFromArgs;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const fs_atomic_1 = require("./fs-atomic");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { readJson } from "./fs-atomic.js";
 /** Resolve a CostPolicy from CLI/MCP args. `--pricing <path>` loads a
  *  policy file; `--pricing default|bundled` loads the bundled example.
  *  Absent -> undefined -> cost is `unpriced`/`unreported`, never
  *  guessed. */
-function loadCostPolicy(args, pluginRoot) {
+export function loadCostPolicy(args, pluginRoot) {
     const raw = args.pricing ?? args.pricingPolicy ?? args.policy;
     if (raw === undefined || raw === null || raw === "")
         return undefined;
@@ -52,7 +15,7 @@ function loadCostPolicy(args, pluginRoot) {
     const file = value === "default" || value === "bundled" ? path.join(pluginRoot, "manifest", "pricing.policy.json") : path.resolve(value);
     if (!fs.existsSync(file))
         throw new Error(`Pricing policy file not found: ${file}`);
-    const parsed = (0, fs_atomic_1.readJson)(file);
+    const parsed = readJson(file);
     if (!parsed || parsed.schemaVersion !== 1 || !Array.isArray(parsed.models)) {
         throw new Error(`Invalid pricing policy (expected schemaVersion 1 + models[]): ${file}`);
     }
@@ -91,7 +54,7 @@ function normalizeUsage(raw, now) {
 /** Parse a host-attested UsageRecord from CLI/MCP intake args. Returns
  *  undefined when NO usage was provided (-> `unreported`). CW never
  *  fabricates usage. */
-function parseUsageFromArgs(args, now) {
+export function parseUsageFromArgs(args, now) {
     const inline = args.usage;
     if (inline && typeof inline === "object" && !Array.isArray(inline)) {
         return normalizeUsage(inline, now);

@@ -12,7 +12,7 @@
 // fallback", "Contract gates" (project/docs/rebuild/PLAN.md byte-compat item 7 — the double
 // commit gate).
 
-import { stableStringify, sha256 } from "../hash";
+import { stableStringify, sha256 } from "../hash.js";
 import {
   PipelineContract,
   PipelineStageContract,
@@ -23,7 +23,7 @@ import {
   StateNodeKind,
   StateNodeStatus,
   WorkflowRun,
-} from "./types";
+} from "./types.js";
 
 export const STATE_NODE_SCHEMA_VERSION = 1;
 export const PIPELINE_CONTRACT_SCHEMA_VERSION = 1;

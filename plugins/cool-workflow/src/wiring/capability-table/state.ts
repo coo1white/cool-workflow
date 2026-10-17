@@ -2,16 +2,19 @@
 // state.check, migration.list|check|prove, node.list|show|graph|
 // snapshot|diff|replay|replay.verify, contract.show.
 
-import { attachCliBinding, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { optionalArg } from "../../core/util/cli-args";
+import { attachCliBinding, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
+import { optionalArg } from "../../core/util/cli-args.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 // This slice is required unconditionally at startup for every command;
 // load these shell modules only when a handler that actually needs them runs.
-function loadReportViewCli(): typeof import("../../shell/report-view-cli") {
-  return require("../../shell/report-view-cli") as typeof import("../../shell/report-view-cli");
+function loadReportViewCli(): typeof import("../../shell/report-view-cli.js") {
+  return require("../../shell/report-view-cli.js") as typeof import("../../shell/report-view-cli.js");
 }
-function loadStateCli(): typeof import("../../shell/state-cli") {
-  return require("../../shell/state-cli") as typeof import("../../shell/state-cli");
+function loadStateCli(): typeof import("../../shell/state-cli.js") {
+  return require("../../shell/state-cli.js") as typeof import("../../shell/state-cli.js");
 }
 
 // State-kernel CLI bindings: state.check, migration.list|
@@ -24,7 +27,7 @@ function loadStateCli(): typeof import("../../shell/state-cli") {
 // (Usage-error strings are byte-pinned).
 // ---------------------------------------------------------------------
 
-import { required } from "../../core/util/cli-args";
+import { required } from "../../core/util/cli-args.js";
 
 attachCliBinding("state.check", {
   path: ["state", "check"],

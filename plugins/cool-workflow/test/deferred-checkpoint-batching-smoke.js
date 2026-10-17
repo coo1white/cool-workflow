@@ -11,31 +11,30 @@
 // accept mutations into ONE cached in-memory run object and flushes to disk
 // exactly once at round end.
 //
-// This counts calls to state.ts's saveCheckpoint — the exact function this
-// fix batches from once-per-task to once-per-round — across two round sizes
-// and asserts the count stays FLAT, not proportional to task count. (A
-// blanket fs.fsyncSync counter would also pick up unrelated per-task durable
-// writes — worker scope files, trust-audit events, telemetry — that were
-// never in scope for this fix; counting saveCheckpoint itself measures
-// exactly what changed.)
+// This counts the atomic replaces of the run's state.json (one rename onto
+// it per saveCheckpoint — the exact write this fix batches from
+// once-per-task to once-per-round) across two round sizes and asserts the
+// count stays FLAT, not proportional to task count. (A blanket fs.fsyncSync
+// counter would also pick up unrelated per-task durable writes — worker
+// scope files, trust-audit events, telemetry — that were never in scope for
+// this fix; counting renames onto state.json measures exactly what
+// changed.) dist/ is ES modules, whose exports cannot be patched, so the
+// counts are taken at node:fs, made visible to dist/ by
+// syncBuiltinESMExports().
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-// v2 layout: the old flat dist/state.js's saveCheckpoint now lives in
-// dist/shell/run-store.js; dist/drive.js -> dist/shell/drive.js; the
+// v2 layout: dist/drive.js -> dist/shell/drive.js; the
 // old dist/orchestrator/lifecycle-operations.js plan() is now plan() in
 // dist/shell/pipeline.js; the old dist/workflow-api.js factory api
 // (agent/parallel/workflow) now lives in the app-schema module (dist/core/workflow-apps).
 // v2 dismantled the CoolWorkflowRunner facade entirely — drive() no
-// longer takes a runner object; it takes (runId, cwd, options). This
-// smoke still counts the SAME saveCheckpoint function the fix batches,
-// so its intent is unchanged.
-const stateModule = require(path.join(pluginRoot, "dist/shell/run-store.js"));
-const fsAtomic = require(path.join(pluginRoot, "dist/shell/fs-atomic.js"));
+// longer takes a runner object; it takes (runId, cwd, options).
 const { plan } = require(path.join(pluginRoot, "dist/shell/pipeline.js"));
 const { drive } = require(path.join(pluginRoot, "dist/shell/drive.js"));
 const { verifyTrustAudit } = require(path.join(pluginRoot, "dist/shell/trust-audit.js"));
@@ -80,43 +79,42 @@ function planParallelApp(work, n) {
   );
 }
 
-function countSaveCheckpointsDuring(fn) {
-  const original = stateModule.saveCheckpoint;
-  let count = 0;
-  stateModule.saveCheckpoint = (...args) => {
-    count += 1;
-    return original.apply(stateModule, args);
+// Counts, while fn runs, the renames onto statePath (one per saveCheckpoint)
+// and the append-mode opens of the audit log (one per durableAppendFileSync).
+function countStateWritesDuring(statePath, fn) {
+  const rename = fs.renameSync;
+  const open = fs.openSync;
+  const counts = { checkpoints: 0, auditAppends: 0 };
+  fs.renameSync = function (from, to, ...rest) {
+    if (path.resolve(String(to)) === statePath) counts.checkpoints += 1;
+    return rename.call(fs, from, to, ...rest);
   };
+  fs.openSync = function (file, flags, ...rest) {
+    if (flags === "a" && path.basename(String(file)) === "events.jsonl") counts.auditAppends += 1;
+    return open.call(fs, file, flags, ...rest);
+  };
+  syncBuiltinESMExports();
   try {
     fn();
   } finally {
-    stateModule.saveCheckpoint = original;
+    fs.renameSync = rename;
+    fs.openSync = open;
+    syncBuiltinESMExports();
   }
-  return count;
+  return counts;
 }
 
 function driveNTasksAndCountCheckpoints(work, stub, n) {
   const run = planParallelApp(work, n);
   let result;
-  const originalAppend = fsAtomic.durableAppendFileSync;
-  let auditAppends = 0;
-  fsAtomic.durableAppendFileSync = (file, data) => {
-    if (path.basename(file) === "events.jsonl") auditAppends += 1;
-    return originalAppend(file, data);
-  };
-  let checkpointCount;
-  try {
-    checkpointCount = countSaveCheckpointsDuring(() => {
-      // v2 drive(runId, cwd, options) — no runner object (facade removed).
-      result = drive(run.id, run.cwd, {
-        now: FIXED_NOW,
-        concurrency: n,
-        agentConfig: { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag", timeoutMs: 10000 }
-      });
+  const { checkpoints: checkpointCount, auditAppends } = countStateWritesDuring(path.resolve(run.paths.state), () => {
+    // v2 drive(runId, cwd, options) — no runner object (facade removed).
+    result = drive(run.id, run.cwd, {
+      now: FIXED_NOW,
+      concurrency: n,
+      agentConfig: { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag", timeoutMs: 10000 }
     });
-  } finally {
-    fsAtomic.durableAppendFileSync = originalAppend;
-  }
+  });
   assert.equal(result.status, "complete", `n=${n}: run completes`);
   assert.equal(result.completedWorkers, n, `n=${n}: every task fulfilled`);
   return { checkpointCount, auditAppends, run };

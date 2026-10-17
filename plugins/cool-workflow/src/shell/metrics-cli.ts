@@ -7,18 +7,19 @@
 // Evidence: SPEC/reporting-ux.md "cw metrics show" / "cw metrics
 // summary".
 
+import * as fs from "node:fs";
 import * as path from "node:path";
-import { cwdArg } from "../core/util/cli-args";
-import { requiredNumberFlag } from "../core/util/numeric-flag";
-import { loadRunFromCwd, loadRunStateFile } from "./run-store";
-import { loadCostPolicy, loadPersistedMetricsFingerprint, showMetricsReport, deriveMetricsSummary, SummaryRunInput } from "./observability";
-import { RunRegistry } from "./run-registry-io";
+import { cwdArg } from "../core/util/cli-args.js";
+import { requiredNumberFlag } from "../core/util/numeric-flag.js";
+import { loadRunFromCwd, loadRunStateFile } from "./run-store.js";
+import { loadCostPolicy, loadPersistedMetricsFingerprint, showMetricsReport, deriveMetricsSummary, SummaryRunInput } from "./observability.js";
+import { RunRegistry } from "./run-registry-io.js";
 
 function pluginRoot(): string {
-  let dir = __dirname;
+  let dir = import.meta.dirname;
   for (let i = 0; i < 8; i++) {
     const candidate = path.join(dir, "plugins", "cool-workflow");
-    if (require("node:fs").existsSync(candidate)) return candidate;
+    if (fs.existsSync(candidate)) return candidate;
     const parent = path.dirname(dir);
     if (parent === dir) break;
     dir = parent;

@@ -13,10 +13,10 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { eventHashInput, sha256, stableHash } from "../core/hash";
-import { durableAppendFileSync, logEndsWithNewline, safeFileName, withFileLock, writeJson, writeTextDurable } from "./fs-atomic";
-import { StateEvidence, WorkflowRun } from "../core/state/types";
-import { countBy } from "../core/util/cli-args";
+import { eventHashInput, sha256, stableHash } from "../core/hash.js";
+import { durableAppendFileSync, logEndsWithNewline, safeFileName, withFileLock, writeJson, writeTextDurable } from "./fs-atomic.js";
+import { StateEvidence, WorkflowRun } from "../core/state/types.js";
+import { countBy } from "../core/util/cli-args.js";
 
 export const TRUST_AUDIT_SCHEMA_VERSION = 1;
 

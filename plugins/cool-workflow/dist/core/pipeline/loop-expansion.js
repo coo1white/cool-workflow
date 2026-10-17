@@ -1,4 +1,3 @@
-"use strict";
 // core/pipeline/loop-expansion.ts — predicate registry, maxLoopExpansion,
 // maybeExpandLoop's decision half (round clone, stop reasons).
 //
@@ -9,22 +8,14 @@
 //
 // Evidence: SPEC/pipeline-run.md "loop() expansion — src/loop-
 // expansion.ts + maybeExpandLoop".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.registerLoopPredicate = registerLoopPredicate;
-exports.getLoopPredicate = getLoopPredicate;
-exports.hasLoopPredicate = hasLoopPredicate;
-exports.maxLoopExpansion = maxLoopExpansion;
-exports.evaluateLoopStop = evaluateLoopStop;
-exports.cloneLoopRoundTasks = cloneLoopRoundTasks;
-exports.loopControlNodeId = loopControlNodeId;
 const REGISTRY = new Map();
-function registerLoopPredicate(name, fn) {
+export function registerLoopPredicate(name, fn) {
     REGISTRY.set(name, fn);
 }
-function getLoopPredicate(name) {
+export function getLoopPredicate(name) {
     return REGISTRY.get(name);
 }
-function hasLoopPredicate(name) {
+export function hasLoopPredicate(name) {
     return REGISTRY.has(name);
 }
 registerLoopPredicate("no-new-findings", (ctx) => {
@@ -37,7 +28,7 @@ registerLoopPredicate("single-round", () => ({ done: true, reason: "single-round
 /** Static worst-case number of EXTRA tasks a fully-expanded run could
  *  mint, derived purely from the workflow declaration. Zero with no loop
  *  phases. */
-function maxLoopExpansion(run) {
+export function maxLoopExpansion(run) {
     let extra = 0;
     for (const phase of run.phases) {
         const loop = phase.loop;
@@ -51,7 +42,7 @@ function maxLoopExpansion(run) {
  *  origin phase's loop spec and the round's recorded results. Pure —
  *  `until:{kind:"predicate"}` looks up the registry; an unregistered ref
  *  stops fail-closed (never throws). */
-function evaluateLoopStop(origin, round, ctx) {
+export function evaluateLoopStop(origin, round, ctx) {
     const loop = origin.loop;
     if (!loop)
         return { done: true, atCap: false, reason: "no loop spec" };
@@ -76,7 +67,7 @@ function evaluateLoopStop(origin, round, ctx) {
  *  phase `id: <origin-id>@r<nextRound>`, `name: <origin name> (round
  *  <n>)`. Pure data transform; the caller writes task files + runs the
  *  plan pipeline stage per new task. */
-function cloneLoopRoundTasks(origin, templateTasks, nextRound) {
+export function cloneLoopRoundTasks(origin, templateTasks, nextRound) {
     // Round-suffix strips any prior @rN so round 3 clones round 1's base id,
     // never round 2's suffixed id.
     const suffix = `@r${nextRound}`;
@@ -116,6 +107,6 @@ function cloneLoopRoundTasks(origin, templateTasks, nextRound) {
     return { phase, tasks };
 }
 /** Loop-control node id: `<run-id>:loop-control:<origin-phase-id>:r<round>`. */
-function loopControlNodeId(runId, originPhaseId, round) {
+export function loopControlNodeId(runId, originPhaseId, round) {
     return `${runId}:loop-control:${originPhaseId}:r${round}`;
 }

@@ -1,4 +1,3 @@
-"use strict";
 // core/capability-data.ts — THE one data table's pure literal data: types,
 // the MCP_TOOL_DATA transcript, and the handful of dependency-free helpers
 // that only touch that data.
@@ -23,31 +22,26 @@
 // which throws a clean, typed error if ever actually called. A NEW
 // capability is APPENDED after the transcript's last row (never inserted),
 // so every existing position keeps its pinned order.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MCP_TOOL_DATA = exports.MCP_CORE_TOOLS = exports.MCP_TOOL_ANNOTATIONS = exports.COMMON_PROPERTY_TYPES = exports.PROPERTY_OVERRIDES = exports.CapabilityNotImplementedError = void 0;
-exports.notYetImplemented = notYetImplemented;
-exports.stringProperty = stringProperty;
 /** Thrown by every not-yet-wired MCP tool handler. */
-class CapabilityNotImplementedError extends Error {
+export class CapabilityNotImplementedError extends Error {
     constructor(capability) {
         super(`${capability} is not implemented in this milestone`);
         this.name = "CapabilityNotImplementedError";
     }
 }
-exports.CapabilityNotImplementedError = CapabilityNotImplementedError;
-function notYetImplemented(capability) {
+export function notYetImplemented(capability) {
     return () => {
         throw new CapabilityNotImplementedError(capability);
     };
 }
-function stringProperty(name) {
+export function stringProperty(name) {
     return { type: "string", description: name };
 }
 /** SPEC/mcp.md's two hand-written property-shape exceptions (see that
  *  file's "All 196 MCP tools" section header note): these two properties
  *  win over `COMMON_PROPERTY_TYPES` below, since each is a one-off shape
  *  tied to its own tool, not a shape shared by the property name at large. */
-exports.PROPERTY_OVERRIDES = {
+export const PROPERTY_OVERRIDES = {
     cw_report: {
         answer: { type: "boolean", description: "Also return the report's answer: { taskId, summary, evidence }, or null when the run has none yet" },
         markdown: { type: "boolean", description: "Also return the text of report.md" },
@@ -72,7 +66,7 @@ exports.PROPERTY_OVERRIDES = {
  *  `stringProperty` form (there should be very few of those — the two
  *  names left out here, `allowUnverifiedCheckpoint` and `payload`, are
  *  already covered by `PROPERTY_OVERRIDES` on their one tool each). */
-exports.COMMON_PROPERTY_TYPES = {
+export const COMMON_PROPERTY_TYPES = {
     actor: { type: "string", description: "the name of the actor doing this" },
     agentCommand: { type: "string", description: "the command template used to run the agent" },
     agentEndpoint: { type: "string", description: "the network address of the agent service" },
@@ -207,7 +201,7 @@ exports.COMMON_PROPERTY_TYPES = {
  *     cw_workbench_view calls the metrics.show handler for one panel,
  *     cw_operator_report re-writes report.md, cw_schedule_due marks
  *     expired tasks, and cw_run_resume can take the opt-in --drive path. */
-exports.MCP_TOOL_ANNOTATIONS = {
+export const MCP_TOOL_ANNOTATIONS = {
     // pure reads, in MCP_TOOL_DATA order (each handler checked by hand)
     cw_list: { readOnlyHint: true },
     cw_status: { readOnlyHint: true },
@@ -277,7 +271,7 @@ exports.MCP_TOOL_ANNOTATIONS = {
  *  listed; `tools/call` still takes every known tool name. It keeps a
  *  client's context small: the full list was about 104 KB, these twelve
  *  about 6.7 KB (measured 2026-09-28). */
-exports.MCP_CORE_TOOLS = [
+export const MCP_CORE_TOOLS = [
     "cw_app_list",
     "cw_app_show",
     "cw_app_run",
@@ -291,7 +285,7 @@ exports.MCP_CORE_TOOLS = [
     "cw_run_export",
     "cw_run_restore",
 ];
-exports.MCP_TOOL_DATA = [
+export const MCP_TOOL_DATA = [
     { tool: "cw_list", capability: "list", requiredArgs: [], properties: [], description: "List bundled CW workflows." },
     { tool: "cw_plan", capability: "plan", requiredArgs: ["workflowId"], properties: ["workflowId", "repo", "question"], description: "Create a CW run and return its canonical plan summary." },
     { tool: "cw_app_run", capability: "app.run", requiredArgs: ["appId"], properties: ["cwd", "appId", "inputs", "sandbox", "sandboxProfile", "sandboxProfileId"], description: "Create a run from an app id + structured inputs." },

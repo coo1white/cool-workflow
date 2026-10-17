@@ -1,4 +1,3 @@
-"use strict";
 // core/pipeline/runner.ts — findRunnablePipelineStages, runPipelineStage
 // (pure transform), advancePipeline, failPipelineStage.
 //
@@ -10,33 +9,26 @@
 //
 // Evidence: SPEC/pipeline-run.md "Pipeline kernel — src/pipeline-
 // runner.ts".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.getRunContract = getRunContract;
-exports.getRunNode = getRunNode;
-exports.findRunnablePipelineStages = findRunnablePipelineStages;
-exports.runPipelineStage = runPipelineStage;
-exports.advancePipeline = advancePipeline;
-exports.failPipelineStage = failPipelineStage;
-const state_node_1 = require("../state/state-node");
-const contract_1 = require("./contract");
+import { appendRunNode, assertNodeSatisfiesContract, createStateNode, linkStateNodes, PipelineContractError, recordNodeError, transitionStateNode, upsertRunContract, validatePipelineContract, } from "../state/state-node.js";
+import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./contract.js";
 /** `getRunContract(run, contractId?)` — with no id, uses the default
  *  contract id; upserts the default contract onto the run if absent. An
  *  unknown non-default id throws. A found contract is re-validated. */
-function getRunContract(run, contractId) {
-    const id = contractId || contract_1.DEFAULT_PIPELINE_CONTRACT_ID;
+export function getRunContract(run, contractId) {
+    const id = contractId || DEFAULT_PIPELINE_CONTRACT_ID;
     const contracts = run.contracts || [];
     const found = contracts.find((c) => c.id === id);
     if (found) {
-        (0, state_node_1.validatePipelineContract)(found);
+        validatePipelineContract(found);
         return found;
     }
-    if (id === contract_1.DEFAULT_PIPELINE_CONTRACT_ID) {
-        return (0, state_node_1.upsertRunContract)(run, (0, contract_1.createDefaultPipelineContract)());
+    if (id === DEFAULT_PIPELINE_CONTRACT_ID) {
+        return upsertRunContract(run, createDefaultPipelineContract());
     }
     throw new Error(`Unknown pipeline contract for run ${run.id}: ${id}`);
 }
 /** `getRunNode(run, nodeId)` — finds a node or throws. */
-function getRunNode(run, nodeId) {
+export function getRunNode(run, nodeId) {
     const node = (run.nodes || []).find((n) => n.id === nodeId);
     if (!node)
         throw new Error(`Unknown state node for run ${run.id}: ${nodeId}`);
@@ -85,7 +77,7 @@ function verifierGatePasses(node, stage, contract) {
 /** `findRunnablePipelineStages(run, contract?)` — every node x every
  *  stage, kept only when kind/status/artifacts/evidence/verifier-gate all
  *  pass. */
-function findRunnablePipelineStages(run, contract, pathExists = () => true) {
+export function findRunnablePipelineStages(run, contract, pathExists = () => true) {
     const resolvedContract = contract || getRunContract(run);
     const out = [];
     for (const node of run.nodes || []) {
@@ -115,15 +107,15 @@ function findRunnablePipelineStages(run, contract, pathExists = () => true) {
  *  engine. Mutates `run.nodes` in place (via appendRunNode/persist) and
  *  returns the result envelope. A thrown PipelineContractError becomes
  *  `failPipelineStage`; any other error re-throws untouched. */
-function runPipelineStage(run, stageId, inputNodeId, options = {}, runnerOptions = {}) {
+export function runPipelineStage(run, stageId, inputNodeId, options = {}, runnerOptions = {}) {
     const contract = getRunContract(run, runnerOptions.contractId);
     const inputNode = getRunNode(run, inputNodeId);
     const pathExists = runnerOptions.pathExists || (() => true);
     try {
-        (0, state_node_1.assertNodeSatisfiesContract)(inputNode, contract, stageId, pathExists);
+        assertNodeSatisfiesContract(inputNode, contract, stageId, pathExists);
     }
     catch (error) {
-        if (error instanceof state_node_1.PipelineContractError) {
+        if (error instanceof PipelineContractError) {
             return failPipelineStage(run, stageId, inputNode, error, runnerOptions);
         }
         throw error;
@@ -131,7 +123,7 @@ function runPipelineStage(run, stageId, inputNodeId, options = {}, runnerOptions
     const stage = contract.stages.find((s) => s.id === stageId);
     const targetStatus = options.outputStatus || (stage.producedOutputKind === "commit" ? "committed" : "completed");
     const initialStatus = targetStatus === "committed" ? "verified" : "pending";
-    let outputNode = (0, state_node_1.createStateNode)({
+    let outputNode = createStateNode({
         id: options.outputNodeId,
         kind: stage.producedOutputKind,
         status: initialStatus,
@@ -144,7 +136,7 @@ function runPipelineStage(run, stageId, inputNodeId, options = {}, runnerOptions
         metadata: options.metadata,
     });
     if (targetStatus !== initialStatus) {
-        outputNode = (0, state_node_1.transitionStateNode)(outputNode, {
+        outputNode = transitionStateNode(outputNode, {
             status: targetStatus,
             loopStage: options.loopStage,
             outputs: options.outputs,
@@ -154,9 +146,9 @@ function runPipelineStage(run, stageId, inputNodeId, options = {}, runnerOptions
         });
     }
     const persistNode = options.persist === false || runnerOptions.persist === false ? undefined : runnerOptions.persistNode;
-    const [linkedInput, linkedOutput] = (0, state_node_1.linkStateNodes)(inputNode, outputNode);
-    (0, state_node_1.appendRunNode)(run, linkedInput, persistNode);
-    (0, state_node_1.appendRunNode)(run, linkedOutput, persistNode);
+    const [linkedInput, linkedOutput] = linkStateNodes(inputNode, outputNode);
+    appendRunNode(run, linkedInput, persistNode);
+    appendRunNode(run, linkedOutput, persistNode);
     if (options.persist !== false && runnerOptions.persist !== false && runnerOptions.saveCheckpoint) {
         runnerOptions.saveCheckpoint(run);
     }
@@ -172,7 +164,7 @@ function runPipelineStage(run, stageId, inputNodeId, options = {}, runnerOptions
 /** `advancePipeline(run, options?)` — first runnable stage list; empty ⇒
  *  idle. First "advanced" result stops. A "failed" result stops unless
  *  `contract.failurePolicy.autoAdvance`. */
-function advancePipeline(run, runnerOptions = {}) {
+export function advancePipeline(run, runnerOptions = {}) {
     const contract = getRunContract(run, runnerOptions.contractId);
     const stages = findRunnablePipelineStages(run, contract, runnerOptions.pathExists);
     if (!stages.length)
@@ -189,10 +181,10 @@ function advancePipeline(run, runnerOptions = {}) {
     }
     return lastFailure || { status: "idle", stages };
 }
-function failPipelineStage(run, stageId, inputNode, error, options = {}) {
+export function failPipelineStage(run, stageId, inputNode, error, options = {}) {
     const contract = getRunContract(run, options.contractId);
     const stage = contract.stages.find((s) => s.id === stageId);
-    const structured = error instanceof state_node_1.PipelineContractError
+    const structured = error instanceof PipelineContractError
         ? error.structured
         : {
             code: "pipeline-stage-error",
@@ -206,7 +198,7 @@ function failPipelineStage(run, stageId, inputNode, error, options = {}) {
         return { status: "failed", runId: run.id, stageId, inputNodeId: inputNode.id, error: structured };
     }
     const persistNode = options.persist === false ? undefined : options.persistNode;
-    let errorNode = (0, state_node_1.recordNodeError)((0, state_node_1.createStateNode)({
+    let errorNode = recordNodeError(createStateNode({
         // Honor a caller-supplied failure node id when given (shell binds it to
         // the caller's outputNodeId); else auto-mint (`error-<hash>`).
         ...(options.failureNodeId ? { id: options.failureNodeId } : {}),
@@ -218,9 +210,9 @@ function failPipelineStage(run, stageId, inputNode, error, options = {}) {
         // dedup key matches the feedback recorded here (both key on stageId).
         metadata: { pipelineStage: stageId, preserved: true },
     }), structured);
-    const [linkedInput, linkedError] = (0, state_node_1.linkStateNodes)(inputNode, errorNode);
-    (0, state_node_1.appendRunNode)(run, linkedInput, persistNode);
-    (0, state_node_1.appendRunNode)(run, linkedError, persistNode);
+    const [linkedInput, linkedError] = linkStateNodes(inputNode, errorNode);
+    appendRunNode(run, linkedInput, persistNode);
+    appendRunNode(run, linkedError, persistNode);
     errorNode = linkedError;
     if (options.recordFeedback)
         options.recordFeedback(run, structured, errorNode.id);

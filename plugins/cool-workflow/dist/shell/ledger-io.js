@@ -1,4 +1,3 @@
-"use strict";
 // shell/ledger-io.ts — the ledger's directory reads
 // (listLedgerEntries/unionLedgerEntries). Impure (fs); the pure verify
 // logic they call lives in core/trust/ledger.ts.
@@ -9,51 +8,15 @@
 // Evidence: SPEC/ledger-trust.md "Handoff ledger entry" (listLedgerEntries/
 // unionLedgerEntries JSON shapes), "Edge cases" (dir-unreadable/entry-not-
 // regular/bad-json).
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.listLedgerEntries = listLedgerEntries;
-exports.unionLedgerEntries = unionLedgerEntries;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const ledger_1 = require("../core/trust/ledger");
-const cli_args_1 = require("../core/util/cli-args");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { resolveLedgerInbox, verifyLedgerEntry, } from "../core/trust/ledger.js";
+import { isRecord } from "../core/util/cli-args.js";
 /** Read every `*.json` in `dir`, verify each entry fail-closed, and
  *  report. `allOk` is false if any entry is tampered, malformed, or
  *  unreadable — so the receiving side refuses the whole inbox rather
  *  than acting on a mixed batch. */
-function listLedgerEntries(dir) {
+export function listLedgerEntries(dir) {
     let names;
     try {
         names = fs.readdirSync(dir).filter((n) => n.endsWith(".json")).sort();
@@ -71,7 +34,7 @@ function listLedgerEntries(dir) {
             ok: false,
             failedChecks: [{ name: "dir", code: "ledger-dir-unreadable", detail: error.message }],
         };
-        return { dir, count: 0, allOk: false, entries: [entry], resolution: (0, ledger_1.resolveLedgerInbox)([entry]) };
+        return { dir, count: 0, allOk: false, entries: [entry], resolution: resolveLedgerInbox([entry]) };
     }
     const entries = names.map((name) => {
         const file = path.join(dir, name);
@@ -108,8 +71,8 @@ function listLedgerEntries(dir) {
                 failedChecks: [{ name: "parse", code: "ledger-bad-json" }],
             };
         }
-        const result = (0, ledger_1.verifyLedgerEntry)(raw);
-        const rec = (0, cli_args_1.isRecord)(raw) ? raw : {};
+        const result = verifyLedgerEntry(raw);
+        const rec = isRecord(raw) ? raw : {};
         return {
             file: name,
             id: result.id,
@@ -128,7 +91,7 @@ function listLedgerEntries(dir) {
         count: entries.length,
         allOk: entries.every((e) => e.ok),
         entries,
-        resolution: (0, ledger_1.resolveLedgerInbox)(entries),
+        resolution: resolveLedgerInbox(entries),
     };
 }
 /** Union-verify several mirror directories into ONE fail-closed inbox.
@@ -136,7 +99,7 @@ function listLedgerEntries(dir) {
  *  failing entries are kept per-occurrence so every problem in every
  *  mirror is visible. `allOk` is false if ANY entry in ANY mirror does
  *  not verify. */
-function unionLedgerEntries(dirs) {
+export function unionLedgerEntries(dirs) {
     const byId = new Map();
     const failures = [];
     let allOk = true;
@@ -161,5 +124,5 @@ function unionLedgerEntries(dirs) {
         }
     }
     const entries = [...byId.values(), ...failures];
-    return { dirs, count: entries.length, allOk, entries, resolution: (0, ledger_1.resolveLedgerInbox)(entries) };
+    return { dirs, count: entries.length, allOk, entries, resolution: resolveLedgerInbox(entries) };
 }

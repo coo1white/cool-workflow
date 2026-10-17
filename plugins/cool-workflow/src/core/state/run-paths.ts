@@ -7,7 +7,7 @@
 // full .cw/runs/<run-id>/ layout".
 
 import * as path from "node:path";
-import { RunAuditPaths, RunPaths } from "./types";
+import { RunAuditPaths, RunPaths } from "./types.js";
 
 /** The 16-key RunPaths object, all joined under `runDir`. */
 export function createRunPaths(runDir: string): RunPaths {

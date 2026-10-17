@@ -13,6 +13,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 
@@ -62,6 +63,7 @@ function driveWithHook(betweenRounds, env = {}) {
       if (file === p.paths.state) reads += 1;
       return saved.read.call(fs, file, ...rest);
     };
+    syncBuiltinESMExports();
     let result;
     let error;
     try {
@@ -70,11 +72,13 @@ function driveWithHook(betweenRounds, env = {}) {
       error = e;
     }
     fs.readFileSync = saved.read;
+    syncBuiltinESMExports();
     const finalState = JSON.parse(fs.readFileSync(p.paths.state, "utf8"));
     return { result, error, finalState, reads, hooked, tasks: p.tasks.length };
   } finally {
     process.stderr.write = saved.write;
     fs.readFileSync = saved.read;
+    syncBuiltinESMExports();
     for (const key of Object.keys(process.env)) if (!(key in saved.env)) delete process.env[key];
     Object.assign(process.env, saved.env);
     process.chdir(cwd0);

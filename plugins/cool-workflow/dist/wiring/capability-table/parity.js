@@ -1,18 +1,5 @@
-"use strict";
 // wiring/capability-table/parity.ts — CLI <-> MCP parity planning + report.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CAPABILITY_REGISTRY = void 0;
-exports.declaredCliTokens = declaredCliTokens;
-exports.declaredCliHelpTokens = declaredCliHelpTokens;
-exports.requiresReason = requiresReason;
-exports.isPayloadProbeOptOut = isPayloadProbeOptOut;
-exports.payloadIdenticalCapabilities = payloadIdenticalCapabilities;
-exports.payloadProbeTargets = payloadProbeTargets;
-exports.deferredPayloadProbeCapabilities = deferredPayloadProbeCapabilities;
-exports.buildPayloadProbePlan = buildPayloadProbePlan;
-exports.payloadProbePlan = payloadProbePlan;
-exports.buildParityReport = buildParityReport;
-const registry_core_1 = require("./registry-core");
+import { REGISTRY, declaredMcpTools } from "./registry-core.js";
 // CLI <-> MCP parity planning + report. The rule: a capability marked
 // `payloadIdentical` (the default for `surface: "both"`) MUST return a
 // byte-for-byte equal JSON payload from `cw <cmd> --json` and from the
@@ -24,7 +11,7 @@ const registry_core_1 = require("./registry-core");
 // `CAPABILITY_REGISTRY` is an alias so callers written against that
 // name (and the two smokes that import this module) find the same array
 // under either name; `REGISTRY` is the primary export.
-exports.CAPABILITY_REGISTRY = registry_core_1.REGISTRY;
+export const CAPABILITY_REGISTRY = REGISTRY;
 /** Read-only, run-less global reads: safe with just `cwd`. */
 const GLOBAL_PAYLOAD_PROBE_CAPABILITIES = [
     "list",
@@ -179,9 +166,9 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
     },
 ];
 /** The CLI `case` tokens this registry declares (deduped). */
-function declaredCliTokens() {
+export function declaredCliTokens() {
     const tokens = new Set();
-    for (const cap of registry_core_1.REGISTRY) {
+    for (const cap of REGISTRY) {
         if (!cap.cli)
             continue;
         for (const token of cap.cli.caseTokens ?? cap.cli.path)
@@ -192,9 +179,9 @@ function declaredCliTokens() {
 /** The top-level CLI commands that should be visible in `cw help`.
  *  Subcommands are collapsed to their first token; alias tokens (e.g.
  *  `audit-run`) stay visible alongside the verb they alias. */
-function declaredCliHelpTokens() {
+export function declaredCliHelpTokens() {
     const tokens = new Set();
-    for (const cap of registry_core_1.REGISTRY) {
+    for (const cap of REGISTRY) {
         if (!cap.cli)
             continue;
         const subcommandTokens = new Set(cap.cli.path.slice(1));
@@ -223,7 +210,7 @@ function declaredCliHelpTokens() {
     return [...tokens].sort();
 }
 /** Whether a row MUST carry a reason (surface-specific or payload-divergent). */
-function requiresReason(cap) {
+export function requiresReason(cap) {
     if (cap.surface !== "both")
         return true;
     if (cap.payloadIdentical === false)
@@ -239,7 +226,7 @@ function requiresReason(cap) {
  * false` with no recorded reason does NOT silently escape — it stays in the probe
  * set so the undocumented divergence trips the gate (FAIL CLOSED).
  */
-function isPayloadProbeOptOut(cap) {
+export function isPayloadProbeOptOut(cap) {
     return cap.payloadIdentical === false && !!(cap.reason && cap.reason.trim());
 }
 /** Rows for the payload-identity probe. Defaults to EVERY both-surface,
@@ -247,20 +234,20 @@ function isPayloadProbeOptOut(cap) {
  *  documented opt-out (`payloadIdentical: false` + a non-empty `reason`) —
  *  see `isPayloadProbeOptOut`. Fail-closed: an undocumented `payloadIdentical:
  *  false` stays in scope so its divergence is caught, not silently excused. */
-function payloadIdenticalCapabilities() {
-    return registry_core_1.REGISTRY.filter((cap) => cap.surface === "both" && cap.cli && cap.mcp && !isPayloadProbeOptOut(cap));
+export function payloadIdenticalCapabilities() {
+    return REGISTRY.filter((cap) => cap.surface === "both" && cap.cli && cap.mcp && !isPayloadProbeOptOut(cap));
 }
-function payloadProbeTargets() {
+export function payloadProbeTargets() {
     return [
         ...GLOBAL_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "global" })),
         ...RUN_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "run" })),
         ...SCENARIO_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "scenario" })),
     ];
 }
-function deferredPayloadProbeCapabilities() {
+export function deferredPayloadProbeCapabilities() {
     return PAYLOAD_PROBE_DEFERRED_GROUPS.flatMap((group) => group.capabilities.map((capability) => ({ capability, reason: group.reason })));
 }
-function buildPayloadProbePlan(targets, deferred) {
+export function buildPayloadProbePlan(targets, deferred) {
     const candidateIds = new Set(payloadIdenticalCapabilities().map((cap) => cap.capability));
     const counts = new Map();
     const classified = [...targets.map((entry) => entry.capability), ...deferred.map((entry) => entry.capability)];
@@ -278,14 +265,14 @@ function buildPayloadProbePlan(targets, deferred) {
         invalidClassifications: [...classifiedIds].filter((capability) => !candidateIds.has(capability)).sort(),
     };
 }
-function payloadProbePlan() {
+export function payloadProbePlan() {
     return buildPayloadProbePlan(payloadProbeTargets(), deferredPayloadProbeCapabilities());
 }
 function lintRegistry() {
     const issues = [];
     const seenCaps = new Set();
     const seenTools = new Set();
-    for (const cap of registry_core_1.REGISTRY) {
+    for (const cap of REGISTRY) {
         if (seenCaps.has(cap.capability))
             issues.push(`duplicate capability id: ${cap.capability}`);
         seenCaps.add(cap.capability);
@@ -319,8 +306,8 @@ function lintRegistry() {
  * optional test input for an independent token source; the table-driven live
  * gate leaves it out and probes dispatcher reachability instead.
  */
-function buildParityReport(input) {
-    const declaredTools = new Set((0, registry_core_1.declaredMcpTools)());
+export function buildParityReport(input) {
+    const declaredTools = new Set(declaredMcpTools());
     const actualTools = new Set(input.mcpTools);
     const declaredTokens = new Set(declaredCliTokens());
     const actualTokens = new Set(input.cliTokens || []);
@@ -340,7 +327,7 @@ function buildParityReport(input) {
     const helpUndeclaredCliTokens = input.helpTokens
         ? [...actualHelpTokens].filter((token) => !declaredHelpTokens.has(token)).sort()
         : [];
-    const reasonlessExceptions = registry_core_1.REGISTRY.filter((cap) => requiresReason(cap) && !(cap.reason && cap.reason.trim()))
+    const reasonlessExceptions = REGISTRY.filter((cap) => requiresReason(cap) && !(cap.reason && cap.reason.trim()))
         .map((cap) => cap.capability)
         .sort();
     const payloadPlan = payloadProbePlan();
@@ -358,7 +345,7 @@ function buildParityReport(input) {
         registryLint.length === 0;
     return {
         ok,
-        registrySize: registry_core_1.REGISTRY.length,
+        registrySize: REGISTRY.length,
         missingMcpTools,
         undeclaredMcpTools,
         missingCliTokens,

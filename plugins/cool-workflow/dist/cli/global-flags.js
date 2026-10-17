@@ -1,4 +1,3 @@
-"use strict";
 // cli/global-flags.ts — the shared global CLI flag set, plus the TTY-gated
 // unknown-flag warning for capability rows that declare `flagsComplete`
 // (core/capability-data.ts's CliBinding).
@@ -17,10 +16,6 @@
 //     shell/workbench-host.ts's printServeHint) — a piped, scripted, or
 //     conformance run can never see it;
 //   - stdout bytes and the exit code never change.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.GLOBAL_CLI_FLAGS = void 0;
-exports.unknownFlagKeys = unknownFlagKeys;
-exports.warnUnknownFlags = warnUnknownFlags;
 /** Every option key the shared CLI front door reads for ANY command, so a
  *  `flagsComplete` row's check never flags them. Built by reading the
  *  actual consumers:
@@ -36,7 +31,7 @@ exports.warnUnknownFlags = warnUnknownFlags;
  *     names before any handler sees them;
  *   - the doctor/fix handlers' shared working-dir override: `cwd`.
  *  Keys are the POST-parse spellings (what lands in `args.options`). */
-exports.GLOBAL_CLI_FLAGS = [
+export const GLOBAL_CLI_FLAGS = [
     "agent-command",
     "claude",
     "codex",
@@ -83,7 +78,7 @@ function knownKeysFor(cli) {
         known.add(kebabToCamel(key));
         known.add(camelToKebab(key));
     };
-    for (const name of exports.GLOBAL_CLI_FLAGS)
+    for (const name of GLOBAL_CLI_FLAGS)
         add(name);
     for (const flag of cli.flags ?? [])
         add(flagNameToKey(flag.name));
@@ -91,7 +86,7 @@ function knownKeysFor(cli) {
 }
 /** The option keys this row does not know about (pure; exported for unit
  *  tests). Empty unless the row declares `flagsComplete`. */
-function unknownFlagKeys(cli, options) {
+export function unknownFlagKeys(cli, options) {
     if (!cli.flagsComplete)
         return [];
     const known = knownKeysFor(cli);
@@ -101,7 +96,7 @@ function unknownFlagKeys(cli, options) {
  *  option it does not read — and only when the stream is a real TTY, so
  *  no piped caller, script, or conformance case can ever see it. stdout
  *  and the exit code are untouched either way. */
-function warnUnknownFlags(cli, options, stream = process.stderr) {
+export function warnUnknownFlags(cli, options, stream = process.stderr) {
     if (!stream.isTTY)
         return;
     const unknown = unknownFlagKeys(cli, options);

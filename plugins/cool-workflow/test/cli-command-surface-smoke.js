@@ -28,7 +28,7 @@ assert.ok(fs.existsSync(srcEntry), "CLI command handling must live under src/cli
 assert.ok(fs.existsSync(srcDispatch), "CLI dispatch must live under src/cli/ (dispatch.ts)");
 assert.ok(entrypointLines.length <= 80, `src/cli.ts must stay a thin entrypoint, got ${entrypointLines.length} lines`);
 // v2: the thin entrypoint delegates to ./cli/entry (was ./cli/command-surface).
-assert.match(entrypoint, /from "\.\/cli\/entry"/, "src/cli.ts must delegate to the cli/entry module");
+assert.match(entrypoint, /from "\.\/cli\/entry\.js"/, "src/cli.ts must delegate to the cli/entry module");
 assert.doesNotMatch(entrypoint, /\bswitch\s*\(/, "src/cli.ts must not own the command dispatcher");
 assert.doesNotMatch(entrypoint, /case\s+"[^"]+":/, "src/cli.ts must not own command cases");
 

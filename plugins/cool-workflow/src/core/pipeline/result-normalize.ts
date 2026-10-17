@@ -5,7 +5,7 @@
 //
 // Evidence: SPEC/pipeline-run.md "Result ingest — result-normalize module".
 
-import { isGroundedEvidence } from "../trust/evidence-grounding";
+import { isGroundedEvidence } from "../trust/evidence-grounding.js";
 
 export type FindingClassification = "real" | "conditional" | "non-issue" | "unknown";
 export type Severity = "P0" | "P1" | "P2" | "P3" | "none";

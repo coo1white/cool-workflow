@@ -6,20 +6,20 @@
 // CLI/MCP handlers delegate to.
 
 import * as path from "node:path";
-import { cwdArg } from "../core/util/cli-args";
+import { cwdArg } from "../core/util/cli-args.js";
 import {
   backendListPayload,
   backendProbePayload,
   backendShowPayload,
-} from "./execution-backend/registry";
+} from "./execution-backend/registry.js";
 import {
   listBundledSandboxProfiles,
   sandboxContextForValidation,
   showBundledSandboxProfile,
   validateSandboxProfileFile,
-} from "./sandbox-profile";
-import { SandboxProfileValidationResult } from "./execution-backend/types";
-import { backendAgentConfigSet, backendAgentConfigShow } from "./agent-config";
+} from "./sandbox-profile.js";
+import { SandboxProfileValidationResult } from "./execution-backend/types.js";
+import { backendAgentConfigSet, backendAgentConfigShow } from "./agent-config.js";
 
 function resolveFromBase(target: string, options: Record<string, unknown>): string {
   return path.resolve(cwdArg(options, ["cwd"], true), target);

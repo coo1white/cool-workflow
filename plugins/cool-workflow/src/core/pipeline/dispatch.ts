@@ -7,7 +7,7 @@
 //
 // Evidence: SPEC/pipeline-run.md "Dispatch — dispatch module".
 
-import { RunPhase, RunTask, WorkflowRun } from "../state/types";
+import { RunPhase, RunTask, WorkflowRun } from "../state/types.js";
 
 export interface DispatchTask {
   id: string;

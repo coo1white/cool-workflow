@@ -1,4 +1,3 @@
-"use strict";
 // core/format/completion.ts — formatCompletionScript.
 //
 // Pure function of already-loaded data (MORE_COMMANDS_TOKENS from
@@ -11,14 +10,12 @@
 // still covers the single most common completion need (typing the verb)
 // without hand-maintaining a second, deeper copy of the capability
 // table's subcommand shape.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatCompletionScript = formatCompletionScript;
-const help_1 = require("./help");
+import { MORE_COMMANDS_TOKENS } from "./help.js";
 /** The full top-level completion word list: `help`/`doctor` (absent from
  *  MORE_COMMANDS_TOKENS — see help.ts) plus every token formatHelp's
  *  "More commands" section lists (already includes `version`/`fix`). */
 function completionWords() {
-    return ["help", "doctor", ...help_1.MORE_COMMANDS_TOKENS];
+    return ["help", "doctor", ...MORE_COMMANDS_TOKENS];
 }
 function bashScript(words) {
     return [
@@ -55,7 +52,7 @@ function fishScript(words) {
  *  top-level command word list. Throws on an unrecognized shell name
  *  (the CLI layer turns that into the standard `cw: <message>` /
  *  `Try:` shape, same as every other input-validation error). */
-function formatCompletionScript(shell) {
+export function formatCompletionScript(shell) {
     const words = completionWords();
     if (shell === "bash")
         return bashScript(words);

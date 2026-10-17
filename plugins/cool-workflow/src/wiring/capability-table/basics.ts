@@ -1,7 +1,7 @@
 // wiring/capability-table/basics.ts — CLI bindings for version, list,
 // status, sandbox.list, completion and search.
 
-import { attachCliBinding, addCliOnlyCapability, listBundledWorkflows, listBundledSandboxProfiles, statusPayload } from "./registry-core";
+import { attachCliBinding, addCliOnlyCapability, listBundledWorkflows, listBundledSandboxProfiles, statusPayload } from "./registry-core.js";
 
 // ---------------------------------------------------------------------
 // CLI bindings for version, list, status, sandbox.list. `version` is
@@ -14,17 +14,20 @@ import { attachCliBinding, addCliOnlyCapability, listBundledWorkflows, listBundl
 // performs the actual write.
 // ---------------------------------------------------------------------
 
-import { CURRENT_COOL_WORKFLOW_VERSION } from "../../core/version";
-import { formatSearchResults, formatWorkflowList } from "../../core/format/help";
-import { formatCompletionScript } from "../../core/format/completion";
-import { optionalArg } from "../../core/util/cli-args";
+import { CURRENT_COOL_WORKFLOW_VERSION } from "../../core/version.js";
+import { formatSearchResults, formatWorkflowList } from "../../core/format/help.js";
+import { formatCompletionScript } from "../../core/format/completion.js";
+import { optionalArg } from "../../core/util/cli-args.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 // This whole module is required unconditionally at startup for EVERY
 // command (see wiring/capability-table/index.ts) — a top-level import of
 // `shell/workflow-app-loader` here means even `cw --version` pays its
 // load cost, though only `search`'s handler ever calls it.
-function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader") {
-  return require("../../shell/workflow-app-loader") as typeof import("../../shell/workflow-app-loader");
+function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader.js") {
+  return require("../../shell/workflow-app-loader.js") as typeof import("../../shell/workflow-app-loader.js");
 }
 
 addCliOnlyCapability(

@@ -1,4 +1,3 @@
-"use strict";
 // cli/entry.ts — the real entry point (`cw` / `cool-workflow` binaries).
 //
 // The top-level flag redirects, then dispatch (see cli/dispatch.ts), then
@@ -12,37 +11,32 @@
 // Every conformance case still pipes with NO_COLOR=1 by default (lib.js),
 // so byte content there is unaffected; cli-color-env.case.js exercises
 // the FORCE_COLOR/NO_COLOR/CW_NO_COLOR branches explicitly.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.recoveryHint = void 0;
-exports.runCli = runCli;
-exports.main = main;
-const parseargv_1 = require("./parseargv");
-const dispatch_1 = require("./dispatch");
-const help_1 = require("../core/format/help");
-const parseargv_2 = require("./parseargv");
-const capability_table_1 = require("../core/capability-table");
-const term_1 = require("../shell/term");
-const io_1 = require("./io");
-const recovery_hint_1 = require("../core/format/recovery-hint");
+import { parseArgv } from "./parseargv.js";
+import { dispatch } from "./dispatch.js";
+import { formatCommandHelp } from "../core/format/help.js";
+import { suggestCommand } from "./parseargv.js";
+import { findCapability } from "../core/capability-table.js";
+import { bold, dim, red } from "../shell/term.js";
+import { styledHelp } from "./io.js";
+import { recoveryHint } from "../core/format/recovery-hint.js";
 // recoveryHint lives in core/format/recovery-hint.ts (so mcp/server.ts
 // can use it without crossing the mcp/-may-never-import-cli/ layer rule);
 // re-exported here for importers of `recoveryHint` from this file.
-var recovery_hint_2 = require("../core/format/recovery-hint");
-Object.defineProperty(exports, "recoveryHint", { enumerable: true, get: function () { return recovery_hint_2.recoveryHint; } });
+export { recoveryHint } from "../core/format/recovery-hint.js";
 /** `version` is a pure projection of the capability table's `version`
  *  row — its print text lives in one place (the cli handler), not a second
  *  hard-coded copy here. `help` has no row of its own (it is this file's
  *  own top-level redirect); its text comes from core/format/help.ts. */
 function printVersion() {
-    const row = (0, capability_table_1.findCapability)("version");
+    const row = findCapability("version");
     // `version`'s own handler is a pure, synchronous projection (never one of
     // the live drive rows) -- safe to read `.text` straight off it rather than
     // route through the generic (possibly-async) dispatch path.
     const result = row?.cli?.handler({ positionals: [], options: {} });
     process.stdout.write(result?.text ?? "");
 }
-async function runCli(argv = process.argv.slice(2)) {
-    const args = (0, parseargv_1.parseArgv)(argv);
+export async function runCli(argv = process.argv.slice(2)) {
+    const args = parseArgv(argv);
     // Top-level flags: accept --version / -v / --help / -h before command lookup.
     if (args.command?.startsWith("-") || !args.command) {
         if (args.command === "--version" || args.command === "-v" || args.options.v || args.options.version) {
@@ -50,7 +44,7 @@ async function runCli(argv = process.argv.slice(2)) {
             return;
         }
         if (!args.command || args.command === "--help" || args.command === "-h" || args.options.h || args.options.help) {
-            process.stdout.write((0, io_1.styledHelp)());
+            process.stdout.write(styledHelp());
             return;
         }
     }
@@ -92,7 +86,7 @@ async function runCli(argv = process.argv.slice(2)) {
         process.env.CW_DRIVE_PROGRESS = "0";
     // `cw <verb> --help` / `-h` -> per-command help.
     if ((args.options.help || args.options.h) && args.command && !args.command.startsWith("-")) {
-        process.stdout.write((0, help_1.formatCommandHelp)(args.command, parseargv_2.suggestCommand));
+        process.stdout.write(formatCommandHelp(args.command, suggestCommand));
         return;
     }
     // Bare -q / --question -> redirect to quickstart.
@@ -111,7 +105,7 @@ async function runCli(argv = process.argv.slice(2)) {
         args.options.resume = true;
         args.command = "quickstart";
     }
-    await (0, dispatch_1.dispatch)(args);
+    await dispatch(args);
 }
 /** Broken pipe (`cw ... --json | head`): when the reader at the other end
  *  of a pipe goes away early, a write to stdout gives an async 'error'
@@ -131,7 +125,7 @@ function exitQuietOnEpipe(stream) {
 /** Top-level run wrapper matching src/cli.ts's catch shape byte-for-byte:
  *  `cw: <message>\n` then, only when a hint matches, `  Try: <hint>\n` on
  *  stderr; `process.exitCode = 1` (never a hard `process.exit`). */
-function main(argv = process.argv.slice(2)) {
+export function main(argv = process.argv.slice(2)) {
     exitQuietOnEpipe(process.stdout);
     exitQuietOnEpipe(process.stderr);
     return runCli(argv).catch((error) => {
@@ -141,10 +135,10 @@ function main(argv = process.argv.slice(2)) {
         if (error?.code === "EPIPE")
             return;
         const message = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`${(0, term_1.bold)("cw:", process.stderr)} ${(0, term_1.red)(message, process.stderr)}\n`);
-        const hint = (0, recovery_hint_1.recoveryHint)(message);
+        process.stderr.write(`${bold("cw:", process.stderr)} ${red(message, process.stderr)}\n`);
+        const hint = recoveryHint(message);
         if (hint)
-            process.stderr.write(`  ${(0, term_1.dim)("Try:", process.stderr)} ${hint}\n`);
+            process.stderr.write(`  ${dim("Try:", process.stderr)} ${hint}\n`);
         process.exitCode = 1;
     });
 }

@@ -13,11 +13,11 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { boolWord } from "../core/util/cli-args";
-import { writeJson } from "./fs-atomic";
-import { splitAgentCommand } from "../core/util/cli-args";
-import { stripSecretArgs } from "./execution-backend/agent";
-import { AgentDelegationConfig } from "./execution-backend/types";
+import { boolWord } from "../core/util/cli-args.js";
+import { writeJson } from "./fs-atomic.js";
+import { splitAgentCommand } from "../core/util/cli-args.js";
+import { stripSecretArgs } from "./execution-backend/agent.js";
+import { AgentDelegationConfig } from "./execution-backend/types.js";
 
 export const AGENT_CONFIG_SCHEMA_VERSION = 1;
 
@@ -131,7 +131,7 @@ function detectAgentFromPath(env: NodeJS.ProcessEnv = process.env): string | und
 }
 
 function builtinAgentTemplates(): Record<string, string> {
-  const agentsDir = path.join(__dirname, "..", "..", "scripts", "agents");
+  const agentsDir = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
   const manifest = JSON.parse(fs.readFileSync(path.join(agentsDir, "builtin-templates.json"), "utf8")) as {
     templates?: Record<string, string>;
   };

@@ -1,45 +1,37 @@
-"use strict";
 // shell/worker-cli.ts — `cw worker list|show|manifest|output|fail|validate`
 // (and the mirrored cw_worker_* MCP tools) handler bodies, routing into
 // the worker-isolation shell. Impure: loads run state, mutates, persists.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.workerListCli = workerListCli;
-exports.workerShowCli = workerShowCli;
-exports.workerManifestCli = workerManifestCli;
-exports.workerOutputCli = workerOutputCli;
-exports.workerFailCli = workerFailCli;
-exports.workerValidateCli = workerValidateCli;
-const cli_args_1 = require("../core/util/cli-args");
-const run_store_1 = require("./run-store");
-const worker_isolation_1 = require("./worker-isolation");
-const dispatch_1 = require("../core/pipeline/dispatch");
-const drive_1 = require("./drive");
-const commit_1 = require("./commit");
-const report_1 = require("./report");
-const operator_ux_1 = require("./operator-ux");
-const agent_config_1 = require("./agent-config");
+import { cwdArg, requireArg } from "../core/util/cli-args.js";
+import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store.js";
+import { getWorkerScope, listWorkerScopes, writeWorkerManifest, recordWorkerOutput, recordWorkerFailure, validateWorkerBoundary, } from "./worker-isolation.js";
+import { updatePhaseStatuses } from "../core/pipeline/dispatch.js";
+import { maybeExpandLoop } from "./drive.js";
+import { commitState } from "./commit.js";
+import { writeReport } from "./report.js";
+import { summarizeRun } from "./operator-ux.js";
+import { resolveAgentConfig } from "./agent-config.js";
 /** `--allow-unattested` (CLI: dashed key; MCP: allowUnattested). */
 function allowUnattestedOption(args) {
     return Boolean(args.allowUnattested ?? args["allow-unattested"]);
 }
-function workerListCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
-    return (0, worker_isolation_1.listWorkerScopes)(run, { status: typeof args.status === "string" ? args.status : undefined });
+export function workerListCli(args) {
+    const run = loadRunFromCwd(requireArg(args.runId, "run id"), cwdArg(args));
+    return listWorkerScopes(run, { status: typeof args.status === "string" ? args.status : undefined });
 }
-function workerShowCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
-    const scope = (0, worker_isolation_1.getWorkerScope)(run, (0, cli_args_1.requireArg)(args.workerId, "worker id"));
+export function workerShowCli(args) {
+    const run = loadRunFromCwd(requireArg(args.runId, "run id"), cwdArg(args));
+    const scope = getWorkerScope(run, requireArg(args.workerId, "worker id"));
     if (!scope)
         throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
     return scope;
 }
-function workerManifestCli(args) {
-    return (0, run_store_1.withRunStateLock)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
-        const scope = (0, worker_isolation_1.getWorkerScope)(run, (0, cli_args_1.requireArg)(args.workerId, "worker id"));
+export function workerManifestCli(args) {
+    return withRunStateLock(requireArg(args.runId, "run id"), cwdArg(args), (run) => {
+        const scope = getWorkerScope(run, requireArg(args.workerId, "worker id"));
         if (!scope)
             throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
-        const manifest = (0, worker_isolation_1.writeWorkerManifest)(run, scope);
-        (0, run_store_1.saveCheckpoint)(run);
+        const manifest = writeWorkerManifest(run, scope);
+        saveCheckpoint(run);
         return manifest;
     });
 }
@@ -52,41 +44,41 @@ function workerManifestCli(args) {
  *  Callers (run-export / the golden-path smoke) read the RunSummary's
  *  tasks.completed, workers.byStatus, and loopStage. The drive loop does these
  *  same steps itself around the bare accept, so it never routes through here. */
-function workerOutputCli(args) {
-    return (0, run_store_1.withRunStateLock)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
-        (0, worker_isolation_1.recordWorkerOutput)(run, (0, cli_args_1.requireArg)(args.workerId, "worker id"), (0, cli_args_1.requireArg)(args.resultPath, "result file"), {
-            requireAttestedTelemetry: (0, agent_config_1.resolveAgentConfig)(args).requireAttestedTelemetry,
+export function workerOutputCli(args) {
+    return withRunStateLock(requireArg(args.runId, "run id"), cwdArg(args), (run) => {
+        recordWorkerOutput(run, requireArg(args.workerId, "worker id"), requireArg(args.resultPath, "result file"), {
+            requireAttestedTelemetry: resolveAgentConfig(args).requireAttestedTelemetry,
             allowUnattested: allowUnattestedOption(args),
         });
         run.loopStage = "observe";
-        (0, dispatch_1.updatePhaseStatuses)(run);
-        (0, drive_1.maybeExpandLoop)(run);
-        (0, commit_1.commitState)(run, `worker:${(0, cli_args_1.requireArg)(args.workerId, "worker id")}:result`);
-        (0, report_1.writeReport)(run);
-        (0, run_store_1.saveCheckpoint)(run);
-        return (0, operator_ux_1.summarizeRun)(run);
+        updatePhaseStatuses(run);
+        maybeExpandLoop(run);
+        commitState(run, `worker:${requireArg(args.workerId, "worker id")}:result`);
+        writeReport(run);
+        saveCheckpoint(run);
+        return summarizeRun(run);
     });
 }
-function workerFailCli(args) {
-    return (0, run_store_1.withRunStateLock)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
-        const message = String(args.message || (0, cli_args_1.requireArg)(args.resultPath, "failure message"));
-        const scope = (0, worker_isolation_1.recordWorkerFailure)(run, (0, cli_args_1.requireArg)(args.workerId, "worker id"), message, {
+export function workerFailCli(args) {
+    return withRunStateLock(requireArg(args.runId, "run id"), cwdArg(args), (run) => {
+        const message = String(args.message || requireArg(args.resultPath, "failure message"));
+        const scope = recordWorkerFailure(run, requireArg(args.workerId, "worker id"), message, {
             code: typeof args.code === "string" ? args.code : undefined,
             path: typeof args.path === "string" ? args.path : undefined,
             retryable: args.retryable !== undefined ? Boolean(args.retryable) : undefined,
         });
-        (0, run_store_1.saveCheckpoint)(run);
+        saveCheckpoint(run);
         return scope;
     });
 }
 /** validate returns the boundary violation (null when the write path is
  *  allowed) and signals a violation through a non-zero exit code, not just
  *  stdout — a validate verb must report an invalid verdict via its exit code. */
-function workerValidateCli(args) {
-    return (0, run_store_1.withRunStateLock)((0, cli_args_1.requireArg)(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
+export function workerValidateCli(args) {
+    return withRunStateLock(requireArg(args.runId, "run id"), cwdArg(args), (run) => {
         const target = args.path || args.resultPath;
-        const violation = (0, worker_isolation_1.validateWorkerBoundary)(run, (0, cli_args_1.requireArg)(args.workerId, "worker id"), target ? { path: String(target) } : {});
-        (0, run_store_1.saveCheckpoint)(run);
+        const violation = validateWorkerBoundary(run, requireArg(args.workerId, "worker id"), target ? { path: String(target) } : {});
+        saveCheckpoint(run);
         return { violation, exitCode: violation ? 1 : undefined };
     });
 }

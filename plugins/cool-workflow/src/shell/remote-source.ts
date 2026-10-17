@@ -16,7 +16,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { resolveCwHome } from "./agent-config";
+import { resolveCwHome } from "./agent-config.js";
 
 /** Upper bound on a downloaded archive (200 MiB) — a review target should be source, not a
  *  binary blob; a giant download fails closed rather than exhausting disk/memory. */

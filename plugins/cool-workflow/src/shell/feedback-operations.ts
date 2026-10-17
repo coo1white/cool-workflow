@@ -2,9 +2,9 @@
 // collect / list / show / create-task / resolve: thin wrappers over the
 // error-feedback-io primitives that also refresh the report + persist.
 
-import { WorkflowRun } from "../core/state/types";
-import { ErrorFeedbackRecord } from "../core/pipeline/error-feedback";
-import { writeReport } from "./report";
+import { WorkflowRun } from "../core/state/types.js";
+import { ErrorFeedbackRecord } from "../core/pipeline/error-feedback.js";
+import { writeReport } from "./report.js";
 import {
   collectRunErrors,
   createCorrectionTask,
@@ -13,7 +13,7 @@ import {
   resolveFeedback as resolveFeedbackRecord,
   CreateCorrectionTaskOptions,
   ListFeedbackOptions,
-} from "./error-feedback-io";
+} from "./error-feedback-io.js";
 
 export function collectFeedback(run: WorkflowRun): ErrorFeedbackRecord[] {
   const collected = collectRunErrors(run);

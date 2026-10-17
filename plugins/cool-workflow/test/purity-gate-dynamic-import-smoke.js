@@ -87,4 +87,12 @@ function specsOf(code) {
   }
 }
 
+// 6. An ES module loads a builtin lazily with process.getBuiltinModule();
+//    the scan must see that name too, or a core/ file could reach node:fs
+//    past the builtin ratchet.
+{
+  const specs = specsOf('const fs = process.getBuiltinModule("node:fs");');
+  assert.ok(specs.includes("node:fs"), "process.getBuiltinModule(\"node:fs\") must be reported by extractSpecifiers");
+}
+
 process.stdout.write("purity-gate-dynamic-import-smoke: ok\n");

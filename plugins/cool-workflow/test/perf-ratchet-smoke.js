@@ -17,6 +17,14 @@
 const assert = require("node:assert/strict");
 const path = require("node:path");
 
+// The module count reads module.registerHooks (Node 22.15+). Below that the
+// hook refuses to count, so this smoke says so and stops; CI runs Node 22
+// (newest) and 24, where it runs in full.
+if (typeof require("node:module").registerHooks !== "function") {
+  process.stdout.write(`perf-ratchet-smoke: skipped (module.registerHooks needs Node 22.15 or later; this is ${process.versions.node})\n`);
+  process.exit(0);
+}
+
 const { compare, measure, readCeilings } = require(path.join(__dirname, "..", "scripts", "bench", "perf-counts.js"));
 
 // 1. The real counts against the committed ceilings.

@@ -1,4 +1,3 @@
-"use strict";
 // shell/run-registry-io.ts — the on-disk run registry: index/queue/history
 // persistence, lifecycle derivation, search/resume/archive/rerun.
 //
@@ -11,71 +10,14 @@
 //
 // Evidence: SPEC/scheduling-registry.md sections C, D (partial: policy
 // constant), H.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RunRegistry = exports.runLifecycle = exports.DEFAULT_RUN_REGISTRY_POLICY = exports.RUN_REGISTRY_SCHEMA_VERSION = void 0;
-exports.compareBytes = compareBytes;
-exports.compareRecords = compareRecords;
-exports.compareHistory = compareHistory;
-exports.compareQueue = compareQueue;
-exports.matchesQuery = matchesQuery;
-exports.distinctBackends = distinctBackends;
-exports.digestInputs = digestInputs;
-exports.countRecords = countRecords;
-exports.optionalLower = optionalLower;
-exports.clampInt = clampInt;
-exports.queueId = queueId;
-exports.isRunLifecycleState = isRunLifecycleState;
-exports.loadReclaimedFromDir = loadReclaimedFromDir;
-exports.deriveLifecycle = deriveLifecycle;
-exports.resolveCwHome = resolveCwHome;
-exports.humanBytes = humanBytes;
-exports.formatRegistryReport = formatRegistryReport;
-exports.formatRunSearch = formatRunSearch;
-exports.formatRunShow = formatRunShow;
-exports.formatResume = formatResume;
-exports.formatHistory = formatHistory;
-exports.formatQueueList = formatQueueList;
-const fs = __importStar(require("node:fs"));
-const os = __importStar(require("node:os"));
-const path = __importStar(require("node:path"));
-const fs_atomic_1 = require("./fs-atomic");
-const run_store_1 = require("./run-store");
-const hash_1 = require("../core/hash");
-exports.RUN_REGISTRY_SCHEMA_VERSION = 1;
-exports.DEFAULT_RUN_REGISTRY_POLICY = {
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { assertSafeRunId, readJson, withFileLock, writeJson } from "./fs-atomic.js";
+import { assertNotSuspectedDataLoss, loadRunStateFile, rebindRunPaths } from "./run-store.js";
+import { fingerprintStrings } from "../core/hash.js";
+export const RUN_REGISTRY_SCHEMA_VERSION = 1;
+export const DEFAULT_RUN_REGISTRY_POLICY = {
     schemaVersion: 1,
     archiveOlderThanDays: 0,
     archiveStates: ["completed", "failed"],
@@ -92,27 +34,27 @@ exports.DEFAULT_RUN_REGISTRY_POLICY = {
 // Pure helpers
 // ---------------------------------------------------------------------------
 /** Simple byte (UTF-16 code-unit) comparator. */
-function compareBytes(a, b) {
+export function compareBytes(a, b) {
     return a < b ? -1 : a > b ? 1 : 0;
 }
-function compareRecords(a, b) {
+export function compareRecords(a, b) {
     if (a.createdAt !== b.createdAt)
         return a.createdAt < b.createdAt ? -1 : 1;
     return compareBytes(a.runId, b.runId);
 }
-function compareHistory(a, b) {
+export function compareHistory(a, b) {
     if (a.createdAt !== b.createdAt)
         return a.createdAt < b.createdAt ? 1 : -1;
     return compareBytes(a.runId, b.runId);
 }
-function compareQueue(a, b) {
+export function compareQueue(a, b) {
     if (a.priority !== b.priority)
         return a.priority - b.priority;
     if (a.enqueuedAt !== b.enqueuedAt)
         return a.enqueuedAt < b.enqueuedAt ? -1 : 1;
     return compareBytes(a.id, b.id);
 }
-function matchesQuery(record, query) {
+export function matchesQuery(record, query) {
     if (query.app && !(record.appId || record.workflowId || "").toLowerCase().includes(query.app))
         return false;
     if (query.status && record.lifecycle !== query.status && record.derivedLifecycle !== query.status)
@@ -143,7 +85,7 @@ function matchesQuery(record, query) {
     return true;
 }
 const DIGEST_PRIORITY_KEYS = ["question", "prompt", "task", "summary", "title", "objective", "focus", "topic"];
-function distinctBackends(run) {
+export function distinctBackends(run) {
     const backends = new Set();
     for (const dispatch of run.dispatches || []) {
         if (dispatch.backendId)
@@ -155,7 +97,7 @@ function distinctBackends(run) {
     }
     return [...backends].sort();
 }
-function digestInputs(inputs) {
+export function digestInputs(inputs) {
     if (!inputs || typeof inputs !== "object")
         return undefined;
     const keys = Object.keys(inputs);
@@ -174,7 +116,7 @@ function digestInputs(inputs) {
     const joined = parts.join(" ").replace(/\s+/g, " ").trim();
     return joined.length > 360 ? `${joined.slice(0, 357)}...` : joined;
 }
-function countRecords(records) {
+export function countRecords(records) {
     const counts = {
         total: records.length,
         queued: 0,
@@ -190,12 +132,12 @@ function countRecords(records) {
     }
     return counts;
 }
-function optionalLower(value) {
+export function optionalLower(value) {
     if (value === undefined || value === null || value === "")
         return undefined;
     return String(value).toLowerCase();
 }
-function clampInt(value, fallback, min) {
+export function clampInt(value, fallback, min) {
     const n = Number(value);
     if (!Number.isFinite(n))
         return fallback;
@@ -213,7 +155,7 @@ let queueCounter = 0;
  *  earlier-completed `queue add` — same process or not — has already
  *  saved); bumping past any collision against that real, shared state
  *  keeps ids unique across processes without changing the format. */
-function queueId(existingIds) {
+export function queueId(existingIds) {
     const stamp = new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
     let candidate;
     do {
@@ -222,14 +164,14 @@ function queueId(existingIds) {
     } while (existingIds && existingIds.has(candidate));
     return candidate;
 }
-function isRunLifecycleState(value) {
+export function isRunLifecycleState(value) {
     return (typeof value === "string" &&
         ["queued", "running", "blocked", "completed", "failed", "archived", "reclaimed"].includes(value));
 }
 /** Read a run dir's `reclaimed.json` overlay. Fail-OPEN to an empty chain
  *  on absence/corruption — a malformed overlay must never brick the run
  *  (SPEC/scheduling-registry.md "Rebuild risks" #1). */
-function loadReclaimedFromDir(runDir) {
+export function loadReclaimedFromDir(runDir) {
     const file = path.join(runDir, "reclaimed.json");
     if (!fs.existsSync(file))
         return { schemaVersion: 1, runId: "", tombstones: [] };
@@ -263,11 +205,11 @@ function fingerprintRun(run) {
     for (const fb of [...(run.feedback || [])].sort((a, b) => compareBytes(a.id, b.id))) {
         parts.push(`feedback:${fb.id}:${fb.status}`);
     }
-    return (0, hash_1.fingerprintStrings)(parts);
+    return fingerprintStrings(parts);
 }
 /** Classify a run's lifecycle purely from its source state. First match
  *  wins, per SPEC/scheduling-registry.md section C. */
-function deriveLifecycle(input) {
+export function deriveLifecycle(input) {
     if (input.running > 0)
         return "running";
     if (input.openFeedback > 0)
@@ -296,14 +238,13 @@ function lifecycleInputs(run) {
     };
 }
 /** The one lifecycle word for a run, the same one the registry derives. */
-const runLifecycle = (run) => deriveLifecycle(lifecycleInputs(run));
-exports.runLifecycle = runLifecycle;
+export const runLifecycle = (run) => deriveLifecycle(lifecycleInputs(run));
 // ---------------------------------------------------------------------------
 // Home registry location
 // ---------------------------------------------------------------------------
 /** Resolve the home registry root: CW_HOME, then XDG_STATE_HOME/
  *  cool-workflow, then ~/.local/state/cool-workflow. */
-function resolveCwHome(env = process.env) {
+export function resolveCwHome(env = process.env) {
     if (env.CW_HOME && String(env.CW_HOME).trim())
         return path.resolve(String(env.CW_HOME));
     if (env.XDG_STATE_HOME && String(env.XDG_STATE_HOME).trim()) {
@@ -320,7 +261,7 @@ function requireOverlayObject(parsed, file) {
 // ---------------------------------------------------------------------------
 // The registry
 // ---------------------------------------------------------------------------
-class RunRegistry {
+export class RunRegistry {
     repoRoot;
     homeRoot;
     planner;
@@ -342,21 +283,21 @@ class RunRegistry {
         const file = path.join(this.repoRegistryDir(repo), "archive.json");
         if (!fs.existsSync(file))
             return { schemaVersion: 1, archived: {} };
-        const parsed = requireOverlayObject((0, fs_atomic_1.readJson)(file), file);
+        const parsed = requireOverlayObject(readJson(file), file);
         return { schemaVersion: 1, archived: parsed.archived || {} };
     }
     loadProvenanceOverlay(repo) {
         const file = path.join(this.repoRegistryDir(repo), "provenance.json");
         if (!fs.existsSync(file))
             return { schemaVersion: 1, links: {} };
-        const parsed = requireOverlayObject((0, fs_atomic_1.readJson)(file), file);
+        const parsed = requireOverlayObject(readJson(file), file);
         return { schemaVersion: 1, links: parsed.links || {} };
     }
     loadRepoOverlays(repo) {
         return { archive: this.loadArchiveOverlay(repo), provenance: this.loadProvenanceOverlay(repo) };
     }
     get defaultQueuePriority() {
-        return exports.DEFAULT_RUN_REGISTRY_POLICY.defaultQueuePriority;
+        return DEFAULT_RUN_REGISTRY_POLICY.defaultQueuePriority;
     }
     reposFilePath() {
         return path.join(this.homeRegistryDir(), "repos.json");
@@ -365,7 +306,7 @@ class RunRegistry {
         const file = this.reposFilePath();
         if (!fs.existsSync(file))
             return { schemaVersion: 1, repos: [] };
-        const parsed = requireOverlayObject((0, fs_atomic_1.readJson)(file), file);
+        const parsed = requireOverlayObject(readJson(file), file);
         return { schemaVersion: 1, repos: Array.isArray(parsed.repos) ? parsed.repos : [] };
     }
     knownRepos() {
@@ -377,13 +318,13 @@ class RunRegistry {
     registerRepo(repo = this.repoRoot) {
         const resolved = path.resolve(repo);
         const file = this.reposFilePath();
-        return (0, fs_atomic_1.withFileLock)(file, () => {
+        return withFileLock(file, () => {
             const current = this.loadRepos();
             const already = current.repos.some((entry) => path.resolve(entry.root) === resolved);
             if (!already)
                 current.repos.push({ root: resolved, addedAt: new Date().toISOString() });
             current.repos.sort((a, b) => compareBytes(a.root, b.root));
-            (0, fs_atomic_1.writeJson)(file, current, { durable: true });
+            writeJson(file, current, { durable: true });
             return { registered: !already, repos: current.repos.map((entry) => entry.root) };
         });
     }
@@ -400,7 +341,7 @@ class RunRegistry {
         // shape (entries not an array) must not read as an empty queue, or the
         // next queueAdd would write a fresh file over the broken one, losing
         // what it held. Never write over bytes we could not read.
-        const parsed = (0, fs_atomic_1.readJson)(file);
+        const parsed = readJson(file);
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
             throw new Error(`Corrupt queue ${file}: expected a JSON object, got ${Array.isArray(parsed) ? "array" : parsed === null ? "null" : typeof parsed}`);
         }
@@ -411,14 +352,14 @@ class RunRegistry {
         return queue.entries;
     }
     saveQueueEntries(entries) {
-        (0, fs_atomic_1.writeJson)(this.queueFilePath(), { schemaVersion: 1, entries }, { durable: true });
+        writeJson(this.queueFilePath(), { schemaVersion: 1, entries }, { durable: true });
     }
     schedulingPolicyPath() {
         return path.join(this.homeRegistryDir(), "scheduling-policy.json");
     }
     queueAdd(options = {}) {
         const repo = options.repo ? path.resolve(options.repo) : this.repoRoot;
-        return (0, fs_atomic_1.withFileLock)(this.queueFilePath(), () => {
+        return withFileLock(this.queueFilePath(), () => {
             const entries = this.loadQueueEntries();
             const entry = {
                 schemaVersion: 1,
@@ -459,7 +400,7 @@ class RunRegistry {
     queueDrain(options = {}) {
         const limit = clampInt(options.limit, 1, 1);
         const repoFilter = options.repo ? path.resolve(options.repo) : undefined;
-        return (0, fs_atomic_1.withFileLock)(this.queueFilePath(), () => {
+        return withFileLock(this.queueFilePath(), () => {
             const entries = this.loadQueueEntries();
             const drainable = entries
                 .filter((e) => e.status === "pending" || e.status === "ready")
@@ -484,7 +425,7 @@ class RunRegistry {
             return null;
         let run;
         try {
-            const result = (0, run_store_1.loadRunStateFile)(statePath, { dryRun: true });
+            const result = loadRunStateFile(statePath, { dryRun: true });
             if (result.report.status === "unsupported")
                 return null;
             // Bulk scans (refreshRegistry, below) call deriveRecord directly and
@@ -493,7 +434,7 @@ class RunRegistry {
             // (deriveRecordForRun, below) re-check this same condition WITHOUT
             // swallowing it, so `cw run show`/`archive`/`rerun` on THIS run
             // specifically get a clear reason instead of a misleading "not found."
-            (0, run_store_1.assertNotSuspectedDataLoss)(path.basename(runDir), result);
+            assertNotSuspectedDataLoss(path.basename(runDir), result);
             run = result.run;
         }
         catch {
@@ -582,7 +523,7 @@ class RunRegistry {
         }
         records.sort(compareRecords);
         const queue = scope === "home" ? this.loadQueueEntries() : this.loadQueueEntries().filter((q) => path.resolve(q.repo) === this.repoRoot);
-        const sourceFingerprint = (0, hash_1.fingerprintStrings)([
+        const sourceFingerprint = fingerprintStrings([
             ...repos.map((r) => `repo:${r}`),
             ...records.map((r) => `${r.runId}:${r.sourceFingerprint}:${r.lifecycle}`),
         ]);
@@ -608,7 +549,7 @@ class RunRegistry {
         if (!fs.existsSync(file))
             return undefined;
         try {
-            const parsed = (0, fs_atomic_1.readJson)(file);
+            const parsed = readJson(file);
             if (!parsed || parsed.schemaVersion !== 1)
                 return undefined;
             return parsed;
@@ -621,14 +562,14 @@ class RunRegistry {
         const scope = options.scope || "repo";
         this.registerRepo(this.repoRoot);
         const index = this.buildIndex(scope);
-        (0, fs_atomic_1.writeJson)(this.persistedIndexPath(scope), index);
+        writeJson(this.persistedIndexPath(scope), index);
         if (scope === "repo") {
             // index.records is already exactly this repo's fresh records (scope
             // "repo" only ever scans this.repoRoot) -- reuse them instead of
             // scanning the same run directory a second time for the home index,
             // which knownRepos() always includes this.repoRoot in.
             const homeIndex = this.buildIndex("home", { repo: this.repoRoot, records: index.records });
-            (0, fs_atomic_1.writeJson)(this.persistedIndexPath("home"), homeIndex);
+            writeJson(this.persistedIndexPath("home"), homeIndex);
         }
         return this.report(scope, index);
     }
@@ -743,7 +684,7 @@ class RunRegistry {
         };
     }
     locate(runId, scope) {
-        (0, fs_atomic_1.assertSafeRunId)(runId);
+        assertSafeRunId(runId);
         const here = this.deriveRecordForRun(this.repoRoot, runId);
         if (here)
             return { record: here, from: "repo" };
@@ -777,11 +718,11 @@ class RunRegistry {
         // resolve to null like everywhere else, never a raw "File not found"
         // exception surfacing from this fallback re-read.
         try {
-            const result = (0, run_store_1.loadRunStateFile)(statePath, { dryRun: true });
+            const result = loadRunStateFile(statePath, { dryRun: true });
             if (result.report.status === "unsupported") {
                 throw new Error(`Run state for ${runId} is corrupt (fail closed): ${result.report.errors.join("; ") || "unsupported run state"}. Restore ${statePath} from a backup, or remove the run directory to start over.`);
             }
-            (0, run_store_1.assertNotSuspectedDataLoss)(runId, result);
+            assertNotSuspectedDataLoss(runId, result);
             return record;
         }
         catch (error) {
@@ -800,17 +741,17 @@ class RunRegistry {
         return undefined;
     }
     loadRun(repo, runId) {
-        (0, fs_atomic_1.assertSafeRunId)(runId);
+        assertSafeRunId(runId);
         const statePath = path.join(this.repoRunsDir(repo), runId, "state.json");
         if (!fs.existsSync(statePath))
             throw new Error(`Run not found: ${runId}`);
-        const result = (0, run_store_1.loadRunStateFile)(statePath, { dryRun: true });
+        const result = loadRunStateFile(statePath, { dryRun: true });
         if (result.report.status === "unsupported") {
             throw new Error(`Unsupported run state for ${runId}: ${result.report.errors.join("; ")}`);
         }
         // Stored paths are never trusted as write targets (see loadRunFromCwd).
-        (0, run_store_1.rebindRunPaths)(result.run, path.resolve(path.dirname(statePath)));
-        (0, run_store_1.assertNotSuspectedDataLoss)(runId, result);
+        rebindRunPaths(result.run, path.resolve(path.dirname(statePath)));
+        assertNotSuspectedDataLoss(runId, result);
         return result.run;
     }
     resume(runId, options = {}) {
@@ -878,7 +819,7 @@ class RunRegistry {
             throw new Error(`Cannot archive: run ${runId} not found in source state (fail closed).`);
         const repo = located.record.repo;
         const file = path.join(this.repoRegistryDir(repo), "archive.json");
-        (0, fs_atomic_1.withFileLock)(file, () => {
+        withFileLock(file, () => {
             const overlay = this.loadArchiveOverlay(repo);
             if (options.unarchive) {
                 delete overlay.archived[runId];
@@ -886,7 +827,7 @@ class RunRegistry {
             else {
                 overlay.archived[runId] = { archivedAt: new Date().toISOString(), reason: options.reason };
             }
-            (0, fs_atomic_1.writeJson)(file, overlay, { durable: true });
+            writeJson(file, overlay, { durable: true });
         });
         // deriveRecordForRun (not a bare deriveRecord(...)!) so a run that
         // became corrupt/unsupported/suspected-data-loss in the narrow window
@@ -906,7 +847,7 @@ class RunRegistry {
             overlayPath: file,
         };
     }
-    archiveByPolicy(policy = exports.DEFAULT_RUN_REGISTRY_POLICY, options = {}) {
+    archiveByPolicy(policy = DEFAULT_RUN_REGISTRY_POLICY, options = {}) {
         const scope = options.scope || "home";
         if (!policy.archiveOlderThanDays || policy.archiveOlderThanDays <= 0) {
             return { policy, archived: [], eligible: 0 };
@@ -945,10 +886,10 @@ class RunRegistry {
             createdAt: new Date().toISOString(),
         };
         const provFile = path.join(this.repoRegistryDir(original.repo), "provenance.json");
-        (0, fs_atomic_1.withFileLock)(provFile, () => {
+        withFileLock(provFile, () => {
             const provOverlay = this.loadProvenanceOverlay(original.repo);
             provOverlay.links[newRun.id] = provenance;
-            (0, fs_atomic_1.writeJson)(provFile, provOverlay, { durable: true });
+            writeJson(provFile, provOverlay, { durable: true });
         });
         const newAppMeta = newRun.workflow.app;
         return {
@@ -1010,11 +951,10 @@ class RunRegistry {
         };
     }
 }
-exports.RunRegistry = RunRegistry;
 // ---------------------------------------------------------------------------
 // Human formatting (CLI-only; never affects --json/MCP payloads)
 // ---------------------------------------------------------------------------
-function humanBytes(n) {
+export function humanBytes(n) {
     if (n < 1024)
         return `${n}B`;
     const units = ["KiB", "MiB", "GiB"];
@@ -1035,7 +975,7 @@ function recordLine(record) {
         .join(" ");
     return `  [${record.lifecycle}] ${record.runId} (${record.appId || record.workflowId}) ${record.loopStage}${flags ? ` {${flags}}` : ""}`;
 }
-function formatRegistryReport(report) {
+export function formatRegistryReport(report) {
     const lines = [];
     lines.push(`Run Registry (${report.scope}): ${report.root}`);
     lines.push(`Freshness: ${report.freshness.status}${report.freshness.staleRuns.length ? ` (stale: ${report.freshness.staleRuns.join(", ")})` : ""}${report.freshness.missingRuns.length ? ` (missing: ${report.freshness.missingRuns.join(", ")})` : ""}`);
@@ -1045,7 +985,7 @@ function formatRegistryReport(report) {
         lines.push(`Next Action: ${report.nextAction}`);
     return lines.join("\n");
 }
-function formatRunSearch(result) {
+export function formatRunSearch(result) {
     const lines = [];
     lines.push(`Run Search (${result.scope}): ${result.total} match(es), showing ${result.records.length} [offset ${result.offset}] freshness=${result.freshness}`);
     for (const record of result.records)
@@ -1054,7 +994,7 @@ function formatRunSearch(result) {
         lines.push("  (no matching runs)");
     return lines.join("\n");
 }
-function formatRunShow(result) {
+export function formatRunShow(result) {
     if (!result.found) {
         return `Run ${result.runId}: MISSING (source state.json absent — fail closed). Next: ${result.nextAction}`;
     }
@@ -1074,7 +1014,7 @@ function formatRunShow(result) {
     }
     return lines.join("\n");
 }
-function formatResume(result) {
+export function formatResume(result) {
     const lines = [
         `Resume ${result.runId} [${result.lifecycle}] loopStage=${result.loopStage} (resolved from ${result.resolvedFrom}, ${result.freshness})`,
         `  resumable=${result.resumable} nextTasks=${result.nextTasks.length}`,
@@ -1091,7 +1031,7 @@ function formatResume(result) {
         lines.push(`  -> ${action.command}\n     ${action.reason}`);
     return lines.join("\n");
 }
-function formatHistory(result) {
+export function formatHistory(result) {
     const lines = [];
     lines.push(`Run History (${result.scope}): ${result.total} run(s) across ${result.repos.length} repo(s), freshness=${result.freshness}`);
     for (const entry of result.entries) {
@@ -1101,7 +1041,7 @@ function formatHistory(result) {
         lines.push("  (no runs)");
     return lines.join("\n");
 }
-function formatQueueList(result) {
+export function formatQueueList(result) {
     const lines = [`Run Queue: ${result.total} entry(ies) [priority asc]`];
     for (const entry of result.entries) {
         lines.push(`  #${entry.priority} ${entry.id} [${entry.status}] ${entry.appId || entry.workflowId || entry.runId || "?"} repo=${entry.repo}${entry.note ? ` note=${entry.note}` : ""}`);

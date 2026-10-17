@@ -25,8 +25,8 @@
 // Evidence: SPEC/state-core.md "validation module — persisted-record shape
 // guards", "Fail-closed record reads".
 
-import { NodeReplayRun, NodeSnapshot, NodeSnapshotBody, NodeSnapshotFreshness, StateNodeError } from "./types";
-import { isRecord } from "../util/cli-args";
+import { NodeReplayRun, NodeSnapshot, NodeSnapshotBody, NodeSnapshotFreshness, StateNodeError } from "./types.js";
+import { isRecord } from "../util/cli-args.js";
 
 function isString(value: unknown): value is string {
   return typeof value === "string";

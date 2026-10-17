@@ -1,45 +1,8 @@
-"use strict";
 // shell/perf-trace.ts — opt-in cold-path timing evidence for the benchmark
 // runner. This is not a product log: it is off unless CW_BENCH_TRACE_FILE is
 // set by scripts/bench/run.js, and it writes one JSON report when the drive
 // process ends. Normal CLI and MCP work do not see it.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.withPerfTraceGroup = withPerfTraceGroup;
-exports.recordPerfDurableWrite = recordPerfDurableWrite;
-const fs = __importStar(require("node:fs"));
+import * as fs from "node:fs";
 const TRACE_FILE = process.env.CW_BENCH_TRACE_FILE || "";
 const groups = new Map();
 const scopes = [];
@@ -60,7 +23,7 @@ function elapsedMs(startedAt) {
 /** Run synchronous work as one named benchmark group. Nested work is kept in
  * the parent duration, but removed from its self time. That lets the report
  * show dispatch work apart from its agent wait without changing call order. */
-function withPerfTraceGroup(name, fn) {
+export function withPerfTraceGroup(name, fn) {
     if (!enabled())
         return fn();
     const scope = { name, startedAt: process.hrtime.bigint(), childMs: 0, durableWriteCount: 0, durableWriteBytes: 0 };
@@ -90,7 +53,7 @@ function withPerfTraceGroup(name, fn) {
     }
 }
 /** Count a completed durable file write in the active benchmark group. */
-function recordPerfDurableWrite(bytes) {
+export function recordPerfDurableWrite(bytes) {
     if (!enabled())
         return;
     const active = scopes[scopes.length - 1];

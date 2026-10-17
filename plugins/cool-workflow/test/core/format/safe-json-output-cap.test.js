@@ -101,9 +101,9 @@ const pluginRoot = path.resolve(__dirname, "..", "..", "..");
 // process before the control process writes the JSON-RPC reply.
 {
   const ioSrc = fs.readFileSync(path.join(pluginRoot, "dist", "cli", "io.js"), "utf8");
-  assert.match(ioSrc, /safeJsonStringify\)\(value\)/, "cli/io.js's printJson must call safeJsonStringify");
+  assert.match(ioSrc, /\bsafeJsonStringify\(value\)/, "cli/io.js's printJson must call safeJsonStringify");
   const toolProcessSrc = fs.readFileSync(path.join(pluginRoot, "dist", "mcp", "tool-process.js"), "utf8");
-  assert.match(toolProcessSrc, /safeJsonStringify\)\(result\)/, "mcp/tool-process.js must call safeJsonStringify before IPC");
+  assert.match(toolProcessSrc, /\bsafeJsonStringify\(result\)/, "mcp/tool-process.js must call safeJsonStringify before IPC");
 }
 
 process.stdout.write("safe-json-output-cap: ok\n");

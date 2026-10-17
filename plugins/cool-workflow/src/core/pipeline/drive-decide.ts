@@ -11,10 +11,10 @@
 // internals a rebuild must copy", "`--incremental` and the result
 // cache".
 
-import { RunTask, WorkflowRun } from "../state/types";
-import { firstRunnablePhase, runnableTaskIds } from "./dispatch";
-import { stableStringify, sha256 } from "../hash";
-import { isVerdictTaskId } from "../trust/evidence-grounding";
+import { RunTask, WorkflowRun } from "../state/types.js";
+import { firstRunnablePhase, runnableTaskIds } from "./dispatch.js";
+import { stableStringify, sha256 } from "../hash.js";
+import { isVerdictTaskId } from "../trust/evidence-grounding.js";
 
 export const DRIVE_SCHEMA_VERSION = 1;
 export const MAX_SUB_WORKFLOW_DEPTH = 4;

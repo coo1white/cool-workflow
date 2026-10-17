@@ -12,20 +12,20 @@
 // so byte content there is unaffected; cli-color-env.case.js exercises
 // the FORCE_COLOR/NO_COLOR/CW_NO_COLOR branches explicitly.
 
-import { parseArgv } from "./parseargv";
-import { dispatch } from "./dispatch";
-import { formatCommandHelp } from "../core/format/help";
-import { suggestCommand } from "./parseargv";
-import { findCapability } from "../core/capability-table";
-import type { CliHandlerResult } from "../core/capability-data";
-import { bold, dim, red } from "../shell/term";
-import { styledHelp } from "./io";
-import { recoveryHint } from "../core/format/recovery-hint";
+import { parseArgv } from "./parseargv.js";
+import { dispatch } from "./dispatch.js";
+import { formatCommandHelp } from "../core/format/help.js";
+import { suggestCommand } from "./parseargv.js";
+import { findCapability } from "../core/capability-table.js";
+import type { CliHandlerResult } from "../core/capability-data.js";
+import { bold, dim, red } from "../shell/term.js";
+import { styledHelp } from "./io.js";
+import { recoveryHint } from "../core/format/recovery-hint.js";
 
 // recoveryHint lives in core/format/recovery-hint.ts (so mcp/server.ts
 // can use it without crossing the mcp/-may-never-import-cli/ layer rule);
 // re-exported here for importers of `recoveryHint` from this file.
-export { recoveryHint } from "../core/format/recovery-hint";
+export { recoveryHint } from "../core/format/recovery-hint.js";
 
 /** `version` is a pure projection of the capability table's `version`
  *  row — its print text lives in one place (the cli handler), not a second

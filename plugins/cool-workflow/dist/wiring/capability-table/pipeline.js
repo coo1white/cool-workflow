@@ -1,11 +1,11 @@
-"use strict";
 // wiring/capability-table/pipeline.ts — CLI bindings for plan, run.drive*,
 // dispatch, result, commit, commit.summary, and run.export/import/
 // verify-import/inspect-archive/restore.
-Object.defineProperty(exports, "__esModule", { value: true });
-const registry_core_1 = require("./registry-core");
-const cli_args_1 = require("../../core/util/cli-args");
-const cli_args_2 = require("../../core/util/cli-args");
+import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
+import { required } from "../../core/util/cli-args.js";
+import { optionalArg } from "../../core/util/cli-args.js";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 // CLI bindings:
 // plan, quickstart, run --drive, run drive (preview), dispatch, result,
 // commit. Handler BODIES live in shell/pipeline-cli.ts (impure — they
@@ -17,16 +17,16 @@ const cli_args_2 = require("../../core/util/cli-args");
 // a top-level import of pipeline-cli/commit-summary would cost every
 // invocation, not just plan/run/dispatch/result/commit/commit.summary ones.
 function loadPipelineCli() {
-    return require("../../shell/pipeline-cli");
+    return require("../../shell/pipeline-cli.js");
 }
 function loadCommitSummary() {
-    return require("../../shell/commit-summary");
+    return require("../../shell/commit-summary.js");
 }
-(0, registry_core_1.attachCliBinding)("plan", {
+attachCliBinding("plan", {
     path: ["plan"],
     jsonMode: "default",
     handler: (args) => {
-        const workflowId = (0, cli_args_2.optionalArg)(args.positionals[0]);
+        const workflowId = optionalArg(args.positionals[0]);
         if (!workflowId) {
             throw new Error('Missing workflow id.\n  Tip: plan an architecture review with "cw plan architecture-review"');
         }
@@ -41,7 +41,7 @@ function loadCommitSummary() {
 // (run.drive.step) is found first by findCapabilityByCliPath's linear
 // scan, so its handler carries the full branch — the second row exists
 // only so `cw help run` lists both capabilities.
-(0, registry_core_1.attachCliBinding)("run.drive.step", {
+attachCliBinding("run.drive.step", {
     path: ["run"],
     // NOTE: the doubled "cw run drive" command column (this row + run.drive's
     // preview row below) is pinned by SPEC/cli-probe.md "Odd things" item 5,
@@ -54,7 +54,7 @@ function loadCommitSummary() {
         const registrySubcommands = new Set(["drive", "search", "list", "show", "resume", "archive", "rerun", "export", "import", "verify-import", "inspect-archive", "restore"]);
         const target = args.positionals[0];
         if (args.options.drive && !registrySubcommands.has(String(target || ""))) {
-            const runId = (0, cli_args_2.optionalArg)(args.options.run) || (0, cli_args_2.optionalArg)(args.options.runId);
+            const runId = optionalArg(args.options.run) || optionalArg(args.options.runId);
             if (args.options.preview)
                 return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: runId || target }) };
             const driveArgs = { ...args.options };
@@ -72,28 +72,28 @@ function loadCommitSummary() {
                     driveArgs.runId = id;
                 return { json: await loadPipelineCli().runDriveStep(driveArgs) };
             }
-            return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: (0, cli_args_1.required)(id, "run id") }) };
+            return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: required(id, "run id") }) };
         }
         // The archive family. Handler bodies live in shell/run-export-cli.ts;
         // this arm only wires argv shape -> handler call.
         if (subcommand === "export") {
-            const result = loadRunExportCli().runExportCli((0, cli_args_1.required)(id, "run id"), args.options);
+            const result = loadRunExportCli().runExportCli(required(id, "run id"), args.options);
             return { json: result };
         }
         if (subcommand === "import") {
-            const result = loadRunExportCli().runImportCli((0, cli_args_1.required)(id, "archive path"), args.options);
+            const result = loadRunExportCli().runImportCli(required(id, "archive path"), args.options);
             return { json: result };
         }
         if (subcommand === "verify-import") {
-            const result = loadRunExportCli().runVerifyImportCli((0, cli_args_1.required)(id, "run id"), args.options);
+            const result = loadRunExportCli().runVerifyImportCli(required(id, "run id"), args.options);
             return { json: result, exitCode: args.options.strict && !result.ok ? 1 : undefined };
         }
         if (subcommand === "inspect-archive") {
-            const result = loadRunExportCli().runInspectArchiveCli((0, cli_args_1.required)(id, "archive path"), args.options);
+            const result = loadRunExportCli().runInspectArchiveCli(required(id, "archive path"), args.options);
             return { json: result, exitCode: result.ok ? undefined : 1 };
         }
         if (subcommand === "restore") {
-            const result = loadRunExportCli().runRestoreCli((0, cli_args_1.required)(id, "archive path"), args.options);
+            const result = loadRunExportCli().runRestoreCli(required(id, "archive path"), args.options);
             return { json: result, exitCode: result.ok ? undefined : 1 };
         }
         throw new Error("Usage: cw run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive|restore [run-id|archive] [--scope repo|home] [--json]  |  cw run <app> --drive [--once] [--incremental] [--repo R --question Q]");
@@ -106,7 +106,7 @@ function loadCommitSummary() {
 // run.drive.step's combined switch — serves `cw run drive <run-id>`
 // [--step], making run.drive a real both-surface, dual-bound capability
 // for the payload-identity probe.
-(0, registry_core_1.attachCliBinding)("run.drive", {
+attachCliBinding("run.drive", {
     path: ["run", "drive"],
     jsonMode: "default",
     handler: async (args) => {
@@ -117,11 +117,11 @@ function loadCommitSummary() {
                 driveArgs.runId = id;
             return { json: await loadPipelineCli().runDriveStep(driveArgs) };
         }
-        return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: (0, cli_args_1.required)(id, "run id") }) };
+        return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: required(id, "run id") }) };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive").mcp.handler = (args) => loadPipelineCli().runDrivePreview(args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive.step").mcp.handler = (args) => loadPipelineCli().runDriveStep(args);
+REGISTRY_BY_CAPABILITY.get("run.drive").mcp.handler = (args) => loadPipelineCli().runDrivePreview(args);
+REGISTRY_BY_CAPABILITY.get("run.drive.step").mcp.handler = (args) => loadPipelineCli().runDriveStep(args);
 // `cw help run` prints TWO "cw run drive" rows — the doubling itself is
 // pinned by SPEC/cli-probe.md "Odd things" item 5, so the command column
 // and the row count must not change. Each summary ends with the exact
@@ -129,29 +129,29 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive.step").mcp.handler = (args
 // Help-page-only: `summary` is overridden on the Capability row,
 // `mcp.description` (the tools/list byte surface) is already captured by
 // buildMcpBinding and stays untouched.
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive").summary =
+REGISTRY_BY_CAPABILITY.get("run.drive").summary =
     "Preview the next agent-delegation drive step for a run (read-only, deterministic). Use: cw run drive <run-id>.";
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive.step").summary =
+REGISTRY_BY_CAPABILITY.get("run.drive.step").summary =
     "Drive a run by delegating each worker to the agent backend (plan->dispatch->fulfill->accept->commit; --once for one step). Use: cw run <app> --drive.";
 // PARITY: `run.drive.step` advances the run by spawning the external
 // agent per worker and recording attested output — not a read probe.
 // CLI (--drive/--step) and MCP route through the same drive() core; the
 // opt-out is the documented divergence, not undocumented drift.
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive.step").payloadIdentical = false;
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive.step").reason =
+REGISTRY_BY_CAPABILITY.get("run.drive.step").payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("run.drive.step").reason =
     "Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core.";
-registry_core_1.REGISTRY_BY_CAPABILITY.get("plan").mcp.handler = (args) => loadPipelineCli().planRun(args);
+REGISTRY_BY_CAPABILITY.get("plan").mcp.handler = (args) => loadPipelineCli().planRun(args);
 // dispatchRun reads the sandbox profile from `args.sandbox` only (the
 // CLI's --sandbox flag). The cw_dispatch MCP tool also accepts the
 // `sandboxProfile`/`sandboxProfileId` aliases (its declared properties), so
 // normalize them onto `sandbox` here before handing off.
-registry_core_1.REGISTRY_BY_CAPABILITY.get("dispatch").mcp.handler = (args) => loadPipelineCli().dispatchRun({ ...args, sandbox: args.sandbox ?? args.sandboxProfile ?? args.sandboxProfileId });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("result").mcp.handler = (args) => loadPipelineCli().recordResultRun(args);
+REGISTRY_BY_CAPABILITY.get("dispatch").mcp.handler = (args) => loadPipelineCli().dispatchRun({ ...args, sandbox: args.sandbox ?? args.sandboxProfile ?? args.sandboxProfileId });
+REGISTRY_BY_CAPABILITY.get("result").mcp.handler = (args) => loadPipelineCli().recordResultRun(args);
 // `cw_commit` returns the FLAT commit envelope (verifierGated/checkpoint/
 // verifierNodeId/… at the top level, plus a nested `commit`). `commitRun`
 // (CLI shape) returns `{ runId, commit }`; lift the commit's key fields to
 // the top for the MCP surface.
-registry_core_1.REGISTRY_BY_CAPABILITY.get("commit").mcp.handler = (args) => {
+REGISTRY_BY_CAPABILITY.get("commit").mcp.handler = (args) => {
     const result = loadPipelineCli().commitRun(args);
     const commit = result.commit || {};
     return {
@@ -173,74 +173,74 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("commit").mcp.handler = (args) => {
 // the parity payload probe (core/capability-table.ts's
 // payloadIdenticalCapabilities) skips it with a paper trail instead of
 // tripping on an undocumented divergence.
-registry_core_1.REGISTRY_BY_CAPABILITY.get("commit").payloadIdentical = false;
-registry_core_1.REGISTRY_BY_CAPABILITY.get("commit").reason =
+REGISTRY_BY_CAPABILITY.get("commit").payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("commit").reason =
     "Both surfaces route through the single core entry runner.commit. The CLI emits the raw StateCommitResult for scripting (commit.id, commit.evidence, commit.gate); cw_commit emits the operator commit envelope (commitId, verifierGated, checkpoint, evidenceCount, snapshotPath, nextActions, plus the raw result under `commit`). Declared projection, not drift.";
 // run.export/import/verify-import/inspect-archive/restore MCP handlers:
 // these tools are called directly by name over MCP, so each needs its own
 // mcp.handler. Same lazy-load reasoning as loadPipelineCli/loadCommitSummary
 // above.
 function loadRunExportCli() {
-    return require("../../shell/run-export-cli");
+    return require("../../shell/run-export-cli.js");
 }
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.export").mcp.handler = (args) => loadRunExportCli().runExportCli((0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.runId), "run id"), args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.import").mcp.handler = (args) => loadRunExportCli().runImportCli((0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.verify-import").mcp.handler = (args) => loadRunExportCli().runVerifyImportCli((0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.runId), "run id"), args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.inspect-archive").mcp.handler = (args) => loadRunExportCli().runInspectArchiveCli((0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
-registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) => loadRunExportCli().runRestoreCli((0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.archive || args.path || args.file), "archive path"), args);
+REGISTRY_BY_CAPABILITY.get("run.export").mcp.handler = (args) => loadRunExportCli().runExportCli(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("run.import").mcp.handler = (args) => loadRunExportCli().runImportCli(required(optionalArg(args.archive || args.path || args.file), "archive path"), args);
+REGISTRY_BY_CAPABILITY.get("run.verify-import").mcp.handler = (args) => loadRunExportCli().runVerifyImportCli(required(optionalArg(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("run.inspect-archive").mcp.handler = (args) => loadRunExportCli().runInspectArchiveCli(required(optionalArg(args.archive || args.path || args.file), "archive path"), args);
+REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) => loadRunExportCli().runRestoreCli(required(optionalArg(args.archive || args.path || args.file), "archive path"), args);
 // `run export|import|verify-import|inspect-archive|restore` each carry their
 // own two-token cli.path (found before the ["run"] run.drive.step catch-all
 // per the reversed candidate order), calling the same shell fns with the
 // same [subcommand, id] positional mapping and exit-code shape the catch-all
 // switch already used. `hiddenFromHelp` keeps the byte-pinned `cw help run`
 // fixture's rows coming from the single literal COMMAND_HELP_ROWS.run block.
-(0, registry_core_1.attachCliBinding)("run.export", {
+attachCliBinding("run.export", {
     path: ["run", "export"],
     jsonMode: "default",
     hiddenFromHelp: true,
-    handler: (args) => ({ json: loadRunExportCli().runExportCli((0, cli_args_1.required)(args.positionals[0], "run id"), args.options) }),
+    handler: (args) => ({ json: loadRunExportCli().runExportCli(required(args.positionals[0], "run id"), args.options) }),
 });
-(0, registry_core_1.attachCliBinding)("run.import", {
+attachCliBinding("run.import", {
     path: ["run", "import"],
     jsonMode: "default",
     hiddenFromHelp: true,
-    handler: (args) => ({ json: loadRunExportCli().runImportCli((0, cli_args_1.required)(args.positionals[0], "archive path"), args.options) }),
+    handler: (args) => ({ json: loadRunExportCli().runImportCli(required(args.positionals[0], "archive path"), args.options) }),
 });
-(0, registry_core_1.attachCliBinding)("run.verify-import", {
+attachCliBinding("run.verify-import", {
     path: ["run", "verify-import"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: (args) => {
-        const result = loadRunExportCli().runVerifyImportCli((0, cli_args_1.required)(args.positionals[0], "run id"), args.options);
+        const result = loadRunExportCli().runVerifyImportCli(required(args.positionals[0], "run id"), args.options);
         return { json: result, exitCode: args.options.strict && !result.ok ? 1 : undefined };
     },
 });
-(0, registry_core_1.attachCliBinding)("run.inspect-archive", {
+attachCliBinding("run.inspect-archive", {
     path: ["run", "inspect-archive"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: (args) => {
-        const result = loadRunExportCli().runInspectArchiveCli((0, cli_args_1.required)(args.positionals[0], "archive path"), args.options);
+        const result = loadRunExportCli().runInspectArchiveCli(required(args.positionals[0], "archive path"), args.options);
         return { json: result, exitCode: result.ok ? undefined : 1 };
     },
 });
-(0, registry_core_1.attachCliBinding)("run.restore", {
+attachCliBinding("run.restore", {
     path: ["run", "restore"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: (args) => {
-        const result = loadRunExportCli().runRestoreCli((0, cli_args_1.required)(args.positionals[0], "archive path"), args.options);
+        const result = loadRunExportCli().runRestoreCli(required(args.positionals[0], "archive path"), args.options);
         return { json: result, exitCode: result.ok ? undefined : 1 };
     },
 });
-(0, registry_core_1.addCliOnlyCapability)("quickstart", "ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).", {
+addCliOnlyCapability("quickstart", "ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).", {
     path: ["quickstart"],
     // `audit-run` is a CLI-only alias that dispatches to the same quickstart
     // wrapper.
     caseTokens: ["quickstart", "audit-run"],
     jsonMode: "default",
     handler: async (args) => {
-        const appId = (0, cli_args_2.optionalArg)(args.positionals[0]);
+        const appId = optionalArg(args.positionals[0]);
         const result = (await loadPipelineCli().quickstartRun({ ...args.options, appId }));
         // Fail closed on both known bad outcomes: a --check preflight that
         // found a blocking gap, OR a --bundle that did not self-verify.
@@ -265,43 +265,43 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
         { name: "--fast", summary: "Answer one question with 6 workers in place of 14." },
     ],
 }, "quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer). `audit-run` is a CLI-only alias of the same wrapper.", "quickstart");
-(0, registry_core_1.attachCliBinding)("dispatch", {
+attachCliBinding("dispatch", {
     path: ["dispatch"],
     jsonMode: "default",
     handler: (args) => {
-        const runId = (0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.positionals[0]), "run id");
+        const runId = required(optionalArg(args.positionals[0]), "run id");
         return { json: loadPipelineCli().dispatchRun({ ...args.options, runId }) };
     },
 });
-(0, registry_core_1.attachCliBinding)("result", {
+attachCliBinding("result", {
     path: ["result"],
     jsonMode: "default",
     handler: (args) => {
-        const runId = (0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.positionals[0]), "run id");
-        const taskId = (0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.positionals[1]), "task id");
-        const resultPath = (0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.positionals[2]), "result file path");
+        const runId = required(optionalArg(args.positionals[0]), "run id");
+        const taskId = required(optionalArg(args.positionals[1]), "task id");
+        const resultPath = required(optionalArg(args.positionals[2]), "result file path");
         return { json: loadPipelineCli().recordResultRun({ ...args.options, runId, taskId, resultPath }) };
     },
 });
-(0, registry_core_1.attachCliBinding)("commit", {
+attachCliBinding("commit", {
     path: ["commit"],
     jsonMode: "default",
     handler: (args) => {
-        const runId = (0, cli_args_1.required)((0, cli_args_2.optionalArg)(args.positionals[0]), "run id");
+        const runId = required(optionalArg(args.positionals[0]), "run id");
         return { json: loadPipelineCli().commitRun({ ...args.options, runId }) };
     },
 });
 // `cw commit summary <run-id>` (CLI + help row), next to the
 // cw_commit_summary MCP tool. Path ["commit","summary"] is 2 tokens;
 // dispatch consumes 1, so positionals[0] is the run id.
-(0, registry_core_1.attachCliBinding)("commit.summary", {
+attachCliBinding("commit.summary", {
     path: ["commit", "summary"],
     jsonMode: "flag",
     handler: (args) => {
         const commitSummary = loadCommitSummary();
-        const summary = commitSummary.commitSummaryCli({ ...args.options, runId: (0, cli_args_1.required)(args.positionals[0], "run id") });
+        const summary = commitSummary.commitSummaryCli({ ...args.options, runId: required(args.positionals[0], "run id") });
         return { json: summary, text: `${commitSummary.formatCommitSummaryText(summary)}\n` };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("commit.summary").mcp.handler = (args) => loadCommitSummary().commitSummaryCli(args);
+REGISTRY_BY_CAPABILITY.get("commit.summary").mcp.handler = (args) => loadCommitSummary().commitSummaryCli(args);
 // ---------------------------------------------------------------------

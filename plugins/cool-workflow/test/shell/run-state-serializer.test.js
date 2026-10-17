@@ -8,6 +8,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 const { serializeRunState, saveCheckpoint, createRun } = require("../../dist/shell/run-store");
@@ -130,12 +131,15 @@ same({ a: [[1, [2]], { b: [] }] }, "nested arrays");
       const first = Buffer.concat(buffers).subarray(0, 7);
       return writev.call(fs, fd, [first]);
     };
+    syncBuiltinESMExports();
     const file = path.join(work, "state.json");
     writePartsDurable(file, parts, { durable: true });
     fs.writevSync = writev;
+    syncBuiltinESMExports();
     assert.deepEqual(fs.readFileSync(file), Buffer.concat(parts), "every byte written, in order");
   } finally {
     fs.writevSync = writev;
+    syncBuiltinESMExports();
     fs.rmSync(work, { recursive: true, force: true });
   }
 }

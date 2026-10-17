@@ -9,15 +9,15 @@
 //
 // Evidence: SPEC/reporting-ux.md "Operator UX human text".
 
-import { dim } from "./term";
+import { dim } from "./term.js";
 import {
   OperatorFeedbackSummary,
   OperatorGraph,
   OperatorRecommendation,
   OperatorRunSummary,
   RunSummary,
-} from "./operator-ux";
-import { stableCompare } from "../core/util/collate";
+} from "./operator-ux.js";
+import { stableCompare } from "../core/util/collate.js";
 
 function formatCounts(counts: Record<string, number>): string {
   const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));

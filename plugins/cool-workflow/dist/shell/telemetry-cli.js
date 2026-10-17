@@ -1,28 +1,25 @@
-"use strict";
 // shell/telemetry-cli.ts — CLI/MCP-reachable body for `cw telemetry
 // verify`.
 //
 // Evidence: SPEC/ledger-trust.md "CLI: `cw telemetry verify`", "`cw
 // telemetry verify` JSON".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.telemetryVerifyCli = telemetryVerifyCli;
-const cli_args_1 = require("../core/util/cli-args");
-const telemetry_attestation_1 = require("../core/trust/telemetry-attestation");
-const run_store_1 = require("./run-store");
-const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
-function telemetryVerifyCli(runId, args) {
+import { cwdArg, optionalArg } from "../core/util/cli-args.js";
+import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation.js";
+import { loadRunFromCwd } from "./run-store.js";
+import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+export function telemetryVerifyCli(runId, args) {
     if (!runId)
         throw new Error("telemetry verify requires a run id (cw telemetry verify <run-id>)");
-    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
-    const v = (0, telemetry_ledger_io_1.verifyTelemetryLedger)(run);
+    const run = loadRunFromCwd(runId, cwdArg(args));
+    const v = verifyTelemetryLedger(run);
     // Opt-in independent signature re-verification: supplying the trust
     // public key (--pubkey / CW_AGENT_ATTEST_PUBKEY) additionally RE-RUNS
     // the ed25519 check over each `attested` record's stored raw usage
     // rather than trusting that verdict.
-    const trustPublicKeyInput = (0, cli_args_1.optionalArg)(args.pubkey || args.pubKey || args.publicKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
-    const trustPublicKey = (0, telemetry_attestation_1.resolveTrustPublicKey)(trustPublicKeyInput);
+    const trustPublicKeyInput = optionalArg(args.pubkey || args.pubKey || args.publicKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+    const trustPublicKey = resolveTrustPublicKey(trustPublicKeyInput);
     const keyChecks = trustPublicKeyInput && !trustPublicKey ? [{ name: "signature-key", pass: false, code: "telemetry-pubkey-unreadable" }] : [];
-    const sig = (0, telemetry_attestation_1.verifyTelemetrySignatures)(v.records, trustPublicKey);
+    const sig = verifyTelemetrySignatures(v.records, trustPublicKey);
     const failedChecks = [...v.checks.filter((c) => !c.pass), ...keyChecks, ...sig.checks.filter((c) => !c.pass)];
     // Model-identity tally over the run's workers. The label comes only from
     // the worker's usage record; a worker without one is "absent" — the model

@@ -117,7 +117,9 @@ function stripComments(text) {
 // real parser. The dynamic-import form matters because a core/ file could
 // otherwise smuggle in an impure or cross-layer module through
 // `await import("node:fs")` — the one import shape the static and require
-// scans did not see, so the ratchet was blind to it.
+// scans did not see, so the ratchet was blind to it. Since src/ is ES
+// modules, a lazy builtin load is `process.getBuiltinModule("node:fs")`;
+// that names a module too, so it is read the same way.
 function extractSpecifiers(codeText) {
   const specs = [];
   const fromRe = /(?:^|\n)\s*(?:import|export)\s[\s\S]*?from\s+["']([^"']+)["']/g;
@@ -127,6 +129,8 @@ function extractSpecifiers(codeText) {
   while ((m = requireRe.exec(codeText))) specs.push(m[1]);
   const dynamicImportRe = /import\(\s*["']([^"']+)["']\s*\)/g;
   while ((m = dynamicImportRe.exec(codeText))) specs.push(m[1]);
+  const builtinRe = /getBuiltinModule\(\s*["']([^"']+)["']\s*\)/g;
+  while ((m = builtinRe.exec(codeText))) specs.push(m[1]);
   return specs;
 }
 

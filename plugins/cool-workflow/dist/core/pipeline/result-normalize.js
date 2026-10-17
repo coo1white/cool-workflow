@@ -1,15 +1,10 @@
-"use strict";
 // core/pipeline/result-normalize.ts — normalizeResultEnvelope,
 // isEmptyCapture.
 //
 // Pure (no fs/clock/random).
 //
 // Evidence: SPEC/pipeline-run.md "Result ingest — result-normalize module".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.normalizeResultEnvelope = normalizeResultEnvelope;
-exports.firstNonEmptyLine = firstNonEmptyLine;
-exports.isEmptyCapture = isEmptyCapture;
-const evidence_grounding_1 = require("../trust/evidence-grounding");
+import { isGroundedEvidence } from "../trust/evidence-grounding.js";
 const FINDING_ARRAY_KEYS = [
     "findings",
     "candidate_risks",
@@ -27,7 +22,7 @@ const FINDING_EVIDENCE_KEYS = ["evidence", "evidence_paths", "evidencePaths", "l
 const CLASSIFICATIONS = new Set(["real", "conditional", "non-issue", "unknown"]);
 const TOP_LEVEL_EVIDENCE_CAP = 256;
 const PER_FINDING_EVIDENCE_CAP = 32;
-function normalizeResultEnvelope(markdown) {
+export function normalizeResultEnvelope(markdown) {
     const match = markdown.match(/```cw:result\s*([\s\S]*?)```/);
     if (!match) {
         return { summary: firstNonEmptyLine(markdown), findings: [], evidence: harvestGrounded([markdown], TOP_LEVEL_EVIDENCE_CAP) };
@@ -118,7 +113,7 @@ function collect(value, acc) {
         return;
     if (typeof value === "string") {
         const v = value.trim();
-        if (v && !/\s/.test(v) && (0, evidence_grounding_1.isGroundedEvidence)(v))
+        if (v && !/\s/.test(v) && isGroundedEvidence(v))
             acc.push(v);
         else
             for (const tok of locatorsFromText(v))
@@ -142,7 +137,7 @@ function locatorsFromText(text) {
     LOCATOR_RE.lastIndex = 0;
     while ((m = LOCATOR_RE.exec(text))) {
         const tok = (m[1] || m[2] || m[3] || "").trim();
-        if (tok && (0, evidence_grounding_1.isGroundedEvidence)(tok))
+        if (tok && isGroundedEvidence(tok))
             out.push(tok);
     }
     return out;
@@ -158,13 +153,13 @@ function pickString(obj, keys) {
     }
     return undefined;
 }
-function firstNonEmptyLine(markdown) {
+export function firstNonEmptyLine(markdown) {
     return (markdown
         .split(/\r?\n/)
         .map((line) => line.trim())
         .find((line) => line && !line.startsWith("#") && !line.startsWith("```")) || "");
 }
 /** True when an accepted result captured no structured signal at all. */
-function isEmptyCapture(envelope) {
+export function isEmptyCapture(envelope) {
     return (envelope.findings?.length || 0) === 0 && (envelope.evidence?.length || 0) === 0;
 }

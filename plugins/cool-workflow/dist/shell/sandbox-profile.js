@@ -1,65 +1,14 @@
-"use strict";
 // shell/sandbox-profile.ts — the 4 bundled sandbox profiles, resolution,
 // validation, and the runtime read/write/command/network checks.
 //
 // Evidence: SPEC/execution-backend.md "Sandbox profiles".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SandboxProfileError = exports.DEFAULT_SANDBOX_PROFILE_ID = exports.SANDBOX_PROFILE_SCHEMA_VERSION = void 0;
-exports.bundledSandboxProfileIds = bundledSandboxProfileIds;
-exports.listBundledSandboxProfiles = listBundledSandboxProfiles;
-exports.showBundledSandboxProfile = showBundledSandboxProfile;
-exports.resolveSandboxProfileById = resolveSandboxProfileById;
-exports.resolveSandboxProfile = resolveSandboxProfile;
-exports.validateSandboxProfileFile = validateSandboxProfileFile;
-exports.validateSandboxProfileDefinition = validateSandboxProfileDefinition;
-exports.effectiveSandboxWritePaths = effectiveSandboxWritePaths;
-exports.sandboxPolicyForWorker = sandboxPolicyForWorker;
-exports.validateSandboxWrite = validateSandboxWrite;
-exports.validateSandboxCommand = validateSandboxCommand;
-exports.validateSandboxNetwork = validateSandboxNetwork;
-exports.sandboxContextForValidation = sandboxContextForValidation;
-exports.sandboxContextForRun = sandboxContextForRun;
-exports.persistCustomSandboxProfile = persistCustomSandboxProfile;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const fs_atomic_1 = require("./fs-atomic");
-const cli_args_1 = require("../core/util/cli-args");
-exports.SANDBOX_PROFILE_SCHEMA_VERSION = 1;
-exports.DEFAULT_SANDBOX_PROFILE_ID = "default";
-class SandboxProfileError extends Error {
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { isContainedPath, realResolve } from "./fs-atomic.js";
+import { messageOf } from "../core/util/cli-args.js";
+export const SANDBOX_PROFILE_SCHEMA_VERSION = 1;
+export const DEFAULT_SANDBOX_PROFILE_ID = "default";
+export class SandboxProfileError extends Error {
     code;
     path;
     details;
@@ -71,10 +20,9 @@ class SandboxProfileError extends Error {
         this.details = options.details;
     }
 }
-exports.SandboxProfileError = SandboxProfileError;
 const BUNDLED_PROFILE_DEFINITIONS = [
     {
-        schemaVersion: exports.SANDBOX_PROFILE_SCHEMA_VERSION,
+        schemaVersion: SANDBOX_PROFILE_SCHEMA_VERSION,
         id: "default",
         title: "Default Worker Boundary",
         description: "Preserves existing CW worker isolation: workers may read the workspace and write only accepted worker output paths unless additional allowedPaths are supplied.",
@@ -90,7 +38,7 @@ const BUNDLED_PROFILE_DEFINITIONS = [
         ],
     },
     {
-        schemaVersion: exports.SANDBOX_PROFILE_SCHEMA_VERSION,
+        schemaVersion: SANDBOX_PROFILE_SCHEMA_VERSION,
         id: "readonly",
         title: "Readonly Workspace",
         description: "Workers may read the workspace and write only worker-local output paths accepted by CW.",
@@ -106,7 +54,7 @@ const BUNDLED_PROFILE_DEFINITIONS = [
         ],
     },
     {
-        schemaVersion: exports.SANDBOX_PROFILE_SCHEMA_VERSION,
+        schemaVersion: SANDBOX_PROFILE_SCHEMA_VERSION,
         id: "workspace-write",
         title: "Workspace Write",
         description: "Workers may read and write the workspace, plus worker-local output paths.",
@@ -122,7 +70,7 @@ const BUNDLED_PROFILE_DEFINITIONS = [
         ],
     },
     {
-        schemaVersion: exports.SANDBOX_PROFILE_SCHEMA_VERSION,
+        schemaVersion: SANDBOX_PROFILE_SCHEMA_VERSION,
         id: "locked-down",
         title: "Locked Down",
         description: "Workers may read only their input and write only the primary result file. Command, network, and inherited environment access are denied by policy.",
@@ -138,16 +86,16 @@ const BUNDLED_PROFILE_DEFINITIONS = [
         ],
     },
 ];
-function bundledSandboxProfileIds() {
+export function bundledSandboxProfileIds() {
     return BUNDLED_PROFILE_DEFINITIONS.map((profile) => profile.id).sort();
 }
 function isBundledSandboxProfileId(id) {
     return BUNDLED_PROFILE_DEFINITIONS.some((profile) => profile.id === id);
 }
-function listBundledSandboxProfiles(context = defaultSandboxContext()) {
+export function listBundledSandboxProfiles(context = defaultSandboxContext()) {
     return BUNDLED_PROFILE_DEFINITIONS.map((profile) => resolveSandboxProfile(profile, context));
 }
-function showBundledSandboxProfile(id, context = defaultSandboxContext()) {
+export function showBundledSandboxProfile(id, context = defaultSandboxContext()) {
     const profile = BUNDLED_PROFILE_DEFINITIONS.find((candidate) => candidate.id === id);
     if (!profile) {
         throw new SandboxProfileError("sandbox-profile-not-found", `Sandbox profile not found: ${id}`, {
@@ -156,8 +104,8 @@ function showBundledSandboxProfile(id, context = defaultSandboxContext()) {
     }
     return resolveSandboxProfile(profile, context);
 }
-function resolveSandboxProfileById(id, context = defaultSandboxContext()) {
-    const requested = id || exports.DEFAULT_SANDBOX_PROFILE_ID;
+export function resolveSandboxProfileById(id, context = defaultSandboxContext()) {
+    const requested = id || DEFAULT_SANDBOX_PROFILE_ID;
     if (isBundledSandboxProfileId(requested))
         return showBundledSandboxProfile(requested, context);
     const absolute = path.resolve(context.cwd, requested);
@@ -181,7 +129,7 @@ function resolveSandboxProfileById(id, context = defaultSandboxContext()) {
     }
     return showBundledSandboxProfile(requested, context);
 }
-function resolveSandboxProfile(profile, context = defaultSandboxContext()) {
+export function resolveSandboxProfile(profile, context = defaultSandboxContext()) {
     const issues = validateSandboxProfileDefinition(profile, context);
     if (issues.length) {
         throw new SandboxProfileError("sandbox-profile-invalid", `Sandbox profile ${profile.id || "(unknown)"} is invalid`, {
@@ -195,7 +143,7 @@ function resolveSandboxProfile(profile, context = defaultSandboxContext()) {
     const network = normalizeNetwork(profile.network);
     const env = normalizeEnv(profile.env);
     return {
-        schemaVersion: exports.SANDBOX_PROFILE_SCHEMA_VERSION,
+        schemaVersion: SANDBOX_PROFILE_SCHEMA_VERSION,
         id: profile.id,
         title: profile.title,
         description: profile.description,
@@ -225,7 +173,7 @@ function resolveSandboxProfile(profile, context = defaultSandboxContext()) {
         metadata: profile.metadata,
     };
 }
-function validateSandboxProfileFile(profileFile, context = defaultSandboxContext()) {
+export function validateSandboxProfileFile(profileFile, context = defaultSandboxContext()) {
     const absolutePath = path.resolve(profileFile);
     const issues = [];
     if (hasTraversal(profileFile)) {
@@ -241,7 +189,7 @@ function validateSandboxProfileFile(profileFile, context = defaultSandboxContext
         profile = JSON.parse(fs.readFileSync(absolutePath, "utf8"));
     }
     catch (error) {
-        issues.push(issue("sandbox-profile-invalid", `Profile file is not valid JSON: ${(0, cli_args_1.messageOf)(error)}`, absolutePath));
+        issues.push(issue("sandbox-profile-invalid", `Profile file is not valid JSON: ${messageOf(error)}`, absolutePath));
         return { valid: false, profileFile: absolutePath, issues };
     }
     if (profile && typeof profile.id === "string" && isBundledSandboxProfileId(profile.id)) {
@@ -253,13 +201,13 @@ function validateSandboxProfileFile(profileFile, context = defaultSandboxContext
         return { valid: false, profileFile: absolutePath, issues };
     return { valid: true, profileFile: absolutePath, issues: [], profile: resolveSandboxProfile(profile, context) };
 }
-function validateSandboxProfileDefinition(profile, context = defaultSandboxContext()) {
+export function validateSandboxProfileDefinition(profile, context = defaultSandboxContext()) {
     const issues = [];
     if (!profile || typeof profile !== "object") {
         return [issue("sandbox-profile-invalid", "Sandbox profile must be a JSON object")];
     }
-    if (profile.schemaVersion !== exports.SANDBOX_PROFILE_SCHEMA_VERSION) {
-        issues.push(issue("sandbox-profile-invalid", `Sandbox profile schemaVersion must be ${exports.SANDBOX_PROFILE_SCHEMA_VERSION}`));
+    if (profile.schemaVersion !== SANDBOX_PROFILE_SCHEMA_VERSION) {
+        issues.push(issue("sandbox-profile-invalid", `Sandbox profile schemaVersion must be ${SANDBOX_PROFILE_SCHEMA_VERSION}`));
     }
     if (!isValidId(profile.id))
         issues.push(issue("sandbox-profile-invalid", `Sandbox profile id is malformed: ${String(profile.id || "")}`));
@@ -272,7 +220,7 @@ function validateSandboxProfileDefinition(profile, context = defaultSandboxConte
     validateEnvironmentPolicy(profile.env, issues);
     return issues;
 }
-function effectiveSandboxWritePaths(policy) {
+export function effectiveSandboxWritePaths(policy) {
     const workerPaths = [
         policy.workerOutput.result ? policy.metadata?.resultPath : undefined,
         policy.workerOutput.artifacts ? policy.metadata?.artifactsDir : undefined,
@@ -280,7 +228,7 @@ function effectiveSandboxWritePaths(policy) {
     ].filter((value) => typeof value === "string" && value.length > 0);
     return uniqueResolvedPaths([...policy.writePaths, ...workerPaths], defaultSandboxContext());
 }
-function sandboxPolicyForWorker(profileId, context) {
+export function sandboxPolicyForWorker(profileId, context) {
     const policy = resolveSandboxProfileById(profileId, context);
     return {
         ...policy,
@@ -296,7 +244,7 @@ function sandboxPolicyForWorker(profileId, context) {
         }),
     };
 }
-function validateSandboxWrite(policy, rawPath, workerId = "") {
+export function validateSandboxWrite(policy, rawPath, workerId = "") {
     const allowedPaths = effectiveSandboxWritePaths(policy);
     const violation = validateSandboxPathAccess("write", policy, rawPath, allowedPaths, workerId);
     if (violation)
@@ -314,13 +262,13 @@ function validateSandboxWrite(policy, rawPath, workerId = "") {
  *  paths) are operator-chosen and keep the follow-both-sides check above. */
 function validateWorkerOutputRealPath(policy, rawPath, allowedPaths, workerId) {
     const candidate = path.resolve(rawPath);
-    if (policy.writePaths.some((allowed) => (0, fs_atomic_1.isContainedPath)(candidate, allowed)))
+    if (policy.writePaths.some((allowed) => isContainedPath(candidate, allowed)))
         return null;
     const runDir = typeof policy.metadata?.runDir === "string" && policy.metadata.runDir ? path.resolve(policy.metadata.runDir) : undefined;
-    const realCandidate = (0, fs_atomic_1.realResolve)(candidate);
+    const realCandidate = realResolve(candidate);
     const insideWorkerPath = workerOutputPaths(policy).some((allowed) => {
         const anchor = runDir && isLexicallyUnder(allowed, runDir) ? runDir : path.dirname(allowed);
-        const realAllowed = path.join((0, fs_atomic_1.realResolve)(anchor), path.relative(anchor, allowed));
+        const realAllowed = path.join(realResolve(anchor), path.relative(anchor, allowed));
         return realCandidate === realAllowed || realCandidate.startsWith(realAllowed + path.sep);
     });
     if (insideWorkerPath)
@@ -340,7 +288,7 @@ function isLexicallyUnder(child, parent) {
     const rel = path.relative(parent, child);
     return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
-function validateSandboxCommand(policy, command, workerId = "") {
+export function validateSandboxCommand(policy, command, workerId = "") {
     const normalized = command.trim();
     if (!normalized || hasControlCharacters(normalized)) {
         return denied("sandbox-command-denied", `Worker ${workerId} command is malformed: ${command}`, undefined, effectiveSandboxWritePaths(policy));
@@ -353,7 +301,7 @@ function validateSandboxCommand(policy, command, workerId = "") {
     }
     return null;
 }
-function validateSandboxNetwork(policy, target, workerId = "") {
+export function validateSandboxNetwork(policy, target, workerId = "") {
     const normalized = target.trim();
     if (!normalized || hasControlCharacters(normalized)) {
         return denied("sandbox-network-denied", `Worker ${workerId} network target is malformed: ${target}`, undefined, effectiveSandboxWritePaths(policy));
@@ -366,7 +314,7 @@ function validateSandboxNetwork(policy, target, workerId = "") {
     }
     return null;
 }
-function sandboxContextForValidation(cwd = process.cwd()) {
+export function sandboxContextForValidation(cwd = process.cwd()) {
     const root = path.resolve(cwd);
     const runDir = path.join(root, ".cw", "runs", "_sandbox-profile-validation");
     const workerDir = path.join(runDir, "workers", "_worker");
@@ -384,7 +332,7 @@ function sandboxContextForValidation(cwd = process.cwd()) {
 // customProfiles so a worker-boundary re-resolve by logical id can find and
 // re-resolve a CUSTOM profile after a scope snapshot is lost — re-resolving
 // against the worker context (not a dispatch-time file path).
-function sandboxContextForRun(run) {
+export function sandboxContextForRun(run) {
     return {
         cwd: run.cwd,
         runDir: run.paths.runDir,
@@ -399,7 +347,7 @@ function sandboxContextForRun(run) {
 // re-resolve. Bundled ids and unknown ids are left untouched, so this never
 // shadows a bundled profile or masks a fail-closed. Throws on an id collision:
 // the same logical id mapped to a DIFFERENT profile file is a caller mistake.
-function persistCustomSandboxProfile(run, requested) {
+export function persistCustomSandboxProfile(run, requested) {
     if (!requested || isBundledSandboxProfileId(requested))
         return;
     const absolute = path.resolve(requested);
@@ -434,7 +382,7 @@ function validateSandboxPathAccess(mode, policy, rawPath, allowedPaths, workerId
         return denied(`sandbox-${mode}-denied`, `Worker ${workerId} ${mode} path is malformed: ${rawPath}`, rawPath, allowedPaths);
     }
     const candidate = path.resolve(rawPath);
-    const insideAllowedPath = allowedPaths.some((allowed) => (0, fs_atomic_1.isContainedPath)(candidate, allowed));
+    const insideAllowedPath = allowedPaths.some((allowed) => isContainedPath(candidate, allowed));
     if (!insideAllowedPath) {
         return denied(`sandbox-${mode}-denied`, `Worker ${workerId} ${mode} path is outside sandbox profile ${policy.id}: ${candidate}`, candidate, allowedPaths);
     }
@@ -468,7 +416,7 @@ function validatePathList(field, values, context, issues) {
             resolveProfilePath(value, context);
         }
         catch (error) {
-            issues.push(issue("sandbox-profile-invalid", (0, cli_args_1.messageOf)(error), value));
+            issues.push(issue("sandbox-profile-invalid", messageOf(error), value));
         }
     }
 }

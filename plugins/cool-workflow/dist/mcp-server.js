@@ -1,10 +1,8 @@
 #!/usr/bin/env node
-"use strict";
 // src/mcp-server.ts — the real MCP server binary entry point. Compiles to
 // dist/mcp-server.js, a sibling of dist/cli.js (scripts/mcp-server.js
 // requires it; a real MCP client launches it directly with `node`).
-Object.defineProperty(exports, "__esModule", { value: true });
-const server_1 = require("./mcp/server");
+import { startServer } from "./mcp/server.js";
 /** Broken-pipe guard for the MCP stdio server, the same idea as
  *  cli/entry.ts's `main()`. When an MCP client closes the read end of our
  *  stdout part-way through a reply, the raw write gives an async 'error'
@@ -26,7 +24,7 @@ function exitQuietOnEpipe(stream) {
 exitQuietOnEpipe(process.stdout);
 exitQuietOnEpipe(process.stderr);
 try {
-    (0, server_1.startServer)();
+    startServer();
 }
 catch (error) {
     const text = error instanceof Error ? error.message : String(error);

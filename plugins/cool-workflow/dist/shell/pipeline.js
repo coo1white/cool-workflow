@@ -1,62 +1,23 @@
-"use strict";
 // shell/pipeline.ts — plan(): the run-lifecycle operation that turns a
 // loaded workflow app + inputs into a full WorkflowRun on disk.
 //
 // Evidence: SPEC/pipeline-run.md's plan() references.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.pureAppendRunNode = exports.writeJson = void 0;
-exports.plan = plan;
-const crypto = __importStar(require("node:crypto"));
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const types_1 = require("../core/state/types");
-const run_paths_1 = require("../core/state/run-paths");
-const migrations_1 = require("../core/state/migrations");
-const state_node_1 = require("../core/state/state-node");
-Object.defineProperty(exports, "pureAppendRunNode", { enumerable: true, get: function () { return state_node_1.appendRunNode; } });
-const contract_1 = require("../core/pipeline/contract");
-const runner_1 = require("../core/pipeline/runner");
-const app_schema_1 = require("../core/workflow-apps/app-schema");
-const fs_atomic_1 = require("./fs-atomic");
-Object.defineProperty(exports, "writeJson", { enumerable: true, get: function () { return fs_atomic_1.writeJson; } });
-const node_store_1 = require("./node-store");
-const run_store_1 = require("./run-store");
-const harness_1 = require("./harness");
-const report_1 = require("./report");
-const commit_1 = require("./commit");
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { APP_CODE_EXECUTION_MODE } from "../core/state/types.js";
+import { createRunPaths } from "../core/state/run-paths.js";
+import { migrateRunState } from "../core/state/migrations.js";
+import { appendRunNode as pureAppendRunNode, createStateNode, upsertRunContract } from "../core/state/state-node.js";
+import { createDefaultPipelineContract } from "../core/pipeline/contract.js";
+import { runPipelineStage } from "../core/pipeline/runner.js";
+import { workflowAppRunMetadata } from "../core/workflow-apps/app-schema.js";
+import { assertSafeRunId, writeJson } from "./fs-atomic.js";
+import { appendRunNode, writeRunNode } from "./node-store.js";
+import { ensureRunDirs, saveCheckpoint } from "./run-store.js";
+import { writeTaskFiles } from "./harness.js";
+import { writeReport } from "./report.js";
+import { commitState } from "./commit.js";
 function isMissing(value) {
     return value === undefined || value === null || value === "";
 }
@@ -129,7 +90,7 @@ function createRunId(workflowId) {
 /** plan(appRecord, options) — creates a brand-new run dir + state.json,
  *  writes task files, plans every task through the pipeline's "plan"
  *  stage, writes the initial report, and commits an initial checkpoint. */
-function plan(app, options) {
+export function plan(app, options) {
     const inputs = normalizeInputs(options);
     for (const declared of app.workflow.inputs || []) {
         if (isMissing(inputs[declared.name]))
@@ -144,11 +105,11 @@ function plan(app, options) {
     // An injected id (`--arg runId=...`, MCP `arg`) names a folder under
     // .cw/runs: refuse anything but one safe path segment (fail closed).
     if (injectedRunId !== undefined)
-        (0, fs_atomic_1.assertSafeRunId)(injectedRunId);
+        assertSafeRunId(injectedRunId);
     const runId = injectedRunId || createRunId(app.workflow.id);
     const runDir = path.join(cwd, ".cw", "runs", runId);
-    const paths = (0, run_paths_1.createRunPaths)(runDir);
-    (0, run_store_1.ensureRunDirs)(paths);
+    const paths = createRunPaths(runDir);
+    ensureRunDirs(paths);
     const tasks = flattenTasks(app, inputs);
     // Stamp a real wall-clock createdAt/updatedAt at plan time (shell layer —
     // clock reads are allowed here). The pure migration defaults a run that
@@ -168,14 +129,14 @@ function plan(app, options) {
             title: app.workflow.title,
             summary: app.workflow.summary || "",
             limits: app.workflow.limits,
-            app: (0, app_schema_1.workflowAppRunMetadata)(app),
+            app: workflowAppRunMetadata(app),
         },
         // Honesty label: `workflow.js` app code runs in-process with full host
         // privileges (workflow-app-loader.ts), never sandboxed like a
         // delegated agent worker — absent only when the loader could not
         // resolve which file it ran (never true for a real app load).
         ...(app.entrypointPath
-            ? { appCode: { path: app.entrypointPath, trustedRoot: Boolean(app.trustedRoot), execution: types_1.APP_CODE_EXECUTION_MODE } }
+            ? { appCode: { path: app.entrypointPath, trustedRoot: Boolean(app.trustedRoot), execution: APP_CODE_EXECUTION_MODE } }
             : {}),
         inputs,
         loopStage: "interpret",
@@ -193,12 +154,12 @@ function plan(app, options) {
         commits: [],
         paths,
     };
-    const { run, report } = (0, migrations_1.migrateRunState)(seed, { statePath: paths.state, dryRun: false });
+    const { run, report } = migrateRunState(seed, { statePath: paths.state, dryRun: false });
     if (report.status === "unsupported")
         throw new Error(`Unsupported CW run state: ${report.errors.join("; ")}`);
-    (0, harness_1.writeTaskFiles)(run);
-    const contract = (0, state_node_1.upsertRunContract)(run, (0, contract_1.createDefaultPipelineContract)());
-    const inputNode = (0, node_store_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
+    writeTaskFiles(run);
+    const contract = upsertRunContract(run, createDefaultPipelineContract());
+    const inputNode = appendRunNode(run, createStateNode({
         id: `${run.id}:input`,
         kind: "input",
         status: "completed",
@@ -206,21 +167,22 @@ function plan(app, options) {
         outputs: run.inputs,
         artifacts: [{ id: "state", kind: "json", path: run.paths.state }],
         contractId: contract.id,
-        metadata: { workflowId: app.workflow.id, app: (0, app_schema_1.workflowAppRunMetadata)(app) },
+        metadata: { workflowId: app.workflow.id, app: workflowAppRunMetadata(app) },
     }));
-    (0, run_store_1.saveCheckpoint)(run);
+    saveCheckpoint(run);
     for (const task of run.tasks) {
-        const taskResult = (0, runner_1.runPipelineStage)(run, "plan", inputNode.id, {
+        const taskResult = runPipelineStage(run, "plan", inputNode.id, {
             outputNodeId: `${run.id}:task:${task.id}`,
             outputStatus: "pending",
             loopStage: "interpret",
             artifacts: [{ id: "task", kind: "markdown", path: task.taskPath }],
             metadata: { workflowId: app.workflow.id, appId: app.id, appVersion: app.version, taskId: task.id, phase: task.phase, taskKind: task.kind, requiresEvidence: task.requiresEvidence, sandboxProfileId: task.sandboxProfileId },
-        }, { persist: false, persistNode: node_store_1.writeRunNode, pathExists: fs.existsSync });
+        }, { persist: false, persistNode: writeRunNode, pathExists: fs.existsSync });
         task.stateNodeId = taskResult.outputNodeId;
     }
-    (0, report_1.writeReport)(run);
-    (0, commit_1.commitState)(run, "initial-plan");
-    (0, run_store_1.saveCheckpoint)(run);
+    writeReport(run);
+    commitState(run, "initial-plan");
+    saveCheckpoint(run);
     return run;
 }
+export { writeJson, pureAppendRunNode };

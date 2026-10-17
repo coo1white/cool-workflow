@@ -1,4 +1,3 @@
-"use strict";
 // core/pipeline/drive-decide.ts — driveStep/driveConcurrentRound's PURE
 // decision core: task selection, terminal/gate logic, token-budget check,
 // retry/park math, cache-key formulas.
@@ -11,74 +10,53 @@
 // Evidence: SPEC/pipeline-run.md "Drive loop — drive module", "Drive
 // internals a rebuild must copy", "`--incremental` and the result
 // cache".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_SCHEDULING_POLICY = exports.AGENT_PARKED_CODE = exports.MAX_SUB_WORKFLOW_DEPTH = exports.DRIVE_SCHEMA_VERSION = void 0;
-exports.makeStep = makeStep;
-exports.selectDriveTask = selectDriveTask;
-exports.countCompleted = countCompleted;
-exports.countParked = countParked;
-exports.reopenableParkedTaskIds = reopenableParkedTaskIds;
-exports.verdictVerifierNodeId = verdictVerifierNodeId;
-exports.exitCodeFromEvidence = exitCodeFromEvidence;
-exports.hasTerminalCommit = hasTerminalCommit;
-exports.terminalOrConfigStep = terminalOrConfigStep;
-exports.retryOrPark = retryOrPark;
-exports.priorAttempts = priorAttempts;
-exports.maxIterations = maxIterations;
-exports.autoWidth = autoWidth;
-exports.roundWidth = roundWidth;
-exports.finalDriveStatus = finalDriveStatus;
-exports.cacheFileName = cacheFileName;
-exports.defaultCacheKey = defaultCacheKey;
-exports.incrementalCacheKey = incrementalCacheKey;
-exports.incrementalDelegationDigest = incrementalDelegationDigest;
-const dispatch_1 = require("./dispatch");
-const hash_1 = require("../hash");
-const evidence_grounding_1 = require("../trust/evidence-grounding");
-exports.DRIVE_SCHEMA_VERSION = 1;
-exports.MAX_SUB_WORKFLOW_DEPTH = 4;
-function makeStep(action, status, fields) {
+import { firstRunnablePhase, runnableTaskIds } from "./dispatch.js";
+import { stableStringify, sha256 } from "../hash.js";
+import { isVerdictTaskId } from "../trust/evidence-grounding.js";
+export const DRIVE_SCHEMA_VERSION = 1;
+export const MAX_SUB_WORKFLOW_DEPTH = 4;
+export function makeStep(action, status, fields) {
     return { schemaVersion: 1, action, status, ...fields };
 }
 /** The task the next drive step would advance: a running task first,
  *  else the next pending task of the first runnable phase (and of any
  *  phase that overlaps it). */
-function selectDriveTask(run) {
-    const taskIds = (0, dispatch_1.runnableTaskIds)(run);
+export function selectDriveTask(run) {
+    const taskIds = runnableTaskIds(run);
     if (!taskIds.size)
         return undefined;
     const phaseTasks = run.tasks.filter((task) => taskIds.has(task.id));
     return phaseTasks.find((task) => task.status === "running") || phaseTasks.find((task) => task.status === "pending");
 }
-function countCompleted(run) {
+export function countCompleted(run) {
     return run.tasks.filter((task) => task.status === "completed").length;
 }
-function countParked(run) {
+export function countParked(run) {
     return run.tasks.filter((task) => task.status === "failed").length;
 }
 /** The error code handleHop records when a worker's agent hop fails past
  *  its retry budget. */
-exports.AGENT_PARKED_CODE = "agent-delegation-parked";
+export const AGENT_PARKED_CODE = "agent-delegation-parked";
 /** The tasks a resume may run again: failed tasks whose worker's LAST
  *  error is the retry-budget park. A worker stopped for any other reason
  *  (a sandbox or boundary violation, a rejected result) stays failed. */
-function reopenableParkedTaskIds(run) {
+export function reopenableParkedTaskIds(run) {
     const workers = run.workers || [];
     return run.tasks
         .filter((task) => {
         if (task.status !== "failed" || !task.workerId)
             return false;
         const errors = workers.find((worker) => worker.id === task.workerId)?.errors || [];
-        return errors.length > 0 && errors[errors.length - 1].code === exports.AGENT_PARKED_CODE;
+        return errors.length > 0 && errors[errors.length - 1].code === AGENT_PARKED_CODE;
     })
         .map((task) => task.id);
 }
 /** The completed verdict/synthesis task's verifierNodeId, if any. */
-function verdictVerifierNodeId(run) {
-    const verdict = run.tasks.find((task) => (0, evidence_grounding_1.isVerdictTaskId)(task.id) && task.status === "completed");
+export function verdictVerifierNodeId(run) {
+    const verdict = run.tasks.find((task) => isVerdictTaskId(task.id) && task.status === "completed");
     return verdict?.verifierNodeId;
 }
-function exitCodeFromEvidence(evidence) {
+export function exitCodeFromEvidence(evidence) {
     const entry = evidence.find((line) => line.startsWith("exitCode:"));
     if (!entry)
         return null;
@@ -87,14 +65,14 @@ function exitCodeFromEvidence(evidence) {
 }
 /** Whether a commit already exists whose reason starts with
  *  "agent-delegation-drive" (the once-only terminal-commit check). */
-function hasTerminalCommit(run) {
+export function hasTerminalCommit(run) {
     return (run.commits || []).some((commit) => commit.reason && commit.reason.startsWith("agent-delegation-drive"));
 }
 /** terminalOrConfigStep's pure decision half. Returns a DriveStep only
  *  for the non-advancing outcomes (terminal commit/complete, blocked
  *  phase, blocked token budget, blocked unconfigured agent); returns
  *  `{kind: undefined}` when there is a ready task to actually process. */
-function terminalOrConfigStep(run, selected, agentConfigured, tokenBudget) {
+export function terminalOrConfigStep(run, selected, agentConfigured, tokenBudget) {
     if (!selected) {
         const allComplete = run.tasks.every((task) => task.status === "completed");
         if (allComplete) {
@@ -132,10 +110,10 @@ function terminalOrConfigStep(run, selected, agentConfigured, tokenBudget) {
     }
     return { kind: undefined };
 }
-exports.DEFAULT_SCHEDULING_POLICY = { maxAttempts: 3 };
+export const DEFAULT_SCHEDULING_POLICY = { maxAttempts: 3 };
 /** `retryOrPark` — adds one attempt; at `attempts >= maxAttempts` parks
  *  with `parkedReason = "<reason> (attempt <n>/<max>)"`. */
-function retryOrPark(priorAttempts, policy, reason) {
+export function retryOrPark(priorAttempts, policy, reason) {
     const attempts = priorAttempts + 1;
     if (attempts >= policy.maxAttempts) {
         return { status: "parked", attempts, parkedReason: `${reason} (attempt ${attempts}/${policy.maxAttempts})` };
@@ -144,7 +122,7 @@ function retryOrPark(priorAttempts, policy, reason) {
 }
 /** `handleHop`'s attempt-accounting rule: prior attempts = max(in-memory
  *  count, the worker scope's persisted retryCount). */
-function priorAttempts(inMemoryAttempts, persistedRetryCount) {
+export function priorAttempts(inMemoryAttempts, persistedRetryCount) {
     return Math.max(inMemoryAttempts, persistedRetryCount);
 }
 // ---------------------------------------------------------------------------
@@ -152,22 +130,22 @@ function priorAttempts(inMemoryAttempts, persistedRetryCount) {
 // ---------------------------------------------------------------------------
 /** `maxIterations = (plannedWorkers + maxLoopExpansion) * (maxAttempts +
  *  1) + 5`. */
-function maxIterations(plannedWorkers, loopExpansion, policy) {
+export function maxIterations(plannedWorkers, loopExpansion, policy) {
     return (plannedWorkers + loopExpansion) * (policy.maxAttempts + 1) + 5;
 }
 /** Round width per iteration: an explicit concurrency > 1 wins; else
  *  autoWidth for a first-runnable parallel phase. */
-function autoWidth(run) {
-    const phase = (0, dispatch_1.firstRunnablePhase)(run);
+export function autoWidth(run) {
+    const phase = firstRunnablePhase(run);
     if (!phase || phase.mode !== "parallel")
         return 1;
     const cap = Math.max(1, Math.floor(run.workflow.limits?.maxConcurrentAgents || 1));
-    return Math.max(1, Math.min(cap, (0, dispatch_1.runnableTaskIds)(run).size));
+    return Math.max(1, Math.min(cap, runnableTaskIds(run).size));
 }
-function roundWidth(run, concurrency) {
+export function roundWidth(run, concurrency) {
     return concurrency && concurrency > 1 ? concurrency : autoWidth(run);
 }
-function finalDriveStatus(inputs) {
+export function finalDriveStatus(inputs) {
     if (inputs.once) {
         if (inputs.completedWorkers === inputs.plannedWorkers && inputs.committed)
             return "complete";
@@ -188,7 +166,7 @@ function finalDriveStatus(inputs) {
 // ---------------------------------------------------------------------------
 /** Cache file path (relative to `<run.cwd>/.cw/cache/worker-results/`).
  *  Actual path join / atomic write is shell-side. */
-function cacheFileName(taskId, digest) {
+export function cacheFileName(taskId, digest) {
     return `${safeFileNamePart(taskId)}-${digest.replace(/^sha256:/, "").slice(0, 32)}.md`;
 }
 /** Kept in sync with shell/fs-atomic.ts's `safeFileName` by the same
@@ -202,12 +180,12 @@ function safeFileNamePart(value) {
 /** Default (no `--incremental`) cache key. `undefined` disables caching
  *  for this call (no keyInput, empty keyValue, or an unavailable
  *  completedResultsDigest upstream). */
-function defaultCacheKey(workflowId, taskId, keyInput, keyValue, promptDigest, completedResultsDigest) {
+export function defaultCacheKey(workflowId, taskId, keyInput, keyValue, promptDigest, completedResultsDigest) {
     if (!keyInput || !keyValue || !keyValue.trim())
         return undefined;
     if (completedResultsDigest === undefined)
         return undefined;
-    return (0, hash_1.sha256)(JSON.stringify({
+    return sha256(JSON.stringify({
         schemaVersion: 1,
         workflowId,
         taskId,
@@ -220,10 +198,10 @@ function defaultCacheKey(workflowId, taskId, keyInput, keyValue, promptDigest, c
 /** `--incremental` cache key (schemaVersion 2 — never collides with
  *  schemaVersion 1). `undefined` disables caching (an upstream result is
  *  unavailable). */
-function incrementalCacheKey(workflowId, taskId, promptDigest, runInputsDigest, delegationDigest, upstreamResultsDigest) {
+export function incrementalCacheKey(workflowId, taskId, promptDigest, runInputsDigest, delegationDigest, upstreamResultsDigest) {
     if (upstreamResultsDigest === undefined)
         return undefined;
-    return (0, hash_1.sha256)((0, hash_1.stableStringify)({
+    return sha256(stableStringify({
         schemaVersion: 2,
         workflowId,
         taskId,
@@ -234,8 +212,8 @@ function incrementalCacheKey(workflowId, taskId, promptDigest, runInputsDigest, 
     }));
 }
 /** The delegation digest folded into the incremental cache key. */
-function incrementalDelegationDigest(model, agentType, sandboxProfileId, command, strippedArgs, endpoint) {
-    return (0, hash_1.sha256)((0, hash_1.stableStringify)({
+export function incrementalDelegationDigest(model, agentType, sandboxProfileId, command, strippedArgs, endpoint) {
+    return sha256(stableStringify({
         model,
         agentType,
         sandboxProfileId,

@@ -15,10 +15,10 @@ import {
   CURRENT_RUN_STATE_SCHEMA_VERSION,
   LEGACY_RUN_STATE_SCHEMA_VERSION,
   MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION,
-} from "../version";
-import { REQUIRED_ARRAY_KEYS, REQUIRED_RECORD_KEYS, REQUIRED_TOP_LEVEL_KEYS } from "./schema";
-import { LoopStage, WorkflowRun } from "./types";
-import { isRecord } from "../util/cli-args";
+} from "../version.js";
+import { REQUIRED_ARRAY_KEYS, REQUIRED_RECORD_KEYS, REQUIRED_TOP_LEVEL_KEYS } from "./schema.js";
+import { LoopStage, WorkflowRun } from "./types.js";
+import { isRecord } from "../util/cli-args.js";
 
 export type StateCompatibilityStatus = "current" | "migrated" | "normalized" | "unsupported";
 

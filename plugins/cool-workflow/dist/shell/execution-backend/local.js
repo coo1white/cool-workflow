@@ -1,4 +1,3 @@
-"use strict";
 // shell/execution-backend/local.ts — the local-execution driver body
 // (executeLocal) shared by the node/bun/shell built-in drivers.
 //
@@ -6,16 +5,10 @@
 // (sha256/hasExecutable/messageOf).
 //
 // Evidence: SPEC/execution-backend.md "Local execution (executeLocal)".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CW_NEVER_FORWARD_ENV = void 0;
-exports.buildChildEnv = buildChildEnv;
-exports.checkShellGuard = checkShellGuard;
-exports.runtimeNoteFor = runtimeNoteFor;
-exports.executeLocal = executeLocal;
-const node_child_process_1 = require("node:child_process");
-const hash_1 = require("../../core/hash");
-const probes_1 = require("./probes");
-const cli_args_1 = require("../../core/util/cli-args");
+import { spawnSync } from "node:child_process";
+import { sha256 } from "../../core/hash.js";
+import { hasExecutable } from "./probes.js";
+import { messageOf } from "../../core/util/cli-args.js";
 /** CW's OWN secrets that must NEVER reach ANY child process — on any backend
  *  (local/container/remote/agent), regardless of policy.env.inherit / expose /
  *  deny. Each is read only by parent-side tooling, so no spawned child ever
@@ -25,12 +18,12 @@ const cli_args_1 = require("../../core/util/cli-args");
  *  (CW_AGENT_ATTEST_PRIVKEY) here: the attest wrapper
  *  (scripts/agents/cw-attest-wrap.js) is spawned AS the agent and must receive
  *  it to sign telemetry. */
-exports.CW_NEVER_FORWARD_ENV = new Set([
+export const CW_NEVER_FORWARD_ENV = new Set([
     "CW_RELEASE_VERDICT_PRIVKEY", // release verdict signing key — release-flow.js only
     "CW_WORKBENCH_TOKEN", // workbench HTTP bearer token — workbench-host.ts only
     "CW_BENCH_TRACE_FILE", // benchmark trace path — parent drive only
 ]);
-function buildChildEnv(policy, baseEnv = process.env) {
+export function buildChildEnv(policy, baseEnv = process.env) {
     // deny must win regardless of inherit: a custom profile combining
     // inherit:true with deny:[...] (a valid, normalized combination — see
     // sandbox-profile.ts's normalizeEnv) means "everything EXCEPT these".
@@ -51,7 +44,7 @@ function buildChildEnv(policy, baseEnv = process.env) {
     }
     // Fail-closed backstop: parent-only secrets never cross into a child, even
     // when inherit:true forwarded them above or an operator exposed one by name.
-    for (const name of exports.CW_NEVER_FORWARD_ENV)
+    for (const name of CW_NEVER_FORWARD_ENV)
         delete env[name];
     return env;
 }
@@ -66,16 +59,16 @@ function buildChildEnv(policy, baseEnv = process.env) {
  *  so the line can be run with NO shell process at all (see executeLocal).
  *  The guard is then a filter, not the safety: even a character that got
  *  past it would go to the child as plain argv bytes, never to a shell. */
-function checkShellGuard(command, args) {
+export function checkShellGuard(command, args) {
     const shellArg = [command, ...args].join(" ").replace(/\{\{[a-zA-Z0-9_.-]+\}\}/g, "");
     if (/[;&|`$(){}<>!\n\r#*?~'"\\]/.test(shellArg)) {
         throw new Error(`Shell backend refused: args contain shell control characters. ` +
             `Use the node, bun, or agent backend instead for untrusted inputs.`);
     }
 }
-function runtimeNoteFor(backendId) {
+export function runtimeNoteFor(backendId) {
     if (backendId === "bun") {
-        return (0, probes_1.hasExecutable)("bun") ? "bun (node-compatible execution)" : "node-compatible (bun not installed)";
+        return hasExecutable("bun") ? "bun (node-compatible execution)" : "node-compatible (bun not installed)";
     }
     if (backendId === "shell")
         return "posix-shell";
@@ -83,7 +76,7 @@ function runtimeNoteFor(backendId) {
 }
 /** executeLocal — spawn a thin child process and capture verifiable
  *  evidence (exit code + output digest). */
-function executeLocal(descriptor, request, label, attestation, spawnStyle) {
+export function executeLocal(descriptor, request, label, attestation, spawnStyle) {
     const command = String(request.command);
     const args = (request.args || []).map(String);
     const env = buildChildEnv(request.sandboxPolicy);
@@ -130,15 +123,15 @@ function executeLocal(descriptor, request, label, attestation, spawnStyle) {
         ? [command, ...args].join(" ").split(/\s+/).filter(Boolean)
         : [];
     const result = spawnStyle === "shell"
-        ? (0, node_child_process_1.spawnSync)(shellTokens[0], shellTokens.slice(1), { ...options, shell: false })
-        : (0, node_child_process_1.spawnSync)(command, args, { ...options, shell: false });
+        ? spawnSync(shellTokens[0], shellTokens.slice(1), { ...options, shell: false })
+        : spawnSync(command, args, { ...options, shell: false });
     const elapsedMs = Number((process.hrtime.bigint() - startedAt) / 1000000n);
     if (isTTY)
         process.stderr.write(`✓ Done (${elapsedMs}ms)\n`);
     const exitCode = typeof result.status === "number" ? result.status : null;
-    const spawnError = result.error ? (0, cli_args_1.messageOf)(result.error) : undefined;
+    const spawnError = result.error ? messageOf(result.error) : undefined;
     const stdout = String(result.stdout || "");
-    const digest = (0, hash_1.sha256)(stdout);
+    const digest = sha256(stdout);
     const status = spawnError ? "failed" : exitCode === 0 ? "completed" : "failed";
     const evidence = [`command:${[command, ...args].join(" ")}`, `exitCode:${exitCode === null ? "null" : exitCode}`, `stdoutSha256:${digest}`];
     const summary = status === "completed"

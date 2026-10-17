@@ -27,7 +27,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { cwdArg } from "../core/util/cli-args";
+import { cwdArg } from "../core/util/cli-args.js";
 import {
   agent,
   artifact,
@@ -53,10 +53,13 @@ import {
   WorkflowAppValidationResult,
   WorkflowDefinition,
   workflow,
-} from "../core/workflow-apps/app-schema";
-import { bundledSandboxProfileIds } from "./sandbox-profile";
-import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version";
-import { stableCompare } from "../core/util/collate";
+} from "../core/workflow-apps/app-schema.js";
+import { bundledSandboxProfileIds } from "./sandbox-profile.js";
+import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version.js";
+import { stableCompare } from "../core/util/collate.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 export class WorkflowAppNotFoundError extends Error {
   constructor(appId: string) {
@@ -67,7 +70,7 @@ export class WorkflowAppNotFoundError extends Error {
 
 function walkUpFor(...tail: string[]): string[] {
   const roots: string[] = [];
-  let dir = __dirname;
+  let dir = import.meta.dirname;
   for (let i = 0; i < 8; i++) {
     roots.push(path.join(dir, "plugins", "cool-workflow", ...tail));
     const parent = path.dirname(dir);
@@ -86,7 +89,7 @@ function walkUpFor(...tail: string[]): string[] {
  *  `<pkg>/dist/shell/workflow-app-loader.js`, so `<pkg>` is two hops up. */
 function walkUpForPackageRoot(...tail: string[]): string[] {
   const roots: string[] = [];
-  let dir = __dirname;
+  let dir = import.meta.dirname;
   for (let i = 0; i < 8; i++) {
     if (fs.existsSync(path.join(dir, "package.json"))) {
       roots.push(path.join(dir, ...tail));

@@ -50,6 +50,7 @@ fs.writeFileSync(
     `  }`,
     `  return orig.call(fs, p, data, ...rest);`,
     `};`,
+    `require("node:module").syncBuiltinESMExports();`,
     `const { recordTrustAuditEvent } = require(${JSON.stringify(trustAuditJs)});`,
     `const run = { id: ${JSON.stringify(runId)}, paths: { runDir: ${JSON.stringify(runDir)} } };`,
     `recordTrustAuditEvent(run, { kind: "sandbox.path", decision: "allowed", source: "cw-validated", workerId: "wa" });`,

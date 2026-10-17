@@ -1,4 +1,3 @@
-"use strict";
 // shell/scheduler-io.ts — Scheduler (cw schedule/loop), the daemon tick
 // (cw schedule daemon), and routine triggers (cw routine).
 //
@@ -14,50 +13,15 @@
 // `schedule create --kind loop`.
 //
 // Evidence: SPEC/scheduling-registry.md sections A, B.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RoutineTriggerBridge = exports.DesktopSchedulerDaemon = exports.Scheduler = void 0;
-const crypto = __importStar(require("node:crypto"));
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const fs_atomic_1 = require("./fs-atomic");
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { readJson, safeFileName, withFileLock, writeJson } from "./fs-atomic.js";
 const DEFAULT_TTL_DAYS = 7;
 // ---------------------------------------------------------------------------
 // Scheduler — cw schedule / cw loop
 // ---------------------------------------------------------------------------
-class Scheduler {
+export class Scheduler {
     cwd;
     storePath;
     constructor(cwd = process.cwd()) {
@@ -65,7 +29,7 @@ class Scheduler {
         this.storePath = path.join(this.cwd, ".cw", "schedules", "tasks.json");
     }
     locked(fn) {
-        return (0, fs_atomic_1.withFileLock)(this.storePath, fn);
+        return withFileLock(this.storePath, fn);
     }
     create(options) {
         const kind = normalizeKind(options.kind);
@@ -220,7 +184,7 @@ class Scheduler {
     load() {
         if (!fs.existsSync(this.storePath))
             return { schemaVersion: 1, tasks: [], history: [] };
-        const value = (0, fs_atomic_1.readJson)(this.storePath);
+        const value = readJson(this.storePath);
         ensureKnownSchemaVersion(value, "schedule");
         return {
             schemaVersion: 1,
@@ -229,10 +193,9 @@ class Scheduler {
         };
     }
     save(store) {
-        (0, fs_atomic_1.writeJson)(this.storePath, store, { durable: true });
+        writeJson(this.storePath, store, { durable: true });
     }
 }
-exports.Scheduler = Scheduler;
 function findTask(store, id) {
     const task = store.tasks.find((candidate) => candidate.id === id);
     if (!task)
@@ -414,7 +377,7 @@ function reachedBy(iso, now) {
     const at = new Date(iso).getTime();
     return Number.isNaN(at) || at <= now.getTime();
 }
-class DesktopSchedulerDaemon {
+export class DesktopSchedulerDaemon {
     cwd;
     intervalSeconds;
     scheduler;
@@ -427,7 +390,7 @@ class DesktopSchedulerDaemon {
         const due = this.scheduler.due();
         const checkedAt = new Date().toISOString();
         const inboxPath = path.join(this.cwd, ".cw", "schedules", "due-inbox.json");
-        (0, fs_atomic_1.writeJson)(inboxPath, { schemaVersion: 1, checkedAt, due });
+        writeJson(inboxPath, { schemaVersion: 1, checkedAt, due });
         return { checkedAt, dueCount: due.length, dueIds: due.map((task) => task.id), inboxPath };
     }
     /** One tick, guarded. A long-running daemon must survive a transient
@@ -463,8 +426,7 @@ class DesktopSchedulerDaemon {
         }, Math.max(1, this.intervalSeconds) * 1000);
     }
 }
-exports.DesktopSchedulerDaemon = DesktopSchedulerDaemon;
-class RoutineTriggerBridge {
+export class RoutineTriggerBridge {
     cwd;
     storePath;
     payloadsDir;
@@ -474,7 +436,7 @@ class RoutineTriggerBridge {
         this.payloadsDir = path.join(this.cwd, ".cw", "routines", "payloads");
     }
     locked(fn) {
-        return (0, fs_atomic_1.withFileLock)(this.storePath, fn);
+        return withFileLock(this.storePath, fn);
     }
     create(options) {
         return this.locked(() => {
@@ -535,8 +497,8 @@ class RoutineTriggerBridge {
     createEvent(trigger, payload, receivedAt, seq) {
         const matched = matchesTrigger(trigger.match, payload);
         const eventId = createEventId(trigger.kind, seq);
-        const payloadPath = path.join(this.payloadsDir, `${(0, fs_atomic_1.safeFileName)(eventId)}.json`);
-        (0, fs_atomic_1.writeJson)(payloadPath, { schemaVersion: 1, trigger, receivedAt, matched, payload });
+        const payloadPath = path.join(this.payloadsDir, `${safeFileName(eventId)}.json`);
+        writeJson(payloadPath, { schemaVersion: 1, trigger, receivedAt, matched, payload });
         return {
             id: eventId,
             triggerId: trigger.id,
@@ -550,7 +512,7 @@ class RoutineTriggerBridge {
     load() {
         if (!fs.existsSync(this.storePath))
             return { schemaVersion: 1, triggers: [], events: [], nextTriggerSeq: 0 };
-        const value = (0, fs_atomic_1.readJson)(this.storePath);
+        const value = readJson(this.storePath);
         ensureKnownSchemaVersion(value, "routine");
         const triggers = Array.isArray(value.triggers) ? value.triggers : [];
         const maxExisting = triggers.reduce((max, trigger) => {
@@ -565,10 +527,9 @@ class RoutineTriggerBridge {
         };
     }
     save(store) {
-        (0, fs_atomic_1.writeJson)(this.storePath, store);
+        writeJson(this.storePath, store);
     }
 }
-exports.RoutineTriggerBridge = RoutineTriggerBridge;
 function normalizeTriggerKind(value) {
     const kind = String(value || "api");
     if (kind === "api" || kind === "github")

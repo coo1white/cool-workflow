@@ -8,8 +8,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { safeFileName, writeJson } from "./fs-atomic";
-import { StateArtifact, StateEvidence, WorkflowRun } from "../core/state/types";
+import { safeFileName, writeJson } from "./fs-atomic.js";
+import { StateArtifact, StateEvidence, WorkflowRun } from "../core/state/types.js";
 import {
   buildFeedbackRecord,
   compactMetadata,
@@ -20,18 +20,18 @@ import {
   feedbackKey,
   findExistingFeedback,
   RecordFeedbackInput,
-} from "../core/pipeline/error-feedback";
-import { createStateNode } from "../core/state/state-node";
-import { appendRunNode } from "./node-store";
-import { saveCheckpoint } from "./run-store";
+} from "../core/pipeline/error-feedback.js";
+import { createStateNode } from "../core/state/state-node.js";
+import { appendRunNode } from "./node-store.js";
+import { saveCheckpoint } from "./run-store.js";
 import {
   runPipelineStage as coreRunPipelineStage,
   RunPipelineStageOptions,
   PipelineRunnerOptions,
   PipelineStageRunResult,
   PipelineStageFailure,
-} from "../core/pipeline/runner";
-import { StateNodeError } from "../core/state/types";
+} from "../core/pipeline/runner.js";
+import { StateNodeError } from "../core/state/types.js";
 
 export interface ListFeedbackOptions {
   status?: ErrorFeedbackRecord["status"];

@@ -1,4 +1,3 @@
-"use strict";
 // core/pipeline/contract.ts — DEFAULT_PIPELINE_CONTRACT_ID,
 // createDefaultPipelineContract.
 //
@@ -7,17 +6,14 @@
 // Evidence: SPEC/pipeline-run.md "Default contract — src/pipeline-
 // contract.ts", "Default contract stage table (byte facts a rebuild must
 // keep)".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_PIPELINE_CONTRACT_ID = void 0;
-exports.createDefaultPipelineContract = createDefaultPipelineContract;
-exports.DEFAULT_PIPELINE_CONTRACT_ID = "cw.pipeline.default";
+export const DEFAULT_PIPELINE_CONTRACT_ID = "cw.pipeline.default";
 /** The default `plan -> dispatch -> result -> verify -> commit -> report`
  *  contract. Stage accept rules are byte-exact to SPEC/pipeline-run.md's
  *  "Default contract stage table". */
-function createDefaultPipelineContract() {
+export function createDefaultPipelineContract() {
     return {
         schemaVersion: 1,
-        id: exports.DEFAULT_PIPELINE_CONTRACT_ID,
+        id: DEFAULT_PIPELINE_CONTRACT_ID,
         title: "Cool Workflow Default Pipeline",
         stages: [
             {

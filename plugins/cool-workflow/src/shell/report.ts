@@ -4,16 +4,16 @@
 // Evidence: SPEC/reporting-ux.md "report.md (written by writeReport)".
 
 import * as fs from "node:fs";
-import { WorkflowRun } from "../core/state/types";
-import { updatePhaseStatuses } from "../core/pipeline/dispatch";
-import { WorkerScope } from "./worker-isolation";
-import { sandboxGuaranteeLabels } from "./execution-backend/registry";
-import { summarizeTrustAudit, listTrustAuditEvents } from "./trust-audit";
-import { verifyTelemetryLedger } from "./telemetry-ledger-io";
-import { runLifecycle } from "./run-registry-io";
-import { stableCompare } from "../core/util/collate";
-import { normalizeResultEnvelope } from "../core/pipeline/result-normalize";
-import { countBy } from "../core/util/cli-args";
+import { WorkflowRun } from "../core/state/types.js";
+import { updatePhaseStatuses } from "../core/pipeline/dispatch.js";
+import { WorkerScope } from "./worker-isolation.js";
+import { sandboxGuaranteeLabels } from "./execution-backend/registry.js";
+import { summarizeTrustAudit, listTrustAuditEvents } from "./trust-audit.js";
+import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+import { runLifecycle } from "./run-registry-io.js";
+import { stableCompare } from "../core/util/collate.js";
+import { normalizeResultEnvelope } from "../core/pipeline/result-normalize.js";
+import { countBy } from "../core/util/cli-args.js";
 
 interface SandboxProfileLike {
   id: string;

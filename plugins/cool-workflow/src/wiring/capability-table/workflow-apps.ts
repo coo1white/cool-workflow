@@ -1,18 +1,21 @@
 // wiring/capability-table/workflow-apps.ts — CLI bindings for the
 // workflow-app family (app.*, info, man), plus the `next` capability.
 
-import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { required, optionalArg } from "../../core/util/cli-args";
+import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
+import { required, optionalArg } from "../../core/util/cli-args.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 // This whole module is required unconditionally at startup for EVERY
 // command (see wiring/capability-table/index.ts) — loading `next`'s and
 // `app.run`'s shell modules lazily, inside the handler that actually
 // calls them, keeps other commands from paying their load cost.
-function loadStateCli(): typeof import("../../shell/state-cli") {
-  return require("../../shell/state-cli") as typeof import("../../shell/state-cli");
+function loadStateCli(): typeof import("../../shell/state-cli.js") {
+  return require("../../shell/state-cli.js") as typeof import("../../shell/state-cli.js");
 }
-function loadAppRunCli(): typeof import("../../shell/app-run-cli") {
-  return require("../../shell/app-run-cli") as typeof import("../../shell/app-run-cli");
+function loadAppRunCli(): typeof import("../../shell/app-run-cli.js") {
+  return require("../../shell/app-run-cli.js") as typeof import("../../shell/app-run-cli.js");
 }
 
 // Workflow apps. Handler BODIES live in
@@ -26,13 +29,13 @@ function loadAppRunCli(): typeof import("../../shell/app-run-cli") {
 
 // Loaded lazily so the app.* handlers below pay this module's load cost
 // only when actually invoked, not on every CLI/MCP startup.
-function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader") {
-  return require("../../shell/workflow-app-loader") as typeof import("../../shell/workflow-app-loader");
+function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader.js") {
+  return require("../../shell/workflow-app-loader.js") as typeof import("../../shell/workflow-app-loader.js");
 }
-import { formatInfo } from "../../core/format/help";
+import { formatInfo } from "../../core/format/help.js";
 // Loaded lazily so only the `man` handler below pays its load cost.
-function loadManCli(): typeof import("../../shell/man-cli") {
-  return require("../../shell/man-cli") as typeof import("../../shell/man-cli");
+function loadManCli(): typeof import("../../shell/man-cli.js") {
+  return require("../../shell/man-cli.js") as typeof import("../../shell/man-cli.js");
 }
 
 attachCliBinding("app.list", {

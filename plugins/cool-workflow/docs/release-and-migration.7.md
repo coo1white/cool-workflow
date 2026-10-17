@@ -188,6 +188,21 @@ of 2026-09-28 is decision D4 in
 Saved run state is not changed by this: a run made on an older Node loads,
 checks and resumes the same way on 22.13 or newer.
 
+## Module Form: ES Modules in dist/
+
+From the release after 0.3.1, `dist/` is ES modules (`"type": "module"` in
+`package.json`; slim-and-esm program, step 5, decision D5). The commands,
+their output, their exit codes and the MCP tools do not change.
+
+- A CommonJS file that does `require()` of a `dist/` file goes on working
+  on Node 22.13 or newer: it gets the module's named exports. The exports
+  are fixed: code that put a new value on a `dist/` export to change what
+  CW does inside no longer has that effect.
+- Workflow app files stay CommonJS (`module.exports = ...`, decision D6):
+  `apps/` and `workflows/` each have a `package.json` that says
+  `"type": "commonjs"`, and the loader reads app files with `require()`.
+  An app outside the package loads as before.
+
 ## Unsupported Cases
 
 CW does not quietly load:

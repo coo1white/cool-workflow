@@ -8,10 +8,10 @@
 // Evidence: SPEC/pipeline-run.md "Commit gate" (verifierNodeRequiresEvidence
 // reuses this exact predicate).
 
-import { RunTask } from "../core/state/types";
-import { Finding, ResultEnvelope } from "../core/pipeline/result-normalize";
-import { hasGroundedEvidence } from "../core/trust/evidence-grounding";
-import { validateAgainstSchema, JsonSchema } from "../core/state/schema-validate";
+import { RunTask } from "../core/state/types.js";
+import { Finding, ResultEnvelope } from "../core/pipeline/result-normalize.js";
+import { hasGroundedEvidence } from "../core/trust/evidence-grounding.js";
+import { validateAgainstSchema, JsonSchema } from "../core/state/schema-validate.js";
 
 export function taskRequiresEvidence(task: Pick<RunTask, "id" | "requiresEvidence">): boolean {
   return Boolean(task.requiresEvidence || /^verify[:/]/i.test(task.id) || /^verdict[:/]/i.test(task.id) || /^synthesis[:/]/i.test(task.id));

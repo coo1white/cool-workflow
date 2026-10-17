@@ -12,9 +12,9 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { findCapabilityByMcpTool, mcpToolDefinitions } from "../core/capability-table";
-import type { McpToolDefinition } from "../core/capability-table";
-import { coerceMcpScalar } from "../core/util/cli-args";
+import { findCapabilityByMcpTool, mcpToolDefinitions } from "../core/capability-table.js";
+import type { McpToolDefinition } from "../core/capability-table.js";
+import { coerceMcpScalar } from "../core/util/cli-args.js";
 
 /** `toolDefinitions()` — the full, ordered `tools/list` array. */
 export function toolDefinitions(): McpToolDefinition[] {

@@ -2,10 +2,10 @@
 // (and the mirrored cw_feedback_* MCP tools) handler bodies. Loads run state
 // and routes to the feedback-operations lifecycle.
 
-import { cwdArg, requireArg } from "../core/util/cli-args";
-import { loadRunFromCwd, withRunStateLock } from "./run-store";
-import { summarizeFeedback } from "../core/pipeline/error-feedback";
-import { collectFeedback, createFeedbackTask, listFeedback, resolveFeedback, showFeedback } from "./feedback-operations";
+import { cwdArg, requireArg } from "../core/util/cli-args.js";
+import { loadRunFromCwd, withRunStateLock } from "./run-store.js";
+import { summarizeFeedback } from "../core/pipeline/error-feedback.js";
+import { collectFeedback, createFeedbackTask, listFeedback, resolveFeedback, showFeedback } from "./feedback-operations.js";
 
 export function feedbackListCli(args: Record<string, unknown>): unknown {
   const run = loadRunFromCwd(requireArg(args.runId, "run id"), cwdArg(args));

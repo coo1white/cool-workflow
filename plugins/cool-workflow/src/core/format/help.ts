@@ -19,7 +19,7 @@
 // verb stays literal here. A CLI `--help` walk and an MCP `tools/list`
 // round-trip read the SAME table rows for any capability wired into both.
 
-import { cliCapabilities } from "../capability-table";
+import { cliCapabilities } from "../capability-table.js";
 
 export interface CommandHelpRow {
   /** Full `cw <path...>` command string, e.g. "cw ledger list". */

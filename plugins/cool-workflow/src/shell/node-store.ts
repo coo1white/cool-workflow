@@ -7,12 +7,12 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { safeFileName, writeJson } from "./fs-atomic";
-import { appendRunNode as pureAppendRunNode } from "../core/state/state-node";
-import { snapshotNode as pureSnapshotNode, replayNodeSnapshot as pureReplayNodeSnapshot, SnapshotOptions, ReplayOptions } from "../core/state/node-snapshot";
-import { validateNodeReplayRun, validateNodeSnapshot } from "../core/state/validation";
-import { NodeReplayRun, NodeSnapshot, StateNode, WorkflowRun } from "../core/state/types";
-import { NodeSnapshotError } from "../core/state/node-snapshot";
+import { safeFileName, writeJson } from "./fs-atomic.js";
+import { appendRunNode as pureAppendRunNode } from "../core/state/state-node.js";
+import { snapshotNode as pureSnapshotNode, replayNodeSnapshot as pureReplayNodeSnapshot, SnapshotOptions, ReplayOptions } from "../core/state/node-snapshot.js";
+import { validateNodeReplayRun, validateNodeSnapshot } from "../core/state/validation.js";
+import { NodeReplayRun, NodeSnapshot, StateNode, WorkflowRun } from "../core/state/types.js";
+import { NodeSnapshotError } from "../core/state/node-snapshot.js";
 
 /** Writes the node JSON to `<stateNodesDir>/<safeFileName(node.id)>.json`
  *  with `writeJson` (NOT durable) and returns the file path. */

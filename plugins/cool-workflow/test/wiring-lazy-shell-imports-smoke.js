@@ -17,8 +17,9 @@
 //
 // Proven deterministically (not by timing -- see cycle P1-2's own note on
 // why wall-clock assertions are flaky under this repo's concurrent test
-// suite): a `--require`-injected hook overrides `Module._load` to record
-// the resolved path of every module actually loaded, for a handful of real
+// suite): a `--require`-injected hook records, at the load step of
+// `module.registerHooks` (which sees `require()` and ES `import` alike;
+// Node 22.15+), the path of every module actually loaded, for a handful of real
 // `cw` invocations run as real child processes against the real
 // dist/cli.js. A command that never touches a given capability must not
 // load that capability's shell module at all; a command that does must.
@@ -28,6 +29,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
+
+if (typeof require("node:module").registerHooks !== "function") {
+  process.stdout.write(`wiring-lazy-shell-imports-smoke: skipped (module.registerHooks needs Node 22.15 or later; this is ${process.versions.node})\n`);
+  process.exit(0);
+}
 
 const pluginRoot = path.resolve(__dirname, "..");
 const cliPath = path.join(pluginRoot, "dist/cli.js");
@@ -40,16 +46,14 @@ fs.writeFileSync(
     '"use strict";',
     'const Module = require("module");',
     'const fs = require("fs");',
+    'const { fileURLToPath } = require("url");',
     "const loaded = new Set();",
-    "const origLoad = Module._load;",
-    "Module._load = function (request, parent, isMain) {",
-    "  try {",
-    "    loaded.add(Module._resolveFilename(request, parent, isMain));",
-    "  } catch {",
-    "    // unresolvable request (e.g. a builtin already special-cased elsewhere) -- not our concern here",
-    "  }",
-    "  return origLoad.apply(this, arguments);",
-    "};",
+    "Module.registerHooks({",
+    "  load(url, context, nextLoad) {",
+    '    if (url.startsWith("file:")) loaded.add(fileURLToPath(url));',
+    "    return nextLoad(url, context);",
+    "  },",
+    "});",
     'process.on("exit", () => {',
     "  fs.writeFileSync(process.env.CW_LAZY_PROBE_OUT, JSON.stringify([...loaded]));",
     "});",

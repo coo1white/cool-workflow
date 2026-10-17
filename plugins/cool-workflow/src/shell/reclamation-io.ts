@@ -24,15 +24,15 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { flagOn } from "../core/util/cli-args";
-import { isContainedPath, realResolve, withFileLock, writeJson } from "./fs-atomic";
-import { recordTrustAuditEvent, listTrustAuditEvents } from "./trust-audit";
-import { snapshotNode } from "./node-store";
-import { loadNodeSnapshot } from "../core/state/node-snapshot";
-import { nodeProjectionDigestInput, replayStableStringify } from "../core/state/node-projection";
-import { sha256, sha256Bytes } from "../core/hash";
-import { stableCompare } from "../core/util/collate";
-import { StateNode, WorkflowRun } from "../core/state/types";
+import { flagOn } from "../core/util/cli-args.js";
+import { isContainedPath, realResolve, withFileLock, writeJson } from "./fs-atomic.js";
+import { recordTrustAuditEvent, listTrustAuditEvents } from "./trust-audit.js";
+import { snapshotNode } from "./node-store.js";
+import { loadNodeSnapshot } from "../core/state/node-snapshot.js";
+import { nodeProjectionDigestInput, replayStableStringify } from "../core/state/node-projection.js";
+import { sha256, sha256Bytes } from "../core/hash.js";
+import { stableCompare } from "../core/util/collate.js";
+import { StateNode, WorkflowRun } from "../core/state/types.js";
 import {
   compareBytes,
   DEFAULT_RUN_REGISTRY_POLICY,
@@ -42,7 +42,7 @@ import {
   RunRecord,
   RunRegistryIndex,
   RunRegistryPolicy,
-} from "./run-registry-io";
+} from "./run-registry-io.js";
 
 // ---------------------------------------------------------------------------
 // Content addressing + byte measurement (in-process, no `du`) — carried

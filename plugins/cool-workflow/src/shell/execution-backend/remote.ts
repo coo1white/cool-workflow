@@ -9,17 +9,17 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
-import { delegatedEnvelope, refusedEnvelope } from "./envelopes";
-import { buildChildEnv } from "./local";
-import { BackendDescriptor, BackendExecutionHandle, ExecutionRequest, ExecutionResultEnvelope, ResolvedSandboxPolicy, SandboxAttestation } from "./types";
-import { messageOf } from "../../core/util/cli-args";
+import { delegatedEnvelope, refusedEnvelope } from "./envelopes.js";
+import { buildChildEnv } from "./local.js";
+import { BackendDescriptor, BackendExecutionHandle, ExecutionRequest, ExecutionResultEnvelope, ResolvedSandboxPolicy, SandboxAttestation } from "./types.js";
+import { messageOf } from "../../core/util/cli-args.js";
 
 /** Resolves scripts/children/http-delegate-child.js next to the compiled
  *  module. Throws the exact broken-installation message when missing. */
 export function delegateChildScript(): string {
-  // __dirname is dist/shell/execution-backend — three levels up reaches
+  // import.meta.dirname is dist/shell/execution-backend — three levels up reaches
   // the package root (scripts/ is a sibling of dist/, not two levels up).
-  const resolved = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");
+  const resolved = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");
   if (!fs.existsSync(resolved)) {
     throw new Error(
       `Delegate child script not found at ${resolved}. ` +

@@ -16,8 +16,8 @@ import {
   LedgerListEntry,
   resolveLedgerInbox,
   verifyLedgerEntry,
-} from "../core/trust/ledger";
-import { isRecord } from "../core/util/cli-args";
+} from "../core/trust/ledger.js";
+import { isRecord } from "../core/util/cli-args.js";
 
 export interface LedgerListResult {
   dir: string;

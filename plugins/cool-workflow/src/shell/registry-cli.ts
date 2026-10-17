@@ -7,13 +7,13 @@
 // handlers delegate to.
 
 import * as fs from "node:fs";
-import { cwdArg, optionalArg } from "../core/util/cli-args";
-import { requiredNumberFlag } from "../core/util/numeric-flag";
-import { RunPlanner, RunRegistry } from "./run-registry-io";
-import { recordRunLink } from "./run-link-io";
-import { plan as pipelinePlan } from "./pipeline";
-import { loadWorkflowApp } from "./workflow-app-loader";
-import { DesktopSchedulerDaemon, RoutineTriggerBridge, Scheduler } from "./scheduler-io";
+import { cwdArg, optionalArg } from "../core/util/cli-args.js";
+import { requiredNumberFlag } from "../core/util/numeric-flag.js";
+import { RunPlanner, RunRegistry } from "./run-registry-io.js";
+import { recordRunLink } from "./run-link-io.js";
+import { plan as pipelinePlan } from "./pipeline.js";
+import { loadWorkflowApp } from "./workflow-app-loader.js";
+import { DesktopSchedulerDaemon, RoutineTriggerBridge, Scheduler } from "./scheduler-io.js";
 import {
   gcOrphanRuns,
   gcPlan,
@@ -22,8 +22,8 @@ import {
   gcClones,
   listClones,
   listOrphanRuns,
-} from "./reclamation-io";
-import { runDriveStep } from "./pipeline-cli";
+} from "./reclamation-io.js";
+import { runDriveStep } from "./pipeline-cli.js";
 
 function scopeOf(options: Record<string, unknown>, fallback: "repo" | "home"): "repo" | "home" {
   return options.scope === "repo" || options.scope === "home" ? options.scope : fallback;

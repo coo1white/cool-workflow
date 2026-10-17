@@ -1,4 +1,3 @@
-"use strict";
 // core/trust/telemetry-ledger.ts — the hash-chained telemetry
 // attestation ledger's PURE half: genesisPrevHash, computeRecordHash,
 // reportedUsageDigest, verifyTelemetryLedger. Directory/file IO
@@ -10,22 +9,14 @@
 //
 // Evidence: SPEC/ledger-trust.md "Telemetry ledger record", byte-compat
 // items 2 and 12.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.TelemetryLedgerCorruptError = exports.TELEMETRY_LEDGER_SCHEMA_VERSION = void 0;
-exports.genesisPrevHash = genesisPrevHash;
-exports.computeRecordHash = computeRecordHash;
-exports.reportedUsageDigest = reportedUsageDigest;
-exports.recordId = recordId;
-exports.verifyTelemetryLedgerRecords = verifyTelemetryLedgerRecords;
-exports.corruptTelemetryLedgerVerification = corruptTelemetryLedgerVerification;
-const hash_1 = require("../hash");
-exports.TELEMETRY_LEDGER_SCHEMA_VERSION = 1;
+import { sha256, telemetryStableStringify } from "../hash.js";
+export const TELEMETRY_LEDGER_SCHEMA_VERSION = 1;
 /** A telemetry ledger that EXISTS on disk but cannot be parsed (or whose
  *  shape is not a record array). This is exactly the corruption/
  *  truncation case the hash chain exists to catch — it must fail closed,
  *  never be silently treated as the "empty/absent" chain (which verifies
  *  as clean). */
-class TelemetryLedgerCorruptError extends Error {
+export class TelemetryLedgerCorruptError extends Error {
     file;
     constructor(file) {
         super(`Telemetry ledger exists but is corrupt (unparseable): ${file}`);
@@ -33,10 +24,9 @@ class TelemetryLedgerCorruptError extends Error {
         this.file = file;
     }
 }
-exports.TelemetryLedgerCorruptError = TelemetryLedgerCorruptError;
 /** genesis prevHash for a run's chain (no prior record). */
-function genesisPrevHash(runId) {
-    return (0, hash_1.sha256)(`cw-telemetry-ledger:${runId}`);
+export function genesisPrevHash(runId) {
+    return sha256(`cw-telemetry-ledger:${runId}`);
 }
 /** The canonical bytes a recordHash binds — every field except
  *  recordHash itself. `reportedUsage`/`resultDigest` are OMITTED (not
@@ -44,7 +34,7 @@ function genesisPrevHash(runId) {
  *  to a pre-result-coverage one (back-compat with old ledgers) — see
  *  project/docs/rebuild/PLAN.md byte-compat item 2. */
 function recordHashInput(record) {
-    return (0, hash_1.telemetryStableStringify)({
+    return telemetryStableStringify({
         schemaVersion: record.schemaVersion,
         runId: record.runId,
         recordId: record.recordId,
@@ -61,18 +51,18 @@ function recordHashInput(record) {
         prevHash: record.prevHash,
     });
 }
-function computeRecordHash(record) {
-    return (0, hash_1.sha256)(recordHashInput(record));
+export function computeRecordHash(record) {
+    return sha256(recordHashInput(record));
 }
 /** sha256 of the canonical reported usage (compact, chainable). Absent
  *  usage gets the digest of `null`, so "the agent reported nothing" is
  *  itself bound. */
-function reportedUsageDigest(usage) {
-    return (0, hash_1.sha256)((0, hash_1.telemetryStableStringify)(usage ?? null));
+export function reportedUsageDigest(usage) {
+    return sha256(telemetryStableStringify(usage ?? null));
 }
 /** Deterministic (chain POSITION, not a process-global counter or
  *  wall-clock stamp): `tel-` + chain position, zero-padded to 3. */
-function recordId(seq) {
+export function recordId(seq) {
     return `tel-${String(seq).padStart(3, "0")}`;
 }
 /** Re-prove the whole telemetry chain for a run: prevHash linkage +
@@ -80,7 +70,7 @@ function recordId(seq) {
  *  never trusts the stored value. An empty ledger verifies as
  *  present:false (nothing to prove), NOT a failure. Pure: takes the
  *  already-loaded record array plus the run id, never touches disk. */
-function verifyTelemetryLedgerRecords(runId, records) {
+export function verifyTelemetryLedgerRecords(runId, records) {
     const checks = [];
     const tally = { attested: 0, unattested: 0, absent: 0 };
     for (const record of records)
@@ -113,7 +103,7 @@ function verifyTelemetryLedgerRecords(runId, records) {
  *  one `ledger-load`/`telemetry-ledger-corrupt` failed check). Shared
  *  constant so both the CLI-facing shell reader and any pure caller
  *  report the exact same shape for a corrupt file. */
-function corruptTelemetryLedgerVerification() {
+export function corruptTelemetryLedgerVerification() {
     return {
         present: true,
         verified: false,

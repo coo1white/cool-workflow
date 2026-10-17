@@ -10,7 +10,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { isContainedPath } from "./fs-atomic";
+import { isContainedPath } from "./fs-atomic.js";
 
 export class ManPageNotFoundError extends Error {
   constructor(public readonly topic: string) {
@@ -20,7 +20,7 @@ export class ManPageNotFoundError extends Error {
 }
 
 function pluginRoot(): string {
-  let dir = __dirname;
+  let dir = import.meta.dirname;
   for (let i = 0; i < 8; i++) {
     const candidate = path.join(dir, "plugins", "cool-workflow");
     if (fs.existsSync(candidate)) return candidate;

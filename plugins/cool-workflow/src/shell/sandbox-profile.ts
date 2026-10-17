@@ -5,8 +5,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { isContainedPath, realResolve } from "./fs-atomic";
-import { WorkflowRun } from "../core/state/types";
+import { isContainedPath, realResolve } from "./fs-atomic.js";
+import { WorkflowRun } from "../core/state/types.js";
 import {
   ResolvedSandboxPolicy,
   SandboxCommandPolicy,
@@ -18,8 +18,8 @@ import {
   SandboxResolutionContext,
   SandboxWorkerOutputPolicy,
   WorkerBoundaryViolation,
-} from "./execution-backend/types";
-import { messageOf } from "../core/util/cli-args";
+} from "./execution-backend/types.js";
+import { messageOf } from "../core/util/cli-args.js";
 
 export const SANDBOX_PROFILE_SCHEMA_VERSION = 1;
 export const DEFAULT_SANDBOX_PROFILE_ID = "default";

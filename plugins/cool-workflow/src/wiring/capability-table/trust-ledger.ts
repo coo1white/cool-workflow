@@ -1,8 +1,11 @@
 // wiring/capability-table/trust-ledger.ts — CLI bindings for ledger.*,
 // telemetry.verify, audit.verify, audit.head, demo.*, report.bundle/verify-bundle.
 
-import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { required, optionalArg } from "../../core/util/cli-args";
+import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
+import { required, optionalArg } from "../../core/util/cli-args.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 // Ledger, telemetry, trust-audit and tamper/bundle demo CLI
 // bindings: ledger propose|review|verify|apply|list, telemetry verify,
@@ -20,23 +23,23 @@ import { required, optionalArg } from "../../core/util/cli-args";
 // modules only when their handler runs, not at import time, keeps that
 // load cost out of commands that never touch ledger/telemetry/audit/demo/
 // report.
-function loadLedgerCli(): typeof import("../../shell/ledger-cli") {
-  return require("../../shell/ledger-cli") as typeof import("../../shell/ledger-cli");
+function loadLedgerCli(): typeof import("../../shell/ledger-cli.js") {
+  return require("../../shell/ledger-cli.js") as typeof import("../../shell/ledger-cli.js");
 }
-function loadTelemetryCli(): typeof import("../../shell/telemetry-cli") {
-  return require("../../shell/telemetry-cli") as typeof import("../../shell/telemetry-cli");
+function loadTelemetryCli(): typeof import("../../shell/telemetry-cli.js") {
+  return require("../../shell/telemetry-cli.js") as typeof import("../../shell/telemetry-cli.js");
 }
-function loadAuditCli(): typeof import("../../shell/audit-cli") {
-  return require("../../shell/audit-cli") as typeof import("../../shell/audit-cli");
+function loadAuditCli(): typeof import("../../shell/audit-cli.js") {
+  return require("../../shell/audit-cli.js") as typeof import("../../shell/audit-cli.js");
 }
-function loadDemoCli(): typeof import("../../shell/demo-cli") {
-  return require("../../shell/demo-cli") as typeof import("../../shell/demo-cli");
+function loadDemoCli(): typeof import("../../shell/demo-cli.js") {
+  return require("../../shell/demo-cli.js") as typeof import("../../shell/demo-cli.js");
 }
-function loadTelemetryDemo(): typeof import("../../shell/telemetry-demo") {
-  return require("../../shell/telemetry-demo") as typeof import("../../shell/telemetry-demo");
+function loadTelemetryDemo(): typeof import("../../shell/telemetry-demo.js") {
+  return require("../../shell/telemetry-demo.js") as typeof import("../../shell/telemetry-demo.js");
 }
-function loadReportCli(): typeof import("../../shell/report-cli") {
-  return require("../../shell/report-cli") as typeof import("../../shell/report-cli");
+function loadReportCli(): typeof import("../../shell/report-cli.js") {
+  return require("../../shell/report-cli.js") as typeof import("../../shell/report-cli.js");
 }
 
 attachCliBinding("ledger.propose", {

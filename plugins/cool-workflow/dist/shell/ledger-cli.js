@@ -1,4 +1,3 @@
-"use strict";
 // shell/ledger-cli.ts — CLI/MCP-reachable bodies for `cw ledger
 // propose|review|verify|apply|list`.
 //
@@ -8,54 +7,10 @@
 // shell layer the capability-table's CLI/MCP handlers delegate to.
 //
 // Evidence: SPEC/ledger-trust.md "CLI: `cw ledger`", "Edge cases".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ledgerProposeCli = ledgerProposeCli;
-exports.ledgerProposeMcp = ledgerProposeMcp;
-exports.ledgerReviewCli = ledgerReviewCli;
-exports.ledgerReviewMcp = ledgerReviewMcp;
-exports.ledgerVerifyCli = ledgerVerifyCli;
-exports.ledgerApplyCli = ledgerApplyCli;
-exports.ledgerListCli = ledgerListCli;
-exports.ledgerVerifyEntry = ledgerVerifyEntry;
-exports.ledgerApplyEntry = ledgerApplyEntry;
-exports.ledgerListMcp = ledgerListMcp;
-const fs = __importStar(require("node:fs"));
-const ledger_1 = require("../core/trust/ledger");
-const ledger_io_1 = require("./ledger-io");
-const cli_args_1 = require("../core/util/cli-args");
+import * as fs from "node:fs";
+import { applyLedgerProposal, buildLedgerProposal, buildLedgerReview, verifyLedgerEntry, } from "../core/trust/ledger.js";
+import { listLedgerEntries, unionLedgerEntries } from "./ledger-io.js";
+import { optionalArg } from "../core/util/cli-args.js";
 /** Coerce a repeatable/comma-joined list option to a clean string[]. */
 function listOption(value) {
     const parts = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
@@ -69,12 +24,12 @@ function required(value, label) {
 function nowIso() {
     return new Date().toISOString();
 }
-function ledgerProposeCli(options) {
-    return (0, ledger_1.buildLedgerProposal)({
-        from: required((0, cli_args_1.optionalArg)(options.from), "--from <agent/repo>"),
-        to: required((0, cli_args_1.optionalArg)(options.to), "--to <agent/repo>"),
-        title: required((0, cli_args_1.optionalArg)(options.title), "--title <text>"),
-        rationale: required((0, cli_args_1.optionalArg)(options.rationale), "--rationale <text>"),
+export function ledgerProposeCli(options) {
+    return buildLedgerProposal({
+        from: required(optionalArg(options.from), "--from <agent/repo>"),
+        to: required(optionalArg(options.to), "--to <agent/repo>"),
+        title: required(optionalArg(options.title), "--title <text>"),
+        rationale: required(optionalArg(options.rationale), "--rationale <text>"),
         targetFiles: listOption(options.files),
         // Do NOT trim the diff: it is a unified patch (payload, not a
         // label), and trimming strips the trailing newline `git apply`
@@ -88,8 +43,8 @@ function ledgerProposeCli(options) {
  *  passed through as-is (undefined only when the arg itself is absent),
  *  a slightly looser shape than the CLI handler's flag-labeled
  *  requireds. */
-function ledgerProposeMcp(args) {
-    return (0, ledger_1.buildLedgerProposal)({
+export function ledgerProposeMcp(args) {
+    return buildLedgerProposal({
         from: String(args.from || ""),
         to: String(args.to || ""),
         title: String(args.title || ""),
@@ -99,15 +54,15 @@ function ledgerProposeMcp(args) {
         createdAt: nowIso(),
     });
 }
-function ledgerReviewCli(options) {
-    const verdictRaw = required((0, cli_args_1.optionalArg)(options.verdict), "--verdict <approved|rejected>").toUpperCase();
+export function ledgerReviewCli(options) {
+    const verdictRaw = required(optionalArg(options.verdict), "--verdict <approved|rejected>").toUpperCase();
     if (verdictRaw !== "APPROVED" && verdictRaw !== "REJECTED") {
         throw new Error('--verdict must be "approved" or "rejected".');
     }
-    return (0, ledger_1.buildLedgerReview)({
-        from: required((0, cli_args_1.optionalArg)(options.from), "--from <agent/repo>"),
-        to: required((0, cli_args_1.optionalArg)(options.to), "--to <agent/repo>"),
-        target: required((0, cli_args_1.optionalArg)(options.target), "--target <proposal-id|pr-ref>"),
+    return buildLedgerReview({
+        from: required(optionalArg(options.from), "--from <agent/repo>"),
+        to: required(optionalArg(options.to), "--to <agent/repo>"),
+        target: required(optionalArg(options.target), "--target <proposal-id|pr-ref>"),
         verdict: verdictRaw,
         findings: listOption(options.findings),
         createdAt: nowIso(),
@@ -116,12 +71,12 @@ function ledgerReviewCli(options) {
 /** MCP-facing `cw_ledger_review`: same verdict check, but WITHOUT the
  *  `--verdict` CLI-flag framing in the error message (a separate call
  *  site from the CLI handler's own message). */
-function ledgerReviewMcp(args) {
+export function ledgerReviewMcp(args) {
     const verdict = String(args.verdict || "").toUpperCase();
     if (verdict !== "APPROVED" && verdict !== "REJECTED") {
         throw new Error('verdict must be "approved" or "rejected".');
     }
-    return (0, ledger_1.buildLedgerReview)({
+    return buildLedgerReview({
         from: String(args.from || ""),
         to: String(args.to || ""),
         target: String(args.target || ""),
@@ -145,7 +100,7 @@ const BAD_JSON_APPLY = {
     failedChecks: [{ name: "parse", code: "ledger-bad-json" }],
 };
 function readLedgerEntryInput(options) {
-    const file = (0, cli_args_1.optionalArg)(options.file);
+    const file = optionalArg(options.file);
     try {
         // --file <path>, else read the entry from stdin (fd 0).
         return fs.readFileSync(file || 0, "utf8");
@@ -154,7 +109,7 @@ function readLedgerEntryInput(options) {
         throw new Error(`Cannot read ledger entry${file ? ` from ${file}` : " from stdin"}: ${error.message}`);
     }
 }
-function ledgerVerifyCli(options) {
+export function ledgerVerifyCli(options) {
     let text;
     try {
         text = readLedgerEntryInput(options);
@@ -169,9 +124,9 @@ function ledgerVerifyCli(options) {
     catch {
         return BAD_JSON_VERIFY;
     }
-    return (0, ledger_1.verifyLedgerEntry)(parsed);
+    return verifyLedgerEntry(parsed);
 }
-function ledgerApplyCli(options) {
+export function ledgerApplyCli(options) {
     const text = readLedgerEntryInput(options);
     let parsed;
     try {
@@ -180,9 +135,9 @@ function ledgerApplyCli(options) {
     catch {
         return BAD_JSON_APPLY;
     }
-    return (0, ledger_1.applyLedgerProposal)(parsed);
+    return applyLedgerProposal(parsed);
 }
-function ledgerListCli(options) {
+export function ledgerListCli(options) {
     // `--ledger-dir` is the preferred flag: the global CLI front door
     // (cli/entry.ts) treats `--dir` as an alias of `--repo` for EVERY
     // command, so `cw ledger list --dir X` made one flag mean two things.
@@ -192,23 +147,23 @@ function ledgerListCli(options) {
     const input = options["ledger-dir"] ?? options.dir;
     const dirs = Array.isArray(input) ? input.map(String).filter(Boolean) : [];
     if (dirs.length > 1)
-        return (0, ledger_io_1.unionLedgerEntries)(dirs);
-    const dir = required(dirs[0] || (0, cli_args_1.optionalArg)(input), "--ledger-dir <ledger-directory>");
-    return (0, ledger_io_1.listLedgerEntries)(dir);
+        return unionLedgerEntries(dirs);
+    const dir = required(dirs[0] || optionalArg(input), "--ledger-dir <ledger-directory>");
+    return listLedgerEntries(dir);
 }
 /** MCP-facing verify/apply take the entry OBJECT directly (not a file/
  *  stdin path). */
-function ledgerVerifyEntry(entry) {
-    return (0, ledger_1.verifyLedgerEntry)(entry);
+export function ledgerVerifyEntry(entry) {
+    return verifyLedgerEntry(entry);
 }
-function ledgerApplyEntry(entry) {
-    return (0, ledger_1.applyLedgerProposal)(entry);
+export function ledgerApplyEntry(entry) {
+    return applyLedgerProposal(entry);
 }
-function ledgerListMcp(args) {
+export function ledgerListMcp(args) {
     const dirsArg = args.dirs;
     const dirs = Array.isArray(dirsArg) ? dirsArg.map(String).filter(Boolean) : [];
     if (dirs.length > 1)
-        return (0, ledger_io_1.unionLedgerEntries)(dirs);
-    const dir = required(dirs[0] || (0, cli_args_1.optionalArg)(args.dir), "dir");
-    return (0, ledger_io_1.listLedgerEntries)(dir);
+        return unionLedgerEntries(dirs);
+    const dir = required(dirs[0] || optionalArg(args.dir), "dir");
+    return listLedgerEntries(dir);
 }

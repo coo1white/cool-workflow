@@ -12,9 +12,9 @@
 // Evidence: SPEC/ledger-trust.md "Handoff ledger entry", "Exported
 // functions", "Edge cases".
 
-import { ledgerStableStringify, sha256 } from "../hash";
-import { stableCompare } from "../util/collate";
-import { isRecord } from "../util/cli-args";
+import { ledgerStableStringify, sha256 } from "../hash.js";
+import { stableCompare } from "../util/collate.js";
+import { isRecord } from "../util/cli-args.js";
 
 export type LedgerVerdict = "APPROVED" | "REJECTED";
 

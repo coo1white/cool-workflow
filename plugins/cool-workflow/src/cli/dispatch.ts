@@ -10,18 +10,18 @@
 // capability-table row can fully own (bare help, `help <topic>`, and
 // `ledger`'s unknown-subcommand usage error). It is never extended.
 
-import { formatCommandHelp } from "../core/format/help";
+import { formatCommandHelp } from "../core/format/help.js";
 import {
   CapabilityCliArgs,
   CliHandlerResult,
   CliJsonMode,
   findCapabilityByCliPath,
-} from "../core/capability-table";
-import type { CliBinding } from "../core/capability-data";
-import { KNOWN_COMMANDS, ParsedArgv, suggestCommand } from "./parseargv";
-import { printJson, styledHelp } from "./io";
-import { wantsJson } from "../core/util/cli-args";
-import { warnUnknownFlags } from "./global-flags";
+} from "../core/capability-table.js";
+import type { CliBinding } from "../core/capability-data.js";
+import { KNOWN_COMMANDS, ParsedArgv, suggestCommand } from "./parseargv.js";
+import { printJson, styledHelp } from "./io.js";
+import { wantsJson } from "../core/util/cli-args.js";
+import { warnUnknownFlags } from "./global-flags.js";
 
 /** Thrown errors carry only a message; the entry point decides exit code
  *  and the recovery hint, matching src/cli.ts's top-level catch. */

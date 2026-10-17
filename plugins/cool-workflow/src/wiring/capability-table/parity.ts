@@ -1,7 +1,7 @@
 // wiring/capability-table/parity.ts — CLI <-> MCP parity planning + report.
 
-import { REGISTRY, declaredMcpTools } from "./registry-core";
-import type { Capability } from "../../core/capability-data";
+import { REGISTRY, declaredMcpTools } from "./registry-core.js";
+import type { Capability } from "../../core/capability-data.js";
 
 // CLI <-> MCP parity planning + report. The rule: a capability marked
 // `payloadIdentical` (the default for `surface: "both"`) MUST return a

@@ -1,4 +1,3 @@
-"use strict";
 // One-way executor boundary (Track 3) — the red line AS A TYPE, not a convention.
 //
 // CW delegates execution and only ever receives structured DATA back from the
@@ -26,4 +25,4 @@
 // negative-fixture smoke (one-way-boundary-smoke.js) proves the failure mode
 // stays real (a violating fixture must NOT compile) and that these welds stay
 // present in source.
-Object.defineProperty(exports, "__esModule", { value: true });
+export {};

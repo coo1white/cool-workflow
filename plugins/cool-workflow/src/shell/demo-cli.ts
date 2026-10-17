@@ -6,7 +6,7 @@
 //
 // Evidence: SPEC/ledger-trust.md "`cw demo tamper|bundle [--json]`".
 
-import { runBundleDemo, runTamperDemo } from "./telemetry-demo";
+import { runBundleDemo, runTamperDemo } from "./telemetry-demo.js";
 
 export function demoTamperCli(): ReturnType<typeof runTamperDemo> {
   return runTamperDemo();

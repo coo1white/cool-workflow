@@ -9,7 +9,7 @@
 // bold, the two forms an embedded agent result file can add (report.ts's
 // renderResults drops that file in as is). Never ordered lists.
 
-import { REPORT_CSS } from "./report-css";
+import { REPORT_CSS } from "./report-css.js";
 
 function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");

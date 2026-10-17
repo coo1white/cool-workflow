@@ -1,4 +1,3 @@
-"use strict";
 // core/state/schema-validate.ts — dependency-free JSON-schema subset.
 //
 // Deliberately a SUBSET of JSON Schema (type, const, enum, required,
@@ -8,8 +7,6 @@
 //
 // Evidence: SPEC/state-core.md "schema-validate module — dependency-free
 // JSON-schema subset", "Schema-validator error strings".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.validateAgainstSchema = validateAgainstSchema;
 function typeOf(value) {
     if (value === null)
         return "null";
@@ -60,7 +57,7 @@ const UNSUPPORTED_KEYWORDS = new Set([
 /** Validate `value` against `schema`. Returns a list of human-readable
  *  errors; empty means valid. Pure + deterministic; never throws on a
  *  malformed schema. */
-function validateAgainstSchema(value, schema, path = "$") {
+export function validateAgainstSchema(value, schema, path = "$") {
     const errors = [];
     if (!schema || typeof schema !== "object")
         return errors;

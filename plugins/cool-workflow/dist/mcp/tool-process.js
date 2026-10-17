@@ -1,48 +1,14 @@
-"use strict";
 // mcp/tool-process.ts — the private execution lane for MCP tools.
 //
 // The MCP server keeps its stdio protocol work in the parent process. This
 // child process runs one tools/call at a time, so a synchronous file-lock wait
 // or a long agent call cannot stop the parent from reading and answering ping.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ToolProcessExecutor = void 0;
-const node_child_process_1 = require("node:child_process");
-const path = __importStar(require("node:path"));
-const safe_json_1 = require("../core/format/safe-json");
-const dispatch_1 = require("./dispatch");
+import { fork } from "node:child_process";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { pathToFileURL } from "node:url";
+import { safeJsonStringify } from "../core/format/safe-json.js";
+import { callTool } from "./dispatch.js";
 function isResponse(value) {
     if (!value || typeof value !== "object")
         return false;
@@ -59,13 +25,13 @@ function diagnostic(kind, chunk) {
  * owns response shapes; this class moves only a tool request and its already
  * rendered JSON text across IPC. A stopped child never causes an automatic
  * retry because a tool may already have written part of its state. */
-class ToolProcessExecutor {
+export class ToolProcessExecutor {
     workerPath;
     child;
     nextId = 1;
     pending;
     constructor(options = {}) {
-        this.workerPath = options.workerPath ?? path.join(__dirname, "tool-process.js");
+        this.workerPath = options.workerPath ?? path.join(import.meta.dirname, "tool-process.js");
     }
     execute(name, args) {
         if (this.pending)
@@ -106,7 +72,7 @@ class ToolProcessExecutor {
     ensureChild() {
         if (this.child && !this.child.killed && this.child.connected)
             return this.child;
-        const child = (0, node_child_process_1.fork)(this.workerPath, [], {
+        const child = fork(this.workerPath, [], {
             cwd: process.cwd(),
             env: process.env,
             stdio: ["ignore", "pipe", "pipe", "ipc"],
@@ -149,7 +115,6 @@ class ToolProcessExecutor {
         }
     }
 }
-exports.ToolProcessExecutor = ToolProcessExecutor;
 function isRequest(value) {
     if (!value || typeof value !== "object")
         return false;
@@ -168,13 +133,26 @@ function startToolProcessWorker() {
         if (!isRequest(message))
             return;
         try {
-            const result = await (0, dispatch_1.callTool)(message.name, message.args);
-            send({ schemaVersion: 1, id: message.id, ok: true, text: (0, safe_json_1.safeJsonStringify)(result) });
+            const result = await callTool(message.name, message.args);
+            send({ schemaVersion: 1, id: message.id, ok: true, text: safeJsonStringify(result) });
         }
         catch (error) {
             send({ schemaVersion: 1, id: message.id, ok: false, error: error instanceof Error ? error.message : String(error) });
         }
     });
 }
-if (require.main === module)
+/** True when this file is the process entry (the forked worker): the ES
+ *  module form of `require.main === module`, checked by URL. */
+function isProcessEntry() {
+    const entry = process.argv[1];
+    if (!entry)
+        return false;
+    try {
+        return pathToFileURL(fs.realpathSync(entry)).href === import.meta.url;
+    }
+    catch {
+        return false;
+    }
+}
+if (isProcessEntry())
     startToolProcessWorker();

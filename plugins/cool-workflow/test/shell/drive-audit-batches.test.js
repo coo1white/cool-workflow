@@ -11,6 +11,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 
@@ -57,12 +58,15 @@ function countFsyncs(file, fn) {
     if (fds.has(fd)) count += 1;
     return fsync.call(fs, fd);
   };
+  // dist/ is ES modules: their node:fs imports see a patch only after this.
+  syncBuiltinESMExports();
   try {
     fn();
   } finally {
     fs.openSync = open;
     fs.closeSync = close;
     fs.fsyncSync = fsync;
+    syncBuiltinESMExports();
   }
   return count;
 }
@@ -118,6 +122,7 @@ const cwd0 = process.cwd();
       }
       return rename.call(fs, from, to);
     };
+    syncBuiltinESMExports();
     try {
       withTrustAuditBatch(run, () => {
         recordTrustAuditEvent(run, { kind: "worker.failure", decision: "failed", source: "runtime-derived", workerId: "w1", taskId: "t1" });
@@ -126,6 +131,7 @@ const cwd0 = process.cwd();
       });
     } finally {
       fs.renameSync = rename;
+      syncBuiltinESMExports();
     }
     assert.equal(eventsAtStateWrite, 1, "the event recorded before the save is on disk when state.json is replaced");
     assert.equal(fs.readFileSync(log, "utf8").split("\n").filter(Boolean).length, 2, "the event after the save is written when the batch ends");

@@ -40,6 +40,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 
@@ -69,10 +70,12 @@ function countStateReads(statePath, fn) {
     if (file === statePath) count += 1;
     return originalReadFileSync.call(fs, file, ...rest);
   };
+  syncBuiltinESMExports();
   try {
     return { result: fn(), count };
   } finally {
     fs.readFileSync = originalReadFileSync;
+    syncBuiltinESMExports();
   }
 }
 

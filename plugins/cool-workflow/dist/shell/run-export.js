@@ -1,4 +1,3 @@
-"use strict";
 // shell/run-export.ts — portable run archive format: exportRun,
 // importRun, inspectArchive, verifyImportedRun, verifyReportBundle.
 //
@@ -6,70 +5,29 @@
 //
 // Evidence: SPEC/ledger-trust.md "`cw report verify-bundle` JSON", "Files
 // on disk" (bundle shape), invariants 16-17, rebuild risk 8.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.exportRun = exportRun;
-exports.importRun = importRun;
-exports.restoreRunAtomically = restoreRunAtomically;
-exports.verifyImportedRun = verifyImportedRun;
-exports.inspectArchive = inspectArchive;
-exports.importManifestPath = importManifestPath;
-exports.verifyReportBundle = verifyReportBundle;
-const fs = __importStar(require("node:fs"));
-const os = __importStar(require("node:os"));
-const path = __importStar(require("node:path"));
-const hash_1 = require("../core/hash");
-const version_1 = require("../core/version");
-const fs_atomic_1 = require("./fs-atomic");
-const run_paths_1 = require("../core/state/run-paths");
-const run_store_1 = require("./run-store");
-const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
-const telemetry_attestation_1 = require("../core/trust/telemetry-attestation");
-const trust_audit_1 = require("./trust-audit");
-const cli_args_1 = require("../core/util/cli-args");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { sha256, sha256Bytes } from "../core/hash.js";
+import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version.js";
+import { assertSafeRunId, isContainedPath, readJson, writeJson } from "./fs-atomic.js";
+import { createRunPaths } from "../core/state/run-paths.js";
+import { checkRunStateFile, ensureRunDirs, saveCheckpoint } from "./run-store.js";
+import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation.js";
+import { verifyTrustAudit } from "./trust-audit.js";
+import { messageOf } from "../core/util/cli-args.js";
 /** Export a run to a portable JSON archive with run-local bytes and
  *  digests. */
-function exportRun(run, outputPath, options = {}) {
+export function exportRun(run, outputPath, options = {}) {
     const exportedAt = new Date().toISOString();
     const files = collectArchiveFiles(run);
     const manifestSha256 = digestManifest(files);
-    const trustPublicKeyPem = (0, telemetry_attestation_1.resolveTrustPublicKey)(options.trustPublicKey);
+    const trustPublicKeyPem = resolveTrustPublicKey(options.trustPublicKey);
     const exported = {
         schemaVersion: 1,
         exportedAt,
-        sourceVersion: version_1.CURRENT_COOL_WORKFLOW_VERSION,
+        sourceVersion: CURRENT_COOL_WORKFLOW_VERSION,
         run,
         files,
         integrity: { fileCount: files.length, manifestSha256 },
@@ -79,8 +37,8 @@ function exportRun(run, outputPath, options = {}) {
             .map((file) => ({ path: file.relativePath, contentBase64: file.contentBase64, sha256: file.sha256, sizeBytes: file.sizeBytes })),
         audit: files.filter((file) => file.role === "audit").map((file) => file.relativePath),
     };
-    (0, fs_atomic_1.writeJson)(outputPath, exported);
-    const archiveSha256 = (0, hash_1.sha256Bytes)(fs.readFileSync(outputPath));
+    writeJson(outputPath, exported);
+    const archiveSha256 = sha256Bytes(fs.readFileSync(outputPath));
     return {
         runId: run.id,
         exportedAt,
@@ -97,23 +55,23 @@ function exportRun(run, outputPath, options = {}) {
     };
 }
 /** Import a run from a portable JSON file into a target directory. */
-function importRun(exportPath, targetDir) {
+export function importRun(exportPath, targetDir) {
     const limits = archiveIntakeLimits();
     const archiveBytes = readArchiveBytes(exportPath, limits);
     const raw = JSON.parse(archiveBytes.toString("utf8"));
     if (raw.schemaVersion !== 1)
         throw new Error(`Unsupported export schema version: ${raw.schemaVersion}`);
-    const archiveSha256 = (0, hash_1.sha256Bytes)(archiveBytes);
+    const archiveSha256 = sha256Bytes(archiveBytes);
     const files = normalizeArchiveFiles(raw);
     validateArchiveIntake(files, limits);
     verifyArchiveFileDigests(files, raw.integrity, limits);
     if (!raw.run || typeof raw.run !== "object") {
         throw new Error("Invalid run export: missing run object");
     }
-    const runId = (0, fs_atomic_1.assertSafeRunId)(raw.run.id);
+    const runId = assertSafeRunId(raw.run.id);
     const runsRoot = path.join(targetDir, ".cw", "runs");
     const runDir = path.join(runsRoot, runId);
-    if (!(0, fs_atomic_1.isContainedPath)(runDir, runsRoot)) {
+    if (!isContainedPath(runDir, runsRoot)) {
         throw new Error(`Run id escapes the runs directory: ${JSON.stringify(raw.run.id)}`);
     }
     // Validate the run shape BEFORE the deref and before any dir/file is written.
@@ -129,11 +87,11 @@ function importRun(exportPath, targetDir) {
     }
     const oldRunDir = raw.run.paths.runDir;
     const oldCwd = raw.run.cwd;
-    const paths = (0, run_paths_1.createRunPaths)(runDir);
-    (0, run_store_1.ensureRunDirs)(paths);
+    const paths = createRunPaths(runDir);
+    ensureRunDirs(paths);
     for (const file of files) {
         const destination = path.join(runDir, file.relativePath);
-        if (!(0, fs_atomic_1.isContainedPath)(destination, runDir)) {
+        if (!isContainedPath(destination, runDir)) {
             throw new Error(`Archive file escapes restore directory: ${file.relativePath}`);
         }
         fs.mkdirSync(path.dirname(destination), { recursive: true });
@@ -145,7 +103,7 @@ function importRun(exportPath, targetDir) {
             externalPathMap.set(file.sourcePath, path.join(runDir, file.relativePath));
     }
     const run = rebaseRun(raw.run, { oldRunDir, newRunDir: runDir, oldCwd, newCwd: targetDir, paths, externalPathMap });
-    (0, run_store_1.saveCheckpoint)(run);
+    saveCheckpoint(run);
     const manifest = {
         schemaVersion: 1,
         runId: run.id,
@@ -156,7 +114,7 @@ function importRun(exportPath, targetDir) {
         files: files.map(({ contentBase64: _contentBase64, ...file }) => file),
     };
     const manifestPath = importManifestPath(run);
-    (0, fs_atomic_1.writeJson)(manifestPath, manifest, { durable: true });
+    writeJson(manifestPath, manifest, { durable: true });
     const verification = verifyImportedRun(run);
     return {
         run,
@@ -169,7 +127,7 @@ function importRun(exportPath, targetDir) {
 }
 /** Restore through a same-disk staging tree, then publish the checked run with
  *  one rename. Low-level import keeps its old report-only chain behavior. */
-function restoreRunAtomically(exportPath, targetDir) {
+export function restoreRunAtomically(exportPath, targetDir) {
     const physicalTarget = path.resolve(targetDir);
     fs.mkdirSync(physicalTarget, { recursive: true });
     const stageRoot = fs.mkdtempSync(path.join(physicalTarget, ".cw-restore-"));
@@ -184,7 +142,7 @@ function restoreRunAtomically(exportPath, targetDir) {
         if (fs.existsSync(physicalFinalRunDir)) {
             throw new Error(`Refusing to overwrite existing restored run: ${staged.run.id}`);
         }
-        const finalPaths = (0, run_paths_1.createRunPaths)(finalRunDir);
+        const finalPaths = createRunPaths(finalRunDir);
         const finalRun = rebaseRun(staged.run, {
             oldRunDir: staged.run.paths.runDir,
             newRunDir: finalRunDir,
@@ -192,8 +150,8 @@ function restoreRunAtomically(exportPath, targetDir) {
             newCwd: targetDir,
             paths: finalPaths,
         });
-        (0, fs_atomic_1.writeJson)(staged.run.paths.state, finalRun, { durable: true });
-        const stateCheck = (0, run_store_1.checkRunStateFile)(staged.run.paths.state);
+        writeJson(staged.run.paths.state, finalRun, { durable: true });
+        const stateCheck = checkRunStateFile(staged.run.paths.state);
         if (stateCheck.report.status === "unsupported") {
             throw new Error(`Restore state validation failed: ${stateCheck.report.errors.join("; ") || "unsupported run state"}`);
         }
@@ -229,7 +187,7 @@ function restoreRunAtomically(exportPath, targetDir) {
 }
 /** Verify an imported run against its restore manifest and telemetry
  *  chain. */
-function verifyImportedRun(run) {
+export function verifyImportedRun(run) {
     const manifestPath = importManifestPath(run);
     const checks = [];
     if (!fs.existsSync(manifestPath)) {
@@ -243,7 +201,7 @@ function verifyImportedRun(run) {
     }
     let manifest;
     try {
-        manifest = (0, fs_atomic_1.readJson)(manifestPath);
+        manifest = readJson(manifestPath);
     }
     catch (error) {
         return {
@@ -251,7 +209,7 @@ function verifyImportedRun(run) {
             ok: false,
             manifestPath,
             checkedFiles: 0,
-            checks: [{ name: "import-manifest", pass: false, code: "invalid-import-manifest", path: manifestPath, actual: (0, cli_args_1.messageOf)(error) }],
+            checks: [{ name: "import-manifest", pass: false, code: "invalid-import-manifest", path: manifestPath, actual: messageOf(error) }],
         };
     }
     const currentManifestDigest = digestManifest(manifest.files.map((file) => ({ ...file, contentBase64: "" })));
@@ -265,7 +223,7 @@ function verifyImportedRun(run) {
     let filesOk = true;
     for (const file of manifest.files) {
         const restoredPath = path.join(run.paths.runDir, file.relativePath);
-        if (!(0, fs_atomic_1.isContainedPath)(restoredPath, run.paths.runDir)) {
+        if (!isContainedPath(restoredPath, run.paths.runDir)) {
             filesOk = false;
             checks.push({ name: "archive-file", pass: false, code: "path-escape", path: file.relativePath });
             continue;
@@ -275,22 +233,22 @@ function verifyImportedRun(run) {
             checks.push({ name: "archive-file", pass: false, code: "missing-file", path: file.relativePath, expected: file.sha256 });
             continue;
         }
-        const actual = (0, hash_1.sha256Bytes)(fs.readFileSync(restoredPath));
+        const actual = sha256Bytes(fs.readFileSync(restoredPath));
         const pass = actual === file.sha256;
         if (!pass)
             filesOk = false;
         checks.push({ name: "archive-file", pass, code: pass ? undefined : "digest-mismatch", path: file.relativePath, expected: file.sha256, actual });
     }
     checks.push({ name: "archive-files", pass: filesOk, code: filesOk ? undefined : "archive-files-invalid" });
-    const telemetry = (0, telemetry_ledger_io_1.verifyTelemetryLedger)(run);
+    const telemetry = verifyTelemetryLedger(run);
     checks.push({ name: "telemetry-ledger", pass: telemetry.verified, code: telemetry.verified ? undefined : "telemetry-ledger-invalid" });
-    const audit = (0, trust_audit_1.verifyTrustAudit)(run);
+    const audit = verifyTrustAudit(run);
     checks.push({ name: "trust-audit", pass: audit.verified, code: audit.verified ? undefined : "trust-audit-invalid" });
     return { runId: run.id, ok: checks.every((check) => check.pass), manifestPath, checkedFiles: manifest.files.length, checks };
 }
 /** Read-only integrity inspection of a portable archive WITHOUT
  *  importing it. Never throws. */
-function inspectArchive(archivePath) {
+export function inspectArchive(archivePath) {
     const base = {
         schemaVersion: 1,
         archivePath,
@@ -307,24 +265,24 @@ function inspectArchive(archivePath) {
         limits = archiveIntakeLimits();
     }
     catch (error) {
-        return { ...base, checks: [{ name: "archive-limit", pass: false, code: "archive-limit-invalid", actual: (0, cli_args_1.messageOf)(error) }] };
+        return { ...base, checks: [{ name: "archive-limit", pass: false, code: "archive-limit-invalid", actual: messageOf(error) }] };
     }
     let bytes;
     try {
         bytes = readArchiveBytes(archivePath, limits);
     }
     catch (error) {
-        const message = (0, cli_args_1.messageOf)(error);
+        const message = messageOf(error);
         const limited = message.startsWith("Archive raw byte limit exceeded:");
         return { ...base, checks: [{ name: limited ? "archive-limit" : "archive", pass: false, code: limited ? "archive-limit-raw-bytes" : "archive-unreadable", path: archivePath, actual: message }] };
     }
-    base.archiveSha256 = (0, hash_1.sha256Bytes)(bytes);
+    base.archiveSha256 = sha256Bytes(bytes);
     let raw;
     try {
         raw = JSON.parse(bytes.toString("utf8"));
     }
     catch (error) {
-        return { ...base, checks: [{ name: "archive", pass: false, code: "archive-invalid-json", path: archivePath, actual: (0, cli_args_1.messageOf)(error) }] };
+        return { ...base, checks: [{ name: "archive", pass: false, code: "archive-invalid-json", path: archivePath, actual: messageOf(error) }] };
     }
     if (raw.schemaVersion !== 1) {
         return {
@@ -368,10 +326,10 @@ function inspectArchive(archivePath) {
         };
     }
     catch (error) {
-        return { ...base, schemaSupported: true, checks: [{ name: "archive", pass: false, code: "archive-malformed", path: archivePath, actual: (0, cli_args_1.messageOf)(error) }] };
+        return { ...base, schemaSupported: true, checks: [{ name: "archive", pass: false, code: "archive-malformed", path: archivePath, actual: messageOf(error) }] };
     }
 }
-function importManifestPath(run) {
+export function importManifestPath(run) {
     return path.join(run.paths.runDir, "import-manifest.json");
 }
 /** True when report.md embeds `expected` (the trimmed result) at the
@@ -393,7 +351,7 @@ function reportSectionEmbedsResult(reportMd, taskId, expected) {
  *  Never throws — every failure is a structured check and a false `ok`.
  *
  *  Key precedence is argument > bundle > environment. */
-function verifyReportBundle(archivePath, options = {}) {
+export function verifyReportBundle(archivePath, options = {}) {
     const inspect = inspectArchive(archivePath);
     const failedChecks = inspect.checks.filter((check) => !check.pass).map((check) => ({ name: check.name, code: check.code }));
     const base = {
@@ -439,9 +397,9 @@ function verifyReportBundle(archivePath, options = {}) {
     // verify green against itself. When the operator pins a key AND the bundle
     // embeds a DIFFERENT one, fail closed with a clear trust-key-mismatch rather
     // than silently trusting the bundle's own key.
-    const resolvedArg = (0, telemetry_attestation_1.resolveTrustPublicKey)(options.pubkey);
-    const resolvedBundle = (0, telemetry_attestation_1.resolveTrustPublicKey)(bundleKey);
-    const resolvedEnv = (0, telemetry_attestation_1.resolveTrustPublicKey)(process.env.CW_AGENT_ATTEST_PUBKEY);
+    const resolvedArg = resolveTrustPublicKey(options.pubkey);
+    const resolvedBundle = resolveTrustPublicKey(bundleKey);
+    const resolvedEnv = resolveTrustPublicKey(process.env.CW_AGENT_ATTEST_PUBKEY);
     let trustKey;
     let trustKeySource;
     let trustKeyConflict = false;
@@ -484,8 +442,8 @@ function verifyReportBundle(archivePath, options = {}) {
             if (!check.pass)
                 failedChecks.push({ name: check.name, code: check.code });
         }
-        const ledger = (0, telemetry_ledger_io_1.verifyTelemetryLedger)(imported.run);
-        const sig = (0, telemetry_attestation_1.verifyTelemetrySignatures)(ledger.records, trustKey);
+        const ledger = verifyTelemetryLedger(imported.run);
+        const sig = verifyTelemetrySignatures(ledger.records, trustKey);
         signaturesChecked = sig.checked;
         signaturesReverified = sig.reverified;
         signaturesFailed = sig.failed;
@@ -510,7 +468,7 @@ function verifyReportBundle(archivePath, options = {}) {
                 continue;
             }
             const resultRaw = fs.readFileSync(task.resultPath, "utf8");
-            if ((0, hash_1.sha256)(resultRaw) !== bound.resultDigest) {
+            if (sha256(resultRaw) !== bound.resultDigest) {
                 failBound("result-digest-mismatch");
                 continue;
             }
@@ -522,7 +480,7 @@ function verifyReportBundle(archivePath, options = {}) {
             reportExtractedTo = path.resolve(options.extractReportTo);
             if (options.cwd) {
                 const baseCwd = path.resolve(options.cwd);
-                if (!(0, fs_atomic_1.isContainedPath)(reportExtractedTo, baseCwd)) {
+                if (!isContainedPath(reportExtractedTo, baseCwd)) {
                     failedChecks.push({ name: "extract-report", code: "path-outside-working-directory" });
                     reportExtractedTo = undefined;
                 }
@@ -532,7 +490,7 @@ function verifyReportBundle(archivePath, options = {}) {
         }
     }
     catch (error) {
-        failedChecks.push({ name: "restore", code: (0, cli_args_1.messageOf)(error) });
+        failedChecks.push({ name: "restore", code: messageOf(error) });
     }
     finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -577,11 +535,11 @@ function collectArchiveFiles(run) {
     for (const artifactPath of collectReferencedArtifactPaths(run)) {
         if (!artifactPath || !fs.existsSync(artifactPath) || !fs.statSync(artifactPath).isFile())
             continue;
-        if ((0, fs_atomic_1.isContainedPath)(artifactPath, run.paths.runDir)) {
+        if (isContainedPath(artifactPath, run.paths.runDir)) {
             addFile(entries, artifactPath, "artifact", run.paths.runDir);
             continue;
         }
-        if ((0, fs_atomic_1.isContainedPath)(artifactPath, run.cwd))
+        if (isContainedPath(artifactPath, run.cwd))
             addExternalArtifactFile(entries, artifactPath);
     }
     return [...entries.values()].sort((left, right) => (left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0));
@@ -593,13 +551,13 @@ function addFile(entries, file, role, runDir) {
     if (!relativePath || relativePath.startsWith("../"))
         return;
     const bytes = fs.readFileSync(file);
-    entries.set(relativePath, { relativePath, role, contentBase64: bytes.toString("base64"), sha256: (0, hash_1.sha256Bytes)(bytes), sizeBytes: bytes.length });
+    entries.set(relativePath, { relativePath, role, contentBase64: bytes.toString("base64"), sha256: sha256Bytes(bytes), sizeBytes: bytes.length });
 }
 function addExternalArtifactFile(entries, file) {
     const sourcePath = path.resolve(file);
     const bytes = fs.readFileSync(sourcePath);
-    const relativePath = `external-artifacts/${(0, hash_1.sha256Bytes)(Buffer.from(sourcePath, "utf8")).slice(0, 16)}-${safeArchiveBasename(path.basename(sourcePath))}`;
-    entries.set(relativePath, { relativePath, role: "artifact", contentBase64: bytes.toString("base64"), sha256: (0, hash_1.sha256Bytes)(bytes), sizeBytes: bytes.length, sourcePath });
+    const relativePath = `external-artifacts/${sha256Bytes(Buffer.from(sourcePath, "utf8")).slice(0, 16)}-${safeArchiveBasename(path.basename(sourcePath))}`;
+    entries.set(relativePath, { relativePath, role: "artifact", contentBase64: bytes.toString("base64"), sha256: sha256Bytes(bytes), sizeBytes: bytes.length, sourcePath });
 }
 function collectReferencedArtifactPaths(run) {
     const paths = new Set();
@@ -680,7 +638,7 @@ function normalizeArchiveFiles(raw) {
             relativePath: cleanArchiveRelativePath(artifact.path),
             role: "artifact",
             contentBase64,
-            sha256: typeof artifact.sha256 === "string" ? artifact.sha256 : (0, hash_1.sha256Bytes)(bytes),
+            sha256: typeof artifact.sha256 === "string" ? artifact.sha256 : sha256Bytes(bytes),
             sizeBytes: artifact.sizeBytes === undefined ? bytes.length : artifact.sizeBytes,
         };
     });
@@ -728,7 +686,7 @@ function validateArchiveIntake(files, limits) {
     }
 }
 function archiveLimitCheck(error) {
-    const actual = (0, cli_args_1.messageOf)(error);
+    const actual = messageOf(error);
     const code = actual.startsWith("Archive file count limit exceeded:")
         ? "archive-limit-file-count"
         : actual.startsWith("Archive content byte limit exceeded:")
@@ -819,7 +777,7 @@ function collectArchiveDigestChecks(files, integrity, limits = {}) {
         else {
             decodedTotal += bytes.length;
         }
-        const actual = (0, hash_1.sha256Bytes)(bytes);
+        const actual = sha256Bytes(bytes);
         const digestOk = actual === file.sha256;
         checks.push(digestOk ? { name: "archive-file", pass: true, path: file.relativePath } : { name: "archive-file", pass: false, code: "digest-mismatch", path: file.relativePath, expected: file.sha256, actual });
         const sizeOk = bytes.length === file.sizeBytes;
@@ -862,7 +820,7 @@ function digestManifest(files) {
     const manifest = files
         .map((file) => ({ relativePath: file.relativePath, role: file.role, sha256: file.sha256, sizeBytes: file.sizeBytes }))
         .sort((left, right) => (left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0));
-    return (0, hash_1.sha256Bytes)(Buffer.from(JSON.stringify(manifest), "utf8"));
+    return sha256Bytes(Buffer.from(JSON.stringify(manifest), "utf8"));
 }
 function rebaseRun(source, context) {
     const cloned = deepRebase(JSON.parse(JSON.stringify(source)), context);

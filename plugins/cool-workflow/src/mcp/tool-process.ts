@@ -5,9 +5,11 @@
 // or a long agent call cannot stop the parent from reading and answering ping.
 
 import { ChildProcess, fork } from "node:child_process";
+import * as fs from "node:fs";
 import * as path from "node:path";
-import { safeJsonStringify } from "../core/format/safe-json";
-import { callTool } from "./dispatch";
+import { pathToFileURL } from "node:url";
+import { safeJsonStringify } from "../core/format/safe-json.js";
+import { callTool } from "./dispatch.js";
 
 interface ToolProcessRequest {
   schemaVersion: 1;
@@ -55,7 +57,7 @@ export class ToolProcessExecutor {
   private pending: { id: number; name: string; resolve: (text: string) => void; reject: (error: Error) => void } | undefined;
 
   constructor(options: { workerPath?: string } = {}) {
-    this.workerPath = options.workerPath ?? path.join(__dirname, "tool-process.js");
+    this.workerPath = options.workerPath ?? path.join(import.meta.dirname, "tool-process.js");
   }
 
   execute(name: string, args: unknown): Promise<string> {
@@ -159,4 +161,16 @@ function startToolProcessWorker(): void {
   });
 }
 
-if (require.main === module) startToolProcessWorker();
+/** True when this file is the process entry (the forked worker): the ES
+ *  module form of `require.main === module`, checked by URL. */
+function isProcessEntry(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return pathToFileURL(fs.realpathSync(entry)).href === import.meta.url;
+  } catch {
+    return false;
+  }
+}
+
+if (isProcessEntry()) startToolProcessWorker();
