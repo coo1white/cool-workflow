@@ -12,15 +12,16 @@
 // (metrics are derived and honest), invariant 5 (freshness is fail-
 // closed), invariant 6 (metricsShow never touches state.json).
 
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { readJson, writeJson } from "./fs-atomic";
-import { WorkflowRun, RunTask } from "../core/state/types";
-import { WorkerScope } from "./worker-isolation";
-import { verifyTelemetryLedger } from "./telemetry-ledger-io";
-import type { UsageRecord } from "../core/types/observability";
+import { readJson, writeJson } from "./fs-atomic.js";
+import { WorkflowRun, RunTask } from "../core/state/types.js";
+import { WorkerScope } from "./worker-isolation.js";
+import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+import type { UsageRecord } from "../core/types/observability.js";
 export type { UsageRecord };
-import { stableCompare } from "../core/util/collate";
+import { stableCompare } from "../core/util/collate.js";
 
 export const METRICS_SCHEMA_VERSION = 1 as const;
 
@@ -167,7 +168,6 @@ export interface MetricsSummaryReport {
 }
 
 function fingerprintStrings(values: string[]): string {
-  const { createHash } = require("node:crypto") as typeof import("node:crypto");
   const hash = createHash("sha256");
   hash.update(JSON.stringify([...values].sort()));
   return `sha256:${hash.digest("hex").slice(0, 32)}`;
@@ -705,5 +705,5 @@ export function deriveMetricsSummary(inputs: SummaryRunInput[], options: { now: 
   };
 }
 
-export { loadCostPolicy, parseUsageFromArgs } from "./observability-intake";
-export { formatMetricsReport, formatMetricsSummary } from "./observability-format";
+export { loadCostPolicy, parseUsageFromArgs } from "./observability-intake.js";
+export { formatMetricsReport, formatMetricsSummary } from "./observability-format.js";

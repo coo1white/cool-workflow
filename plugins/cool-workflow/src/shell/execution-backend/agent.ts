@@ -29,11 +29,11 @@ import {
   ExecutionResultEnvelope,
   ResolvedSandboxPolicy,
   SandboxAttestation,
-} from "./types";
-import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local";
-import { delegatedEnvelope, refusedEnvelope } from "./envelopes";
-import { withPerfTraceGroup } from "../perf-trace";
-import { agentCommandArgv, splitAgentCommandLine, substituteAgentArg, messageOf } from "../../core/util/cli-args";
+} from "./types.js";
+import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local.js";
+import { delegatedEnvelope, refusedEnvelope } from "./envelopes.js";
+import { withPerfTraceGroup } from "../perf-trace.js";
+import { agentCommandArgv, splitAgentCommandLine, substituteAgentArg, messageOf } from "../../core/util/cli-args.js";
 
 const AGENT_PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i;
 
@@ -393,10 +393,10 @@ export function prepareEndpointJob(request: ExecutionRequest): AgentEndpointJob 
   return { endpoint: resolved.endpoint, job, timeoutMs: resolved.timeoutMs || 600000 };
 }
 
-// __dirname is dist/shell/execution-backend at runtime — THREE levels up
+// import.meta.dirname is dist/shell/execution-backend at runtime — THREE levels up
 // (execution-backend -> shell -> dist -> package root) reaches scripts/,
 // a sibling of dist/, not two (dist/scripts/... is never compiled/copied).
-const BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "batch-delegate-child.js");
+const BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "batch-delegate-child.js");
 
 interface BatchDelegateLine {
   i?: unknown;
@@ -466,7 +466,7 @@ export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[
 }
 
 // Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
-const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-batch-delegate-child.js");
+const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-batch-delegate-child.js");
 
 /** Run a batch of ENDPOINT (HTTP-delegate) jobs concurrently; outcomes
  *  index-align with jobs. The endpoint sibling of runAgentBatchOutcomes: one
@@ -511,7 +511,7 @@ export function shouldStreamAgentStderr(env: NodeJS.ProcessEnv, isTTY: boolean):
 }
 
 // Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
-const HTTP_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");
+const HTTP_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");
 
 /** Keep a failed agent's own stderr beside its result.md, at
  *  <workerDir>/logs/agent-stderr.log, so the reason is readable after the

@@ -7,7 +7,7 @@
 // contract.ts", "Default contract stage table (byte facts a rebuild must
 // keep)".
 
-import { PipelineContract } from "../state/types";
+import { PipelineContract } from "../state/types.js";
 
 export const DEFAULT_PIPELINE_CONTRACT_ID = "cw.pipeline.default";
 

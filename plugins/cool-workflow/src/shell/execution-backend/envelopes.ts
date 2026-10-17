@@ -7,14 +7,14 @@
 // (byte-stable evidence triple across backends — see
 // SPEC/execution-backend.md invariant 2 "Same envelopes, any backend").
 
-import { sha256 } from "../../core/hash";
+import { sha256 } from "../../core/hash.js";
 import {
   BackendDescriptor,
   BackendExecutionHandle,
   ExecutionResultEnvelope,
   ResolvedSandboxPolicy,
   SandboxAttestation,
-} from "./types";
+} from "./types.js";
 
 /** Build the canonical completed/failed envelope shared by every real
  *  backend — identical to executeLocal's, so evidence is byte-stable across

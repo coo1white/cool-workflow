@@ -1,4 +1,3 @@
-"use strict";
 // core/types/execution-backend.ts — plain data shapes for the driver layer.
 //
 // Types only — no logic — so this file lives in core/
@@ -10,4 +9,4 @@
 // BackendExecutionHandle, ...), so the file stays one piece.
 //
 // Evidence: SPEC/execution-backend.md.
-Object.defineProperty(exports, "__esModule", { value: true });
+export {};

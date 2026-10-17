@@ -1,4 +1,3 @@
-"use strict";
 // shell/scheduling-io.ts — Control-Plane Scheduling (`cw sched`): pure
 // lease-plan mechanism over the run-registry-io.ts queue store, plus the
 // policy file IO.
@@ -8,64 +7,14 @@
 // `$CW_HOME/registry/queue.json` leases, not wall-clock tasks.
 //
 // Evidence: SPEC/scheduling-registry.md section D.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_SCHEDULING_POLICY = exports.SCHEDULING_SCHEMA_VERSION = void 0;
-exports.normalizeSchedulingPolicy = normalizeSchedulingPolicy;
-exports.backoffMs = backoffMs;
-exports.planSchedule = planSchedule;
-exports.applyLease = applyLease;
-exports.retryOrPark = retryOrPark;
-exports.reclaimExpired = reclaimExpired;
-exports.resetEntry = resetEntry;
-exports.schedPlanCli = schedPlanCli;
-exports.schedLeaseCli = schedLeaseCli;
-exports.schedReleaseCli = schedReleaseCli;
-exports.schedCompleteCli = schedCompleteCli;
-exports.schedReclaimCli = schedReclaimCli;
-exports.schedResetCli = schedResetCli;
-exports.schedPolicyShowCli = schedPolicyShowCli;
-exports.schedPolicySetCli = schedPolicySetCli;
-const fs = __importStar(require("node:fs"));
-const cli_args_1 = require("../core/util/cli-args");
-const fs_atomic_1 = require("./fs-atomic");
-const run_registry_io_1 = require("./run-registry-io");
-const numeric_flag_1 = require("../core/util/numeric-flag");
-exports.SCHEDULING_SCHEMA_VERSION = 1;
+import * as fs from "node:fs";
+import { cwdArg, flagOn } from "../core/util/cli-args.js";
+import { readJson, withFileLock, writeJson } from "./fs-atomic.js";
+import { compareQueue, RunRegistry } from "./run-registry-io.js";
+import { requiredNumberFlag } from "../core/util/numeric-flag.js";
+export const SCHEDULING_SCHEMA_VERSION = 1;
 /** Conservative fail-closed defaults: serial, bounded retries, exponential backoff. */
-exports.DEFAULT_SCHEDULING_POLICY = {
+export const DEFAULT_SCHEDULING_POLICY = {
     schemaVersion: 1,
     maxConcurrent: 1,
     maxAttempts: 3,
@@ -74,8 +23,8 @@ exports.DEFAULT_SCHEDULING_POLICY = {
     backoffFactor: 2,
     backoffCapMs: 60_000,
 };
-function normalizeSchedulingPolicy(input) {
-    const base = exports.DEFAULT_SCHEDULING_POLICY;
+export function normalizeSchedulingPolicy(input) {
+    const base = DEFAULT_SCHEDULING_POLICY;
     const num = (value, fallback, min) => (typeof value === "number" && Number.isFinite(value) && value >= min ? value : fallback);
     return {
         schemaVersion: 1,
@@ -88,7 +37,7 @@ function normalizeSchedulingPolicy(input) {
     };
 }
 /** Deterministic backoff: baseMs * factor^(attempts-1), capped. No jitter. */
-function backoffMs(policy, attempts) {
+export function backoffMs(policy, attempts) {
     const raw = policy.backoffBaseMs * Math.pow(policy.backoffFactor, Math.max(0, attempts - 1));
     return Math.min(Math.round(raw), policy.backoffCapMs);
 }
@@ -109,8 +58,8 @@ function eligible(entry, now) {
     return true;
 }
 /** Read-only lease plan for the current queue + policy + now. Pure: no mutation. */
-function planSchedule(entries, policy, now) {
-    const sorted = [...entries].sort(run_registry_io_1.compareQueue);
+export function planSchedule(entries, policy, now) {
+    const sorted = [...entries].sort(compareQueue);
     const inFlight = sorted.filter((entry) => leaseActive(entry, now)).length;
     const available = Math.max(0, policy.maxConcurrent - inFlight);
     const leases = [];
@@ -144,7 +93,7 @@ function planSchedule(entries, policy, now) {
     }
     return { schemaVersion: 1, now, maxConcurrent: policy.maxConcurrent, inFlight, available, leases, skipped };
 }
-function applyLease(entries, policy, now, limit) {
+export function applyLease(entries, policy, now, limit) {
     const plan = planSchedule(entries, policy, now);
     const granted = typeof limit === "number" ? plan.leases.slice(0, Math.max(0, limit)) : plan.leases;
     const byId = new Map(granted.map((lease) => [lease.id, lease]));
@@ -158,7 +107,7 @@ function applyLease(entries, policy, now, limit) {
 }
 /** A failed/expired attempt: increment attempts, then park (at budget) or
  *  set ready with backoff. Fail closed — parked is terminal until reset. */
-function retryOrPark(entry, policy, now, reason) {
+export function retryOrPark(entry, policy, now, reason) {
     const attempts = (entry.attempts || 0) + 1;
     const cleared = { ...entry, attempts, leaseId: undefined, leaseExpiresAt: undefined };
     if (attempts >= policy.maxAttempts) {
@@ -166,7 +115,7 @@ function retryOrPark(entry, policy, now, reason) {
     }
     return { ...cleared, status: "ready", nextEligibleAt: addMs(now, backoffMs(policy, attempts)) };
 }
-function reclaimExpired(entries, policy, now) {
+export function reclaimExpired(entries, policy, now) {
     const reclaimed = [];
     const next = entries.map((entry) => {
         if (!leaseExpired(entry, now))
@@ -198,7 +147,7 @@ function leaseRelease(entries, leaseId, policy, now, options = {}) {
     });
     return { entries: next, matched };
 }
-function resetEntry(entries, id) {
+export function resetEntry(entries, id) {
     let matched = false;
     const next = entries.map((entry) => {
         if (entry.id !== id || entry.status !== "parked")
@@ -219,35 +168,35 @@ function nowIso(options) {
 function loadSchedulingPolicy(registry) {
     const file = registry.schedulingPolicyPath();
     if (!fs.existsSync(file))
-        return { schemaVersion: 1, policy: exports.DEFAULT_SCHEDULING_POLICY, source: "default" };
-    const parsed = (0, fs_atomic_1.readJson)(file);
+        return { schemaVersion: 1, policy: DEFAULT_SCHEDULING_POLICY, source: "default" };
+    const parsed = readJson(file);
     return { schemaVersion: 1, policy: normalizeSchedulingPolicy(parsed), source: "file" };
 }
 function numericFlag(options, key) {
-    return (0, numeric_flag_1.requiredNumberFlag)(options[key], `--${key}`);
+    return requiredNumberFlag(options[key], `--${key}`);
 }
-function schedPlanCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
+export function schedPlanCli(options = {}) {
+    const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
     const { policy } = loadSchedulingPolicy(registry);
     return planSchedule(registry.loadQueueEntries(), policy, nowIso(options));
 }
-function schedLeaseCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
+export function schedLeaseCli(options = {}) {
+    const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
     const now = nowIso(options);
     const policy = loadSchedulingPolicy(registry).policy;
-    const limit = (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit");
-    return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
+    const limit = requiredNumberFlag(options.limit, "--limit");
+    return withFileLock(registry.queueFilePath(), () => {
         const { entries, leases } = applyLease(registry.loadQueueEntries(), policy, now, limit);
         registry.saveQueueEntries(entries);
         return { schemaVersion: 1, now, granted: leases.length, leases };
     });
 }
-function schedReleaseCli(leaseId, options = {}) {
-    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
+export function schedReleaseCli(leaseId, options = {}) {
+    const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
     const now = nowIso(options);
-    const failed = (0, cli_args_1.flagOn)(options.failed, ["true", "1"]);
+    const failed = flagOn(options.failed, ["true", "1"]);
     const reason = typeof options.reason === "string" ? options.reason : undefined;
-    return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
+    return withFileLock(registry.queueFilePath(), () => {
         const { entries, matched } = leaseRelease(registry.loadQueueEntries(), leaseId, loadSchedulingPolicy(registry).policy, now, { failed, reason });
         if (!matched)
             throw new Error(`No active lease to release: ${leaseId}`);
@@ -255,9 +204,9 @@ function schedReleaseCli(leaseId, options = {}) {
         return { schemaVersion: 1, released: leaseId, failed };
     });
 }
-function schedCompleteCli(leaseId, options = {}) {
-    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
-    return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
+export function schedCompleteCli(leaseId, options = {}) {
+    const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
+    return withFileLock(registry.queueFilePath(), () => {
         const { entries, matched } = leaseComplete(registry.loadQueueEntries(), leaseId, nowIso(options));
         if (!matched)
             throw new Error(`No active lease to complete: ${leaseId}`);
@@ -265,18 +214,18 @@ function schedCompleteCli(leaseId, options = {}) {
         return { schemaVersion: 1, completed: leaseId };
     });
 }
-function schedReclaimCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
+export function schedReclaimCli(options = {}) {
+    const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
     const now = nowIso(options);
-    return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
+    return withFileLock(registry.queueFilePath(), () => {
         const { entries, reclaimed } = reclaimExpired(registry.loadQueueEntries(), loadSchedulingPolicy(registry).policy, now);
         registry.saveQueueEntries(entries);
         return { schemaVersion: 1, now, reclaimed };
     });
 }
-function schedResetCli(id, options = {}) {
-    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
-    return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
+export function schedResetCli(id, options = {}) {
+    const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
+    return withFileLock(registry.queueFilePath(), () => {
         const { entries, matched } = resetEntry(registry.loadQueueEntries(), id);
         if (!matched)
             throw new Error(`No parked entry to reset: ${id}`);
@@ -284,12 +233,12 @@ function schedResetCli(id, options = {}) {
         return { schemaVersion: 1, reset: id };
     });
 }
-function schedPolicyShowCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
+export function schedPolicyShowCli(options = {}) {
+    const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
     return loadSchedulingPolicy(registry);
 }
-function schedPolicySetCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
+export function schedPolicySetCli(options = {}) {
+    const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
     const patch = {};
     for (const key of ["maxConcurrent", "maxAttempts", "leaseTtlMs", "backoffBaseMs", "backoffFactor", "backoffCapMs"]) {
         const value = numericFlag(options, key);
@@ -299,10 +248,10 @@ function schedPolicySetCli(options = {}) {
     // Read-modify-write under the policy file's own lock: two concurrent
     // `sched policy set` calls patching different fields must not drop each
     // other's write.
-    return (0, fs_atomic_1.withFileLock)(registry.schedulingPolicyPath(), () => {
+    return withFileLock(registry.schedulingPolicyPath(), () => {
         const current = loadSchedulingPolicy(registry).policy;
         const policy = normalizeSchedulingPolicy({ ...current, ...patch });
-        (0, fs_atomic_1.writeJson)(registry.schedulingPolicyPath(), policy);
+        writeJson(registry.schedulingPolicyPath(), policy);
         return { schemaVersion: 1, policy, source: "file" };
     });
 }

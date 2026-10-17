@@ -1,4 +1,3 @@
-"use strict";
 // shell/reclamation-io.ts — gc plan/run/verify's write-ahead reclamation
 // transaction, plus the orphan-run sweep and the clone cache gc.
 //
@@ -21,97 +20,30 @@
 // conformance cases pin) — see `planReclamation`'s explicit sort below.
 //
 // Evidence: SPEC/scheduling-registry.md sections E, F, G.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DEFAULT_ORPHAN_MIN_AGE_MINUTES = exports.SKELETON_REQUIRED_KEYS = exports.ReclamationAbort = exports.ReclamationError = void 0;
-exports.sha256OfString = sha256OfString;
-exports.dirBytes = dirBytes;
-exports.reclaimedLogPath = reclaimedLogPath;
-exports.loadReclamationLog = loadReclamationLog;
-exports.extractSkeleton = extractSkeleton;
-exports.validateSkeleton = validateSkeleton;
-exports.validateSkeletonAgainstRun = validateSkeletonAgainstRun;
-exports.planReclamation = planReclamation;
-exports.genesisPrevHash = genesisPrevHash;
-exports.computeTombstoneHash = computeTombstoneHash;
-exports.buildTombstone = buildTombstone;
-exports.commitTombstone = commitTombstone;
-exports.prepareFree = prepareFree;
-exports.freeBulk = freeBulk;
-exports.runReclamation = runReclamation;
-exports.verifyReclamation = verifyReclamation;
-exports.reclamationPolicy = reclamationPolicy;
-exports.reclaimEligibility = reclaimEligibility;
-exports.gcPlan = gcPlan;
-exports.gcRun = gcRun;
-exports.gcVerify = gcVerify;
-exports.formatGcPlan = formatGcPlan;
-exports.formatGcRun = formatGcRun;
-exports.formatGcVerify = formatGcVerify;
-exports.listOrphanRuns = listOrphanRuns;
-exports.gcOrphanRuns = gcOrphanRuns;
-exports.formatOrphanRunsList = formatOrphanRunsList;
-exports.formatOrphanRunsGc = formatOrphanRunsGc;
-exports.listClones = listClones;
-exports.gcClones = gcClones;
-exports.formatClonesList = formatClonesList;
-exports.formatClonesGc = formatClonesGc;
-const fs = __importStar(require("node:fs"));
-const os = __importStar(require("node:os"));
-const path = __importStar(require("node:path"));
-const cli_args_1 = require("../core/util/cli-args");
-const fs_atomic_1 = require("./fs-atomic");
-const trust_audit_1 = require("./trust-audit");
-const node_store_1 = require("./node-store");
-const node_snapshot_1 = require("../core/state/node-snapshot");
-const node_projection_1 = require("../core/state/node-projection");
-const hash_1 = require("../core/hash");
-const collate_1 = require("../core/util/collate");
-const run_registry_io_1 = require("./run-registry-io");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { flagOn } from "../core/util/cli-args.js";
+import { isContainedPath, realResolve, withFileLock, writeJson } from "./fs-atomic.js";
+import { recordTrustAuditEvent, listTrustAuditEvents } from "./trust-audit.js";
+import { snapshotNode } from "./node-store.js";
+import { loadNodeSnapshot } from "../core/state/node-snapshot.js";
+import { nodeProjectionDigestInput, replayStableStringify } from "../core/state/node-projection.js";
+import { sha256, sha256Bytes } from "../core/hash.js";
+import { stableCompare } from "../core/util/collate.js";
+import { compareBytes, DEFAULT_RUN_REGISTRY_POLICY, } from "./run-registry-io.js";
 // ---------------------------------------------------------------------------
 // Content addressing + byte measurement (in-process, no `du`) — carried
 // forward from reclamation hash module.
 // ---------------------------------------------------------------------------
-function sha256OfString(value) {
-    return (0, hash_1.sha256)(value);
+export function sha256OfString(value) {
+    return sha256(value);
 }
 function sha256OfFile(file) {
-    return `sha256:${(0, hash_1.sha256Bytes)(fs.readFileSync(file))}`;
+    return `sha256:${sha256Bytes(fs.readFileSync(file))}`;
 }
 /** Walk a path and sum file sizes IN-PROCESS. Returns 0 if absent. */
-function dirBytes(p) {
+export function dirBytes(p) {
     let stat;
     try {
         stat = fs.statSync(p);
@@ -137,7 +69,7 @@ function contentDigest(p) {
         return sha256OfFile(p);
     const parts = [];
     const walk = (dir, rel) => {
-        for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => (0, run_registry_io_1.compareBytes)(a.name, b.name))) {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => compareBytes(a.name, b.name))) {
             const abs = path.join(dir, entry.name);
             const r = path.join(rel, entry.name);
             if (entry.isDirectory())
@@ -150,7 +82,7 @@ function contentDigest(p) {
     return sha256OfString(parts.join("\n"));
 }
 /** Fail-closed refusal: a real reason reclamation froze nothing. */
-class ReclamationError extends Error {
+export class ReclamationError extends Error {
     code;
     details;
     constructor(code, message, details) {
@@ -160,10 +92,9 @@ class ReclamationError extends Error {
         this.details = details;
     }
 }
-exports.ReclamationError = ReclamationError;
 /** Synthetic abort thrown by runReclamation({ faultAfter }) — a TESTABLE
  *  crash injection that never kills the process. */
-class ReclamationAbort extends Error {
+export class ReclamationAbort extends Error {
     step;
     constructor(step) {
         super(`ReclamationAbort after step: ${step}`);
@@ -171,8 +102,7 @@ class ReclamationAbort extends Error {
         this.step = step;
     }
 }
-exports.ReclamationAbort = ReclamationAbort;
-exports.SKELETON_REQUIRED_KEYS = [
+export const SKELETON_REQUIRED_KEYS = [
     "runId",
     "finalVerdict",
     "commits",
@@ -188,20 +118,20 @@ exports.SKELETON_REQUIRED_KEYS = [
  *  persist can never land invisibly inside another writer's critical
  *  section. */
 function persistRunDurable(run) {
-    (0, fs_atomic_1.withFileLock)(run.paths.state, () => {
+    withFileLock(run.paths.state, () => {
         run.updatedAt = new Date().toISOString();
-        (0, fs_atomic_1.writeJson)(run.paths.state, run, { durable: true });
+        writeJson(run.paths.state, run, { durable: true });
     });
 }
 function withRunLock(run, fn) {
-    return (0, fs_atomic_1.withFileLock)(reclaimedLogPath(run), fn);
+    return withFileLock(reclaimedLogPath(run), fn);
 }
-function reclaimedLogPath(run) {
+export function reclaimedLogPath(run) {
     return path.join(run.paths.runDir, "reclaimed.json");
 }
 /** Fail-OPEN on absence/corruption: a malformed overlay must never brick
  *  the run (SPEC/scheduling-registry.md "Rebuild risks" #1). */
-function loadReclamationLog(run) {
+export function loadReclamationLog(run) {
     const file = reclaimedLogPath(run);
     if (!fs.existsSync(file))
         return { schemaVersion: 1, runId: run.id, tombstones: [] };
@@ -264,7 +194,7 @@ function digestEvidenceEntry(entry) {
 }
 /** STEP 1: extract + seal the skeleton. Pure read over the run; never
  *  mutates. */
-function extractSkeleton(run) {
+export function extractSkeleton(run) {
     const lifecycle = deriveTerminalLifecycle(run);
     const commits = (run.commits || []).map((commit) => ({
         id: commit.id,
@@ -295,7 +225,7 @@ function extractSkeleton(run) {
         if (digested)
             evidenceMap.set(digested.ref, digested.digest);
     }
-    const evidenceDigests = [...evidenceMap.entries()].map(([ref, digest]) => ({ ref, digest })).sort((a, b) => (0, run_registry_io_1.compareBytes)(a.ref, b.ref));
+    const evidenceDigests = [...evidenceMap.entries()].map(([ref, digest]) => ({ ref, digest })).sort((a, b) => compareBytes(a.ref, b.ref));
     const eventLog = auditEventLogPath(run);
     const auditLogDigest = fs.existsSync(eventLog) ? sha256OfFile(eventLog) : sha256OfString("");
     const events = fs.existsSync(eventLog)
@@ -321,7 +251,7 @@ function extractSkeleton(run) {
     };
     const collaboration = run.collaboration;
     const collaborationLog = {
-        digest: sha256OfString((0, node_projection_1.replayStableStringify)(collaboration || {})),
+        digest: sha256OfString(replayStableStringify(collaboration || {})),
         approvals: collaboration?.approvals?.length || 0,
         comments: collaboration?.comments?.length || 0,
         handoffs: collaboration?.handoffs?.length || 0,
@@ -345,11 +275,11 @@ function extractSkeleton(run) {
         stateDigest,
     };
 }
-function validateSkeleton(skeleton) {
+export function validateSkeleton(skeleton) {
     const missing = [];
     if (!skeleton)
-        return [...exports.SKELETON_REQUIRED_KEYS];
-    for (const key of exports.SKELETON_REQUIRED_KEYS) {
+        return [...SKELETON_REQUIRED_KEYS];
+    for (const key of SKELETON_REQUIRED_KEYS) {
         const value = skeleton[key];
         if (value === undefined || value === null) {
             missing.push(key);
@@ -373,7 +303,7 @@ function validateSkeleton(skeleton) {
     return missing;
 }
 /** Refuse if extraction dropped audit content the run actually has. */
-function validateSkeletonAgainstRun(run, skeleton) {
+export function validateSkeletonAgainstRun(run, skeleton) {
     const failures = [];
     const runCommits = (run.commits || []).length;
     if (runCommits > 0 && skeleton.commits.length !== runCommits) {
@@ -391,14 +321,14 @@ function validateSkeletonAgainstRun(run, skeleton) {
     return failures;
 }
 function snapshotProjectionDigest(node) {
-    return sha256OfString((0, node_projection_1.nodeProjectionDigestInput)(node));
+    return sha256OfString(nodeProjectionDigestInput(node));
 }
 function nodeBodyDigest(node) {
-    return sha256OfString((0, node_projection_1.nodeProjectionDigestInput)(node));
+    return sha256OfString(nodeProjectionDigestInput(node));
 }
 /** Build the retention plan: which paths are freeable under `policy`, of
  *  what kind, how many bytes, and the resulting capability downgrade. */
-function planReclamation(run, policy = {}) {
+export function planReclamation(run, policy = {}) {
     const runDir = run.paths.runDir;
     const freeable = [];
     const rel = (abs) => path.relative(runDir, abs);
@@ -459,7 +389,7 @@ function planReclamation(run, policy = {}) {
                     const recipe = {
                         recipeKind: "node-snapshot-projection",
                         inputDigests: [inputDigest],
-                        inputsDigest: sha256OfString((0, node_projection_1.replayStableStringify)([inputDigest])),
+                        inputsDigest: sha256OfString(replayStableStringify([inputDigest])),
                         expectDigest: snapshotProjectionDigest(node),
                         sourceRef: node.id,
                     };
@@ -499,7 +429,7 @@ function planReclamation(run, policy = {}) {
     // Determinism (HARD constraint): sort by path BEFORE anything hashes it,
     // so tombstoneHash is reproducible across hosts regardless of
     // fs.readdirSync's filesystem-dependent order.
-    freeable.sort((a, b) => (0, run_registry_io_1.compareBytes)(a.path, b.path));
+    freeable.sort((a, b) => compareBytes(a.path, b.path));
     const byKind = {};
     let bytesToFree = 0;
     for (const entry of freeable) {
@@ -534,14 +464,14 @@ function planReclamation(run, policy = {}) {
 // Tombstone construction + hash chain
 // ---------------------------------------------------------------------------
 function policyDigestOf(policy) {
-    return sha256OfString((0, node_projection_1.replayStableStringify)(policy));
+    return sha256OfString(replayStableStringify(policy));
 }
 /** genesis prevTombstoneHash = sha256 of the sealed skeleton. */
-function genesisPrevHash(skeleton) {
-    return sha256OfString((0, node_projection_1.replayStableStringify)(skeleton));
+export function genesisPrevHash(skeleton) {
+    return sha256OfString(replayStableStringify(skeleton));
 }
 function tombstoneHashInput(t) {
-    return (0, node_projection_1.replayStableStringify)({
+    return replayStableStringify({
         runId: t.runId,
         tombstoneId: t.tombstoneId,
         reclaimedAt: t.reclaimedAt,
@@ -549,13 +479,13 @@ function tombstoneHashInput(t) {
         policyDigest: t.policyDigest,
         freed: t.freed.map((f) => ({ path: f.path, kind: f.kind, bytes: f.bytes, sha256: f.sha256, recipe: f.recipe || null })),
         bytesFreed: t.bytesFreed,
-        skeletonDigest: sha256OfString((0, node_projection_1.replayStableStringify)(t.skeleton)),
+        skeletonDigest: sha256OfString(replayStableStringify(t.skeleton)),
         capability: t.capability,
         capabilityReason: t.capabilityReason,
         prevTombstoneHash: t.prevTombstoneHash,
     });
 }
-function computeTombstoneHash(t) {
+export function computeTombstoneHash(t) {
     return sha256OfString(tombstoneHashInput(t));
 }
 function tombstoneId(seq) {
@@ -564,7 +494,7 @@ function tombstoneId(seq) {
 /** STEP 2: build the FULL tombstone (pre-deletion sha256 per freed path +
  *  the hash chain). Reads the freed files (still present); mutates
  *  nothing on disk. */
-function buildTombstone(run, skeleton, plan, options = {}) {
+export function buildTombstone(run, skeleton, plan, options = {}) {
     const now = options.now || new Date().toISOString();
     const priorLog = loadReclamationLog(run);
     // Fail closed, not open: a CORRUPTED log must never be read as "no prior
@@ -605,12 +535,12 @@ function buildTombstone(run, skeleton, plan, options = {}) {
 /** STEP 3: commit the tombstone DURABLY into the append-only overlay
  *  (temp -> fsync -> rename) and record the attestation. No byte is freed
  *  here — write-ahead order is the safety property. */
-function commitTombstone(run, tombstone) {
+export function commitTombstone(run, tombstone) {
     const log = loadReclamationLog(run);
     log.tombstones.push(tombstone);
-    (0, fs_atomic_1.writeJson)(reclaimedLogPath(run), log, { durable: true });
+    writeJson(reclaimedLogPath(run), log, { durable: true });
     try {
-        (0, trust_audit_1.recordTrustAuditEvent)(run, {
+        recordTrustAuditEvent(run, {
             kind: "run.reclamation",
             decision: "recorded",
             source: "cw-validated",
@@ -635,10 +565,10 @@ function commitTombstone(run, tombstone) {
  *  PROVE no surviving node still references a freed path — BEFORE a
  *  single byte is freed. Fail closed (`repoint-incomplete`) if the proof
  *  does not hold. */
-function prepareFree(run, tombstone) {
+export function prepareFree(run, tombstone) {
     const runDir = run.paths.runDir;
-    const scratchDirs = tombstone.freed.filter((f) => f.kind === "scratch").map((f) => (0, fs_atomic_1.realResolve)(path.join(runDir, f.path)));
-    const commitSnapshotPaths = tombstone.freed.filter((f) => f.kind === "commit-snapshot").map((f) => (0, fs_atomic_1.realResolve)(path.join(runDir, f.path)));
+    const scratchDirs = tombstone.freed.filter((f) => f.kind === "scratch").map((f) => realResolve(path.join(runDir, f.path)));
+    const commitSnapshotPaths = tombstone.freed.filter((f) => f.kind === "commit-snapshot").map((f) => realResolve(path.join(runDir, f.path)));
     if (!scratchDirs.length && !commitSnapshotPaths.length)
         return;
     const repointed = new Set();
@@ -659,7 +589,7 @@ function prepareFree(run, tombstone) {
         for (const artifact of node.artifacts || []) {
             if (!artifact.path)
                 continue;
-            const resolved = (0, fs_atomic_1.realResolve)(artifact.path);
+            const resolved = realResolve(artifact.path);
             for (const scratchDir of scratchDirs) {
                 if (resolved === scratchDir || resolved.startsWith(scratchDir + path.sep)) {
                     throw new ReclamationError("repoint-incomplete", `node ${node.id} artifact ${artifact.id} still references freed scratch path ${artifact.path}`, { nodeId: node.id, artifactId: artifact.id, path: artifact.path });
@@ -672,8 +602,8 @@ function prepareFree(run, tombstone) {
     }
     for (const nodeId of repointed) {
         try {
-            const fresh = (0, node_store_1.snapshotNode)(run, nodeId, { persist: false });
-            const { freshness } = (0, node_snapshot_1.loadNodeSnapshot)(run, fresh, fs.existsSync);
+            const fresh = snapshotNode(run, nodeId, { persist: false });
+            const { freshness } = loadNodeSnapshot(run, fresh, fs.existsSync);
             if (freshness === "absent") {
                 throw new ReclamationError("repoint-incomplete", `re-pointed node ${nodeId} snapshot is absent (dangling artifact)`, { nodeId });
             }
@@ -689,7 +619,7 @@ function prepareFree(run, tombstone) {
 }
 /** STEP 5: free the bulk DATA bytes. Pure deletion — every re-point is
  *  already done and DURABLY persisted by prepareFree(). */
-function freeBulk(run, tombstone) {
+export function freeBulk(run, tombstone) {
     const runDir = run.paths.runDir;
     let freedBytes = 0;
     for (const entry of tombstone.freed) {
@@ -699,7 +629,7 @@ function freeBulk(run, tombstone) {
         // worker/artifact path that resolves outside it — re-check containment
         // right before the recursive delete so that can never turn into an
         // out-of-tree rmSync.
-        if (!(0, fs_atomic_1.isContainedPath)(abs, runDir)) {
+        if (!isContainedPath(abs, runDir)) {
             throw new ReclamationError("unsafe-free-path", `refusing to free path outside the run directory: ${entry.path}`, {
                 path: entry.path,
             });
@@ -711,7 +641,7 @@ function freeBulk(run, tombstone) {
     return freedBytes;
 }
 function repointResultNodeArtifacts(run, freedScratchDir) {
-    const freedReal = (0, fs_atomic_1.realResolve)(freedScratchDir);
+    const freedReal = realResolve(freedScratchDir);
     const freedPrefix = freedReal + path.sep;
     const changedIds = [];
     for (const node of run.nodes || []) {
@@ -721,7 +651,7 @@ function repointResultNodeArtifacts(run, freedScratchDir) {
         for (const artifact of node.artifacts) {
             if (!artifact.path)
                 continue;
-            const resolved = (0, fs_atomic_1.realResolve)(artifact.path);
+            const resolved = realResolve(artifact.path);
             if (resolved === freedReal || resolved.startsWith(freedPrefix)) {
                 const retained = node.artifacts.find((a) => a.id === "result" && a.path && fs.existsSync(a.path));
                 if (retained && retained.path) {
@@ -751,7 +681,7 @@ function stripCommitSnapshotArtifacts(run, freedCommitSnapshotPaths) {
         if (!node.artifacts || !node.artifacts.length)
             continue;
         const before = node.artifacts.length;
-        node.artifacts = node.artifacts.filter((artifact) => !artifact.path || !freedSet.has((0, fs_atomic_1.realResolve)(artifact.path)));
+        node.artifacts = node.artifacts.filter((artifact) => !artifact.path || !freedSet.has(realResolve(artifact.path)));
         if (node.artifacts.length !== before) {
             node.updatedAt = new Date().toISOString();
             changedIds.push(node.id);
@@ -760,7 +690,7 @@ function stripCommitSnapshotArtifacts(run, freedCommitSnapshotPaths) {
     return changedIds;
 }
 /** Execute the write-ahead, fail-closed reclamation transaction. */
-function runReclamation(run, options = {}) {
+export function runReclamation(run, options = {}) {
     const skeleton = extractSkeleton(run);
     const missing = validateSkeleton(skeleton);
     if (missing.length) {
@@ -796,7 +726,7 @@ function reconstructArtifact(run, recipe) {
             return { inputsDigest: sha256OfString("absent"), expectDigest: sha256OfString("absent") };
         }
         const inputDigest = nodeBodyDigest(node);
-        const inputsDigest = sha256OfString((0, node_projection_1.replayStableStringify)([inputDigest]));
+        const inputsDigest = sha256OfString(replayStableStringify([inputDigest]));
         const expectDigest = snapshotProjectionDigest(node);
         return { inputsDigest, expectDigest };
     }
@@ -804,7 +734,7 @@ function reconstructArtifact(run, recipe) {
 }
 /** Re-prove the whole reclamation chain for a run. Recomputes every hash
  *  independently — never trusts the stored value. */
-function verifyReclamation(run) {
+export function verifyReclamation(run) {
     const log = loadReclamationLog(run);
     const tombstones = log.tombstones;
     const checks = [];
@@ -871,8 +801,8 @@ function verifyReclamation(run) {
     const verified = chainOk && digestsOk && skeletonOk && reconstructionOk;
     return { reclaimed: true, verified, checks, tombstones };
 }
-function reclamationPolicy(overrides = {}) {
-    return { ...run_registry_io_1.DEFAULT_RUN_REGISTRY_POLICY, ...overrides };
+export function reclamationPolicy(overrides = {}) {
+    return { ...DEFAULT_RUN_REGISTRY_POLICY, ...overrides };
 }
 /** Fail-closed eligibility, checked IN ORDER (SPEC "Rebuild risks" #6):
  *  reclamation-log-corrupted -> already-reclaimed -> non-terminal ->
@@ -884,7 +814,7 @@ function reclamationPolicy(overrides = {}) {
  *  itself unreliable — it reads "live", not "reclaimed", exactly the
  *  reading that would let a run past the already-reclaimed gate and into a
  *  destructive re-reclaim. */
-function reclaimEligibility(record, policy, nowMs) {
+export function reclaimEligibility(record, policy, nowMs) {
     if (record.reclamationLogCorrupted)
         return "reclamation-log-corrupted";
     if (record.tier === "reclaimed")
@@ -912,7 +842,7 @@ function recordsForRunId(host, runId, scope) {
     const located = host.locate(runId, scope);
     return located ? [located.record] : [];
 }
-function gcPlan(host, options = {}) {
+export function gcPlan(host, options = {}) {
     const scope = options.scope || "home";
     const policy = reclamationPolicy(options.policy);
     const nowIso = options.now || new Date().toISOString();
@@ -980,7 +910,7 @@ function gcPlan(host, options = {}) {
         nextAction: eligibleCount ? "cw gc run" : "cw run search",
     };
 }
-function gcRun(host, options = {}) {
+export function gcRun(host, options = {}) {
     const scope = options.scope || "home";
     const policy = reclamationPolicy(options.policy);
     const nowIso = options.now || new Date().toISOString();
@@ -1021,7 +951,7 @@ function gcRun(host, options = {}) {
                 capability: result.tombstone.capability,
                 capabilityReason: result.tombstone.capabilityReason,
             });
-            (0, trust_audit_1.recordTrustAuditEvent)(run, {
+            recordTrustAuditEvent(run, {
                 kind: "run.reclaimed",
                 decision: "recorded",
                 source: "cw-validated",
@@ -1049,7 +979,7 @@ function gcRun(host, options = {}) {
         nextAction: reclaimed.length ? "cw gc verify <run-id>" : "cw gc plan",
     };
 }
-function gcVerify(host, runId, options = {}) {
+export function gcVerify(host, runId, options = {}) {
     const scope = options.scope || "home";
     const located = host.locate(runId, scope);
     if (!located) {
@@ -1077,7 +1007,7 @@ function gcVerify(host, runId, options = {}) {
         }
     }
     const last = result.tombstones[result.tombstones.length - 1];
-    const witnessed = (0, trust_audit_1.listTrustAuditEvents)(run).some((event) => event.kind === "run.reclaimed");
+    const witnessed = listTrustAuditEvents(run).some((event) => event.kind === "run.reclaimed");
     const proofDeleted = witnessed && !result.reclaimed;
     if (proofDeleted) {
         checks.push({ name: "reclaim-witness", pass: false, code: "reclaim-proof-deleted", detail: "trust-audit attests reclamation but reclaimed.json is missing/empty" });
@@ -1101,7 +1031,7 @@ function gcVerify(host, runId, options = {}) {
 // ---------------------------------------------------------------------------
 // Human formatting for gc (CLI-only)
 // ---------------------------------------------------------------------------
-function formatGcPlan(result) {
+export function formatGcPlan(result) {
     const lines = [
         `GC Plan (${result.scope}): ${result.eligibleCount}/${result.total} eligible, ${result.bytesToFree} byte(s) would be freed [DRY-RUN, frees nothing]`,
         `  policy: reclaimAfterArchiveDays=${result.policy.reclaimAfterArchiveDays} keepScratch=${result.policy.keepScratch} keepSnapshots=${result.policy.keepSnapshots} keepCommits=${result.policy.keepCommits}`,
@@ -1121,7 +1051,7 @@ function formatGcPlan(result) {
         lines.push("  (no runs in scope)");
     return lines.join("\n");
 }
-function formatGcRun(result) {
+export function formatGcRun(result) {
     const lines = [`GC Run (${result.scope}): reclaimed ${result.reclaimed.length} run(s), freed ${result.totalBytesFreed} byte(s)`];
     for (const r of result.reclaimed)
         lines.push(`  [reclaimed] ${r.runId} -> ${r.capability} (${r.capabilityReason}) ${r.bytesFreed}B tombstone=${r.tombstoneHash.slice(0, 19)}`);
@@ -1131,7 +1061,7 @@ function formatGcRun(result) {
         lines.push("  (nothing eligible)");
     return lines.join("\n");
 }
-function formatGcVerify(result) {
+export function formatGcVerify(result) {
     const lines = [
         `GC Verify ${result.runId}: reclaimed=${result.reclaimed} verified=${result.verified} tier=${result.tier} capability=${result.capability}${result.tombstoneHash ? ` tombstone=${result.tombstoneHash.slice(0, 19)}` : ""}`,
     ];
@@ -1139,7 +1069,7 @@ function formatGcVerify(result) {
         lines.push(`  ${check.pass ? "PASS" : "FAIL"} ${check.name}${check.code ? ` [${check.code}]` : ""}${check.detail ? ` (${check.detail})` : ""}`);
     return lines.join("\n");
 }
-exports.DEFAULT_ORPHAN_MIN_AGE_MINUTES = 60;
+export const DEFAULT_ORPHAN_MIN_AGE_MINUTES = 60;
 function resolveNowMs(now) {
     if (now === undefined)
         return Date.now();
@@ -1217,7 +1147,7 @@ function scan(host, scope, nowMs) {
     return { repos: index.repos, entries };
 }
 /** `cw orphans list` (read-only). */
-function listOrphanRuns(host, options = {}) {
+export function listOrphanRuns(host, options = {}) {
     const scope = options.scope || "home";
     const { repos, entries } = scan(host, scope, resolveNowMs(options.now));
     return {
@@ -1233,12 +1163,12 @@ function listOrphanRuns(host, options = {}) {
  *  directories. The re-check (state.json still absent) and the delete
  *  run inside the SAME `state.json.lock` held by `saveCheckpoint`, via
  *  `withFileLock` reused directly from shell/fs-atomic.ts. */
-function gcOrphanRuns(host, options = {}) {
+export function gcOrphanRuns(host, options = {}) {
     const scope = options.scope || "home";
     const all = Boolean(options.all);
     let minAgeMinutes = null;
     if (!all) {
-        minAgeMinutes = options.minAgeMinutes ?? exports.DEFAULT_ORPHAN_MIN_AGE_MINUTES;
+        minAgeMinutes = options.minAgeMinutes ?? DEFAULT_ORPHAN_MIN_AGE_MINUTES;
         if (!Number.isFinite(minAgeMinutes) || minAgeMinutes < 0) {
             throw new Error(`--min-age-minutes must be a non-negative number (got ${String(options.minAgeMinutes)})`);
         }
@@ -1255,7 +1185,7 @@ function gcOrphanRuns(host, options = {}) {
         if (!resolved.startsWith(runsDirResolved + path.sep))
             continue; // containment, fail closed
         const statePath = path.join(resolved, "state.json");
-        const deleted = (0, fs_atomic_1.withFileLock)(statePath, () => {
+        const deleted = withFileLock(statePath, () => {
             if (fs.existsSync(statePath))
                 return false; // a checkpoint landed between scan and here
             fs.rmSync(resolved, { recursive: true, force: true });
@@ -1288,16 +1218,16 @@ function humanBytesLocal(n) {
     }
     return `${v.toFixed(1)}${units[i]}`;
 }
-function formatOrphanRunsList(result) {
+export function formatOrphanRunsList(result) {
     if (!result.count)
         return `No orphan run(s) (${result.scope}): every ".cw/runs/" entry across ${result.repos.length} repo(s) is known to the registry.`;
     const lines = [`Orphan Runs (${result.scope}): ${result.count} in ${result.repos.length} repo(s), ${humanBytesLocal(result.totalBytes)} total`];
     for (const e of result.entries)
         lines.push(`  ${e.runId} (${e.repo}) age=${e.ageMinutes}m ${humanBytesLocal(e.bytes)}`);
-    lines.push(`\nReclaim with: cw orphans gc --min-age-minutes ${exports.DEFAULT_ORPHAN_MIN_AGE_MINUTES}   (or --all)`);
+    lines.push(`\nReclaim with: cw orphans gc --min-age-minutes ${DEFAULT_ORPHAN_MIN_AGE_MINUTES}   (or --all)`);
     return lines.join("\n");
 }
-function formatOrphanRunsGc(result) {
+export function formatOrphanRunsGc(result) {
     const scope = result.all ? "all orphan candidates" : `orphans older than ${result.minAgeMinutes} minute(s)`;
     if (!result.removed.length)
         return `Nothing to reclaim (${scope}); ${result.keptCount} kept (${result.scope}).`;
@@ -1393,12 +1323,12 @@ function readCloneEntries(root) {
             bytes: dirSize(dir),
         });
     }
-    entries.sort((a, b) => (0, collate_1.stableCompare)(a.fetchedAt || "", b.fetchedAt || ""));
+    entries.sort((a, b) => stableCompare(a.fetchedAt || "", b.fetchedAt || ""));
     return entries;
 }
 /** `cw clones list` — every cached remote checkout with its origin,
  *  commit, age, and size. */
-function listClones(env = process.env) {
+export function listClones(env = process.env) {
     const root = clonesRoot(env);
     const entries = readCloneEntries(root);
     return { schemaVersion: 1, clonesDir: root, count: entries.length, totalBytes: entries.reduce((sum, e) => sum + e.bytes, 0), entries };
@@ -1407,9 +1337,9 @@ function listClones(env = process.env) {
  *  checkouts. Default keeps entries fetched within the last 30 days;
  *  `--all` removes every entry. Deletes ONLY paths proven inside the
  *  clones root (fail closed). */
-function gcClones(options = {}, env = process.env) {
+export function gcClones(options = {}, env = process.env) {
     const root = clonesRoot(env);
-    const all = (0, cli_args_1.flagOn)(options.all, ["true", "1", 1]);
+    const all = flagOn(options.all, ["true", "1", 1]);
     let olderThanDays = null;
     if (!all) {
         const raw = options.olderThanDays;
@@ -1446,7 +1376,7 @@ function gcClones(options = {}, env = process.env) {
     }
     return { schemaVersion: 1, clonesDir: root, removed, freedBytes, keptCount: entries.length - removed.length, olderThanDays, all };
 }
-function formatClonesList(result) {
+export function formatClonesList(result) {
     if (result.count === 0)
         return `No cached remote checkouts in ${result.clonesDir}.`;
     const rows = result.entries.map((e) => {
@@ -1460,7 +1390,7 @@ function formatClonesList(result) {
         `\nReclaim with: cw clones gc --older-than-days 30   (or --all)`,
     ].join("\n");
 }
-function formatClonesGc(result) {
+export function formatClonesGc(result) {
     const scope = result.all ? "all entries" : `entries older than ${result.olderThanDays} day(s)`;
     if (result.removed.length === 0)
         return `Nothing to reclaim (${scope}); ${result.keptCount} kept in ${result.clonesDir}.`;

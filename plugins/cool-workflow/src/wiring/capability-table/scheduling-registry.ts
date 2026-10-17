@@ -1,9 +1,12 @@
 // wiring/capability-table/scheduling-registry.ts — CLI bindings for
 // scheduling, registry, gc/reclamation, orphans and clones (see below).
 
-import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { required, optionalArg, wantsJson } from "../../core/util/cli-args";
-import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-data";
+import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
+import { required, optionalArg, wantsJson } from "../../core/util/cli-args.js";
+import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-data.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 // Scheduling, registry, gc/reclamation, orphans and clones
 // CLI bindings: schedule *, cw loop, routine *, sched *, registry *,
@@ -20,17 +23,17 @@ import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-
 // handler that actually calls into them) keeps that load cost off every
 // invocation that never touches schedule/routine/sched/registry/queue/
 // gc/orphans/clones/run/history.
-function loadRegistryCli(): typeof import("../../shell/registry-cli") {
-  return require("../../shell/registry-cli") as typeof import("../../shell/registry-cli");
+function loadRegistryCli(): typeof import("../../shell/registry-cli.js") {
+  return require("../../shell/registry-cli.js") as typeof import("../../shell/registry-cli.js");
 }
-function loadReclamationIo(): typeof import("../../shell/reclamation-io") {
-  return require("../../shell/reclamation-io") as typeof import("../../shell/reclamation-io");
+function loadReclamationIo(): typeof import("../../shell/reclamation-io.js") {
+  return require("../../shell/reclamation-io.js") as typeof import("../../shell/reclamation-io.js");
 }
-function loadRunRegistryIo(): typeof import("../../shell/run-registry-io") {
-  return require("../../shell/run-registry-io") as typeof import("../../shell/run-registry-io");
+function loadRunRegistryIo(): typeof import("../../shell/run-registry-io.js") {
+  return require("../../shell/run-registry-io.js") as typeof import("../../shell/run-registry-io.js");
 }
-function loadSchedulingIo(): typeof import("../../shell/scheduling-io") {
-  return require("../../shell/scheduling-io") as typeof import("../../shell/scheduling-io");
+function loadSchedulingIo(): typeof import("../../shell/scheduling-io.js") {
+  return require("../../shell/scheduling-io.js") as typeof import("../../shell/scheduling-io.js");
 }
 
 function firstPositionalArg(args: CapabilityCliArgs, index = 0): string | undefined {

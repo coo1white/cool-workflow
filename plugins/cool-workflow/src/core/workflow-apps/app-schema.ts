@@ -16,7 +16,7 @@
 // live in shell/ (see shell/workflow-app-loader.ts), per the core/shell
 // split.
 
-import { isRecord } from "../util/cli-args";
+import { isRecord } from "../util/cli-args.js";
 
 export interface WorkflowInputDefinition {
   name: string;

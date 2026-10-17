@@ -1,6 +1,3 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.requiredNumberFlag = requiredNumberFlag;
 // core/util/numeric-flag.ts — THE one strict numeric-CLI/MCP-flag parser
 // (e.g. `--limit <n>`).
 //
@@ -23,7 +20,7 @@ exports.requiredNumberFlag = requiredNumberFlag;
 // `Number("")`/`Number("   ")` are both 0, so this would otherwise be
 // indistinguishable from a genuinely-typed `--flag 0`) throws instead of
 // guessing.
-function requiredNumberFlag(value, flagLabel) {
+export function requiredNumberFlag(value, flagLabel) {
     if (value === undefined || value === null)
         return undefined;
     if (typeof value === "boolean") {

@@ -1,4 +1,3 @@
-"use strict";
 // mcp/dispatch.ts — the generic MCP tool-call reader over
 // core/capability-table.ts.
 //
@@ -10,61 +9,24 @@
 // `cwd` handling here (resolve, must be a directory, inject the resolved
 // path back into a COPY of args) matches SPEC/mcp.md invariant 7, and is
 // performed uniformly so any handler can rely on it.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.toolDefinitions = toolDefinitions;
-exports.requiredToolArguments = requiredToolArguments;
-exports.callTool = callTool;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const capability_table_1 = require("../core/capability-table");
-const cli_args_1 = require("../core/util/cli-args");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { findCapabilityByMcpTool, mcpToolDefinitions } from "../core/capability-table.js";
+import { coerceMcpScalar } from "../core/util/cli-args.js";
 /** `toolDefinitions()` — the full, ordered `tools/list` array. */
-function toolDefinitions() {
-    return (0, capability_table_1.mcpToolDefinitions)();
+export function toolDefinitions() {
+    return mcpToolDefinitions();
 }
 /** SPEC/mcp.md invariant 6 — required-argument
  *  groups are declared data, not code. `undefined`/`null` become `{}`; a
  *  non-object throws; a group "keyA|keyB" passes when at least one named
  *  key is not `undefined`, not `null`, and not `""`. */
-function requiredToolArguments(name, value) {
+export function requiredToolArguments(name, value) {
     const args = value === undefined || value === null ? {} : value;
     if (typeof args !== "object" || Array.isArray(args)) {
         throw new Error(`MCP tool ${name} arguments must be an object.`);
     }
-    const row = (0, capability_table_1.findCapabilityByMcpTool)(name);
+    const row = findCapabilityByMcpTool(name);
     const requiredArgs = row?.mcp?.requiredArgs ?? [];
     for (const group of requiredArgs) {
         const keys = group.split("|");
@@ -93,15 +55,15 @@ function requiredToolArguments(name, value) {
 function coerceScalarArgs(args) {
     const out = {};
     for (const [key, value] of Object.entries(args)) {
-        out[key] = (0, cli_args_1.coerceMcpScalar)(value);
+        out[key] = coerceMcpScalar(value);
     }
     return out;
 }
 /** `callTool(name, args)` — resolves `cwd` (SPEC/mcp.md invariant 7),
  *  checks required args, then calls the row's `mcp.handler`. Throws
  *  `Unknown tool: <name>` for a name with no row. */
-function callTool(name, rawArgs) {
-    const row = (0, capability_table_1.findCapabilityByMcpTool)(name);
+export function callTool(name, rawArgs) {
+    const row = findCapabilityByMcpTool(name);
     if (!row || !row.mcp) {
         throw new Error(`Unknown tool: ${name}`);
     }

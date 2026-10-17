@@ -5,9 +5,9 @@
 // Evidence: SPEC/execution-backend.md "container driver (runContainer)".
 
 import { spawnSync } from "node:child_process";
-import { hasExecutable } from "./probes";
-import { CW_NEVER_FORWARD_ENV } from "./local";
-import { delegatedEnvelope, refusedEnvelope } from "./envelopes";
+import { hasExecutable } from "./probes.js";
+import { CW_NEVER_FORWARD_ENV } from "./local.js";
+import { delegatedEnvelope, refusedEnvelope } from "./envelopes.js";
 import {
   BackendDescriptor,
   BackendExecutionHandle,
@@ -15,8 +15,8 @@ import {
   ExecutionResultEnvelope,
   ResolvedSandboxPolicy,
   SandboxAttestation,
-} from "./types";
-import { messageOf } from "../../core/util/cli-args";
+} from "./types.js";
+import { messageOf } from "../../core/util/cli-args.js";
 
 /** buildContainerEnvArgs — build the `-e NAME=value` args passed into the
  *  container run command. Pulled out as its own pure function so it can be

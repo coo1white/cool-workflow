@@ -20,12 +20,16 @@
 // the conventional 128+signum code.
 //
 // This proves both paths deterministically (no real OS signal race): a
-// shared saveCheckpoint call fires once per completed task, so monkeypatching
-// it to call process.emit(signal, signal) synchronously reproduces the exact
-// user-facing timing without depending on OS scheduling.
+// shared saveCheckpoint call fires once per completed task, so hooking it to
+// call process.emit(signal, signal) synchronously reproduces the exact
+// user-facing timing without depending on OS scheduling. dist/ is ES
+// modules, whose exports cannot be patched, so the hook sits on the one
+// atomic rename each saveCheckpoint makes onto the run's state.json (a
+// node:fs patch, made visible to dist/ by syncBuiltinESMExports()).
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
@@ -48,6 +52,22 @@ function tmp(prefix) {
   const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   cleanups.push(d);
   return d;
+}
+// Calls onCheckpoint after each saveCheckpoint's rename onto statePath
+// lands; the returned function takes the hook off.
+function hookCheckpoints(statePath, onCheckpoint) {
+  const rename = fs.renameSync;
+  const target = path.resolve(statePath);
+  fs.renameSync = function (from, to, ...rest) {
+    const result = rename.call(fs, from, to, ...rest);
+    if (path.resolve(String(to)) === target) onCheckpoint();
+    return result;
+  };
+  syncBuiltinESMExports();
+  return () => {
+    fs.renameSync = rename;
+    syncBuiltinESMExports();
+  };
 }
 function clearAgentEnv() {
   for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_APPS_DIR"]) delete process.env[v];
@@ -217,19 +237,16 @@ function testGracefulSingleSignal(signal) {
     assert.equal(p.tasks.length, 3, "fixture app must have exactly 3 sequential tasks");
 
     const before = process.listenerCount(signal);
-    const originalSaveCheckpoint = runStore.saveCheckpoint;
     let hits = 0;
-    runStore.saveCheckpoint = function patchedSaveCheckpoint(...args) {
-      const result = originalSaveCheckpoint.apply(this, args);
+    const unhook = hookCheckpoints(p.paths.state, () => {
       hits += 1;
       if (hits === 1) process.emit(signal, signal);
-      return result;
-    };
+    });
     let result;
     try {
       result = drive(p.id, work, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
     } finally {
-      runStore.saveCheckpoint = originalSaveCheckpoint;
+      unhook();
     }
 
     assert.equal(process.listenerCount(signal), before, `drive() must remove its own ${signal} listener, leaving the count unchanged`);
@@ -286,18 +303,15 @@ function testInterruptOnTerminalCommitReportsComplete(signal) {
     const baselineRun = planApp(baselineAppsDir, "sigloop-terminal-baseline", { repo: baselineWork, question: "Q?" });
     assert.equal(baselineRun.tasks.length, 1, "fixture app must have exactly 1 task");
 
-    const originalSaveCheckpoint = runStore.saveCheckpoint;
     let baselineHits = 0;
-    runStore.saveCheckpoint = function (...args) {
-      const result = originalSaveCheckpoint.apply(this, args);
+    const unhookBaseline = hookCheckpoints(baselineRun.paths.state, () => {
       baselineHits += 1;
-      return result;
-    };
+    });
     let baselineResult;
     try {
       baselineResult = drive(baselineRun.id, baselineWork, { now: FIXED_NOW, agentConfig: agentConfig(baselineStub) });
     } finally {
-      runStore.saveCheckpoint = originalSaveCheckpoint;
+      unhookBaseline();
     }
     assert.equal(baselineResult.status, "complete", "the uninterrupted baseline run must complete normally");
     assert.ok(baselineHits >= 2, "a 1-task run must checkpoint at least twice (its own progress, then its terminal commit)");
@@ -311,17 +325,15 @@ function testInterruptOnTerminalCommitReportsComplete(signal) {
     const p = planApp(appsDir, "sigloop-terminal-app", { repo: work, question: "Q?" });
 
     let hits = 0;
-    runStore.saveCheckpoint = function (...args) {
-      const result = originalSaveCheckpoint.apply(this, args);
+    const unhook = hookCheckpoints(p.paths.state, () => {
       hits += 1;
       if (hits === baselineHits) process.emit(signal, signal);
-      return result;
-    };
+    });
     let result;
     try {
       result = drive(p.id, work, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
     } finally {
-      runStore.saveCheckpoint = originalSaveCheckpoint;
+      unhook();
     }
 
     assert.equal(result.status, "complete", `a ${signal} landing on the run's own terminal commit step must still report complete, not a misleading blocked`);
@@ -359,19 +371,16 @@ function testConcurrentRoundInterruptGranularity(signal) {
     assert.equal(p.tasks.length, 3, "fixture app must have exactly 3 parallel tasks in one round");
 
     const before = process.listenerCount(signal);
-    const originalSaveCheckpoint = runStore.saveCheckpoint;
     let hits = 0;
-    runStore.saveCheckpoint = function (...args) {
-      const result = originalSaveCheckpoint.apply(this, args);
+    const unhook = hookCheckpoints(p.paths.state, () => {
       hits += 1;
       if (hits === 1) process.emit(signal, signal);
-      return result;
-    };
+    });
     let result;
     try {
       result = drive(p.id, work, { now: FIXED_NOW, agentConfig: agentConfig(stub) });
     } finally {
-      runStore.saveCheckpoint = originalSaveCheckpoint;
+      unhook();
     }
 
     assert.equal(process.listenerCount(signal), before, `drive() must remove its own ${signal} listener after a concurrent-round drive too`);
@@ -414,16 +423,20 @@ function testForcedDoubleSignal(signal, expectedExitCode) {
     const { loadWorkflowApp } = require(${JSON.stringify(workflowAppLoaderPath)});
     const { plan } = require(${JSON.stringify(pipelinePath)});
     const { drive } = require(${JSON.stringify(drivePath)});
-    const runStore = require(${JSON.stringify(runStorePath)});
+    const fs = require("node:fs");
+    const path = require("node:path");
     const p = plan(loadWorkflowApp("sigloop-force-app"), { repo: ${JSON.stringify(work)}, question: "Q?" });
-    const original = runStore.saveCheckpoint;
-    runStore.saveCheckpoint = function (...args) {
-      const r = original.apply(this, args);
-      // Two rapid signals in the same turn -- the impatient-double-Ctrl-C case.
-      process.emit(${JSON.stringify(signal)}, ${JSON.stringify(signal)});
-      process.emit(${JSON.stringify(signal)}, ${JSON.stringify(signal)});
+    const rename = fs.renameSync;
+    fs.renameSync = function (from, to, ...rest) {
+      const r = rename.call(fs, from, to, ...rest);
+      if (path.resolve(String(to)) === path.resolve(p.paths.state)) {
+        // Two rapid signals in the same turn -- the impatient-double-Ctrl-C case.
+        process.emit(${JSON.stringify(signal)}, ${JSON.stringify(signal)});
+        process.emit(${JSON.stringify(signal)}, ${JSON.stringify(signal)});
+      }
       return r;
     };
+    require("node:module").syncBuiltinESMExports();
     drive(p.id, ${JSON.stringify(work)}, { now: ${JSON.stringify(FIXED_NOW)}, agentConfig: { schemaVersion: 1, command: process.execPath, args: [${JSON.stringify(stub)}, "{{result}}"], model: "stub", source: "flag" } });
     process.stdout.write("UNREACHABLE: drive() returned instead of the 2nd signal forcing an exit\\n");
   `;

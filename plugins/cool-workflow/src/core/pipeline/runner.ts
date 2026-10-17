@@ -20,7 +20,7 @@ import {
   StateNodeKind,
   StateNodeStatus,
   WorkflowRun,
-} from "../state/types";
+} from "../state/types.js";
 import {
   appendRunNode,
   assertNodeSatisfiesContract,
@@ -31,8 +31,8 @@ import {
   transitionStateNode,
   upsertRunContract,
   validatePipelineContract,
-} from "../state/state-node";
-import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./contract";
+} from "../state/state-node.js";
+import { createDefaultPipelineContract, DEFAULT_PIPELINE_CONTRACT_ID } from "./contract.js";
 
 export interface RunnablePipelineStage {
   runId: string;

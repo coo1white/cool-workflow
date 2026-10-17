@@ -1,4 +1,3 @@
-"use strict";
 // shell/workbench.ts — the read-only Workbench view: `cw workbench view`
 // (panel-by-panel JSON view of one run) and the serve descriptor.
 //
@@ -11,51 +10,12 @@
 // Evidence: SPEC/reporting-ux.md "Workbench" (panel groups/members,
 // serve descriptor, fail-closed-but-honest unresolved-run shape),
 // invariant 11 (workbench is read-only and fails closed).
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.WORKBENCH_UI_RELATIVE = exports.WORKBENCH_DEFAULT_PORT = void 0;
-exports.parseWorkbenchPort = parseWorkbenchPort;
-exports.buildWorkbenchRunView = buildWorkbenchRunView;
-exports.workbenchUiRoot = workbenchUiRoot;
-exports.buildWorkbenchServeDescriptor = buildWorkbenchServeDescriptor;
-exports.buildWorkbenchIndex = buildWorkbenchIndex;
-const path = __importStar(require("node:path"));
-const capability_table_1 = require("../core/capability-table");
-const run_store_1 = require("./run-store");
-exports.WORKBENCH_DEFAULT_PORT = 7717;
-exports.WORKBENCH_UI_RELATIVE = "ui/workbench";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { findCapability } from "../core/capability-table.js";
+import { loadRunFromCwd } from "./run-store.js";
+export const WORKBENCH_DEFAULT_PORT = 7717;
+export const WORKBENCH_UI_RELATIVE = "ui/workbench";
 /** Parse and range-check a workbench `--port` value. Returns `undefined`
  *  when no port was given (the caller then uses WORKBENCH_DEFAULT_PORT),
  *  the validated integer otherwise. Throws a clear Error on a bad value —
@@ -63,7 +23,7 @@ exports.WORKBENCH_UI_RELATIVE = "ui/workbench";
  *  callers fail closed with an actionable line instead of node's opaque
  *  ERR_SOCKET_BAD_PORT or a `"port": null` descriptor. A valid port is an
  *  integer in [0, 65535]; 0 is the legitimately-supported ephemeral port. */
-function parseWorkbenchPort(raw) {
+export function parseWorkbenchPort(raw) {
     if (raw === undefined)
         return undefined;
     const reject = () => {
@@ -91,17 +51,17 @@ const PANEL_MAP = {
     audit: { summary: "audit.summary" },
 };
 function cliCommandFor(capability) {
-    const row = (0, capability_table_1.findCapability)(capability);
+    const row = findCapability(capability);
     return row?.cli ? `cw ${row.cli.path.join(" ")}` : `cw ${capability.replace(/\./g, " ")}`;
 }
 function mcpToolFor(capability) {
-    const row = (0, capability_table_1.findCapability)(capability);
+    const row = findCapability(capability);
     return row?.mcp?.tool || `cw_${capability.replace(/\./g, "_")}`;
 }
 function buildPanel(capability, args) {
     const cli = cliCommandFor(capability);
     const mcp = mcpToolFor(capability);
-    const row = (0, capability_table_1.findCapability)(capability);
+    const row = findCapability(capability);
     if (!row || !row.mcp) {
         return { capability, cli, mcp, status: "absent", error: `capability not available: ${capability}` };
     }
@@ -116,12 +76,12 @@ function buildPanel(capability, args) {
 /** `cw workbench view <run-id>` — read-only, never throws: an
  *  unresolvable run gives `resolved:false` and every panel `absent` with
  *  the real error, never a fabricated view. */
-function buildWorkbenchRunView(runId, args = {}) {
+export function buildWorkbenchRunView(runId, args = {}) {
     const cwd = typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
     let resolved = true;
     let resolveError;
     try {
-        (0, run_store_1.loadRunFromCwd)(runId, cwd);
+        loadRunFromCwd(runId, cwd);
     }
     catch (error) {
         resolved = false;
@@ -133,7 +93,7 @@ function buildWorkbenchRunView(runId, args = {}) {
     // so any failure here just leaves the key out.
     let lifecycle;
     try {
-        const showRow = (0, capability_table_1.findCapability)("run.show");
+        const showRow = findCapability("run.show");
         const shown = showRow?.mcp ? showRow.mcp.handler({ ...args, runId, cwd }) : undefined;
         if (shown && shown.found === true && shown.record && typeof shown.record.lifecycle === "string") {
             lifecycle = shown.record.lifecycle;
@@ -162,8 +122,8 @@ function buildWorkbenchRunView(runId, args = {}) {
  *  (package.json's `files`), so from `dist/shell/workbench.js` the fixed
  *  path is two levels up. Matches the existing precedent in
  *  execution-backend/agent.ts's BATCH_DELEGATE_CHILD_SCRIPT resolution. */
-function workbenchUiRoot() {
-    return path.resolve(__dirname, "..", "..", exports.WORKBENCH_UI_RELATIVE);
+export function workbenchUiRoot() {
+    return path.resolve(import.meta.dirname, "..", "..", WORKBENCH_UI_RELATIVE);
 }
 const WORKBENCH_ROUTES = [
     { method: "GET", path: "/", description: "Index page (or the UI's index.html, when installed)." },
@@ -175,10 +135,9 @@ const WORKBENCH_ROUTES = [
 /** `cw workbench serve [--port N] [--once] [--scope repo|home]` — the
  *  serve descriptor. Building this never starts a listener; the caller
  *  (shell/workbench-host.ts's `run()`) decides whether to actually bind. */
-function buildWorkbenchServeDescriptor(args = {}, boundPort) {
+export function buildWorkbenchServeDescriptor(args = {}, boundPort) {
     const cwd = typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
     const uiRoot = workbenchUiRoot();
-    const fs = require("node:fs");
     return {
         schemaVersion: 1,
         surface: "workbench",
@@ -187,7 +146,7 @@ function buildWorkbenchServeDescriptor(args = {}, boundPort) {
         // `boundPort` (from a real listen()) is already a valid port. Otherwise
         // validate the requested `--port` so the `--once`/`--json`/MCP descriptor
         // path fails closed with a clear line instead of emitting `"port": null`.
-        port: boundPort ?? (parseWorkbenchPort(args.port) ?? exports.WORKBENCH_DEFAULT_PORT),
+        port: boundPort ?? (parseWorkbenchPort(args.port) ?? WORKBENCH_DEFAULT_PORT),
         once: Boolean(args.once),
         readOnly: true,
         scope: args.scope === "home" ? "home" : "repo",
@@ -210,12 +169,12 @@ function buildWorkbenchServeDescriptor(args = {}, boundPort) {
  *  handler (`runListCli` -> `RunRegistry.list()`) never reads a `text`
  *  field, so calling it with a filter present would silently ignore it.
  *  With no `text` filter the call is plain `run.list`. */
-function buildWorkbenchIndex(args = {}) {
+export function buildWorkbenchIndex(args = {}) {
     const scope = args.scope === "home" ? "home" : "repo";
     const scoped = { ...args, scope };
-    const registryRow = (0, capability_table_1.findCapability)("registry.show");
+    const registryRow = findCapability("registry.show");
     const text = typeof args.text === "string" ? args.text.trim() : "";
-    const runListRow = (0, capability_table_1.findCapability)(text ? "run.search" : "run.list");
+    const runListRow = findCapability(text ? "run.search" : "run.list");
     const registry = registryRow?.mcp ? registryRow.mcp.handler(scoped) : undefined;
     const runs = runListRow?.mcp ? newestRunPage(runListRow.mcp.handler, scoped) : [];
     return { schemaVersion: 1, surface: "workbench", command: "index", scope, registry, runs };

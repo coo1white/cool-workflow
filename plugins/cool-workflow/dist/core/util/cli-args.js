@@ -1,4 +1,3 @@
-"use strict";
 // core/util/cli-args.ts — shared CLI argv / MCP tool-call arg-coercion
 // helpers: required(), optionalArg(), wantsJson(), the bool readers
 // (boolWord, flagOn, parseBoolFlag), the one --cwd reader, cwdArg(); and THE
@@ -22,86 +21,36 @@
 // here, not in a new module, because every command already loads this
 // one: a new module would be one more load on each path that uses them,
 // and scripts/bench/perf-ceilings.json lets no module count go up.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.required = required;
-exports.optionalArg = optionalArg;
-exports.requireArg = requireArg;
-exports.isRecord = isRecord;
-exports.messageOf = messageOf;
-exports.countBy = countBy;
-exports.wantsJson = wantsJson;
-exports.parseBoolFlag = parseBoolFlag;
-exports.boolWord = boolWord;
-exports.flagOn = flagOn;
-exports.cwdArg = cwdArg;
-exports.coerceMcpScalar = coerceMcpScalar;
-exports.splitAgentCommandLine = splitAgentCommandLine;
-exports.splitAgentCommand = splitAgentCommand;
-exports.agentCommandArgv = agentCommandArgv;
-exports.substituteAgentArg = substituteAgentArg;
-const path = __importStar(require("node:path"));
+import * as path from "node:path";
 /** Require a positional/option value or fail with a copy-pasteable recovery tip. */
-function required(value, label) {
+export function required(value, label) {
     if (!value) {
         throw new Error(`Missing ${label}.\n  Tip: find run ids with "cw run list" or create one with "cw quickstart"`);
     }
     return value;
 }
 /** Normalize an optional CLI arg to a trimmed non-empty string, else undefined. */
-function optionalArg(value) {
+export function optionalArg(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 /** Require a value: `String(value)` unless that is empty (or the value is
  *  undefined/null), which throws `Missing <label>` with no tip. */
-function requireArg(value, label) {
+export function requireArg(value, label) {
     const s = value === undefined || value === null ? "" : String(value);
     if (!s)
         throw new Error(`Missing ${label}`);
     return s;
 }
 /** True for a non-null object that is not an array. */
-function isRecord(value) {
+export function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 /** A thrown value's text: an Error's message, else `String(error)`. */
-function messageOf(error) {
+export function messageOf(error) {
     return error instanceof Error ? error.message : String(error);
 }
 /** Count values by the key each one maps to, in first-seen key order. */
-function countBy(values, key) {
+export function countBy(values, key) {
     const counts = {};
     for (const value of values) {
         const bucket = key(value);
@@ -110,7 +59,7 @@ function countBy(values, key) {
     return counts;
 }
 /** True when the caller asked for JSON output (`--json` or `--format json`). */
-function wantsJson(options) {
+export function wantsJson(options) {
     return Boolean(options.json || options.format === "json");
 }
 /** Parse a boolean flag value that may arrive as a real boolean (bare
@@ -122,7 +71,7 @@ function wantsJson(options) {
  *  Anything else throws — fail closed, never guess. `undefined` and JSON
  *  `null` (an MCP caller's "unset") stay `undefined` so a caller's
  *  `?? existing ?? default` chain still governs an unset flag. */
-function parseBoolFlag(value, label) {
+export function parseBoolFlag(value, label) {
     if (value === undefined || value === null)
         return undefined;
     if (typeof value === "boolean")
@@ -137,7 +86,7 @@ function parseBoolFlag(value, label) {
 }
 /** A real boolean as is; a string that is (trimmed, any case) true/1/yes/on
  *  or false/0/no/off as that boolean; anything else (numbers, "") undefined. */
-function boolWord(value) {
+export function boolWord(value) {
     if (typeof value === "boolean")
         return value;
     if (typeof value !== "string")
@@ -152,7 +101,7 @@ function boolWord(value) {
 /** True when a flag is on. With no `onValues`, any boolWord() true. With
  *  `onValues`, only `true` or an exact (===) member: a caller that has read
  *  only "true" (or "true"/"1") as on keeps that narrower set. */
-function flagOn(value, onValues) {
+export function flagOn(value, onValues) {
     if (onValues)
         return value === true || onValues.includes(value);
     return boolWord(value) === true;
@@ -161,7 +110,7 @@ function flagOn(value, onValues) {
  *  `["cwd", "repo"]`), resolved untrimmed; with none set, the process cwd
  *  (`path.resolve()`). Set = a non-blank string, or with `anyTruthy` any
  *  truthy value, read as `String(v)`. */
-function cwdArg(args, keys = ["cwd"], anyTruthy = false) {
+export function cwdArg(args, keys = ["cwd"], anyTruthy = false) {
     for (const key of keys) {
         const v = args[key];
         if (anyTruthy ? v : typeof v === "string" && v.trim())
@@ -180,18 +129,18 @@ function cwdArg(args, keys = ["cwd"], anyTruthy = false) {
  *  (fail-open). The CLI never makes a real `false`, so CLI bytes do not
  *  change; a tri-state reader (`parseBoolFlag`) still sees an explicit
  *  false, not "unset". Arrays, objects, null and undefined pass through. */
-function coerceMcpScalar(value) {
+export function coerceMcpScalar(value) {
     if (value === false)
         return false;
     return typeof value === "number" || typeof value === "boolean" || typeof value === "bigint" ? String(value) : value;
 }
 /** Split one command line on white space into argv tokens. */
-function splitAgentCommandLine(line) {
+export function splitAgentCommandLine(line) {
     return line.split(/\s+/).filter(Boolean);
 }
 /** Config-layer split: an explicit args array always wins and the command
  *  is kept whole; else a command with white space is split. */
-function splitAgentCommand(command, args) {
+export function splitAgentCommand(command, args) {
     if (!command)
         return { command: undefined, args };
     if (args && args.length)
@@ -204,11 +153,11 @@ function splitAgentCommand(command, args) {
 }
 /** Spawn argv from a resolved config: the command's inline tokens, then
  *  the explicit args after them. */
-function agentCommandArgv(command, args) {
+export function agentCommandArgv(command, args) {
     const parts = splitAgentCommandLine(command);
     return { binary: parts[0], args: [...parts.slice(1), ...(args || [])] };
 }
 /** Fill {{key}} placeholders; an unknown key is left as written. */
-function substituteAgentArg(arg, subst) {
+export function substituteAgentArg(arg, subst) {
     return arg.replace(/\{\{(\w+)\}\}/g, (_, key) => (key in subst ? subst[key] : `{{${key}}}`));
 }

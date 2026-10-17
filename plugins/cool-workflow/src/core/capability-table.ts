@@ -9,7 +9,7 @@
 // unchanged, whether they import a value (REGISTRY, findCapability,
 // CAPABILITY_REGISTRY, ...) or a pure type (Capability, CliBinding, ...).
 
-export * from "../wiring/capability-table";
+export * from "../wiring/capability-table/index.js";
 export type {
   ParitySurface,
   CliJsonMode,
@@ -21,5 +21,5 @@ export type {
   McpBinding,
   CapabilityCliArgs,
   Capability,
-} from "./capability-data";
-export { CapabilityNotImplementedError } from "./capability-data";
+} from "./capability-data.js";
+export { CapabilityNotImplementedError } from "./capability-data.js";

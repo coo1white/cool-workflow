@@ -1,4 +1,3 @@
-"use strict";
 // core/format/recovery-hint.ts — recoveryHint, a pure content-based lookup
 // from a thrown error's message to ONE copy-pasteable follow-up command.
 //
@@ -10,10 +9,7 @@
 // Content-based (reads the message text, not the call site), so it stays
 // correct no matter which command or tool threw. Returns `undefined`
 // rather than a wrong guess when no pattern matches.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.recoveryHint = recoveryHint;
-exports.adviseNoRun = adviseNoRun;
-function recoveryHint(message) {
+export function recoveryHint(message) {
     const m = message.toLowerCase();
     if (m.startsWith("unknown command"))
         return "cw help";
@@ -32,7 +28,7 @@ function recoveryHint(message) {
 /** The fixed next step when no run is selected (`cw status` with no id).
  *  Kept here, in a module every command already loads, so that answer
  *  does not pull in the run-reading modules. */
-function adviseNoRun() {
+export function adviseNoRun() {
     return [
         {
             command: "cw plan <workflow-id> --repo <path>",

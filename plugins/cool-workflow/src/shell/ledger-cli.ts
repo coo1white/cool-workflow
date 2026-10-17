@@ -17,9 +17,9 @@ import {
   LedgerVerdict,
   LedgerVerifyResult,
   verifyLedgerEntry,
-} from "../core/trust/ledger";
-import { listLedgerEntries, LedgerListResult, LedgerUnionResult, unionLedgerEntries } from "./ledger-io";
-import { optionalArg } from "../core/util/cli-args";
+} from "../core/trust/ledger.js";
+import { listLedgerEntries, LedgerListResult, LedgerUnionResult, unionLedgerEntries } from "./ledger-io.js";
+import { optionalArg } from "../core/util/cli-args.js";
 
 /** Coerce a repeatable/comma-joined list option to a clean string[]. */
 function listOption(value: unknown): string[] {

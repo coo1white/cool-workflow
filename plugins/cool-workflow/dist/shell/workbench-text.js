@@ -1,8 +1,5 @@
-"use strict";
 // shell/workbench-text.ts — human text for `cw workbench view`.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatWorkbenchView = formatWorkbenchView;
-function formatWorkbenchView(view) {
+export function formatWorkbenchView(view) {
     const lines = [`Workbench view ${view.runId} (${view.resolved ? "resolved" : "UNRESOLVED"})`, view.error ? `  error: ${view.error}` : ""].filter(Boolean);
     for (const [group, panels] of Object.entries(view.panels)) {
         lines.push(`  ${group}:`);

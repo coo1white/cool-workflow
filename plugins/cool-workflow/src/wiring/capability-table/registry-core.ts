@@ -22,7 +22,7 @@ import {
   COMMON_PROPERTY_TYPES,
   stringProperty,
   notYetImplemented,
-} from "../../core/capability-data";
+} from "../../core/capability-data.js";
 import type {
   ParitySurface,
   McpPropertySchema,
@@ -30,8 +30,11 @@ import type {
   CliBinding,
   McpBinding,
   Capability,
-} from "../../core/capability-data";
-import { adviseNoRun } from "../../core/format/recovery-hint";
+} from "../../core/capability-data.js";
+import { adviseNoRun } from "../../core/format/recovery-hint.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 // Every capability-table module (this file plus each domain slice) is
 // required unconditionally at CLI/MCP startup, for every single command
@@ -40,14 +43,14 @@ import { adviseNoRun } from "../../core/format/recovery-hint";
 // means EVERY invocation pays that module's full load cost, even the
 // 99% of commands that never touch `status`/`list`. So these 3 load
 // lazily, inside the handler that uses them.
-function loadRunStore(): typeof import("../../shell/run-store") {
-  return require("../../shell/run-store") as typeof import("../../shell/run-store");
+function loadRunStore(): typeof import("../../shell/run-store.js") {
+  return require("../../shell/run-store.js") as typeof import("../../shell/run-store.js");
 }
-function loadOperatorUx(): typeof import("../../shell/operator-ux") {
-  return require("../../shell/operator-ux") as typeof import("../../shell/operator-ux");
+function loadOperatorUx(): typeof import("../../shell/operator-ux.js") {
+  return require("../../shell/operator-ux.js") as typeof import("../../shell/operator-ux.js");
 }
-function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader") {
-  return require("../../shell/workflow-app-loader") as typeof import("../../shell/workflow-app-loader");
+function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader.js") {
+  return require("../../shell/workflow-app-loader.js") as typeof import("../../shell/workflow-app-loader.js");
 }
 
 /** The handlers REGISTRY starts with, keyed by capability id; every other

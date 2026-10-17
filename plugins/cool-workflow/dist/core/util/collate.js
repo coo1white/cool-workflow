@@ -1,6 +1,3 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.stableCompare = stableCompare;
 // core/util/collate.ts — THE one string-ordering comparator for anything
 // whose order feeds a hash, a cache key, or a byte-pinned output.
 //
@@ -18,6 +15,6 @@ exports.stableCompare = stableCompare;
 // ICU root locale (which is what a locale-stripped environment, e.g. this
 // repo's own conformance harness, always runs under), so switching a bare
 // `localeCompare` call to this one changes NO existing output.
-function stableCompare(a, b) {
+export function stableCompare(a, b) {
     return a.localeCompare(b, "en");
 }

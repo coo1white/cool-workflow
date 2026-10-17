@@ -5,4 +5,4 @@
 // builder + the shared delegation runner under the ci-specific name so the
 // registry's driver table reads naturally (one module per driver id).
 
-export { ciHandle, runHttpDelegation as runCiDelegation } from "./remote";
+export { ciHandle, runHttpDelegation as runCiDelegation } from "./remote.js";

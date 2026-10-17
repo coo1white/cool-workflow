@@ -18,13 +18,13 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
-import { resolveAgentConfig } from "./agent-config";
-import { splitAgentCommandLine } from "../core/util/cli-args";
-import { buildDoctorOnramp, DoctorOnramp, optionEnabled } from "./onramp";
-import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store";
-import { verifyTrustAudit } from "./trust-audit";
-import { WorkflowRun } from "../core/state/types";
-import { bold, doctorGlyph, green, nextHint, red } from "./term";
+import { resolveAgentConfig } from "./agent-config.js";
+import { splitAgentCommandLine } from "../core/util/cli-args.js";
+import { buildDoctorOnramp, DoctorOnramp, optionEnabled } from "./onramp.js";
+import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store.js";
+import { verifyTrustAudit } from "./trust-audit.js";
+import { WorkflowRun } from "../core/state/types.js";
+import { bold, doctorGlyph, green, nextHint, red } from "./term.js";
 
 export type DoctorStatus = "ok" | "warn" | "fail";
 

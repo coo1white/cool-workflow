@@ -1,24 +1,8 @@
-"use strict";
 // shell/term.ts — zero-dependency terminal styling.
 //
 // TTY-gated ANSI formatting, so a piped run (every conformance case pipes
 // with NO_COLOR=1) prints plain text; plus indent, sectionHeader,
 // phaseProgressLine, stripAnsi, visibleWidth, truncate.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.bold = bold;
-exports.dim = dim;
-exports.green = green;
-exports.yellow = yellow;
-exports.red = red;
-exports.doctorGlyph = doctorGlyph;
-exports.tryHint = tryHint;
-exports.nextHint = nextHint;
-exports.indent = indent;
-exports.sectionHeader = sectionHeader;
-exports.phaseProgressLine = phaseProgressLine;
-exports.stripAnsi = stripAnsi;
-exports.visibleWidth = visibleWidth;
-exports.truncate = truncate;
 function isTTY(stream = process.stderr) {
     return Boolean(stream.isTTY);
 }
@@ -45,23 +29,23 @@ function style(code, text, stream) {
         return text;
     return `${code}${text}${ansi.reset}`;
 }
-function bold(text, stream) {
+export function bold(text, stream) {
     return style(ansi.bold, text, stream);
 }
-function dim(text, stream) {
+export function dim(text, stream) {
     return style(ansi.dim, text, stream);
 }
-function green(text, stream) {
+export function green(text, stream) {
     return style(ansi.green, text, stream);
 }
-function yellow(text, stream) {
+export function yellow(text, stream) {
     return style(ansi.yellow, text, stream);
 }
-function red(text, stream) {
+export function red(text, stream) {
     return style(ansi.red, text, stream);
 }
 /** Returns the styled glyph + label for a doctor check severity. */
-function doctorGlyph(status, stream) {
+export function doctorGlyph(status, stream) {
     const glyph = { ok: "✓", warn: "!", fail: "✗" };
     const color = {
         ok: green,
@@ -71,15 +55,15 @@ function doctorGlyph(status, stream) {
     return color[status](`${glyph[status]}`, stream);
 }
 /** A `Try: <cmd>` recovery hint (brew-style; the command stays plain to copy). */
-function tryHint(cmd, stream) {
+export function tryHint(cmd, stream) {
     return `${dim("Try:", stream)} ${cmd}`;
 }
 /** A `Next: <cmd>` hint line (the command stays plain so it is copy-pasteable). */
-function nextHint(cmd, stream) {
+export function nextHint(cmd, stream) {
     return `${dim("Next:", stream)} ${cmd}`;
 }
 /** Render a multi-line block with consistent 2-space indentation. */
-function indent(text, spaces = 2) {
+export function indent(text, spaces = 2) {
     const prefix = " ".repeat(spaces);
     return text
         .split("\n")
@@ -87,12 +71,12 @@ function indent(text, spaces = 2) {
         .join("\n");
 }
 /** A `==> Title` section header (brew-style). */
-function sectionHeader(title, stream) {
+export function sectionHeader(title, stream) {
     return `${bold("==>", stream)} ${title}`;
 }
 /** A phase-progress line: `==> Map ✓ (6/6)` / `==> Assess … (3/6)`. Parallel
  *  phases use ⇉, sequential use …; a finished phase uses a green ✓. */
-function phaseProgressLine(name, done, total, mode, stream) {
+export function phaseProgressLine(name, done, total, mode, stream) {
     const complete = total > 0 && done >= total;
     const glyph = complete ? green("✓", stream) : mode === "parallel" ? "⇉" : "…";
     const count = total > 0 ? ` (${done}/${total})` : "";
@@ -101,19 +85,19 @@ function phaseProgressLine(name, done, total, mode, stream) {
 // ---- width-aware truncation (zero-dep) ----
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 /** Strip ANSI SGR codes (for measuring visible width). */
-function stripAnsi(text) {
+export function stripAnsi(text) {
     return text.replace(ANSI_RE, "");
 }
 /** Visible width of a string, ignoring ANSI. Counts each code point as
  *  width 1 — a known minor caveat for wide (CJK/emoji) glyphs, acceptable
  *  for one-line status truncation. */
-function visibleWidth(text) {
+export function visibleWidth(text) {
     return [...stripAnsi(text)].length;
 }
 /** Truncate a (possibly styled) string to `maxWidth` visible columns,
  *  appending `…` when cut. Operates on the PLAIN text (callers truncate
  *  before styling), so no ANSI is split. */
-function truncate(text, maxWidth) {
+export function truncate(text, maxWidth) {
     if (maxWidth <= 0)
         return "";
     const chars = [...stripAnsi(text)];

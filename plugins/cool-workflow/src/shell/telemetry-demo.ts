@@ -12,14 +12,14 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { sha256 } from "../core/hash";
-import { signTelemetry, verifyTelemetryAttestation } from "../core/trust/telemetry-attestation";
-import { TelemetryLedgerCheck } from "../core/trust/telemetry-ledger";
-import { appendTelemetryAttestation, computeRecordHash, reportedUsageDigest, telemetryLedgerPath, verifyTelemetryLedger } from "./telemetry-ledger-io";
-import { createRunPaths } from "../core/state/run-paths";
-import { ensureRunDirs, saveCheckpoint } from "./run-store";
-import { exportRun, verifyReportBundle } from "./run-export";
-import { WorkflowRun } from "../core/state/types";
+import { sha256 } from "../core/hash.js";
+import { signTelemetry, verifyTelemetryAttestation } from "../core/trust/telemetry-attestation.js";
+import { TelemetryLedgerCheck } from "../core/trust/telemetry-ledger.js";
+import { appendTelemetryAttestation, computeRecordHash, reportedUsageDigest, telemetryLedgerPath, verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+import { createRunPaths } from "../core/state/run-paths.js";
+import { ensureRunDirs, saveCheckpoint } from "./run-store.js";
+import { exportRun, verifyReportBundle } from "./run-export.js";
+import { WorkflowRun } from "../core/state/types.js";
 
 export interface TamperDemoLayer {
   layer: "ledger" | "signature" | "result";

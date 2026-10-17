@@ -8,9 +8,9 @@
 // Evidence: SPEC/pipeline-run.md "Commit gate — commit module",
 // "Commit-gate error codes (fixed strings)".
 
-import { StateEvidence, StateNode, StateNodeError, WorkflowRun } from "../state/types";
-import { hasGroundedEvidence } from "../trust/evidence-grounding";
-import { isEmptyCapture, ResultEnvelope } from "./result-normalize";
+import { StateEvidence, StateNode, StateNodeError, WorkflowRun } from "../state/types.js";
+import { hasGroundedEvidence } from "../trust/evidence-grounding.js";
+import { isEmptyCapture, ResultEnvelope } from "./result-normalize.js";
 
 export interface CommitStateOptions {
   reason: string;

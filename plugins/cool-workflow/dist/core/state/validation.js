@@ -1,4 +1,3 @@
-"use strict";
 // core/state/validation.ts — RecordValidationError + per-record shape
 // guards.
 //
@@ -25,17 +24,12 @@
 //
 // Evidence: SPEC/state-core.md "validation module — persisted-record shape
 // guards", "Fail-closed record reads".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RecordValidationError = void 0;
-exports.validateWorkerScope = validateWorkerScope;
-exports.validateNodeSnapshot = validateNodeSnapshot;
-exports.validateNodeReplayRun = validateNodeReplayRun;
-const cli_args_1 = require("../util/cli-args");
+import { isRecord } from "../util/cli-args.js";
 function isString(value) {
     return typeof value === "string";
 }
 function isObjectArray(value) {
-    return Array.isArray(value) && value.every((entry) => (0, cli_args_1.isRecord)(entry));
+    return Array.isArray(value) && value.every((entry) => isRecord(entry));
 }
 function isStringArray(value) {
     return Array.isArray(value) && value.every((entry) => typeof entry === "string");
@@ -52,7 +46,7 @@ const WORKER_STATUSES = new Set([
 ]);
 /** Descriptive integrity error — the message names the type and the field
  *  that broke, so a corrupt record is diagnosable from logs alone. */
-class RecordValidationError extends Error {
+export class RecordValidationError extends Error {
     code = "record-shape-invalid";
     typeName;
     field;
@@ -63,7 +57,6 @@ class RecordValidationError extends Error {
         this.field = field;
     }
 }
-exports.RecordValidationError = RecordValidationError;
 // ---------------------------------------------------------------------------
 // WorkerScope — worker-isolation.ts getWorkerScope / loadWorkerScopesFromDisk
 // Required: schemaVersion===1, id, runId, taskId, createdAt, updatedAt,
@@ -73,7 +66,7 @@ exports.RecordValidationError = RecordValidationError;
 // may be absent).
 // ---------------------------------------------------------------------------
 function workerScopeReason(value) {
-    if (!(0, cli_args_1.isRecord)(value))
+    if (!isRecord(value))
         return { reason: "not an object" };
     if (value.schemaVersion !== 1)
         return { field: "schemaVersion", reason: "must equal 1" };
@@ -107,23 +100,23 @@ function workerScopeReason(value) {
 /** Throw-on-mismatch guard for WorkerScope (callers that require the
  *  record). Returns WorkerScopeShape — the caller (shell/worker-isolation.ts)
  *  casts to its own richer WorkerScope, which is a structural superset. */
-function validateWorkerScope(value) {
+export function validateWorkerScope(value) {
     const problem = workerScopeReason(value);
     if (problem)
         throw new RecordValidationError("WorkerScope", problem.reason, problem.field);
     return value;
 }
 function nodeSnapshotBodyReason(value, prefix) {
-    if (!(0, cli_args_1.isRecord)(value))
+    if (!isRecord(value))
         return { field: prefix, reason: "must be a NodeSnapshotBody object" };
     const requiredStrings = ["id", "kind", "status", "loopStage"];
     for (const field of requiredStrings) {
         if (!isString(value[field]))
             return { field: `${prefix}.${String(field)}`, reason: "must be a string" };
     }
-    if (!(0, cli_args_1.isRecord)(value.inputs))
+    if (!isRecord(value.inputs))
         return { field: `${prefix}.inputs`, reason: "must be an object" };
-    if (!(0, cli_args_1.isRecord)(value.outputs))
+    if (!isRecord(value.outputs))
         return { field: `${prefix}.outputs`, reason: "must be an object" };
     if (!isObjectArray(value.artifacts))
         return { field: `${prefix}.artifacts`, reason: "must be a StateArtifact[]" };
@@ -138,7 +131,7 @@ function nodeSnapshotBodyReason(value, prefix) {
     return undefined;
 }
 function nodeSnapshotReason(value) {
-    if (!(0, cli_args_1.isRecord)(value))
+    if (!isRecord(value))
         return { reason: "not an object" };
     if (value.schemaVersion !== 1)
         return { field: "schemaVersion", reason: "must equal 1" };
@@ -151,14 +144,14 @@ function nodeSnapshotReason(value) {
 }
 /** Throw-on-mismatch guard for NodeSnapshot (read edge requires the
  *  record). */
-function validateNodeSnapshot(value) {
+export function validateNodeSnapshot(value) {
     const problem = nodeSnapshotReason(value);
     if (problem)
         throw new RecordValidationError("NodeSnapshot", problem.reason, problem.field);
     return value;
 }
 function nodeReplayRunReason(value) {
-    if (!(0, cli_args_1.isRecord)(value))
+    if (!isRecord(value))
         return { reason: "not an object" };
     if (value.schemaVersion !== 1)
         return { field: "schemaVersion", reason: "must equal 1" };
@@ -177,7 +170,7 @@ function nodeReplayRunReason(value) {
 }
 /** Throw-on-mismatch guard for NodeReplayRun (read edge requires the
  *  record). */
-function validateNodeReplayRun(value) {
+export function validateNodeReplayRun(value) {
     const problem = nodeReplayRunReason(value);
     if (problem)
         throw new RecordValidationError("NodeReplayRun", problem.reason, problem.field);

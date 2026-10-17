@@ -1,4 +1,3 @@
-"use strict";
 // core/state/run-paths.ts — pure RunPaths construction.
 //
 // `createRunPaths` is pure path math. The directory write mechanism lives in
@@ -6,45 +5,9 @@
 //
 // Evidence: SPEC/state-core.md "state module — persistence kernel" and "The
 // full .cw/runs/<run-id>/ layout".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.createRunPaths = createRunPaths;
-exports.rebindRunPaths = rebindRunPaths;
-const path = __importStar(require("node:path"));
+import * as path from "node:path";
 /** The 16-key RunPaths object, all joined under `runDir`. */
-function createRunPaths(runDir) {
+export function createRunPaths(runDir) {
     return {
         runDir,
         state: path.join(runDir, "state.json"),
@@ -81,7 +44,7 @@ const AUDIT_FILES = [
  *  saves byte-identical; a stored key that is not one of createRunPaths'
  *  keys is dropped. Audit path keys are set only where the stored audit
  *  block has them. Changes `run` in place. */
-function rebindRunPaths(run, runDir, sameLocation = (a, b) => a === b) {
+export function rebindRunPaths(run, runDir, sameLocation = (a, b) => a === b) {
     const fresh = createRunPaths(runDir);
     const stored = (run.paths && typeof run.paths === "object" ? run.paths : {});
     const pick = (value, rebuilt) => typeof value === "string" && (value === rebuilt || sameLocation(value, rebuilt)) ? value : rebuilt;

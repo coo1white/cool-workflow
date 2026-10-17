@@ -25,6 +25,7 @@
 const assert = require("node:assert/strict");
 const { execFileSync, spawn } = require("node:child_process");
 const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 const readline = require("node:readline");
@@ -220,12 +221,14 @@ function openMcp() {
     }
     return originalReadFileSync.call(this, file, ...rest);
   };
+  syncBuiltinESMExports();
   try {
     const slimIndex = regA.buildIndex("home");
     assert.ok(slimIndex.records.some((r) => r.runId === a2.id && r.archived), "slim scan preserves archive overlay semantics");
     assert.ok(slimIndex.records.some((r) => r.runId === rerun1.newRunId && r.provenance?.rerunOf === b1.id), "slim scan preserves provenance overlay semantics");
   } finally {
     fs.readFileSync = originalReadFileSync;
+    syncBuiltinESMExports();
   }
   assert.equal(overlayReads.get(path.resolve(path.join(repoA, ".cw", "registry", "archive.json"))), 1, "archive overlay read once per repo scan");
   assert.equal(overlayReads.get(path.resolve(path.join(repoB, ".cw", "registry", "provenance.json"))), 1, "provenance overlay read once per repo scan");

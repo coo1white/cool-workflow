@@ -14,15 +14,15 @@
 // so this file is the only place the full domain list is assembled, and
 // there is no cross-slice circular dependency to reason about.
 
-export * from "./registry-core";
+export * from "./registry-core.js";
 
-import "./basics";
-import "./state";
-import "./exec-backend";
-import "./pipeline";
-import "./trust-ledger";
-import "./scheduling-registry";
-import "./reporting";
-import "./workflow-apps";
+import "./basics.js";
+import "./state.js";
+import "./exec-backend.js";
+import "./pipeline.js";
+import "./trust-ledger.js";
+import "./scheduling-registry.js";
+import "./reporting.js";
+import "./workflow-apps.js";
 
-export * from "./parity";
+export * from "./parity.js";

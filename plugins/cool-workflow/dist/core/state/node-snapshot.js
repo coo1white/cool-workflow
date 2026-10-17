@@ -1,4 +1,3 @@
-"use strict";
 // core/state/node-snapshot.ts — snapshotNode / diffNodeSnapshots /
 // replayNodeSnapshot / verifyNodeReplay.
 //
@@ -24,19 +23,11 @@
 // Evidence: SPEC/state-core.md "node-snapshot module — snapshot / diff /
 // replay", "Raw vs. normalized fingerprints", "Snapshot freshness
 // fail-closed".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.NodeSnapshotError = exports.NODE_SNAPSHOT_SCHEMA_VERSION = void 0;
-exports.sourceFingerprint = sourceFingerprint;
-exports.snapshotNode = snapshotNode;
-exports.loadNodeSnapshot = loadNodeSnapshot;
-exports.diffNodeSnapshots = diffNodeSnapshots;
-exports.replayNodeSnapshot = replayNodeSnapshot;
-exports.verifyNodeReplay = verifyNodeReplay;
-const hash_1 = require("../hash");
-const node_projection_1 = require("./node-projection");
-exports.NODE_SNAPSHOT_SCHEMA_VERSION = 1;
+import { fingerprintStrings } from "../hash.js";
+import { projectNodeBody, replayStableStringify, normalizeValue } from "./node-projection.js";
+export const NODE_SNAPSHOT_SCHEMA_VERSION = 1;
 /** Structured fail-closed error (mirrors PipelineContractError's shape). */
-class NodeSnapshotError extends Error {
+export class NodeSnapshotError extends Error {
     code;
     freshness;
     details;
@@ -48,7 +39,6 @@ class NodeSnapshotError extends Error {
         this.details = options.details;
     }
 }
-exports.NodeSnapshotError = NodeSnapshotError;
 const SNAPSHOT_SECTIONS = [
     "status",
     "inputs",
@@ -67,12 +57,12 @@ function findRunNode(run, nodeId) {
 /** NORMALIZED projection of a node — timestamps/paths stripped, so it is
  *  byte-stable across captures of the same logical state. */
 function snapshotBody(node) {
-    return (0, node_projection_1.projectNodeBody)(node);
+    return projectNodeBody(node);
 }
 /** RAW fingerprint (NOT normalized): any transition (updatedAt/status) or
  *  artifact/evidence change flips it — this is how drift is detected. */
-function sourceFingerprint(node) {
-    return (0, hash_1.fingerprintStrings)([
+export function sourceFingerprint(node) {
+    return fingerprintStrings([
         `node:${node.id}:${node.status}:${node.updatedAt}`,
         ...node.artifacts.map((artifact) => `artifact:${artifact.id}:${artifact.path}`),
         ...node.evidence.map((evidence) => `evidence:${evidence.id}:${evidence.path || ""}`),
@@ -80,7 +70,7 @@ function sourceFingerprint(node) {
 }
 /** Snapshot one StateNode by id. Throws (fail closed) if the node is
  *  absent. */
-function snapshotNode(run, nodeId, options = {}) {
+export function snapshotNode(run, nodeId, options = {}) {
     const node = findRunNode(run, nodeId);
     if (!node) {
         throw new NodeSnapshotError("node-absent", `Cannot snapshot: node ${nodeId} not found in run ${run.id}`, {
@@ -102,7 +92,7 @@ function snapshotNode(run, nodeId, options = {}) {
     return snapshot;
 }
 /** Recompute freshness from the CURRENT source. `valid | stale | absent`. */
-function loadNodeSnapshot(run, snapshot, pathExists = () => true) {
+export function loadNodeSnapshot(run, snapshot, pathExists = () => true) {
     const node = findRunNode(run, snapshot.nodeId);
     if (!node) {
         return { snapshot, freshness: "absent", reason: `source node ${snapshot.nodeId} is gone from run ${run.id}` };
@@ -122,11 +112,11 @@ function sectionValue(body, section) {
     return body[section];
 }
 /** Stable, structural diff of two snapshots: 8 sections, in fixed order. */
-function diffNodeSnapshots(baseline, candidate) {
+export function diffNodeSnapshots(baseline, candidate) {
     const sections = SNAPSHOT_SECTIONS.map((section) => {
         const baselineValue = sectionValue(baseline.body, section);
         const candidateValue = sectionValue(candidate.body, section);
-        const sameBytes = (0, node_projection_1.replayStableStringify)(baselineValue) === (0, node_projection_1.replayStableStringify)(candidateValue);
+        const sameBytes = replayStableStringify(baselineValue) === replayStableStringify(candidateValue);
         let change;
         if (sameBytes)
             change = "same";
@@ -157,13 +147,13 @@ function diffNodeSnapshots(baseline, candidate) {
 /** Deterministically replay one node from its snapshot, fail-closed on
  *  drift: freshness not `valid` throws `snapshot-stale`/`snapshot-absent`
  *  BEFORE any replay bytes are built. */
-function replayNodeSnapshot(run, snapshot, options = {}) {
+export function replayNodeSnapshot(run, snapshot, options = {}) {
     const { freshness, reason } = loadNodeSnapshot(run, snapshot, options.pathExists);
     if (freshness !== "valid") {
         throw new NodeSnapshotError(freshness === "stale" ? "snapshot-stale" : "snapshot-absent", reason || `cannot replay a ${freshness} snapshot of node ${snapshot.nodeId}`, { freshness, details: { runId: run.id, nodeId: snapshot.nodeId } });
     }
-    const body = (0, node_projection_1.normalizeValue)(snapshot.body);
-    const outputFingerprint = (0, hash_1.fingerprintStrings)([(0, node_projection_1.replayStableStringify)(body)]);
+    const body = normalizeValue(snapshot.body);
+    const outputFingerprint = fingerprintStrings([replayStableStringify(body)]);
     const replay = {
         schemaVersion: 1,
         replayId: `replay-${snapshot.snapshotId}-${outputFingerprint.replace("sha256:", "").slice(0, 8)}`,
@@ -183,7 +173,7 @@ function replayNodeSnapshot(run, snapshot, options = {}) {
 /** Compare a replay to a FRESH (non-persisted) snapshot of the source node;
  *  pass = byte-identical normalized body. Never throws — a drifted source
  *  is a `pass:false` finding, not an exception. */
-function verifyNodeReplay(run, replay, options = {}) {
+export function verifyNodeReplay(run, replay, options = {}) {
     const fresh = findRunNode(run, replay.nodeId);
     if (!fresh) {
         return {

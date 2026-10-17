@@ -3,12 +3,12 @@
 // Thin shell bodies over the same `plan` + `showSandboxProfileCli` the CLI
 // front door uses.
 
-import { plan } from "./pipeline";
-import { loadWorkflowApp } from "./workflow-app-loader";
-import { showSandboxProfileCli } from "./exec-backend-cli";
-import { summarizeOperatorRun } from "./operator-ux";
-import { loadRunFromCwd } from "./run-store";
-import { optionalArg, isRecord } from "../core/util/cli-args";
+import { plan } from "./pipeline.js";
+import { loadWorkflowApp } from "./workflow-app-loader.js";
+import { showSandboxProfileCli } from "./exec-backend-cli.js";
+import { summarizeOperatorRun } from "./operator-ux.js";
+import { loadRunFromCwd } from "./run-store.js";
+import { optionalArg, isRecord } from "../core/util/cli-args.js";
 
 /** Keys that steer the run/tool call itself, never workflow inputs. */
 const RUNTIME_KEYS = new Set(["cwd", "sandbox", "sandboxProfile", "sandboxProfileId", "appId", "workflowId", "inputs"]);

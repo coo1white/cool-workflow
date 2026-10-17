@@ -1,4 +1,3 @@
-"use strict";
 // shell/observability.ts — DERIVED metrics, ATTESTED cost. `cw metrics
 // show`/`cw metrics summary`.
 //
@@ -12,65 +11,17 @@
 // Evidence: SPEC/reporting-ux.md "cw metrics show / summary", invariant 4
 // (metrics are derived and honest), invariant 5 (freshness is fail-
 // closed), invariant 6 (metricsShow never touches state.json).
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatMetricsSummary = exports.formatMetricsReport = exports.parseUsageFromArgs = exports.loadCostPolicy = exports.METRICS_SCHEMA_VERSION = void 0;
-exports.fingerprintMetricsSource = fingerprintMetricsSource;
-exports.deriveUsageTotals = deriveUsageTotals;
-exports.deriveAttestationCoverage = deriveAttestationCoverage;
-exports.deriveCost = deriveCost;
-exports.deriveFailureRate = deriveFailureRate;
-exports.deriveVerifierPassRate = deriveVerifierPassRate;
-exports.deriveCandidateAcceptanceRate = deriveCandidateAcceptanceRate;
-exports.deriveCollaborationMetrics = deriveCollaborationMetrics;
-exports.deriveMetricsReport = deriveMetricsReport;
-exports.metricsDir = metricsDir;
-exports.loadPersistedMetricsFingerprint = loadPersistedMetricsFingerprint;
-exports.showMetricsReport = showMetricsReport;
-exports.deriveMetricsSummary = deriveMetricsSummary;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const fs_atomic_1 = require("./fs-atomic");
-const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
-const collate_1 = require("../core/util/collate");
-exports.METRICS_SCHEMA_VERSION = 1;
+import { createHash } from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { readJson, writeJson } from "./fs-atomic.js";
+import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+import { stableCompare } from "../core/util/collate.js";
+export const METRICS_SCHEMA_VERSION = 1;
 const VERIFIER_PASS_STATUSES = new Set(["verified", "completed", "committed"]);
 const VERIFIER_FAIL_STATUSES = new Set(["failed", "rejected", "blocked"]);
 const CANDIDATE_ACCEPTED_STATUSES = new Set(["selected", "verified"]);
 function fingerprintStrings(values) {
-    const { createHash } = require("node:crypto");
     const hash = createHash("sha256");
     hash.update(JSON.stringify([...values].sort()));
     return `sha256:${hash.digest("hex").slice(0, 32)}`;
@@ -102,24 +53,24 @@ function usageKey(usage) {
         return "unreported";
     return `${usage.source}:${usage.model || "-"}:${usage.inputTokens ?? "-"}:${usage.outputTokens ?? "-"}`;
 }
-function fingerprintMetricsSource(run) {
+export function fingerprintMetricsSource(run) {
     const parts = [`id:${run.id}`, `createdAt:${run.createdAt}`, `updatedAt:${run.updatedAt}`, `app:${run.workflow.app?.id || run.workflow.id}`];
-    for (const task of [...run.tasks].sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
+    for (const task of [...run.tasks].sort((a, b) => stableCompare(a.id, b.id))) {
         parts.push(`task:${task.id}:${task.status}:${task.dispatchedAt || "-"}:${task.completedAt || "-"}:${usageKey(task.usage)}:${task.backendId || "-"}`);
     }
-    for (const worker of [...(run.workers || [])].sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
+    for (const worker of [...(run.workers || [])].sort((a, b) => stableCompare(a.id, b.id))) {
         parts.push(`worker:${worker.id}:${worker.status}:${worker.output?.recordedAt || "-"}:${usageKey(worker.usage)}:${worker.backendId || "-"}`);
     }
-    for (const node of [...(run.nodes || [])].filter((n) => n.kind === "verifier").sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
+    for (const node of [...(run.nodes || [])].filter((n) => n.kind === "verifier").sort((a, b) => stableCompare(a.id, b.id))) {
         parts.push(`verifier:${node.id}:${node.status}`);
     }
-    for (const cand of [...(run.candidates || [])].sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
+    for (const cand of [...(run.candidates || [])].sort((a, b) => stableCompare(a.id, b.id))) {
         parts.push(`candidate:${cand.id}:${cand.status}`);
     }
-    for (const fb of [...(run.feedback || [])].sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
+    for (const fb of [...(run.feedback || [])].sort((a, b) => stableCompare(a.id, b.id))) {
         parts.push(`feedback:${fb.id}:${fb.status}`);
     }
-    for (const m of [...(run.multiAgent?.memberships || [])].sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
+    for (const m of [...(run.multiAgent?.memberships || [])].sort((a, b) => stableCompare(a.id, b.id))) {
         parts.push(`membership:${m.id}:${m.status}`);
     }
     return fingerprintStrings(parts);
@@ -147,14 +98,14 @@ function usageUnits(run) {
             units.push({ unit: task.id, kind: "task", usage: task.usage });
         }
     }
-    return units.sort((a, b) => (0, collate_1.stableCompare)(a.unit, b.unit));
+    return units.sort((a, b) => stableCompare(a.unit, b.unit));
 }
 function tokenTotal(usage) {
     if (typeof usage.totalTokens === "number")
         return usage.totalTokens;
     return (usage.inputTokens || 0) + (usage.outputTokens || 0);
 }
-function deriveUsageTotals(run) {
+export function deriveUsageTotals(run) {
     const units = usageUnits(run);
     const rows = [];
     let inputTokens = 0;
@@ -186,7 +137,7 @@ function deriveUsageTotals(run) {
     };
     return { totals, rows };
 }
-function deriveAttestationCoverage(run) {
+export function deriveAttestationCoverage(run) {
     const units = usageUnits(run);
     let attested = 0;
     let unattested = 0;
@@ -210,7 +161,7 @@ function deriveAttestationCoverage(run) {
         }
     }
     const unitCount = units.length;
-    const ledger = (0, telemetry_ledger_io_1.verifyTelemetryLedger)(run);
+    const ledger = verifyTelemetryLedger(run);
     return {
         units: unitCount,
         attested,
@@ -228,7 +179,7 @@ function priceUsage(usage, price) {
     const cacheWrite = ((usage.cacheWriteTokens || 0) / 1_000_000) * (price.cacheWritePerMillion || 0);
     return input + output + cacheRead + cacheWrite;
 }
-function deriveCost(rows, policy) {
+export function deriveCost(rows, policy) {
     const currency = policy?.currency || "USD";
     if (rows.length === 0) {
         return { state: "unreported", currency, attestedUsd: null, estimatedUsd: null, policyId: policy?.id, unpricedModels: [], pricedCoverage: null, notes: ["No attested usage on this run; cost is unreported, not zero."] };
@@ -295,7 +246,7 @@ function deriveCost(rows, policy) {
         notes,
     };
 }
-function deriveFailureRate(run) {
+export function deriveFailureRate(run) {
     const workers = run.workers || [];
     const memberships = run.multiAgent?.memberships || [];
     const feedback = run.feedback || [];
@@ -317,7 +268,7 @@ function deriveFailureRate(run) {
         feedbackUnresolved,
     });
 }
-function deriveVerifierPassRate(run) {
+export function deriveVerifierPassRate(run) {
     const gates = (run.nodes || []).filter((n) => n.kind === "verifier");
     const buckets = {};
     let passed = 0;
@@ -334,7 +285,7 @@ function deriveVerifierPassRate(run) {
     }
     return rate("verifier-pass", passed, decided, buckets);
 }
-function deriveCandidateAcceptanceRate(run) {
+export function deriveCandidateAcceptanceRate(run) {
     const candidates = run.candidates || [];
     const buckets = {};
     let accepted = 0;
@@ -348,12 +299,12 @@ function deriveCandidateAcceptanceRate(run) {
 function taskRows(run) {
     return run.tasks
         .map((task) => ({ id: task.id, kind: "task", status: task.status, duration: duration(task.dispatchedAt, task.completedAt) }))
-        .sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id));
+        .sort((a, b) => stableCompare(a.id, b.id));
 }
 function workerRows(run) {
     return (run.workers || [])
         .map((worker) => ({ id: worker.id, kind: "worker", status: worker.status, duration: duration(worker.createdAt, workerEndAt(worker)) }))
-        .sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id));
+        .sort((a, b) => stableCompare(a.id, b.id));
 }
 function targetCreatedAt(run, target) {
     if (target.kind === "candidate")
@@ -364,7 +315,7 @@ function targetCreatedAt(run, target) {
         return (run.candidateSelections || []).find((e) => e.id === target.id)?.selectedAt;
     return undefined;
 }
-function deriveCollaborationMetrics(run) {
+export function deriveCollaborationMetrics(run) {
     const collab = run.collaboration;
     const approvalRecords = (collab?.approvals || []).filter((r) => r.decision === "approve");
     const rejectionRecords = (collab?.approvals || []).filter((r) => r.decision === "reject");
@@ -388,7 +339,7 @@ function deriveCollaborationMetrics(run) {
         timeToApproval: { samples: samples.length, meanMs, maxMs },
     };
 }
-function deriveMetricsReport(run, options) {
+export function deriveMetricsReport(run, options) {
     const tasks = taskRows(run);
     const workers = workerRows(run);
     const activeTaskMs = tasks.reduce((acc, row) => acc + (row.duration.wallClockMs || 0), 0);
@@ -413,7 +364,7 @@ function deriveMetricsReport(run, options) {
         if (worker.backendId)
             backendIds.add(worker.backendId);
     return {
-        schemaVersion: exports.METRICS_SCHEMA_VERSION,
+        schemaVersion: METRICS_SCHEMA_VERSION,
         surface: "metrics",
         runId: run.id,
         generatedAt: options.now,
@@ -432,18 +383,18 @@ function deriveMetricsReport(run, options) {
             : `cw metrics show ${run.id} --json`,
     };
 }
-function metricsDir(run) {
+export function metricsDir(run) {
     return path.join(run.paths.runDir, "metrics");
 }
 function metricsReportPath(run) {
     return path.join(metricsDir(run), "metrics-report.json");
 }
-function loadPersistedMetricsFingerprint(run) {
+export function loadPersistedMetricsFingerprint(run) {
     const file = metricsReportPath(run);
     if (!fs.existsSync(file))
         return undefined;
     try {
-        return (0, fs_atomic_1.readJson)(file).sourceFingerprint;
+        return readJson(file).sourceFingerprint;
     }
     catch {
         return undefined;
@@ -454,12 +405,12 @@ function loadPersistedMetricsFingerprint(run) {
  *  show --json` and the MCP tool are byte-identical. The Workbench's private
  *  projection mode keeps that established payload but does not create a
  *  derived file; NEVER touches state.json (invariant 6). */
-function showMetricsReport(run, options) {
+export function showMetricsReport(run, options) {
     const live = deriveMetricsReport(run, { now: options.now, policy: options.policy });
     const report = { ...live, freshness: { status: "valid", persistedFingerprint: live.sourceFingerprint, currentFingerprint: live.sourceFingerprint } };
     if (options.persist !== false) {
         fs.mkdirSync(metricsDir(run), { recursive: true });
-        (0, fs_atomic_1.writeJson)(metricsReportPath(run), report);
+        writeJson(metricsReportPath(run), report);
     }
     return report;
 }
@@ -537,13 +488,13 @@ function poolCost(list) {
         notes.push("Totals mix exact-priced (attested) and default-priced (estimated) runs; the two USD figures are kept separate.");
     return { state, currency, attestedUsd, estimatedUsd, policyId, unpricedModels: [...unpriced].sort(), pricedCoverage: null, notes };
 }
-function deriveMetricsSummary(inputs, options) {
+export function deriveMetricsSummary(inputs, options) {
     const perRun = [];
     for (const input of inputs) {
         const report = deriveMetricsReport(input.run, { now: options.now, policy: options.policy, persistedFingerprint: input.persistedFingerprint });
         perRun.push({ report, ref: { runId: report.runId, repo: input.repo, app: report.scope.app, backendIds: report.scope.backendIds, freshness: report.freshness.status, rates: report.rates, usage: report.usage, cost: report.cost } });
     }
-    perRun.sort((a, b) => (0, collate_1.stableCompare)(a.report.runId, b.report.runId));
+    perRun.sort((a, b) => stableCompare(a.report.runId, b.report.runId));
     const groupBy = (keyOf) => {
         const map = new Map();
         for (const { report } of perRun) {
@@ -554,7 +505,7 @@ function deriveMetricsSummary(inputs, options) {
             }
         }
         return [...map.entries()]
-            .sort((a, b) => (0, collate_1.stableCompare)(a[0], b[0]))
+            .sort((a, b) => stableCompare(a[0], b[0]))
             .map(([key, reports]) => ({
             key,
             runCount: reports.length,
@@ -580,7 +531,7 @@ function deriveMetricsSummary(inputs, options) {
         return [...map.entries()].map(([backendId, data]) => ({ backendId, ...data }));
     };
     return {
-        schemaVersion: exports.METRICS_SCHEMA_VERSION,
+        schemaVersion: METRICS_SCHEMA_VERSION,
         surface: "metrics",
         scope: options.scope,
         generatedAt: options.now,
@@ -597,9 +548,5 @@ function deriveMetricsSummary(inputs, options) {
         nextAction: perRun.length === 0 ? "No indexed runs; run a workflow, then `cw metrics summary`." : "Per-run detail: cw metrics show <run-id> --json",
     };
 }
-var observability_intake_1 = require("./observability-intake");
-Object.defineProperty(exports, "loadCostPolicy", { enumerable: true, get: function () { return observability_intake_1.loadCostPolicy; } });
-Object.defineProperty(exports, "parseUsageFromArgs", { enumerable: true, get: function () { return observability_intake_1.parseUsageFromArgs; } });
-var observability_format_1 = require("./observability-format");
-Object.defineProperty(exports, "formatMetricsReport", { enumerable: true, get: function () { return observability_format_1.formatMetricsReport; } });
-Object.defineProperty(exports, "formatMetricsSummary", { enumerable: true, get: function () { return observability_format_1.formatMetricsSummary; } });
+export { loadCostPolicy, parseUsageFromArgs } from "./observability-intake.js";
+export { formatMetricsReport, formatMetricsSummary } from "./observability-format.js";

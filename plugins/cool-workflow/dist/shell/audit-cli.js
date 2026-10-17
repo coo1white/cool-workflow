@@ -1,4 +1,3 @@
-"use strict";
 // shell/audit-cli.ts — CLI/MCP-reachable body for `cw audit verify`.
 //
 // A run id with no run directory at all is a hard load failure
@@ -6,56 +5,14 @@
 // but never wrote a trust-audit chain file, not to a missing run entirely.
 //
 // Evidence: SPEC/ledger-trust.md "CLI: `cw audit verify`".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.auditVerifyCli = auditVerifyCli;
-exports.auditHeadCli = auditHeadCli;
-exports.auditRepairCli = auditRepairCli;
-exports.auditSummaryCli = auditSummaryCli;
-exports.auditWorkerCli = auditWorkerCli;
-exports.auditProvenanceCli = auditProvenanceCli;
-exports.auditAttestCli = auditAttestCli;
-exports.auditDecisionCli = auditDecisionCli;
-const path = __importStar(require("node:path"));
-const cli_args_1 = require("../core/util/cli-args");
-const trust_audit_1 = require("./trust-audit");
-const run_store_1 = require("./run-store");
-const report_1 = require("./report");
-const audit_provenance_1 = require("./audit-provenance");
-const worker_isolation_1 = require("./worker-isolation");
-const sandbox_profile_1 = require("./sandbox-profile");
+import * as path from "node:path";
+import { cwdArg } from "../core/util/cli-args.js";
+import { verifyTrustAudit, summarizeTrustAudit, trustAuditHead, repairTrustAuditTornTail } from "./trust-audit.js";
+import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store.js";
+import { writeReport } from "./report.js";
+import { evidenceProvenance, recordHostAttestation, recordSandboxPolicyDecision, workerTrustAudit } from "./audit-provenance.js";
+import { getWorkerScope, recordWorkerFailure, validateWorkerBoundary } from "./worker-isolation.js";
+import { validateSandboxCommand, validateSandboxNetwork } from "./sandbox-profile.js";
 /** Parse the optional truncation anchor off the CLI options / MCP args
  *  (`--expect-head <hash>` / `--expect-count <n>`; MCP: expectHead /
  *  expectCount). Fail-closed on a malformed count — a flag given without
@@ -82,12 +39,12 @@ function anchorOption(args, command = "audit verify") {
         return undefined;
     return { expectHead, expectCount };
 }
-function auditVerifyCli(runId, args) {
+export function auditVerifyCli(runId, args) {
     if (!runId)
         throw new Error("audit verify requires a run id (cw audit verify <run-id>)");
     const anchor = anchorOption(args);
-    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
-    const v = (0, trust_audit_1.verifyTrustAudit)(run, anchor);
+    const run = loadRunFromCwd(runId, cwdArg(args));
+    const v = verifyTrustAudit(run, anchor);
     const result = {
         schemaVersion: 1,
         runId: run.id,
@@ -112,11 +69,11 @@ function auditVerifyCli(runId, args) {
  *  Capture it after a run (or before publishing/exporting); later,
  *  `cw audit verify <run> --expect-head <hash> --expect-count <n>`
  *  re-proves the log was not shortened since the capture. */
-function auditHeadCli(runId, args) {
+export function auditHeadCli(runId, args) {
     if (!runId)
         throw new Error("audit head requires a run id (cw audit head <run-id>)");
-    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
-    const head = (0, trust_audit_1.trustAuditHead)(run);
+    const run = loadRunFromCwd(runId, cwdArg(args));
+    const head = trustAuditHead(run);
     return { schemaVersion: 1, runId: run.id, eventCount: head.eventCount, headHash: head.headHash };
 }
 /** `cw audit repair <run> [--write] [--expect-head <hash>] [--expect-count <n>]`
@@ -133,21 +90,21 @@ function auditHeadCli(runId, args) {
  *  confined to exactly the trailing line, or the anchor isn't met — see
  *  `repairTrustAuditTornTail`'s own doc comment for the full fail-closed
  *  contract. */
-function auditRepairCli(runId, args) {
+export function auditRepairCli(runId, args) {
     if (!runId)
         throw new Error("audit repair requires a run id (cw audit repair <run-id>)");
     const write = Boolean(args.write);
     const anchor = anchorOption(args, "audit repair");
-    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
-    const result = (0, trust_audit_1.repairTrustAuditTornTail)(run, { write, anchor });
+    const run = loadRunFromCwd(runId, cwdArg(args));
+    const result = repairTrustAuditTornTail(run, { write, anchor });
     return { schemaVersion: 1, runId: run.id, write, ...result };
 }
 /** `cw audit summary` (also the workbench audit panel). This reads the
  *  same trust-audit summary function the report.md writer builds, so panel
  *  data can never drift from the standalone command's output. */
-function auditSummaryCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
-    return (0, trust_audit_1.summarizeTrustAudit)(run, { persist: args.__cwWorkbenchReadOnlyProjection !== true });
+export function auditSummaryCli(runId, args) {
+    const run = loadRunFromCwd(runId, cwdArg(args));
+    return summarizeTrustAudit(run, { persist: args.__cwWorkbenchReadOnlyProjection !== true });
 }
 // ---------------------------------------------------------------------------
 // The audit worker/provenance/attest/decision verbs: thin loadRun ->
@@ -171,14 +128,14 @@ function inferAuditDecisionKind(options) {
     return "sandbox.path";
 }
 /** `cw audit worker <run> <worker>` — every audited event for one worker. */
-function auditWorkerCli(runId, workerId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
-    return (0, audit_provenance_1.workerTrustAudit)(run, workerId);
+export function auditWorkerCli(runId, workerId, args) {
+    const run = loadRunFromCwd(runId, cwdArg(args));
+    return workerTrustAudit(run, workerId);
 }
 /** `cw audit provenance <run> [--worker|--candidate|--commit <id>]`. */
-function auditProvenanceCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
-    return (0, audit_provenance_1.evidenceProvenance)(run, {
+export function auditProvenanceCli(runId, args) {
+    const run = loadRunFromCwd(runId, cwdArg(args));
+    return evidenceProvenance(run, {
         workerId: optionalString(args.worker ?? args.workerId),
         candidateId: optionalString(args.candidate ?? args.candidateId),
         commitId: optionalString(args.commit ?? args.commitId),
@@ -186,13 +143,13 @@ function auditProvenanceCli(runId, args) {
 }
 /** `cw audit attest <run> [--worker …] [--command|--network|--env|--note …]`
  *  — record a host/operator sandbox attestation. */
-function auditAttestCli(runId, args) {
+export function auditAttestCli(runId, args) {
     // Hold the state.json lock across the whole load -> record -> save so a
     // concurrent run mutation cannot drop this attestation (lost-update class).
-    return (0, run_store_1.withRunStateLock)(runId, (0, cli_args_1.cwdArg)(args), (run) => {
+    return withRunStateLock(runId, cwdArg(args), (run) => {
         const workerId = optionalString(args.worker ?? args.workerId);
-        const worker = workerId ? (0, worker_isolation_1.getWorkerScope)(run, workerId) : undefined;
-        const event = (0, audit_provenance_1.recordHostAttestation)(run, {
+        const worker = workerId ? getWorkerScope(run, workerId) : undefined;
+        const event = recordHostAttestation(run, {
             actor: optionalString(args.actor) || "host",
             workerId,
             taskId: worker?.taskId || optionalString(args.task ?? args.taskId),
@@ -206,7 +163,7 @@ function auditAttestCli(runId, args) {
                 envVars: valuesOption(args.env ?? args.envVar ?? args.envVars),
             },
         });
-        (0, run_store_1.saveCheckpoint)(run);
+        saveCheckpoint(run);
         return event;
     });
 }
@@ -214,14 +171,14 @@ function auditAttestCli(runId, args) {
  *  — validate a sandbox decision against the worker's policy, record it
  *  (fail-closed: a denied decision records a structured worker failure), and
  *  return the audit event. */
-function auditDecisionCli(runId, workerId, args) {
+export function auditDecisionCli(runId, workerId, args) {
     // recordAuditDecision does a load -> mutate -> saveCheckpoint; hold the
     // state.json lock across the whole cycle so a concurrent run mutation
     // cannot drop the recorded decision/failure (lost-update class).
-    return (0, run_store_1.withRunStateLock)(runId, (0, cli_args_1.cwdArg)(args), (run) => recordAuditDecision(run, workerId, args));
+    return withRunStateLock(runId, cwdArg(args), (run) => recordAuditDecision(run, workerId, args));
 }
 function recordAuditDecision(run, workerId, options) {
-    const worker = (0, worker_isolation_1.getWorkerScope)(run, workerId);
+    const worker = getWorkerScope(run, workerId);
     if (!worker)
         throw new Error(`Unknown worker id for run ${run.id}: ${workerId}`);
     const kind = optionalString(options.kind) || inferAuditDecisionKind(options);
@@ -231,10 +188,10 @@ function recordAuditDecision(run, workerId, options) {
     const policy = worker.sandboxPolicy;
     let denied = null;
     if (kind === "sandbox.command") {
-        denied = policy ? (0, sandbox_profile_1.validateSandboxCommand)(policy, target, workerId) : null;
+        denied = policy ? validateSandboxCommand(policy, target, workerId) : null;
     }
     else if (kind === "sandbox.network") {
-        denied = policy ? (0, sandbox_profile_1.validateSandboxNetwork)(policy, target, workerId) : null;
+        denied = policy ? validateSandboxNetwork(policy, target, workerId) : null;
     }
     else if (kind === "sandbox.env") {
         const name = target.includes("=") ? target.split("=")[0] : target;
@@ -242,16 +199,16 @@ function recordAuditDecision(run, workerId, options) {
         denied = allowed ? null : { code: "sandbox-env-denied", message: `Worker ${workerId} env var is outside sandbox profile ${policy?.id || "unknown"}: ${name}` };
     }
     else {
-        denied = (0, worker_isolation_1.validateWorkerBoundary)(run, workerId, { path: target });
+        denied = validateWorkerBoundary(run, workerId, { path: target });
     }
     const feedbackIds = [];
     if (denied) {
         const failurePath = denied.path || (kind === "sandbox.path" ? path.resolve(target) : undefined);
-        const failure = (0, worker_isolation_1.recordWorkerFailure)(run, workerId, { code: denied.code, message: denied.message, at: new Date().toISOString(), path: failurePath, retryable: false }, { code: denied.code, path: failurePath, retryable: false, persist: false });
+        const failure = recordWorkerFailure(run, workerId, { code: denied.code, message: denied.message, at: new Date().toISOString(), path: failurePath, retryable: false }, { code: denied.code, path: failurePath, retryable: false, persist: false });
         feedbackIds.push(...(failure.feedbackIds || []));
     }
     const envVars = kind === "sandbox.env" ? [target.includes("=") ? target.split("=")[0] : target] : undefined;
-    const event = (0, audit_provenance_1.recordSandboxPolicyDecision)(run, {
+    const event = recordSandboxPolicyDecision(run, {
         kind,
         decision: denied ? "denied" : "allowed",
         workerId,
@@ -265,7 +222,7 @@ function recordAuditDecision(run, workerId, options) {
         feedbackIds,
         metadata: { code: denied?.code },
     });
-    (0, report_1.writeReport)(run);
-    (0, run_store_1.saveCheckpoint)(run);
+    writeReport(run);
+    saveCheckpoint(run);
     return event;
 }

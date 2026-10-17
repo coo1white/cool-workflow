@@ -1,4 +1,3 @@
-"use strict";
 // shell/agent-config.ts — agent delegation config: env/file/flag resolution
 // order, CW_HOME resolution, builtin:<name> expansion, PATH auto-detect.
 //
@@ -10,60 +9,16 @@
 // showing.
 //
 // Evidence: SPEC/execution-backend.md "Agent delegation config".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.AGENT_CONFIG_SCHEMA_VERSION = void 0;
-exports.resolveCwHome = resolveCwHome;
-exports.agentConfigPath = agentConfigPath;
-exports.loadAgentConfigFile = loadAgentConfigFile;
-exports.resolveAgentConfig = resolveAgentConfig;
-exports.agentConfigured = agentConfigured;
-exports.setAgentConfigFile = setAgentConfigFile;
-exports.agentConfigShow = agentConfigShow;
-exports.backendAgentConfigSet = backendAgentConfigSet;
-exports.backendAgentConfigShow = backendAgentConfigShow;
-const fs = __importStar(require("node:fs"));
-const os = __importStar(require("node:os"));
-const path = __importStar(require("node:path"));
-const cli_args_1 = require("../core/util/cli-args");
-const fs_atomic_1 = require("./fs-atomic");
-const cli_args_2 = require("../core/util/cli-args");
-const agent_1 = require("./execution-backend/agent");
-exports.AGENT_CONFIG_SCHEMA_VERSION = 1;
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { boolWord } from "../core/util/cli-args.js";
+import { writeJson } from "./fs-atomic.js";
+import { splitAgentCommand } from "../core/util/cli-args.js";
+import { stripSecretArgs } from "./execution-backend/agent.js";
+export const AGENT_CONFIG_SCHEMA_VERSION = 1;
 /** CW_HOME resolution: CW_HOME > XDG_STATE_HOME/cool-workflow > ~/.local/state/cool-workflow. */
-function resolveCwHome(env = process.env) {
+export function resolveCwHome(env = process.env) {
     if (env.CW_HOME && String(env.CW_HOME).trim())
         return path.resolve(String(env.CW_HOME));
     if (env.XDG_STATE_HOME && String(env.XDG_STATE_HOME).trim()) {
@@ -71,7 +26,7 @@ function resolveCwHome(env = process.env) {
     }
     return path.join(os.homedir(), ".local", "state", "cool-workflow");
 }
-function agentConfigPath(env = process.env) {
+export function agentConfigPath(env = process.env) {
     return path.join(resolveCwHome(env), "agent-config.json");
 }
 function trimmed(value) {
@@ -94,7 +49,7 @@ function firstDefined(...values) {
 }
 /** Read the durable config FILE (if any). Never throws — a corrupt file is
  *  treated as absent (fail closed). */
-function loadAgentConfigFile(env = process.env) {
+export function loadAgentConfigFile(env = process.env) {
     const file = agentConfigPath(env);
     if (!fs.existsSync(file))
         return undefined;
@@ -108,7 +63,7 @@ function loadAgentConfigFile(env = process.env) {
             model: trimmed(parsed.model),
             timeoutMs: typeof parsed.timeoutMs === "number" ? parsed.timeoutMs : undefined,
             attestPublicKey: trimmed(parsed.attestPublicKey),
-            requireAttestedTelemetry: (0, cli_args_1.boolWord)(parsed.requireAttestedTelemetry),
+            requireAttestedTelemetry: boolWord(parsed.requireAttestedTelemetry),
             source: "file",
         };
     }
@@ -117,7 +72,7 @@ function loadAgentConfigFile(env = process.env) {
     }
 }
 function agentConfigFromEnv(env) {
-    const split = (0, cli_args_2.splitAgentCommand)(trimmed(env.CW_AGENT_COMMAND), undefined);
+    const split = splitAgentCommand(trimmed(env.CW_AGENT_COMMAND), undefined);
     return {
         schemaVersion: 1,
         command: split.command,
@@ -126,14 +81,14 @@ function agentConfigFromEnv(env) {
         model: trimmed(env.CW_AGENT_MODEL),
         timeoutMs: trimmed(env.CW_AGENT_TIMEOUT_MS) ? Number(env.CW_AGENT_TIMEOUT_MS) : undefined,
         attestPublicKey: trimmed(env.CW_AGENT_ATTEST_PUBKEY),
-        requireAttestedTelemetry: (0, cli_args_1.boolWord)(env.CW_REQUIRE_ATTESTED_TELEMETRY),
+        requireAttestedTelemetry: boolWord(env.CW_REQUIRE_ATTESTED_TELEMETRY),
         source: "env",
     };
 }
 function agentConfigFromArgs(args) {
     const rawCommand = trimmed(args.agentCommand ?? args["agent-command"]);
     const rawArgs = asStringArray(args.agentArgs ?? args["agent-args"]);
-    const split = (0, cli_args_2.splitAgentCommand)(rawCommand, rawArgs);
+    const split = splitAgentCommand(rawCommand, rawArgs);
     const rawTimeout = args.agentTimeoutMs ?? args["agent-timeout-ms"];
     return {
         schemaVersion: 1,
@@ -143,7 +98,7 @@ function agentConfigFromArgs(args) {
         model: trimmed(args.agentModel ?? args["agent-model"]),
         timeoutMs: rawTimeout !== undefined ? Number(rawTimeout) : undefined,
         attestPublicKey: trimmed(args.agentAttestPublicKey ?? args["agent-attest-public-key"]),
-        requireAttestedTelemetry: (0, cli_args_1.boolWord)(args.requireAttestedTelemetry ?? args["require-attested-telemetry"]),
+        requireAttestedTelemetry: boolWord(args.requireAttestedTelemetry ?? args["require-attested-telemetry"]),
         source: "flag",
     };
 }
@@ -174,7 +129,7 @@ function detectAgentFromPath(env = process.env) {
     return undefined;
 }
 function builtinAgentTemplates() {
-    const agentsDir = path.join(__dirname, "..", "..", "scripts", "agents");
+    const agentsDir = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
     const manifest = JSON.parse(fs.readFileSync(path.join(agentsDir, "builtin-templates.json"), "utf8"));
     const out = {};
     for (const [name, script] of Object.entries(manifest.templates || {})) {
@@ -196,7 +151,7 @@ function expandBuiltinAgentCommand(command) {
 /** Resolve the EFFECTIVE agent config: flags > env > file > auto-detect >
  *  none. The returned `source` names the layer the command/endpoint came
  *  from. */
-function resolveAgentConfig(args = {}, env = process.env) {
+export function resolveAgentConfig(args = {}, env = process.env) {
     const flagCfg = agentConfigFromArgs(args);
     const envCfg = agentConfigFromEnv(env);
     const fileCfg = loadAgentConfigFile(env);
@@ -254,7 +209,7 @@ function resolveAgentConfig(args = {}, env = process.env) {
     };
 }
 /** True iff a command-template OR endpoint is configured (after resolution). */
-function agentConfigured(args = {}, env = process.env) {
+export function agentConfigured(args = {}, env = process.env) {
     const resolved = resolveAgentConfig(args, env);
     return Boolean(resolved.command || resolved.endpoint);
 }
@@ -263,13 +218,13 @@ function agentConfigured(args = {}, env = process.env) {
 function redacted(config) {
     return {
         ...config,
-        args: config.args ? (0, agent_1.stripSecretArgs)(config.args) : undefined,
+        args: config.args ? stripSecretArgs(config.args) : undefined,
     };
 }
 /** Persist the durable config (secret-stripped). Returns the stored,
  *  redacted config. API keys are NEVER written — they come from the
  *  agent's own env. */
-function setAgentConfigFile(patch, env = process.env) {
+export function setAgentConfigFile(patch, env = process.env) {
     const current = loadAgentConfigFile(env) || { schemaVersion: 1 };
     const incoming = agentConfigFromArgs(patch);
     // The command and its args are one unit: a NEW command takes only the args
@@ -290,13 +245,13 @@ function setAgentConfigFile(patch, env = process.env) {
     };
     const stored = redacted(merged);
     const file = agentConfigPath(env);
-    (0, fs_atomic_1.writeJson)(file, stored);
+    writeJson(file, stored);
     return stored;
 }
 /** Read-only, deterministic projection of the effective config
  *  (secret-stripped). No now-derived field — safe for CLI<->MCP payload
  *  parity. */
-function agentConfigShow(args = {}, env = process.env) {
+export function agentConfigShow(args = {}, env = process.env) {
     const resolved = resolveAgentConfig(args, env);
     return {
         schemaVersion: 1,
@@ -309,12 +264,12 @@ function agentConfigShow(args = {}, env = process.env) {
 }
 /** Persist the durable agent config (secret-stripped) and return the new
  *  state. */
-function backendAgentConfigSet(args, env = process.env) {
+export function backendAgentConfigSet(args, env = process.env) {
     setAgentConfigFile(args, env);
     return agentConfigShow(args, env);
 }
 /** Read-only, deterministic projection of the effective agent config
  *  (secret-stripped). */
-function backendAgentConfigShow(args, env = process.env) {
+export function backendAgentConfigShow(args, env = process.env) {
     return agentConfigShow(args, env);
 }

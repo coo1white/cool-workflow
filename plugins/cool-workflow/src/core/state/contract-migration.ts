@@ -9,15 +9,15 @@
 // migration registry + prover", "MigrationVerdict / MigrationProof JSON",
 // "Contract-migration prover invariants".
 
-import { stableHash } from "../hash";
+import { stableHash } from "../hash.js";
 import {
   CURRENT_RUN_STATE_SCHEMA_VERSION,
   LEGACY_RUN_STATE_SCHEMA_VERSION,
   MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION,
   WORKFLOW_APP_SCHEMA_VERSION,
-} from "../version";
-import { findMigrationPath, migrateRunState, RUN_STATE_MIGRATIONS, StateCompatibilityStatus } from "./migrations";
-import { isRecord } from "../util/cli-args";
+} from "../version.js";
+import { findMigrationPath, migrateRunState, RUN_STATE_MIGRATIONS, StateCompatibilityStatus } from "./migrations.js";
+import { isRecord } from "../util/cli-args.js";
 
 export const CONTRACT_MIGRATION_SCHEMA_VERSION = 1;
 

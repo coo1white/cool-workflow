@@ -397,6 +397,59 @@ Found in step 4:
   scheduled) take the newest 22.x, so they are above the floor; none
   needed a change.
 
+Found in step 5:
+
+- `tsconfig.json` was already `"module": "NodeNext"`, so the one switch
+  that makes `tsc` give out ES modules is `"type": "module"` in
+  `package.json`; `tsconfig.json` did not change.
+- On the smaller tree the codemod put `.js` (or `/index.js`) on 624
+  relative specifiers in 110 of 131 files, not 791 in 133. `__dirname` was
+  15 uses in 9 files, not 17 in 11. `createRequire` is in 12 files: the 9
+  capability-table slices, `drive.ts`, `workflow-app-loader.ts` (it also
+  loads the app files) and `mcp/server.ts`. Five lazy loads were of Node
+  builtins, not CW modules: four in `shell/` became plain imports (a
+  builtin is not a CW module, so no count moves);
+  `core/trust/telemetry-attestation.ts` uses
+  `process.getBuiltinModule("node:fs")`, since `core/` may not import
+  `node:module`, and `scripts/purity-gate.js` now reads that form as a
+  module name, so the baseline still holds its `node:fs` line.
+- `apps/` was not the only CommonJS folder inside the package:
+  `workflows/` (the old `<name>.workflow.js` files, also `module.exports`)
+  got the same one-line `package.json`, and
+  `project/docs/scripts/verify-audit-cites.js` took two `import` lines.
+  `v2/conformance/` has no `package.json` above it, so Node read it as
+  CommonJS already; it got its file anyway, as the step says, so a checkout
+  under a `"type": "module"` folder does not change it.
+- The perf ratchet's module count went blind: `Module._extensions` sees
+  no ES module, so the counts fell to 2 to 12. The hook now counts at the
+  load step of `module.registerHooks` (Node 22.15 and up), which sees
+  `require()` and `import` alike, and every count is the same as before
+  (version, help, status 27; doctor, app list 42; MCP 24; drive 92).
+  Below 22.15 the hook says no, and `perf-ratchet-smoke`,
+  `wiring-lazy-shell-imports-smoke` and `advise-no-run` print a skip line;
+  CI runs the newest 22 and 24.
+- An ES module's exports cannot be patched, and calls between ES modules
+  do not go through them: two tests that patched `dist/` exports
+  (`deferred-checkpoint-batching`, `sigint-sigterm-drive-loop`) now watch
+  the rename onto `state.json` that each `saveCheckpoint` makes. Tests
+  that patch `node:fs` call `syncBuiltinESMExports()` (nine more files),
+  four tests that matched CommonJS output text or import paths were
+  brought up to date, and `dist-drift-check-smoke` copies
+  `scripts/package.json` into its sandbox.
+- "Is full ESM worth it" said nothing about speed. ES modules load more
+  slowly: `cw version` from a packed install, 41 runs each by turns, middle
+  value 59.7 ms before and 69.7 ms after on Node 22.22, 59.3 to 68.4 on
+  22.13, 55.5 to 60.8 on 24.22. `import()` in `scripts/cw.js` in place
+  of `require()` gave nothing (66.6 ms).
+- The packed tarball has 338 files, not 335 (the three new
+  `package.json`s that ship); `cw version`, `cw help`, `cw doctor --json`,
+  `cw app list` and an MCP `tools/list` give the same bytes as before on
+  Node 22.13, 22.22 and 24.22, with the install path made the same.
+- One thing a user can see does change: `dist/` exports are fixed, so
+  code outside CW that put new values on them no longer changes what CW
+  does. `docs/release-and-migration.7.md` ("Module Form") says this and
+  that app files stay CommonJS.
+
 (the rest filled at close)
 
 ## Status ledger
@@ -409,7 +462,7 @@ Found in step 4:
 | 2 Delete the D1 family and cut its hooks | done | #770 |
 | 3 Comment and helper sweep (compress-src) | comment part done; helper part done on its branch, PR to come | #799 |
 | 4 Node floor (D4) | done on its branch, PR to come; the operator changes branch protection at merge | |
-| 5 ESM src + dist | | |
+| 5 ESM src + dist | done on its branch, PR to come | |
 | 6 Scripts to .mjs | | |
 | 7 Tests to .mjs | | |
 | 8 Conformance to .mjs | | |

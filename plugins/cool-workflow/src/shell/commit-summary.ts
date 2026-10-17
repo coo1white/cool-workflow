@@ -4,10 +4,10 @@
 // `commitSummaryCli` thin adapter both front doors call. Impure: reads
 // run state from disk.
 
-import { cwdArg, requireArg } from "../core/util/cli-args";
-import { WorkflowRun, StateCommit } from "../core/state/types";
-import { loadRunFromCwd } from "./run-store";
-import { stableCompare } from "../core/util/collate";
+import { cwdArg, requireArg } from "../core/util/cli-args.js";
+import { WorkflowRun, StateCommit } from "../core/state/types.js";
+import { loadRunFromCwd } from "./run-store.js";
+import { stableCompare } from "../core/util/collate.js";
 
 export interface OperatorCommitSummary {
   total: number;

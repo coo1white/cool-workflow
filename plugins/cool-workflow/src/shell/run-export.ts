@@ -9,16 +9,16 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { sha256, sha256Bytes } from "../core/hash";
-import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version";
-import { WorkflowRun } from "../core/state/types";
-import { assertSafeRunId, isContainedPath, readJson, writeJson } from "./fs-atomic";
-import { createRunPaths } from "../core/state/run-paths";
-import { checkRunStateFile, ensureRunDirs, saveCheckpoint } from "./run-store";
-import { verifyTelemetryLedger } from "./telemetry-ledger-io";
-import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation";
-import { verifyTrustAudit } from "./trust-audit";
-import { messageOf } from "../core/util/cli-args";
+import { sha256, sha256Bytes } from "../core/hash.js";
+import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version.js";
+import { WorkflowRun } from "../core/state/types.js";
+import { assertSafeRunId, isContainedPath, readJson, writeJson } from "./fs-atomic.js";
+import { createRunPaths } from "../core/state/run-paths.js";
+import { checkRunStateFile, ensureRunDirs, saveCheckpoint } from "./run-store.js";
+import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation.js";
+import { verifyTrustAudit } from "./trust-audit.js";
+import { messageOf } from "../core/util/cli-args.js";
 
 export type ArchiveFileRole = "artifact" | "audit" | "telemetry" | "run-file";
 export type TrustKeySource = "bundle" | "argument" | "environment" | "none";

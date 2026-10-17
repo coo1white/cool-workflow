@@ -1,4 +1,3 @@
-"use strict";
 // shell/trust-audit.ts — the trust-audit hash chain: eventHash (the JSON
 // round-trip pre-pass), verifyTrustAudit (chain-link recompute + the era
 // rule — a log is fully chained OR fully legacy, never mixed), event append
@@ -11,59 +10,12 @@
 // Evidence: SPEC/ledger-trust.md "Trust-audit chain", invariant 10 (era
 // rule), byte-compat item 2; SPEC/pipeline-run.md's worker-accept
 // references.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.TRUST_AUDIT_SCHEMA_VERSION = void 0;
-exports.ensureTrustAudit = ensureTrustAudit;
-exports.trustAuditGenesis = trustAuditGenesis;
-exports.listTrustAuditEvents = listTrustAuditEvents;
-exports.trustAuditHead = trustAuditHead;
-exports.verifyTrustAudit = verifyTrustAudit;
-exports.repairTrustAuditTornTail = repairTrustAuditTornTail;
-exports.recordTrustAuditEvent = recordTrustAuditEvent;
-exports.flushPendingTrustAudit = flushPendingTrustAudit;
-exports.withTrustAuditBatch = withTrustAuditBatch;
-exports.recordSandboxPathDecision = recordSandboxPathDecision;
-exports.normalizeEvidence = normalizeEvidence;
-exports.summarizeTrustAudit = summarizeTrustAudit;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const hash_1 = require("../core/hash");
-const fs_atomic_1 = require("./fs-atomic");
-const cli_args_1 = require("../core/util/cli-args");
-exports.TRUST_AUDIT_SCHEMA_VERSION = 1;
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { eventHashInput, sha256, stableHash } from "../core/hash.js";
+import { durableAppendFileSync, logEndsWithNewline, safeFileName, withFileLock, writeJson, writeTextDurable } from "./fs-atomic.js";
+import { countBy } from "../core/util/cli-args.js";
+export const TRUST_AUDIT_SCHEMA_VERSION = 1;
 function trustAuditPaths(run) {
     const dir = run.paths.auditDir || path.join(run.paths.runDir, "audit");
     return {
@@ -72,7 +24,7 @@ function trustAuditPaths(run) {
         indexPath: path.join(dir, "index.json"),
     };
 }
-function ensureTrustAudit(run) {
+export function ensureTrustAudit(run) {
     const dir = run.paths.auditDir || path.join(run.paths.runDir, "audit");
     fs.mkdirSync(dir, { recursive: true });
     run.paths.auditDir = dir;
@@ -92,8 +44,8 @@ function ensureTrustAudit(run) {
 /** Genesis prevHash for a run's chain (no prior event). Exported so
  *  callers outside this module (verify tooling, tests) can recompute it
  *  independently rather than trusting a stored value. */
-function trustAuditGenesis(runId) {
-    return (0, hash_1.sha256)(`cw-trust-audit:${runId}`);
+export function trustAuditGenesis(runId) {
+    return sha256(`cw-trust-audit:${runId}`);
 }
 /** Canonical bytes the eventHash binds: every field EXCEPT eventHash
  *  itself, via core/hash.ts's `eventHashInput` (the JSON round-trip
@@ -104,7 +56,7 @@ function trustAuditGenesis(runId) {
  *  hashes. */
 function computeEventHash(event) {
     const { eventHash, ...rest } = event;
-    return (0, hash_1.sha256)((0, hash_1.eventHashInput)(rest));
+    return sha256(eventHashInput(rest));
 }
 const ACTIVE_AUDIT_BATCHES = new Map();
 function tailCachePathFor(eventLogPath) {
@@ -126,7 +78,7 @@ function readAuditTailCache(tailCachePath) {
 }
 function writeAuditTailCache(tailCachePath, cache) {
     try {
-        (0, fs_atomic_1.writeJson)(tailCachePath, cache);
+        writeJson(tailCachePath, cache);
     }
     catch {
         // Best-effort: a failed cache write must never break the real append.
@@ -170,7 +122,7 @@ function readEventsRaw(eventLogPath) {
     return readEventsRawCounted(eventLogPath).events;
 }
 /** Every recorded trust-audit event for this run, in append (file) order. */
-function listTrustAuditEvents(run) {
+export function listTrustAuditEvents(run) {
     return readEventsRaw(ensureTrustAudit(run).eventLogPath);
 }
 /** The current head of a run's trust-audit chain: the hash the NEXT
@@ -179,7 +131,7 @@ function listTrustAuditEvents(run) {
  *  (e.g. right after a run, or at export time) and later hand it to
  *  `verifyTrustAudit`'s anchor / `cw audit verify --expect-head` to
  *  re-prove the log was not shortened since the capture. */
-function trustAuditHead(run) {
+export function trustAuditHead(run) {
     const audit = ensureTrustAudit(run);
     const events = readEventsRaw(audit.eventLogPath);
     let head = trustAuditGenesis(run.id);
@@ -264,7 +216,7 @@ function verifyEventsChain(runId, events, corruptLines, anchor) {
     }
     return { present: events.length > 0, verified, eventCount: events.length, chained, unchained, corruptLines, checks };
 }
-function verifyTrustAudit(run, anchor) {
+export function verifyTrustAudit(run, anchor) {
     const audit = ensureTrustAudit(run);
     const { events, corruptLines } = readEventsRawCounted(audit.eventLogPath);
     return verifyEventsChain(run.id, events, corruptLines, anchor);
@@ -297,9 +249,9 @@ function verifyTrustAudit(run, anchor) {
  *  disk, matching this codebase's `cw state check [--write]` convention.
  *  Held under the SAME `withFileLock` as `recordTrustAuditEvent` (below),
  *  so a repair can never interleave with a live append. */
-function repairTrustAuditTornTail(run, options = {}) {
+export function repairTrustAuditTornTail(run, options = {}) {
     const audit = ensureTrustAudit(run);
-    return (0, fs_atomic_1.withFileLock)(audit.eventLogPath, () => {
+    return withFileLock(audit.eventLogPath, () => {
         const raw = fs.readFileSync(audit.eventLogPath, "utf8");
         const lines = raw.split("\n").filter((line) => line.trim() !== "");
         const badIndexes = [];
@@ -336,7 +288,7 @@ function repairTrustAuditTornTail(run, options = {}) {
         const removedBytes = Buffer.byteLength(lines[lines.length - 1], "utf8");
         const repairedContent = events.length > 0 ? `${lines.slice(0, -1).join("\n")}\n` : "";
         if (options.write) {
-            (0, fs_atomic_1.writeTextDurable)(audit.eventLogPath, repairedContent, { durable: true });
+            writeTextDurable(audit.eventLogPath, repairedContent, { durable: true });
             // The log's bytes just changed out from under the append tail cache --
             // invalidate rather than rely on the size check alone.
             invalidateAuditTailCache(audit.eventLogPath);
@@ -383,7 +335,7 @@ function compact(value) {
  *  different events (the id is referenced elsewhere as
  *  `auditEventIds`/`parentEventIds` for provenance, so it must be unique). */
 function createEventId(kind, count) {
-    return `audit-${(0, fs_atomic_1.safeFileName)(kind)}-${String(count + 1).padStart(4, "0")}`;
+    return `audit-${safeFileName(kind)}-${String(count + 1).padStart(4, "0")}`;
 }
 /** Correlation-id keys copied verbatim (and no others), in this pinned
  *  order. */
@@ -432,13 +384,13 @@ function indexCorrelationIds(event) {
  *  `prevEventHash` — that would fork the hash chain, and a forked chain
  *  fails `verifyTrustAudit` for good, with no repair for THAT shape (unlike
  *  a torn trailing write, a fork is not confined to the last line). */
-function recordTrustAuditEvent(run, input) {
+export function recordTrustAuditEvent(run, input) {
     const audit = ensureTrustAudit(run);
     // `id` is NOT set here — it depends on the prior event count, which (like
     // prevEventHash) must be read under the lock below, or two concurrent
     // writers could mint the same id for two different events.
     const event = compact({
-        schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
+        schemaVersion: TRUST_AUDIT_SCHEMA_VERSION,
         createdAt: new Date().toISOString(),
         runId: run.id,
         kind: input.kind,
@@ -465,7 +417,7 @@ function recordTrustAuditEvent(run, input) {
     const batch = ACTIVE_AUDIT_BATCHES.get(path.resolve(audit.eventLogPath));
     if (batch)
         return appendTrustAuditEvent(run, input, event, batch);
-    return (0, fs_atomic_1.withFileLock)(audit.eventLogPath, () => {
+    return withFileLock(audit.eventLogPath, () => {
         const currentBytes = fs.existsSync(audit.eventLogPath) ? fs.statSync(audit.eventLogPath).size : 0;
         const cached = readAuditTailCache(tailCachePathFor(audit.eventLogPath));
         const prior = cached && cached.logBytes === currentBytes ? undefined : readEventsRaw(audit.eventLogPath);
@@ -505,7 +457,7 @@ function appendTrustAuditEvent(run, input, event, batch) {
     // (Reads only the last byte, so the O(1) tail-cache path is preserved.)
     // An empty log (currentBytes === 0, e.g. the first append) has no tail to
     // merge with, so it never needs a leading newline.
-    const leadingNewline = batch.currentBytes > 0 && batch.lines.length === 0 && !(0, fs_atomic_1.logEndsWithNewline)(batch.audit.eventLogPath, batch.currentBytes) ? "\n" : "";
+    const leadingNewline = batch.currentBytes > 0 && batch.lines.length === 0 && !logEndsWithNewline(batch.audit.eventLogPath, batch.currentBytes) ? "\n" : "";
     const line = `${leadingNewline}${JSON.stringify(event)}\n`;
     batch.lines.push(line);
     batch.currentBytes += Buffer.byteLength(line, "utf8");
@@ -516,14 +468,14 @@ function appendTrustAuditEvent(run, input, event, batch) {
 function flushTrustAuditBatch(batch) {
     if (!batch.lines.length)
         return;
-    (0, fs_atomic_1.durableAppendFileSync)(batch.audit.eventLogPath, batch.lines.join(""));
+    durableAppendFileSync(batch.audit.eventLogPath, batch.lines.join(""));
     writeAuditTailCache(tailCachePathFor(batch.audit.eventLogPath), { schemaVersion: 1, logBytes: batch.currentBytes, count: batch.count, lastHash: batch.lastHash });
     batch.lines = [];
 }
 /** Write now the events an open batch for `run` holds, and keep the batch
  *  open. saveCheckpoint calls it first, so a checkpoint never reaches disk
  *  ahead of audit events recorded before it. No open batch: nothing. */
-function flushPendingTrustAudit(run) {
+export function flushPendingTrustAudit(run) {
     const batch = ACTIVE_AUDIT_BATCHES.get(path.resolve(trustAuditPaths(run).eventLogPath));
     if (batch)
         flushTrustAuditBatch(batch);
@@ -533,12 +485,12 @@ function flushPendingTrustAudit(run) {
  *  When `fn` throws, the events it recorded before the throw are still
  *  written (one-at-a-time appends would have written them), then the error
  *  goes on; a failed write never hides that first error. */
-function withTrustAuditBatch(run, fn) {
+export function withTrustAuditBatch(run, fn) {
     const audit = ensureTrustAudit(run);
     const key = path.resolve(audit.eventLogPath);
     if (ACTIVE_AUDIT_BATCHES.has(key))
         return fn();
-    return (0, fs_atomic_1.withFileLock)(audit.eventLogPath, () => {
+    return withFileLock(audit.eventLogPath, () => {
         const currentBytes = fs.existsSync(audit.eventLogPath) ? fs.statSync(audit.eventLogPath).size : 0;
         const cached = readAuditTailCache(tailCachePathFor(audit.eventLogPath));
         const prior = cached && cached.logBytes === currentBytes ? undefined : readEventsRaw(audit.eventLogPath);
@@ -573,7 +525,7 @@ function withTrustAuditBatch(run, fn) {
         }
     });
 }
-function recordSandboxPathDecision(run, input) {
+export function recordSandboxPathDecision(run, input) {
     return recordTrustAuditEvent(run, {
         kind: "sandbox.path",
         decision: input.decision,
@@ -590,12 +542,12 @@ function recordSandboxPathDecision(run, input) {
  *  agent's command/args/model/handle (those live ONLY in
  *  node.metadata.agentDelegation) — this is the exact hygiene split
  *  exechard-evidence-triple-hygiene.case.js pins. */
-function normalizeEvidence(run, evidence, provenance) {
+export function normalizeEvidence(run, evidence, provenance) {
     return evidence.map((entry) => ({
         ...entry,
         confidence: entry.confidence || (entry.locator || entry.path || entry.summary ? "grounded" : "ungrounded"),
         provenance: {
-            schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
+            schemaVersion: TRUST_AUDIT_SCHEMA_VERSION,
             runId: run.id,
             source: provenance.source || entry.provenance?.source || "runtime-derived",
             workerId: provenance.workerId || entry.provenance?.workerId,
@@ -641,7 +593,7 @@ function workerRows(events, run) {
             workerId,
             taskId: worker?.taskId || scoped.find((e) => e.taskId)?.taskId,
             sandboxProfileId: worker?.sandboxProfileId || scoped.find((e) => e.sandboxProfileId)?.sandboxProfileId,
-            decisions: (0, cli_args_1.countBy)(scoped, (e) => e.decision),
+            decisions: countBy(scoped, (e) => e.decision),
             denied: scoped.filter((e) => e.decision === "denied" || e.decision === "rejected").length,
             feedbackIds: unique(scoped.flatMap((e) => e.feedbackIds || [])).sort(),
         };
@@ -726,14 +678,14 @@ function readSummaryFingerprint(fingerprintPath) {
 }
 function writeSummaryFingerprint(fingerprintPath, fingerprint) {
     try {
-        (0, fs_atomic_1.writeJson)(fingerprintPath, fingerprint);
+        writeJson(fingerprintPath, fingerprint);
     }
     catch {
         // Best-effort: a failed fingerprint write must never break the real call
         // -- it just means the next call falls back to a real rewrite.
     }
 }
-function summarizeTrustAudit(run, options = {}) {
+export function summarizeTrustAudit(run, options = {}) {
     const persist = options.persist !== false;
     // A read-only projection must not call ensureTrustAudit(): that helper is
     // deliberately for mutation paths and creates the audit directory and an
@@ -743,7 +695,7 @@ function summarizeTrustAudit(run, options = {}) {
     const ma = run.multiAgent;
     const bb = run.blackboard;
     const summary = {
-        schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
+        schemaVersion: TRUST_AUDIT_SCHEMA_VERSION,
         runId: run.id,
         generatedAt: new Date().toISOString(),
         eventCount: events.length,
@@ -751,10 +703,10 @@ function summarizeTrustAudit(run, options = {}) {
         eventLogPath: audit.eventLogPath,
         indexPath: audit.indexPath,
         summaryPath: audit.summaryPath,
-        byKind: (0, cli_args_1.countBy)(events, (event) => event.kind),
-        byDecision: (0, cli_args_1.countBy)(events, (event) => event.decision),
-        bySource: (0, cli_args_1.countBy)(events, (event) => event.source),
-        bySandboxProfile: (0, cli_args_1.countBy)(events.filter((event) => event.sandboxProfileId), (event) => event.sandboxProfileId || "none"),
+        byKind: countBy(events, (event) => event.kind),
+        byDecision: countBy(events, (event) => event.decision),
+        bySource: countBy(events, (event) => event.source),
+        bySandboxProfile: countBy(events.filter((event) => event.sandboxProfileId), (event) => event.sandboxProfileId || "none"),
         workers: workerRows(events, run),
         candidates: candidateRows(events, run),
         commits: commitRows(events, run),
@@ -792,7 +744,7 @@ function summarizeTrustAudit(run, options = {}) {
         },
     };
     const index = {
-        schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION,
+        schemaVersion: TRUST_AUDIT_SCHEMA_VERSION,
         runId: run.id,
         events: events.map((event) => ({
             id: event.id,
@@ -820,14 +772,14 @@ function summarizeTrustAudit(run, options = {}) {
     // nothing else changed.
     const { generatedAt: _generatedAt, ...summaryForFingerprint } = summary;
     const fingerprintPath = summaryFingerprintPathFor(audit.summaryPath);
-    const freshFingerprint = (0, hash_1.stableHash)({ summary: summaryForFingerprint, index });
+    const freshFingerprint = stableHash({ summary: summaryForFingerprint, index });
     const priorFingerprint = readSummaryFingerprint(fingerprintPath);
     if (persist && priorFingerprint !== freshFingerprint) {
-        (0, fs_atomic_1.writeJson)(audit.summaryPath, summary, { durable: true });
-        (0, fs_atomic_1.writeJson)(audit.indexPath, index, { durable: true });
+        writeJson(audit.summaryPath, summary, { durable: true });
+        writeJson(audit.indexPath, index, { durable: true });
         writeSummaryFingerprint(fingerprintPath, { schemaVersion: 1, hash: freshFingerprint });
     }
     if (persist)
-        run.audit = { schemaVersion: exports.TRUST_AUDIT_SCHEMA_VERSION, ...audit };
+        run.audit = { schemaVersion: TRUST_AUDIT_SCHEMA_VERSION, ...audit };
     return summary;
 }

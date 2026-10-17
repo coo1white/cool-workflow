@@ -8,8 +8,8 @@
 //
 // Evidence: SPEC/pipeline-run.md "Error feedback — error-feedback module".
 
-import { StateArtifact, StateEvidence, StateNodeError } from "../state/types";
-import { countBy } from "../util/cli-args";
+import { StateArtifact, StateEvidence, StateNodeError } from "../state/types.js";
+import { countBy } from "../util/cli-args.js";
 
 export const ERROR_FEEDBACK_SCHEMA_VERSION = 1;
 

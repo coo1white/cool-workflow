@@ -1,4 +1,3 @@
-"use strict";
 // core/state/node-projection.ts — the canonical StateNode projection.
 //
 // It also holds the `normalizeValue`/`replayStableStringify` pair (defined
@@ -15,19 +14,13 @@
 // Evidence: SPEC/state-core.md "node-projection module — the canonical node
 // projection", "normalizeValue ... drops the keys createdAt, updatedAt,
 // recordedAt, selectedAt, replayedAt, generatedAt ...".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.normalizeValue = normalizeValue;
-exports.replayStableStringify = replayStableStringify;
-exports.rawNodeProjection = rawNodeProjection;
-exports.projectNodeBody = projectNodeBody;
-exports.nodeProjectionDigestInput = nodeProjectionDigestInput;
 const SCRUBBED_TIMESTAMP_KEYS = new Set(["createdAt", "updatedAt", "recordedAt", "selectedAt", "replayedAt", "generatedAt"]);
 /** Recursively sorts object keys, drops timestamp-shaped keys, and scrubs
  *  timestamp/tmp-path substrings out of every string value (so a snapshot
  *  body captured at two different wall-clock times, in two different tmp
  *  dirs, is byte-identical). This is the ONE normalizer every node
  *  snapshot/replay/diff path shares. */
-function normalizeValue(value) {
+export function normalizeValue(value) {
     if (Array.isArray(value))
         return value.map(normalizeValue);
     if (!value || typeof value !== "object") {
@@ -58,13 +51,13 @@ function normalizeString(value) {
         .replace(/\/var\/folders\/[^"\s]+|\/tmp\/[^"\s]+|\/private\/tmp\/[^"\s]+/g, "<tmp>");
 }
 /** Deterministic bytes over a normalized value. */
-function replayStableStringify(value) {
+export function replayStableStringify(value) {
     return JSON.stringify(normalizeValue(value));
 }
 /** The ONE place that lists the 13 projected fields (no `createdAt`/
  *  `updatedAt`/`schemaVersion`). Add or drop a projected field here and
  *  every consumer follows. */
-function rawNodeProjection(node) {
+export function rawNodeProjection(node) {
     return {
         id: node.id,
         kind: node.kind,
@@ -82,11 +75,11 @@ function rawNodeProjection(node) {
     };
 }
 /** `normalizeValue(rawNodeProjection(node))` — the `NodeSnapshotBody`. */
-function projectNodeBody(node) {
+export function projectNodeBody(node) {
     return normalizeValue(rawNodeProjection(node));
 }
 /** `replayStableStringify(rawNodeProjection(node))` — shared with the
  *  reclamation tombstone chain so it cannot drift. */
-function nodeProjectionDigestInput(node) {
+export function nodeProjectionDigestInput(node) {
     return replayStableStringify(rawNodeProjection(node));
 }

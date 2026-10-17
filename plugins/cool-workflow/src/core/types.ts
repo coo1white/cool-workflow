@@ -2,4 +2,4 @@
 // src/core/types/. Mirrors the src/cli.ts + src/cli/ convention: a thin
 // top-level file next to the directory it fronts.
 
-export * from "./types/boundary";
+export * from "./types/boundary.js";

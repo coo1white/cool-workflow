@@ -11,34 +11,35 @@
 // unreported.case.js, exec-agent-secret-redaction.case.js pin the exact
 // shapes here.
 
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { safeFileName, writeJson } from "./fs-atomic";
-import { RunTask, StateEvidence, StateNodeError, WorkflowRun } from "../core/state/types";
-import { appendRunNode } from "./node-store";
-import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/state-node";
-import { validateWorkerScope as validateWorkerScopeShape } from "../core/state/validation";
-import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract";
-import { normalizeResultEnvelope, isEmptyCapture, ResultEnvelope } from "../core/pipeline/result-normalize";
-import { isGroundedEvidence, evidenceFilePath, isVerdictTaskId, requireResolvableEvidence } from "../core/trust/evidence-grounding";
-import { normalizeEvidence, recordSandboxPathDecision, recordTrustAuditEvent } from "./trust-audit";
-import { unresolvedRunFileEvidence } from "./commit";
+import { safeFileName, writeJson } from "./fs-atomic.js";
+import { RunTask, StateEvidence, StateNodeError, WorkflowRun } from "../core/state/types.js";
+import { appendRunNode } from "./node-store.js";
+import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/state-node.js";
+import { validateWorkerScope as validateWorkerScopeShape } from "../core/state/validation.js";
+import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract.js";
+import { normalizeResultEnvelope, isEmptyCapture, ResultEnvelope } from "../core/pipeline/result-normalize.js";
+import { isGroundedEvidence, evidenceFilePath, isVerdictTaskId, requireResolvableEvidence } from "../core/trust/evidence-grounding.js";
+import { normalizeEvidence, recordSandboxPathDecision, recordTrustAuditEvent } from "./trust-audit.js";
+import { unresolvedRunFileEvidence } from "./commit.js";
 import {
   DEFAULT_SANDBOX_PROFILE_ID,
   effectiveSandboxWritePaths,
   sandboxPolicyForWorker,
   validateSandboxWrite,
-} from "./sandbox-profile";
-import { ModelProvenanceLabel, ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types";
-import { attestSandbox, getBackendDescriptor } from "./execution-backend/registry";
-import { recordFeedback, resolveParkFeedback } from "./error-feedback-io";
-import { saveCheckpoint } from "./run-store";
-import { taskRequiresEvidence } from "./verifier";
-import { runPipelineStage } from "../core/pipeline/runner";
-import { sha256 } from "../core/hash";
-import { stableCompare } from "../core/util/collate";
-import { normalizeReportedUsage, resolveTrustPublicKey, verifyTelemetryAttestation } from "../core/trust/telemetry-attestation";
-import { appendTelemetryAttestation } from "./telemetry-ledger-io";
+} from "./sandbox-profile.js";
+import { ModelProvenanceLabel, ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types.js";
+import { attestSandbox, getBackendDescriptor } from "./execution-backend/registry.js";
+import { recordFeedback, resolveParkFeedback } from "./error-feedback-io.js";
+import { saveCheckpoint } from "./run-store.js";
+import { taskRequiresEvidence } from "./verifier.js";
+import { runPipelineStage } from "../core/pipeline/runner.js";
+import { sha256 } from "../core/hash.js";
+import { stableCompare } from "../core/util/collate.js";
+import { normalizeReportedUsage, resolveTrustPublicKey, verifyTelemetryAttestation } from "../core/trust/telemetry-attestation.js";
+import { appendTelemetryAttestation } from "./telemetry-ledger-io.js";
 
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
 
@@ -456,7 +457,7 @@ export function allocateWorkerScope(run: WorkflowRun, task: RunTask, options: Al
     resultPath,
     artifactsDir,
     logsDir,
-    customProfiles: run.customSandboxProfiles as Record<string, import("./execution-backend/types").SandboxProfileDefinition> | undefined,
+    customProfiles: run.customSandboxProfiles as Record<string, import("./execution-backend/types.js").SandboxProfileDefinition> | undefined,
   });
   const allowedPaths = effectiveSandboxWritePaths(sandboxPolicy);
   upsertRunSandboxProfile(run, sandboxPolicy);
@@ -929,8 +930,6 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
 }
 
 function sha256Local(value: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { createHash } = require("node:crypto") as typeof import("node:crypto");
   return `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
 }
 

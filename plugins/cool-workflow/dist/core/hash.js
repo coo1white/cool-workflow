@@ -1,4 +1,3 @@
-"use strict";
 // core/hash.ts — THE one hash/stringify module.
 //
 // Pure. No fs, no child_process, no net, no process.env, no Date.now(), no
@@ -25,50 +24,40 @@
 // "Telemetry ledger record", "Trust-audit chain"; SPEC/types-util.md
 // "Fingerprint / hash formats"; SPEC/state-core.md "Fingerprint / hash
 // formats", "Contract-migration prover invariants".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.sha256 = sha256;
-exports.sha256Bytes = sha256Bytes;
-exports.fingerprintStrings = fingerprintStrings;
-exports.fingerprintRecords = fingerprintRecords;
-exports.stableHash = stableHash;
-exports.stableStringify = stableStringify;
-exports.ledgerStableStringify = ledgerStableStringify;
-exports.telemetryStableStringify = telemetryStableStringify;
-exports.eventHashInput = eventHashInput;
-const node_crypto_1 = require("node:crypto");
+import { createHash } from "node:crypto";
 // ---------------------------------------------------------------------------
 // 1. Hash spellings
 // ---------------------------------------------------------------------------
 /** Prefixed `sha256:` + all 64 hex chars. Used by both hash chains,
  *  promptDigest, resultDigest, reportedUsageDigest, the ledger digest. */
-function sha256(value) {
-    return `sha256:${(0, node_crypto_1.createHash)("sha256").update(value, "utf8").digest("hex")}`;
+export function sha256(value) {
+    return `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
 }
 /** BARE hex, no prefix. Archive file digests only (run-export.ts). Never mix
  *  with the other three hash spellings in this file. */
-function sha256Bytes(bytes) {
-    return (0, node_crypto_1.createHash)("sha256").update(bytes).digest("hex");
+export function sha256Bytes(bytes) {
+    return createHash("sha256").update(bytes).digest("hex");
 }
 /** Prefixed `sha256:` + only the FIRST 32 hex chars, over SORTED JSON-array
  *  input. Sorts a COPY (`[...values].sort()`) with the JS default sort
  *  (UTF-16 code-unit order) — never mutates the caller's array. Used by
  *  snapshot ids, state-explosion fingerprints, evidence-reasoning
  *  fingerprints. */
-function fingerprintStrings(values) {
-    const hash = (0, node_crypto_1.createHash)("sha256");
+export function fingerprintStrings(values) {
+    const hash = createHash("sha256");
     hash.update(JSON.stringify([...values].sort()));
     return `sha256:${hash.digest("hex").slice(0, 32)}`;
 }
 /** Maps each record to `"<id>:<status or empty>"`, sorts, then fingerprints.
  *  `updatedAt` is accepted in the record shape but NEVER used. */
-function fingerprintRecords(records) {
+export function fingerprintRecords(records) {
     return fingerprintStrings(records.map((r) => `${r.id}:${r.status || ""}`).sort());
 }
 /** Prefixed `sha256:` + all 64 hex chars, over recursively KEY-SORTED JSON
  *  (not normalized — used to prove a source snapshot was not mutated). Used
  *  by the contract-migration prover. */
-function stableHash(value) {
-    return `sha256:${(0, node_crypto_1.createHash)("sha256").update(stableStringify(value)).digest("hex")}`;
+export function stableHash(value) {
+    return `sha256:${createHash("sha256").update(stableStringify(value)).digest("hex")}`;
 }
 // ---------------------------------------------------------------------------
 // 2/3. The one shared sort-and-stringify primitive, plus the three named,
@@ -79,7 +68,7 @@ function stableHash(value) {
  *  `undefined` (not a string), matching plain `JSON.stringify` behavior at
  *  the top level. This IS the canonical primitive every wrapper below calls;
  *  it is not itself one of the three named divergent behaviors. */
-function stableStringify(value) {
+export function stableStringify(value) {
     if (value === null || typeof value !== "object") {
         return JSON.stringify(value);
     }
@@ -98,14 +87,14 @@ function stableStringify(value) {
  *  `telemetryStableStringify` below. Byte-identical to `stableStringify`;
  *  kept as its own named export because each divergent behavior stays
  *  separately named and separately tested. */
-function ledgerStableStringify(value) {
+export function ledgerStableStringify(value) {
     return stableStringify(value);
 }
 /** `telemetry-attestation module`'s `stableStringify` — sorts keys
  *  recursively, AND maps a top-level `undefined` input to the literal
  *  string `"null"` (via `JSON.stringify(value) ?? "null"`). Divergent from
  *  `ledgerStableStringify` exactly at the top-level-undefined edge. */
-function telemetryStableStringify(value) {
+export function telemetryStableStringify(value) {
     if (value === null || typeof value !== "object") {
         return JSON.stringify(value) ?? "null";
     }
@@ -127,7 +116,7 @@ function telemetryStableStringify(value) {
  *  had those keys to begin with). Caller is responsible for stripping the
  *  `eventHash` field itself before calling this (this function hashes
  *  exactly what it is given). */
-function eventHashInput(value) {
+export function eventHashInput(value) {
     const roundTripped = JSON.parse(JSON.stringify(value));
     return stableStringify(roundTripped);
 }

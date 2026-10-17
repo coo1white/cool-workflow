@@ -1,18 +1,18 @@
-"use strict";
 // wiring/capability-table/workflow-apps.ts — CLI bindings for the
 // workflow-app family (app.*, info, man), plus the `next` capability.
-Object.defineProperty(exports, "__esModule", { value: true });
-const registry_core_1 = require("./registry-core");
-const cli_args_1 = require("../../core/util/cli-args");
+import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
+import { required, optionalArg } from "../../core/util/cli-args.js";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 // This whole module is required unconditionally at startup for EVERY
 // command (see wiring/capability-table/index.ts) — loading `next`'s and
 // `app.run`'s shell modules lazily, inside the handler that actually
 // calls them, keeps other commands from paying their load cost.
 function loadStateCli() {
-    return require("../../shell/state-cli");
+    return require("../../shell/state-cli.js");
 }
 function loadAppRunCli() {
-    return require("../../shell/app-run-cli");
+    return require("../../shell/app-run-cli.js");
 }
 // Workflow apps. Handler BODIES live in
 // shell/workflow-app-loader.ts (impure — they scan apps/*/app.json +
@@ -25,65 +25,65 @@ function loadAppRunCli() {
 // Loaded lazily so the app.* handlers below pay this module's load cost
 // only when actually invoked, not on every CLI/MCP startup.
 function loadWorkflowAppLoader() {
-    return require("../../shell/workflow-app-loader");
+    return require("../../shell/workflow-app-loader.js");
 }
-const help_1 = require("../../core/format/help");
+import { formatInfo } from "../../core/format/help.js";
 // Loaded lazily so only the `man` handler below pays its load cost.
 function loadManCli() {
-    return require("../../shell/man-cli");
+    return require("../../shell/man-cli.js");
 }
-(0, registry_core_1.attachCliBinding)("app.list", {
+attachCliBinding("app.list", {
     path: ["app", "list"],
     jsonMode: "default",
     handler: () => ({ json: loadWorkflowAppLoader().listWorkflowApps() }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("app.list").mcp.handler = () => loadWorkflowAppLoader().listWorkflowApps();
-(0, registry_core_1.attachCliBinding)("app.show", {
+REGISTRY_BY_CAPABILITY.get("app.list").mcp.handler = () => loadWorkflowAppLoader().listWorkflowApps();
+attachCliBinding("app.show", {
     path: ["app", "show"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadWorkflowAppLoader().showWorkflowApp((0, cli_args_1.required)(args.positionals[0], "workflow app id")) }),
+    handler: (args) => ({ json: loadWorkflowAppLoader().showWorkflowApp(required(args.positionals[0], "workflow app id")) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("app.show").mcp.handler = (args) => loadWorkflowAppLoader().showWorkflowApp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.appId), "workflow app id"));
-(0, registry_core_1.attachCliBinding)("app.validate", {
+REGISTRY_BY_CAPABILITY.get("app.show").mcp.handler = (args) => loadWorkflowAppLoader().showWorkflowApp(required(optionalArg(args.appId), "workflow app id"));
+attachCliBinding("app.validate", {
     path: ["app", "validate"],
     jsonMode: "default",
     handler: (args) => {
-        const result = loadWorkflowAppLoader().validateWorkflowAppTarget((0, cli_args_1.required)(args.positionals[0], "workflow app path or id"));
+        const result = loadWorkflowAppLoader().validateWorkflowAppTarget(required(args.positionals[0], "workflow app path or id"));
         return { json: result, exitCode: result.valid ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("app.validate").mcp.handler = (args) => loadWorkflowAppLoader().validateWorkflowAppTarget((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.target ?? args.appId), "workflow app path or id"));
-(0, registry_core_1.attachCliBinding)("app.init", {
+REGISTRY_BY_CAPABILITY.get("app.validate").mcp.handler = (args) => loadWorkflowAppLoader().validateWorkflowAppTarget(required(optionalArg(args.target ?? args.appId), "workflow app path or id"));
+attachCliBinding("app.init", {
     path: ["app", "init"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadWorkflowAppLoader().initWorkflowApp((0, cli_args_1.required)(args.positionals[0], "app id"), args.options) }),
+    handler: (args) => ({ json: loadWorkflowAppLoader().initWorkflowApp(required(args.positionals[0], "app id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("app.init").mcp.handler = (args) => loadWorkflowAppLoader().initWorkflowApp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.appId), "app id"), args);
+REGISTRY_BY_CAPABILITY.get("app.init").mcp.handler = (args) => loadWorkflowAppLoader().initWorkflowApp(required(optionalArg(args.appId), "app id"), args);
 // `cw init <id>` — the standalone scaffold verb, routed through
 // initWorkflowApp, same as `cw app init`. The `init` help token is folded
 // away (declaredCliHelpTokens) — it stays in the frozen "More commands"
 // index line only, matching the parity smoke's HELP_INDEX_ONLY_TOKENS
 // treatment. `workflowId` is the legacy init arg name.
-(0, registry_core_1.attachCliBinding)("init", {
+attachCliBinding("init", {
     path: ["init"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadWorkflowAppLoader().initWorkflowApp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.positionals[0]), "workflow id"), args.options) }),
+    handler: (args) => ({ json: loadWorkflowAppLoader().initWorkflowApp(required(optionalArg(args.positionals[0]), "workflow id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("init").mcp.handler = (args) => loadWorkflowAppLoader().initWorkflowApp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.workflowId ?? args.appId), "workflow id"), args);
-(0, registry_core_1.attachCliBinding)("app.package", {
+REGISTRY_BY_CAPABILITY.get("init").mcp.handler = (args) => loadWorkflowAppLoader().initWorkflowApp(required(optionalArg(args.workflowId ?? args.appId), "workflow id"), args);
+attachCliBinding("app.package", {
     path: ["app", "package"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadWorkflowAppLoader().packageWorkflowApp((0, cli_args_1.required)(args.positionals[0], "app id"), args.options) }),
+    handler: (args) => ({ json: loadWorkflowAppLoader().packageWorkflowApp(required(args.positionals[0], "app id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) => loadWorkflowAppLoader().packageWorkflowApp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.appId), "app id"), args);
+REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) => loadWorkflowAppLoader().packageWorkflowApp(required(optionalArg(args.appId), "app id"), args);
 // `cw app run <app-id>` — plan+drive+report an app in one call. 2-token
 // cli.path found before the ["app"] usage catch-all; `appRunCli` reads the
 // app id from `appId`, so the first positional after "run" is forwarded as
 // appId.
-(0, registry_core_1.attachCliBinding)("app.run", {
+attachCliBinding("app.run", {
     path: ["app", "run"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadAppRunCli().appRunCli({ ...args.options, appId: (0, cli_args_1.required)(args.positionals[0], "app id") }) }),
+    handler: (args) => ({ json: loadAppRunCli().appRunCli({ ...args.options, appId: required(args.positionals[0], "app id") }) }),
 });
 // A 1-token `["app"]` row that exists ONLY to own the fixed usage string
 // for an unrecognized `app` subcommand (SPEC/cli-surface.md's "Usage
@@ -91,7 +91,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
 // order contract (cli/dispatch.ts), this 1-token row is only ever reached
 // when no 2-token `app.*` row above matched. `hiddenFromHelp` keeps it off
 // `cw help app`'s own line (see CliBinding.hiddenFromHelp's doc comment).
-(0, registry_core_1.addCliOnlyCapability)("app.usage", "cw app list|show|validate|init|package|run [app-id|path] — the workflow-app framework.", {
+addCliOnlyCapability("app.usage", "cw app list|show|validate|init|package|run [app-id|path] — the workflow-app framework.", {
     path: ["app"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -108,7 +108,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
 // only ever reached when no 2-token real row for that family matched.
 // `hiddenFromHelp` keeps each off its own `cw help <verb>` line.
 // ---------------------------------------------------------------------
-(0, registry_core_1.addCliOnlyCapability)("sandbox.usage", "cw sandbox list|show|validate|choose [profile-id|profile-file]", {
+addCliOnlyCapability("sandbox.usage", "cw sandbox list|show|validate|choose [profile-id|profile-file]", {
     path: ["sandbox"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -116,7 +116,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw sandbox list|show|validate|choose [profile-id|profile-file]");
     },
 }, "sandbox.usage exists only to own the fixed usage-error text for an unrecognized sandbox subcommand; every real sandbox.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("state.usage", "cw state check <run-id> [--state PATH] [--write]", {
+addCliOnlyCapability("state.usage", "cw state check <run-id> [--state PATH] [--write]", {
     path: ["state"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -124,7 +124,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw state check <run-id> [--state PATH] [--write]");
     },
 }, "state.usage exists only to own the fixed usage-error text for an unrecognized state subcommand; every real state.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("audit.usage", "cw audit summary|worker|provenance|attest|decision <run-id> [worker-id]", {
+addCliOnlyCapability("audit.usage", "cw audit summary|worker|provenance|attest|decision <run-id> [worker-id]", {
     path: ["audit"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -132,7 +132,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw audit summary|worker|provenance|attest|decision <run-id> [worker-id]");
     },
 }, "audit.usage exists only to own the fixed usage-error text for an unrecognized audit subcommand; every real audit.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("telemetry.usage", "cw telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]", {
+addCliOnlyCapability("telemetry.usage", "cw telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]", {
     path: ["telemetry"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -140,7 +140,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw telemetry verify <run-id> [--pubkey <pem-or-path>] [--json]");
     },
 }, "telemetry.usage exists only to own the fixed usage-error text for an unrecognized telemetry subcommand; every real telemetry.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("demo.usage", "cw demo tamper|bundle [--json]", {
+addCliOnlyCapability("demo.usage", "cw demo tamper|bundle [--json]", {
     path: ["demo"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -148,7 +148,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw demo tamper|bundle [--json]");
     },
 }, "demo.usage exists only to own the fixed usage-error text for an unrecognized demo subcommand; every real demo.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("node.usage", "cw node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]", {
+addCliOnlyCapability("node.usage", "cw node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]", {
     path: ["node"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -156,7 +156,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw node list|show|graph|snapshot|diff|replay|verify <run-id> [node-id|snapshot-id|replay-id]");
     },
 }, "node.usage exists only to own the fixed usage-error text for an unrecognized node subcommand; every real node.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("backend.usage", "cw backend list|show|probe [backend-id]  |  cw backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]", {
+addCliOnlyCapability("backend.usage", "cw backend list|show|probe [backend-id]  |  cw backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]", {
     path: ["backend"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -164,7 +164,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw backend list|show|probe [backend-id]  |  cw backend agent config [show|set] [--agent-command ... --agent-endpoint ... --agent-model ...]");
     },
 }, "backend.usage exists only to own the fixed usage-error text for an unrecognized backend subcommand; every real backend.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("contract.usage", "cw contract show <run-id> [contract-id]", {
+addCliOnlyCapability("contract.usage", "cw contract show <run-id> [contract-id]", {
     path: ["contract"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -172,7 +172,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw contract show <run-id> [contract-id]");
     },
 }, "contract.usage exists only to own the fixed usage-error text for an unrecognized contract subcommand; every real contract.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("migration.usage", "cw migration list|check|prove [target] [--contract run-state|workflow-app]", {
+addCliOnlyCapability("migration.usage", "cw migration list|check|prove [target] [--contract run-state|workflow-app]", {
     path: ["migration"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -180,7 +180,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw migration list|check|prove [target] [--contract run-state|workflow-app]");
     },
 }, "migration.usage exists only to own the fixed usage-error text for an unrecognized migration subcommand; every real migration.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("feedback.usage", "cw feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]", {
+addCliOnlyCapability("feedback.usage", "cw feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]", {
     path: ["feedback"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -188,7 +188,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw feedback list|show|summary|collect|task|resolve <run-id> [feedback-id]");
     },
 }, "feedback.usage exists only to own the fixed usage-error text for an unrecognized feedback subcommand; every real feedback.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("metrics.usage", "cw metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--limit N] [--json]", {
+addCliOnlyCapability("metrics.usage", "cw metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--limit N] [--json]", {
     path: ["metrics"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -196,7 +196,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--limit N] [--json]");
     },
 }, "metrics.usage exists only to own the fixed usage-error text for an unrecognized metrics subcommand; every real metrics.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("operator.usage", "cw operator status|report <run-id> [--json]", {
+addCliOnlyCapability("operator.usage", "cw operator status|report <run-id> [--json]", {
     path: ["operator"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -204,7 +204,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw operator status|report <run-id> [--json]");
     },
 }, "operator.usage exists only to own the fixed usage-error text for an unrecognized operator subcommand; every real operator.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("workbench.usage", "cw workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]", {
+addCliOnlyCapability("workbench.usage", "cw workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]", {
     path: ["workbench"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -212,7 +212,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
         throw new Error("Usage: cw workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]");
     },
 }, "workbench.usage exists only to own the fixed usage-error text for an unrecognized workbench subcommand; every real workbench.* action is its own capability row above.");
-(0, registry_core_1.addCliOnlyCapability)("worker.usage", "cw worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]", {
+addCliOnlyCapability("worker.usage", "cw worker list|summary|show|manifest|output|fail|validate <run-id> [worker-id] [result-file]", {
     path: ["worker"],
     jsonMode: "default",
     hiddenFromHelp: true,
@@ -229,7 +229,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
 // does not already end in one. A handler performing its own stdout write
 // and returning `{}` is the established escape hatch (see
 // workbench.serve's handler above for the same pattern/reasoning).
-(0, registry_core_1.addCliOnlyCapability)("man", "cw man <topic> — read a manual page from docs/ (raw bytes, no added newline).", {
+addCliOnlyCapability("man", "cw man <topic> — read a manual page from docs/ (raw bytes, no added newline).", {
     path: ["man"],
     jsonMode: "human",
     // core/format/help.ts's COMMAND_HELP_ROWS.man already owns the
@@ -245,25 +245,25 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("app.package").mcp.handler = (args) =
     },
 }, "man is a CLI-only raw-file reader over docs/; the old build never gave it an MCP peer.");
 // ---- info (CLI-only; mirrors app.show with a human card by default) ----
-(0, registry_core_1.addCliOnlyCapability)("info", "Show a workflow app's contract as a human card (or JSON with --json).", {
+addCliOnlyCapability("info", "Show a workflow app's contract as a human card (or JSON with --json).", {
     path: ["info"],
     jsonMode: "flag",
     handler: (args) => {
-        const appId = (0, cli_args_1.required)(args.positionals[0], "workflow app id");
+        const appId = required(args.positionals[0], "workflow app id");
         const data = loadWorkflowAppLoader().showWorkflowApp(appId);
-        return { json: data, text: `${(0, help_1.formatInfo)(appId, data)}\n` };
+        return { json: data, text: `${formatInfo(appId, data)}\n` };
     },
 }, "info is a CLI-only convenience card over app.show; the old build never gave it an MCP peer.");
 // ---- PARITY WIRING -------------------------------------------------------
 //
 // `next` is a real, dual-bound capability (CLI + MCP), both surfaces
 // routed through shell/state-cli.ts's nextCli.
-(0, registry_core_1.attachCliBinding)("next", {
+attachCliBinding("next", {
     path: ["next"],
     jsonMode: "default",
-    handler: (args) => ({ json: loadStateCli().nextCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.positionals[0]), "run id"), args.options) }),
+    handler: (args) => ({ json: loadStateCli().nextCli(required(optionalArg(args.positionals[0]), "run id"), args.options) }),
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("next").mcp.handler = (args) => loadStateCli().nextCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
+REGISTRY_BY_CAPABILITY.get("next").mcp.handler = (args) => loadStateCli().nextCli(required(optionalArg(args.runId), "run id"), args);
 // `ledger.propose`/`.review`/`.verify`/`.apply`/`.list` are documented
 // payload-probe opt-outs: each mints a fresh timestamped/digested entry,
 // or reads args that arrive by --file/stdin on the CLI vs a plain `entry`
@@ -271,19 +271,19 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("next").mcp.handler = (args) => loadS
 // probe does not populate. Both surfaces still route through the same
 // buildLedgerProposal/buildLedgerReview/verifyLedgerEntry/
 // applyLedgerProposal/listLedgerEntries core.
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.propose").payloadIdentical = false;
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.propose").reason =
+REGISTRY_BY_CAPABILITY.get("ledger.propose").payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("ledger.propose").reason =
     "Mints a fresh entry each call: createdAt is the wall-clock instant and the id/digest are derived from it, so the output is inherently non-deterministic and a byte-identity probe does not apply. Both surfaces call the same buildLedgerProposal core; round-trip + fail-closed behavior is covered by ledger-verify-smoke.";
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.review").payloadIdentical = false;
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.review").reason =
+REGISTRY_BY_CAPABILITY.get("ledger.review").payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("ledger.review").reason =
     "Mints a fresh timestamped/digested verdict each call — non-deterministic output, same reasoning as ledger.propose. Both surfaces call the same buildLedgerReview core.";
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.verify").payloadIdentical = false;
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.verify").reason =
+REGISTRY_BY_CAPABILITY.get("ledger.verify").payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("ledger.verify").reason =
     "The entry arrives by --file/stdin on the CLI and as an `entry` argument over MCP; there is no shared arg-bag the byte-identity probe can feed both. Both surfaces call the same verifyLedgerEntry core; ledger-verify-smoke proves the fail-closed contract.";
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.apply").payloadIdentical = false;
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.apply").reason =
+REGISTRY_BY_CAPABILITY.get("ledger.apply").payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("ledger.apply").reason =
     "The entry arrives by --file/stdin on the CLI and as an `entry` argument over MCP; there is no shared arg-bag the byte-identity probe can feed both. Both surfaces call the same applyLedgerProposal core (a fail-closed wrapper over verifyLedgerEntry); ledger-apply-smoke proves the diff only escapes a verified proposal.";
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.list").payloadIdentical = false;
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.list").reason =
+REGISTRY_BY_CAPABILITY.get("ledger.list").payloadIdentical = false;
+REGISTRY_BY_CAPABILITY.get("ledger.list").reason =
     "Output depends on the on-disk contents of the named ledger directory/directories, which the generic payload probe does not populate. Both surfaces call the same listLedgerEntries/unionLedgerEntries core; ledger-verify-smoke covers the fail-closed inbox and the multi-mirror union.";
 // ---------------------------------------------------------------------------

@@ -7,10 +7,10 @@
 // Evidence: SPEC/reporting-ux.md "Run export / import / restore".
 
 import * as path from "node:path";
-import { cwdArg, optionalArg } from "../core/util/cli-args";
-import { exportRun, importRun, restoreRunAtomically, verifyImportedRun, inspectArchive, ExportResult, ImportResult, RestoreVerificationResult, ArchiveInspectResult } from "./run-export";
-import { loadRunFromCwd } from "./run-store";
-import { RunRegistry } from "./run-registry-io";
+import { cwdArg, optionalArg } from "../core/util/cli-args.js";
+import { exportRun, importRun, restoreRunAtomically, verifyImportedRun, inspectArchive, ExportResult, ImportResult, RestoreVerificationResult, ArchiveInspectResult } from "./run-export.js";
+import { loadRunFromCwd } from "./run-store.js";
+import { RunRegistry } from "./run-registry-io.js";
 
 const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
 

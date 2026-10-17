@@ -9,17 +9,17 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { WorkflowRun } from "../core/state/types";
-import { formatDispatchId, formatDispatchTask, nextDispatchTasks, updatePhaseStatuses } from "../core/pipeline/dispatch";
-import type { DispatchTask } from "../core/pipeline/dispatch";
-import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract";
-import { createStateNode, transitionStateNode } from "../core/state/state-node";
-import { appendRunNode, writeRunNode } from "./node-store";
-import { writeJson } from "./fs-atomic";
-import { allocateWorkerScope, writeWorkerManifest, getWorkerScope } from "./worker-isolation";
-import { resolveBackendSelection } from "./execution-backend/registry";
-import { DEFAULT_SANDBOX_PROFILE_ID, resolveSandboxProfileById, sandboxContextForValidation, persistCustomSandboxProfile } from "./sandbox-profile";
-import { BackendSelection, ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types";
+import { WorkflowRun } from "../core/state/types.js";
+import { formatDispatchId, formatDispatchTask, nextDispatchTasks, updatePhaseStatuses } from "../core/pipeline/dispatch.js";
+import type { DispatchTask } from "../core/pipeline/dispatch.js";
+import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract.js";
+import { createStateNode, transitionStateNode } from "../core/state/state-node.js";
+import { appendRunNode, writeRunNode } from "./node-store.js";
+import { writeJson } from "./fs-atomic.js";
+import { allocateWorkerScope, writeWorkerManifest, getWorkerScope } from "./worker-isolation.js";
+import { resolveBackendSelection } from "./execution-backend/registry.js";
+import { DEFAULT_SANDBOX_PROFILE_ID, resolveSandboxProfileById, sandboxContextForValidation, persistCustomSandboxProfile } from "./sandbox-profile.js";
+import { BackendSelection, ResolvedSandboxPolicy, SandboxAttestation } from "./execution-backend/types.js";
 
 export interface DispatchManifest {
   schemaVersion: 1;

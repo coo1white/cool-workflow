@@ -47,8 +47,8 @@ const transportSource = fs.readFileSync(srcTransport, "utf8");
 const surfaceSource = fs.readFileSync(srcSurface, "utf8");
 // The entry binary only starts the transport; the transport imports its
 // callTool/toolDefinitions from the surface module (old: from "./mcp-surface").
-assert.match(entrySource, /from "\.\/mcp\/server"/, "mcp-server entry must start the MCP transport module");
-assert.match(transportSource, /from "\.\/dispatch"/, "mcp transport must import the MCP surface module");
+assert.match(entrySource, /from "\.\/mcp\/server\.js"/, "mcp-server entry must start the MCP transport module");
+assert.match(transportSource, /from "\.\/dispatch\.js"/, "mcp transport must import the MCP surface module");
 // callTool/toolDefinitions must live OUTSIDE the transport (in the surface).
 assert.doesNotMatch(transportSource, /function\s+callTool\s*\(/, "callTool must live outside mcp transport");
 assert.doesNotMatch(transportSource, /function\s+toolDefinitions\s*\(/, "toolDefinitions must live outside mcp transport");

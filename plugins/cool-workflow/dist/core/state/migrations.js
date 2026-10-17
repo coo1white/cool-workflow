@@ -1,4 +1,3 @@
-"use strict";
 // core/state/migrations.ts — RUN_STATE_MIGRATIONS, findMigrationPath (BFS),
 // migrateRunState, reverseRunState, normalizeRunState.
 //
@@ -10,63 +9,24 @@
 // Evidence: SPEC/state-core.md "state-migrations module — run-state
 // migration", "Migration pipeline (migrateRunState)", "Normalization
 // defaults" (project/docs/rebuild/PLAN.md byte-compat item 4).
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RUN_STATE_MIGRATIONS = void 0;
-exports.findMigrationPath = findMigrationPath;
-exports.migrateRunState = migrateRunState;
-exports.reverseRunState = reverseRunState;
-exports.derivePhases = derivePhases;
-const path = __importStar(require("node:path"));
-const version_1 = require("../version");
-const schema_1 = require("./schema");
-const cli_args_1 = require("../util/cli-args");
-exports.RUN_STATE_MIGRATIONS = [
+import * as path from "node:path";
+import { CURRENT_RUN_STATE_SCHEMA_VERSION, LEGACY_RUN_STATE_SCHEMA_VERSION, MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION, } from "../version.js";
+import { REQUIRED_ARRAY_KEYS, REQUIRED_RECORD_KEYS, REQUIRED_TOP_LEVEL_KEYS } from "./schema.js";
+import { isRecord } from "../util/cli-args.js";
+export const RUN_STATE_MIGRATIONS = [
     {
-        from: version_1.LEGACY_RUN_STATE_SCHEMA_VERSION,
-        to: version_1.CURRENT_RUN_STATE_SCHEMA_VERSION,
+        from: LEGACY_RUN_STATE_SCHEMA_VERSION,
+        to: CURRENT_RUN_STATE_SCHEMA_VERSION,
         description: "Mark legacy run state without schemaVersion as run-state schema 1.",
         migrate(state, context) {
-            setDefault(state, "schemaVersion", version_1.CURRENT_RUN_STATE_SCHEMA_VERSION, context, "legacy run state did not declare schemaVersion");
+            setDefault(state, "schemaVersion", CURRENT_RUN_STATE_SCHEMA_VERSION, context, "legacy run state did not declare schemaVersion");
         },
         reverse(state, context) {
-            if (state.schemaVersion === version_1.CURRENT_RUN_STATE_SCHEMA_VERSION) {
+            if (state.schemaVersion === CURRENT_RUN_STATE_SCHEMA_VERSION) {
                 delete state.schemaVersion;
                 context.changes.push({
                     path: "schemaVersion",
-                    before: version_1.CURRENT_RUN_STATE_SCHEMA_VERSION,
+                    before: CURRENT_RUN_STATE_SCHEMA_VERSION,
                     after: undefined,
                     reason: "reverse: legacy run state unmarks schemaVersion",
                 });
@@ -76,7 +36,7 @@ exports.RUN_STATE_MIGRATIONS = [
 ];
 /** BFS shortest path over forward edges (`from -> to`) plus reverse edges
  *  (`to -> from`, only when the step has a `reverse()`). */
-function findMigrationPath(steps, fromVersion, toVersion) {
+export function findMigrationPath(steps, fromVersion, toVersion) {
     if (fromVersion === toVersion)
         return { reachable: true, path: [] };
     const forward = new Map();
@@ -129,13 +89,13 @@ function computeSuspectedDataLoss(input) {
  *  (a fresh JSON.parse of state.json), so the migration may work on it in
  *  place instead of on a deep copy. The result is the same either way; only
  *  the caller's object is left untouched when `owned` is absent. */
-function migrateRunState(input, options = {}) {
+export function migrateRunState(input, options = {}) {
     const report = {
         status: "current",
         statePath: options.statePath,
         detectedSchemaVersion: detectSchemaVersion(input),
-        currentSchemaVersion: version_1.CURRENT_RUN_STATE_SCHEMA_VERSION,
-        supportedSchemaVersions: { min: version_1.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION, max: version_1.CURRENT_RUN_STATE_SCHEMA_VERSION },
+        currentSchemaVersion: CURRENT_RUN_STATE_SCHEMA_VERSION,
+        supportedSchemaVersions: { min: MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION, max: CURRENT_RUN_STATE_SCHEMA_VERSION },
         dryRun: Boolean(options.dryRun),
         writeRequired: false,
         changes: [],
@@ -143,25 +103,25 @@ function migrateRunState(input, options = {}) {
         errors: [],
         suspectedDataLoss: false,
     };
-    if (!(0, cli_args_1.isRecord)(input)) {
+    if (!isRecord(input)) {
         report.status = "unsupported";
         report.errors.push("Run state must be a JSON object.");
         return { run: {}, report };
     }
     report.suspectedDataLoss = computeSuspectedDataLoss(input);
-    if (report.detectedSchemaVersion < version_1.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
+    if (report.detectedSchemaVersion < MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
         report.status = "unsupported";
         report.errors.push(`Unsupported run-state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)}.`);
         return { run: take(input, options.owned), report };
     }
-    if (report.detectedSchemaVersion > version_1.CURRENT_RUN_STATE_SCHEMA_VERSION) {
+    if (report.detectedSchemaVersion > CURRENT_RUN_STATE_SCHEMA_VERSION) {
         report.status = "unsupported";
-        report.errors.push(`Run state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)} is newer than this CW runtime (${version_1.CURRENT_RUN_STATE_SCHEMA_VERSION}).`);
+        report.errors.push(`Run state schemaVersion ${schemaVersionDescription(input, report.detectedSchemaVersion)} is newer than this CW runtime (${CURRENT_RUN_STATE_SCHEMA_VERSION}).`);
         return { run: take(input, options.owned), report };
     }
     const state = take(input, options.owned);
     const context = { statePath: options.statePath, changes: report.changes, errors: report.errors };
-    const resolved = findMigrationPath(exports.RUN_STATE_MIGRATIONS, report.detectedSchemaVersion, version_1.CURRENT_RUN_STATE_SCHEMA_VERSION);
+    const resolved = findMigrationPath(RUN_STATE_MIGRATIONS, report.detectedSchemaVersion, CURRENT_RUN_STATE_SCHEMA_VERSION);
     if (!resolved.reachable) {
         report.status = "unsupported";
         report.errors.push(resolved.error || `No migration path from run-state schemaVersion ${report.detectedSchemaVersion}.`);
@@ -178,7 +138,7 @@ function migrateRunState(input, options = {}) {
     report.writeRequired = report.changes.length > 0;
     if (report.errors.length > 0)
         report.status = "unsupported";
-    else if (report.detectedSchemaVersion < version_1.CURRENT_RUN_STATE_SCHEMA_VERSION)
+    else if (report.detectedSchemaVersion < CURRENT_RUN_STATE_SCHEMA_VERSION)
         report.status = "migrated";
     else if (report.changes.length > 0)
         report.status = "normalized";
@@ -186,13 +146,13 @@ function migrateRunState(input, options = {}) {
         report.status = "current";
     return { run: state, report };
 }
-function reverseRunState(input, targetSchemaVersion, options = {}) {
+export function reverseRunState(input, targetSchemaVersion, options = {}) {
     const report = {
         status: "current",
         statePath: options.statePath,
         detectedSchemaVersion: detectSchemaVersion(input),
         currentSchemaVersion: targetSchemaVersion,
-        supportedSchemaVersions: { min: version_1.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION, max: version_1.CURRENT_RUN_STATE_SCHEMA_VERSION },
+        supportedSchemaVersions: { min: MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION, max: CURRENT_RUN_STATE_SCHEMA_VERSION },
         dryRun: Boolean(options.dryRun),
         writeRequired: false,
         changes: [],
@@ -200,25 +160,25 @@ function reverseRunState(input, targetSchemaVersion, options = {}) {
         errors: [],
         suspectedDataLoss: false,
     };
-    if (!(0, cli_args_1.isRecord)(input)) {
+    if (!isRecord(input)) {
         report.status = "unsupported";
         report.errors.push("Run state must be a JSON object.");
         return { run: {}, report };
     }
     report.suspectedDataLoss = computeSuspectedDataLoss(input);
-    if (targetSchemaVersion < version_1.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
+    if (targetSchemaVersion < MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION) {
         report.status = "unsupported";
-        report.errors.push(`Target schemaVersion ${targetSchemaVersion} is below the minimum supported ${version_1.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION}.`);
+        report.errors.push(`Target schemaVersion ${targetSchemaVersion} is below the minimum supported ${MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION}.`);
         return { run: clone(input), report };
     }
-    if (targetSchemaVersion > version_1.CURRENT_RUN_STATE_SCHEMA_VERSION) {
+    if (targetSchemaVersion > CURRENT_RUN_STATE_SCHEMA_VERSION) {
         report.status = "unsupported";
-        report.errors.push(`Target schemaVersion ${targetSchemaVersion} is newer than this CW runtime (${version_1.CURRENT_RUN_STATE_SCHEMA_VERSION}).`);
+        report.errors.push(`Target schemaVersion ${targetSchemaVersion} is newer than this CW runtime (${CURRENT_RUN_STATE_SCHEMA_VERSION}).`);
         return { run: clone(input), report };
     }
     const state = clone(input);
     const context = { statePath: options.statePath, changes: report.changes, errors: report.errors };
-    const resolved = findMigrationPath(exports.RUN_STATE_MIGRATIONS, report.detectedSchemaVersion, targetSchemaVersion);
+    const resolved = findMigrationPath(RUN_STATE_MIGRATIONS, report.detectedSchemaVersion, targetSchemaVersion);
     if (!resolved.reachable) {
         report.status = "unsupported";
         report.errors.push(resolved.error || `No reverse path from schemaVersion ${report.detectedSchemaVersion} to ${targetSchemaVersion}.`);
@@ -292,7 +252,7 @@ function normalizeRunState(state, context) {
     ensureArray(state, "nodes", context);
     ensureArray(state, "contracts", context);
     ensureArray(state, "feedback", context);
-    if (!(0, cli_args_1.isRecord)(state.audit)) {
+    if (!isRecord(state.audit)) {
         if (state.audit !== undefined)
             context.errors.push("audit must be an object when present.");
         setValue(state, "audit", {
@@ -306,7 +266,7 @@ function normalizeRunState(state, context) {
     ensureArray(state, "sandboxProfiles", context);
     ensureArray(state, "candidates", context);
     ensureArray(state, "candidateSelections", context);
-    if (!(0, cli_args_1.isRecord)(state.multiAgent)) {
+    if (!isRecord(state.multiAgent)) {
         if (state.multiAgent !== undefined)
             context.errors.push("multiAgent must be an object when present.");
         setValue(state, "multiAgent", { schemaVersion: 1, runs: [], roles: [], groups: [], memberships: [], fanouts: [], fanins: [] }, context, "multiAgent state is required");
@@ -322,7 +282,7 @@ function normalizeRunState(state, context) {
             }
         }
     }
-    if (!(0, cli_args_1.isRecord)(state.blackboard)) {
+    if (!isRecord(state.blackboard)) {
         if (state.blackboard !== undefined)
             context.errors.push("blackboard must be an object when present.");
         setValue(state, "blackboard", { schemaVersion: 1, boards: [], topics: [], messages: [], contexts: [], artifacts: [], snapshots: [], decisions: [] }, context, "blackboard state is required");
@@ -338,7 +298,7 @@ function normalizeRunState(state, context) {
             }
         }
     }
-    if (!(0, cli_args_1.isRecord)(state.topologies)) {
+    if (!isRecord(state.topologies)) {
         if (state.topologies !== undefined)
             context.errors.push("topologies must be an object when present.");
         setValue(state, "topologies", { schemaVersion: 1, runs: [] }, context, "topologies state is required");
@@ -353,7 +313,7 @@ function normalizeRunState(state, context) {
         }
     }
     if (state.collaboration !== undefined) {
-        if (!(0, cli_args_1.isRecord)(state.collaboration)) {
+        if (!isRecord(state.collaboration)) {
             context.errors.push("collaboration must be an object when present.");
             setValue(state, "collaboration", { schemaVersion: 1, approvals: [], comments: [], handoffs: [] }, context, "collaboration must be an object");
         }
@@ -377,40 +337,40 @@ function normalizeRunState(state, context) {
     }
 }
 function validateMigratedRunState(state, report) {
-    for (const key of schema_1.REQUIRED_TOP_LEVEL_KEYS) {
+    for (const key of REQUIRED_TOP_LEVEL_KEYS) {
         if (!(key in state))
             report.errors.push(`Missing required run-state field: ${key}.`);
     }
-    if (state.schemaVersion !== version_1.CURRENT_RUN_STATE_SCHEMA_VERSION) {
-        report.errors.push(`Expected schemaVersion ${version_1.CURRENT_RUN_STATE_SCHEMA_VERSION}; found ${String(state.schemaVersion)}.`);
+    if (state.schemaVersion !== CURRENT_RUN_STATE_SCHEMA_VERSION) {
+        report.errors.push(`Expected schemaVersion ${CURRENT_RUN_STATE_SCHEMA_VERSION}; found ${String(state.schemaVersion)}.`);
     }
-    for (const key of schema_1.REQUIRED_RECORD_KEYS) {
-        if (key in state && !(0, cli_args_1.isRecord)(state[key]))
+    for (const key of REQUIRED_RECORD_KEYS) {
+        if (key in state && !isRecord(state[key]))
             report.errors.push(`${key} must be an object.`);
     }
-    for (const key of schema_1.REQUIRED_ARRAY_KEYS) {
+    for (const key of REQUIRED_ARRAY_KEYS) {
         if (!Array.isArray(state[key]))
             report.errors.push(`${key} must be an array.`);
     }
 }
 function detectSchemaVersion(value) {
-    if (!(0, cli_args_1.isRecord)(value) || value.schemaVersion === undefined)
-        return version_1.LEGACY_RUN_STATE_SCHEMA_VERSION;
+    if (!isRecord(value) || value.schemaVersion === undefined)
+        return LEGACY_RUN_STATE_SCHEMA_VERSION;
     if (!Number.isInteger(value.schemaVersion))
         return Number.POSITIVE_INFINITY;
     return Number(value.schemaVersion);
 }
 function schemaVersionDescription(input, detected) {
-    if (!(0, cli_args_1.isRecord)(input))
+    if (!isRecord(input))
         return "non-object";
     if (input.schemaVersion === undefined)
-        return String(version_1.LEGACY_RUN_STATE_SCHEMA_VERSION);
+        return String(LEGACY_RUN_STATE_SCHEMA_VERSION);
     if (Number.isFinite(detected))
         return String(detected);
     return `invalid (${typeof input.schemaVersion}: ${String(input.schemaVersion)})`;
 }
 function ensureRecord(state, key, context, reason) {
-    if ((0, cli_args_1.isRecord)(state[key]))
+    if (isRecord(state[key]))
         return state[key];
     if (state[key] !== undefined)
         context.errors.push(`${key} must be an object when present.`);
@@ -434,10 +394,10 @@ function setValue(state, key, value, context, reason, reportPath = key) {
     state[key] = value;
     context.changes.push({ path: reportPath, before, after: value, reason });
 }
-function derivePhases(tasks) {
+export function derivePhases(tasks) {
     const byPhase = new Map();
     for (const task of tasks) {
-        if (!(0, cli_args_1.isRecord)(task))
+        if (!isRecord(task))
             continue;
         const phase = stringValue(task.phase) || "Workflow";
         const taskId = stringValue(task.id);
@@ -460,8 +420,8 @@ function derivePhases(tasks) {
 }
 function tasksForPhaseCompleted(tasks, taskIds) {
     return taskIds.every((taskId) => {
-        const task = tasks.find((candidate) => (0, cli_args_1.isRecord)(candidate) && candidate.id === taskId);
-        return (0, cli_args_1.isRecord)(task) && task.status === "completed";
+        const task = tasks.find((candidate) => isRecord(candidate) && candidate.id === taskId);
+        return isRecord(task) && task.status === "completed";
     });
 }
 function titleize(value) {

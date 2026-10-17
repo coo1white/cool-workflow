@@ -10,8 +10,8 @@ import {
   TrustAuditEvent,
   listTrustAuditEvents,
   recordTrustAuditEvent,
-} from "./trust-audit";
-import { StateEvidence, WorkflowRun } from "../core/state/types";
+} from "./trust-audit.js";
+import { StateEvidence, WorkflowRun } from "../core/state/types.js";
 
 /** `cw audit worker <run> <worker>` body — every audited event that
  *  touched one worker. Port of old workerTrustAudit. */

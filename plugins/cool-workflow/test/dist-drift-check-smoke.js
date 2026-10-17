@@ -23,6 +23,7 @@ try {
   }
   fs.mkdirSync(path.join(tmp, "scripts"));
   fs.cpSync(path.join(pluginRoot, "scripts", "dist-drift-check.js"), path.join(tmp, "scripts", "dist-drift-check.js"));
+  fs.cpSync(path.join(pluginRoot, "scripts", "package.json"), path.join(tmp, "scripts", "package.json"));
   fs.symlinkSync(path.join(pluginRoot, "node_modules"), path.join(tmp, "node_modules"));
 
   const script = path.join(tmp, "scripts", "dist-drift-check.js");

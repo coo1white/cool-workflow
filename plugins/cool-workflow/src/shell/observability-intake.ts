@@ -3,8 +3,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { readJson } from "./fs-atomic";
-import { CostPolicy, UsageRecord } from "./observability";
+import { readJson } from "./fs-atomic.js";
+import { CostPolicy, UsageRecord } from "./observability.js";
 
 /** Resolve a CostPolicy from CLI/MCP args. `--pricing <path>` loads a
  *  policy file; `--pricing default|bundled` loads the bundled example.

@@ -4,6 +4,6 @@
 // directly with `node dist/cli.js <args>`. Import, call, catch — nothing
 // else lives here.
 
-import { main } from "./cli/entry";
+import { main } from "./cli/entry.js";
 
 main(process.argv.slice(2));

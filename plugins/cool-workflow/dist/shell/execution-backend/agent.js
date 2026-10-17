@@ -1,4 +1,3 @@
-"use strict";
 // shell/execution-backend/agent.ts — agent-delegation pure helpers +
 // concurrent batch fulfillment.
 //
@@ -17,66 +16,14 @@
 // is NEVER the attested model id.
 //
 // Evidence: SPEC/execution-backend.md "agent driver", "Concurrent batch".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.substituteAgentArg = void 0;
-exports.reapRecordedVendor = reapRecordedVendor;
-exports.buildAgentChildEnv = buildAgentChildEnv;
-exports.resolveAgentInvocation = resolveAgentInvocation;
-exports.stripSecretArgs = stripSecretArgs;
-exports.parseAgentReport = parseAgentReport;
-exports.agentSubstitutions = agentSubstitutions;
-exports.recordedAgentHandle = recordedAgentHandle;
-exports.extractEndpointResult = extractEndpointResult;
-exports.agentHandle = agentHandle;
-exports.prepareAgentSpawn = prepareAgentSpawn;
-exports.prepareEndpointJob = prepareEndpointJob;
-exports.reconcileBatchOutcomes = reconcileBatchOutcomes;
-exports.runAgentBatchOutcomes = runAgentBatchOutcomes;
-exports.runEndpointBatchOutcomes = runEndpointBatchOutcomes;
-exports.shouldStreamAgentStderr = shouldStreamAgentStderr;
-exports.runAgentProcess = runAgentProcess;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const os = __importStar(require("node:os"));
-const node_child_process_1 = require("node:child_process");
-const local_1 = require("./local");
-const envelopes_1 = require("./envelopes");
-const perf_trace_1 = require("../perf-trace");
-const cli_args_1 = require("../../core/util/cli-args");
-Object.defineProperty(exports, "substituteAgentArg", { enumerable: true, get: function () { return cli_args_1.substituteAgentArg; } });
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
+import { spawnSync } from "node:child_process";
+import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local.js";
+import { delegatedEnvelope, refusedEnvelope } from "./envelopes.js";
+import { withPerfTraceGroup } from "../perf-trace.js";
+import { agentCommandArgv, splitAgentCommandLine, substituteAgentArg, messageOf } from "../../core/util/cli-args.js";
 const AGENT_PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i;
 /** Build the env for a REAL spawned agent child under a sandbox policy: the
  *  policy's own PATH+HOME+expose/deny base (buildChildEnv), plus provider-key
@@ -108,7 +55,7 @@ function vendorPidFilePath() {
  *  not covered. Returns true only if it
  *  actually signalled a process. Exported for tests; agent.ts is not part of
  *  the package public surface (index.ts). */
-function reapRecordedVendor(pidFile) {
+export function reapRecordedVendor(pidFile) {
     let raw;
     try {
         raw = fs.readFileSync(pidFile, "utf8");
@@ -131,8 +78,8 @@ function reapRecordedVendor(pidFile) {
         return false; // already exited, or a pid we may not signal
     }
 }
-function buildAgentChildEnv(policy, baseEnv = process.env) {
-    const env = (0, local_1.buildChildEnv)(policy, baseEnv);
+export function buildAgentChildEnv(policy, baseEnv = process.env) {
+    const env = buildChildEnv(policy, baseEnv);
     // deny must win here too: buildChildEnv already applied it above, but the
     // provider-key/USER re-add below exists specifically to put vars BACK
     // that buildChildEnv's readonly/locked-down defaults strip — so check it,
@@ -149,7 +96,7 @@ function buildAgentChildEnv(policy, baseEnv = process.env) {
         // re-add loop from putting them back (and out of the trust-audit
         // `forwarded` list). CW_AGENT_ATTEST_PRIVKEY is intentionally NOT in that
         // set, so the attest wrapper still gets its signing key.
-        if (local_1.CW_NEVER_FORWARD_ENV.has(key))
+        if (CW_NEVER_FORWARD_ENV.has(key))
             continue;
         if (AGENT_PROVIDER_KEY_ENV_RE.test(key)) {
             env[key] = baseEnv[key];
@@ -165,7 +112,7 @@ function buildAgentChildEnv(policy, baseEnv = process.env) {
 /** Resolve the agent invocation from the request delegation > env.
  *  Vendor-neutral; the durable file config is folded in by the drive layer
  *  before this point (see shell/agent-config.ts's resolveAgentConfig). */
-function resolveAgentInvocation(request, env = process.env) {
+export function resolveAgentInvocation(request, env = process.env) {
     const delegation = request.delegation || {};
     const envCommand = (env.CW_AGENT_COMMAND || "").trim();
     const endpoint = delegation.endpoint || (env.CW_AGENT_ENDPOINT || "").trim() || undefined;
@@ -173,7 +120,7 @@ function resolveAgentInvocation(request, env = process.env) {
     let binary = delegation.command || request.command || undefined;
     let rawArgs = delegation.args ? [...delegation.args] : request.args ? [...request.args] : [];
     if (!binary && envCommand) {
-        const parts = (0, cli_args_1.splitAgentCommandLine)(envCommand);
+        const parts = splitAgentCommandLine(envCommand);
         binary = parts[0];
         if (!delegation.args)
             rawArgs = parts.slice(1);
@@ -182,7 +129,7 @@ function resolveAgentInvocation(request, env = process.env) {
         // A command of more than one word ("claude -p") is never a binary name;
         // its first word is. The other words go first, then any explicit
         // delegation args: the same argv the release reviewer builds.
-        const argv = (0, cli_args_1.agentCommandArgv)(binary, delegation.args);
+        const argv = agentCommandArgv(binary, delegation.args);
         binary = argv.binary;
         rawArgs = argv.args;
     }
@@ -201,7 +148,7 @@ const AGENT_SECRET_FLAGS = new Set([
 /** Redact secrets from recorded agent args: a value FOLLOWING a known secret
  *  flag, an `--x-key=...` inline value, or a token that LOOKS like a
  *  credential. Never record a raw secret in provenance/evidence. */
-function stripSecretArgs(args) {
+export function stripSecretArgs(args) {
     const out = [];
     for (let i = 0; i < args.length; i++) {
         const arg = String(args[i]);
@@ -229,7 +176,7 @@ function stripSecretArgs(args) {
 }
 /** Best-effort parse of the AGENT-reported model id from its stdout. SOLELY
  *  the agent's own report — `unreported` when absent. Never CW_AGENT_MODEL. */
-function parseAgentReport(stdout) {
+export function parseAgentReport(stdout) {
     const text = String(stdout || "").trim();
     if (!text)
         return {};
@@ -280,7 +227,7 @@ function parseAgentReport(stdout) {
             : undefined;
     return { model, usage, usageSignature };
 }
-function agentSubstitutions(request, model) {
+export function agentSubstitutions(request, model) {
     const manifest = request.manifest;
     const workerDir = manifest?.workerDir || request.cwd || "";
     return {
@@ -292,10 +239,11 @@ function agentSubstitutions(request, model) {
         prompt: manifest?.prompt || "",
     };
 }
+export { substituteAgentArg };
 /** Build the recorded process handle for the envelope — secret-stripped +
  *  the agent-reported model. Same SHAPE that lands in provenance, never in
  *  evidence. */
-function recordedAgentHandle(binary, endpoint, recordedArgs, model, reportedModel, reportedUsage, usageSignature, forwardedEnvVars) {
+export function recordedAgentHandle(binary, endpoint, recordedArgs, model, reportedModel, reportedUsage, usageSignature, forwardedEnvVars) {
     const ref = binary ? [binary, ...recordedArgs].join(" ") : endpoint || "";
     return {
         kind: "process",
@@ -313,7 +261,7 @@ function recordedAgentHandle(binary, endpoint, recordedArgs, model, reportedMode
         },
     };
 }
-function extractEndpointResult(stdout) {
+export function extractEndpointResult(stdout) {
     const text = String(stdout || "").trim();
     if (!text)
         return undefined;
@@ -332,7 +280,7 @@ function extractEndpointResult(stdout) {
     }
     return undefined;
 }
-function agentHandle(request, env = process.env) {
+export function agentHandle(request, env = process.env) {
     const resolved = resolveAgentInvocation(request, env);
     if (!resolved.binary && !resolved.endpoint)
         return undefined;
@@ -353,14 +301,14 @@ function agentHandle(request, env = process.env) {
 /** Resolve a request to a spawn-style (CLI-binary) batch job, or undefined when
  *  the agent is endpoint-configured (see prepareEndpointJob) or unconfigured
  *  (those settle through the serial path). */
-function prepareAgentSpawn(request) {
+export function prepareAgentSpawn(request) {
     const resolved = resolveAgentInvocation(request);
     if (!resolved.binary)
         return undefined;
     const subst = agentSubstitutions(request, resolved.model);
     return {
         binary: resolved.binary,
-        args: resolved.rawArgs.map((arg) => (0, cli_args_1.substituteAgentArg)(arg, subst)),
+        args: resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst)),
         cwd: request.cwd,
         timeoutMs: resolved.timeoutMs || 600000,
     };
@@ -372,7 +320,7 @@ function prepareAgentSpawn(request) {
  *  request.sandboxPolicy.id, which runBackend sets to the same policy the serial
  *  path passes (registry.ts: `const policy = request.sandboxPolicy`), so the two
  *  paths post identical bytes. */
-function prepareEndpointJob(request) {
+export function prepareEndpointJob(request) {
     const resolved = resolveAgentInvocation(request);
     if (resolved.binary || !resolved.endpoint)
         return undefined;
@@ -386,15 +334,15 @@ function prepareEndpointJob(request) {
     });
     return { endpoint: resolved.endpoint, job, timeoutMs: resolved.timeoutMs || 600000 };
 }
-// __dirname is dist/shell/execution-backend at runtime — THREE levels up
+// import.meta.dirname is dist/shell/execution-backend at runtime — THREE levels up
 // (execution-backend -> shell -> dist -> package root) reaches scripts/,
 // a sibling of dist/, not two (dist/scripts/... is never compiled/copied).
-const BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "batch-delegate-child.js");
+const BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "batch-delegate-child.js");
 /** Parse the delegate child's NDJSON stdout and reconcile it against `jobs`
  *  by index. See SPEC/execution-backend.md "Concurrent batch" for the
  *  byte-boundary rationale (split on the raw newline byte, one line at a
  *  time, never decode the whole combined buffer as one string). */
-function reconcileBatchOutcomes(jobs, child) {
+export function reconcileBatchOutcomes(jobs, child) {
     const buf = Buffer.isBuffer(child.stdout) ? child.stdout : Buffer.from(String(child.stdout || ""), "utf8");
     const byIndex = new Map();
     let lineStart = 0;
@@ -422,7 +370,7 @@ function reconcileBatchOutcomes(jobs, child) {
         });
     }
     const reason = child.error
-        ? (0, cli_args_1.messageOf)(child.error)
+        ? messageOf(child.error)
         : typeof child.status === "number" && child.status !== 0
             ? `batch delegate exited with ${child.status}`
             : "batch delegate produced no outcome for this job";
@@ -431,14 +379,14 @@ function reconcileBatchOutcomes(jobs, child) {
 /** Run a batch of agent spawns concurrently; outcomes index-align with
  *  jobs. See SPEC/execution-backend.md's rebuild-risk note on maxBuffer
  *  scaling with job count and the no-`encoding` (raw Buffer) requirement. */
-function runAgentBatchOutcomes(jobs) {
+export function runAgentBatchOutcomes(jobs) {
     if (!jobs.length)
         return [];
-    return (0, perf_trace_1.withPerfTraceGroup)("agent-wait", () => {
+    return withPerfTraceGroup("agent-wait", () => {
         const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
         let child;
         try {
-            child = (0, node_child_process_1.spawnSync)(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
+            child = spawnSync(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
                 input: JSON.stringify(jobs),
                 maxBuffer: 34 * 1024 * 1024 * jobs.length,
                 timeout: maxTimeout + 30000,
@@ -451,7 +399,7 @@ function runAgentBatchOutcomes(jobs) {
     });
 }
 // Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
-const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-batch-delegate-child.js");
+const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-batch-delegate-child.js");
 /** Run a batch of ENDPOINT (HTTP-delegate) jobs concurrently; outcomes
  *  index-align with jobs. The endpoint sibling of runAgentBatchOutcomes: one
  *  spawnSync of http-batch-delegate-child.js POSTs all N at once from a single
@@ -463,13 +411,13 @@ const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..
  *  serial runAgentEndpoint likewise runs the child with the full process env for
  *  any endpoint auth); no sandbox child-env is built here, matching the serial
  *  endpoint path. */
-function runEndpointBatchOutcomes(jobs) {
+export function runEndpointBatchOutcomes(jobs) {
     if (!jobs.length)
         return [];
     const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
     let child;
     try {
-        child = (0, node_child_process_1.spawnSync)(process.execPath, [HTTP_BATCH_DELEGATE_CHILD_SCRIPT], {
+        child = spawnSync(process.execPath, [HTTP_BATCH_DELEGATE_CHILD_SCRIPT], {
             input: JSON.stringify(jobs),
             maxBuffer: 34 * 1024 * 1024 * jobs.length,
             timeout: maxTimeout + 30000,
@@ -487,7 +435,7 @@ function runEndpointBatchOutcomes(jobs) {
 /** Decide whether cw FORWARDS the agent wrapper's live stderr view (stdio
  *  "inherit") or captures it ("pipe"). CW_NO_STREAM=1 wins over everything;
  *  CW_AGENT_STREAM=0/1 are explicit off/on; else follow isTTY. */
-function shouldStreamAgentStderr(env, isTTY) {
+export function shouldStreamAgentStderr(env, isTTY) {
     if (env.CW_NO_STREAM === "1")
         return false;
     if (env.CW_AGENT_STREAM === "0")
@@ -497,7 +445,7 @@ function shouldStreamAgentStderr(env, isTTY) {
     return isTTY;
 }
 // Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
-const HTTP_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");
+const HTTP_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");
 /** Keep a failed agent's own stderr beside its result.md, at
  *  <workerDir>/logs/agent-stderr.log, so the reason is readable after the
  *  fact (the shipped wrappers already do this themselves through
@@ -528,11 +476,11 @@ function persistAgentStderr(resultPath, stderr) {
 /** agent — spawns an EXTERNAL agent process per worker argv-style
  *  (shell:false), or POSTs the manifest to a configured HTTP agent
  *  endpoint. */
-function runAgentProcess(descriptor, policy, request, label, attestation) {
+export function runAgentProcess(descriptor, policy, request, label, attestation) {
     const resolved = resolveAgentInvocation(request);
     const subst = agentSubstitutions(request, resolved.model);
     if (resolved.binary) {
-        const realArgs = resolved.rawArgs.map((arg) => (0, cli_args_1.substituteAgentArg)(arg, subst));
+        const realArgs = resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst));
         const recordedArgs = stripSecretArgs(realArgs);
         let outcome;
         // Names only, never values — for the worker.agent-env trust-audit event
@@ -554,7 +502,7 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
             // of `built.forwarded` / the trust-audit forwarded list.
             const vendorPidFile = vendorPidFilePath();
             const childEnv = { ...built.env, CW_AGENT_VENDOR_PIDFILE: vendorPidFile };
-            const child = (0, perf_trace_1.withPerfTraceGroup)("agent-wait", () => (0, node_child_process_1.spawnSync)(resolved.binary, realArgs, {
+            const child = withPerfTraceGroup("agent-wait", () => spawnSync(resolved.binary, realArgs, {
                 cwd: request.cwd,
                 env: childEnv,
                 encoding: "utf8",
@@ -586,7 +534,7 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
                 // the wrapper in cw's group.
                 reapRecordedVendor(vendorPidFile);
                 const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
-                return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
+                return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
                     ...attestation,
                     handle: handleOut,
                 });
@@ -598,7 +546,7 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
             }
             catch { /* usually already gone */ }
             outcome = {
-                ...(child.error ? { spawnError: (0, cli_args_1.messageOf)(child.error) } : {}),
+                ...(child.error ? { spawnError: messageOf(child.error) } : {}),
                 exitCode: typeof child.status === "number" ? child.status : null,
                 stdout: String(child.stdout || ""),
                 ...(typeof child.status === "number" && child.status !== 0 && typeof child.stderr === "string" && child.stderr.trim() ? { stderr: child.stderr } : {}),
@@ -608,7 +556,7 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
             persistAgentStderr(subst.result, outcome.stderr);
         if (outcome.spawnError) {
             const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
-            return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent process failed to spawn: ${outcome.spawnError}`, {
+            return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process failed to spawn: ${outcome.spawnError}`, {
                 ...attestation,
                 handle: handleOut,
             });
@@ -619,14 +567,14 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
         const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
         const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage, report.usageSignature, forwardedEnvVars);
         if (exitCode === null) {
-            return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent process returned no exit code (timed out or killed)`, { ...attestation, handle: handleOut });
+            return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process returned no exit code (timed out or killed)`, { ...attestation, handle: handleOut });
         }
-        return (0, envelopes_1.delegatedEnvelope)(descriptor, label, handleOut, { ...attestation, handle: handleOut }, resolved.binary, recordedArgs, exitCode, stdout);
+        return delegatedEnvelope(descriptor, label, handleOut, { ...attestation, handle: handleOut }, resolved.binary, recordedArgs, exitCode, stdout);
     }
     if (resolved.endpoint) {
         return runAgentEndpoint(descriptor, policy, request, label, resolved, attestation);
     }
-    return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-target-missing", `Backend ${descriptor.id} has no command-template or endpoint configured`, attestation);
+    return refusedEnvelope(descriptor, policy, label, "delegation-target-missing", `Backend ${descriptor.id} has no command-template or endpoint configured`, attestation);
 }
 /** Settle a completed endpoint delegation (a numeric exitCode + stdout) into
  *  its envelope: parse the agent report, write result.md as transport when the
@@ -649,7 +597,7 @@ function settleEndpointResult(descriptor, label, endpoint, resolvedModel, manife
     }
     const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
     const handleOut = recordedAgentHandle(undefined, endpoint, [], resolvedModel, reportedModel, report.usage, report.usageSignature);
-    return (0, envelopes_1.delegatedEnvelope)(descriptor, label, handleOut, { ...attestation, handle: handleOut }, "agent-endpoint", [endpoint], exitCode, stdout);
+    return delegatedEnvelope(descriptor, label, handleOut, { ...attestation, handle: handleOut }, "agent-endpoint", [endpoint], exitCode, stdout);
 }
 /** Agent HTTP endpoint variant — POSTs the worker manifest/prompt to a
  *  configured agent endpoint via the shared Node delegate child. In a
@@ -675,7 +623,7 @@ function runAgentEndpoint(descriptor, policy, request, label, resolved, attestat
             const summary = prep.spawnError.startsWith("batch delegate failed:")
                 ? `agent endpoint delegation failed: ${prep.spawnError}`
                 : `agent endpoint error: ${prep.spawnError}`;
-            return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", summary, {
+            return refusedEnvelope(descriptor, policy, label, "delegation-failed", summary, {
                 ...attestation,
                 handle: baseHandle,
             });
@@ -684,7 +632,7 @@ function runAgentEndpoint(descriptor, policy, request, label, resolved, attestat
         // so this is unreachable in practice — kept as a fail-closed backstop with
         // the same wording the serial no-exitCode refusal uses.
         if (typeof prep.exitCode !== "number") {
-            return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent endpoint error: no exitCode reported`, {
+            return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint error: no exitCode reported`, {
                 ...attestation,
                 handle: baseHandle,
             });
@@ -698,7 +646,7 @@ function runAgentEndpoint(descriptor, policy, request, label, resolved, attestat
         resultPath: manifest?.resultPath,
         sandboxProfileId: policy.id,
     });
-    const child = (0, node_child_process_1.spawnSync)(process.execPath, [HTTP_DELEGATE_CHILD_SCRIPT], {
+    const child = spawnSync(process.execPath, [HTTP_DELEGATE_CHILD_SCRIPT], {
         input: job,
         env: { ...process.env, CW_DELEGATE_ENDPOINT: endpoint },
         encoding: "utf8",
@@ -706,7 +654,7 @@ function runAgentEndpoint(descriptor, policy, request, label, resolved, attestat
         maxBuffer: 32 * 1024 * 1024,
     });
     if (child.error) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent endpoint delegation failed: ${(0, cli_args_1.messageOf)(child.error)}`, {
+        return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint delegation failed: ${messageOf(child.error)}`, {
             ...attestation,
             handle: baseHandle,
         });
@@ -716,13 +664,13 @@ function runAgentEndpoint(descriptor, policy, request, label, resolved, attestat
         parsed = JSON.parse(String(child.stdout || "").trim() || "{}");
     }
     catch {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent endpoint returned an unparseable response`, {
+        return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint returned an unparseable response`, {
             ...attestation,
             handle: baseHandle,
         });
     }
     if (parsed.error || typeof parsed.exitCode !== "number") {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent endpoint error: ${parsed.error || "no exitCode reported"}`, {
+        return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint error: ${parsed.error || "no exitCode reported"}`, {
             ...attestation,
             handle: baseHandle,
         });

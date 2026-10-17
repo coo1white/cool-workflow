@@ -5,8 +5,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { RunTask, WorkflowRun } from "../core/state/types";
-import { safeFileName } from "./fs-atomic";
+import { RunTask, WorkflowRun } from "../core/state/types.js";
+import { safeFileName } from "./fs-atomic.js";
 
 function formatInputList(value: unknown): string {
   if (Array.isArray(value)) return value.join("; ");

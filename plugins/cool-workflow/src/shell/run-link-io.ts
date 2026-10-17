@@ -8,10 +8,10 @@
 //
 // Evidence: docs/run-registry-control-plane.7.md "Link".
 
-import { RunLinkAnnotation, WorkflowRun } from "../core/state/types";
-import { appendRunLink, buildRunLink, RunLinkInput } from "../core/run-link";
-import { RunRegistry } from "./run-registry-io";
-import { saveCheckpoint } from "./run-store";
+import { RunLinkAnnotation, WorkflowRun } from "../core/state/types.js";
+import { appendRunLink, buildRunLink, RunLinkInput } from "../core/run-link.js";
+import { RunRegistry } from "./run-registry-io.js";
+import { saveCheckpoint } from "./run-store.js";
 
 export interface RunLinkResult {
   runId: string;

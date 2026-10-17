@@ -1,58 +1,20 @@
-"use strict";
 // shell/report-cli.ts — CLI/MCP-reachable bodies for `cw report bundle`
 // and `cw report verify-bundle`.
 //
 // Evidence: SPEC/ledger-trust.md "CLI: `cw report verify-bundle` and `cw
 // report bundle`".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.reportBundleCli = reportBundleCli;
-exports.reportVerifyBundleCli = reportVerifyBundleCli;
-exports.formatReportVerifyBundle = formatReportVerifyBundle;
-const path = __importStar(require("node:path"));
-const cli_args_1 = require("../core/util/cli-args");
-const run_export_1 = require("./run-export");
-const run_store_1 = require("./run-store");
-const term_1 = require("./term");
+import * as path from "node:path";
+import { cwdArg, optionalArg } from "../core/util/cli-args.js";
+import { exportRun, verifyReportBundle } from "./run-export.js";
+import { loadRunFromCwd } from "./run-store.js";
+import { bold, doctorGlyph } from "./term.js";
 const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
-function reportBundleCli(runId, args) {
+export function reportBundleCli(runId, args) {
     if (!runId)
         throw new Error("report bundle requires a run id (cw report bundle <run-id>)");
-    const base = (0, cli_args_1.cwdArg)(args);
-    const run = (0, run_store_1.loadRunFromCwd)(runId, base);
-    const output = (0, cli_args_1.optionalArg)(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
+    const base = cwdArg(args);
+    const run = loadRunFromCwd(runId, base);
+    const output = optionalArg(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
     const outputPath = path.resolve(base, output);
     if (SYSTEM_DIRS.test(outputPath)) {
         throw new Error(`Refusing to write archive to a system directory: ${output}`);
@@ -61,11 +23,11 @@ function reportBundleCli(runId, args) {
     // re-verifies offline. Default falls back to the same env the verify
     // gate reads, so a single configured key both attests at record-time
     // and travels with the export.
-    const trustKeyArg = (0, cli_args_1.optionalArg)(args["with-trust-key"] || args.withTrustKey || args.trustKey || args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
-    const exported = (0, run_export_1.exportRun)(run, outputPath, { trustPublicKey: trustKeyArg });
-    const extractReportTo = (0, cli_args_1.optionalArg)(args["extract-report"] || args.extractReport || args.extractReportTo);
-    const verification = (0, run_export_1.verifyReportBundle)(exported.path, {
-        pubkey: (0, cli_args_1.optionalArg)(args.pubkey || args.pubKey || args.publicKey),
+    const trustKeyArg = optionalArg(args["with-trust-key"] || args.withTrustKey || args.trustKey || args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+    const exported = exportRun(run, outputPath, { trustPublicKey: trustKeyArg });
+    const extractReportTo = optionalArg(args["extract-report"] || args.extractReport || args.extractReportTo);
+    const verification = verifyReportBundle(exported.path, {
+        pubkey: optionalArg(args.pubkey || args.pubKey || args.publicKey),
         extractReportTo: extractReportTo ? path.resolve(base, extractReportTo) : undefined,
         strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
         requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs),
@@ -80,14 +42,14 @@ function reportBundleCli(runId, args) {
         ok: verification.ok,
     };
 }
-function reportVerifyBundleCli(args) {
-    const base = (0, cli_args_1.cwdArg)(args);
-    const archive = (0, cli_args_1.optionalArg)(args.archive || args.path || args.file || args.bundle);
+export function reportVerifyBundleCli(args) {
+    const base = cwdArg(args);
+    const archive = optionalArg(args.archive || args.path || args.file || args.bundle);
     if (!archive)
         throw new Error("report verify-bundle requires a bundle path (positional, --archive, --path, --file, or --bundle)");
-    const extractReportTo = (0, cli_args_1.optionalArg)(args["extract-report"] || args.extractReport || args.extractReportTo);
-    return (0, run_export_1.verifyReportBundle)(path.resolve(base, archive), {
-        pubkey: (0, cli_args_1.optionalArg)(args.pubkey || args.pubKey || args.publicKey),
+    const extractReportTo = optionalArg(args["extract-report"] || args.extractReport || args.extractReportTo);
+    return verifyReportBundle(path.resolve(base, archive), {
+        pubkey: optionalArg(args.pubkey || args.pubKey || args.publicKey),
         extractReportTo: extractReportTo ? path.resolve(base, extractReportTo) : undefined,
         strictSignatures: Boolean(args["strict-signatures"] || args.strictSignatures || args.strictSigs),
         requireSignatures: Boolean(args["require-signatures"] || args.requireSignatures || args.requireSigs),
@@ -100,8 +62,8 @@ function reportVerifyBundleCli(args) {
  *  (`shell/telemetry-demo.ts`'s `formatBundleDemo`) — verify-bundle is a
  *  flat set of pass/fail checks on one already-sealed archive, not a
  *  multi-step forge-and-catch demonstration. */
-function formatReportVerifyBundle(r) {
-    const lines = [(0, term_1.bold)(`cw report verify-bundle ${r.archivePath}`), ""];
+export function formatReportVerifyBundle(r) {
+    const lines = [bold(`cw report verify-bundle ${r.archivePath}`), ""];
     const checks = [
         [r.archiveOk, "archive intact — file digests match, no tamper"],
         [r.telemetryVerified, "telemetry hash chain verifies"],
@@ -109,7 +71,7 @@ function formatReportVerifyBundle(r) {
         [r.reportFindingsVerified, "report.md matches every signed result"],
     ];
     for (const [ok, label] of checks)
-        lines.push(`  ${(0, term_1.doctorGlyph)(ok ? "ok" : "fail")} ${label}`);
+        lines.push(`  ${doctorGlyph(ok ? "ok" : "fail")} ${label}`);
     const sigDetail = r.signatureKeyProvided
         ? `${r.signaturesReverified}/${r.signaturesChecked} signature(s) reverified (key source: ${r.trustKeySource})`
         : "no public key available — signatures not checked";
@@ -133,6 +95,6 @@ function formatReportVerifyBundle(r) {
         }
     }
     lines.push("");
-    lines.push(`${(0, term_1.doctorGlyph)(r.ok ? "ok" : "fail")} ${r.ok ? "bundle verifies" : "bundle verification FAILED"}`);
+    lines.push(`${doctorGlyph(r.ok ? "ok" : "fail")} ${r.ok ? "bundle verifies" : "bundle verification FAILED"}`);
     return lines.join("\n");
 }

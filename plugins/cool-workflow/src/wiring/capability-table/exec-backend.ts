@@ -1,7 +1,7 @@
 // wiring/capability-table/exec-backend.ts — CLI bindings for the execution
 // backend, agent spawn and sandbox: sandbox.*, backend.*, app.run.
 
-import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
+import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
 
 // Execution backend, agent spawn, sandbox CLI bindings:
 // sandbox.list|show|validate, backend.list|show|probe,
@@ -13,20 +13,23 @@ import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "
 // (attachCliBinding) and sets their real `mcp.handler`.
 // ---------------------------------------------------------------------
 
-import { optionalArg, required, wantsJson } from "../../core/util/cli-args";
+import { optionalArg, required, wantsJson } from "../../core/util/cli-args.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 // This slice is required unconditionally at startup for every command; every
 // shell import below is lazy (require()'d only inside the handler that
 // actually uses it), so a command that never touches doctor/fix/sandbox/
 // backend/app.run never pays any of these shell modules' require cost.
-function loadDoctor(): typeof import("../../shell/doctor") {
-  return require("../../shell/doctor") as typeof import("../../shell/doctor");
+function loadDoctor(): typeof import("../../shell/doctor.js") {
+  return require("../../shell/doctor.js") as typeof import("../../shell/doctor.js");
 }
-function loadAppRunCli(): typeof import("../../shell/app-run-cli") {
-  return require("../../shell/app-run-cli") as typeof import("../../shell/app-run-cli");
+function loadAppRunCli(): typeof import("../../shell/app-run-cli.js") {
+  return require("../../shell/app-run-cli.js") as typeof import("../../shell/app-run-cli.js");
 }
-function loadExecBackendCli(): typeof import("../../shell/exec-backend-cli") {
-  return require("../../shell/exec-backend-cli") as typeof import("../../shell/exec-backend-cli");
+function loadExecBackendCli(): typeof import("../../shell/exec-backend-cli.js") {
+  return require("../../shell/exec-backend-cli.js") as typeof import("../../shell/exec-backend-cli.js");
 }
 
 attachCliBinding("sandbox.list", {

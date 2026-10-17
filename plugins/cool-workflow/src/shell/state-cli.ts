@@ -7,22 +7,22 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { cwdArg, optionalArg } from "../core/util/cli-args";
-import { readJson, writeJson } from "./fs-atomic";
-import { loadRunFromCwd, migrateRunStateFile } from "./run-store";
-import { readNodeSnapshot, readNodeReplay, snapshotNode, replayNodeSnapshot } from "./node-store";
+import { cwdArg, optionalArg } from "../core/util/cli-args.js";
+import { readJson, writeJson } from "./fs-atomic.js";
+import { loadRunFromCwd, migrateRunStateFile } from "./run-store.js";
+import { readNodeSnapshot, readNodeReplay, snapshotNode, replayNodeSnapshot } from "./node-store.js";
 import {
   MigrationContractId,
   checkMigration,
   listMigrationContracts,
   proveMigration,
-} from "../core/state/contract-migration";
-import { diffNodeSnapshots, verifyNodeReplay } from "../core/state/node-snapshot";
-import { nextDispatchTasks } from "../core/pipeline/dispatch";
-import { getRunContract } from "../core/pipeline/runner";
-import { requiredNumberFlag } from "../core/util/numeric-flag";
-import { StateMigrationReport } from "../core/state/migrations";
-import { PipelineContract, WorkflowRun } from "../core/state/types";
+} from "../core/state/contract-migration.js";
+import { diffNodeSnapshots, verifyNodeReplay } from "../core/state/node-snapshot.js";
+import { nextDispatchTasks } from "../core/pipeline/dispatch.js";
+import { getRunContract } from "../core/pipeline/runner.js";
+import { requiredNumberFlag } from "../core/util/numeric-flag.js";
+import { StateMigrationReport } from "../core/state/migrations.js";
+import { PipelineContract, WorkflowRun } from "../core/state/types.js";
 
 // ---------------------------------------------------------------------
 // state.check

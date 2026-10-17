@@ -1,4 +1,3 @@
-"use strict";
 // shell/fs-atomic.ts — atomic/durable JSON file IO and the cross-process
 // advisory file lock. Impure by nature (fs calls); this is the shell layer,
 // not core. Every writer in core/+shell/ that touches disk goes through
@@ -6,57 +5,9 @@
 //
 // Evidence: SPEC/state-core.md "Write ordering and atomic rules", "Lock
 // protocol"; project/docs/rebuild/PLAN.md byte-compat items 1 and 6.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.writeJson = writeJson;
-exports.writeTextDurable = writeTextDurable;
-exports.writePartsDurable = writePartsDurable;
-exports.readJson = readJson;
-exports.safeFileName = safeFileName;
-exports.assertSafeRunId = assertSafeRunId;
-exports.realResolve = realResolve;
-exports.isContainedPath = isContainedPath;
-exports.durableAppendFileSync = durableAppendFileSync;
-exports.logEndsWithNewline = logEndsWithNewline;
-exports.nextBackoffMs = nextBackoffMs;
-exports.withFileLock = withFileLock;
-exports.readLockOwnerPid = readLockOwnerPid;
-exports.acquireOwnerLock = acquireOwnerLock;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const perf_trace_1 = require("./perf-trace");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { recordPerfDurableWrite } from "./perf-trace.js";
 // ---------------------------------------------------------------------------
 // writeJson — the ONE JSON-on-disk byte format: JSON.stringify(value, null, 2)
 // + "\n", written via temp-file + optional fsync + rename (atomic).
@@ -111,7 +62,7 @@ function writeBytesAtomic(file, contents, durable) {
         catch {
             /* directory fsync is best-effort (not supported on every platform) */
         }
-        (0, perf_trace_1.recordPerfDurableWrite)(typeof contents === "string" ? Buffer.byteLength(contents, "utf8") : contents.reduce((sum, part) => sum + part.length, 0));
+        recordPerfDurableWrite(typeof contents === "string" ? Buffer.byteLength(contents, "utf8") : contents.reduce((sum, part) => sum + part.length, 0));
     }
 }
 /** Writes every byte of `parts`, in order, with as few writev calls as the
@@ -128,24 +79,24 @@ function writeAllParts(fd, parts) {
     }
 }
 /** Atomic, optionally-durable JSON write — see `writeBytesAtomic`. */
-function writeJson(file, value, options = {}) {
+export function writeJson(file, value, options = {}) {
     writeBytesAtomic(file, `${JSON.stringify(value, null, 2)}\n`, Boolean(options.durable));
 }
 /** Same atomic-write contract as `writeJson` (temp file + optional fsync +
  *  rename), but for exact pre-built text instead of a value to serialize —
  *  used by callers replacing an NDJSON-style file (e.g. a repaired
  *  trust-audit event log) where the caller already has the final bytes. */
-function writeTextDurable(file, text, options = {}) {
+export function writeTextDurable(file, text, options = {}) {
     writeBytesAtomic(file, text, Boolean(options.durable));
 }
 /** Same contract again, for bytes already cut into parts (written in order
  *  with writev, never joined into one string first). */
-function writePartsDurable(file, parts, options = {}) {
+export function writePartsDurable(file, parts, options = {}) {
     writeBytesAtomic(file, parts, Boolean(options.durable));
 }
 /** Read + JSON.parse a file. Throws `File not found: <file>` when absent,
  *  `Invalid JSON in <file>: <message>` on a parse error. */
-function readJson(file) {
+export function readJson(file) {
     if (!fs.existsSync(file))
         throw new Error(`File not found: ${file}`);
     try {
@@ -160,7 +111,7 @@ function readJson(file) {
 // Safe ids / names
 // ---------------------------------------------------------------------------
 /** Replaces every run of chars outside `[a-zA-Z0-9_.:-]` with a single `_`. */
-function safeFileName(value) {
+export function safeFileName(value) {
     return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");
 }
 /** Refuse a run id that is not a single safe path segment, so an id taken
@@ -169,7 +120,7 @@ function safeFileName(value) {
  *  charset already forbids any separator, so the whole id is ONE path
  *  component; only the exact components `.` and `..` are refused — an
  *  EMBEDDED `..` (e.g. `v1..2`) is a safe directory name and is allowed. */
-function assertSafeRunId(value, context = "run id") {
+export function assertSafeRunId(value, context = "run id") {
     if (typeof value !== "string" || value.length === 0) {
         throw new Error(`Invalid ${context}: expected a non-empty string`);
     }
@@ -184,7 +135,7 @@ function assertSafeRunId(value, context = "run id") {
 /** Realpath the deepest EXISTING ancestor (follows symlinks), then re-join
  *  the not-yet-created tail. If nothing exists up to the root, returns
  *  plain `path.resolve(target)`. */
-function realResolve(target) {
+export function realResolve(target) {
     let current = path.resolve(target);
     const tail = [];
     for (;;) {
@@ -204,7 +155,7 @@ function realResolve(target) {
 /** True when `realResolve(candidate)` equals `realResolve(allowed)` or
  *  starts with it plus `path.sep`. Realpaths BOTH sides so a symlinked temp
  *  root (macOS `/tmp` -> `/private/tmp`) compares right. */
-function isContainedPath(candidate, allowed) {
+export function isContainedPath(candidate, allowed) {
     const realCandidate = realResolve(candidate);
     const realAllowed = realResolve(allowed);
     return realCandidate === realAllowed || realCandidate.startsWith(realAllowed + path.sep);
@@ -213,7 +164,7 @@ function isContainedPath(candidate, allowed) {
 // durableAppendFileSync — append a line and fsync it before returning. Used
 // by the trust-audit event log, whose loss breaks audit-completeness.
 // ---------------------------------------------------------------------------
-function durableAppendFileSync(file, data) {
+export function durableAppendFileSync(file, data) {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const fd = fs.openSync(file, "a", 0o600);
     try {
@@ -223,7 +174,7 @@ function durableAppendFileSync(file, data) {
     finally {
         fs.closeSync(fd);
     }
-    (0, perf_trace_1.recordPerfDurableWrite)(Buffer.byteLength(data, "utf8"));
+    recordPerfDurableWrite(Buffer.byteLength(data, "utf8"));
 }
 /** True when `file`'s final byte is "\n", given its already-known `size`.
  *  A COMPLETED `durableAppendFileSync` always leaves the file ending in
@@ -235,7 +186,7 @@ function durableAppendFileSync(file, data) {
  *  extra leading newline is harmless for an NDJSON reader that skips blank
  *  lines, while a MISSED torn boundary would merge two records into one
  *  unparseable line. Used by trust-audit's events.jsonl append path. */
-function logEndsWithNewline(file, size) {
+export function logEndsWithNewline(file, size) {
     if (size <= 0)
         return false;
     let fd;
@@ -319,7 +270,7 @@ function sleepSync(ms) {
  *  applied separately at the call site), so the retry schedule is
  *  unit-testable without any timing. Exported for that test only — fs-atomic
  *  is not part of the public index.ts surface. */
-function nextBackoffMs(previous) {
+export function nextBackoffMs(previous) {
     return Math.min(previous * 2, FILE_LOCK_BACKOFF_MAX_MS);
 }
 /** Whether the pid recorded in a lock body ("<pid>@<ISO>\n") is still a
@@ -484,7 +435,7 @@ function stealStaleLockUnderGuard(lock, pid, attempt) {
  *  corrupt the thief's critical section, so it is deliberately NOT released).
  *  Re-entrant inside one process: a nested call on the same target runs
  *  `fn` under the already-held lock. */
-function withFileLock(targetPath, fn) {
+export function withFileLock(targetPath, fn) {
     const lock = `${targetPath}.lock`;
     const heldKey = path.resolve(lock);
     if (HELD_LOCKS.has(heldKey))
@@ -601,7 +552,7 @@ function withFileLock(targetPath, fn) {
 const HELD_OWNER_LOCKS = new Set();
 /** The pid recorded in the lock file `lock`, or 0 when it is missing,
  *  unreadable, or names no pid. */
-function readLockOwnerPid(lock) {
+export function readLockOwnerPid(lock) {
     try {
         return lockBodyPid(fs.readFileSync(lock, "utf8"));
     }
@@ -613,7 +564,7 @@ function readLockOwnerPid(lock) {
  *  a release function (a no-op when this call re-entered a lock already
  *  held in-process). Throws `refuse(ownerPid)` when another LIVE process
  *  holds it, or when 3 tries could not take it. */
-function acquireOwnerLock(lock, refuse) {
+export function acquireOwnerLock(lock, refuse) {
     const key = path.resolve(lock);
     if (HELD_OWNER_LOCKS.has(key))
         return () => { };

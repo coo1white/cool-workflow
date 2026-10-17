@@ -20,7 +20,7 @@
   },
   "layerViolations": {
     "core/capability-table.ts": [
-      "../wiring/capability-table"
+      "../wiring/capability-table/index.js"
     ]
   }
 }

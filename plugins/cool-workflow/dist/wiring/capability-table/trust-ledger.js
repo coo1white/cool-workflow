@@ -1,9 +1,9 @@
-"use strict";
 // wiring/capability-table/trust-ledger.ts — CLI bindings for ledger.*,
 // telemetry.verify, audit.verify, audit.head, demo.*, report.bundle/verify-bundle.
-Object.defineProperty(exports, "__esModule", { value: true });
-const registry_core_1 = require("./registry-core");
-const cli_args_1 = require("../../core/util/cli-args");
+import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
+import { required, optionalArg } from "../../core/util/cli-args.js";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 // Ledger, telemetry, trust-audit and tamper/bundle demo CLI
 // bindings: ledger propose|review|verify|apply|list, telemetry verify,
 // audit verify, demo tamper|bundle, report bundle|verify-bundle. Handler
@@ -20,24 +20,24 @@ const cli_args_1 = require("../../core/util/cli-args");
 // load cost out of commands that never touch ledger/telemetry/audit/demo/
 // report.
 function loadLedgerCli() {
-    return require("../../shell/ledger-cli");
+    return require("../../shell/ledger-cli.js");
 }
 function loadTelemetryCli() {
-    return require("../../shell/telemetry-cli");
+    return require("../../shell/telemetry-cli.js");
 }
 function loadAuditCli() {
-    return require("../../shell/audit-cli");
+    return require("../../shell/audit-cli.js");
 }
 function loadDemoCli() {
-    return require("../../shell/demo-cli");
+    return require("../../shell/demo-cli.js");
 }
 function loadTelemetryDemo() {
-    return require("../../shell/telemetry-demo");
+    return require("../../shell/telemetry-demo.js");
 }
 function loadReportCli() {
-    return require("../../shell/report-cli");
+    return require("../../shell/report-cli.js");
 }
-(0, registry_core_1.attachCliBinding)("ledger.propose", {
+attachCliBinding("ledger.propose", {
     path: ["ledger", "propose"],
     jsonMode: "default",
     handler: (args) => ({ json: loadLedgerCli().ledgerProposeCli(args.options) }),
@@ -56,8 +56,8 @@ function loadReportCli() {
     // may warn about an unknown flag (TTY-only; see cli/global-flags.ts).
     flagsComplete: true,
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.propose").mcp.handler = (args) => loadLedgerCli().ledgerProposeMcp(args);
-(0, registry_core_1.attachCliBinding)("ledger.review", {
+REGISTRY_BY_CAPABILITY.get("ledger.propose").mcp.handler = (args) => loadLedgerCli().ledgerProposeMcp(args);
+attachCliBinding("ledger.review", {
     path: ["ledger", "review"],
     jsonMode: "default",
     handler: (args) => ({ json: loadLedgerCli().ledgerReviewCli(args.options) }),
@@ -77,8 +77,8 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.propose").mcp.handler = (args
     // may warn about an unknown flag (TTY-only; see cli/global-flags.ts).
     flagsComplete: true,
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.review").mcp.handler = (args) => loadLedgerCli().ledgerReviewMcp(args);
-(0, registry_core_1.attachCliBinding)("ledger.verify", {
+REGISTRY_BY_CAPABILITY.get("ledger.review").mcp.handler = (args) => loadLedgerCli().ledgerReviewMcp(args);
+attachCliBinding("ledger.verify", {
     path: ["ledger", "verify"],
     jsonMode: "default",
     handler: (args) => {
@@ -86,8 +86,8 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.review").mcp.handler = (args)
         return { json: result, exitCode: result.ok ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.verify").mcp.handler = (args) => loadLedgerCli().ledgerVerifyEntry(args.entry);
-(0, registry_core_1.attachCliBinding)("ledger.apply", {
+REGISTRY_BY_CAPABILITY.get("ledger.verify").mcp.handler = (args) => loadLedgerCli().ledgerVerifyEntry(args.entry);
+attachCliBinding("ledger.apply", {
     path: ["ledger", "apply"],
     jsonMode: "default",
     handler: (args) => {
@@ -95,8 +95,8 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.verify").mcp.handler = (args)
         return { json: result, exitCode: result.ok ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.apply").mcp.handler = (args) => loadLedgerCli().ledgerApplyEntry(args.entry);
-(0, registry_core_1.attachCliBinding)("ledger.list", {
+REGISTRY_BY_CAPABILITY.get("ledger.apply").mcp.handler = (args) => loadLedgerCli().ledgerApplyEntry(args.entry);
+attachCliBinding("ledger.list", {
     path: ["ledger", "list"],
     jsonMode: "default",
     handler: (args) => {
@@ -112,47 +112,47 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.apply").mcp.handler = (args) 
         { name: "--dir DIR", summary: "Old name for --ledger-dir (also the global --repo alias; kept working)." },
     ],
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.list").mcp.handler = (args) => loadLedgerCli().ledgerListMcp(args);
-(0, registry_core_1.attachCliBinding)("telemetry.verify", {
+REGISTRY_BY_CAPABILITY.get("ledger.list").mcp.handler = (args) => loadLedgerCli().ledgerListMcp(args);
+attachCliBinding("telemetry.verify", {
     path: ["telemetry", "verify"],
     jsonMode: "flag",
     handler: (args) => {
-        const runId = (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.positionals[0]) || (0, cli_args_1.optionalArg)(args.options.runId) || (0, cli_args_1.optionalArg)(args.options.run), "run id");
+        const runId = required(optionalArg(args.positionals[0]) || optionalArg(args.options.runId) || optionalArg(args.options.run), "run id");
         const result = loadTelemetryCli().telemetryVerifyCli(runId, args.options);
         return { json: result, text: loadTelemetryDemo().formatTelemetryVerify(result), exitCode: result.verified ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("telemetry.verify").mcp.handler = (args) => loadTelemetryCli().telemetryVerifyCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-(0, registry_core_1.attachCliBinding)("audit.verify", {
+REGISTRY_BY_CAPABILITY.get("telemetry.verify").mcp.handler = (args) => loadTelemetryCli().telemetryVerifyCli(required(optionalArg(args.runId), "run id"), args);
+attachCliBinding("audit.verify", {
     path: ["audit", "verify"],
     jsonMode: "default",
     handler: (args) => {
-        const runId = (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.positionals[0]), "run id");
+        const runId = required(optionalArg(args.positionals[0]), "run id");
         const result = loadAuditCli().auditVerifyCli(runId, args.options);
         return { json: result, exitCode: result.verified ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.verify").mcp.handler = (args) => loadAuditCli().auditVerifyCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-(0, registry_core_1.attachCliBinding)("audit.head", {
+REGISTRY_BY_CAPABILITY.get("audit.verify").mcp.handler = (args) => loadAuditCli().auditVerifyCli(required(optionalArg(args.runId), "run id"), args);
+attachCliBinding("audit.head", {
     path: ["audit", "head"],
     jsonMode: "default",
     handler: (args) => {
-        const runId = (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.positionals[0]), "run id");
+        const runId = required(optionalArg(args.positionals[0]), "run id");
         return { json: loadAuditCli().auditHeadCli(runId, args.options) };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.head").mcp.handler = (args) => loadAuditCli().auditHeadCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-(0, registry_core_1.attachCliBinding)("audit.repair", {
+REGISTRY_BY_CAPABILITY.get("audit.head").mcp.handler = (args) => loadAuditCli().auditHeadCli(required(optionalArg(args.runId), "run id"), args);
+attachCliBinding("audit.repair", {
     path: ["audit", "repair"],
     jsonMode: "default",
     handler: (args) => {
-        const runId = (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.positionals[0]), "run id");
+        const runId = required(optionalArg(args.positionals[0]), "run id");
         const result = loadAuditCli().auditRepairCli(runId, args.options);
         return { json: result, exitCode: result.outcome === "refused" ? 1 : undefined };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.repair").mcp.handler = (args) => loadAuditCli().auditRepairCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-(0, registry_core_1.addCliOnlyCapability)("demo.tamper", "Prove tamper-evidence: build a signed telemetry ledger, forge it, watch verification fail offline.", {
+REGISTRY_BY_CAPABILITY.get("audit.repair").mcp.handler = (args) => loadAuditCli().auditRepairCli(required(optionalArg(args.runId), "run id"), args);
+addCliOnlyCapability("demo.tamper", "Prove tamper-evidence: build a signed telemetry ledger, forge it, watch verification fail offline.", {
     path: ["demo", "tamper"],
     jsonMode: "flag",
     handler: (args) => {
@@ -160,7 +160,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.repair").mcp.handler = (args) 
         return { json: result, text: loadTelemetryDemo().formatTamperDemo(result), exitCode: result.proven ? undefined : 1 };
     },
 }, "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo.");
-(0, registry_core_1.addCliOnlyCapability)("demo.bundle", "Prove portable-bundle verification: export a sealed report bundle, forge it two ways, watch report verify-bundle catch both offline with only the embedded public key.", {
+addCliOnlyCapability("demo.bundle", "Prove portable-bundle verification: export a sealed report bundle, forge it two ways, watch report verify-bundle catch both offline with only the embedded public key.", {
     path: ["demo", "bundle"],
     jsonMode: "flag",
     handler: (args) => {
@@ -168,27 +168,27 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.repair").mcp.handler = (args) 
         return { json: result, text: loadTelemetryDemo().formatBundleDemo(result), exitCode: result.proven ? undefined : 1 };
     },
 }, "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface report.verify-bundle. No agent or MCP client needs to invoke a demo.");
-(0, registry_core_1.attachCliBinding)("report.bundle", {
+attachCliBinding("report.bundle", {
     path: ["report", "bundle"],
     jsonMode: "default",
     handler: (args) => {
-        const runId = (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.positionals[0]), "run id");
+        const runId = required(optionalArg(args.positionals[0]), "run id");
         const result = loadReportCli().reportBundleCli(runId, args.options);
         return { json: result, exitCode: result.ok ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("report.bundle").mcp.handler = (args) => loadReportCli().reportBundleCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-(0, registry_core_1.attachCliBinding)("report.verify-bundle", {
+REGISTRY_BY_CAPABILITY.get("report.bundle").mcp.handler = (args) => loadReportCli().reportBundleCli(required(optionalArg(args.runId), "run id"), args);
+attachCliBinding("report.verify-bundle", {
     path: ["report", "verify-bundle"],
     jsonMode: "flag",
     handler: (args) => {
-        const archivePath = (0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.positionals[0]), "bundle path");
+        const archivePath = required(optionalArg(args.positionals[0]), "bundle path");
         const reportCli = loadReportCli();
         const result = reportCli.reportVerifyBundleCli({ ...args.options, archive: archivePath });
         return { json: result, text: reportCli.formatReportVerifyBundle(result), exitCode: result.ok ? undefined : 1 };
     },
 });
-registry_core_1.REGISTRY_BY_CAPABILITY.get("report.verify-bundle").mcp.handler = (args) => {
+REGISTRY_BY_CAPABILITY.get("report.verify-bundle").mcp.handler = (args) => {
     const result = loadReportCli().reportVerifyBundleCli(args);
     return result;
 };

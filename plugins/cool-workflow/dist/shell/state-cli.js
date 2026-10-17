@@ -1,86 +1,35 @@
-"use strict";
 // shell/state-cli.ts — CLI/MCP-reachable bodies for the state-kernel
 // capability rows (state.check, migration.list|check|prove, node.list|
 // show|graph|snapshot|diff|replay|replay.verify, contract.show).
 //
 // Impure (fs) — this is the shell layer the capability-table's CLI/MCP
 // handlers delegate to; the decision logic itself lives in core/state/*.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.optionalStringArg = void 0;
-exports.checkState = checkState;
-exports.migrationList = migrationList;
-exports.migrationCheck = migrationCheck;
-exports.migrationProve = migrationProve;
-exports.nextCli = nextCli;
-exports.listNodes = listNodes;
-exports.getRunNode = getRunNode;
-exports.showNode = showNode;
-exports.graphNodes = graphNodes;
-exports.nodeSnapshotCli = nodeSnapshotCli;
-exports.nodeDiffCli = nodeDiffCli;
-exports.nodeReplayCli = nodeReplayCli;
-exports.nodeReplayVerifyCli = nodeReplayVerifyCli;
-exports.contractShowCli = contractShowCli;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const cli_args_1 = require("../core/util/cli-args");
-Object.defineProperty(exports, "optionalStringArg", { enumerable: true, get: function () { return cli_args_1.optionalArg; } });
-const fs_atomic_1 = require("./fs-atomic");
-const run_store_1 = require("./run-store");
-const node_store_1 = require("./node-store");
-const contract_migration_1 = require("../core/state/contract-migration");
-const node_snapshot_1 = require("../core/state/node-snapshot");
-const dispatch_1 = require("../core/pipeline/dispatch");
-const runner_1 = require("../core/pipeline/runner");
-const numeric_flag_1 = require("../core/util/numeric-flag");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { cwdArg, optionalArg } from "../core/util/cli-args.js";
+import { readJson, writeJson } from "./fs-atomic.js";
+import { loadRunFromCwd, migrateRunStateFile } from "./run-store.js";
+import { readNodeSnapshot, readNodeReplay, snapshotNode, replayNodeSnapshot } from "./node-store.js";
+import { checkMigration, listMigrationContracts, proveMigration, } from "../core/state/contract-migration.js";
+import { diffNodeSnapshots, verifyNodeReplay } from "../core/state/node-snapshot.js";
+import { nextDispatchTasks } from "../core/pipeline/dispatch.js";
+import { getRunContract } from "../core/pipeline/runner.js";
+import { requiredNumberFlag } from "../core/util/numeric-flag.js";
 // ---------------------------------------------------------------------
 // state.check
 // ---------------------------------------------------------------------
 /** `cw state check <run-id> [--state PATH] [--write] [--cwd PATH]`. */
-function checkState(runId, options = {}) {
-    const cwd = (0, cli_args_1.cwdArg)(options, ["cwd"], true);
+export function checkState(runId, options = {}) {
+    const cwd = cwdArg(options, ["cwd"], true);
     const statePath = options.state ? path.resolve(String(options.state)) : path.join(cwd, ".cw", "runs", runId, "state.json");
-    const result = (0, run_store_1.migrateRunStateFile)(statePath, { write: Boolean(options.write) });
+    const result = migrateRunStateFile(statePath, { write: Boolean(options.write) });
     return result.report;
 }
 // ---------------------------------------------------------------------
 // migration.list | migration.check | migration.prove
 // ---------------------------------------------------------------------
-function migrationList() {
-    return { contracts: (0, contract_migration_1.listMigrationContracts)() };
+export function migrationList() {
+    return { contracts: listMigrationContracts() };
 }
 /** Resolves `target` to an existing file (absolute/relative to
  *  `process.cwd()`, NOT the `--cwd` option) else `<cwd>/.cw/runs/<target>/
@@ -93,21 +42,21 @@ function loadMigrationSnapshot(target, options) {
         : path.join(process.cwd(), ".cw", "runs", target, "state.json");
     if (!fs.existsSync(file))
         throw new Error(`Migration target not found: ${target}`);
-    return { snapshot: (0, fs_atomic_1.readJson)(file), contract, dir: path.dirname(file) };
+    return { snapshot: readJson(file), contract, dir: path.dirname(file) };
 }
-function migrationCheck(target, options = {}) {
+export function migrationCheck(target, options = {}) {
     const { snapshot, contract } = loadMigrationSnapshot(target, options);
-    return (0, contract_migration_1.checkMigration)(contract, snapshot);
+    return checkMigration(contract, snapshot);
 }
 /** Appends the proof beside the target (NEVER overwriting source) under
  *  `<targetDir>/migration/<first 16 hex of fingerprint>.json`; a
  *  read-only target still returns the proof (write failure is
  *  best-effort/swallowed). */
-function migrationProve(target, options = {}) {
+export function migrationProve(target, options = {}) {
     const { snapshot, contract, dir } = loadMigrationSnapshot(target, options);
-    const proof = (0, contract_migration_1.proveMigration)(contract, snapshot);
+    const proof = proveMigration(contract, snapshot);
     try {
-        (0, fs_atomic_1.writeJson)(path.join(dir, "migration", `${proof.fingerprint.replace("sha256:", "").slice(0, 16)}.json`), proof);
+        writeJson(path.join(dir, "migration", `${proof.fingerprint.replace("sha256:", "").slice(0, 16)}.json`), proof);
     }
     catch {
         /* read-only target — the proof is still returned */
@@ -119,30 +68,30 @@ function migrationProve(target, options = {}) {
 // node.replay | node.replay.verify
 // ---------------------------------------------------------------------
 function loadRun(runId, options = {}) {
-    const cwd = (0, cli_args_1.cwdArg)(options, ["cwd"], true);
-    return (0, run_store_1.loadRunFromCwd)(runId, cwd);
+    const cwd = cwdArg(options, ["cwd"], true);
+    return loadRunFromCwd(runId, cwd);
 }
 /** `cw next <run-id> [--limit N]` — the read-only "what would dispatch next"
  *  preview: the runnable tasks the next `cw dispatch` would pick, in order,
  *  without mutating state (nextDispatchTasks over the loaded run). Both
  *  the CLI and the cw_next MCP tool render this same DispatchTask[] value,
  *  so their payloads stay identical. */
-function nextCli(runId, options = {}) {
-    return (0, dispatch_1.nextDispatchTasks)(loadRun(runId, options), (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"));
+export function nextCli(runId, options = {}) {
+    return nextDispatchTasks(loadRun(runId, options), requiredNumberFlag(options.limit, "--limit"));
 }
-function listNodes(runId, options = {}) {
+export function listNodes(runId, options = {}) {
     return loadRun(runId, options).nodes || [];
 }
-function getRunNode(run, nodeId) {
+export function getRunNode(run, nodeId) {
     const node = (run.nodes || []).find((candidate) => candidate.id === nodeId);
     if (!node)
         throw new Error(`Unknown state node for run ${run.id}: ${nodeId}`);
     return node;
 }
-function showNode(runId, nodeId, options = {}) {
+export function showNode(runId, nodeId, options = {}) {
     return getRunNode(loadRun(runId, options), nodeId);
 }
-function graphNodes(runId, options = {}) {
+export function graphNodes(runId, options = {}) {
     return (loadRun(runId, options).nodes || []).map((node) => ({
         id: node.id,
         kind: node.kind,
@@ -151,20 +100,20 @@ function graphNodes(runId, options = {}) {
         children: node.children,
     }));
 }
-function nodeSnapshotCli(runId, nodeId, options = {}) {
-    return (0, node_store_1.snapshotNode)(loadRun(runId, options), nodeId, options);
+export function nodeSnapshotCli(runId, nodeId, options = {}) {
+    return snapshotNode(loadRun(runId, options), nodeId, options);
 }
-function nodeDiffCli(runId, baselineSnapshotId, candidateSnapshotId, options = {}) {
+export function nodeDiffCli(runId, baselineSnapshotId, candidateSnapshotId, options = {}) {
     const run = loadRun(runId, options);
-    return (0, node_snapshot_1.diffNodeSnapshots)((0, node_store_1.readNodeSnapshot)(run, baselineSnapshotId), (0, node_store_1.readNodeSnapshot)(run, candidateSnapshotId));
+    return diffNodeSnapshots(readNodeSnapshot(run, baselineSnapshotId), readNodeSnapshot(run, candidateSnapshotId));
 }
-function nodeReplayCli(runId, snapshotId, options = {}) {
+export function nodeReplayCli(runId, snapshotId, options = {}) {
     const run = loadRun(runId, options);
-    return (0, node_store_1.replayNodeSnapshot)(run, (0, node_store_1.readNodeSnapshot)(run, snapshotId), options);
+    return replayNodeSnapshot(run, readNodeSnapshot(run, snapshotId), options);
 }
-function nodeReplayVerifyCli(runId, replayId, options = {}) {
+export function nodeReplayVerifyCli(runId, replayId, options = {}) {
     const run = loadRun(runId, options);
-    return (0, node_snapshot_1.verifyNodeReplay)(run, (0, node_store_1.readNodeReplay)(run, replayId), options);
+    return verifyNodeReplay(run, readNodeReplay(run, replayId), options);
 }
 // ---------------------------------------------------------------------
 // contract.show
@@ -176,9 +125,10 @@ function firstStringArg(value) {
 }
 /** `cw contract show <run> [contract-id]` / `cw_contract_show` — the run's
  *  resolved pipeline contract. */
-function contractShowCli(args, contractId) {
+export function contractShowCli(args, contractId) {
     const runId = firstStringArg(args.runId);
     if (!runId)
         throw new Error("Missing run id");
-    return (0, runner_1.getRunContract)(loadRun(runId, args), contractId ?? firstStringArg(args.contractId));
+    return getRunContract(loadRun(runId, args), contractId ?? firstStringArg(args.contractId));
 }
+export { optionalArg as optionalStringArg };

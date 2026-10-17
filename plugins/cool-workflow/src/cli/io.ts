@@ -11,9 +11,9 @@
 // `bold()`. Kept here (not in core/format/help.ts, which stays a pure text
 // generator) since it needs shell/term.ts's env/TTY read.
 
-import { formatHelp } from "../core/format/help";
-import { safeJsonStringify } from "../core/format/safe-json";
-import { bold } from "../shell/term";
+import { formatHelp } from "../core/format/help.js";
+import { safeJsonStringify } from "../core/format/safe-json.js";
+import { bold } from "../shell/term.js";
 
 /** Bold ONLY the fixed "Cool Workflow" header line of `formatHelp()`'s
  *  plain text. */

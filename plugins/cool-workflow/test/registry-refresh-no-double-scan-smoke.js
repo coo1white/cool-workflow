@@ -31,6 +31,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 const { execFileSync } = require("node:child_process");
@@ -68,11 +69,13 @@ try {
     if (statePathSet.has(file)) readCounts.set(file, (readCounts.get(file) || 0) + 1);
     return originalReadFileSync.call(fs, file, ...rest);
   };
+  syncBuiltinESMExports();
   let report;
   try {
     report = registry.refresh({ scope: "repo" });
   } finally {
     fs.readFileSync = originalReadFileSync;
+    syncBuiltinESMExports();
   }
 
   assert.equal(report.index.records.length, N, "the repo-scope index must still list every run");

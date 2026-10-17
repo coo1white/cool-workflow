@@ -1,4 +1,3 @@
-"use strict";
 // core/trust/ledger.ts — the cross-agent handoff ledger kernel.
 //
 // Pure: computeLedgerDigest, buildLedgerProposal/Review,
@@ -12,21 +11,14 @@
 //
 // Evidence: SPEC/ledger-trust.md "Handoff ledger entry", "Exported
 // functions", "Edge cases".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.computeLedgerDigest = computeLedgerDigest;
-exports.buildLedgerProposal = buildLedgerProposal;
-exports.buildLedgerReview = buildLedgerReview;
-exports.verifyLedgerEntry = verifyLedgerEntry;
-exports.applyLedgerProposal = applyLedgerProposal;
-exports.resolveLedgerInbox = resolveLedgerInbox;
-const hash_1 = require("../hash");
-const collate_1 = require("../util/collate");
-const cli_args_1 = require("../util/cli-args");
+import { ledgerStableStringify, sha256 } from "../hash.js";
+import { stableCompare } from "../util/collate.js";
+import { isRecord } from "../util/cli-args.js";
 /** sha256 over the canonical content (every field except `id` and
  *  `digest`, which are derived FROM it). Returns the full `sha256:<hex>`
  *  form — the same prefixed spelling every other hash chain uses. */
-function computeLedgerDigest(entry) {
-    return (0, hash_1.sha256)((0, hash_1.ledgerStableStringify)(entry));
+export function computeLedgerDigest(entry) {
+    return sha256(ledgerStableStringify(entry));
 }
 /** Content-addressed id: `ldg-` + the first 16 hex chars of the digest. */
 function deriveId(digest) {
@@ -36,7 +28,7 @@ function seal(content) {
     const digest = computeLedgerDigest(content);
     return { ...content, id: deriveId(digest), digest };
 }
-function buildLedgerProposal(input) {
+export function buildLedgerProposal(input) {
     const content = {
         kind: "proposal",
         schemaVersion: 1,
@@ -50,7 +42,7 @@ function buildLedgerProposal(input) {
     };
     return seal(content);
 }
-function buildLedgerReview(input) {
+export function buildLedgerReview(input) {
     const content = {
         kind: "review",
         schemaVersion: 1,
@@ -69,21 +61,21 @@ const REVIEW_FIELDS = ["from", "to", "target", "verdict", "findings", "createdAt
  *  digest mismatch yields `ok:false`. Check names run in this order and
  *  stop at the first failure: structure, kind, schema, digest-present,
  *  fields (verdict nested inside for reviews), digest, id. */
-function verifyLedgerEntry(raw) {
+export function verifyLedgerEntry(raw) {
     const checks = [];
     const fail = (name, code, detail) => {
         checks.push({ name, pass: false, code, detail });
         return {
             ok: false,
-            id: (0, cli_args_1.isRecord)(raw) && typeof raw.id === "string" ? raw.id : null,
-            kind: (0, cli_args_1.isRecord)(raw) && typeof raw.kind === "string" ? raw.kind : null,
+            id: isRecord(raw) && typeof raw.id === "string" ? raw.id : null,
+            kind: isRecord(raw) && typeof raw.kind === "string" ? raw.kind : null,
             checks,
             failedChecks: checks
                 .filter((c) => !c.pass)
                 .map((c) => ({ name: c.name, code: c.code, detail: c.detail })),
         };
     };
-    if (!(0, cli_args_1.isRecord)(raw))
+    if (!isRecord(raw))
         return fail("structure", "ledger-not-object", "entry is not a JSON object");
     checks.push({ name: "structure", pass: true });
     const kind = raw.kind;
@@ -131,7 +123,7 @@ function verifyLedgerEntry(raw) {
  *  ONLY escape after the entry verifies: a tampered entry, a review (not
  *  a proposal), or a proposal with no diff all yield `ok:false` and
  *  `diff:null`. */
-function applyLedgerProposal(raw) {
+export function applyLedgerProposal(raw) {
     const verified = verifyLedgerEntry(raw);
     if (!verified.ok) {
         return { ok: false, id: verified.id, kind: verified.kind, diff: null, failedChecks: verified.failedChecks };
@@ -145,7 +137,7 @@ function applyLedgerProposal(raw) {
             failedChecks: [{ name: "kind", code: "ledger-not-a-proposal", detail: "apply expects a proposal entry, not a review" }],
         };
     }
-    const rec = (0, cli_args_1.isRecord)(raw) ? raw : {};
+    const rec = isRecord(raw) ? raw : {};
     const diff = typeof rec.suggestedDiff === "string" ? rec.suggestedDiff : "";
     if (!diff) {
         return {
@@ -162,7 +154,7 @@ function applyLedgerProposal(raw) {
  *  review(s) that target it and report whether it is pending, approved,
  *  rejected, or contested. Only VERIFIED entries take part — a tampered
  *  review must never resolve a proposal. */
-function resolveLedgerInbox(entries) {
+export function resolveLedgerInbox(entries) {
     const verified = entries.filter((e) => e.ok);
     const reviews = verified.filter((e) => e.kind === "review" && e.target);
     const proposals = verified
@@ -184,7 +176,7 @@ function resolveLedgerInbox(entries) {
             reviews: answering.map((r) => r.id).sort(),
         };
     })
-        .sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id));
+        .sort((a, b) => stableCompare(a.id, b.id));
     const tally = (s) => proposals.filter((p) => p.resolution === s).length;
     return {
         proposals,

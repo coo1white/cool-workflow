@@ -2,14 +2,18 @@
 // observability, doctor/fix, workbench, run summary/status/operator,
 // worker.*, feedback.*, audit.*.
 
-import { attachCliBinding, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { required, optionalArg, wantsJson } from "../../core/util/cli-args";
-import { adviseNoRun } from "../../core/format/recovery-hint";
+import { attachCliBinding, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
+import { required, optionalArg, wantsJson } from "../../core/util/cli-args.js";
+import { adviseNoRun } from "../../core/format/recovery-hint.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+
 // This file is required at startup for every command. Loading these shell
 // modules only when their handler runs, not at import time, keeps that
 // load cost out of commands that never touch reporting/status/graph.
-function loadRunStore(): typeof import("../../shell/run-store") {
-  return require("../../shell/run-store") as typeof import("../../shell/run-store");
+function loadRunStore(): typeof import("../../shell/run-store.js") {
+  return require("../../shell/run-store.js") as typeof import("../../shell/run-store.js");
 }
 
 // Reporting CLI bindings: report, status (real run id), graph,
@@ -19,13 +23,13 @@ function loadRunStore(): typeof import("../../shell/run-store") {
 // handler call, per cli/dispatch.ts's generic executor contract.
 // ---------------------------------------------------------------------
 
-function loadReportViewCli(): typeof import("../../shell/report-view-cli") {
-  return require("../../shell/report-view-cli") as typeof import("../../shell/report-view-cli");
+function loadReportViewCli(): typeof import("../../shell/report-view-cli.js") {
+  return require("../../shell/report-view-cli.js") as typeof import("../../shell/report-view-cli.js");
 }
-function loadOperatorUxText(): typeof import("../../shell/operator-ux-text") {
-  return require("../../shell/operator-ux-text") as typeof import("../../shell/operator-ux-text");
+function loadOperatorUxText(): typeof import("../../shell/operator-ux-text.js") {
+  return require("../../shell/operator-ux-text.js") as typeof import("../../shell/operator-ux-text.js");
 }
-import type { OperatorFeedbackSummary } from "../../shell/operator-ux";
+import type { OperatorFeedbackSummary } from "../../shell/operator-ux.js";
 
 attachCliBinding("report", {
   path: ["report"],
@@ -114,11 +118,11 @@ REGISTRY_BY_CAPABILITY.get("operator.report")!.mcp!.handler = (args) => loadRepo
 
 // ---- metrics.show / metrics.summary -----------------------------------
 
-function loadMetricsCli(): typeof import("../../shell/metrics-cli") {
-  return require("../../shell/metrics-cli") as typeof import("../../shell/metrics-cli");
+function loadMetricsCli(): typeof import("../../shell/metrics-cli.js") {
+  return require("../../shell/metrics-cli.js") as typeof import("../../shell/metrics-cli.js");
 }
-function loadObservability(): typeof import("../../shell/observability") {
-  return require("../../shell/observability") as typeof import("../../shell/observability");
+function loadObservability(): typeof import("../../shell/observability.js") {
+  return require("../../shell/observability.js") as typeof import("../../shell/observability.js");
 }
 
 attachCliBinding("metrics.show", {
@@ -144,12 +148,12 @@ REGISTRY_BY_CAPABILITY.get("metrics.summary")!.mcp!.handler = (args) => loadMetr
 
 // ---- worker.summary (the workbench worker panel + `cw worker summary`) ----
 
-function loadWorkerIsolation(): typeof import("../../shell/worker-isolation") {
-  return require("../../shell/worker-isolation") as typeof import("../../shell/worker-isolation");
+function loadWorkerIsolation(): typeof import("../../shell/worker-isolation.js") {
+  return require("../../shell/worker-isolation.js") as typeof import("../../shell/worker-isolation.js");
 }
 import * as workerPath from "node:path";
 
-function workerSummaryCli(args: Record<string, unknown>): ReturnType<typeof import("../../shell/worker-isolation").summarizeWorkers> {
+function workerSummaryCli(args: Record<string, unknown>): ReturnType<typeof import("../../shell/worker-isolation.js").summarizeWorkers> {
   const runId = required(optionalArg(args.runId), "run id");
   const run = loadRunStore().loadRunFromCwd(runId, invocationCwdFor(args));
   return loadWorkerIsolation().summarizeWorkers(run);
@@ -179,8 +183,8 @@ REGISTRY_BY_CAPABILITY.get("worker.summary")!.mcp!.handler = (args) => workerSum
 // Each worker lifecycle verb over a run. positionals: [runId, workerId,
 // resultFile].
 
-function loadWorkerCli(): typeof import("../../shell/worker-cli") {
-  return require("../../shell/worker-cli") as typeof import("../../shell/worker-cli");
+function loadWorkerCli(): typeof import("../../shell/worker-cli.js") {
+  return require("../../shell/worker-cli.js") as typeof import("../../shell/worker-cli.js");
 }
 
 attachCliBinding("worker.list", {
@@ -231,8 +235,8 @@ REGISTRY_BY_CAPABILITY.get("worker.validate")!.mcp!.handler = (args) => loadWork
 // ---- feedback list|show|summary|collect|task|resolve (CLI + MCP) ---------
 // The operator feedback lifecycle. positionals: [runId, feedbackId].
 
-function loadFeedbackCli(): typeof import("../../shell/feedback-cli") {
-  return require("../../shell/feedback-cli") as typeof import("../../shell/feedback-cli");
+function loadFeedbackCli(): typeof import("../../shell/feedback-cli.js") {
+  return require("../../shell/feedback-cli.js") as typeof import("../../shell/feedback-cli.js");
 }
 
 // jsonMode "flag": human `Feedback` panel by default, canonical JSON under
@@ -284,14 +288,14 @@ REGISTRY_BY_CAPABILITY.get("feedback.resolve")!.mcp!.handler = (args) => loadFee
 
 // ---- workbench.view / workbench.serve ---------------------------------
 
-function loadWorkbench(): typeof import("../../shell/workbench") {
-  return require("../../shell/workbench") as typeof import("../../shell/workbench");
+function loadWorkbench(): typeof import("../../shell/workbench.js") {
+  return require("../../shell/workbench.js") as typeof import("../../shell/workbench.js");
 }
-function loadWorkbenchText(): typeof import("../../shell/workbench-text") {
-  return require("../../shell/workbench-text") as typeof import("../../shell/workbench-text");
+function loadWorkbenchText(): typeof import("../../shell/workbench-text.js") {
+  return require("../../shell/workbench-text.js") as typeof import("../../shell/workbench-text.js");
 }
-function loadWorkbenchHost(): typeof import("../../shell/workbench-host") {
-  return require("../../shell/workbench-host") as typeof import("../../shell/workbench-host");
+function loadWorkbenchHost(): typeof import("../../shell/workbench-host.js") {
+  return require("../../shell/workbench-host.js") as typeof import("../../shell/workbench-host.js");
 }
 
 attachCliBinding("workbench.view", {
@@ -351,8 +355,8 @@ REGISTRY_BY_CAPABILITY.get("workbench.serve")!.reason =
 
 // ---- audit.summary ----------------------------------------------------
 
-function loadAuditCli(): typeof import("../../shell/audit-cli") {
-  return require("../../shell/audit-cli") as typeof import("../../shell/audit-cli");
+function loadAuditCli(): typeof import("../../shell/audit-cli.js") {
+  return require("../../shell/audit-cli.js") as typeof import("../../shell/audit-cli.js");
 }
 
 attachCliBinding("audit.summary", {

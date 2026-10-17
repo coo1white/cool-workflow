@@ -19,6 +19,7 @@
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const { syncBuiltinESMExports } = require("node:module");
 const os = require("node:os");
 const path = require("node:path");
 
@@ -73,6 +74,7 @@ function writeSyntheticLog(eventLogPath, lineCount, padBytes) {
     if (file === eventLogPath) logReadCount += 1;
     return originalReadFileSync.call(fs, file, ...rest);
   };
+  syncBuiltinESMExports();
   let first, second;
   try {
     first = recordTrustAuditEvent(run, { kind: "sandbox.path", decision: "allowed", source: "cw-validated", workerId: "w1" });
@@ -82,6 +84,7 @@ function writeSyntheticLog(eventLogPath, lineCount, padBytes) {
     assert.equal(logReadCount, 1, "the second append must NOT re-read the log at all -- it must be served entirely from the cache the first append just populated");
   } finally {
     fs.readFileSync = originalReadFileSync;
+    syncBuiltinESMExports();
   }
 
   assert.equal(second.prevEventHash, first.eventHash, "the cache-hit append must still link to the PRIOR real event's actual hash");

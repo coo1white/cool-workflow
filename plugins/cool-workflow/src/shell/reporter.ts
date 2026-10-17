@@ -9,7 +9,7 @@
 // Evidence: SPEC/reporting-ux.md "The Rule of Silence (TTY view vs
 // pipes)".
 
-import { dim, green, yellow, nextHint, tryHint } from "./term";
+import { dim, green, yellow, nextHint, tryHint } from "./term.js";
 
 export interface RunSummaryFields {
   runId: string;

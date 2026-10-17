@@ -7,14 +7,14 @@
 // Evidence: SPEC/ledger-trust.md "CLI: `cw audit verify`".
 
 import * as path from "node:path";
-import { cwdArg } from "../core/util/cli-args";
-import { verifyTrustAudit, summarizeTrustAudit, trustAuditHead, repairTrustAuditTornTail, TrustAuditAnchor, TrustAuditRepairResult } from "./trust-audit";
-import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store";
-import { writeReport } from "./report";
-import { evidenceProvenance, recordHostAttestation, recordSandboxPolicyDecision, workerTrustAudit } from "./audit-provenance";
-import { getWorkerScope, recordWorkerFailure, validateWorkerBoundary } from "./worker-isolation";
-import { validateSandboxCommand, validateSandboxNetwork } from "./sandbox-profile";
-import { WorkflowRun } from "../core/state/types";
+import { cwdArg } from "../core/util/cli-args.js";
+import { verifyTrustAudit, summarizeTrustAudit, trustAuditHead, repairTrustAuditTornTail, TrustAuditAnchor, TrustAuditRepairResult } from "./trust-audit.js";
+import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store.js";
+import { writeReport } from "./report.js";
+import { evidenceProvenance, recordHostAttestation, recordSandboxPolicyDecision, workerTrustAudit } from "./audit-provenance.js";
+import { getWorkerScope, recordWorkerFailure, validateWorkerBoundary } from "./worker-isolation.js";
+import { validateSandboxCommand, validateSandboxNetwork } from "./sandbox-profile.js";
+import { WorkflowRun } from "../core/state/types.js";
 
 export interface AuditVerifyResult {
   schemaVersion: 1;

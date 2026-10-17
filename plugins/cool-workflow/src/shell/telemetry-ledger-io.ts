@@ -14,8 +14,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { withFileLock, writeJson } from "./fs-atomic";
-import { WorkflowRun } from "../core/state/types";
+import { withFileLock, writeJson } from "./fs-atomic.js";
+import { WorkflowRun } from "../core/state/types.js";
 import {
   computeRecordHash,
   genesisPrevHash,
@@ -29,7 +29,7 @@ import {
   TelemetryLedgerVerification,
   corruptTelemetryLedgerVerification,
   verifyTelemetryLedgerRecords,
-} from "../core/trust/telemetry-ledger";
+} from "../core/trust/telemetry-ledger.js";
 
 export { TelemetryLedgerCorruptError, TELEMETRY_LEDGER_SCHEMA_VERSION, computeRecordHash, reportedUsageDigest };
 export type { TelemetryLedger, TelemetryAttestationRecord };

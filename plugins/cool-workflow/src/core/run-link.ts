@@ -9,7 +9,7 @@
 //
 // Evidence: docs/run-registry-control-plane.7.md "Link".
 
-import { RunLinkAnnotation, RunLinkKind } from "./state/types";
+import { RunLinkAnnotation, RunLinkKind } from "./state/types.js";
 
 const RUN_LINK_KINDS: readonly RunLinkKind[] = ["pr", "issue", "ticket"];
 

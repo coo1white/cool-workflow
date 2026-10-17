@@ -10,12 +10,12 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { acquireOwnerLock, assertSafeRunId, readJson, withFileLock, writeJson, writePartsDurable } from "./fs-atomic";
-import { createRunPaths, rebindRunPaths as rebindRunPathsCore } from "../core/state/run-paths";
-import { migrateRunState, StateMigrationResult } from "../core/state/migrations";
-import { WorkflowRun, StateArtifact, RunPaths } from "../core/state/types";
-import { sha256 } from "../core/hash";
-import { flushPendingTrustAudit } from "./trust-audit";
+import { acquireOwnerLock, assertSafeRunId, readJson, withFileLock, writeJson, writePartsDurable } from "./fs-atomic.js";
+import { createRunPaths, rebindRunPaths as rebindRunPathsCore } from "../core/state/run-paths.js";
+import { migrateRunState, StateMigrationResult } from "../core/state/migrations.js";
+import { WorkflowRun, StateArtifact, RunPaths } from "../core/state/types.js";
+import { sha256 } from "../core/hash.js";
+import { flushPendingTrustAudit } from "./trust-audit.js";
 
 export { createRunPaths };
 

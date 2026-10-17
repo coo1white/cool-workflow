@@ -17,7 +17,7 @@
 //     conformance run can never see it;
 //   - stdout bytes and the exit code never change.
 
-import type { CliBinding } from "../core/capability-data";
+import type { CliBinding } from "../core/capability-data.js";
 
 /** Every option key the shared CLI front door reads for ANY command, so a
  *  `flagsComplete` row's check never flags them. Built by reading the

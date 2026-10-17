@@ -11,7 +11,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawn, ChildProcess } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
-import { WorkflowRun } from "../core/state/types";
+import { WorkflowRun } from "../core/state/types.js";
 import {
   DEFAULT_SCHEDULING_POLICY,
   DriveResultStatusInputs,
@@ -35,7 +35,7 @@ import {
   defaultCacheKey,
   cacheFileName,
   MAX_SUB_WORKFLOW_DEPTH,
-} from "../core/pipeline/drive-decide";
+} from "../core/pipeline/drive-decide.js";
 import {
   maxLoopExpansion,
   evaluateLoopStop,
@@ -43,33 +43,36 @@ import {
   loopControlNodeId,
   LoopPredicateContext,
   ResultEnvelopeLike,
-} from "../core/pipeline/loop-expansion";
-import { firstRunnablePhase, runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch";
-import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir, runStateIsCurrent, RunStateConflictError } from "./run-store";
-import { createDispatchManifest } from "./dispatch";
-import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope, reopenParkedWorker } from "./worker-isolation";
-import { validateSandboxWrite } from "./sandbox-profile";
-import { createStateNode } from "../core/state/state-node";
-import { appendRunNode } from "./node-store";
-import { runPipelineStage } from "../core/pipeline/runner";
-import { writeTaskFiles } from "./harness";
-import { phaseProgressLine } from "./term";
-import { RunPhase, RunTask } from "../core/state/types";
-import { commitState, CommitGateError } from "./commit";
-import { writeReport } from "./report";
-import { recordTrustAuditEvent, verifyTrustAudit, withTrustAuditBatch } from "./trust-audit";
-import { resolveAgentConfig } from "./agent-config";
-import { AgentDelegationConfig, AgentChildOutcome } from "./execution-backend/types";
-import { runBackend } from "./execution-backend/registry";
-import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv, prepareEndpointJob, runEndpointBatchOutcomes, AgentEndpointJob } from "./execution-backend/agent";
-import { sha256, stableStringify } from "../core/hash";
-import { stableCompare } from "../core/util/collate";
-import { plan } from "./pipeline";
-import { reporter } from "./reporter";
-import { safeFileName } from "./fs-atomic";
-import { deriveUsageTotals } from "./observability";
-import { normalizeReportedUsage } from "../core/trust/telemetry-attestation";
-import { withPerfTraceGroup } from "./perf-trace";
+} from "../core/pipeline/loop-expansion.js";
+import { firstRunnablePhase, runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch.js";
+import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir, runStateIsCurrent, RunStateConflictError } from "./run-store.js";
+import { createDispatchManifest } from "./dispatch.js";
+import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope, reopenParkedWorker } from "./worker-isolation.js";
+import { validateSandboxWrite } from "./sandbox-profile.js";
+import { createStateNode } from "../core/state/state-node.js";
+import { appendRunNode } from "./node-store.js";
+import { runPipelineStage } from "../core/pipeline/runner.js";
+import { writeTaskFiles } from "./harness.js";
+import { phaseProgressLine } from "./term.js";
+import { RunPhase, RunTask } from "../core/state/types.js";
+import { commitState, CommitGateError } from "./commit.js";
+import { writeReport } from "./report.js";
+import { recordTrustAuditEvent, verifyTrustAudit, withTrustAuditBatch } from "./trust-audit.js";
+import { resolveAgentConfig } from "./agent-config.js";
+import { AgentDelegationConfig, AgentChildOutcome } from "./execution-backend/types.js";
+import { runBackend } from "./execution-backend/registry.js";
+import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv, prepareEndpointJob, runEndpointBatchOutcomes, AgentEndpointJob } from "./execution-backend/agent.js";
+import { sha256, stableStringify } from "../core/hash.js";
+import { stableCompare } from "../core/util/collate.js";
+import { plan } from "./pipeline.js";
+import { reporter } from "./reporter.js";
+import { safeFileName } from "./fs-atomic.js";
+import { deriveUsageTotals } from "./observability.js";
+import { normalizeReportedUsage } from "../core/trust/telemetry-attestation.js";
+import { withPerfTraceGroup } from "./perf-trace.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 /** Total RECORDED tokens across the run's attested units, reading the
  *  agent-reported usage through normalizeReportedUsage so a hop that
@@ -105,7 +108,7 @@ function tokenBudgetUsage(run: WorkflowRun): { spent: number; budget: number } |
   return { spent: recordedTokenTotal(run), budget };
 }
 
-export { DRIVE_SCHEMA_VERSION, MAX_SUB_WORKFLOW_DEPTH } from "../core/pipeline/drive-decide";
+export { DRIVE_SCHEMA_VERSION, MAX_SUB_WORKFLOW_DEPTH } from "../core/pipeline/drive-decide.js";
 
 export interface DriveOptions {
   once?: boolean;
@@ -169,7 +172,7 @@ function emitProgress(message: string): void {
 // CW_DRIVE_TICK_MS (default 10000) and is stopped when the round ends. Only
 // when [drive] progress is on (a TTY, or CW_DRIVE_PROGRESS=1), so a piped
 // run's bytes do not change; CW_DRIVE_TICK_MS=0 turns it off.
-const DRIVE_TICKER_SCRIPT = path.resolve(__dirname, "..", "..", "scripts", "children", "drive-ticker.js");
+const DRIVE_TICKER_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "scripts", "children", "drive-ticker.js");
 
 function withDriveTicker<T>(label: string, fn: () => T): T {
   const rawInterval = process.env.CW_DRIVE_TICK_MS;
@@ -626,7 +629,7 @@ function runSubWorkflow(
   };
   let childRun: WorkflowRun;
   try {
-    const { loadWorkflowApp } = require("./workflow-app-loader") as typeof import("./workflow-app-loader");
+    const { loadWorkflowApp } = require("./workflow-app-loader.js") as typeof import("./workflow-app-loader.js");
     childRun = plan(loadWorkflowApp(spec.appId), childInputs);
   } catch (error) {
     return handleHop(ctx, selected, workerId, `sub-workflow plan failed (${spec.appId}): ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);

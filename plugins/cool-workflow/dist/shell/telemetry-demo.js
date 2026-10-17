@@ -1,4 +1,3 @@
-"use strict";
 // shell/telemetry-demo.ts — `cw demo tamper|bundle`: the hermetic,
 // offline trust proofs. Impure (fs, ephemeral keypair generation,
 // tmpdir), so this lives in shell/ not core/.
@@ -8,57 +7,18 @@
 // itself varies per run and never leaves this module.
 //
 // Evidence: SPEC/ledger-trust.md "`cw demo tamper`", "`cw demo bundle`".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatTelemetryVerify = formatTelemetryVerify;
-exports.formatTamperDemo = formatTamperDemo;
-exports.runTamperDemo = runTamperDemo;
-exports.runBundleDemo = runBundleDemo;
-exports.formatBundleDemo = formatBundleDemo;
-const crypto = __importStar(require("node:crypto"));
-const fs = __importStar(require("node:fs"));
-const os = __importStar(require("node:os"));
-const path = __importStar(require("node:path"));
-const hash_1 = require("../core/hash");
-const telemetry_attestation_1 = require("../core/trust/telemetry-attestation");
-const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
-const run_paths_1 = require("../core/state/run-paths");
-const run_store_1 = require("./run-store");
-const run_export_1 = require("./run-export");
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { sha256 } from "../core/hash.js";
+import { signTelemetry, verifyTelemetryAttestation } from "../core/trust/telemetry-attestation.js";
+import { appendTelemetryAttestation, computeRecordHash, reportedUsageDigest, telemetryLedgerPath, verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+import { createRunPaths } from "../core/state/run-paths.js";
+import { ensureRunDirs, saveCheckpoint } from "./run-store.js";
+import { exportRun, verifyReportBundle } from "./run-export.js";
 /** Human-facing render of `telemetry verify <run>`. */
-function formatTelemetryVerify(r) {
+export function formatTelemetryVerify(r) {
     const keyUnreadable = r.failedChecks.some((c) => c.code === "telemetry-pubkey-unreadable");
     if (!r.present && !keyUnreadable)
         return `telemetry: run ${r.runId} has no attestation ledger (nothing to verify)`;
@@ -80,7 +40,7 @@ function formatTelemetryVerify(r) {
     return `telemetry verify ${r.runId}\n${head}\n${tally}${model}${sig}${fails}`;
 }
 /** Human-facing render of `demo tamper`. */
-function formatTamperDemo(r) {
+export function formatTamperDemo(r) {
     const lines = [];
     lines.push(`cw demo tamper — tamper-evidence proof (hermetic, ${r.trustKey} key)`);
     lines.push("");
@@ -103,9 +63,9 @@ function formatTamperDemo(r) {
 // so the ledger-layer tamper can forge the unattested verdict into
 // "attested" (the exact threat the ledger exists to catch).
 const HOPS = [
-    { workerId: "w-map", taskId: "map:server-api", promptDigest: (0, hash_1.sha256)("map:server-api"), usage: { input_tokens: 2117, output_tokens: 1911 }, attestation: "attested" },
-    { workerId: "w-assess", taskId: "assess:security", promptDigest: (0, hash_1.sha256)("assess:security"), usage: { input_tokens: 1840, output_tokens: 1502 }, attestation: "unattested" },
-    { workerId: "w-verdict", taskId: "verdict:synthesis", promptDigest: (0, hash_1.sha256)("verdict:synthesis"), usage: { input_tokens: 980, output_tokens: 770 }, attestation: "attested" },
+    { workerId: "w-map", taskId: "map:server-api", promptDigest: sha256("map:server-api"), usage: { input_tokens: 2117, output_tokens: 1911 }, attestation: "attested" },
+    { workerId: "w-assess", taskId: "assess:security", promptDigest: sha256("assess:security"), usage: { input_tokens: 1840, output_tokens: 1502 }, attestation: "unattested" },
+    { workerId: "w-verdict", taskId: "verdict:synthesis", promptDigest: sha256("verdict:synthesis"), usage: { input_tokens: 980, output_tokens: 770 }, attestation: "attested" },
 ];
 const DEMO_NOW = "2026-01-01T00:00:00.000Z";
 function failingChecks(checks) {
@@ -114,7 +74,7 @@ function failingChecks(checks) {
 /** Run the full tamper-evidence demonstration in a private tmpdir
  *  (cleaned up unless `keepDir` is set). Deterministic except for the
  *  ephemeral keypair, which never leaves this function. */
-function runTamperDemo(options = {}) {
+export function runTamperDemo(options = {}) {
     const runDir = options.dir || fs.mkdtempSync(path.join(os.tmpdir(), "cw-tamper-demo-"));
     fs.mkdirSync(runDir, { recursive: true });
     const runId = "demo-tamper-run";
@@ -128,8 +88,8 @@ function runTamperDemo(options = {}) {
     const signed = [];
     for (const hop of HOPS) {
         const ctx = { runId, taskId: hop.taskId, promptDigest: hop.promptDigest };
-        const signature = hop.attestation === "attested" ? (0, telemetry_attestation_1.signTelemetry)(hop.usage, privateKeyPem, ctx) : undefined;
-        (0, telemetry_ledger_io_1.appendTelemetryAttestation)(run, {
+        const signature = hop.attestation === "attested" ? signTelemetry(hop.usage, privateKeyPem, ctx) : undefined;
+        appendTelemetryAttestation(run, {
             workerId: hop.workerId,
             taskId: hop.taskId,
             promptDigest: hop.promptDigest,
@@ -142,22 +102,22 @@ function runTamperDemo(options = {}) {
     }
     // 2. Baseline: the clean ledger verifies, and every signed hop's
     //    signature is valid.
-    const clean = (0, telemetry_ledger_io_1.verifyTelemetryLedger)(run);
+    const clean = verifyTelemetryLedger(run);
     const signaturesValid = signed.filter((s) => s.signature &&
-        (0, telemetry_attestation_1.verifyTelemetryAttestation)(s.hop.usage, s.signature, publicKeyPem, { runId, taskId: s.hop.taskId, promptDigest: s.hop.promptDigest }).status === "attested").length;
+        verifyTelemetryAttestation(s.hop.usage, s.signature, publicKeyPem, { runId, taskId: s.hop.taskId, promptDigest: s.hop.promptDigest }).status === "attested").length;
     const baseline = { ledgerVerified: clean.verified, signaturesValid, records: clean.records.length };
     const layers = [];
     // 3a. LEDGER layer — flip record[1]'s verdict "unattested" -> "attested"
     //     AND recompute its recordHash to cover the edit, so the per-record
     //     digest check passes. The chain still catches it: record[2] was
     //     linked to the ORIGINAL record[1] hash, so chain-link[2] breaks.
-    const ledgerFile = (0, telemetry_ledger_io_1.telemetryLedgerPath)(run);
+    const ledgerFile = telemetryLedgerPath(run);
     const ledgerJson = JSON.parse(fs.readFileSync(ledgerFile, "utf8"));
     ledgerJson.records[1].attestation = "attested";
     const { recordHash: _stale, ...rest1 } = ledgerJson.records[1];
-    ledgerJson.records[1].recordHash = (0, telemetry_ledger_io_1.computeRecordHash)(rest1); // attacker re-seals the local hash
+    ledgerJson.records[1].recordHash = computeRecordHash(rest1); // attacker re-seals the local hash
     fs.writeFileSync(ledgerFile, JSON.stringify(ledgerJson, null, 2));
-    const afterLedger = (0, telemetry_ledger_io_1.verifyTelemetryLedger)(run);
+    const afterLedger = verifyTelemetryLedger(run);
     layers.push({
         layer: "ledger",
         tamper: `forged record[1] verdict "unattested" -> "attested" AND recomputed its recordHash to cover the edit`,
@@ -169,12 +129,12 @@ function runTamperDemo(options = {}) {
     //     the original signature.
     const target = signed[0];
     const inflated = { ...target.hop.usage, output_tokens: target.hop.usage.output_tokens * 10 };
-    const sigCheck = (0, telemetry_attestation_1.verifyTelemetryAttestation)(inflated, target.signature, publicKeyPem, {
+    const sigCheck = verifyTelemetryAttestation(inflated, target.signature, publicKeyPem, {
         runId,
         taskId: target.hop.taskId,
         promptDigest: target.hop.promptDigest,
     });
-    const sigCleanCheck = (0, telemetry_attestation_1.verifyTelemetryAttestation)(target.hop.usage, target.signature, publicKeyPem, {
+    const sigCleanCheck = verifyTelemetryAttestation(target.hop.usage, target.signature, publicKeyPem, {
         runId,
         taskId: target.hop.taskId,
         promptDigest: target.hop.promptDigest,
@@ -192,9 +152,9 @@ function runTamperDemo(options = {}) {
     const findingSigned = "Finding: auth bypass in login() — severity HIGH";
     const findingEdited = findingSigned.replace("HIGH", "LOW");
     const resultCtx = { runId, taskId: target.hop.taskId, promptDigest: target.hop.promptDigest };
-    const resultSignature = (0, telemetry_attestation_1.signTelemetry)(target.hop.usage, privateKeyPem, { ...resultCtx, resultDigest: (0, hash_1.sha256)(findingSigned) });
-    const resultClean = (0, telemetry_attestation_1.verifyTelemetryAttestation)(target.hop.usage, resultSignature, publicKeyPem, { ...resultCtx, resultDigest: (0, hash_1.sha256)(findingSigned) });
-    const resultCheck = (0, telemetry_attestation_1.verifyTelemetryAttestation)(target.hop.usage, resultSignature, publicKeyPem, { ...resultCtx, resultDigest: (0, hash_1.sha256)(findingEdited) });
+    const resultSignature = signTelemetry(target.hop.usage, privateKeyPem, { ...resultCtx, resultDigest: sha256(findingSigned) });
+    const resultClean = verifyTelemetryAttestation(target.hop.usage, resultSignature, publicKeyPem, { ...resultCtx, resultDigest: sha256(findingSigned) });
+    const resultCheck = verifyTelemetryAttestation(target.hop.usage, resultSignature, publicKeyPem, { ...resultCtx, resultDigest: sha256(findingEdited) });
     layers.push({
         layer: "result",
         tamper: `edited the agent's signed finding "severity HIGH" -> "severity LOW" after it was signed`,
@@ -212,13 +172,13 @@ function runTamperDemo(options = {}) {
         layers.every((l) => l.before.verified && !l.after.verified && l.failures.length > 0);
     return { schemaVersion: 1, runId, workers: HOPS.length, trustKey: "ephemeral-ed25519", baseline, layers, proven };
 }
-function runBundleDemo(options = {}) {
+export function runBundleDemo(options = {}) {
     const workdir = options.dir || fs.mkdtempSync(path.join(os.tmpdir(), "cw-bundle-demo-"));
     fs.mkdirSync(workdir, { recursive: true });
     const runId = "demo-bundle-run";
     const runDir = path.join(workdir, ".cw", "runs", runId);
-    const paths = (0, run_paths_1.createRunPaths)(runDir);
-    (0, run_store_1.ensureRunDirs)(paths);
+    const paths = createRunPaths(runDir);
+    ensureRunDirs(paths);
     const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
     const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
     const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
@@ -227,12 +187,12 @@ function runBundleDemo(options = {}) {
     const ledgerRun = { id: runId, paths };
     for (const hop of HOPS) {
         const ctx = { runId, taskId: hop.taskId, promptDigest: hop.promptDigest };
-        (0, telemetry_ledger_io_1.appendTelemetryAttestation)(ledgerRun, {
+        appendTelemetryAttestation(ledgerRun, {
             workerId: hop.workerId,
             taskId: hop.taskId,
             promptDigest: hop.promptDigest,
             reportedUsage: hop.usage,
-            usageSignature: hop.attestation === "attested" ? (0, telemetry_attestation_1.signTelemetry)(hop.usage, privateKeyPem, ctx) : undefined,
+            usageSignature: hop.attestation === "attested" ? signTelemetry(hop.usage, privateKeyPem, ctx) : undefined,
             attestation: hop.attestation,
             now: DEMO_NOW,
         });
@@ -256,17 +216,17 @@ function runBundleDemo(options = {}) {
         nodes: [],
         contracts: [],
     };
-    (0, run_store_1.saveCheckpoint)(fullRun);
-    const ledgerFile = (0, telemetry_ledger_io_1.telemetryLedgerPath)(ledgerRun);
+    saveCheckpoint(fullRun);
+    const ledgerFile = telemetryLedgerPath(ledgerRun);
     const cleanLedger = fs.readFileSync(ledgerFile, "utf8");
     const exportSealed = (out) => {
-        (0, run_export_1.exportRun)(fullRun, out, { trustPublicKey: publicKeyPem });
+        exportRun(fullRun, out, { trustPublicKey: publicKeyPem });
     };
     // Baseline: a clean sealed bundle verifies offline; the embedded key
     // reverifies every signed hop.
     const cleanBundle = path.join(workdir, "clean.cwrun.json");
     exportSealed(cleanBundle);
-    const clean = (0, run_export_1.verifyReportBundle)(cleanBundle);
+    const clean = verifyReportBundle(cleanBundle);
     const baseline = { ok: clean.ok, telemetryVerified: clean.telemetryVerified, signaturesReverified: clean.signaturesReverified };
     const layers = [];
     // CHAIN forgery: flip record[1]'s verdict and reseal its recordHash;
@@ -276,11 +236,11 @@ function runBundleDemo(options = {}) {
         const j = JSON.parse(cleanLedger);
         j.records[1].attestation = "attested";
         const { recordHash: _drop, ...rest } = j.records[1];
-        j.records[1].recordHash = (0, telemetry_ledger_io_1.computeRecordHash)(rest);
+        j.records[1].recordHash = computeRecordHash(rest);
         fs.writeFileSync(ledgerFile, JSON.stringify(j, null, 2));
         const forged = path.join(workdir, "forged-chain.cwrun.json");
         exportSealed(forged);
-        const after = (0, run_export_1.verifyReportBundle)(forged);
+        const after = verifyReportBundle(forged);
         fs.writeFileSync(ledgerFile, cleanLedger);
         layers.push({
             layer: "chain",
@@ -297,13 +257,13 @@ function runBundleDemo(options = {}) {
         const j = JSON.parse(cleanLedger);
         const idx = j.records.length - 1;
         j.records[idx].reportedUsage = { ...j.records[idx].reportedUsage, output_tokens: j.records[idx].reportedUsage.output_tokens * 10 };
-        j.records[idx].reportedUsageDigest = (0, telemetry_ledger_io_1.reportedUsageDigest)(j.records[idx].reportedUsage);
+        j.records[idx].reportedUsageDigest = reportedUsageDigest(j.records[idx].reportedUsage);
         const { recordHash: _drop, ...rest } = j.records[idx];
-        j.records[idx].recordHash = (0, telemetry_ledger_io_1.computeRecordHash)(rest);
+        j.records[idx].recordHash = computeRecordHash(rest);
         fs.writeFileSync(ledgerFile, JSON.stringify(j, null, 2));
         const forged = path.join(workdir, "forged-sig.cwrun.json");
         exportSealed(forged);
-        const after = (0, run_export_1.verifyReportBundle)(forged);
+        const after = verifyReportBundle(forged);
         fs.writeFileSync(ledgerFile, cleanLedger);
         layers.push({
             layer: "signature",
@@ -321,7 +281,7 @@ function runBundleDemo(options = {}) {
         layers.every((l) => l.before.ok && !l.after.ok && l.failures.length > 0);
     return { schemaVersion: 1, runId, workers: HOPS.length, trustKey: "ephemeral-ed25519", baseline, layers, proven };
 }
-function formatBundleDemo(r) {
+export function formatBundleDemo(r) {
     const lines = [];
     lines.push(`cw demo bundle — portable-bundle verification proof (hermetic, ${r.trustKey} key)`);
     lines.push("");

@@ -1,4 +1,3 @@
-"use strict";
 // remote-source module — materialize a REMOTE repository (a URL) into a LOCAL checkout
 // so the existing review pipeline can run against it unchanged.
 //
@@ -11,23 +10,12 @@
 // node:crypto for the cache key. Fail closed: a bad URL / blocked scheme / network / auth
 // failure throws an explicit error (never a fabricated success). All diagnostics are in the
 // thrown message (the caller routes them to stderr); this module writes nothing to stdout.
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.classifyRemote = classifyRemote;
-exports.isRemoteUrl = isRemoteUrl;
-exports.sanitizeUrl = sanitizeUrl;
-exports.validateRemoteUrl = validateRemoteUrl;
-exports.gitAvailable = gitAvailable;
-exports.redactCredentials = redactCredentials;
-exports.materializeRemote = materializeRemote;
-const node_child_process_1 = require("node:child_process");
-const node_crypto_1 = require("node:crypto");
-const node_fs_1 = __importDefault(require("node:fs"));
-const node_path_1 = __importDefault(require("node:path"));
-const node_url_1 = require("node:url");
-const agent_config_1 = require("./agent-config");
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { resolveCwHome } from "./agent-config.js";
 /** Upper bound on a downloaded archive (200 MiB) — a review target should be source, not a
  *  binary blob; a giant download fails closed rather than exhausting disk/memory. */
 const MAX_ARCHIVE_BYTES = 200 * 1024 * 1024;
@@ -42,7 +30,7 @@ const SCP_LIKE = /^[^/@\s]+@[^/@\s:]+:/; // git@host:owner/repo (no scheme)
 const HELPER_LIKE = /^[a-z][a-z0-9+.-]*::/i; // ext::, fd::, transport::address
 /** Classify a flag value as a git URL, an archive URL, or a local path. Conservative:
  *  a value with NO remote marker is "local", so a real directory is never mis-fetched. */
-function classifyRemote(value) {
+export function classifyRemote(value) {
     if (!value)
         return "local";
     const v = value.trim();
@@ -58,12 +46,12 @@ function classifyRemote(value) {
     return "git";
 }
 /** Convenience: is this value something we should materialize (vs treat as a local path)? */
-function isRemoteUrl(value) {
+export function isRemoteUrl(value) {
     return classifyRemote(value) !== "local";
 }
 /** Strip credentials (userinfo) from a URL so it is safe to print/persist/record. scp-style
  *  (`git@host:…`) and local paths pass through unchanged (the `git@` user is not a secret). */
-function sanitizeUrl(value) {
+export function sanitizeUrl(value) {
     const v = value.trim();
     if (SCP_LIKE.test(v) && !v.includes("://"))
         return v;
@@ -100,7 +88,7 @@ function assertSafeUrl(value) {
 }
 /** Validate a remote URL's shape WITHOUT any network I/O (used by `--check`): recognized,
  *  scheme-allowlisted, no option-injection or blocked transport helper. Never fetches. */
-function validateRemoteUrl(value) {
+export function validateRemoteUrl(value) {
     const kind = classifyRemote(value);
     const url = sanitizeUrl(value);
     if (kind === "local")
@@ -114,8 +102,8 @@ function validateRemoteUrl(value) {
     return { ok: true, kind, url };
 }
 /** True when `git` is on PATH (used by `--check`; materialize asserts this too). */
-function gitAvailable(env) {
-    return (0, node_child_process_1.spawnSync)("git", ["--version"], { encoding: "utf8", env: env || process.env }).status === 0;
+export function gitAvailable(env) {
+    return spawnSync("git", ["--version"], { encoding: "utf8", env: env || process.env }).status === 0;
 }
 function safePathname(value) {
     try {
@@ -126,16 +114,16 @@ function safePathname(value) {
     }
 }
 function cacheRoot(opts) {
-    return node_path_1.default.join(opts.home || (0, agent_config_1.resolveCwHome)(opts.env), "clones");
+    return path.join(opts.home || resolveCwHome(opts.env), "clones");
 }
 function cacheDirFor(root, sanitizedUrl, ref) {
-    const key = (0, node_crypto_1.createHash)("sha256").update(`${sanitizedUrl}\0${ref || ""}`).digest("hex").slice(0, 24);
-    return node_path_1.default.join(root, key);
+    const key = createHash("sha256").update(`${sanitizedUrl}\0${ref || ""}`).digest("hex").slice(0, 24);
+    return path.join(root, key);
 }
 /** Defense in depth: strip `user[:pass]@` userinfo from ANY URL in arbitrary text. git's own
  *  diagnostics can echo a credential-bearing URL on auth failure (version/transport dependent),
  *  so we never relay git's stderr/stdout verbatim — we redact first. Exported for testing. */
-function redactCredentials(text) {
+export function redactCredentials(text) {
     return String(text).replace(/([a-z][a-z0-9+.-]*:\/\/)[^/@\s]+@/gi, "$1");
 }
 /** Run a git subprocess, returning trimmed stdout; throws with a credential-REDACTED stderr
@@ -147,7 +135,7 @@ function git(args, opts, cwd) {
         GIT_ASKPASS: "",
         GCM_INTERACTIVE: "never"
     };
-    const result = (0, node_child_process_1.spawnSync)("git", args, {
+    const result = spawnSync("git", args, {
         cwd,
         env,
         encoding: "utf8",
@@ -164,13 +152,13 @@ function git(args, opts, cwd) {
     return String(result.stdout || "").trim();
 }
 function assertGitAvailable(opts) {
-    const result = (0, node_child_process_1.spawnSync)("git", ["--version"], { encoding: "utf8", env: opts.env || process.env });
+    const result = spawnSync("git", ["--version"], { encoding: "utf8", env: opts.env || process.env });
     if (result.status !== 0)
         throw new Error("git is required to review a remote repository but was not found on PATH");
 }
 function writeCloneMeta(dir, meta) {
     try {
-        node_fs_1.default.writeFileSync(node_path_1.default.join(dir, ".cw-clone-meta.json"), `${JSON.stringify(meta, null, 2)}\n`, "utf8");
+        fs.writeFileSync(path.join(dir, ".cw-clone-meta.json"), `${JSON.stringify(meta, null, 2)}\n`, "utf8");
     }
     catch {
         /* meta is advisory (used by `cw clones`); never fail a clone over it */
@@ -181,17 +169,17 @@ function cloneGit(rawUrl, sanitizedUrl, opts) {
     const dir = cacheDirFor(root, sanitizedUrl, opts.ref);
     // Containment: the target MUST be inside clones/ (the key is hex, so this always holds —
     // assert anyway so a future change can never write or, later, gc outside the cache root).
-    if (!node_path_1.default.resolve(dir).startsWith(node_path_1.default.resolve(root) + node_path_1.default.sep)) {
+    if (!path.resolve(dir).startsWith(path.resolve(root) + path.sep)) {
         throw new Error(`refusing clone target outside the cache root: ${dir}`);
     }
-    if (node_fs_1.default.existsSync(node_path_1.default.join(dir, ".git")) && !opts.refresh) {
+    if (fs.existsSync(path.join(dir, ".git")) && !opts.refresh) {
         const commit = git(["-C", dir, "rev-parse", "HEAD"], opts);
         if (commit)
             return { localPath: dir, url: sanitizedUrl, commit, kind: "git", ref: opts.ref, cached: true };
         // Corrupt cache entry — fall through to a fresh clone.
     }
-    node_fs_1.default.rmSync(dir, { recursive: true, force: true });
-    node_fs_1.default.mkdirSync(root, { recursive: true });
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.mkdirSync(root, { recursive: true });
     // Array argv + `--` before the URL (never a shell string); shallow + single-branch; repo
     // hooks disabled. The raw URL (which may carry credentials) is passed ONLY as an argv
     // element — it never reaches a shell and never gets persisted (we store the sanitized one).
@@ -211,12 +199,12 @@ function cloneGit(rawUrl, sanitizedUrl, opts) {
         git(args, opts);
     }
     catch (error) {
-        node_fs_1.default.rmSync(dir, { recursive: true, force: true });
+        fs.rmSync(dir, { recursive: true, force: true });
         throw new Error(`could not clone ${sanitizedUrl}: ${error.message}`);
     }
     const commit = git(["-C", dir, "rev-parse", "HEAD"], opts);
     if (!commit) {
-        node_fs_1.default.rmSync(dir, { recursive: true, force: true });
+        fs.rmSync(dir, { recursive: true, force: true });
         throw new Error(`cloned ${sanitizedUrl} but could not resolve HEAD`);
     }
     writeCloneMeta(dir, { url: sanitizedUrl, kind: "git", ref: opts.ref || null, commit, fetchedAt: new Date().toISOString() });
@@ -225,7 +213,7 @@ function cloneGit(rawUrl, sanitizedUrl, opts) {
 /** Materialize a remote URL into a local checkout. Throws (fail closed) on any bad URL,
  *  blocked scheme, missing git, or fetch failure. The caller must have already decided the
  *  value is remote (classifyRemote !== "local"). */
-function materializeRemote(value, opts = {}) {
+export function materializeRemote(value, opts = {}) {
     const kind = classifyRemote(value);
     if (kind === "local")
         throw new Error(`not a remote URL: ${value}`);
@@ -239,10 +227,10 @@ function materializeRemote(value, opts = {}) {
 // ---- archive download + extract (.tar.gz / .tgz / .tar / .zip) --------------------------
 /** Read a cached archive checkout's content sha from its meta, or undefined to re-fetch. */
 function cachedArchive(dir, sanitizedUrl, opts) {
-    if (opts.refresh || !node_fs_1.default.existsSync(node_path_1.default.join(dir, ".git")))
+    if (opts.refresh || !fs.existsSync(path.join(dir, ".git")))
         return undefined;
     try {
-        const meta = JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(dir, ".cw-clone-meta.json"), "utf8"));
+        const meta = JSON.parse(fs.readFileSync(path.join(dir, ".cw-clone-meta.json"), "utf8"));
         if (meta && typeof meta.commit === "string" && meta.commit) {
             return { localPath: dir, url: sanitizedUrl, commit: meta.commit, kind: "archive", ref: opts.ref, cached: true };
         }
@@ -260,11 +248,11 @@ function cachedArchive(dir, sanitizedUrl, opts) {
  *  redirect us into an internal service. The operator's ORIGINAL host is their own choice. */
 function fetchArchiveBytes(rawUrl, sanitizedUrl, dest, opts) {
     if (rawUrl.startsWith("file://")) {
-        const src = (0, node_url_1.fileURLToPath)(rawUrl);
-        const size = node_fs_1.default.statSync(src).size;
+        const src = fileURLToPath(rawUrl);
+        const size = fs.statSync(src).size;
         if (size > MAX_ARCHIVE_BYTES)
             throw new Error(`archive ${sanitizedUrl} is too large (${size} bytes > ${MAX_ARCHIVE_BYTES})`);
-        node_fs_1.default.copyFileSync(src, dest);
+        fs.copyFileSync(src, dest);
         return;
     }
     const child = [
@@ -297,14 +285,14 @@ function fetchArchiveBytes(rawUrl, sanitizedUrl, dest, opts) {
         "process.stderr.write('too many redirects');process.exit(6);",
         "})().catch(e=>{process.stderr.write(String((e&&e.message)||e));process.exit(4);});"
     ].join("");
-    const result = (0, node_child_process_1.spawnSync)(process.execPath, ["-e", child, rawUrl, dest, String(MAX_ARCHIVE_BYTES)], {
+    const result = spawnSync(process.execPath, ["-e", child, rawUrl, dest, String(MAX_ARCHIVE_BYTES)], {
         encoding: "utf8",
         timeout: opts.timeoutMs || 120000,
         env: opts.env || process.env,
         stdio: ["ignore", "ignore", "pipe"]
     });
     if (result.status !== 0) {
-        node_fs_1.default.rmSync(dest, { force: true });
+        fs.rmSync(dest, { force: true });
         throw new Error(`could not download ${sanitizedUrl}: ${redactCredentials(String(result.stderr || "").trim()) || `exit ${result.status}`}`);
     }
 }
@@ -315,7 +303,7 @@ function listArchive(file, isZip, timeoutMs) {
     // Same unset-timeout hazard as a hung local/container task: a
     // pathological archive must not hang the CLI forever with no kill path.
     // Matches git()'s own fallback below.
-    const result = (0, node_child_process_1.spawnSync)(cmd[0], cmd.slice(1), { encoding: "utf8", timeout: timeoutMs || 120000 });
+    const result = spawnSync(cmd[0], cmd.slice(1), { encoding: "utf8", timeout: timeoutMs || 120000 });
     if (result.status !== 0) {
         // Distinguish "unzip not installed" (ENOENT) from "archive is corrupt" — never conflate the
         // two (a corrupt .tar mislabeled .zip is not "unzip not found").
@@ -333,7 +321,7 @@ function listArchive(file, isZip, timeoutMs) {
 function assertNoTraversal(entries, sanitizedUrl) {
     for (const entry of entries) {
         const normalized = entry.replace(/\\/g, "/");
-        if (node_path_1.default.isAbsolute(normalized) || normalized.startsWith("/") || /(^|\/)\.\.(\/|$)/.test(normalized)) {
+        if (path.isAbsolute(normalized) || normalized.startsWith("/") || /(^|\/)\.\.(\/|$)/.test(normalized)) {
             throw new Error(`refusing archive ${sanitizedUrl}: unsafe path escapes the extraction dir: ${entry}`);
         }
     }
@@ -344,26 +332,26 @@ function assertNoTraversal(entries, sanitizedUrl) {
 function declaredUncompressedSize(file, isZip, timeoutMs) {
     try {
         if (isZip) {
-            const r = (0, node_child_process_1.spawnSync)("unzip", ["-l", "--", file], { encoding: "utf8", timeout: timeoutMs || 120000 });
+            const r = spawnSync("unzip", ["-l", "--", file], { encoding: "utf8", timeout: timeoutMs || 120000 });
             if (r.status !== 0)
                 return undefined;
             const lines = String(r.stdout || "").trim().split(/\r?\n/);
             const m = (lines[lines.length - 1] || "").match(/^\s*(\d+)\s+\d+\s+files?/);
             return m ? Number(m[1]) : undefined;
         }
-        const fd = node_fs_1.default.openSync(file, "r");
+        const fd = fs.openSync(file, "r");
         try {
             const head = Buffer.alloc(2);
-            node_fs_1.default.readSync(fd, head, 0, 2, 0);
+            fs.readSync(fd, head, 0, 2, 0);
             if (head[0] !== 0x1f || head[1] !== 0x8b)
                 return undefined; // not gzip (plain .tar — its file size already ≤ the download cap)
-            const size = node_fs_1.default.fstatSync(fd).size;
+            const size = fs.fstatSync(fd).size;
             const tail = Buffer.alloc(4);
-            node_fs_1.default.readSync(fd, tail, 0, 4, size - 4);
+            fs.readSync(fd, tail, 0, 4, size - 4);
             return tail.readUInt32LE(0); // ISIZE (mod 2^32)
         }
         finally {
-            node_fs_1.default.closeSync(fd);
+            fs.closeSync(fd);
         }
     }
     catch {
@@ -376,18 +364,18 @@ function declaredUncompressedSize(file, isZip, timeoutMs) {
 function assertSafeTree(root, sanitizedUrl) {
     let total = 0;
     const walk = (dir) => {
-        for (const name of node_fs_1.default.readdirSync(dir)) {
-            const p = node_path_1.default.join(dir, name);
-            const st = node_fs_1.default.lstatSync(p); // lstat: do NOT follow symlinks
+        for (const name of fs.readdirSync(dir)) {
+            const p = path.join(dir, name);
+            const st = fs.lstatSync(p); // lstat: do NOT follow symlinks
             if (st.isSymbolicLink()) {
-                throw new Error(`refusing archive ${sanitizedUrl}: contains a symlink (${node_path_1.default.relative(root, p)}); symlinks are not allowed in a reviewed source archive`);
+                throw new Error(`refusing archive ${sanitizedUrl}: contains a symlink (${path.relative(root, p)}); symlinks are not allowed in a reviewed source archive`);
             }
             if (st.isDirectory()) {
                 walk(p);
                 continue;
             }
             if (!st.isFile()) {
-                throw new Error(`refusing archive ${sanitizedUrl}: contains a non-regular entry (${node_path_1.default.relative(root, p)})`);
+                throw new Error(`refusing archive ${sanitizedUrl}: contains a non-regular entry (${path.relative(root, p)})`);
             }
             total += st.size;
             if (total > MAX_EXTRACTED_BYTES) {
@@ -407,21 +395,21 @@ function downloadArchive(rawUrl, sanitizedUrl, opts) {
     assertGitAvailable(opts); // we snapshot the extracted tree into a local git repo
     const root = cacheRoot(opts);
     const dir = cacheDirFor(root, sanitizedUrl, opts.ref);
-    if (!node_path_1.default.resolve(dir).startsWith(node_path_1.default.resolve(root) + node_path_1.default.sep)) {
+    if (!path.resolve(dir).startsWith(path.resolve(root) + path.sep)) {
         throw new Error(`refusing extract target outside the cache root: ${dir}`);
     }
     const reuse = cachedArchive(dir, sanitizedUrl, opts);
     if (reuse)
         return reuse;
-    node_fs_1.default.mkdirSync(root, { recursive: true });
+    fs.mkdirSync(root, { recursive: true });
     // Detect zip from the URL path only (consistent with classifyRemote); the staging dir is
     // mkdtemp-unique, so the temp download file can never collide with a concurrent same-URL run.
     const isZip = /\.zip$/i.test(safePathname(rawUrl));
-    const staging = node_fs_1.default.mkdtempSync(node_path_1.default.join(root, ".stage-"));
-    const tmpFile = node_path_1.default.join(staging, isZip ? "archive.zip" : "archive.tar");
+    const staging = fs.mkdtempSync(path.join(root, ".stage-"));
+    const tmpFile = path.join(staging, isZip ? "archive.zip" : "archive.tar");
     try {
         fetchArchiveBytes(rawUrl, sanitizedUrl, tmpFile, opts);
-        const commit = (0, node_crypto_1.createHash)("sha256").update(node_fs_1.default.readFileSync(tmpFile)).digest("hex"); // content address
+        const commit = createHash("sha256").update(fs.readFileSync(tmpFile)).digest("hex"); // content address
         // Bomb defense (BEFORE extracting, to avoid filling the disk): reject a declared
         // uncompressed size over the cap. assertSafeTree re-checks the ACTUAL size afterward.
         const declared = declaredUncompressedSize(tmpFile, isZip, opts.timeoutMs);
@@ -429,12 +417,12 @@ function downloadArchive(rawUrl, sanitizedUrl, opts) {
             throw new Error(`refusing archive ${sanitizedUrl}: declared uncompressed size ${declared} exceeds ${MAX_EXTRACTED_BYTES} bytes (possible decompression bomb)`);
         }
         assertNoTraversal(listArchive(tmpFile, isZip, opts.timeoutMs), sanitizedUrl);
-        const extractDir = node_fs_1.default.mkdtempSync(node_path_1.default.join(staging, "x-"));
+        const extractDir = fs.mkdtempSync(path.join(staging, "x-"));
         // Same unset-timeout hazard as above: extraction runs on downloaded,
         // attacker-influenced bytes and must not hang forever.
         const ex = isZip
-            ? (0, node_child_process_1.spawnSync)("unzip", ["-q", "-o", "-d", extractDir, "--", tmpFile], { encoding: "utf8", timeout: opts.timeoutMs || 120000 })
-            : (0, node_child_process_1.spawnSync)("tar", ["-xf", tmpFile, "-C", extractDir], { encoding: "utf8", timeout: opts.timeoutMs || 120000 });
+            ? spawnSync("unzip", ["-q", "-o", "-d", extractDir, "--", tmpFile], { encoding: "utf8", timeout: opts.timeoutMs || 120000 })
+            : spawnSync("tar", ["-xf", tmpFile, "-C", extractDir], { encoding: "utf8", timeout: opts.timeoutMs || 120000 });
         if (ex.status !== 0)
             throw new Error(`could not extract archive ${sanitizedUrl}: ${String(ex.stderr || "").trim() || `exit ${ex.status}`}`);
         // Fail closed on symlinks/specials and on an over-cap actual extracted size.
@@ -442,15 +430,15 @@ function downloadArchive(rawUrl, sanitizedUrl, opts) {
         // Many archives (e.g. GitHub tarballs) wrap everything in a single top-level dir; descend
         // into it so the review sees the project root, not a one-entry wrapper. lstat (NOT stat) so
         // a top-level SYMLINK is never treated as a directory (assertSafeTree already rejected one).
-        const top = node_fs_1.default.readdirSync(extractDir);
-        const contentRoot = top.length === 1 && node_fs_1.default.lstatSync(node_path_1.default.join(extractDir, top[0])).isDirectory() ? node_path_1.default.join(extractDir, top[0]) : extractDir;
-        node_fs_1.default.rmSync(dir, { recursive: true, force: true });
-        node_fs_1.default.renameSync(contentRoot, dir); // same filesystem (both under clones/) — atomic move
+        const top = fs.readdirSync(extractDir);
+        const contentRoot = top.length === 1 && fs.lstatSync(path.join(extractDir, top[0])).isDirectory() ? path.join(extractDir, top[0]) : extractDir;
+        fs.rmSync(dir, { recursive: true, force: true });
+        fs.renameSync(contentRoot, dir); // same filesystem (both under clones/) — atomic move
         gitSnapshot(dir, `snapshot of ${sanitizedUrl}`, opts); // make it a real local repo at HEAD
         writeCloneMeta(dir, { url: sanitizedUrl, kind: "archive", ref: opts.ref || null, commit, fetchedAt: new Date().toISOString() });
         return { localPath: dir, url: sanitizedUrl, commit, kind: "archive", ref: opts.ref, cached: false };
     }
     finally {
-        node_fs_1.default.rmSync(staging, { recursive: true, force: true });
+        fs.rmSync(staging, { recursive: true, force: true });
     }
 }

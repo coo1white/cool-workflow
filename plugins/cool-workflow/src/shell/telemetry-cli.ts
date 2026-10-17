@@ -4,11 +4,11 @@
 // Evidence: SPEC/ledger-trust.md "CLI: `cw telemetry verify`", "`cw
 // telemetry verify` JSON".
 
-import { cwdArg, optionalArg } from "../core/util/cli-args";
-import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation";
-import { loadRunFromCwd } from "./run-store";
-import { verifyTelemetryLedger } from "./telemetry-ledger-io";
-import { TelemetryVerifyResult } from "./telemetry-demo";
+import { cwdArg, optionalArg } from "../core/util/cli-args.js";
+import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation.js";
+import { loadRunFromCwd } from "./run-store.js";
+import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+import { TelemetryVerifyResult } from "./telemetry-demo.js";
 
 export function telemetryVerifyCli(runId: string, args: Record<string, unknown>): TelemetryVerifyResult {
   if (!runId) throw new Error("telemetry verify requires a run id (cw telemetry verify <run-id>)");

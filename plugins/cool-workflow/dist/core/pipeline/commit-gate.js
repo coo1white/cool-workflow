@@ -1,4 +1,3 @@
-"use strict";
 // core/pipeline/commit-gate.ts — commitState's gate resolution + the
 // ~25 error codes.
 //
@@ -8,14 +7,8 @@
 //
 // Evidence: SPEC/pipeline-run.md "Commit gate — commit module",
 // "Commit-gate error codes (fixed strings)".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.emptyCaptureWarning = emptyCaptureWarning;
-exports.verifierNodeRequiresEvidence = verifierNodeRequiresEvidence;
-exports.resolveCommitGate = resolveCommitGate;
-exports.formatCommitId = formatCommitId;
-exports.gateFailureSeq = gateFailureSeq;
-const evidence_grounding_1 = require("../trust/evidence-grounding");
-const result_normalize_1 = require("./result-normalize");
+import { hasGroundedEvidence } from "../trust/evidence-grounding.js";
+import { isEmptyCapture } from "./result-normalize.js";
 function error(code, message, options = {}, now) {
     return { code, message, at: now, retryable: false, ...options };
 }
@@ -39,21 +32,21 @@ function evidenceLocatorString(entry) {
  *  empty capture fails with commit-rationale-empty-capture. `backingResult`
  *  is the parsed cw:result envelope of the task the verifier node backs
  *  (undefined when no 1:1 task backs the verifier). */
-function emptyCaptureWarning(backingResult) {
+export function emptyCaptureWarning(backingResult) {
     if (!backingResult)
         return undefined;
-    return (0, result_normalize_1.isEmptyCapture)(backingResult) ? "no findings or evidence captured from result.md" : undefined;
+    return isEmptyCapture(backingResult) ? "no findings or evidence captured from result.md" : undefined;
 }
 /** Whether a verifier node is held to the grounded-evidence bar: its
  *  backing task requires evidence, or there is no 1:1 task (always
  *  enforced). */
-function verifierNodeRequiresEvidence(taskRequiresEvidence) {
+export function verifierNodeRequiresEvidence(taskRequiresEvidence) {
     return taskRequiresEvidence === undefined ? true : taskRequiresEvidence;
 }
 /** commitState's gate resolution. Pure decision function; the caller
  *  (shell/) performs the actual snapshot/audit writes on success and the
  *  error-node/feedback write on failure. Error order is pinned. */
-function resolveCommitGate(run, options, deps) {
+export function resolveCommitGate(run, options, deps) {
     const metadata = { verifierGated: false, checkpoint: true };
     const errors = [];
     const now = deps.now;
@@ -105,7 +98,7 @@ function groundVerifierEvidence(run, verifierNode, errors, deps, now) {
     }
     else if (verifierNodeRequiresEvidence(deps.taskRequiresEvidence)) {
         const locators = verifierNode.evidence.map(evidenceLocatorString).filter(Boolean);
-        if (!(0, evidence_grounding_1.hasGroundedEvidence)(locators)) {
+        if (!hasGroundedEvidence(locators)) {
             errors.push(error("commit-verifier-evidence-ungrounded", `Verifier node ${verifierNode.id} evidence is not grounded (needs a path-like locator, URL, or namespace:value token)`, {
                 nodeId: verifierNode.id,
                 details: { verifierNodeId: verifierNode.id, evidence: locators },
@@ -124,12 +117,12 @@ function groundVerifierEvidence(run, verifierNode, errors, deps, now) {
 }
 /** Deterministic commit id: position in the run's append-only commit log
  *  (1-based), 4 digits. */
-function formatCommitId(seq) {
+export function formatCommitId(seq) {
     return `state-${String(seq).padStart(4, "0")}`;
 }
 /** Deterministic blocked-commit node id sequence: counts the
  *  commit-gate-failed nodes already recorded on the run. */
-function gateFailureSeq(run) {
+export function gateFailureSeq(run) {
     const marker = ":commit-gate-failed:";
     const seq = (run.nodes || []).filter((n) => n.id.includes(marker)).length + 1;
     return String(seq).padStart(4, "0");

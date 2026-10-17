@@ -2,8 +2,8 @@
 // (and the mirrored cw_worker_* MCP tools) handler bodies, routing into
 // the worker-isolation shell. Impure: loads run state, mutates, persists.
 
-import { cwdArg, requireArg } from "../core/util/cli-args";
-import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store";
+import { cwdArg, requireArg } from "../core/util/cli-args.js";
+import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store.js";
 import {
   getWorkerScope,
   listWorkerScopes,
@@ -11,13 +11,13 @@ import {
   recordWorkerOutput,
   recordWorkerFailure,
   validateWorkerBoundary,
-} from "./worker-isolation";
-import { updatePhaseStatuses } from "../core/pipeline/dispatch";
-import { maybeExpandLoop } from "./drive";
-import { commitState } from "./commit";
-import { writeReport } from "./report";
-import { summarizeRun } from "./operator-ux";
-import { resolveAgentConfig } from "./agent-config";
+} from "./worker-isolation.js";
+import { updatePhaseStatuses } from "../core/pipeline/dispatch.js";
+import { maybeExpandLoop } from "./drive.js";
+import { commitState } from "./commit.js";
+import { writeReport } from "./report.js";
+import { summarizeRun } from "./operator-ux.js";
+import { resolveAgentConfig } from "./agent-config.js";
 
 /** `--allow-unattested` (CLI: dashed key; MCP: allowUnattested). */
 function allowUnattestedOption(args: Record<string, unknown>): boolean {

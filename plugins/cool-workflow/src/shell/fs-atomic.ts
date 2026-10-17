@@ -8,7 +8,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { recordPerfDurableWrite } from "./perf-trace";
+import { recordPerfDurableWrite } from "./perf-trace.js";
 
 // ---------------------------------------------------------------------------
 // writeJson — the ONE JSON-on-disk byte format: JSON.stringify(value, null, 2)

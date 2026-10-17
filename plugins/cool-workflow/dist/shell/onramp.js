@@ -1,4 +1,3 @@
-"use strict";
 // shell/onramp.ts — the change-contract onramp subsystem:
 // evaluateOnrampContract, recommendSmokeTests, resolveChangedFiles,
 // buildDoctorOnramp. Impure (git/fs reads), so it lives under shell/;
@@ -9,27 +8,10 @@
 // missing file, but it also never notices when a literal it matches
 // against has moved. test/onramp-check-smoke.js checks every
 // CURATED_SMOKE_MAP row against the real tree.
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.CURATED_SMOKE_MAP = void 0;
-exports.optionEnabled = optionEnabled;
-exports.npmCommand = npmCommand;
-exports.nodeSmokeCommand = nodeSmokeCommand;
-exports.detectSourceCheckout = detectSourceCheckout;
-exports.shellQuote = shellQuote;
-exports.buildDoctorOnramp = buildDoctorOnramp;
-exports.isCommentOnlyPatch = isCommentOnlyPatch;
-exports.isDeleteOnlyPatch = isDeleteOnlyPatch;
-exports.resolveChangedFiles = resolveChangedFiles;
-exports.evaluateOnrampContract = evaluateOnrampContract;
-exports.recommendSmokeTests = recommendSmokeTests;
-exports.isGitWorkTree = isGitWorkTree;
-const node_fs_1 = __importDefault(require("node:fs"));
-const node_path_1 = __importDefault(require("node:path"));
-const node_child_process_1 = require("node:child_process");
-exports.CURATED_SMOKE_MAP = [
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+export const CURATED_SMOKE_MAP = [
     {
         patterns: ["src/shell/doctor.ts", "src/shell/onramp.ts", "scripts/onramp-check.js"],
         smokes: ["doctor-smoke.js", "onramp-check-smoke.js"]
@@ -75,33 +57,33 @@ exports.CURATED_SMOKE_MAP = [
         smokes: ["schedule-routine-daemon-smoke.js", "sched-policy-validation-smoke.js"]
     }
 ];
-function optionEnabled(value) {
+export function optionEnabled(value) {
     if (value === undefined || value === false)
         return false;
     if (typeof value === "string" && ["", "0", "false", "no"].includes(value.toLowerCase()))
         return false;
     return true;
 }
-function npmCommand(cwd, script) {
+export function npmCommand(cwd, script) {
     const source = detectSourceCheckout(cwd);
     const base = `npm run ${script}`;
     return source ? `${source.chdir}${base}` : base;
 }
-function nodeSmokeCommand(cwd, smoke) {
+export function nodeSmokeCommand(cwd, smoke) {
     const source = detectSourceCheckout(cwd);
     const base = `node test/${smoke}`;
     return source ? `${source.chdir}${base}` : base;
 }
-function detectSourceCheckout(cwd) {
-    const resolved = node_path_1.default.resolve(cwd);
-    const candidates = [resolved, node_path_1.default.join(resolved, "plugins", "cool-workflow")];
+export function detectSourceCheckout(cwd) {
+    const resolved = path.resolve(cwd);
+    const candidates = [resolved, path.join(resolved, "plugins", "cool-workflow")];
     for (const candidate of candidates) {
         try {
-            const pkg = JSON.parse(node_fs_1.default.readFileSync(node_path_1.default.join(candidate, "package.json"), "utf8"));
+            const pkg = JSON.parse(fs.readFileSync(path.join(candidate, "package.json"), "utf8"));
             if (pkg.name === "cool-workflow") {
                 return {
                     packageDir: candidate,
-                    chdir: candidate === resolved ? "" : `cd ${shellQuote(node_path_1.default.relative(resolved, candidate) || ".")} && `
+                    chdir: candidate === resolved ? "" : `cd ${shellQuote(path.relative(resolved, candidate) || ".")} && `
                 };
             }
         }
@@ -111,13 +93,13 @@ function detectSourceCheckout(cwd) {
     }
     return undefined;
 }
-function shellQuote(value) {
+export function shellQuote(value) {
     if (/^[A-Za-z0-9_./:-]+$/.test(value))
         return value;
     return `'${value.replace(/'/g, "'\\''")}'`;
 }
-function buildDoctorOnramp(options = {}) {
-    const cwd = node_path_1.default.resolve(options.cwd || process.cwd());
+export function buildDoctorOnramp(options = {}) {
+    const cwd = path.resolve(options.cwd || process.cwd());
     const agentCommand = "--agent-command builtin:claude";
     const source = detectSourceCheckout(cwd);
     const onramp = {
@@ -277,7 +259,7 @@ function buildDoctorOnramp(options = {}) {
  *  like `"http://x"` classed as code. No lines at all (or none that are
  *  code/comment) is NOT comment-only -- fail closed, same as the rest of
  *  this module. */
-function isCommentOnlyPatch(patchText) {
+export function isCommentOnlyPatch(patchText) {
     let sawLine = false;
     for (const raw of patchText.split(/\r?\n/)) {
         if (raw.startsWith("+++") || raw.startsWith("---"))
@@ -296,7 +278,7 @@ function isCommentOnlyPatch(patchText) {
  *  as isCommentOnlyPatch: a `+` line must be blank or a comment, and at
  *  least one `-` line must be real code. Empty patch, or a patch that only
  *  removes comments, is NOT delete-only -- fail closed. */
-function isDeleteOnlyPatch(patchText) {
+export function isDeleteOnlyPatch(patchText) {
     let sawRemovedCode = false;
     for (const raw of patchText.split(/\r?\n/)) {
         if (raw.startsWith("+++") || raw.startsWith("---"))
@@ -313,11 +295,11 @@ function isDeleteOnlyPatch(patchText) {
     return sawRemovedCode;
 }
 function gitDiffPatch(cwd, baseRef, file) {
-    const result = (0, node_child_process_1.spawnSync)("git", ["diff", "-U0", baseRef, "--", file], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GIT_TIMEOUT_MS });
+    const result = spawnSync("git", ["diff", "-U0", baseRef, "--", file], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GIT_TIMEOUT_MS });
     return result.status === 0 ? String(result.stdout || "") : "";
 }
-function resolveChangedFiles(options = {}) {
-    const cwd = node_path_1.default.resolve(options.cwd || process.cwd());
+export function resolveChangedFiles(options = {}) {
+    const cwd = path.resolve(options.cwd || process.cwd());
     const root = gitRoot(cwd);
     const baseRef = resolveBaseRef(root, options.changedFrom, options.env || process.env);
     const files = new Set();
@@ -349,8 +331,8 @@ function resolveChangedFiles(options = {}) {
         deleteOnly: deleteOnly.sort()
     };
 }
-function evaluateOnrampContract(files, options = {}) {
-    const cwd = node_path_1.default.resolve(options.cwd || process.cwd());
+export function evaluateOnrampContract(files, options = {}) {
+    const cwd = path.resolve(options.cwd || process.cwd());
     const normalized = [...new Set(files.map((file) => normalizeChangedPath(file)).filter(Boolean))].sort();
     // A commentOnly file stays in `normalized` (changedFiles, smoke recs) but
     // is left out of the sets below that decide the runtime/app/type/script/
@@ -415,13 +397,13 @@ function evaluateOnrampContract(files, options = {}) {
         issues
     };
 }
-function recommendSmokeTests(files, cwd = process.cwd()) {
+export function recommendSmokeTests(files, cwd = process.cwd()) {
     const normalized = files.map((file) => normalizeChangedPath(file));
     const smokes = new Set();
     const curatedFiles = new Set();
     for (const file of normalized) {
         const pluginPath = stripPluginPrefix(file);
-        for (const entry of exports.CURATED_SMOKE_MAP) {
+        for (const entry of CURATED_SMOKE_MAP) {
             const matched = entry.patterns.some((pattern) => pluginPath === pattern || pluginPath.startsWith(pattern));
             if (matched) {
                 curatedFiles.add(file);
@@ -437,7 +419,7 @@ function recommendSmokeTests(files, cwd = process.cwd()) {
         const pluginPath = stripPluginPrefix(file);
         if (!pluginPath.startsWith("src/"))
             continue;
-        const base = node_path_1.default.basename(pluginPath, ".ts");
+        const base = path.basename(pluginPath, ".ts");
         const direct = `${base}-smoke.js`;
         if (available.includes(direct))
             smokes.add(direct);
@@ -499,11 +481,11 @@ function verifyRef(root, ref) {
     return ref;
 }
 function gitRoot(cwd) {
-    return gitOne(node_path_1.default.resolve(cwd), ["rev-parse", "--show-toplevel"]) || node_path_1.default.resolve(cwd);
+    return gitOne(path.resolve(cwd), ["rev-parse", "--show-toplevel"]) || path.resolve(cwd);
 }
 /** True when `cwd` is inside a git work tree (same spawn/timeout behavior as gitRoot). */
-function isGitWorkTree(cwd) {
-    return gitOne(node_path_1.default.resolve(cwd), ["rev-parse", "--is-inside-work-tree"]) === "true";
+export function isGitWorkTree(cwd) {
+    return gitOne(path.resolve(cwd), ["rev-parse", "--is-inside-work-tree"]) === "true";
 }
 // Every onramp git call is a quick metadata read (rev-parse, merge-base, diff
 // --name-only, ls-files). A finite timeout keeps a HUNG git -- a cold fsmonitor
@@ -514,7 +496,7 @@ function isGitWorkTree(cwd) {
 // gitLines/gitOne fall back the same way they do for any other git failure.
 const GIT_TIMEOUT_MS = 5000;
 function gitLines(cwd, args) {
-    const result = (0, node_child_process_1.spawnSync)("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GIT_TIMEOUT_MS });
+    const result = spawnSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GIT_TIMEOUT_MS });
     if (result.status !== 0)
         return [];
     return String(result.stdout || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
@@ -527,7 +509,7 @@ function gitLines(cwd, args) {
  *  Callers that WANT a soft fallback (merge-base probing, optional
  *  discovery) should keep using gitLines/gitOne. */
 function gitLinesOrThrow(cwd, args) {
-    const result = (0, node_child_process_1.spawnSync)("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GIT_TIMEOUT_MS });
+    const result = spawnSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GIT_TIMEOUT_MS });
     if (result.error)
         throw new Error(`onramp: git ${args.join(" ")} failed to run: ${result.error.message}`);
     if (result.status !== 0) {
@@ -540,9 +522,9 @@ function gitOne(cwd, args) {
 }
 function availableSmokeTests(cwd) {
     const source = detectSourceCheckout(cwd);
-    const testDir = source ? node_path_1.default.join(source.packageDir, "test") : node_path_1.default.join(node_path_1.default.resolve(cwd), "test");
+    const testDir = source ? path.join(source.packageDir, "test") : path.join(path.resolve(cwd), "test");
     try {
-        return node_fs_1.default.readdirSync(testDir).filter((file) => file.endsWith("-smoke.js")).sort();
+        return fs.readdirSync(testDir).filter((file) => file.endsWith("-smoke.js")).sort();
     }
     catch {
         return [];
@@ -573,7 +555,7 @@ function isTypeSource(file) {
         return false;
     return (pluginPath.startsWith("src/types/") ||
         pluginPath.startsWith("src/core/types/") ||
-        node_path_1.default.basename(pluginPath) === "types.ts");
+        path.basename(pluginPath) === "types.ts");
 }
 // Capability/MCP surface files: a change to one needs "surface-docs-required"
 // and gets the parity:check/gen:manifests hint below.

@@ -1,12 +1,8 @@
-"use strict";
 // shell/observability-format.ts — human formatters for `cw metrics show`/
 // `cw metrics summary`.
 //
 // Evidence: SPEC/reporting-ux.md
 // "cw metrics show / summary" (exact line shapes).
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.formatMetricsReport = formatMetricsReport;
-exports.formatMetricsSummary = formatMetricsSummary;
 function formatRate(r) {
     if (r.state === "n/a")
         return `n/a (0 samples)`;
@@ -29,7 +25,7 @@ function formatCost(c) {
         parts.push(`unpriced-models=${c.unpricedModels.join(",")}`);
     return parts.join("  ");
 }
-function formatMetricsReport(report) {
+export function formatMetricsReport(report) {
     const lines = [];
     lines.push(`metrics ${report.runId}  [${report.freshness.status}]  app=${report.scope.app || "-"}`);
     lines.push(`  time: run=${formatMs(report.time.run.wallClockMs)}${report.time.run.inFlight ? " (in-flight)" : ""}  active-task=${formatMs(report.time.activeTaskMs)}  in-flight-items=${report.time.inFlight}`);
@@ -46,7 +42,7 @@ function formatMetricsReport(report) {
     lines.push(`  next: ${report.nextAction}`);
     return lines.join("\n");
 }
-function formatMetricsSummary(summary) {
+export function formatMetricsSummary(summary) {
     const lines = [];
     lines.push(`metrics summary  scope=${summary.scope}  runs=${summary.runCount}${summary.unreadableRuns ? ` (+${summary.unreadableRuns} unreadable)` : ""}`);
     lines.push(`  failure-rate:    ${formatRate(summary.rates.failure)}`);

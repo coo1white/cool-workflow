@@ -1,4 +1,3 @@
-"use strict";
 // shell/run-store.ts — loadRunFromCwd, saveCheckpoint, compactCheckpoint.
 //
 // The ONLY place state.json is read or written. The migration DECISION
@@ -8,68 +7,14 @@
 // Evidence: SPEC/state-core.md "state module — persistence kernel",
 // "Write ordering and atomic rules", "compactCheckpoint on a run with no
 // empty optional arrays writes nothing".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.RunStateConflictError = exports.createRunPaths = void 0;
-exports.sameRealLocation = sameRealLocation;
-exports.rebindRunPaths = rebindRunPaths;
-exports.ensureRunDirs = ensureRunDirs;
-exports.hashArtifactFile = hashArtifactFile;
-exports.loadRunStateFile = loadRunStateFile;
-exports.checkRunStateFile = checkRunStateFile;
-exports.migrateRunStateFile = migrateRunStateFile;
-exports.assertNotSuspectedDataLoss = assertNotSuspectedDataLoss;
-exports.loadRunFromCwd = loadRunFromCwd;
-exports.resolveRunDir = resolveRunDir;
-exports.withRunStateLock = withRunStateLock;
-exports.withDriveLock = withDriveLock;
-exports.withDriveLockAsync = withDriveLockAsync;
-exports.saveCheckpoint = saveCheckpoint;
-exports.serializeRunState = serializeRunState;
-exports.runStateIsCurrent = runStateIsCurrent;
-exports.savedRunIfCurrent = savedRunIfCurrent;
-exports.compactCheckpoint = compactCheckpoint;
-exports.createRun = createRun;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const fs_atomic_1 = require("./fs-atomic");
-const run_paths_1 = require("../core/state/run-paths");
-Object.defineProperty(exports, "createRunPaths", { enumerable: true, get: function () { return run_paths_1.createRunPaths; } });
-const migrations_1 = require("../core/state/migrations");
-const hash_1 = require("../core/hash");
-const trust_audit_1 = require("./trust-audit");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { acquireOwnerLock, assertSafeRunId, readJson, withFileLock, writeJson, writePartsDurable } from "./fs-atomic.js";
+import { createRunPaths, rebindRunPaths as rebindRunPathsCore } from "../core/state/run-paths.js";
+import { migrateRunState } from "../core/state/migrations.js";
+import { sha256 } from "../core/hash.js";
+import { flushPendingTrustAudit } from "./trust-audit.js";
+export { createRunPaths };
 /** The real place an absolute, normalized path names: realpath of the path
  *  when it is there, else realpath of its nearest existing parent plus the
  *  rest of the segments. undefined for a relative or not-normalized path
@@ -96,20 +41,20 @@ function realLocation(value) {
 /** SameLocation for rebindRunPaths: the two paths name one real place
  *  (the same file or folder through a symlink). Fails closed: a path whose
  *  real place cannot be found is never the same. */
-function sameRealLocation(stored, rebuilt) {
+export function sameRealLocation(stored, rebuilt) {
     const a = realLocation(stored);
     return a !== undefined && a === realLocation(rebuilt);
 }
 /** rebindRunPaths with the symlink-aware sameRealLocation: stored paths
  *  that name the run's real folder are kept byte for byte (POLA for
  *  printed paths); any other stored path is replaced. */
-function rebindRunPaths(run, runDir) {
-    return (0, run_paths_1.rebindRunPaths)(run, runDir, sameRealLocation);
+export function rebindRunPaths(run, runDir) {
+    return rebindRunPathsCore(run, runDir, sameRealLocation);
 }
 /** `mkdirSync` (recursive) every always-written directory. `artifacts`,
  *  `feedback`, `candidates`, `multi-agent`, `blackboard`, and `topologies`
  *  are made on first use instead, each by its own writer in shell/. */
-function ensureRunDirs(paths) {
+export function ensureRunDirs(paths) {
     const dirs = [
         paths.runDir,
         paths.tasksDir,
@@ -126,10 +71,10 @@ function ensureRunDirs(paths) {
 /** Read the file at artifact.path and stamp sha256 (the core `sha256:`+hex
  *  form) + sizeBytes onto the StateArtifact. A missing/unreadable file is
  *  silently skipped so hashing an absent artifact never throws. */
-function hashArtifactFile(artifact) {
+export function hashArtifactFile(artifact) {
     try {
         const content = fs.readFileSync(artifact.path, "utf8");
-        artifact.sha256 = (0, hash_1.sha256)(content);
+        artifact.sha256 = sha256(content);
         artifact.sizeBytes = Buffer.byteLength(content, "utf8");
     }
     catch {
@@ -138,26 +83,26 @@ function hashArtifactFile(artifact) {
     return artifact;
 }
 /** Dry-run load + migrate a state.json at an explicit path. */
-function loadRunStateFile(statePath, options = {}) {
+export function loadRunStateFile(statePath, options = {}) {
     // readJson hands back a fresh parse nothing else holds, so the
     // migration works on it in place: one JSON pass per load, not three.
-    return (0, migrations_1.migrateRunState)((0, fs_atomic_1.readJson)(statePath), {
+    return migrateRunState(readJson(statePath), {
         statePath,
         owned: true,
         dryRun: options.dryRun === undefined ? true : options.dryRun,
     });
 }
 /** Same as `loadRunStateFile` with `dryRun: true`. */
-function checkRunStateFile(statePath) {
+export function checkRunStateFile(statePath) {
     return loadRunStateFile(statePath, { dryRun: true });
 }
 /** Dry-run unless `write: true`; writes the migrated state back with
  *  `writeJson` ONLY when status is not `unsupported` AND `write` AND
  *  `report.writeRequired`. */
-function migrateRunStateFile(statePath, options = {}) {
+export function migrateRunStateFile(statePath, options = {}) {
     const result = loadRunStateFile(statePath, { dryRun: !options.write });
     if (result.report.status !== "unsupported" && options.write && result.report.writeRequired) {
-        (0, fs_atomic_1.writeJson)(statePath, result.run);
+        writeJson(statePath, result.run);
     }
     return result;
 }
@@ -215,7 +160,7 @@ function hasPreexistingRunContent(run) {
  *  (`loadRunFromCwd` here, `RunRegistry.loadRun` in run-registry-io.ts) so
  *  a corrupted/wiped state.json is refused the same way regardless of
  *  which entry point reached it. */
-function assertNotSuspectedDataLoss(runId, result) {
+export function assertNotSuspectedDataLoss(runId, result) {
     if (result.report.suspectedDataLoss && hasPreexistingRunContent(result.run)) {
         throw new Error(`Refusing to load run ${runId}: state.json is missing its core fields (workflow, paths), but the run directory already has task, commit, or other content on disk. This looks like state.json was corrupted, truncated, or replaced by something outside cw, not a new run. Restore state.json from a backup, or remove the run directory to start over.`);
     }
@@ -233,10 +178,10 @@ function assertNotSuspectedDataLoss(runId, result) {
  *  the migrated WorkflowRun in memory, its `paths` and audit paths made
  *  again from the run dir it was found in (`rebindRunPaths`) — stored
  *  paths are never trusted as write targets. */
-function loadRunFromCwd(runId, cwd = process.cwd()) {
+export function loadRunFromCwd(runId, cwd = process.cwd()) {
     if (!runId)
         throw new Error("Missing run id");
-    (0, fs_atomic_1.assertSafeRunId)(runId);
+    assertSafeRunId(runId);
     const statePath = path.join(cwd, ".cw", "runs", runId, "state.json");
     if (!fs.existsSync(statePath))
         throw new Error(`Run not found: ${runId}`);
@@ -261,10 +206,10 @@ function loadRunFromCwd(runId, cwd = process.cwd()) {
  *  `existsSync` so it adds no `state.json` READ and never creates the run dir
  *  for a nonexistent run. Used by the drive mutex, which needs the directory
  *  before it can acquire, without perturbing read accounting. */
-function resolveRunDir(runId, cwd = process.cwd()) {
+export function resolveRunDir(runId, cwd = process.cwd()) {
     if (!runId)
         throw new Error("Missing run id");
-    (0, fs_atomic_1.assertSafeRunId)(runId);
+    assertSafeRunId(runId);
     const runDir = path.join(cwd, ".cw", "runs", runId);
     if (!fs.existsSync(path.join(runDir, "state.json")))
         throw new Error(`Run not found: ${runId}`);
@@ -281,9 +226,9 @@ function resolveRunDir(runId, cwd = process.cwd()) {
  *  lock-file side effect — and it supplies `paths.state`, the same lock
  *  target saveCheckpoint uses. Keep `fn` short: a critical section past
  *  30s can be stolen as a stale lock. */
-function withRunStateLock(runId, cwd, fn) {
+export function withRunStateLock(runId, cwd, fn) {
     const probe = loadRunFromCwd(runId, cwd);
-    return (0, fs_atomic_1.withFileLock)(probe.paths.state, () => fn(loadRunFromCwd(runId, cwd)));
+    return withFileLock(probe.paths.state, () => fn(loadRunFromCwd(runId, cwd)));
 }
 // ---------------------------------------------------------------------------
 // withDriveLock — a run-scoped DRIVE mutex, held across a WHOLE drive() call.
@@ -315,12 +260,12 @@ function driveLockPath(runDir) {
  *  LIVE process holds it. */
 function acquireDriveLock(runDir, runId) {
     const lock = driveLockPath(runDir);
-    return (0, fs_atomic_1.acquireOwnerLock)(lock, (ownerPid) => new Error(`Run ${runId} is already being driven by another process (pid ${ownerPid || "unknown"}). ` +
+    return acquireOwnerLock(lock, (ownerPid) => new Error(`Run ${runId} is already being driven by another process (pid ${ownerPid || "unknown"}). ` +
         `Wait for it to finish, or if it has crashed remove ${lock}, then resume: cw --resume --run ${runId}`));
 }
 /** Run `fn` while holding the run-scoped drive mutex (see the block comment
  *  above); always released, even on throw. Synchronous callers (drive()). */
-function withDriveLock(runDir, runId, fn) {
+export function withDriveLock(runDir, runId, fn) {
     const release = acquireDriveLock(runDir, runId);
     try {
         return fn();
@@ -332,7 +277,7 @@ function withDriveLock(runDir, runId, fn) {
 /** Async form of `withDriveLock` — releases only AFTER `fn`'s promise
  *  settles, so driveAsync()'s awaited multi-round loop stays inside the lock
  *  for its whole lifetime. */
-async function withDriveLockAsync(runDir, runId, fn) {
+export async function withDriveLockAsync(runDir, runId, fn) {
     const release = acquireDriveLock(runDir, runId);
     try {
         return await fn();
@@ -343,30 +288,29 @@ async function withDriveLockAsync(runDir, runId, fn) {
 }
 /** Thrown by `saveCheckpoint(run, { ifUnchanged: true })` when another
  *  writer saved state.json after `run` was loaded or saved here. */
-class RunStateConflictError extends Error {
+export class RunStateConflictError extends Error {
     constructor(runId) {
         super(`state.json of run ${runId} was changed by another writer (such as cw result or cw commit) while this drive held an older copy; refusing to overwrite it. Run the drive again to go on from the saved state.`);
         this.name = "RunStateConflictError";
     }
 }
-exports.RunStateConflictError = RunStateConflictError;
 /** state.json is the single source of truth — set `updatedAt`, then write
  *  it DURABLY with a lock so concurrent processes never lose an update.
  *  `ifUnchanged` (the drive's saves): under the same lock, refuse with
  *  RunStateConflictError when state.json is no longer the file `run` was
  *  loaded from or last saved as (runStateIsCurrent), so a long-held copy
  *  never writes over a change it never saw. */
-function saveCheckpoint(run, options = {}) {
-    (0, trust_audit_1.flushPendingTrustAudit)(run);
+export function saveCheckpoint(run, options = {}) {
+    flushPendingTrustAudit(run);
     run.updatedAt = new Date().toISOString();
-    (0, fs_atomic_1.withFileLock)(run.paths.state, () => {
+    withFileLock(run.paths.state, () => {
         if (options.ifUnchanged && RUN_STAMPS.has(run) && !runStateIsCurrent(run))
             throw new RunStateConflictError(run.id);
         const parts = runStateParts(run);
         if (process.env.CW_STATE_WRITE_VERIFY === "1" && Buffer.concat(parts).toString("utf8") !== `${JSON.stringify(run, null, 2)}\n`) {
             throw new Error(`state serialization differs from JSON.stringify for run ${run.id}`);
         }
-        (0, fs_atomic_1.writePartsDurable)(run.paths.state, parts, { durable: true });
+        writePartsDurable(run.paths.state, parts, { durable: true });
         const stamp = stateFileStamp(run.paths.state);
         if (stamp) {
             LAST_SAVED.set(path.resolve(run.paths.state), { stamp, run });
@@ -379,7 +323,7 @@ function saveCheckpoint(run, options = {}) {
     });
 }
 /** `JSON.stringify(run, null, 2)`, byte for byte (see runStateParts). */
-function serializeRunState(run) {
+export function serializeRunState(run) {
     return Buffer.concat(runStateParts(run)).toString("utf8").slice(0, -1);
 }
 /** The bytes of state.json (`JSON.stringify(run, null, 2)` and a final
@@ -504,7 +448,7 @@ const RUN_STAMPS = new WeakMap();
 /** True when state.json is still exactly the file `run` was loaded from or
  *  last saved as in this process; false when anyone wrote it since, or when
  *  nothing is known of `run`. A stat, never a read. */
-function runStateIsCurrent(run) {
+export function runStateIsCurrent(run) {
     const stamp = RUN_STAMPS.get(run);
     return stamp !== undefined && stateFileStamp(run.paths.state) === stamp;
 }
@@ -522,7 +466,7 @@ function stateFileStamp(file) {
  *  and the object is in the shape a load gives back (jsonShaped); else
  *  undefined (the caller reads from disk). It is the caller's job to know
  *  the object has not changed since that save. */
-function savedRunIfCurrent(statePath) {
+export function savedRunIfCurrent(statePath) {
     const saved = LAST_SAVED.get(path.resolve(statePath));
     return saved && stateFileStamp(statePath) === saved.stamp && jsonShaped(saved.run) ? saved.run : undefined;
 }
@@ -562,7 +506,7 @@ const OPTIONAL_EMPTY_ARRAY_KEYS = ["nodes", "contracts", "feedback", "workers", 
  *  (normalizeRunState backfills these on load, so stripping saves disk
  *  without losing information). Returns the count stripped; writes nothing
  *  (and calls `saveCheckpoint` zero times) when nothing was stripped. */
-function compactCheckpoint(run) {
+export function compactCheckpoint(run) {
     let stripped = 0;
     const state = run;
     for (const key of OPTIONAL_EMPTY_ARRAY_KEYS) {
@@ -581,8 +525,8 @@ function compactCheckpoint(run) {
  *  `id`/`workflow.id`/`workflow.title`, and durably writes `state.json`.
  *  This is the minimal "create a run" mechanism; the `plan`/`quickstart`
  *  pipeline layers phases/tasks/inputs on top of this same primitive. */
-function createRun(runDir, runId, workflowId, cwd) {
-    const paths = (0, run_paths_1.createRunPaths)(runDir);
+export function createRun(runDir, runId, workflowId, cwd) {
+    const paths = createRunPaths(runDir);
     ensureRunDirs(paths);
     const seed = {
         id: runId,
@@ -590,10 +534,10 @@ function createRun(runDir, runId, workflowId, cwd) {
         workflowId,
         paths: paths,
     };
-    const { run, report } = (0, migrations_1.migrateRunState)(seed, { statePath: paths.state, dryRun: false });
+    const { run, report } = migrateRunState(seed, { statePath: paths.state, dryRun: false });
     if (report.status === "unsupported") {
         throw new Error(`Unsupported CW run state: ${report.errors.join("; ")}`);
     }
-    (0, fs_atomic_1.writeJson)(paths.state, run, { durable: true });
+    writeJson(paths.state, run, { durable: true });
     return run;
 }

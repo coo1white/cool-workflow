@@ -3,7 +3,7 @@
 // dist/mcp-server.js, a sibling of dist/cli.js (scripts/mcp-server.js
 // requires it; a real MCP client launches it directly with `node`).
 
-import { startServer } from "./mcp/server";
+import { startServer } from "./mcp/server.js";
 
 /** Broken-pipe guard for the MCP stdio server, the same idea as
  *  cli/entry.ts's `main()`. When an MCP client closes the read end of our

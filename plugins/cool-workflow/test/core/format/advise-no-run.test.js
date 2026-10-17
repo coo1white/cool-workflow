@@ -26,11 +26,25 @@ assert.deepEqual(statusPayload(undefined), { runId: null, nextActions: expected 
 
 // The CLI path: same JSON bytes, and the run-reading modules stay unloaded.
 const cli = path.resolve(__dirname, "..", "..", "..", "dist", "cli.js");
+// dist/ is ES modules, which never reach require.cache, so the probe lists
+// what it loads at module.registerHooks' load step (Node 22.15+).
+if (typeof require("node:module").registerHooks !== "function") {
+  process.stdout.write(`advise-no-run: ok (load probe skipped: module.registerHooks needs Node 22.15 or later; this is ${process.versions.node})\n`);
+  process.exit(0);
+}
 const probe = `
+  const seen = [];
+  require("node:module").registerHooks({
+    load(url, context, nextLoad) {
+      if (url.startsWith("file:")) seen.push(require("node:url").fileURLToPath(url));
+      return nextLoad(url, context);
+    },
+  });
   process.argv = [process.argv[0], ${JSON.stringify(cli)}, "status", "--json"];
   require(${JSON.stringify(cli)});
   process.on("exit", () => {
-    const loaded = Object.keys(require.cache).filter((f) => /[\\\\/]dist[\\\\/]shell[\\\\/](report-view-cli|operator-ux|run-store)\\.js$/.test(f));
+    if (!seen.some((f) => /[\\\\/]dist[\\\\/]cli\\.js$/.test(f))) throw new Error("the load hook saw no dist module");
+    const loaded = seen.filter((f) => /[\\\\/]dist[\\\\/]shell[\\\\/](report-view-cli|operator-ux|run-store)\\.js$/.test(f));
     process.stderr.write("LOADED=" + JSON.stringify(loaded));
   });
 `;

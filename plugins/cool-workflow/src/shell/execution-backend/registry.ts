@@ -7,14 +7,14 @@
 //
 // Evidence: SPEC/execution-backend.md "The driver registry".
 
-import { hasExecutable, probeAgentBackend, probeBunBackend, probeCiBackend, probeContainerBackend, probeNodeBackend, probeRemoteBackend, probeShellBackend } from "./probes";
-import { executeLocal, LocalSpawnStyle, runtimeNoteFor } from "./local";
-import { refusedEnvelope } from "./envelopes";
-import { runContainer, containerHandle } from "./container";
-import { runHttpDelegation, remoteHandle } from "./remote";
-import { ciHandle, runCiDelegation } from "./ci";
-import { agentHandle, runAgentProcess } from "./agent";
-import { stableCompare } from "../../core/util/collate";
+import { hasExecutable, probeAgentBackend, probeBunBackend, probeCiBackend, probeContainerBackend, probeNodeBackend, probeRemoteBackend, probeShellBackend } from "./probes.js";
+import { executeLocal, LocalSpawnStyle, runtimeNoteFor } from "./local.js";
+import { refusedEnvelope } from "./envelopes.js";
+import { runContainer, containerHandle } from "./container.js";
+import { runHttpDelegation, remoteHandle } from "./remote.js";
+import { ciHandle, runCiDelegation } from "./ci.js";
+import { agentHandle, runAgentProcess } from "./agent.js";
+import { stableCompare } from "../../core/util/collate.js";
 import {
   BackendCapability,
   BackendDescriptor,
@@ -32,7 +32,7 @@ import {
   SandboxAttestation,
   SandboxDimension,
   SandboxDimensionSupport,
-} from "./types";
+} from "./types.js";
 
 export const EXECUTION_BACKEND_SCHEMA_VERSION = 1;
 export const DEFAULT_BACKEND_ID = "node";

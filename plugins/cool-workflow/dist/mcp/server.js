@@ -1,4 +1,3 @@
-"use strict";
 // mcp/server.ts — the stdio JSON-RPC loop: initialize / tools/list /
 // tools/call.
 //
@@ -58,14 +57,13 @@
 //     line when core/format/recovery-hint.ts's recoveryHint finds one>
 //     }], isError: true }, same `resultMessage` helper as the success
 //     path. The envelope-level "missing field: name" check above still answers -32000.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.negotiateProtocolVersion = negotiateProtocolVersion;
-exports.startServer = startServer;
-const version_1 = require("../core/version");
-const recovery_hint_1 = require("../core/format/recovery-hint");
-const dispatch_1 = require("./dispatch");
-const tool_process_1 = require("./tool-process");
-const capability_data_1 = require("../core/capability-data");
+import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version.js";
+import { recoveryHint } from "../core/format/recovery-hint.js";
+import { toolDefinitions } from "./dispatch.js";
+import { ToolProcessExecutor } from "./tool-process.js";
+import { MCP_CORE_TOOLS } from "../core/capability-data.js";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 const MAX_LINE_BYTES = 16 * 1024 * 1024;
 /** Protocol versions this server can speak, oldest first. `initialize`
  *  echoes the client's `params.protocolVersion` when it is in this list,
@@ -78,7 +76,7 @@ const SUPPORTED_PROTOCOL_VERSIONS = ["2024-11-05"];
  * policy alone decides the list. When both are unset, CW_MCP_TOOLS picks the
  * listed profile: unset or `core` lists MCP_CORE_TOOLS, `full` lists every
  * tool, and any other value fails closed. */
-function mcpToolAuthority(definitions = (0, dispatch_1.toolDefinitions)(), environment = process.env) {
+function mcpToolAuthority(definitions = toolDefinitions(), environment = process.env) {
     const known = new Set(definitions.map((definition) => definition.name));
     const profile = toolProfile(environment, known);
     const enabled = configuredToolNames("CW_MCP_ENABLED_TOOLS", environment, known);
@@ -97,11 +95,11 @@ function toolProfile(environment, known) {
         return undefined;
     if (value !== undefined && value !== "core")
         throw new Error(`MCP tool policy CW_MCP_TOOLS must be core or full: ${value}`);
-    for (const tool of capability_data_1.MCP_CORE_TOOLS) {
+    for (const tool of MCP_CORE_TOOLS) {
         if (!known.has(tool))
             throw new Error(`MCP tool policy CW_MCP_TOOLS=core names an unknown tool: ${tool}`);
     }
-    return capability_data_1.MCP_CORE_TOOLS;
+    return MCP_CORE_TOOLS;
 }
 function configuredToolNames(name, environment, known) {
     const value = environment[name];
@@ -118,7 +116,7 @@ function configuredToolNames(name, environment, known) {
     return selected;
 }
 function permittedToolDefinitions(authority) {
-    const definitions = (0, dispatch_1.toolDefinitions)();
+    const definitions = toolDefinitions();
     if (authority.listed) {
         const byName = new Map(definitions.map((definition) => [definition.name, definition]));
         return authority.listed.map((name) => byName.get(name));
@@ -131,7 +129,7 @@ function toolPermitted(name, authority) {
 /** Picks the `initialize` reply's protocolVersion from the client's
  *  requested one (see SUPPORTED_PROTOCOL_VERSIONS). Exported for the
  *  protocol-version smoke; pure. */
-function negotiateProtocolVersion(requested) {
+export function negotiateProtocolVersion(requested) {
     if (typeof requested === "string" && SUPPORTED_PROTOCOL_VERSIONS.includes(requested))
         return requested;
     return SUPPORTED_PROTOCOL_VERSIONS[SUPPORTED_PROTOCOL_VERSIONS.length - 1];
@@ -208,7 +206,7 @@ async function handleRequest(message, tools, authority) {
                 writeMessage(resultMessage(id, {
                     protocolVersion: negotiateProtocolVersion(params.protocolVersion),
                     capabilities: { tools: {}, resources: {} },
-                    serverInfo: { name: "cool-workflow", version: version_1.CURRENT_COOL_WORKFLOW_VERSION },
+                    serverInfo: { name: "cool-workflow", version: CURRENT_COOL_WORKFLOW_VERSION },
                 }));
                 return;
             }
@@ -223,7 +221,7 @@ async function handleRequest(message, tools, authority) {
                 // these off too.
                 // Loaded here, not at the top: initialize and tools/list stay under
                 // the perf ratchet's module ceiling (scripts/bench/perf-ceilings.json).
-                const resources = require("./resources");
+                const resources = require("./resources.js");
                 if (!toolPermitted("cw_report", authority))
                     throw new resources.ResourceError(-32601, `MCP ${message.method} disabled by policy: cw_report`);
                 const params = (message.params ?? {});
@@ -273,7 +271,7 @@ async function handleRequest(message, tools, authority) {
                 }
                 catch (error) {
                     const text = error instanceof Error ? error.message : String(error);
-                    const hint = (0, recovery_hint_1.recoveryHint)(text);
+                    const hint = recoveryHint(text);
                     const errorText = hint ? `${text}\nTry: ${hint}` : text;
                     writeMessage(resultMessage(id, { content: [{ type: "text", text: errorText }], isError: true }));
                 }
@@ -329,10 +327,10 @@ async function handleLine(parsed, tools, authority) {
  *  many real event-loop turns to answer. The one exception is `ping`,
  *  answered in handleRequest's fast path before any tool work, so a
  *  keep-alive ping still gets a reply while a long drive holds the queue. */
-function startServer() {
+export function startServer() {
     const authority = mcpToolAuthority();
     process.stdin.setEncoding("utf8");
-    const tools = new tool_process_1.ToolProcessExecutor();
+    const tools = new ToolProcessExecutor();
     // EOF is a normal protocol close: keep the queue alive so a client which
     // sent a batch and then closed stdin still gets its ordered replies. A
     // process stop is different. Stop the child before giving the same signal

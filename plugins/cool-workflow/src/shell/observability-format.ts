@@ -4,7 +4,7 @@
 // Evidence: SPEC/reporting-ux.md
 // "cw metrics show / summary" (exact line shapes).
 
-import { CostMetric, MetricsReport, MetricsSummaryReport, RateMetric } from "./observability";
+import { CostMetric, MetricsReport, MetricsSummaryReport, RateMetric } from "./observability.js";
 
 function formatRate(r: RateMetric): string {
   if (r.state === "n/a") return `n/a (0 samples)`;

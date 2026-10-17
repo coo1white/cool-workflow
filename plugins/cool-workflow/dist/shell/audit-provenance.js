@@ -1,26 +1,20 @@
-"use strict";
 // shell/audit-provenance.ts — the trust-audit READ + record helpers:
 // workerTrustAudit, evidenceProvenance, and the two thin record wrappers
 // (recordHostAttestation, recordSandboxPolicyDecision). These are pure
 // wrappers over the primitives shell/trust-audit.ts exports
 // (listTrustAuditEvents, recordTrustAuditEvent), so they live in their own
 // module rather than re-open the audited trust-audit.ts chain writer.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.workerTrustAudit = workerTrustAudit;
-exports.evidenceProvenance = evidenceProvenance;
-exports.recordHostAttestation = recordHostAttestation;
-exports.recordSandboxPolicyDecision = recordSandboxPolicyDecision;
-const trust_audit_1 = require("./trust-audit");
+import { listTrustAuditEvents, recordTrustAuditEvent, } from "./trust-audit.js";
 /** `cw audit worker <run> <worker>` body — every audited event that
  *  touched one worker. Port of old workerTrustAudit. */
-function workerTrustAudit(run, workerId) {
-    return { workerId, events: (0, trust_audit_1.listTrustAuditEvents)(run).filter((event) => event.workerId === workerId) };
+export function workerTrustAudit(run, workerId) {
+    return { workerId, events: listTrustAuditEvents(run).filter((event) => event.workerId === workerId) };
 }
 /** `cw audit provenance <run>` body — the evidence chain (worker output ->
  *  candidate -> selection -> commit) and the audit events that produced it,
  *  filtered by candidate/commit/worker. Port of old evidenceProvenance. */
-function evidenceProvenance(run, options = {}) {
-    const events = (0, trust_audit_1.listTrustAuditEvents)(run).filter((event) => {
+export function evidenceProvenance(run, options = {}) {
+    const events = listTrustAuditEvents(run).filter((event) => {
         if (options.candidateId && event.candidateId !== options.candidateId)
             return false;
         if (options.commitId && event.commitId !== options.commitId)
@@ -52,8 +46,8 @@ function evidenceProvenance(run, options = {}) {
 }
 /** Record a host/operator sandbox attestation event. Port of old
  *  recordHostAttestation. */
-function recordHostAttestation(run, input) {
-    return (0, trust_audit_1.recordTrustAuditEvent)(run, {
+export function recordHostAttestation(run, input) {
+    return recordTrustAuditEvent(run, {
         ...input,
         kind: input.kind || "sandbox.host-attestation",
         decision: "recorded",
@@ -62,9 +56,9 @@ function recordHostAttestation(run, input) {
 }
 /** Record a cw-validated sandbox policy decision event. Port of old
  *  recordSandboxPolicyDecision. */
-function recordSandboxPolicyDecision(run, input) {
+export function recordSandboxPolicyDecision(run, input) {
     const { envVars, ...rest } = input;
-    const event = (0, trust_audit_1.recordTrustAuditEvent)(run, {
+    const event = recordTrustAuditEvent(run, {
         ...rest,
         source: input.source || "cw-validated",
         metadata: { ...(input.metadata || {}), ...(envVars && envVars.length ? { envVars } : {}) },

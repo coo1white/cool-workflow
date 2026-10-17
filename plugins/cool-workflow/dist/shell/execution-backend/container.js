@@ -1,18 +1,13 @@
-"use strict";
 // shell/execution-backend/container.ts — the container delegating driver.
 //
 // The container handle builder and `runContainer`.
 //
 // Evidence: SPEC/execution-backend.md "container driver (runContainer)".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildContainerEnvArgs = buildContainerEnvArgs;
-exports.containerHandle = containerHandle;
-exports.runContainer = runContainer;
-const node_child_process_1 = require("node:child_process");
-const probes_1 = require("./probes");
-const local_1 = require("./local");
-const envelopes_1 = require("./envelopes");
-const cli_args_1 = require("../../core/util/cli-args");
+import { spawnSync } from "node:child_process";
+import { hasExecutable } from "./probes.js";
+import { CW_NEVER_FORWARD_ENV } from "./local.js";
+import { delegatedEnvelope, refusedEnvelope } from "./envelopes.js";
+import { messageOf } from "../../core/util/cli-args.js";
 /** buildContainerEnvArgs — build the `-e NAME=value` args passed into the
  *  container run command. Pulled out as its own pure function so it can be
  *  checked without a real docker/podman on the box (see local.ts's
@@ -28,7 +23,7 @@ const cli_args_1 = require("../../core/util/cli-args");
  *  buildChildEnv, so it must apply CW_NEVER_FORWARD_ENV itself — otherwise
  *  inherit:true would still copy CW's own parent-only secrets (the release
  *  signing key, the workbench token) into the container. */
-function buildContainerEnvArgs(policy, baseEnv = process.env) {
+export function buildContainerEnvArgs(policy, baseEnv = process.env) {
     const args = [];
     if (policy.env.inherit || (policy.env.expose && policy.env.expose.length)) {
         const deny = new Set(policy.env.deny || []);
@@ -37,7 +32,7 @@ function buildContainerEnvArgs(policy, baseEnv = process.env) {
                 continue;
             if (deny.has(name))
                 continue;
-            if (local_1.CW_NEVER_FORWARD_ENV.has(name))
+            if (CW_NEVER_FORWARD_ENV.has(name))
                 continue; // parent-only secrets never enter the container
             const value = baseEnv[name];
             if (value !== undefined)
@@ -46,7 +41,7 @@ function buildContainerEnvArgs(policy, baseEnv = process.env) {
     }
     return args;
 }
-function containerHandle(request, env = process.env) {
+export function containerHandle(request, env = process.env) {
     const delegation = request.delegation || {};
     const image = delegation.image || (env.CW_CONTAINER_IMAGE || "").trim() || undefined;
     if (!image)
@@ -59,16 +54,16 @@ function containerHandle(request, env = process.env) {
  *  closed when no runtime is on PATH, the daemon is unreachable, or the
  *  runtime itself errors (exit 125) — distinct from the command's own
  *  non-zero exit. */
-function runContainer(descriptor, policy, request, label, handle, attestation) {
-    const runtime = (0, probes_1.hasExecutable)("docker") ? "docker" : (0, probes_1.hasExecutable)("podman") ? "podman" : undefined;
+export function runContainer(descriptor, policy, request, label, handle, attestation) {
+    const runtime = hasExecutable("docker") ? "docker" : hasExecutable("podman") ? "podman" : undefined;
     if (!runtime) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "runtime-unavailable", "no container runtime (docker/podman) on PATH", attestation);
+        return refusedEnvelope(descriptor, policy, label, "runtime-unavailable", "no container runtime (docker/podman) on PATH", attestation);
     }
-    const ping = (0, node_child_process_1.spawnSync)(runtime, ["version", "--format", "{{.Server.Version}}"], { encoding: "utf8", timeout: 15000 });
+    const ping = spawnSync(runtime, ["version", "--format", "{{.Server.Version}}"], { encoding: "utf8", timeout: 15000 });
     const daemonUp = !ping.error && ping.status === 0 && String(ping.stdout || "").trim().length > 0;
     if (!daemonUp) {
         const why = (String(ping.stderr || "").split("\n").find((line) => line.trim()) || `${runtime} daemon not reachable`).trim();
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "runtime-unavailable", `${runtime} daemon is not reachable: ${why}`, attestation);
+        return refusedEnvelope(descriptor, policy, label, "runtime-unavailable", `${runtime} daemon is not reachable: ${why}`, attestation);
     }
     const command = String(request.command);
     const args = (request.args || []).map(String);
@@ -89,14 +84,14 @@ function runContainer(descriptor, policy, request, label, handle, attestation) {
     // so the runtime always dies and spawnSync returns; a timed-out run is
     // classified the same either way (status null, ETIMEDOUT message does not
     // name the signal, result.signal is never recorded). Mirrors agent.ts.
-    const result = (0, node_child_process_1.spawnSync)(runtime, runArgs, { cwd, encoding: "utf8", timeout: request.timeoutMs || 600000, maxBuffer: 32 * 1024 * 1024, killSignal: "SIGKILL" });
+    const result = spawnSync(runtime, runArgs, { cwd, encoding: "utf8", timeout: request.timeoutMs || 600000, maxBuffer: 32 * 1024 * 1024, killSignal: "SIGKILL" });
     if (result.error) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `${runtime} run failed: ${(0, cli_args_1.messageOf)(result.error)}`, attestation);
+        return refusedEnvelope(descriptor, policy, label, "delegation-failed", `${runtime} run failed: ${messageOf(result.error)}`, attestation);
     }
     const exitCode = typeof result.status === "number" ? result.status : null;
     if (exitCode === 125 || exitCode === null) {
         const why = (String(result.stderr || "").split("\n").find((line) => line.trim()) || "container runtime error").trim();
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "runtime-unavailable", `${runtime} could not run the container: ${why}`, attestation);
+        return refusedEnvelope(descriptor, policy, label, "runtime-unavailable", `${runtime} could not run the container: ${why}`, attestation);
     }
-    return (0, envelopes_1.delegatedEnvelope)(descriptor, label, handle, attestation, command, args, exitCode, String(result.stdout || ""));
+    return delegatedEnvelope(descriptor, label, handle, attestation, command, args, exitCode, String(result.stdout || ""));
 }

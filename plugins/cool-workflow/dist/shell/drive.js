@@ -1,4 +1,3 @@
-"use strict";
 // shell/drive.ts — the thin imperative loop that calls drive-decide.ts
 // once per step and performs the spawn/commit/cache-write IO the
 // decision names; the pure decision core is core/pipeline/drive-decide.ts.
@@ -7,76 +6,38 @@
 // `roundWidth`), pinned by v2/conformance/cases/pipeline-concurrent-round.case.js.
 //
 // Evidence: SPEC/pipeline-run.md "Drive loop — drive module".
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAX_SUB_WORKFLOW_DEPTH = exports.DRIVE_SCHEMA_VERSION = void 0;
-exports.maybeExpandLoop = maybeExpandLoop;
-exports.driveStep = driveStep;
-exports.drive = drive;
-exports.driveAsync = driveAsync;
-exports.drivePreview = drivePreview;
-const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
-const node_child_process_1 = require("node:child_process");
-const node_util_1 = require("node:util");
-const drive_decide_1 = require("../core/pipeline/drive-decide");
-const loop_expansion_1 = require("../core/pipeline/loop-expansion");
-const dispatch_1 = require("../core/pipeline/dispatch");
-const run_store_1 = require("./run-store");
-const dispatch_2 = require("./dispatch");
-const worker_isolation_1 = require("./worker-isolation");
-const sandbox_profile_1 = require("./sandbox-profile");
-const state_node_1 = require("../core/state/state-node");
-const node_store_1 = require("./node-store");
-const runner_1 = require("../core/pipeline/runner");
-const harness_1 = require("./harness");
-const term_1 = require("./term");
-const commit_1 = require("./commit");
-const report_1 = require("./report");
-const trust_audit_1 = require("./trust-audit");
-const agent_config_1 = require("./agent-config");
-const registry_1 = require("./execution-backend/registry");
-const agent_1 = require("./execution-backend/agent");
-const hash_1 = require("../core/hash");
-const collate_1 = require("../core/util/collate");
-const pipeline_1 = require("./pipeline");
-const reporter_1 = require("./reporter");
-const fs_atomic_1 = require("./fs-atomic");
-const observability_1 = require("./observability");
-const telemetry_attestation_1 = require("../core/trust/telemetry-attestation");
-const perf_trace_1 = require("./perf-trace");
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { spawn } from "node:child_process";
+import { isDeepStrictEqual } from "node:util";
+import { DEFAULT_SCHEDULING_POLICY, countCompleted, countParked, exitCodeFromEvidence, finalDriveStatus, hasTerminalCommit, makeStep, maxIterations, priorAttempts, reopenableParkedTaskIds, retryOrPark, roundWidth, selectDriveTask, terminalOrConfigStep, incrementalCacheKey, incrementalDelegationDigest, defaultCacheKey, cacheFileName, MAX_SUB_WORKFLOW_DEPTH, } from "../core/pipeline/drive-decide.js";
+import { maxLoopExpansion, evaluateLoopStop, cloneLoopRoundTasks, loopControlNodeId, } from "../core/pipeline/loop-expansion.js";
+import { firstRunnablePhase, runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch.js";
+import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir, runStateIsCurrent, RunStateConflictError } from "./run-store.js";
+import { createDispatchManifest } from "./dispatch.js";
+import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope, reopenParkedWorker } from "./worker-isolation.js";
+import { validateSandboxWrite } from "./sandbox-profile.js";
+import { createStateNode } from "../core/state/state-node.js";
+import { appendRunNode } from "./node-store.js";
+import { runPipelineStage } from "../core/pipeline/runner.js";
+import { writeTaskFiles } from "./harness.js";
+import { phaseProgressLine } from "./term.js";
+import { commitState, CommitGateError } from "./commit.js";
+import { writeReport } from "./report.js";
+import { recordTrustAuditEvent, verifyTrustAudit, withTrustAuditBatch } from "./trust-audit.js";
+import { resolveAgentConfig } from "./agent-config.js";
+import { runBackend } from "./execution-backend/registry.js";
+import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv, prepareEndpointJob, runEndpointBatchOutcomes } from "./execution-backend/agent.js";
+import { sha256, stableStringify } from "../core/hash.js";
+import { stableCompare } from "../core/util/collate.js";
+import { plan } from "./pipeline.js";
+import { reporter } from "./reporter.js";
+import { safeFileName } from "./fs-atomic.js";
+import { deriveUsageTotals } from "./observability.js";
+import { normalizeReportedUsage } from "../core/trust/telemetry-attestation.js";
+import { withPerfTraceGroup } from "./perf-trace.js";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 /** Total RECORDED tokens across the run's attested units, reading the
  *  agent-reported usage through normalizeReportedUsage so a hop that
  *  reported snake_case buckets (`input_tokens`/`output_tokens`, the shape
@@ -87,7 +48,7 @@ const perf_trace_1 = require("./perf-trace");
  *  reportedUsage, so the budget count normalizes at read time. */
 function recordedTokenTotal(run) {
     let total = 0;
-    for (const row of (0, observability_1.deriveUsageTotals)(run).rows) {
+    for (const row of deriveUsageTotals(run).rows) {
         const usage = row.usage;
         if (!usage)
             continue;
@@ -96,7 +57,7 @@ function recordedTokenTotal(run) {
             total += declared;
             continue;
         }
-        const n = (0, telemetry_attestation_1.normalizeReportedUsage)(usage);
+        const n = normalizeReportedUsage(usage);
         if (typeof n.totalTokens === "number")
             total += n.totalTokens;
         else
@@ -113,9 +74,7 @@ function tokenBudgetUsage(run) {
         return undefined;
     return { spent: recordedTokenTotal(run), budget };
 }
-var drive_decide_2 = require("../core/pipeline/drive-decide");
-Object.defineProperty(exports, "DRIVE_SCHEMA_VERSION", { enumerable: true, get: function () { return drive_decide_2.DRIVE_SCHEMA_VERSION; } });
-Object.defineProperty(exports, "MAX_SUB_WORKFLOW_DEPTH", { enumerable: true, get: function () { return drive_decide_2.MAX_SUB_WORKFLOW_DEPTH; } });
+export { DRIVE_SCHEMA_VERSION, MAX_SUB_WORKFLOW_DEPTH } from "../core/pipeline/drive-decide.js";
 function agentConfigured(config) {
     return Boolean(config.command || config.endpoint);
 }
@@ -130,7 +89,7 @@ function progressEnabled() {
 }
 function emitProgress(message) {
     if (progressEnabled())
-        reporter_1.reporter.progress(`[drive] ${message}`);
+        reporter.progress(`[drive] ${message}`);
 }
 // A sign of life while a round waits on its agents: every agent wait is a
 // spawnSync, so this process cannot print until the round ends. A small
@@ -139,7 +98,7 @@ function emitProgress(message) {
 // CW_DRIVE_TICK_MS (default 10000) and is stopped when the round ends. Only
 // when [drive] progress is on (a TTY, or CW_DRIVE_PROGRESS=1), so a piped
 // run's bytes do not change; CW_DRIVE_TICK_MS=0 turns it off.
-const DRIVE_TICKER_SCRIPT = path.resolve(__dirname, "..", "..", "scripts", "children", "drive-ticker.js");
+const DRIVE_TICKER_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "scripts", "children", "drive-ticker.js");
 function withDriveTicker(label, fn) {
     const rawInterval = process.env.CW_DRIVE_TICK_MS;
     const intervalMs = rawInterval === undefined || rawInterval === "" ? 10000 : Number(rawInterval);
@@ -147,7 +106,7 @@ function withDriveTicker(label, fn) {
         return fn();
     let ticker;
     try {
-        ticker = (0, node_child_process_1.spawn)(process.execPath, [DRIVE_TICKER_SCRIPT, label, String(Math.floor(intervalMs)), String(process.pid)], {
+        ticker = spawn(process.execPath, [DRIVE_TICKER_SCRIPT, label, String(Math.floor(intervalMs)), String(process.pid)], {
             stdio: ["ignore", "ignore", "inherit"],
         });
         ticker.on("error", () => { });
@@ -180,7 +139,7 @@ function loadRun(ctx) {
     const cached = roundCache.get(ctx.runId);
     if (cached)
         return cached;
-    return (0, run_store_1.loadRunFromCwd)(ctx.runId, ctx.cwd);
+    return loadRunFromCwd(ctx.runId, ctx.cwd);
 }
 /** Runs `fn` with `runId`'s loadRun calls served from one shared cached
  *  object (seeded fresh from disk), and always clears the cache entry
@@ -215,9 +174,9 @@ const DRIVE_SAVE = { ifUnchanged: true };
  *  the drive's own change goes on top of the other writer's. Only call it
  *  where the held copy has no unsaved change of its own. */
 function refreshRun(ctx, run) {
-    if ((0, run_store_1.runStateIsCurrent)(run))
+    if (runStateIsCurrent(run))
         return run;
-    const fresh = (0, run_store_1.loadRunFromCwd)(ctx.runId, ctx.cwd);
+    const fresh = loadRunFromCwd(ctx.runId, ctx.cwd);
     if (roundCache.has(ctx.runId))
         roundCache.set(ctx.runId, fresh);
     return fresh;
@@ -228,7 +187,7 @@ function refreshRun(ctx, run) {
 function stillOwnedTask(run, taskId, workerId) {
     const task = run.tasks.find((t) => t.id === taskId);
     if (!task || task.status !== "running" || task.workerId !== workerId) {
-        throw new run_store_1.RunStateConflictError(run.id);
+        throw new RunStateConflictError(run.id);
     }
     return task;
 }
@@ -241,19 +200,19 @@ function stillOwnedTask(run, taskId, workerId) {
  *  on any difference. */
 function seedRun(ctx) {
     const previous = ctx.lastRoundRun;
-    if (previous && (0, run_store_1.savedRunIfCurrent)(path.join(ctx.cwd, ".cw", "runs", ctx.runId, "state.json")) === previous) {
-        if (process.env.CW_STATE_REUSE_VERIFY === "1" && !(0, node_util_1.isDeepStrictEqual)(previous, (0, run_store_1.loadRunFromCwd)(ctx.runId, ctx.cwd))) {
+    if (previous && savedRunIfCurrent(path.join(ctx.cwd, ".cw", "runs", ctx.runId, "state.json")) === previous) {
+        if (process.env.CW_STATE_REUSE_VERIFY === "1" && !isDeepStrictEqual(previous, loadRunFromCwd(ctx.runId, ctx.cwd))) {
             throw new Error(`state reuse differs from state.json for run ${ctx.runId}`);
         }
         return previous;
     }
-    return (0, run_store_1.loadRunFromCwd)(ctx.runId, ctx.cwd);
+    return loadRunFromCwd(ctx.runId, ctx.cwd);
 }
 function resultCachePath(run, task, promptDigest, incremental, delegationDigest) {
     let digest;
     if (incremental) {
         const upstream = previousPhaseResultsDigest(run, task);
-        digest = (0, drive_decide_1.incrementalCacheKey)(run.workflow.id, task.id, promptDigest, (0, hash_1.sha256)((0, hash_1.stableStringify)(run.inputs || {})), delegationDigest, upstream);
+        digest = incrementalCacheKey(run.workflow.id, task.id, promptDigest, sha256(stableStringify(run.inputs || {})), delegationDigest, upstream);
     }
     else {
         const policy = task.resultCache;
@@ -270,11 +229,11 @@ function resultCachePath(run, task, promptDigest, incremental, delegationDigest)
         const completedResultsDigest = policy.includeCompletedResults === "previous-phases"
             ? previousPhaseResultsDigest(run, task)
             : "";
-        digest = (0, drive_decide_1.defaultCacheKey)(run.workflow.id, task.id, policy.keyInput, keyValue, promptDigest, completedResultsDigest);
+        digest = defaultCacheKey(run.workflow.id, task.id, policy.keyInput, keyValue, promptDigest, completedResultsDigest);
     }
     if (!digest)
         return undefined;
-    return path.join(run.cwd, ".cw", "cache", "worker-results", (0, fs_atomic_1.safeFileName)(run.workflow.id), (0, drive_decide_1.cacheFileName)(task.id, digest));
+    return path.join(run.cwd, ".cw", "cache", "worker-results", safeFileName(run.workflow.id), cacheFileName(task.id, digest));
 }
 function previousPhaseResultsDigest(run, task) {
     const phaseIndex = run.phases.findIndex((p) => p.name === task.phase || p.id === task.phase);
@@ -285,23 +244,23 @@ function previousPhaseResultsDigest(run, task) {
     // stableCompare (not a bare localeCompare): this order feeds the sha256
     // digest below, which feeds the incremental cache key — a host-locale-
     // dependent order would silently move the cache key across machines.
-    for (const candidate of run.tasks.filter((t) => previousTaskIds.has(t.id)).sort((a, b) => (0, collate_1.stableCompare)(a.id, b.id))) {
+    for (const candidate of run.tasks.filter((t) => previousTaskIds.has(t.id)).sort((a, b) => stableCompare(a.id, b.id))) {
         if (candidate.status !== "completed" || !candidate.resultPath || !fs.existsSync(candidate.resultPath)) {
             records.push(undefined);
             continue;
         }
-        records.push([candidate.id, (0, hash_1.sha256)(fs.readFileSync(candidate.resultPath, "utf8"))]);
+        records.push([candidate.id, sha256(fs.readFileSync(candidate.resultPath, "utf8"))]);
     }
     if (records.some((r) => r === undefined))
         return undefined;
-    return (0, hash_1.sha256)(JSON.stringify(records));
+    return sha256(JSON.stringify(records));
 }
 /** Check a worker's result.md BEFORE the drive itself writes it (a cache
  *  hit or a sub-workflow result), as `cw result` does before its copy: a
  *  result.md left as a symlink would make the write go through it, outside
  *  the boundary. recordWorkerOutput checks the path again after the write. */
 function assertResultWritable(manifest, workerId) {
-    const violation = manifest.sandboxPolicy ? (0, sandbox_profile_1.validateSandboxWrite)(manifest.sandboxPolicy, manifest.resultPath, workerId) : null;
+    const violation = manifest.sandboxPolicy ? validateSandboxWrite(manifest.sandboxPolicy, manifest.resultPath, workerId) : null;
     if (violation)
         throw new Error(violation.message);
 }
@@ -322,21 +281,21 @@ function handleHop(ctx, task, workerId, reason, deferPersist = false, sharedRun)
     // in-memory mutation (they return an updated scope but mutate the run
     // object passed in), silently dropping the park/retry bookkeeping.
     const run = sharedRun || loadRun(ctx);
-    const scope = (0, worker_isolation_1.getWorkerScope)(run, workerId);
+    const scope = getWorkerScope(run, workerId);
     const persisted = scope?.retryCount || 0;
-    const prior = (0, drive_decide_1.priorAttempts)(ctx.attempts.get(task.id) || 0, persisted);
-    const decided = (0, drive_decide_1.retryOrPark)(prior, ctx.policy, reason);
+    const prior = priorAttempts(ctx.attempts.get(task.id) || 0, persisted);
+    const decided = retryOrPark(prior, ctx.policy, reason);
     ctx.attempts.set(task.id, decided.attempts);
     if (decided.status === "parked") {
-        (0, worker_isolation_1.recordWorkerFailure)(run, workerId, decided.parkedReason || reason, { code: "agent-delegation-parked", retryable: false, retryCount: decided.attempts });
+        recordWorkerFailure(run, workerId, decided.parkedReason || reason, { code: "agent-delegation-parked", retryable: false, retryCount: decided.attempts });
         if (!deferPersist)
-            (0, run_store_1.saveCheckpoint)(run, DRIVE_SAVE);
-        return (0, drive_decide_1.makeStep)("park", "parked", { runId: ctx.runId, taskId: task.id, phase: task.phase, backendId: "agent", attempts: decided.attempts, reason: decided.parkedReason || reason });
+            saveCheckpoint(run, DRIVE_SAVE);
+        return makeStep("park", "parked", { runId: ctx.runId, taskId: task.id, phase: task.phase, backendId: "agent", attempts: decided.attempts, reason: decided.parkedReason || reason });
     }
-    (0, worker_isolation_1.recordWorkerRetryAttempt)(run, workerId, decided.attempts, reason);
+    recordWorkerRetryAttempt(run, workerId, decided.attempts, reason);
     if (!deferPersist)
-        (0, run_store_1.saveCheckpoint)(run, DRIVE_SAVE);
-    return (0, drive_decide_1.makeStep)("fulfill", "failed", { runId: ctx.runId, taskId: task.id, phase: task.phase, backendId: "agent", attempts: decided.attempts, reason });
+        saveCheckpoint(run, DRIVE_SAVE);
+    return makeStep("fulfill", "failed", { runId: ctx.runId, taskId: task.id, phase: task.phase, backendId: "agent", attempts: decided.attempts, reason });
 }
 function renderSubInputs(spec, parentInputs) {
     const out = {};
@@ -361,7 +320,7 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     if (selected.status === "pending") {
         // One audit lock and one durable write for the dispatch's events, as the
         // concurrent round does; flushed before the dispatch checkpoint below.
-        const manifest = (0, trust_audit_1.withTrustAuditBatch)(run, () => (0, dispatch_2.createDispatchManifest)(run, 1, { backendId: selected.agentType || "agent" }));
+        const manifest = withTrustAuditBatch(run, () => createDispatchManifest(run, 1, { backendId: selected.agentType || "agent" }));
         // Advance the RUN-level lifecycle stage on dispatch (run.loopStage =
         // "act"). The operator status "Stage:" line reads run.loopStage, and
         // shell/dispatch.ts advances only the task/node loopStage, never the run's.
@@ -371,12 +330,12 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         // pipeline-run.md's persist-ordering section pins this exact reason.
         if (!deferPersist) {
             if (manifest.dispatchId)
-                (0, commit_1.commitState)(run, `dispatch:${manifest.dispatchId}`);
-            (0, run_store_1.saveCheckpoint)(run, DRIVE_SAVE);
+                commitState(run, `dispatch:${manifest.dispatchId}`);
+            saveCheckpoint(run, DRIVE_SAVE);
         }
         const dispatchedTask = manifest.tasks.find((t) => t.id === selected.id) || manifest.tasks[0];
         if (!dispatchedTask || !dispatchedTask.workerId) {
-            return (0, drive_decide_1.makeStep)("dispatch", "failed", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, reason: "dispatch produced no worker scope" });
+            return makeStep("dispatch", "failed", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, reason: "dispatch produced no worker scope" });
         }
         workerId = dispatchedTask.workerId;
         dispatched = true;
@@ -384,9 +343,9 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         selected = run.tasks.find((t) => t.id === selectedId);
     }
     if (!workerId) {
-        return (0, drive_decide_1.makeStep)("dispatch", "failed", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, reason: "no worker scope for task" });
+        return makeStep("dispatch", "failed", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, reason: "no worker scope for task" });
     }
-    const manifest = (0, worker_isolation_1.showWorkerManifest)(run, workerId);
+    const manifest = showWorkerManifest(run, workerId);
     // `promptDigest` here is the PER-DISPATCH worker instructions file
     // (input.md) — it embeds this run's own id/dispatch id, so it is
     // NEVER stable across separate runs. It feeds ONLY recordWorkerOutput's
@@ -394,10 +353,10 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     // instead digests the task's own static, workflow-authored prompt text
     // (selected.prompt), which IS stable across runs. Two differently-sourced
     // digests, easy to collapse into one by mistake.
-    const promptDigest = fs.existsSync(manifest.inputPath) ? (0, hash_1.sha256)(fs.readFileSync(manifest.inputPath, "utf8")) : (0, hash_1.sha256)(manifest.prompt || "");
-    const cacheKeyPromptDigest = (0, hash_1.sha256)(selected.prompt || "");
+    const promptDigest = fs.existsSync(manifest.inputPath) ? sha256(fs.readFileSync(manifest.inputPath, "utf8")) : sha256(manifest.prompt || "");
+    const cacheKeyPromptDigest = sha256(selected.prompt || "");
     const delegationDigest = ctx.incremental
-        ? (0, drive_decide_1.incrementalDelegationDigest)(selected.model || ctx.config.model || "", selected.agentType || "agent", manifest.sandboxPolicy?.id || selected.sandboxProfileId || "", ctx.config.command || "", ctx.config.args ? (0, agent_1.stripSecretArgs)(ctx.config.args) : [], ctx.config.endpoint || "")
+        ? incrementalDelegationDigest(selected.model || ctx.config.model || "", selected.agentType || "agent", manifest.sandboxPolicy?.id || selected.sandboxProfileId || "", ctx.config.command || "", ctx.config.args ? stripSecretArgs(ctx.config.args) : [], ctx.config.endpoint || "")
         : "";
     const cachePath = resultCachePath(run, selected, cacheKeyPromptDigest, ctx.incremental, delegationDigest);
     if (cachePath && fs.existsSync(cachePath)) {
@@ -405,7 +364,7 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         try {
             assertResultWritable(manifest, workerId);
             fs.writeFileSync(manifest.resultPath, fs.readFileSync(cachePath, "utf8"), "utf8");
-            (0, trust_audit_1.withTrustAuditBatch)(run, () => {
+            withTrustAuditBatch(run, () => {
                 // Not gated by requireAttestedTelemetry here: the underlying result was
                 // already gated (attested or explicitly overridden) at its FIRST
                 // acceptance, before it was cached. Re-blocking a cache hit would only
@@ -413,9 +372,9 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
                 // Still made visible, not silent: when the operator requires attested
                 // telemetry, record that this particular accept came from the cache
                 // rather than a freshly re-verified hop.
-                (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
+                recordWorkerOutput(run, workerId, manifest.resultPath);
                 if (ctx.config.requireAttestedTelemetry) {
-                    (0, trust_audit_1.recordTrustAuditEvent)(run, {
+                    recordTrustAuditEvent(run, {
                         kind: "telemetry.cache-accept",
                         decision: "recorded",
                         source: "cw-validated",
@@ -434,14 +393,14 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
             // An accepted result is its own checkpoint commit (reason
             // `worker:<worker-id>:result`), not just a bare saveCheckpoint.
             if (!deferPersist) {
-                (0, commit_1.commitState)(run, `worker:${workerId}:result`);
-                (0, run_store_1.saveCheckpoint)(run, DRIVE_SAVE);
+                commitState(run, `worker:${workerId}:result`);
+                saveCheckpoint(run, DRIVE_SAVE);
             }
         }
         catch (error) {
             return handleHop(ctx, selected, workerId, `result cache rejected: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
         }
-        return (0, drive_decide_1.makeStep)("accept", "ok", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, handleKind: "result-cache", reason: "result cache hit" });
+        return makeStep("accept", "ok", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, handleKind: "result-cache", reason: "result cache hit" });
     }
     const subWorkflow = selected.subWorkflow;
     if (subWorkflow) {
@@ -449,7 +408,7 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         return runSubWorkflow(ctx, run, selected, workerId, manifest, subWorkflow, deferPersist);
     }
     emitProgress(`→ ${selected.label || selected.id} (${selected.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`);
-    const envelope = (0, registry_1.runBackend)({
+    const envelope = runBackend({
         schemaVersion: 1,
         runId: ctx.runId,
         taskId: selected.id,
@@ -486,15 +445,15 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     try {
         // One audit lock and one durable write for the accept's events, flushed
         // before the result checkpoint below (and before any save inside it).
-        (0, trust_audit_1.withTrustAuditBatch)(run, () => {
-            (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath, {
+        withTrustAuditBatch(run, () => {
+            recordWorkerOutput(run, workerId, manifest.resultPath, {
                 agentDelegation: {
                     handle: handle,
                     model: reportedModel,
                     promptDigest,
                     command: handle?.metadata?.command,
                     args: handle?.metadata?.args || [],
-                    exitCode: (0, drive_decide_1.exitCodeFromEvidence)(envelope.evidence),
+                    exitCode: exitCodeFromEvidence(envelope.evidence),
                     reportedUsage,
                     usageSignature,
                     usageTrustPublicKey: ctx.config.attestPublicKey,
@@ -507,8 +466,8 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
             maybeExpandLoop(run);
         });
         if (!deferPersist) {
-            (0, commit_1.commitState)(run, `worker:${workerId}:result`);
-            (0, run_store_1.saveCheckpoint)(run, DRIVE_SAVE);
+            commitState(run, `worker:${workerId}:result`);
+            saveCheckpoint(run, DRIVE_SAVE);
         }
     }
     catch (error) {
@@ -522,7 +481,7 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     // recordedAgentHandle() — a no-op for every other backend.
     const forwardedEnvVars = handle?.metadata?.forwardedEnvVars || [];
     if (forwardedEnvVars.length) {
-        (0, trust_audit_1.recordTrustAuditEvent)(run, {
+        recordTrustAuditEvent(run, {
             kind: "worker.agent-env",
             decision: "delegated",
             source: "runtime-derived",
@@ -536,17 +495,17 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     if (cachePath && fs.existsSync(manifest.resultPath)) {
         writeResultCache(cachePath, fs.readFileSync(manifest.resultPath, "utf8"));
     }
-    return (0, drive_decide_1.makeStep)("accept", "ok", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, backendId: "agent", handleKind: handle?.kind, reportedModel });
+    return makeStep("accept", "ok", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, backendId: "agent", handleKind: handle?.kind, reportedModel });
 }
 function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersist = false) {
     const parentApp = run.workflow.id;
-    if (ctx.depth + 1 > drive_decide_1.MAX_SUB_WORKFLOW_DEPTH) {
-        return handleHop(ctx, selected, workerId, `sub-workflow depth limit exceeded (> ${drive_decide_1.MAX_SUB_WORKFLOW_DEPTH})`, deferPersist, deferPersist ? run : undefined);
+    if (ctx.depth + 1 > MAX_SUB_WORKFLOW_DEPTH) {
+        return handleHop(ctx, selected, workerId, `sub-workflow depth limit exceeded (> ${MAX_SUB_WORKFLOW_DEPTH})`, deferPersist, deferPersist ? run : undefined);
     }
     if ([...ctx.visitedAppIds, parentApp].includes(spec.appId)) {
         return handleHop(ctx, selected, workerId, `sub-workflow cycle detected: ${[...ctx.visitedAppIds, parentApp, spec.appId].join(" -> ")}`, deferPersist, deferPersist ? run : undefined);
     }
-    const childRunId = `sub-${run.id}-${(0, fs_atomic_1.safeFileName)(selected.id)}`;
+    const childRunId = `sub-${run.id}-${safeFileName(selected.id)}`;
     const childInputs = {
         repo: run.inputs.repo ?? run.cwd,
         cwd: run.cwd,
@@ -556,8 +515,8 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
     };
     let childRun;
     try {
-        const { loadWorkflowApp } = require("./workflow-app-loader");
-        childRun = (0, pipeline_1.plan)(loadWorkflowApp(spec.appId), childInputs);
+        const { loadWorkflowApp } = require("./workflow-app-loader.js");
+        childRun = plan(loadWorkflowApp(spec.appId), childInputs);
     }
     catch (error) {
         return handleHop(ctx, selected, workerId, `sub-workflow plan failed (${spec.appId}): ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
@@ -582,7 +541,7 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
     if (childResult.status !== "complete") {
         return handleHop(ctx, selected, workerId, `sub-workflow ${spec.appId} did not complete (status: ${childResult.status})`, deferPersist, deferPersist ? run : undefined);
     }
-    const finalChild = (0, run_store_1.loadRunFromCwd)(childRun.id, childRun.cwd);
+    const finalChild = loadRunFromCwd(childRun.id, childRun.cwd);
     let childBytes;
     if (spec.bindResult === "verdict-result") {
         const verdict = finalChild.tasks.find((t) => /^verdict[:/]|^synthesis[:/]/i.test(t.id) && t.status === "completed");
@@ -597,7 +556,7 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
     try {
         assertResultWritable(manifest, workerId);
         fs.writeFileSync(manifest.resultPath, childBytes, "utf8");
-        (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
+        recordWorkerOutput(run, workerId, manifest.resultPath);
         // Cross-link the child run onto the parent's delegate task + a tamper-
         // evident `worker.sub-workflow` trust-audit event. subRunId/subRunDir let
         // a reader walk from the parent task to the child run; the audit event
@@ -605,8 +564,8 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
         selected.subRunId = childRun.id;
         selected.subRunDir = finalChild.paths.runDir;
         try {
-            const childAudit = (0, trust_audit_1.verifyTrustAudit)(finalChild);
-            (0, trust_audit_1.recordTrustAuditEvent)(run, {
+            const childAudit = verifyTrustAudit(finalChild);
+            recordTrustAuditEvent(run, {
                 kind: "worker.sub-workflow",
                 decision: "accepted",
                 source: "cw-validated",
@@ -616,7 +575,7 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
                 metadata: {
                     subWorkflowAppId: spec.appId,
                     subRunId: childRun.id,
-                    childReportDigest: (0, hash_1.sha256)(childBytes),
+                    childReportDigest: sha256(childBytes),
                     childAuditVerified: childAudit.verified,
                     bindResult: spec.bindResult || "report",
                 },
@@ -631,14 +590,14 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
         // checkpoint (no-op unless this task's phase is a loop round).
         maybeExpandLoop(run);
         if (!deferPersist) {
-            (0, commit_1.commitState)(run, `worker:${workerId}:result`);
-            (0, run_store_1.saveCheckpoint)(run, DRIVE_SAVE);
+            commitState(run, `worker:${workerId}:result`);
+            saveCheckpoint(run, DRIVE_SAVE);
         }
     }
     catch (error) {
         return handleHop(ctx, selected, workerId, `sub-workflow result rejected by parent gate: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
     }
-    return (0, drive_decide_1.makeStep)("accept", "ok", { runId: run.id, taskId: selected.id, phase: selected.phase, handleKind: "sub-workflow", reason: `sub-workflow ${spec.appId} → ${childRun.id}` });
+    return makeStep("accept", "ok", { runId: run.id, taskId: selected.id, phase: selected.phase, handleKind: "sub-workflow", reason: `sub-workflow ${spec.appId} → ${childRun.id}` });
 }
 /** Byte-stable string order for anything that flows into a recorded
  *  loop-control decision (POLA: deterministic across runs/locales). */
@@ -659,7 +618,7 @@ function compareBytes(a, b) {
  *  does not expand, so the drive shell wires it in right after an accept.
  *  Exported so the standalone `cw worker output` CLI verb (worker-cli.ts)
  *  can run the same round-expansion after a hand-recorded accept. */
-function maybeExpandLoop(run) {
+export function maybeExpandLoop(run) {
     for (const phase of [...run.phases]) {
         const originId = phase.loop ? phase.id : phase.loopOrigin;
         if (!originId)
@@ -695,11 +654,11 @@ function maybeExpandLoop(run) {
             usageTotals: { totalTokens: recordedTokenTotal(run) },
             inputs: run.inputs,
         };
-        const decision = (0, loop_expansion_1.evaluateLoopStop)(origin, round, ctx);
+        const decision = evaluateLoopStop(origin, round, ctx);
         const until = origin.loop.until;
         // Record the decision under a deterministic id (the replay source of truth).
-        (0, node_store_1.appendRunNode)(run, (0, state_node_1.createStateNode)({
-            id: (0, loop_expansion_1.loopControlNodeId)(run.id, originId, round),
+        appendRunNode(run, createStateNode({
+            id: loopControlNodeId(run.id, originId, round),
             kind: "loop-control",
             status: "completed",
             loopStage: "adjust",
@@ -722,15 +681,15 @@ function maybeExpandLoop(run) {
         const nextRound = round + 1;
         const originTaskIds = new Set(origin.taskIds);
         const templateTasks = run.tasks.filter((t) => originTaskIds.has(t.id));
-        const { phase: nextPhase, tasks: newTasks } = (0, loop_expansion_1.cloneLoopRoundTasks)(origin, templateTasks, nextRound);
+        const { phase: nextPhase, tasks: newTasks } = cloneLoopRoundTasks(origin, templateTasks, nextRound);
         const insertAt = run.phases.findIndex((p) => p.id === latest.id);
         run.phases.splice(insertAt + 1, 0, nextPhase);
         run.tasks.push(...newTasks);
         // Materialize: task files + a plan-stage node per new task (mirrors plan()).
-        (0, harness_1.writeTaskFiles)(run);
+        writeTaskFiles(run);
         const inputNodeId = `${run.id}:input`;
         for (const t of newTasks) {
-            const result = (0, runner_1.runPipelineStage)(run, "plan", inputNodeId, {
+            const result = runPipelineStage(run, "plan", inputNodeId, {
                 outputNodeId: `${run.id}:task:${t.id}`,
                 outputStatus: "pending",
                 loopStage: "interpret",
@@ -743,38 +702,38 @@ function maybeExpandLoop(run) {
                     requiresEvidence: t.requiresEvidence,
                     sandboxProfileId: t.sandboxProfileId,
                 },
-            }, { persist: false, persistNode: (r, node) => void (0, node_store_1.appendRunNode)(r, node), pathExists: fs.existsSync });
+            }, { persist: false, persistNode: (r, node) => void appendRunNode(r, node), pathExists: fs.existsSync });
             t.stateNodeId = result.outputNodeId;
         }
-        (0, dispatch_1.updatePhaseStatuses)(run);
+        updatePhaseStatuses(run);
         return;
     }
 }
 /** One deterministic drive step. */
-function driveStep(ctx) {
+export function driveStep(ctx) {
     const run = loadRun(ctx);
-    const selected = (0, drive_decide_1.selectDriveTask)(run);
-    const gate = (0, drive_decide_1.terminalOrConfigStep)(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
+    const selected = selectDriveTask(run);
+    const gate = terminalOrConfigStep(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
     if (gate.kind === "commit") {
         // Terminal commit: advance the run lifecycle stage ("checkpoint").
         run.loopStage = "checkpoint";
         let commit;
         try {
-            commit = (0, commit_1.commitState)(run, { reason: "agent-delegation-drive: audited verdict committed", ...(gate.verifierNodeId ? { verifierNodeId: gate.verifierNodeId } : { allowUnverifiedCheckpoint: true, verifierGated: false }) }, { reuseOpenGateFailure: true });
+            commit = commitState(run, { reason: "agent-delegation-drive: audited verdict committed", ...(gate.verifierNodeId ? { verifierNodeId: gate.verifierNodeId } : { allowUnverifiedCheckpoint: true, verifierGated: false }) }, { reuseOpenGateFailure: true });
         }
         catch (error) {
             // Fail closed, but never out of the drive: the gate's refusal is kept
             // (one failure node + one feedback record, reused on a repeat) and
             // the run stops blocked with the reason, its report and state saved.
-            if (!(error instanceof commit_1.CommitGateError))
+            if (!(error instanceof CommitGateError))
                 throw error;
-            (0, report_1.writeReport)(run);
-            (0, run_store_1.saveCheckpoint)(run, DRIVE_SAVE);
-            return (0, drive_decide_1.makeStep)("commit", "blocked", { runId: run.id, reason: `final commit blocked: ${error.message}` });
+            writeReport(run);
+            saveCheckpoint(run, DRIVE_SAVE);
+            return makeStep("commit", "blocked", { runId: run.id, reason: `final commit blocked: ${error.message}` });
         }
-        (0, report_1.writeReport)(run);
-        (0, run_store_1.saveCheckpoint)(run, DRIVE_SAVE);
-        return (0, drive_decide_1.makeStep)("commit", "complete", { runId: run.id, reason: `committed ${commit.id}` });
+        writeReport(run);
+        saveCheckpoint(run, DRIVE_SAVE);
+        return makeStep("commit", "complete", { runId: run.id, reason: `committed ${commit.id}` });
     }
     if (gate.step)
         return gate.step;
@@ -811,7 +770,7 @@ function prepareConcurrentOutcomes(ctx, batch) {
     let dispatchedThisRound = false;
     // Dispatch is a short local mutation group. Keep its audit lock only until
     // its events have one durable append; the agent work below stays outside it.
-    (0, trust_audit_1.withTrustAuditBatch)(loadRun(ctx), () => {
+    withTrustAuditBatch(loadRun(ctx), () => {
         for (const taskId of batch) {
             const run = loadRun(ctx);
             const task = run.tasks.find((candidate) => candidate.id === taskId);
@@ -819,25 +778,25 @@ function prepareConcurrentOutcomes(ctx, batch) {
                 continue;
             let workerId = task.workerId;
             if (task.status === "pending") {
-                const manifest = (0, dispatch_2.createDispatchManifest)(run, 1, { backendId: task.agentType || "agent" });
+                const manifest = createDispatchManifest(run, 1, { backendId: task.agentType || "agent" });
                 const dispatchedTask = manifest.tasks.find((entry) => entry.id === task.id) || manifest.tasks[0];
                 if (!dispatchedTask || !dispatchedTask.workerId) {
-                    failSteps.set(taskId, (0, drive_decide_1.makeStep)("dispatch", "failed", { runId: ctx.runId, taskId, phase: task.phase, reason: "dispatch produced no worker scope" }));
+                    failSteps.set(taskId, makeStep("dispatch", "failed", { runId: ctx.runId, taskId, phase: task.phase, reason: "dispatch produced no worker scope" }));
                     continue;
                 }
                 workerId = dispatchedTask.workerId;
                 dispatchedThisRound = true;
             }
             if (!workerId) {
-                failSteps.set(taskId, (0, drive_decide_1.makeStep)("dispatch", "failed", { runId: ctx.runId, taskId, phase: task.phase, reason: "no worker scope for task" }));
+                failSteps.set(taskId, makeStep("dispatch", "failed", { runId: ctx.runId, taskId, phase: task.phase, reason: "no worker scope for task" }));
                 continue;
             }
             const freshRun = loadRun(ctx);
-            const manifest = (0, worker_isolation_1.showWorkerManifest)(freshRun, workerId);
+            const manifest = showWorkerManifest(freshRun, workerId);
             const delegationDigest = ctx.incremental
-                ? (0, drive_decide_1.incrementalDelegationDigest)(task.model || ctx.config.model || "", task.agentType || "agent", manifest.sandboxPolicy?.id || task.sandboxProfileId || "", ctx.config.command || "", ctx.config.args ? (0, agent_1.stripSecretArgs)(ctx.config.args) : [], ctx.config.endpoint || "")
+                ? incrementalDelegationDigest(task.model || ctx.config.model || "", task.agentType || "agent", manifest.sandboxPolicy?.id || task.sandboxProfileId || "", ctx.config.command || "", ctx.config.args ? stripSecretArgs(ctx.config.args) : [], ctx.config.endpoint || "")
                 : "";
-            const cachePath = resultCachePath(freshRun, task, (0, hash_1.sha256)(task.prompt || ""), ctx.incremental, delegationDigest);
+            const cachePath = resultCachePath(freshRun, task, sha256(task.prompt || ""), ctx.incremental, delegationDigest);
             if (cachePath && fs.existsSync(cachePath))
                 continue;
             // A sub-workflow task never goes through the spawn path — processSelectedTask
@@ -860,11 +819,11 @@ function prepareConcurrentOutcomes(ctx, batch) {
                 timeoutMs: ctx.config.timeoutMs,
                 delegation: { command: ctx.config.command, args: ctx.config.args, endpoint: ctx.config.endpoint, model: task.model || ctx.config.model },
             };
-            const job = (0, agent_1.prepareAgentSpawn)(request);
+            const job = prepareAgentSpawn(request);
             if (job) {
                 const sandboxPolicy = manifest.sandboxPolicy;
                 if (sandboxPolicy) {
-                    job.env = (0, agent_1.buildAgentChildEnv)(sandboxPolicy).env;
+                    job.env = buildAgentChildEnv(sandboxPolicy).env;
                 }
                 jobs.push(job);
                 jobTaskIds.push(taskId);
@@ -876,7 +835,7 @@ function prepareConcurrentOutcomes(ctx, batch) {
             // (runEndpointBatchOutcomes) rather than settling one-at-a-time on the
             // serial path. An unconfigured agent (neither command nor endpoint) returns
             // undefined from both prepares here and falls to the serial refusal.
-            const endpointJob = (0, agent_1.prepareEndpointJob)(request);
+            const endpointJob = prepareEndpointJob(request);
             if (endpointJob) {
                 endpointJobs.push(endpointJob);
                 endpointTaskIds.push(taskId);
@@ -900,12 +859,12 @@ function prepareConcurrentOutcomes(ctx, batch) {
         // entirely of sub-workflow and/or cache-hit tasks — which builds zero
         // spawn/endpoint jobs — still gets this flush before its long-running
         // settle loop starts.
-        (0, run_store_1.saveCheckpoint)(loadRun(ctx), DRIVE_SAVE);
+        saveCheckpoint(loadRun(ctx), DRIVE_SAVE);
     }
     const outcomes = new Map();
-    const settled = (0, agent_1.runAgentBatchOutcomes)(jobs);
+    const settled = runAgentBatchOutcomes(jobs);
     jobTaskIds.forEach((taskId, index) => outcomes.set(taskId, settled[index]));
-    const endpointSettled = (0, agent_1.runEndpointBatchOutcomes)(endpointJobs);
+    const endpointSettled = runEndpointBatchOutcomes(endpointJobs);
     endpointTaskIds.forEach((taskId, index) => outcomes.set(taskId, endpointSettled[index]));
     // The batch ran for as long as its slowest agent; `cw result` / `cw commit`
     // may have saved this run meanwhile. Settle onto what is on disk now: the
@@ -934,21 +893,21 @@ function prepareConcurrentOutcomes(ctx, batch) {
 function driveConcurrentRound(ctx, limit) {
     return withRoundCache(ctx, () => {
         const run = loadRun(ctx);
-        const selected = (0, drive_decide_1.selectDriveTask)(run);
-        const gate = (0, drive_decide_1.terminalOrConfigStep)(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
+        const selected = selectDriveTask(run);
+        const gate = terminalOrConfigStep(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
         if (gate.kind === "commit" || gate.step)
             return [driveStep(ctx)];
         const width = Math.max(1, Math.floor(limit) || 1);
-        const phaseTaskIds = (0, dispatch_1.runnableTaskIds)(run);
+        const phaseTaskIds = runnableTaskIds(run);
         const batch = run.tasks
             .filter((task) => phaseTaskIds.has(task.id) && (task.status === "pending" || task.status === "running"))
             .slice(0, width)
             .map((task) => task.id);
-        const prepared = (0, perf_trace_1.withPerfTraceGroup)("dispatch", () => prepareConcurrentOutcomes(ctx, batch));
+        const prepared = withPerfTraceGroup("dispatch", () => prepareConcurrentOutcomes(ctx, batch));
         const steps = [];
         // Settlement is also local and synchronous. Flush the complete audit
         // group before the existing round checkpoint, never across it.
-        (0, perf_trace_1.withPerfTraceGroup)("settlement", () => (0, trust_audit_1.withTrustAuditBatch)(loadRun(ctx), () => {
+        withPerfTraceGroup("settlement", () => withTrustAuditBatch(loadRun(ctx), () => {
             for (const taskId of batch) {
                 const failStep = prepared.failSteps.get(taskId);
                 if (failStep) {
@@ -967,9 +926,9 @@ function driveConcurrentRound(ctx, limit) {
         }));
         if (steps.length > 0) {
             const settledRun = loadRun(ctx);
-            (0, perf_trace_1.withPerfTraceGroup)("checkpoint", () => (0, commit_1.commitState)(settledRun, `concurrent-round:${batch.length}-tasks`));
-            (0, perf_trace_1.withPerfTraceGroup)("report", () => (0, report_1.writeReport)(settledRun));
-            (0, perf_trace_1.withPerfTraceGroup)("checkpoint", () => (0, run_store_1.saveCheckpoint)(settledRun, DRIVE_SAVE));
+            withPerfTraceGroup("checkpoint", () => commitState(settledRun, `concurrent-round:${batch.length}-tasks`));
+            withPerfTraceGroup("report", () => writeReport(settledRun));
+            withPerfTraceGroup("checkpoint", () => saveCheckpoint(settledRun, DRIVE_SAVE));
         }
         return steps.length > 0 ? steps : [driveStep(ctx)];
     });
@@ -992,8 +951,8 @@ const DRIVE_STOP_SIGNALS = ["SIGINT", "SIGTERM"];
 const DRIVE_STOP_EXIT_CODE = { SIGINT: 130, SIGTERM: 143 };
 function buildDriveContext(runId, cwd, options) {
     const now = options.now || new Date().toISOString();
-    const config = options.agentConfig || (0, agent_config_1.resolveAgentConfig)(options.args || {});
-    const policy = { ...drive_decide_1.DEFAULT_SCHEDULING_POLICY, ...(options.policy || {}) };
+    const config = options.agentConfig || resolveAgentConfig(options.args || {});
+    const policy = { ...DEFAULT_SCHEDULING_POLICY, ...(options.policy || {}) };
     return {
         runId,
         cwd,
@@ -1015,7 +974,7 @@ function buildDriveContext(runId, cwd, options) {
 /** The name the ticker line gives the round: the first runnable phase,
  *  written the way the phase progress lines write it. */
 function roundPhaseLabel(run) {
-    const phase = (0, dispatch_1.firstRunnablePhase)(run);
+    const phase = firstRunnablePhase(run);
     const name = phase ? phase.name || phase.id : "";
     return name ? name.charAt(0).toUpperCase() + name.slice(1) : "";
 }
@@ -1035,13 +994,13 @@ function createPhaseProgressEmitter() {
             if (done >= total) {
                 if (!announcedPhaseComplete.has(ph.id)) {
                     announcedPhaseComplete.add(ph.id);
-                    emitProgress((0, term_1.phaseProgressLine)(label, done, total, ph.mode, process.stderr));
+                    emitProgress(phaseProgressLine(label, done, total, ph.mode, process.stderr));
                 }
                 continue;
             }
             if (ph.id !== activePhaseId) {
                 activePhaseId = ph.id;
-                emitProgress((0, term_1.phaseProgressLine)(label, done, total, ph.mode, process.stderr));
+                emitProgress(phaseProgressLine(label, done, total, ph.mode, process.stderr));
             }
             return; // only the first not-yet-complete phase is "active"
         }
@@ -1060,8 +1019,8 @@ function driveOneRound(ctx, options, steps, emitPhaseProgress) {
     // re-read+re-parse state.json even though nothing on disk changed
     // between them — reads that only reflect the mutations THIS round's
     // own steps make, which the shared in-memory object already carries.
-    const { roundSteps, roundRun } = (0, perf_trace_1.withPerfTraceGroup)("round", () => withRoundCache(ctx, () => withDriveTicker(roundPhaseLabel(loadRun(ctx)), () => {
-        const width = (0, drive_decide_1.roundWidth)(loadRun(ctx), options.concurrency);
+    const { roundSteps, roundRun } = withPerfTraceGroup("round", () => withRoundCache(ctx, () => withDriveTicker(roundPhaseLabel(loadRun(ctx)), () => {
+        const width = roundWidth(loadRun(ctx), options.concurrency);
         // width>1 (an explicit --concurrency>1, or an auto-width parallel
         // phase) runs the whole round through driveConcurrentRound — one or
         // more steps recorded in deterministic batch order, one flush at round
@@ -1138,9 +1097,9 @@ function yieldToEventLoop() {
 function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhaustedMaxIterationsAtLoopExit, interruptedBy, reopened = []) {
     let exhaustedMaxIterations = exhaustedMaxIterationsAtLoopExit;
     const run = loadRun(ctx);
-    const completedWorkers = (0, drive_decide_1.countCompleted)(run);
-    const parkedWorkers = (0, drive_decide_1.countParked)(run);
-    const committed = (0, drive_decide_1.hasTerminalCommit)(run);
+    const completedWorkers = countCompleted(run);
+    const parkedWorkers = countParked(run);
+    const committed = hasTerminalCommit(run);
     // A signal can land on the very last step (the terminal commit itself) --
     // the run is already fully done, same "complete" check the `once` branch
     // of finalDriveStatus below already uses. Reporting "blocked" here anyway
@@ -1150,11 +1109,11 @@ function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhau
     if (interruptedBy) {
         exhaustedMaxIterations = false;
         if (!alreadyComplete) {
-            steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId: ctx.runId, reason: `drive interrupted by ${interruptedBy} — resume: cw --resume --run ${ctx.runId}` }));
+            steps.push(makeStep("blocked", "blocked", { runId: ctx.runId, reason: `drive interrupted by ${interruptedBy} — resume: cw --resume --run ${ctx.runId}` }));
         }
     }
     else if (exhaustedMaxIterations) {
-        steps.push((0, drive_decide_1.makeStep)("blocked", "blocked", { runId: ctx.runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state — resume: cw --resume --run ${ctx.runId}` }));
+        steps.push(makeStep("blocked", "blocked", { runId: ctx.runId, reason: `drive reached max iteration limit (${maxIter}) before a terminal state — resume: cw --resume --run ${ctx.runId}` }));
     }
     const statusInputs = {
         once: Boolean(options.once),
@@ -1165,7 +1124,7 @@ function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhau
         exhaustedMaxIterations,
         parkedWorkers,
     };
-    const status = (0, drive_decide_1.finalDriveStatus)(statusInputs);
+    const status = finalDriveStatus(statusInputs);
     const committedCommit = (run.commits || []).find((c) => c.reason && c.reason.startsWith("agent-delegation-drive"));
     return {
         schemaVersion: 1,
@@ -1188,15 +1147,15 @@ function finalizeDriveResult(ctx, options, steps, plannedWorkers, maxIter, exhau
  *  Gives back the task ids, in run order. */
 function reopenParked(ctx) {
     const run = loadRun(ctx);
-    const taskIds = (0, drive_decide_1.reopenableParkedTaskIds)(run);
+    const taskIds = reopenableParkedTaskIds(run);
     if (!taskIds.length)
         return [];
-    (0, trust_audit_1.withTrustAuditBatch)(run, () => {
+    withTrustAuditBatch(run, () => {
         for (const taskId of taskIds) {
-            (0, worker_isolation_1.reopenParkedWorker)(run, String(run.tasks.find((task) => task.id === taskId).workerId));
+            reopenParkedWorker(run, String(run.tasks.find((task) => task.id === taskId).workerId));
         }
     });
-    (0, run_store_1.saveCheckpoint)(run, DRIVE_SAVE);
+    saveCheckpoint(run, DRIVE_SAVE);
     return taskIds;
 }
 /** The one round loop behind drive() and driveAsync(), run under the drive
@@ -1211,7 +1170,7 @@ function* driveRounds(ctx, options, runId) {
     const steps = [];
     const run0 = loadRun(ctx);
     const plannedWorkers = run0.tasks.length;
-    const maxIter = (0, drive_decide_1.maxIterations)(plannedWorkers, (0, loop_expansion_1.maxLoopExpansion)(run0), ctx.policy);
+    const maxIter = maxIterations(plannedWorkers, maxLoopExpansion(run0), ctx.policy);
     const emitPhaseProgress = createPhaseProgressEmitter();
     let exhaustedMaxIterations = !options.once;
     const stopSignal = createStopSignalController(runId);
@@ -1240,14 +1199,14 @@ function* driveRounds(ctx, options, runId) {
  *  is deliberately kept here for backward compatibility (recursive
  *  sub-workflow runs, and every existing caller/test that depends on this
  *  exact synchronous shape) and fixed only in driveAsync(). */
-function drive(runId, cwd, options = {}) {
+export function drive(runId, cwd, options = {}) {
     const ctx = buildDriveContext(runId, cwd, options);
     // Resolve the run dir before the mutex: a missing run throws "Run not found"
     // here (never a drive.lock side effect on a nonexistent run), via a stat only
     // so the per-round read accounting is unchanged. Mirrors withRunStateLock's
     // own probe-before-lock.
-    const runDir = (0, run_store_1.resolveRunDir)(runId, cwd);
-    return (0, run_store_1.withDriveLock)(runDir, runId, () => {
+    const runDir = resolveRunDir(runId, cwd);
+    return withDriveLock(runDir, runId, () => {
         const rounds = driveRounds(ctx, options, runId);
         let next = rounds.next();
         while (!next.done)
@@ -1278,11 +1237,11 @@ function drive(runId, cwd, options = {}) {
  *  the entire recursive call graph (driveStep/processSelectedTask/
  *  runSubWorkflow/handleHop), a materially larger change left for a
  *  future cycle if it proves needed in practice. */
-async function driveAsync(runId, cwd, options = {}) {
+export async function driveAsync(runId, cwd, options = {}) {
     const ctx = buildDriveContext(runId, cwd, options);
     // Resolve the run dir before the mutex — see drive() above.
-    const runDir = (0, run_store_1.resolveRunDir)(runId, cwd);
-    return (0, run_store_1.withDriveLockAsync)(runDir, runId, async () => {
+    const runDir = resolveRunDir(runId, cwd);
+    return withDriveLockAsync(runDir, runId, async () => {
         const rounds = driveRounds(ctx, options, runId);
         let next = rounds.next();
         while (!next.done) {
@@ -1292,15 +1251,15 @@ async function driveAsync(runId, cwd, options = {}) {
         return next.value;
     });
 }
-function drivePreview(runId, cwd, args = {}) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, cwd);
-    const config = (0, agent_config_1.resolveAgentConfig)(args);
+export function drivePreview(runId, cwd, args = {}) {
+    const run = loadRunFromCwd(runId, cwd);
+    const config = resolveAgentConfig(args);
     const configured = agentConfigured(config);
-    const selected = (0, drive_decide_1.selectDriveTask)(run);
+    const selected = selectDriveTask(run);
     const plannedWorkers = run.tasks.length;
     const pendingWorkers = run.tasks.filter((t) => t.status === "pending" || t.status === "running").length;
-    const completedWorkers = (0, drive_decide_1.countCompleted)(run);
-    const parkedWorkers = (0, drive_decide_1.countParked)(run);
+    const completedWorkers = countCompleted(run);
+    const parkedWorkers = countParked(run);
     let nextAction;
     if (!selected) {
         nextAction = run.tasks.every((t) => t.status === "completed") ? "commit" : "blocked";

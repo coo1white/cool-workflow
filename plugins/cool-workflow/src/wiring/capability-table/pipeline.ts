@@ -2,9 +2,12 @@
 // dispatch, result, commit, commit.summary, and run.export/import/
 // verify-import/inspect-archive/restore.
 
-import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { required } from "../../core/util/cli-args";
-import { optionalArg } from "../../core/util/cli-args";
+import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
+import { required } from "../../core/util/cli-args.js";
+import { optionalArg } from "../../core/util/cli-args.js";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
 
 // CLI bindings:
 // plan, quickstart, run --drive, run drive (preview), dispatch, result,
@@ -17,11 +20,11 @@ import { optionalArg } from "../../core/util/cli-args";
 // This file is required unconditionally at startup for every command, so
 // a top-level import of pipeline-cli/commit-summary would cost every
 // invocation, not just plan/run/dispatch/result/commit/commit.summary ones.
-function loadPipelineCli(): typeof import("../../shell/pipeline-cli") {
-  return require("../../shell/pipeline-cli") as typeof import("../../shell/pipeline-cli");
+function loadPipelineCli(): typeof import("../../shell/pipeline-cli.js") {
+  return require("../../shell/pipeline-cli.js") as typeof import("../../shell/pipeline-cli.js");
 }
-function loadCommitSummary(): typeof import("../../shell/commit-summary") {
-  return require("../../shell/commit-summary") as typeof import("../../shell/commit-summary");
+function loadCommitSummary(): typeof import("../../shell/commit-summary.js") {
+  return require("../../shell/commit-summary.js") as typeof import("../../shell/commit-summary.js");
 }
 
 attachCliBinding("plan", {
@@ -183,8 +186,8 @@ REGISTRY_BY_CAPABILITY.get("commit")!.reason =
 // these tools are called directly by name over MCP, so each needs its own
 // mcp.handler. Same lazy-load reasoning as loadPipelineCli/loadCommitSummary
 // above.
-function loadRunExportCli(): typeof import("../../shell/run-export-cli") {
-  return require("../../shell/run-export-cli") as typeof import("../../shell/run-export-cli");
+function loadRunExportCli(): typeof import("../../shell/run-export-cli.js") {
+  return require("../../shell/run-export-cli.js") as typeof import("../../shell/run-export-cli.js");
 }
 
 REGISTRY_BY_CAPABILITY.get("run.export")!.mcp!.handler = (args) => loadRunExportCli().runExportCli(required(optionalArg(args.runId), "run id"), args);

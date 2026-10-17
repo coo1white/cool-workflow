@@ -1,4 +1,3 @@
-"use strict";
 // core/state/state-node.ts — StateNode lifecycle and pipeline-contract gates.
 //
 // A PURE half (this file: create/transition/validate/link/record —
@@ -12,21 +11,10 @@
 // contract gates", "StateNode transition matrix", "Deterministic id
 // fallback", "Contract gates" (project/docs/rebuild/PLAN.md byte-compat item 7 — the double
 // commit gate).
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PipelineContractError = exports.PIPELINE_CONTRACT_SCHEMA_VERSION = exports.STATE_NODE_SCHEMA_VERSION = void 0;
-exports.createStateNode = createStateNode;
-exports.transitionStateNode = transitionStateNode;
-exports.validatePipelineContract = validatePipelineContract;
-exports.assertNodeSatisfiesContract = assertNodeSatisfiesContract;
-exports.recordNodeError = recordNodeError;
-exports.linkStateNodes = linkStateNodes;
-exports.appendRunNode = appendRunNode;
-exports.upsertRunContract = upsertRunContract;
-exports.artifactExists = artifactExists;
-const hash_1 = require("../hash");
-exports.STATE_NODE_SCHEMA_VERSION = 1;
-exports.PIPELINE_CONTRACT_SCHEMA_VERSION = 1;
-class PipelineContractError extends Error {
+import { stableStringify, sha256 } from "../hash.js";
+export const STATE_NODE_SCHEMA_VERSION = 1;
+export const PIPELINE_CONTRACT_SCHEMA_VERSION = 1;
+export class PipelineContractError extends Error {
     structured;
     /** `error.at` wins when the caller already has one (e.g. re-wrapping a
      *  structured error); `now` is the explicit clock value for a fresh one;
@@ -38,14 +26,13 @@ class PipelineContractError extends Error {
         this.structured = { ...error, at: error.at || now || new Date().toISOString() };
     }
 }
-exports.PipelineContractError = PipelineContractError;
 /** `now` is the explicit clock value; the real clock is read ONLY when it
  *  is omitted, matching node-snapshot.ts's `options.now` fallback so a
  *  caller that always passes `now` gets byte-stable createdAt/updatedAt. */
-function createStateNode(input, now) {
+export function createStateNode(input, now) {
     const at = now || new Date().toISOString();
     return {
-        schemaVersion: exports.STATE_NODE_SCHEMA_VERSION,
+        schemaVersion: STATE_NODE_SCHEMA_VERSION,
         id: input.id || createNodeId(input),
         kind: input.kind,
         status: input.status || "pending",
@@ -67,7 +54,7 @@ function createStateNode(input, now) {
  *  unless the node is already `verified` (checked AFTER the matrix, its own
  *  error code `commit-without-verifier`). An illegal transition throws
  *  BEFORE the node changes. */
-function transitionStateNode(node, input, now) {
+export function transitionStateNode(node, input, now) {
     if (!isLegalTransition(node.status, input.status)) {
         throw contractError("illegal-transition", `State node ${node.id} cannot transition from ${node.status} to ${input.status}`, { nodeId: node.id, details: { from: node.status, to: input.status } });
     }
@@ -85,8 +72,8 @@ function transitionStateNode(node, input, now) {
         metadata: input.metadata ? { ...(node.metadata || {}), ...input.metadata } : node.metadata,
     };
 }
-function validatePipelineContract(contract) {
-    if (contract.schemaVersion !== exports.PIPELINE_CONTRACT_SCHEMA_VERSION) {
+export function validatePipelineContract(contract) {
+    if (contract.schemaVersion !== PIPELINE_CONTRACT_SCHEMA_VERSION) {
         throw contractError("invalid-contract-schema", `Pipeline contract ${contract.id || "(missing id)"} has unsupported schemaVersion`, { details: { schemaVersion: contract.schemaVersion } });
     }
     if (!contract.id)
@@ -103,7 +90,7 @@ function validatePipelineContract(contract) {
     if (!contract.compatibility) {
         throw contractError("invalid-contract-compatibility", `Pipeline contract ${contract.id} compatibility is required`);
     }
-    if (contract.compatibility.minSchemaVersion > exports.STATE_NODE_SCHEMA_VERSION) {
+    if (contract.compatibility.minSchemaVersion > STATE_NODE_SCHEMA_VERSION) {
         throw contractError("incompatible-contract", `Pipeline contract ${contract.id} requires newer StateNode schema`, {
             details: contract.compatibility,
         });
@@ -115,7 +102,7 @@ function validatePipelineContract(contract) {
  *  `missing-artifact-path` gate checks real paths. Kept as
  *  an explicit parameter (never a top-level `require("node:fs")`) so this
  *  stays a pure core/ module per project/docs/rebuild/PLAN.md's core/shell split. */
-function assertNodeSatisfiesContract(node, contract, stageId, pathExists = () => true) {
+export function assertNodeSatisfiesContract(node, contract, stageId, pathExists = () => true) {
     validatePipelineContract(contract);
     const stage = contract.stages.find((candidate) => candidate.id === stageId);
     if (!stage) {
@@ -137,7 +124,7 @@ function assertNodeSatisfiesContract(node, contract, stageId, pathExists = () =>
     assertRequiredEvidence(node, stage, contract);
     assertVerifierGate(node, stage, contract);
 }
-function recordNodeError(node, error, now) {
+export function recordNodeError(node, error, now) {
     const at = now || new Date().toISOString();
     return {
         ...node,
@@ -146,7 +133,7 @@ function recordNodeError(node, error, now) {
         errors: [...node.errors, { ...error, at: error.at || at, nodeId: error.nodeId || node.id }],
     };
 }
-function linkStateNodes(parent, child, now) {
+export function linkStateNodes(parent, child, now) {
     const at = now || new Date().toISOString();
     return [
         { ...parent, updatedAt: at, children: unique([...parent.children, child.id]) },
@@ -157,7 +144,7 @@ function linkStateNodes(parent, child, now) {
  *  the id exists, else push at the end — the array reference is stable).
  *  `persist` is a caller-supplied side effect (shell/node-store.ts's
  *  `writeRunNode`) so this pure module never imports fs itself. */
-function appendRunNode(run, node, persist) {
+export function appendRunNode(run, node, persist) {
     const nodes = run.nodes || (run.nodes = []);
     const index = nodes.findIndex((candidate) => candidate.id === node.id);
     if (index >= 0)
@@ -168,7 +155,7 @@ function appendRunNode(run, node, persist) {
         persist(run, node);
     return node;
 }
-function upsertRunContract(run, contract) {
+export function upsertRunContract(run, contract) {
     validatePipelineContract(contract);
     const contracts = run.contracts || [];
     const index = contracts.findIndex((candidate) => candidate.id === contract.id);
@@ -178,7 +165,7 @@ function upsertRunContract(run, contract) {
 /** `Boolean(artifact.path && <exists>)` — the existence check itself is
  *  supplied by the caller (shell) so this stays pure; callers pass
  *  `fs.existsSync` in practice. */
-function artifactExists(artifact, exists) {
+export function artifactExists(artifact, exists) {
     return Boolean(artifact.path && exists(artifact.path));
 }
 function validateStage(contract, stage, seen) {
@@ -277,7 +264,7 @@ function contractError(code, message, options = {}) {
  *  without an explicit id gets `"<kind>-" + <first 16 hex of sha256(...)>`.
  *  Two nodes with the same content collapse to ONE id by design. */
 function createNodeId(input) {
-    const digest = (0, hash_1.sha256)((0, hash_1.stableStringify)({
+    const digest = sha256(stableStringify({
         kind: input.kind,
         loopStage: input.loopStage,
         contractId: input.contractId ?? null,

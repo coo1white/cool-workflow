@@ -1,4 +1,3 @@
-"use strict";
 // shell/doctor.ts — `cw doctor` environment diagnostics, in the spirit of
 // `brew doctor`.
 //
@@ -14,53 +13,16 @@
 // Evidence: SPEC/execution-backend.md "Agent delegation config";
 // exec-doctor-agent-config.case.js pins the exact text this file must
 // produce.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.runDoctor = runDoctor;
-exports.formatDoctorReport = formatDoctorReport;
-exports.formatDoctorFixes = formatDoctorFixes;
-const fs = __importStar(require("node:fs"));
-const os = __importStar(require("node:os"));
-const path = __importStar(require("node:path"));
-const node_child_process_1 = require("node:child_process");
-const agent_config_1 = require("./agent-config");
-const cli_args_1 = require("../core/util/cli-args");
-const onramp_1 = require("./onramp");
-const run_store_1 = require("./run-store");
-const trust_audit_1 = require("./trust-audit");
-const term_1 = require("./term");
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { spawnSync } from "node:child_process";
+import { resolveAgentConfig } from "./agent-config.js";
+import { splitAgentCommandLine } from "../core/util/cli-args.js";
+import { buildDoctorOnramp, optionEnabled } from "./onramp.js";
+import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store.js";
+import { verifyTrustAudit } from "./trust-audit.js";
+import { bold, doctorGlyph, green, nextHint, red } from "./term.js";
 function whichBinary(bin, env) {
     if (bin.includes("/") || bin.includes("\\")) {
         try {
@@ -114,7 +76,7 @@ function dirWritable(target) {
         }
     }
 }
-function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
+export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
     const checks = [];
     // 1. Node runtime — the one hard prerequisite (v22.13+, as package.json
     // engines says: the first Node 22 that loads an ES module with require()
@@ -129,7 +91,7 @@ function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
             fix: "Install Node.js 22.13+ (e.g. `brew install node`, or https://nodejs.org).",
         });
     // 2. Agent backend — CW delegates execution; without one, real runs park.
-    const cfg = (0, agent_config_1.resolveAgentConfig)(args, env);
+    const cfg = resolveAgentConfig(args, env);
     if (cfg.source === "auto") {
         const vendor = cfg.model && cfg.model.startsWith("builtin:") ? cfg.model.slice("builtin:".length) : "auto";
         checks.push({
@@ -147,7 +109,7 @@ function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
         });
     }
     else {
-        const binToken = cfg.command ? (0, cli_args_1.splitAgentCommandLine)(String(cfg.command))[0] : undefined;
+        const binToken = cfg.command ? splitAgentCommandLine(String(cfg.command))[0] : undefined;
         checks.push({
             name: "agent",
             status: "ok",
@@ -179,7 +141,7 @@ function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
         detail: "CW sandbox profiles validate policy and gate worker-output acceptance; OS-level read/write/execute/network/env isolation is the execution host's responsibility (see docs/sandbox-profiles.7.md's ENFORCEMENT section) — this doctor run cannot verify that host enforcement.",
     });
     // 4. git — only needed for commit provenance; a warn, not a hard fail.
-    const git = (0, node_child_process_1.spawnSync)("git", ["--version"], { encoding: "utf8", timeout: 5000 });
+    const git = spawnSync("git", ["--version"], { encoding: "utf8", timeout: 5000 });
     checks.push(!git.error && git.status === 0
         ? { name: "git", status: "ok", detail: `${String(git.stdout || "git").trim()}.` }
         : {
@@ -230,12 +192,12 @@ function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
             continue;
         runsScanned += 1;
         try {
-            const result = (0, run_store_1.loadRunStateFile)(statePath, { dryRun: true });
+            const result = loadRunStateFile(statePath, { dryRun: true });
             if (result.report.status === "unsupported") {
                 runStateProblems.push(`${runId}: ${result.report.errors.join("; ") || "unsupported run state"}`);
                 continue;
             }
-            (0, run_store_1.assertNotSuspectedDataLoss)(runId, result);
+            assertNotSuspectedDataLoss(runId, result);
             loadedRuns.push({ runId, run: result.run });
         }
         catch (error) {
@@ -260,7 +222,7 @@ function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
     //    state.json itself won't load has no `run` object to check audit for).
     const auditProblems = [];
     for (const { runId, run } of loadedRuns) {
-        const integrity = (0, trust_audit_1.verifyTrustAudit)(run);
+        const integrity = verifyTrustAudit(run);
         if (integrity.present && !integrity.verified) {
             auditProblems.push(`${runId}: ${integrity.checks.filter((c) => !c.pass).map((c) => c.code).join(", ")}`);
         }
@@ -293,9 +255,9 @@ function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
         // `--onramp` attaches the change-contract onramp block. `--changed-from
         // REF` threads the base ref through to resolveChangedFiles +
         // evaluateOnrampContract.
-        ...((0, onramp_1.optionEnabled)(args.onramp)
+        ...(optionEnabled(args.onramp)
             ? {
-                onramp: (0, onramp_1.buildDoctorOnramp)({
+                onramp: buildDoctorOnramp({
                     cwd,
                     env,
                     changedFrom: typeof args["changed-from"] === "string" ? args["changed-from"] : undefined,
@@ -305,15 +267,15 @@ function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
     };
 }
 /** Human rendering (TTY/default). `--json` callers use the report object directly. */
-function formatDoctorReport(report) {
-    const lines = [(0, term_1.bold)("cw doctor")];
+export function formatDoctorReport(report) {
+    const lines = [bold("cw doctor")];
     for (const check of report.checks) {
-        lines.push(`  ${(0, term_1.doctorGlyph)(check.status)} ${check.name}: ${check.detail}`);
+        lines.push(`  ${doctorGlyph(check.status)} ${check.name}: ${check.detail}`);
         if (check.fix && check.status !== "ok")
             lines.push(`      fix: ${check.fix}`);
     }
     lines.push("");
-    const summaryGlyph = report.ok ? (0, term_1.green)("✓") : (0, term_1.red)("✗");
+    const summaryGlyph = report.ok ? green("✓") : red("✗");
     lines.push(`${summaryGlyph} ${report.summary}`);
     if (!report.onramp) {
         // A first-time (or just not-yet-discovered) `cw doctor` never mentions
@@ -321,7 +283,7 @@ function formatDoctorReport(report) {
         // start (3 steps)"/"Recommended Checks"/per-scenario sections only ever
         // render behind the `--onramp` opt-in flag, so a user who never reads
         // `cw help doctor` has no way to find them otherwise.
-        lines.push(`  ${(0, term_1.nextHint)("cw doctor --onramp")} for the 3-step quick start`);
+        lines.push(`  ${nextHint("cw doctor --onramp")} for the 3-step quick start`);
     }
     else {
         lines.push("");
@@ -359,9 +321,9 @@ function formatDoctorReport(report) {
     return lines.join("\n");
 }
 /** `--fix` rendering: consolidates all fix strings into an actionable block. */
-function formatDoctorFixes(report) {
+export function formatDoctorFixes(report) {
     const fixes = report.checks.filter((c) => c.fix && c.status !== "ok").map((c) => c.fix);
     if (!fixes.length)
         return "No fixes needed.";
-    return [(0, term_1.bold)("Fix Commands"), ...fixes.map((f, i) => `  ${i + 1}. ${f}`), ""].join("\n");
+    return [bold("Fix Commands"), ...fixes.map((f, i) => `  ${i + 1}. ${f}`), ""].join("\n");
 }

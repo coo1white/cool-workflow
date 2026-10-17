@@ -1,4 +1,3 @@
-"use strict";
 // shell/reporter.ts — the cw-side run reporter: drive progress lines +
 // the end-of-run summary.
 //
@@ -9,11 +8,7 @@
 //
 // Evidence: SPEC/reporting-ux.md "The Rule of Silence (TTY view vs
 // pipes)".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.reporter = void 0;
-exports.createReporter = createReporter;
-exports.formatQuickstartSummary = formatQuickstartSummary;
-const term_1 = require("./term");
+import { dim, green, yellow, nextHint, tryHint } from "./term.js";
 class StderrReporter {
     s;
     constructor(s) {
@@ -24,11 +19,11 @@ class StderrReporter {
     }
 }
 /** Build a reporter over an explicit stream. */
-function createReporter(stream) {
+export function createReporter(stream) {
     return new StderrReporter(stream);
 }
 /** The default reporter writes the orchestration view to stderr. */
-exports.reporter = createReporter(process.stderr);
+export const reporter = createReporter(process.stderr);
 /** The `cw -q`/`cw quickstart` end-of-run summary: wired in by
  *  shell/pipeline-cli.ts's formatQuickstartHuman, called ONLY on a real
  *  terminal, never for --json or a piped run (the CLI dispatcher's own
@@ -37,30 +32,30 @@ exports.reporter = createReporter(process.stderr);
  *  stderr-only StderrReporter above). `opened` says whether the report
  *  was just opened in the browser, so the hint line matches what really
  *  happened. */
-function formatQuickstartSummary(f, opened) {
+export function formatQuickstartSummary(f, opened) {
     const out = process.stdout;
     // "workers": this is the whole run's count, so it does not read as the
     // same number as a phase line's "(done/total)" (D1 in unix-principles.md).
     const counts = typeof f.completedWorkers === "number" && typeof f.plannedWorkers === "number" ? ` — ${f.completedWorkers}/${f.plannedWorkers} workers` : "";
-    const lines = [`${(0, term_1.green)("✓", out)} Report: ${f.reportPath}`];
+    const lines = [`${green("✓", out)} Report: ${f.reportPath}`];
     if (f.status === "complete") {
-        lines.push(`  ${(0, term_1.green)("✓", out)} Status: complete${counts}`);
+        lines.push(`  ${green("✓", out)} Status: complete${counts}`);
     }
     else {
-        lines.push(`  ${(0, term_1.yellow)("!", out)} Status: ${f.status}${counts}`);
+        lines.push(`  ${yellow("!", out)} Status: ${f.status}${counts}`);
         if (f.agentConfigured === false)
-            lines.push(`  ${(0, term_1.tryHint)("cw doctor", out)}`);
+            lines.push(`  ${tryHint("cw doctor", out)}`);
         else if (f.status === "parked" || f.status === "blocked") {
             // A stop with an agent set: say why, and name the one command that
             // goes on from here (D2 in docs/unix-principles.md).
             const why = (f.why || []).filter((line) => line.trim());
-            why.forEach((line, index) => lines.push(`  ${index === 0 ? `${(0, term_1.dim)("Why:", out)} ` : "     "}${line}`));
-            lines.push(opened ? `  ${(0, term_1.green)("✓", out)} Report opened. Again later: cw report --open` : `  ${(0, term_1.tryHint)("cw report --open", out)}`);
-            lines.push(`  ${(0, term_1.nextHint)(`cw --resume --run ${f.runId}`, out)}`);
+            why.forEach((line, index) => lines.push(`  ${index === 0 ? `${dim("Why:", out)} ` : "     "}${line}`));
+            lines.push(opened ? `  ${green("✓", out)} Report opened. Again later: cw report --open` : `  ${tryHint("cw report --open", out)}`);
+            lines.push(`  ${nextHint(`cw --resume --run ${f.runId}`, out)}`);
             return lines.join("\n");
         }
     }
-    lines.push(opened ? `  ${(0, term_1.green)("✓", out)} Report opened. Again later: cw report --open` : `  ${(0, term_1.nextHint)("cw report --open", out)}`);
-    lines.push(`  ${(0, term_1.dim)("Try:", out)} cw report --show`);
+    lines.push(opened ? `  ${green("✓", out)} Report opened. Again later: cw report --open` : `  ${nextHint("cw report --open", out)}`);
+    lines.push(`  ${dim("Try:", out)} cw report --show`);
     return lines.join("\n");
 }

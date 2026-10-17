@@ -10,7 +10,7 @@
 // Evidence: SPEC/ledger-trust.md "Telemetry ledger record", byte-compat
 // items 2 and 12.
 
-import { sha256, telemetryStableStringify } from "../hash";
+import { sha256, telemetryStableStringify } from "../hash.js";
 
 export const TELEMETRY_LEDGER_SCHEMA_VERSION = 1;
 

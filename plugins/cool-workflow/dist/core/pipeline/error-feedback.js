@@ -1,4 +1,3 @@
-"use strict";
 // core/pipeline/error-feedback.ts — classifyFeedback, recordFeedback's
 // decision half, dedup key.
 //
@@ -8,17 +7,8 @@
 // file stays pure per the core/shell split.
 //
 // Evidence: SPEC/pipeline-run.md "Error feedback — error-feedback module".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ERROR_FEEDBACK_SCHEMA_VERSION = void 0;
-exports.classifyFeedback = classifyFeedback;
-exports.feedbackKey = feedbackKey;
-exports.compactMetadata = compactMetadata;
-exports.formatFeedbackId = formatFeedbackId;
-exports.findExistingFeedback = findExistingFeedback;
-exports.buildFeedbackRecord = buildFeedbackRecord;
-exports.summarizeFeedback = summarizeFeedback;
-const cli_args_1 = require("../util/cli-args");
-exports.ERROR_FEEDBACK_SCHEMA_VERSION = 1;
+import { countBy } from "../util/cli-args.js";
+export const ERROR_FEEDBACK_SCHEMA_VERSION = 1;
 function normalizeError(error, now) {
     if (typeof error === "string") {
         return { code: "runtime-error", message: error, at: now };
@@ -40,7 +30,7 @@ function codeFromError(error) {
     return "runtime-error";
 }
 /** classifyFeedback — fixed (pinned) order. */
-function classifyFeedback(error, context = {}, now = new Date(0).toISOString()) {
+export function classifyFeedback(error, context = {}, now = new Date(0).toISOString()) {
     const normalized = normalizeError(error, now);
     const code = normalized.code.toLowerCase();
     if (code.includes("missing-artifact") || code.includes("artifact-path"))
@@ -88,11 +78,11 @@ function sourceFor(classification) {
 }
 /** Feedback dedup key: joined with the ASCII unit separator "\u001f" (runId, code, message, nodeId,
  *  stageId, contractId, path). */
-function feedbackKey(value) {
+export function feedbackKey(value) {
     return [value.runId || "", value.code || "", value.message || "", value.nodeId || "", value.stageId || "", value.contractId || "", value.path || ""].join("\u001f");
 }
 /** A copy of `metadata` without its undefined values; undefined when none are left. */
-function compactMetadata(metadata) {
+export function compactMetadata(metadata) {
     const compacted = {};
     for (const [key, value] of Object.entries(metadata))
         if (value !== undefined)
@@ -101,13 +91,13 @@ function compactMetadata(metadata) {
 }
 /** Deterministic feedback id: position in the run's append-only feedback
  *  log (1-based), qualified by classification. */
-function formatFeedbackId(classification, seq) {
+export function formatFeedbackId(classification, seq) {
     return `feedback-${classification}-${String(seq).padStart(4, "0")}`;
 }
 /** Find an existing UNRESOLVED record matching the same
  *  {code,message,nodeId,stageId,contractId,path} — recordFeedback's dedup
  *  rule. */
-function findExistingFeedback(existing, error, nodeId, stageId, contractId, path) {
+export function findExistingFeedback(existing, error, nodeId, stageId, contractId, path) {
     return existing.find((record) => record.status !== "resolved" &&
         record.code === error.code &&
         record.message === error.message &&
@@ -118,12 +108,12 @@ function findExistingFeedback(existing, error, nodeId, stageId, contractId, path
 }
 /** Build a new (not-yet-persisted) feedback record. `existingCount` is
  *  `(run.feedback || []).length` BEFORE this record is appended. */
-function buildFeedbackRecord(runId, input, existingCount, now) {
+export function buildFeedbackRecord(runId, input, existingCount, now) {
     const error = normalizeError(input.error, now);
     const nodeId = input.nodeId || error.nodeId;
     const classification = classifyFeedback(error, { source: input.source, stageId: input.stageId, contractId: input.contractId, metadata: input.metadata }, now);
     return {
-        schemaVersion: exports.ERROR_FEEDBACK_SCHEMA_VERSION,
+        schemaVersion: ERROR_FEEDBACK_SCHEMA_VERSION,
         id: formatFeedbackId(classification, existingCount + 1),
         runId,
         createdAt: now,
@@ -145,11 +135,11 @@ function buildFeedbackRecord(runId, input, existingCount, now) {
         metadata: compactMetadata({ ...input.metadata, details: input.metadata?.details || error.details }),
     };
 }
-function summarizeFeedback(records) {
+export function summarizeFeedback(records) {
     return {
         total: records.length,
-        byStatus: (0, cli_args_1.countBy)(records, (r) => r.status),
-        bySeverity: (0, cli_args_1.countBy)(records, (r) => r.severity),
-        byClassification: (0, cli_args_1.countBy)(records, (r) => r.classification),
+        byStatus: countBy(records, (r) => r.status),
+        bySeverity: countBy(records, (r) => r.severity),
+        byClassification: countBy(records, (r) => r.classification),
     };
 }

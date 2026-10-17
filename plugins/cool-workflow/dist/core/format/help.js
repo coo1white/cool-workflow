@@ -1,4 +1,3 @@
-"use strict";
 // core/format/help.ts — formatHelp, formatCommandHelp.
 //
 // Pure functions of already-loaded data, plus the color helpers
@@ -19,14 +18,7 @@
 // is read from the capability table via `cliCommandHelpRows()`; every other
 // verb stays literal here. A CLI `--help` walk and an MCP `tools/list`
 // round-trip read the SAME table rows for any capability wired into both.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.MORE_COMMANDS_TOKENS = void 0;
-exports.formatHelp = formatHelp;
-exports.formatCommandHelp = formatCommandHelp;
-exports.formatInfo = formatInfo;
-exports.formatSearchResults = formatSearchResults;
-exports.formatWorkflowList = formatWorkflowList;
-const capability_table_1 = require("../capability-table");
+import { cliCapabilities } from "../capability-table.js";
 /** The "More commands" token set, in its pinned order (space-joined in
  *  the source, pipe-joined for display). `update` is not in it: the verb
  *  has no code behind it (`cw update` says "Unknown command"), so the help
@@ -34,7 +26,7 @@ const capability_table_1 = require("../capability-table");
  *  read-only source list, `formatHelp` below still owns the byte-pinned
  *  display format) so `core/format/completion.ts` can build a
  *  shell-completion word list from the SAME data, not a third copy. */
-exports.MORE_COMMANDS_TOKENS = [
+export const MORE_COMMANDS_TOKENS = [
     "list", "search", "info", "init", "plan", "status", "next", "dispatch",
     "result", "state", "commit", "report", "app", "sandbox", "backend",
     "contract", "node", "feedback", "worker", "audit",
@@ -198,8 +190,8 @@ const COMMAND_HELP_ROWS = {
  *  CW_DRIVE_PROGRESS=0 env var (see cli/entry.ts); and a `--resume` Flags
  *  row, for the `--resume --run <id>` continuation flag
  *  (shell/pipeline-cli.ts's quickstartRun). */
-function formatHelp() {
-    const moreCommandsLines = wrapPipeJoined(exports.MORE_COMMANDS_TOKENS, MORE_COMMANDS_WRAP_WIDTH);
+export function formatHelp() {
+    const moreCommandsLines = wrapPipeJoined(MORE_COMMANDS_TOKENS, MORE_COMMANDS_WRAP_WIDTH);
     const lines = [
         "Cool Workflow",
         "",
@@ -238,7 +230,7 @@ function formatHelp() {
  *  so a verb can have BOTH literal rows and table-derived rows without
  *  duplicating data by hand. */
 function cliCommandHelpRows(verb) {
-    return (0, capability_table_1.cliCapabilities)()
+    return cliCapabilities()
         .filter((row) => row.cli.path[0] === verb && !row.cli.hiddenFromHelp)
         .map((row) => ({
         command: `cw ${(row.cli.helpPath ?? row.cli.path).join(" ")}`,
@@ -253,7 +245,7 @@ function cliCommandHelpRows(verb) {
  *  findCapabilityByCliPath alias branch: a row whose `caseTokens` holds
  *  the token) and returns the verb the alias dispatches to. */
 function aliasTargetVerb(verb) {
-    for (const row of (0, capability_table_1.cliCapabilities)()) {
+    for (const row of cliCapabilities()) {
         if (row.cli.caseTokens && row.cli.caseTokens.includes(verb) && row.cli.path[0] !== verb) {
             return row.cli.path[0];
         }
@@ -266,7 +258,7 @@ function aliasTargetVerb(verb) {
  *  (a `caseTokens` token like `audit-run`) gets an alias header line plus
  *  its target verb's rows, never the unknown-verb text (whose Did-you-mean
  *  line would suggest the very verb the user just typed). */
-function formatCommandHelp(verb, suggestCommand) {
+export function formatCommandHelp(verb, suggestCommand) {
     const rows = [...(COMMAND_HELP_ROWS[verb] ?? []), ...cliCommandHelpRows(verb)];
     if (rows.length === 0) {
         const target = aliasTargetVerb(verb);
@@ -323,7 +315,7 @@ function renderCommandHelpRows(header, rows) {
  *  `formatHelp`/`formatCommandHelp` — styling, if any, is applied by the
  *  shell layer, never here. `data` is the `showApp`/`showWorkflowApp`
  *  payload. */
-function formatInfo(appId, data) {
+export function formatInfo(appId, data) {
     const inputs = (Array.isArray(data.inputs) ? data.inputs : []);
     const phases = (Array.isArray(data.phases) ? data.phases : []);
     const lines = [`cw info ${appId}`];
@@ -361,7 +353,7 @@ function formatInfo(appId, data) {
 /** `cw search <keyword>`'s human text. Lives in core/ so the search
  *  capability-table row can render its own text without core importing
  *  from cli/. */
-function formatSearchResults(keyword, results) {
+export function formatSearchResults(keyword, results) {
     if (results.length === 0) {
         return `No workflows matched "${keyword}".\n  Tip: cw list for all available workflows.`;
     }
@@ -381,7 +373,7 @@ function formatSearchResults(keyword, results) {
  *  next-step footer. NEVER printed to a pipe — the row's canonical JSON
  *  stays the only piped output (SPEC/cli-surface.md's jsonMode contract:
  *  "default" verbs are always JSON on a non-TTY stream). */
-function formatWorkflowList(workflows) {
+export function formatWorkflowList(workflows) {
     const rows = (Array.isArray(workflows) ? workflows : []);
     const lines = rows.map((w) => `${w.id} — ${w.title}`);
     lines.push("");

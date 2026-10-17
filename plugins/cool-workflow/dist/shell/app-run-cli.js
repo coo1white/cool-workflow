@@ -1,17 +1,13 @@
-"use strict";
 // shell/app-run-cli.ts — `cw_app_run` and `cw_sandbox_choose`.
 //
 // Thin shell bodies over the same `plan` + `showSandboxProfileCli` the CLI
 // front door uses.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.sandboxChooseCli = sandboxChooseCli;
-exports.appRunCli = appRunCli;
-const pipeline_1 = require("./pipeline");
-const workflow_app_loader_1 = require("./workflow-app-loader");
-const exec_backend_cli_1 = require("./exec-backend-cli");
-const operator_ux_1 = require("./operator-ux");
-const run_store_1 = require("./run-store");
-const cli_args_1 = require("../core/util/cli-args");
+import { plan } from "./pipeline.js";
+import { loadWorkflowApp } from "./workflow-app-loader.js";
+import { showSandboxProfileCli } from "./exec-backend-cli.js";
+import { summarizeOperatorRun } from "./operator-ux.js";
+import { loadRunFromCwd } from "./run-store.js";
+import { optionalArg, isRecord } from "../core/util/cli-args.js";
 /** Keys that steer the run/tool call itself, never workflow inputs. */
 const RUNTIME_KEYS = new Set(["cwd", "sandbox", "sandboxProfile", "sandboxProfileId", "appId", "workflowId", "inputs"]);
 function withoutRuntimeKeys(args) {
@@ -24,13 +20,13 @@ function withoutRuntimeKeys(args) {
     return out;
 }
 function sandboxProfileIdFrom(args) {
-    return (0, cli_args_1.optionalArg)(args.sandbox || args.sandboxProfile || args.sandboxProfileId || args.profileId);
+    return optionalArg(args.sandbox || args.sandboxProfile || args.sandboxProfileId || args.profileId);
 }
 /** `cw_sandbox_choose` — resolve + validate a profile choice: defaults
  *  to "readonly", returns the resolved profile object under `profile`. */
-function sandboxChooseCli(args) {
+export function sandboxChooseCli(args) {
     const profileId = sandboxProfileIdFrom(args) || "readonly";
-    const profile = (0, exec_backend_cli_1.showSandboxProfileCli)(profileId, args);
+    const profile = showSandboxProfileCli(profileId, args);
     return {
         profileId,
         sandboxProfileId: profile.id,
@@ -41,21 +37,21 @@ function sandboxChooseCli(args) {
 /** `cw_app_run` — create a run from an app id + structured inputs:
  *  merges `inputs` with the non-runtime args, plans a fresh run, and
  *  returns the run descriptor + a compact operator status. */
-function appRunCli(args) {
+export function appRunCli(args) {
     const appId = String(args.appId || args.workflowId || "");
     if (!appId)
         throw new Error("cw_app_run requires an app id (appId)");
-    const inputs = (0, cli_args_1.isRecord)(args.inputs) ? args.inputs : {};
+    const inputs = isRecord(args.inputs) ? args.inputs : {};
     const planOptions = { ...inputs, ...withoutRuntimeKeys(args) };
     if (typeof args.cwd === "string" && args.cwd.trim())
         planOptions.cwd = args.cwd;
     if (planOptions.repo && !planOptions.cwd)
         planOptions.cwd = planOptions.repo;
     const sandboxProfileId = sandboxProfileIdFrom(args);
-    const resolvedSandbox = sandboxProfileId ? (0, exec_backend_cli_1.showSandboxProfileCli)(sandboxProfileId, args) : undefined;
-    const app = (0, workflow_app_loader_1.loadWorkflowApp)(appId);
-    const run = (0, pipeline_1.plan)(app, planOptions);
-    const status = (0, operator_ux_1.summarizeOperatorRun)((0, run_store_1.loadRunFromCwd)(run.id, run.cwd));
+    const resolvedSandbox = sandboxProfileId ? showSandboxProfileCli(sandboxProfileId, args) : undefined;
+    const app = loadWorkflowApp(appId);
+    const run = plan(app, planOptions);
+    const status = summarizeOperatorRun(loadRunFromCwd(run.id, run.cwd));
     const appMeta = (run.workflow.app || {});
     return {
         runId: run.id,

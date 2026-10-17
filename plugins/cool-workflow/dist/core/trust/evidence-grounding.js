@@ -1,4 +1,3 @@
-"use strict";
 // core/trust/evidence-grounding.ts — isGroundedEvidence, confidence tiers,
 // extractEvidenceContent's PURE decision half.
 //
@@ -9,16 +8,6 @@
 //
 // Evidence: SPEC/pipeline-run.md "Result ingest — result-normalize module"
 // (isGroundedEvidence is its evidence-classification primitive).
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.isGroundedEvidence = isGroundedEvidence;
-exports.hasGroundedEvidence = hasGroundedEvidence;
-exports.evidenceFilePath = evidenceFilePath;
-exports.isVerdictTaskId = isVerdictTaskId;
-exports.requireResolvableEvidence = requireResolvableEvidence;
-exports.resolveEvidenceLocator = resolveEvidenceLocator;
-exports.unresolvedFileEvidence = unresolvedFileEvidence;
-exports.computeEvidenceConfidence = computeEvidenceConfidence;
-exports.extractEvidenceContent = extractEvidenceContent;
 const URL_RE = /^[a-z][a-z0-9+.-]*:\/\//i;
 const PATH_SEP_RE = /[\\/]/;
 const FILE_EXT_RE = /\.[A-Za-z0-9]{1,12}(?::\d+(?:-\d+)?)?$/;
@@ -27,7 +16,7 @@ const LINE_SUFFIX_RE = /:(\d+(?:-\d+)?)$/;
 /** A single evidence string is "grounded" if it is machine-shaped — a
  *  URL, a path-like locator, or a `namespace:value` token — rather than
  *  free prose. */
-function isGroundedEvidence(raw) {
+export function isGroundedEvidence(raw) {
     const value = String(raw ?? "").trim();
     if (!value)
         return false;
@@ -42,26 +31,26 @@ function isGroundedEvidence(raw) {
     return false;
 }
 /** An evidence array passes the gate if at least one entry is grounded. */
-function hasGroundedEvidence(evidence) {
+export function hasGroundedEvidence(evidence) {
     return Array.isArray(evidence) && evidence.some((entry) => isGroundedEvidence(entry));
 }
 /** The file path a locator points at (without any `:line` suffix), or null when
  *  the locator is a URL, an opaque namespace token, or free text. */
-function evidenceFilePath(raw) {
+export function evidenceFilePath(raw) {
     const shape = classify(String(raw ?? ""));
     return shape.kind === "file" && shape.pathPart ? shape.pathPart : null;
 }
 /** Whether a task id names the verdict/synthesis task whose verifier node
  *  gates a driven run's final commit — the one task whose file evidence is
  *  checked on disk at accept time as well as at the commit. */
-function isVerdictTaskId(taskId) {
+export function isVerdictTaskId(taskId) {
     return /^verdict[:/]|^synthesis[:/]/i.test(taskId);
 }
 /** Whether opt-in strict resolution is requested via the environment.
  *  Enabled by DEFAULT: file-style evidence locators MUST exist on disk.
  *  `CW_REQUIRE_RESOLVABLE_EVIDENCE=0` restores the prior shape-only
  *  check. */
-function requireResolvableEvidence(env = process.env) {
+export function requireResolvableEvidence(env = process.env) {
     const raw = env.CW_REQUIRE_RESOLVABLE_EVIDENCE;
     if (raw === undefined || raw === null || raw === "")
         return true;
@@ -84,7 +73,7 @@ function classify(raw) {
  *  `resolve(candidatePath)` is caller-supplied (real fs.existsSync in
  *  shell/), matching the core/shell split — this pure module never
  *  imports fs itself. */
-function resolveEvidenceLocator(raw, baseDirs, exists, isAbsolute, resolvePath) {
+export function resolveEvidenceLocator(raw, baseDirs, exists, isAbsolute, resolvePath) {
     const shape = classify(raw);
     if (shape.kind === "url")
         return "external";
@@ -100,13 +89,13 @@ function resolveEvidenceLocator(raw, baseDirs, exists, isAbsolute, resolvePath) 
 /** In strict mode, the file-style locators that could NOT be resolved on
  *  disk. Returns [] when strict mode is off or all file locators
  *  resolve. */
-function unresolvedFileEvidence(evidence, baseDirs, ops, env = process.env) {
+export function unresolvedFileEvidence(evidence, baseDirs, ops, env = process.env) {
     if (!requireResolvableEvidence(env) || !Array.isArray(evidence))
         return [];
     return evidence.map((entry) => String(entry)).filter((entry) => resolveEvidenceLocator(entry, baseDirs, ops.exists, ops.isAbsolute, ops.resolve) === "unresolved");
 }
 /** Compute the confidence tier for a single evidence string. */
-function computeEvidenceConfidence(raw, baseDirs, ops, env = process.env) {
+export function computeEvidenceConfidence(raw, baseDirs, ops, env = process.env) {
     if (!isGroundedEvidence(raw))
         return "ungrounded";
     if (!baseDirs || !baseDirs.length || !ops || !requireResolvableEvidence(env))
@@ -124,7 +113,7 @@ function computeEvidenceConfidence(raw, baseDirs, ops, env = process.env) {
  *  fabricates: returns undefined when the file doesn't exist or the
  *  locator is not file-style. Lines are 1-indexed. `readFile` is
  *  caller-supplied (real fs.readFileSync in shell/). */
-function extractEvidenceContent(locator, baseDirs, ops, readFile) {
+export function extractEvidenceContent(locator, baseDirs, ops, readFile) {
     const shape = classify(locator);
     if (shape.kind !== "file" || !shape.pathPart)
         return undefined;

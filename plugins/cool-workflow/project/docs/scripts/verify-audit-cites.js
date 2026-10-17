@@ -17,8 +17,8 @@
 //   node plugins/cool-workflow/project/docs/scripts/verify-audit-cites.js <audit.md> [search-root]
 // Exit: 0 = all cites resolve and are in range; 1 = one or more failed; 2 = bad usage.
 
-const fs = require("node:fs");
-const path = require("node:path");
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 const audit = process.argv[2] || "";
 const root = process.argv[3] || "plugins/cool-workflow/src";

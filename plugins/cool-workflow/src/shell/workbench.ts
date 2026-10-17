@@ -11,9 +11,10 @@
 // serve descriptor, fail-closed-but-honest unresolved-run shape),
 // invariant 11 (workbench is read-only and fails closed).
 
+import * as fs from "node:fs";
 import * as path from "node:path";
-import { findCapability } from "../core/capability-table";
-import { loadRunFromCwd } from "./run-store";
+import { findCapability } from "../core/capability-table.js";
+import { loadRunFromCwd } from "./run-store.js";
 
 export const WORKBENCH_DEFAULT_PORT = 7717;
 export const WORKBENCH_UI_RELATIVE = "ui/workbench";
@@ -175,7 +176,7 @@ export interface WorkbenchServeDescriptor {
  *  path is two levels up. Matches the existing precedent in
  *  execution-backend/agent.ts's BATCH_DELEGATE_CHILD_SCRIPT resolution. */
 export function workbenchUiRoot(): string {
-  return path.resolve(__dirname, "..", "..", WORKBENCH_UI_RELATIVE);
+  return path.resolve(import.meta.dirname, "..", "..", WORKBENCH_UI_RELATIVE);
 }
 
 const WORKBENCH_ROUTES: WorkbenchRoute[] = [
@@ -192,7 +193,6 @@ const WORKBENCH_ROUTES: WorkbenchRoute[] = [
 export function buildWorkbenchServeDescriptor(args: Record<string, unknown> = {}, boundPort?: number): WorkbenchServeDescriptor {
   const cwd = typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
   const uiRoot = workbenchUiRoot();
-  const fs = require("node:fs") as typeof import("node:fs");
   return {
     schemaVersion: 1,
     surface: "workbench",

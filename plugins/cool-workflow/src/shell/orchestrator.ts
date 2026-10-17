@@ -13,18 +13,18 @@
 // The facade is an intentional keep, not a god-class to dismantle.
 
 import * as path from "node:path";
-import { WorkflowRun } from "../core/state/types";
-import { loadRunFromCwd } from "./run-store";
-import { loadWorkflowApp } from "./workflow-app-loader";
-import { plan as planRun } from "./pipeline";
-import { createDispatchManifest } from "./dispatch";
-import { getWorkerScope, writeWorkerManifest, recordWorkerOutput as recordWorkerOutputImpl } from "./worker-isolation";
-import { saveCheckpoint, withRunStateLock } from "./run-store";
-import { summarizeTrustAudit } from "./trust-audit";
-import { evidenceProvenance } from "./audit-provenance";
-import { auditAttestCli, auditDecisionCli } from "./audit-cli";
-import { commitState } from "./commit";
-import { writeReport } from "./report";
+import { WorkflowRun } from "../core/state/types.js";
+import { loadRunFromCwd } from "./run-store.js";
+import { loadWorkflowApp } from "./workflow-app-loader.js";
+import { plan as planRun } from "./pipeline.js";
+import { createDispatchManifest } from "./dispatch.js";
+import { getWorkerScope, writeWorkerManifest, recordWorkerOutput as recordWorkerOutputImpl } from "./worker-isolation.js";
+import { saveCheckpoint, withRunStateLock } from "./run-store.js";
+import { summarizeTrustAudit } from "./trust-audit.js";
+import { evidenceProvenance } from "./audit-provenance.js";
+import { auditAttestCli, auditDecisionCli } from "./audit-cli.js";
+import { commitState } from "./commit.js";
+import { writeReport } from "./report.js";
 
 export interface CoolWorkflowRunnerOptions {
   pluginRoot?: string;
@@ -34,7 +34,7 @@ export interface CoolWorkflowRunnerOptions {
 export class CoolWorkflowRunner {
   // Kept for API compatibility with the constructor shape the scripts use
   // (`new CoolWorkflowRunner({ pluginRoot })`). workflow-app-loader finds
-  // the plugin root itself (walks up from __dirname), so this value is inert
+  // the plugin root itself (walks up from import.meta.dirname), so this value is inert
   // here — the run-resolving cwd is `baseDir` (below).
   readonly pluginRoot?: string;
   // The directory a run is resolved against; undefined falls back to
@@ -192,7 +192,7 @@ function numberOption(value: unknown): number | undefined {
 // `drive(runner, run.id, { now, agentConfig })`. shell/drive.ts's drive is
 // `drive(runId, cwd, options)` and resolves the run from cwd, so this
 // adapter forwards the runner's cwd.
-import { drive as driveImpl, DriveOptions, DriveResult } from "./drive";
+import { drive as driveImpl, DriveOptions, DriveResult } from "./drive.js";
 
 export function drive(runner: CoolWorkflowRunner, runId: string, options: DriveOptions = {}): DriveResult {
   const cwd = (runner && (runner as unknown as { baseDir?: string }).baseDir) || process.cwd();

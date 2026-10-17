@@ -1,4 +1,3 @@
-"use strict";
 // shell/execution-backend/registry.ts — the 7-driver registry: DRIVER_SPECS,
 // registerBackend, resolveBackendSelection, attestSandbox, probeBackend,
 // runBackend, and the CLI-facing inspection payloads.
@@ -7,36 +6,18 @@
 // agent.ts/probes.ts.
 //
 // Evidence: SPEC/execution-backend.md "The driver registry".
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.hasExecutable = exports.BackendError = exports.SANDBOX_DIMENSIONS = exports.DEFAULT_BACKEND_ID = exports.EXECUTION_BACKEND_SCHEMA_VERSION = void 0;
-exports.registerBackend = registerBackend;
-exports.getBackendDriver = getBackendDriver;
-exports.listBackendDescriptors = listBackendDescriptors;
-exports.backendIds = backendIds;
-exports.isBackendId = isBackendId;
-exports.getBackendDescriptor = getBackendDescriptor;
-exports.resolveBackendSelection = resolveBackendSelection;
-exports.requiredSandboxDimensions = requiredSandboxDimensions;
-exports.attestSandbox = attestSandbox;
-exports.sandboxGuaranteeLabels = sandboxGuaranteeLabels;
-exports.probeBackend = probeBackend;
-exports.runBackend = runBackend;
-exports.backendListPayload = backendListPayload;
-exports.backendShowPayload = backendShowPayload;
-exports.backendProbePayload = backendProbePayload;
-const probes_1 = require("./probes");
-Object.defineProperty(exports, "hasExecutable", { enumerable: true, get: function () { return probes_1.hasExecutable; } });
-const local_1 = require("./local");
-const envelopes_1 = require("./envelopes");
-const container_1 = require("./container");
-const remote_1 = require("./remote");
-const ci_1 = require("./ci");
-const agent_1 = require("./agent");
-const collate_1 = require("../../core/util/collate");
-exports.EXECUTION_BACKEND_SCHEMA_VERSION = 1;
-exports.DEFAULT_BACKEND_ID = "node";
-exports.SANDBOX_DIMENSIONS = ["read", "write", "command", "network", "env"];
-class BackendError extends Error {
+import { hasExecutable, probeAgentBackend, probeBunBackend, probeCiBackend, probeContainerBackend, probeNodeBackend, probeRemoteBackend, probeShellBackend } from "./probes.js";
+import { executeLocal, runtimeNoteFor } from "./local.js";
+import { refusedEnvelope } from "./envelopes.js";
+import { runContainer, containerHandle } from "./container.js";
+import { runHttpDelegation, remoteHandle } from "./remote.js";
+import { ciHandle, runCiDelegation } from "./ci.js";
+import { agentHandle, runAgentProcess } from "./agent.js";
+import { stableCompare } from "../../core/util/collate.js";
+export const EXECUTION_BACKEND_SCHEMA_VERSION = 1;
+export const DEFAULT_BACKEND_ID = "node";
+export const SANDBOX_DIMENSIONS = ["read", "write", "command", "network", "env"];
+export class BackendError extends Error {
     code;
     details;
     constructor(code, message, details) {
@@ -46,7 +27,6 @@ class BackendError extends Error {
         this.details = details;
     }
 }
-exports.BackendError = BackendError;
 const DRIVER_SPECS = [
     {
         id: "node",
@@ -126,7 +106,7 @@ const DRIVER_SPECS = [
     },
 ];
 function specCapabilities(spec) {
-    return exports.SANDBOX_DIMENSIONS.map((dimension) => ({ dimension, support: spec.support[dimension] }));
+    return SANDBOX_DIMENSIONS.map((dimension) => ({ dimension, support: spec.support[dimension] }));
 }
 function specDescriptor(spec) {
     const capabilities = specCapabilities(spec);
@@ -147,29 +127,29 @@ function specDescriptor(spec) {
 }
 const BACKEND_REGISTRY = new Map();
 /** Register (or override) a backend driver. The public extension seam. */
-function registerBackend(driver) {
+export function registerBackend(driver) {
     BACKEND_REGISTRY.set(driver.spec.id, driver);
 }
-function getBackendDriver(id) {
+export function getBackendDriver(id) {
     return BACKEND_REGISTRY.get(id);
 }
 function registeredDrivers() {
     return [...BACKEND_REGISTRY.values()];
 }
-function listBackendDescriptors() {
+export function listBackendDescriptors() {
     return registeredDrivers()
         .map((driver) => specDescriptor(driver.spec))
-        .sort((left, right) => (0, collate_1.stableCompare)(left.id, right.id));
+        .sort((left, right) => stableCompare(left.id, right.id));
 }
-function backendIds() {
+export function backendIds() {
     return registeredDrivers()
         .map((driver) => driver.spec.id)
         .sort();
 }
-function isBackendId(id) {
+export function isBackendId(id) {
     return Boolean(id) && BACKEND_REGISTRY.has(id);
 }
-function getBackendDescriptor(id) {
+export function getBackendDescriptor(id) {
     const driver = BACKEND_REGISTRY.get(id);
     if (!driver) {
         throw new BackendError("backend-not-found", `Execution backend not found: ${id}`, { backendId: id, available: backendIds() });
@@ -180,17 +160,17 @@ function ctxDelegate(impl) {
     return (ctx) => impl(ctx.descriptor, ctx.policy, ctx.request, ctx.label, ctx.handle, ctx.attestation);
 }
 const BUILTIN_DRIVER_BEHAVIORS = {
-    node: { spawnStyle: "direct", runtimeNote: () => (0, local_1.runtimeNoteFor)("node"), probe: probes_1.probeNodeBackend },
-    bun: { spawnStyle: "direct", runtimeNote: () => (0, local_1.runtimeNoteFor)("bun"), probe: probes_1.probeBunBackend },
-    shell: { spawnStyle: "shell", runtimeNote: () => (0, local_1.runtimeNoteFor)("shell"), probe: probes_1.probeShellBackend },
-    container: { delegateRun: ctxDelegate(container_1.runContainer), buildHandle: container_1.containerHandle, probe: probes_1.probeContainerBackend },
-    remote: { delegateRun: ctxDelegate(remote_1.runHttpDelegation), buildHandle: remote_1.remoteHandle, probe: probes_1.probeRemoteBackend },
-    ci: { delegateRun: ctxDelegate(ci_1.runCiDelegation), buildHandle: ci_1.ciHandle, probe: probes_1.probeCiBackend },
+    node: { spawnStyle: "direct", runtimeNote: () => runtimeNoteFor("node"), probe: probeNodeBackend },
+    bun: { spawnStyle: "direct", runtimeNote: () => runtimeNoteFor("bun"), probe: probeBunBackend },
+    shell: { spawnStyle: "shell", runtimeNote: () => runtimeNoteFor("shell"), probe: probeShellBackend },
+    container: { delegateRun: ctxDelegate(runContainer), buildHandle: containerHandle, probe: probeContainerBackend },
+    remote: { delegateRun: ctxDelegate(runHttpDelegation), buildHandle: remoteHandle, probe: probeRemoteBackend },
+    ci: { delegateRun: ctxDelegate(runCiDelegation), buildHandle: ciHandle, probe: probeCiBackend },
     agent: {
-        delegateRun: (ctx) => (0, agent_1.runAgentProcess)(ctx.descriptor, ctx.policy, ctx.request, ctx.label, ctx.attestation),
-        buildHandle: agent_1.agentHandle,
+        delegateRun: (ctx) => runAgentProcess(ctx.descriptor, ctx.policy, ctx.request, ctx.label, ctx.attestation),
+        buildHandle: agentHandle,
         commandlessDelegate: true,
-        probe: probes_1.probeAgentBackend,
+        probe: probeAgentBackend,
     },
 };
 for (const spec of DRIVER_SPECS) {
@@ -199,7 +179,7 @@ for (const spec of DRIVER_SPECS) {
 // ---------------------------------------------------------------------------
 // Selection & resolution. `--backend <id>` (flag) > CW_BACKEND (env) > default.
 // ---------------------------------------------------------------------------
-function resolveBackendSelection(requested, env = process.env) {
+export function resolveBackendSelection(requested, env = process.env) {
     const normalizedRequested = requested && requested.trim() ? requested.trim() : undefined;
     if (normalizedRequested) {
         if (!isBackendId(normalizedRequested)) {
@@ -220,12 +200,12 @@ function resolveBackendSelection(requested, env = process.env) {
         }
         return { backendId: envBackend, source: "env", requested: envBackend };
     }
-    return { backendId: exports.DEFAULT_BACKEND_ID, source: "default" };
+    return { backendId: DEFAULT_BACKEND_ID, source: "default" };
 }
 // ---------------------------------------------------------------------------
 // Sandbox dimension mapping + attestation.
 // ---------------------------------------------------------------------------
-function requiredSandboxDimensions(policy) {
+export function requiredSandboxDimensions(policy) {
     const required = [];
     required.push("read");
     required.push("write");
@@ -237,7 +217,7 @@ function requiredSandboxDimensions(policy) {
         required.push("env");
     return required;
 }
-function attestSandbox(descriptor, policy, options = { mode: "execute" }) {
+export function attestSandbox(descriptor, policy, options = { mode: "execute" }) {
     const required = requiredSandboxDimensions(policy);
     const supportByDimension = new Map(descriptor.capabilities.map((cap) => [cap.dimension, cap.support]));
     const enforced = [];
@@ -298,7 +278,7 @@ function attestSandbox(descriptor, policy, options = { mode: "execute" }) {
  *  New records carry `guarantees`; for old records the labels are derived
  *  from the stored enforced[]/attested[] arrays; no attestation at all
  *  gives all-"absent" (fail closed, never fail open). */
-function sandboxGuaranteeLabels(attestation) {
+export function sandboxGuaranteeLabels(attestation) {
     const labels = {
         read: "absent",
         write: "absent",
@@ -319,7 +299,7 @@ function sandboxGuaranteeLabels(attestation) {
 // ---------------------------------------------------------------------------
 // Readiness probe.
 // ---------------------------------------------------------------------------
-function probeBackend(id, context = {}) {
+export function probeBackend(id, context = {}) {
     const descriptor = getBackendDescriptor(id);
     const driver = BACKEND_REGISTRY.get(id);
     // Config-based probes (agent/remote/ci) read readiness from the environment;
@@ -361,10 +341,10 @@ function delegationHandle(descriptor, request) {
 function delegate(descriptor, policy, request, label, probe) {
     const handle = delegationHandle(descriptor, request);
     if (!handle) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-target-missing", probe.reason || `Backend ${descriptor.id} has no delegation target; refusing rather than running unsandboxed`, attestSandbox(descriptor, policy, { mode: "execute", ready: probe.ready }));
+        return refusedEnvelope(descriptor, policy, label, "delegation-target-missing", probe.reason || `Backend ${descriptor.id} has no delegation target; refusing rather than running unsandboxed`, attestSandbox(descriptor, policy, { mode: "execute", ready: probe.ready }));
     }
     if (!getBackendDriver(descriptor.id)?.commandlessDelegate && !request.command) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "no-command", `Backend ${descriptor.id} requires a command to delegate`, attestSandbox(descriptor, policy, { mode: "execute", ready: probe.ready }));
+        return refusedEnvelope(descriptor, policy, label, "no-command", `Backend ${descriptor.id} requires a command to delegate`, attestSandbox(descriptor, policy, { mode: "execute", ready: probe.ready }));
     }
     const attestation = attestSandbox(descriptor, policy, {
         mode: "execute",
@@ -374,11 +354,11 @@ function delegate(descriptor, policy, request, label, probe) {
     });
     const driver = getBackendDriver(descriptor.id);
     if (!driver?.delegateRun) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "backend-not-runnable", `Backend ${descriptor.id} has no delegate runner`, attestation);
+        return refusedEnvelope(descriptor, policy, label, "backend-not-runnable", `Backend ${descriptor.id} has no delegate runner`, attestation);
     }
     return driver.delegateRun({ descriptor, policy, request, label, handle, attestation });
 }
-function runBackend(request) {
+export function runBackend(request) {
     const descriptor = getBackendDescriptor(request.backendId);
     const policy = request.sandboxPolicy;
     const label = request.label || request.command || `${descriptor.id}-execution`;
@@ -386,29 +366,29 @@ function runBackend(request) {
     if (request.command) {
         const denied = commandDenied(policy, `${request.command} ${(request.args || []).join(" ")}`.trim());
         if (denied) {
-            return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "sandbox-command-denied", denied, attestSandbox(descriptor, policy, { mode: "execute", ready: probe.ready }));
+            return refusedEnvelope(descriptor, policy, label, "sandbox-command-denied", denied, attestSandbox(descriptor, policy, { mode: "execute", ready: probe.ready }));
         }
     }
     const attestation = attestSandbox(descriptor, policy, { mode: "execute", ready: probe.ready });
     if (attestation.unenforceable.length) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "sandbox-unenforceable", `Backend ${descriptor.id} cannot enforce or attest required sandbox dimension(s): ${attestation.unenforceable.join(", ")}`, attestation);
+        return refusedEnvelope(descriptor, policy, label, "sandbox-unenforceable", `Backend ${descriptor.id} cannot enforce or attest required sandbox dimension(s): ${attestation.unenforceable.join(", ")}`, attestation);
     }
     if (descriptor.kind === "delegating") {
         return delegate(descriptor, policy, request, label, probe);
     }
     if (!probe.ready) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "backend-not-ready", probe.reason || `Backend ${descriptor.id} is not ready`, attestation);
+        return refusedEnvelope(descriptor, policy, label, "backend-not-ready", probe.reason || `Backend ${descriptor.id} is not ready`, attestation);
     }
     if (!request.command) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "no-command", `Backend ${descriptor.id} requires a command to execute`, attestation);
+        return refusedEnvelope(descriptor, policy, label, "no-command", `Backend ${descriptor.id} requires a command to execute`, attestation);
     }
-    return (0, local_1.executeLocal)(descriptor, request, label, attestation, getBackendDriver(descriptor.id)?.spawnStyle);
+    return executeLocal(descriptor, request, label, attestation, getBackendDriver(descriptor.id)?.spawnStyle);
 }
 // ---- inspection payloads ---------------------------------------------------
-function backendListPayload() {
-    return { schemaVersion: 1, default: exports.DEFAULT_BACKEND_ID, backends: listBackendDescriptors() };
+export function backendListPayload() {
+    return { schemaVersion: 1, default: DEFAULT_BACKEND_ID, backends: listBackendDescriptors() };
 }
-function backendShowPayload(id) {
+export function backendShowPayload(id) {
     return getBackendDescriptor(id);
 }
 const _probeCache = new Map();
@@ -426,8 +406,11 @@ function cachedProbeBackend(id, context) {
     _probeCache.set(key, { result, at: Date.now() });
     return result;
 }
-function backendProbePayload(id, context = {}) {
+export function backendProbePayload(id, context = {}) {
     if (id && id.trim())
         return cachedProbeBackend(id.trim(), context);
-    return { schemaVersion: 1, default: exports.DEFAULT_BACKEND_ID, probes: backendIds().map((backendId) => cachedProbeBackend(backendId, context)) };
+    return { schemaVersion: 1, default: DEFAULT_BACKEND_ID, probes: backendIds().map((backendId) => cachedProbeBackend(backendId, context)) };
 }
+// Re-export the shared leaf so importers that expect it from the registry
+// module find it here too.
+export { hasExecutable };

@@ -132,7 +132,7 @@ function main() {
   // so this is invisible to every existing importer.
   {
     const shellEnvelopeSrc = fs.readFileSync(path.join(pluginRoot, "src", "shell", "execution-backend", "types.ts"), "utf8");
-    assert.ok(shellEnvelopeSrc.includes('export type * from "../../core/types/execution-backend"'), "shell/execution-backend/types.ts must be a type-only re-export of the core/ module");
+    assert.ok(shellEnvelopeSrc.includes('export type * from "../../core/types/execution-backend.js"'), "shell/execution-backend/types.ts must be a type-only re-export of the core/ module");
     assert.ok(!shellEnvelopeSrc.includes("export interface ResultEnvelope"), "the real declaration must not still live in shell/");
 
     const coreEnvelopeSrc = fs.readFileSync(path.join(pluginRoot, "src", "core", "types", "execution-backend.ts"), "utf8");
@@ -161,7 +161,7 @@ function main() {
       assert.ok(boundarySrc.includes(weld), `boundary weld present: ${weld}`);
     }
     const barrel = fs.readFileSync(path.join(pluginRoot, "src", "core", "types.ts"), "utf8");
-    assert.ok(barrel.includes('export * from "./types/boundary"'), "barrel exports the boundary module");
+    assert.ok(barrel.includes('export * from "./types/boundary.js"'), "barrel exports the boundary module");
     console.log("one-way-boundary: welds present in source ok");
   }
 

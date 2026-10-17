@@ -7,10 +7,10 @@
 // Evidence: SPEC/execution-backend.md "Local execution (executeLocal)".
 
 import { spawnSync } from "node:child_process";
-import { sha256 } from "../../core/hash";
-import { hasExecutable } from "./probes";
-import { BackendDescriptor, ExecutionRequest, ExecutionResultEnvelope, ResolvedSandboxPolicy, ResultEnvelope, SandboxAttestation } from "./types";
-import { messageOf } from "../../core/util/cli-args";
+import { sha256 } from "../../core/hash.js";
+import { hasExecutable } from "./probes.js";
+import { BackendDescriptor, ExecutionRequest, ExecutionResultEnvelope, ResolvedSandboxPolicy, ResultEnvelope, SandboxAttestation } from "./types.js";
+import { messageOf } from "../../core/util/cli-args.js";
 
 /** CW's OWN secrets that must NEVER reach ANY child process — on any backend
  *  (local/container/remote/agent), regardless of policy.env.inherit / expose /

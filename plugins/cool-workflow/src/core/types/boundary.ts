@@ -26,8 +26,8 @@
 // stays real (a violating fixture must NOT compile) and that these welds stay
 // present in source.
 
-import type { ExecutionResultEnvelope, ResultEnvelope } from "./execution-backend";
-import type { UsageRecord } from "./observability";
+import type { ExecutionResultEnvelope, ResultEnvelope } from "./execution-backend.js";
+import type { UsageRecord } from "./observability.js";
 
 export type OneWayData<T> = [unknown] extends [T]
   ? T // `unknown` (or `any`): opaque data — uninvokable without an explicit cast
