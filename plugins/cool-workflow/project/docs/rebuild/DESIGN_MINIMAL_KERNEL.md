@@ -415,7 +415,7 @@ usage strings (the 30+ `Usage: cw.js ...` templates), error message templates
 (`Missing <label>.\n  Tip: ...`), the ledger bad-JSON refusal objects, the
 `report.md` section headers and fallback lines — gets copied verbatim into the
 new source as a template literal with the SAME variable slots, not paraphrased.
-Conformance cases in `v2/conformance/cases/*.case.js` assert these byte-for-byte
+Conformance cases in `v2/conformance/cases/*.case.mjs` assert these byte-for-byte
 already; the job here is discipline, not cleverness.
 
 ### 4.2 Hashes, digests, and fingerprints

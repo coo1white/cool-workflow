@@ -6,7 +6,7 @@
 // `jsonMode: "default"` row may declare a `humanRender` (the `list` row
 // does), and cli/dispatch.ts renders it ONLY on a TTY stdout with no
 // --json/--format json — every piped call keeps the exact JSON bytes
-// (v2/conformance/cases/cli-json-mode.case.js pins those bytes end-to-end).
+// (v2/conformance/cases/cli-json-mode.case.mjs pins those bytes end-to-end).
 //
 // Uses the same fakeStream({isTTY}) shape as
 // ui/workbench/tests/workbench-serve-tty-hint.test.js: no real terminal, no spawned CLI.
@@ -51,7 +51,7 @@ function fakeStream(isTTY) {
   assert.equal(shouldRenderHuman("human", {}, true, fakeStream(true)), false, "a human-mode row never uses this path");
 
   // Color envs must play no part in the decision: same answer either way
-  // (cli-color-env.case.js pipes with FORCE_COLOR=1 and must stay JSON).
+  // (cli-color-env.case.mjs pipes with FORCE_COLOR=1 and must stay JSON).
   const before = { FORCE_COLOR: process.env.FORCE_COLOR, NO_COLOR: process.env.NO_COLOR };
   process.env.FORCE_COLOR = "1";
   delete process.env.NO_COLOR;

@@ -425,12 +425,12 @@ export function evaluateOnrampContract(
   // from the black-box `test/*-smoke.js` suite. A cycle that proves its fix
   // with a unit test only (no smoke touched) is a real, complete cycle.
   const unitTestFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+\.test\.js$/.test(file));
-  // The black-box conformance suite (v2/conformance/cases/*.case.js) is a
+  // The black-box conformance suite (v2/conformance/cases/*.case.mjs) is a
   // third, equally real proof layer — CI-gated on every push, and the one
   // North Star Track C leans on. A cycle proven end to end by a new or
   // changed conformance case (with no test/*-smoke.js or test/**/*.test.js
   // touched) is a real, complete cycle too.
-  const conformanceCaseFiles = normalized.filter((file) => /^v2\/conformance\/cases\/.+\.case\.js$/.test(file));
+  const conformanceCaseFiles = normalized.filter((file) => /^v2\/conformance\/cases\/.+\.case\.mjs$/.test(file));
   const docFiles = normalized.filter(isDocFile);
 
   if (

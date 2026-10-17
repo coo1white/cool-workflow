@@ -7,8 +7,8 @@
 // completion.
 //
 // Evidence: SPEC/pipeline-run.md's worker-isolation references;
-// exechard-evidence-triple-hygiene.case.js, exechard-model-attestation-
-// unreported.case.js, exec-agent-secret-redaction.case.js pin the exact
+// exechard-evidence-triple-hygiene.case.mjs, exechard-model-attestation-
+// unreported.case.mjs, exec-agent-secret-redaction.case.mjs pin the exact
 // shapes here.
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";

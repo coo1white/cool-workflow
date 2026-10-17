@@ -450,6 +450,31 @@ Found in step 5:
   does. `docs/release-and-migration.7.md` ("Module Form") says this and
   that app files stay CommonJS.
 
+Found in step 8:
+
+- "All 115 conformance files load `dist/` with `require`" was wrong. No
+  conformance file loads `dist/`: the suite is black box, and it starts
+  `dist/cli.js` and `dist/mcp-server.js` as child processes. Of the 115
+  files, 97 were code (88 cases, `run.js`, `lib.js` and 7 fixture
+  helpers), 7,758 lines now as `.mjs`; the rest are the README, 16 `.txt`
+  fixtures and the step 5 `package.json`, which this step takes out.
+- Twelve `require()` calls were inside a function body (`node:path`,
+  `node:fs`, `node:os`); each became one `import` at the top. Two
+  `require` strings stay, as data: a comment, and the text of a helper
+  script that `lockstale-steal-and-respect` writes into its own tmp dir.
+- `workflows/README.md` still named `multiagent-app-list.case.js`, a case
+  that went in step 2; the line now names only the smoke that pins the
+  legacy ids.
+- `exechard-codex-sandbox-fail-closed` runs
+  `scripts/agents/codex-agent.js` by its path, as CW does (no code is
+  shared). When step 6 gives that file a new name, the case path changes
+  in the same PR.
+- `src/shell/onramp.ts` counted a changed `.case.js` file as proof; it now
+  counts `.case.mjs`, and `onramp-check-smoke` uses an `.mjs` case path.
+- Conformance gives the same result per case before and after (86 of 88 in
+  this sandbox both times, the same two, `report-doctor` and
+  `report-fix`, which see the `claude` on its PATH).
+
 (the rest filled at close)
 
 ## Status ledger
@@ -465,5 +490,5 @@ Found in step 5:
 | 5 ESM src + dist | done on its branch, PR to come | |
 | 6 Scripts to .mjs | | |
 | 7 Tests to .mjs | | |
-| 8 Conformance to .mjs | | |
+| 8 Conformance to .mjs | done on its branch, PR to come | |
 | 9 Closing ledger and receipt | | |

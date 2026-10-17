@@ -53,7 +53,7 @@ export function listBundledWorkflows() {
     return loadWorkflowAppLoader().listWorkflowsShallow();
 }
 /** The id/title/schemaVersion subset of the 4 bundled sandbox profiles
- *  that mcp-basic.case.js checks; the full `sandbox.list` (real path lists
+ *  that mcp-basic.case.mjs checks; the full `sandbox.list` (real path lists
  *  via `resolveSandboxProfile`, SPEC/execution-backend.md) is wired in the
  *  exec-backend slice. */
 export function listBundledSandboxProfiles() {

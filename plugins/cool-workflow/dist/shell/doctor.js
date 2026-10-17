@@ -11,7 +11,7 @@
 //  - TWO RENDERINGS. Human text by default; a stable `--json` payload.
 //
 // Evidence: SPEC/execution-backend.md "Agent delegation config";
-// exec-doctor-agent-config.case.js pins the exact text this file must
+// exec-doctor-agent-config.case.mjs pins the exact text this file must
 // produce.
 import * as fs from "node:fs";
 import * as os from "node:os";

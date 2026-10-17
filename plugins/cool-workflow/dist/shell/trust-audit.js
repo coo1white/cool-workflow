@@ -541,7 +541,7 @@ export function recordSandboxPathDecision(run, input) {
 /** normalizeEvidence — GROUNDING-ONLY provenance. Never carries the
  *  agent's command/args/model/handle (those live ONLY in
  *  node.metadata.agentDelegation) — this is the exact hygiene split
- *  exechard-evidence-triple-hygiene.case.js pins. */
+ *  exechard-evidence-triple-hygiene.case.mjs pins. */
 export function normalizeEvidence(run, evidence, provenance) {
     return evidence.map((entry) => ({
         ...entry,

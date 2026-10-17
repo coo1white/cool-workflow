@@ -337,7 +337,7 @@ export class RunRegistry {
         if (!fs.existsSync(file))
             return [];
         // queue.json is durable state and fails CLOSED (the conformance rule in
-        // sched-corrupt-fail-closed.case.js): a file with good JSON but a bad
+        // sched-corrupt-fail-closed.case.mjs): a file with good JSON but a bad
         // shape (entries not an array) must not read as an empty queue, or the
         // next queueAdd would write a fresh file over the broken one, losing
         // what it held. Never write over bytes we could not read.

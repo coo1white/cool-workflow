@@ -10,7 +10,7 @@ as black-box checks. A new build is done when it goes green here.
    build, and never test inner structure.
 2. Green on old first. A case that does not pass against the old build
    is wrong — the old build is the source of truth, not the case.
-3. One case file = one behavior area. Name: `<area>-<what>.case.js`.
+3. One case file = one behavior area. Name: `<area>-<what>.case.mjs`.
 4. No network. No model calls. Where an agent is needed, use a fake
    agent script written into the case's own work dir, wired up with
    `CW_AGENT_COMMAND`.
@@ -20,14 +20,14 @@ as black-box checks. A new build is done when it goes green here.
 ## Run it
 
 ```bash
-node run.js --bin ../../plugins/cool-workflow/dist/cli.js   # old build — must be 100%
-node run.js --bin <new build cli.js>                        # new build — the goal
-node run.js --bin ... --filter ledger                       # one area
+node run.mjs --bin ../../plugins/cool-workflow/dist/cli.js   # old build — must be 100%
+node run.mjs --bin <new build cli.js>                        # new build — the goal
+node run.mjs --bin ... --filter ledger                       # one area
 ```
 
-## Why `run.js` looks like `test/run-all.js`
+## Why `run.mjs` looks like `test/run-all.js`
 
-`run.js`'s discover-and-run shape is copied from the plugin's own
+`run.mjs`'s discover-and-run shape is copied from the plugin's own
 `test/*-smoke.js` runner, `plugins/cool-workflow/test/run-all.js`, on
 purpose (see that file's own header note). This is by design, not an
 accident to clean up: this suite is the net that judges every change to

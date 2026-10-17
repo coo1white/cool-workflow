@@ -3,7 +3,7 @@
 // decision names; the pure decision core is core/pipeline/drive-decide.ts.
 // The concurrent-round driver (driveConcurrentRound, below) dispatches and
 // settles a whole round's tasks in one batch (see `--concurrency`/
-// `roundWidth`), pinned by v2/conformance/cases/pipeline-concurrent-round.case.js.
+// `roundWidth`), pinned by v2/conformance/cases/pipeline-concurrent-round.case.mjs.
 //
 // Evidence: SPEC/pipeline-run.md "Drive loop — drive module".
 
