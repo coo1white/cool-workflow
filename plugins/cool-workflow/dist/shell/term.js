@@ -75,10 +75,10 @@ export function sectionHeader(title, stream) {
     return `${bold("==>", stream)} ${title}`;
 }
 /** A phase-progress line: `==> Map ✓ (6/6)` / `==> Assess … (3/6)`. Parallel
- *  phases use ⇉, sequential use …; a finished phase uses a green ✓. */
+ *  phases use », sequential use …; a finished phase uses a green ✓. */
 export function phaseProgressLine(name, done, total, mode, stream) {
     const complete = total > 0 && done >= total;
-    const glyph = complete ? green("✓", stream) : mode === "parallel" ? "⇉" : "…";
+    const glyph = complete ? green("✓", stream) : mode === "parallel" ? "»" : "…";
     const count = total > 0 ? ` (${done}/${total})` : "";
     return `${sectionHeader(name, stream)} ${glyph}${count}`;
 }

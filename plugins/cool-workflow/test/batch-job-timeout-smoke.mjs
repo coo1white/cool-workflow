@@ -165,7 +165,7 @@ try {
     return env;
   }
   const count = (text, re) => (text.match(re) || []).length;
-  const ROUND = /^\[drive\] ⇉ concurrent round:/gm;
+  const ROUND = /^\[drive\] » concurrent round:/gm;
   const PHASE = /^\[drive\] ==> /gm;
   {
     const env = driveEnv(`node ${holder} ${path.join(work, "drive.pid")} 0`);

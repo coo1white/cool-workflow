@@ -49,7 +49,7 @@ This spec covers the step cycle `plan -> dispatch -> result -> verify -> commit`
 - Retry/park (`handleHop`): prior attempts = max(in-memory count, the worker scope's persisted `retryCount`). `retryOrPark(entry, policy, now, reason)` adds one attempt; at `attempts >= policy.maxAttempts` (default 3) it parks with `parkedReason` = `<reason> (attempt <n>/<max>)`. Parked: `runner.recordWorkerFailure(runId, workerId, parkedReason, {code:"agent-delegation-parked", retryable:false, retryCount})` — this marks the task `status:"failed"` and the worker `failed`, so the phase gate stops; the step is `action:"park", status:"parked"` with `attempts`. Retryable: the task stays `running` (the scope is reused next step), `recordWorkerRetryAttempt` stores the attempt count + last reason on the worker scope, and the step is `action:"fulfill", status:"failed"`. (src/drive.ts:608-652; src/scheduling.ts:135-142; src/worker-isolation.ts:343-448)
 - Loop control in `drive()`: iteration bound `maxIterations = (plannedWorkers + maxLoopExpansion(run0)) * (policy.maxAttempts + 1) + 5`. Round width per iteration: an explicit `concurrency > 1` wins; else `autoWidth` = for a first runnable phase with `mode === "parallel"`, `min(max(1, limits.maxConcurrentAgents || 1), runnableTaskIds(run).size)`, else 1. The loop stops on `--once` after one round, or when the last step status is `"complete"`, `"parked"` or `"blocked"`. If the bound is hit without a terminal state, one extra step `action:"blocked", status:"blocked"` with reason `drive reached max iteration limit (<n>) before a terminal state` is appended and the result status is `"blocked"`. (src/drive.ts:796-894)
 - Final `DriveResult.status`: with `--once` — `"complete"` when all planned workers completed AND an `agent-delegation-drive` commit exists, else the last step's `"parked"`/`"blocked"`, else `"in-progress"`. Without `--once` — `"blocked"` on bound exhaustion; else `"parked"` when any task is `failed` or the last step parked; else `"blocked"` when the last step blocked; else `"complete"`. (src/drive.ts:895-907)
-- Phase-boundary progress: after each round, the first not-yet-complete phase is announced once as active, and each newly finished phase once, with `phaseProgressLine` — `==> <Title> ✓ (done/total)` finished, `==> <Title> ⇉ (done/total)` active parallel, `==> <Title> … (done/total)` active sequential (title = phase name with the first letter upper-case). (src/drive.ts:826-848, 872; src/term.ts:104-109)
+- Phase-boundary progress: after each round, the first not-yet-complete phase is announced once as active, and each newly finished phase once, with `phaseProgressLine` — `==> <Title> ✓ (done/total)` finished, `==> <Title> » (done/total)` active parallel, `==> <Title> … (done/total)` active sequential (title = phase name with the first letter upper-case). (src/drive.ts:826-848, 872; src/term.ts:104-109)
 
 ### `--incremental` and the result cache
 
@@ -174,10 +174,10 @@ run --drive requires an app id (or --run <run-id> to continue)
 [drive] → <label> (<phase>) — spawning agent, may take minutes…
 [drive] ↺ <label> (<phase>) — accepting cached result
 [drive] ⧉ <label> (<phase>) — sub-workflow <appId>…
-[drive] ⇉ concurrent round: <n> agents spawning in parallel, may take minutes…
+[drive] » concurrent round: <n> agents spawning in parallel, may take minutes…
 [drive] <n>. <action> <status> <taskId> model=<model> — <reason>
 [drive] ==> <Phase title> ✓ (done/total)
-[drive] ==> <Phase title> ⇉ (done/total)     # active parallel phase
+[drive] ==> <Phase title> » (done/total)     # active parallel phase
 [drive] ==> <Phase title> … (done/total)     # active sequential phase
 [drive]   … <Phase title> still working — <n>s   # every CW_DRIVE_TICK_MS (10000) while a round waits
 ```

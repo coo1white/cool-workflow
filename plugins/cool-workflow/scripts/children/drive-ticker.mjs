@@ -11,14 +11,20 @@
 //   argv[2] = phase label (may be empty)
 //   argv[3] = interval in ms
 //   argv[4] = the drive process's pid
+//   argv[5] = a claim file (may be empty; new in 0.3.3)
 //
 // Every interval it writes one line to stderr:
 //   [drive]   … <Label> still working — 20s
-// Lines only, added at the end: no redraw, no color. It stops by itself
+// Lines only, added at the end: no redraw, no color. While the claim file
+// is there, a live agent view (agent-adapter-core createRenderer) is
+// redrawing its rows on the same terminal, so no line is written: one
+// would be glued into that view and break its redraw. It stops by itself
 // when the drive process is gone or stderr is closed, so it never
 // outlives the run.
 
-const [label = "", intervalArg = "", parentArg = ""] = process.argv.slice(2);
+import fs from "node:fs";
+
+const [label = "", intervalArg = "", parentArg = "", claimFile = ""] = process.argv.slice(2);
 const intervalMs = Number(intervalArg) > 0 ? Number(intervalArg) : 10000;
 const parentPid = Number(parentArg) > 0 ? Number(parentArg) : process.ppid;
 const started = Date.now();
@@ -49,5 +55,6 @@ process.stderr.on("error", () => process.exit(0));
 setInterval(() => {
   const elapsed = Date.now() - started;
   if (!parentAlive() || elapsed > MAX_MS) process.exit(0);
+  if (claimFile && fs.existsSync(claimFile)) return;
   process.stderr.write(`[drive]   … ${label ? `${label} ` : ""}still working — ${since(elapsed)}\n`);
 }, intervalMs);

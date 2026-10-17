@@ -27,7 +27,7 @@ import { writeReport } from "./report.js";
 import { recordTrustAuditEvent, verifyTrustAudit, withTrustAuditBatch } from "./trust-audit.js";
 import { resolveAgentConfig } from "./agent-config.js";
 import { runBackend } from "./execution-backend/registry.js";
-import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv, prepareEndpointJob, runEndpointBatchOutcomes } from "./execution-backend/agent.js";
+import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv, prepareEndpointJob, runEndpointBatchOutcomes, driveTtyClaimPath } from "./execution-backend/agent.js";
 import { sha256, stableStringify } from "../core/hash.js";
 import { stableCompare } from "../core/util/collate.js";
 import { plan } from "./pipeline.js";
@@ -101,8 +101,8 @@ function spawningAgentLine(task, dispatched) {
 // separate process (scripts/children/drive-ticker.mjs) prints
 // `[drive]   … <Phase> still working — 20s` to the inherited stderr every
 // CW_DRIVE_TICK_MS (default 10000) and is stopped when the round ends. Only
-// when [drive] progress is on (a TTY, or CW_DRIVE_PROGRESS=1), so a piped
-// run's bytes do not change; CW_DRIVE_TICK_MS=0 turns it off.
+// when [drive] progress is on, so a piped run's bytes do not change.
+// CW_DRIVE_TICK_MS=0 turns it off; quiet while driveTtyClaimPath() exists.
 const DRIVE_TICKER_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "scripts", "children", "drive-ticker.mjs");
 function withDriveTicker(label, fn) {
     const rawInterval = process.env.CW_DRIVE_TICK_MS;
@@ -111,7 +111,11 @@ function withDriveTicker(label, fn) {
         return fn();
     let ticker;
     try {
-        ticker = spawn(process.execPath, [DRIVE_TICKER_SCRIPT, label, String(Math.floor(intervalMs)), String(process.pid)], {
+        try {
+            fs.unlinkSync(driveTtyClaimPath());
+        }
+        catch { /* none */ }
+        ticker = spawn(process.execPath, [DRIVE_TICKER_SCRIPT, label, String(Math.floor(intervalMs)), String(process.pid), driveTtyClaimPath()], {
             stdio: ["ignore", "ignore", "inherit"],
         });
         ticker.on("error", () => { });
@@ -860,7 +864,7 @@ function prepareConcurrentOutcomes(ctx, batch) {
     });
     const totalJobs = jobs.length + endpointJobs.length;
     if (totalJobs) {
-        emitProgress(`⇉ concurrent round: ${totalJobs} agent${totalJobs > 1 ? "s" : ""} spawning in parallel, may take minutes…`);
+        emitProgress(`» concurrent round: ${totalJobs} agent${totalJobs > 1 ? "s" : ""} spawning in parallel, may take minutes…`);
         for (const line of spawningLines)
             emitProgress(line);
     }
@@ -983,7 +987,7 @@ function buildDriveContext(runId, cwd, options) {
     };
 }
 // Phase-boundary progress (brew-style): announce each phase when it becomes
-// active and when it finishes — `==> Map ✓ (6/6)` / `==> Assess ⇉ (3/6)`.
+// active and when it finishes — `==> Map ✓ (6/6)` / `==> Assess » (3/6)`.
 // Describes CW's OWN phases (vendor-neutral); goes to stderr via
 // emitProgress so stdout stays clean data. term.phaseProgressLine renders
 // the line; the returned closure decides WHEN to emit each boundary.

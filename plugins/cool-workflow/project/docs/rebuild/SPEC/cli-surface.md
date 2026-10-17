@@ -313,10 +313,10 @@ The one end-of-run summary is the `cw -q` / `cw quickstart` one, `formatQuicksta
 
 ```
 ==> Map ✓ (6/6)
-==> Assess ⇉ (3/6)
+==> Assess » (3/6)
 ==> Verdict … (0/1)
 ```
-Finished phase → green `✓`; running parallel phase → `⇉`; running sequential → `…`; the `(done/total)` part is absent when total is 0 (src/term.ts:104-109). `reporter.progress(line)` writes the given line + `\n` as-is on both TTY and non-TTY (src/reporter.ts:45-50).
+Finished phase → green `✓`; running parallel phase → `»`; running sequential → `…`; the `(done/total)` part is absent when total is 0 (src/term.ts:104-109). `reporter.progress(line)` writes the given line + `\n` as-is on both TTY and non-TTY (src/reporter.ts:45-50).
 
 ### `clones` human output (src/cli/format.ts:19-41)
 
