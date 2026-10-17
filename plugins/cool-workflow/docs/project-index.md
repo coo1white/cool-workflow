@@ -297,6 +297,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [context-profile-snapshot-smoke.mjs](../test/context-profile-snapshot-smoke.mjs)
 - [contract-migration-tooling-smoke.mjs](../test/contract-migration-tooling-smoke.mjs)
 - [control-plane-scheduling-smoke.mjs](../test/control-plane-scheduling-smoke.mjs)
+- [copied-run-refuse-smoke.mjs](../test/copied-run-refuse-smoke.mjs)
 - [css-framework-gate-smoke.mjs](../test/css-framework-gate-smoke.mjs)
 - [cw-help-per-command-smoke.mjs](../test/cw-help-per-command-smoke.mjs)
 - [dead-export-removal-guard-smoke.mjs](../test/dead-export-removal-guard-smoke.mjs)

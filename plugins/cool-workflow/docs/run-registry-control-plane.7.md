@@ -291,6 +291,13 @@ MCP gives the same mechanisms as `cw_run_export`, `cw_run_import`,
 `cw_run_verify_import`, `cw_run_inspect_archive`, and `cw_run_restore`; the CLI
 and MCP paths share the same runtime functions.
 
+Export and import are the way to move a run. New in 0.3.2: a run folder
+copied by hand (for one, `cp -R .cw/runs/<run-id>` into another repo)
+while its original folder is still there is refused on load, with exit
+`1` and a message that gives the `cw run export` / `cw run import`
+commands to use in its place; see "A run folder copied by hand is
+refused" in [durable-state-and-locking.7.md](durable-state-and-locking.7.md).
+
 ## Cross-repo history
 
 `history` reads one joined-up timeline of runs across all registered repos

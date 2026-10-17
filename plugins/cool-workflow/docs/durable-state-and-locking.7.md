@@ -121,6 +121,39 @@ only when it is one safe path segment (`[A-Za-z0-9._:-]`, not `.` or
 `..`); any other value is refused with `Unsafe run id: ...` before any
 folder is made.
 
+### A run folder copied by hand is refused (new in 0.3.2)
+
+A plain copy of a run folder (for one, `cp -R .cw/runs/<run-id>` into
+another repo) keeps a `state.json` whose stored places, `cwd` among
+them, still name the folder it was copied from. Before 0.3.2 CW loaded
+such a copy with no word. From 0.3.2, every full load of a run
+(`loadRunFromCwd`, `RunRegistry.loadRun`) refuses it, before anything is
+read for a change or written, when ALL of these hold:
+
+- the stored `paths.runDir` is an absolute path in the
+  `<repo>/.cw/runs/<run-id>` form, for the same run id, and is not the
+  folder the `state.json` was found in, nor the same real place (a
+  symlink, or macOS `/var` and `/private/var`, is the same place);
+- that stored folder is still there, with its own `state.json` (not the
+  same file, by device and inode, as the one found).
+
+So a repo that was moved (the old folder is gone), a repo cloned from
+another machine, a `state.json` with no `paths.runDir`, and a run made by
+`cw run import` or `cw run restore` all load as before. The command exits
+1 and prints, on stderr:
+
+```text
+cw: Refusing to load run <run-id>: the folder <copy>/.cw/runs/<run-id> is a copy of <original>/.cw/runs/<run-id>, made outside cw (for one, with cp -R), and its state still points at that original folder, which is still there. Using the copy could read or write the original, so cw stops here (fail closed). To move a run, take away this copy, then run: cw run export <run-id> --cwd <original> --output <copy>/<run-id>.cwrun.json and then: cw run import <copy>/<run-id>.cwrun.json --target <copy>
+```
+
+`cw run export` and `cw run import` are the way to move a run (see
+[run-registry-control-plane.7.md](run-registry-control-plane.7.md)).
+Read-only listings (`cw run list`, `cw run show`, `cw doctor`) and
+`cw state check` do not do a full load and are not changed. This is a
+change of default the operator said yes to on 2026-10-17: see the part
+"Operator decisions for 0.3.2 (2026-10-17)" in
+`project/docs/intent/2026-10-16-release-gate-ci.md`.
+
 ## Reclamation durability (the write-ahead seam, v0.1.40)
 
 The v0.1.39 reclamation transaction proved the *tombstone* crash-safe, but the
