@@ -12,10 +12,7 @@ import { spawnSync } from "node:child_process";
 import { delegatedEnvelope, refusedEnvelope } from "./envelopes";
 import { buildChildEnv } from "./local";
 import { BackendDescriptor, BackendExecutionHandle, ExecutionRequest, ExecutionResultEnvelope, ResolvedSandboxPolicy, SandboxAttestation } from "./types";
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+import { messageOf } from "../../core/util/cli-args";
 
 /** Resolves scripts/children/http-delegate-child.js next to the compiled
  *  module. Throws the exact broken-installation message when missing. */

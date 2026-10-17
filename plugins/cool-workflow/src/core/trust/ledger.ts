@@ -14,6 +14,7 @@
 
 import { ledgerStableStringify, sha256 } from "../hash";
 import { stableCompare } from "../util/collate";
+import { isRecord } from "../util/cli-args";
 
 export type LedgerVerdict = "APPROVED" | "REJECTED";
 
@@ -124,10 +125,6 @@ export function buildLedgerReview(input: ReviewInput): LedgerReview {
     createdAt: input.createdAt,
   };
   return seal(content) as LedgerReview;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 const PROPOSAL_FIELDS = ["from", "to", "title", "rationale", "targetFiles", "suggestedDiff", "createdAt"];

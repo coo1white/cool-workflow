@@ -21,6 +21,7 @@ exports.applyLedgerProposal = applyLedgerProposal;
 exports.resolveLedgerInbox = resolveLedgerInbox;
 const hash_1 = require("../hash");
 const collate_1 = require("../util/collate");
+const cli_args_1 = require("../util/cli-args");
 /** sha256 over the canonical content (every field except `id` and
  *  `digest`, which are derived FROM it). Returns the full `sha256:<hex>`
  *  form — the same prefixed spelling every other hash chain uses. */
@@ -62,9 +63,6 @@ function buildLedgerReview(input) {
     };
     return seal(content);
 }
-function isRecord(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 const PROPOSAL_FIELDS = ["from", "to", "title", "rationale", "targetFiles", "suggestedDiff", "createdAt"];
 const REVIEW_FIELDS = ["from", "to", "target", "verdict", "findings", "createdAt"];
 /** Fail-closed verification. Any structural defect, unknown kind, or
@@ -77,15 +75,15 @@ function verifyLedgerEntry(raw) {
         checks.push({ name, pass: false, code, detail });
         return {
             ok: false,
-            id: isRecord(raw) && typeof raw.id === "string" ? raw.id : null,
-            kind: isRecord(raw) && typeof raw.kind === "string" ? raw.kind : null,
+            id: (0, cli_args_1.isRecord)(raw) && typeof raw.id === "string" ? raw.id : null,
+            kind: (0, cli_args_1.isRecord)(raw) && typeof raw.kind === "string" ? raw.kind : null,
             checks,
             failedChecks: checks
                 .filter((c) => !c.pass)
                 .map((c) => ({ name: c.name, code: c.code, detail: c.detail })),
         };
     };
-    if (!isRecord(raw))
+    if (!(0, cli_args_1.isRecord)(raw))
         return fail("structure", "ledger-not-object", "entry is not a JSON object");
     checks.push({ name: "structure", pass: true });
     const kind = raw.kind;
@@ -147,7 +145,7 @@ function applyLedgerProposal(raw) {
             failedChecks: [{ name: "kind", code: "ledger-not-a-proposal", detail: "apply expects a proposal entry, not a review" }],
         };
     }
-    const rec = isRecord(raw) ? raw : {};
+    const rec = (0, cli_args_1.isRecord)(raw) ? raw : {};
     const diff = typeof rec.suggestedDiff === "string" ? rec.suggestedDiff : "";
     if (!diff) {
         return {

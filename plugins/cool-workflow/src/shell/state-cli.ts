@@ -7,7 +7,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { cwdArg } from "../core/util/cli-args";
+import { cwdArg, optionalArg } from "../core/util/cli-args";
 import { readJson, writeJson } from "./fs-atomic";
 import { loadRunFromCwd, migrateRunStateFile } from "./run-store";
 import { readNodeSnapshot, readNodeReplay, snapshotNode, replayNodeSnapshot } from "./node-store";
@@ -23,10 +23,6 @@ import { getRunContract } from "../core/pipeline/runner";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { StateMigrationReport } from "../core/state/migrations";
 import { PipelineContract, WorkflowRun } from "../core/state/types";
-
-function optionalStringArg(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 
 // ---------------------------------------------------------------------
 // state.check
@@ -168,4 +164,4 @@ export function contractShowCli(args: Record<string, unknown>, contractId?: stri
   return getRunContract(loadRun(runId, args), contractId ?? firstStringArg(args.contractId));
 }
 
-export { optionalStringArg };
+export { optionalArg as optionalStringArg };

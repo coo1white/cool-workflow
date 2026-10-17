@@ -19,6 +19,7 @@ import {
   SandboxWorkerOutputPolicy,
   WorkerBoundaryViolation,
 } from "./execution-backend/types";
+import { messageOf } from "../core/util/cli-args";
 
 export const SANDBOX_PROFILE_SCHEMA_VERSION = 1;
 export const DEFAULT_SANDBOX_PROFILE_ID = "default";
@@ -631,8 +632,4 @@ function hasControlCharacters(value: string): boolean {
 function compactMetadata(value: Record<string, unknown>): Record<string, unknown> | undefined {
   const entries = Object.entries(value).filter(([, entry]) => entry !== undefined);
   return entries.length ? Object.fromEntries(entries) : undefined;
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

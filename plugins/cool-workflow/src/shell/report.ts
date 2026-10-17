@@ -13,6 +13,7 @@ import { verifyTelemetryLedger } from "./telemetry-ledger-io";
 import { runLifecycle } from "./run-registry-io";
 import { stableCompare } from "../core/util/collate";
 import { normalizeResultEnvelope } from "../core/pipeline/result-normalize";
+import { countBy } from "../core/util/cli-args";
 
 interface SandboxProfileLike {
   id: string;
@@ -40,15 +41,6 @@ function formatCounts(counts: Record<string, number>): string {
   const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
   if (!entries.length) return "none";
   return entries.map(([k, v]) => `${k}=${v}`).join(", ");
-}
-
-function countBy<T>(values: T[], key: (v: T) => string): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const value of values) {
-    const bucket = key(value);
-    counts[bucket] = (counts[bucket] || 0) + 1;
-  }
-  return counts;
 }
 
 function renderCommits(run: WorkflowRun): string[] {

@@ -26,10 +26,7 @@
 // guards", "Fail-closed record reads".
 
 import { NodeReplayRun, NodeSnapshot, NodeSnapshotBody, NodeSnapshotFreshness, StateNodeError } from "./types";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
+import { isRecord } from "../util/cli-args";
 
 function isString(value: unknown): value is string {
   return typeof value === "string";

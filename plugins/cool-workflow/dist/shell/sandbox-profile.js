@@ -56,6 +56,7 @@ exports.persistCustomSandboxProfile = persistCustomSandboxProfile;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
 const fs_atomic_1 = require("./fs-atomic");
+const cli_args_1 = require("../core/util/cli-args");
 exports.SANDBOX_PROFILE_SCHEMA_VERSION = 1;
 exports.DEFAULT_SANDBOX_PROFILE_ID = "default";
 class SandboxProfileError extends Error {
@@ -240,7 +241,7 @@ function validateSandboxProfileFile(profileFile, context = defaultSandboxContext
         profile = JSON.parse(fs.readFileSync(absolutePath, "utf8"));
     }
     catch (error) {
-        issues.push(issue("sandbox-profile-invalid", `Profile file is not valid JSON: ${messageOf(error)}`, absolutePath));
+        issues.push(issue("sandbox-profile-invalid", `Profile file is not valid JSON: ${(0, cli_args_1.messageOf)(error)}`, absolutePath));
         return { valid: false, profileFile: absolutePath, issues };
     }
     if (profile && typeof profile.id === "string" && isBundledSandboxProfileId(profile.id)) {
@@ -467,7 +468,7 @@ function validatePathList(field, values, context, issues) {
             resolveProfilePath(value, context);
         }
         catch (error) {
-            issues.push(issue("sandbox-profile-invalid", messageOf(error), value));
+            issues.push(issue("sandbox-profile-invalid", (0, cli_args_1.messageOf)(error), value));
         }
     }
 }
@@ -583,7 +584,4 @@ function hasControlCharacters(value) {
 function compactMetadata(value) {
     const entries = Object.entries(value).filter(([, entry]) => entry !== undefined);
     return entries.length ? Object.fromEntries(entries) : undefined;
-}
-function messageOf(error) {
-    return error instanceof Error ? error.message : String(error);
 }

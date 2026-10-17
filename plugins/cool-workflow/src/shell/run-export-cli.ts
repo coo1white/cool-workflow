@@ -7,14 +7,10 @@
 // Evidence: SPEC/reporting-ux.md "Run export / import / restore".
 
 import * as path from "node:path";
-import { cwdArg } from "../core/util/cli-args";
+import { cwdArg, optionalArg } from "../core/util/cli-args";
 import { exportRun, importRun, restoreRunAtomically, verifyImportedRun, inspectArchive, ExportResult, ImportResult, RestoreVerificationResult, ArchiveInspectResult } from "./run-export";
 import { loadRunFromCwd } from "./run-store";
 import { RunRegistry } from "./run-registry-io";
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 
 const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
 
@@ -22,12 +18,12 @@ const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|p
 export function runExportCli(runId: string, args: Record<string, unknown>): ExportResult {
   const base = cwdArg(args);
   const run = loadRunFromCwd(runId, base);
-  const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
+  const output = optionalArg(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
   const outputPath = path.resolve(base, output);
   if (SYSTEM_DIRS.test(outputPath)) {
     throw new Error(`Refusing to write archive to a system directory: ${output}`);
   }
-  const trustKeyArg = optionalString(args["with-trust-key"] || args.withTrustKey || args.trustKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+  const trustKeyArg = optionalArg(args["with-trust-key"] || args.withTrustKey || args.trustKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
   return exportRun(run, outputPath, { trustPublicKey: trustKeyArg });
 }
 
@@ -35,7 +31,7 @@ export function runExportCli(runId: string, args: Record<string, unknown>): Expo
  *  ImportResult + `registry` (a repo-registry refresh side effect). */
 export function runImportCli(archivePath: string, args: Record<string, unknown>): ImportResult & { registry: unknown } {
   const base = cwdArg(args);
-  const target = optionalString(args.target || args.repo) || base;
+  const target = optionalArg(args.target || args.repo) || base;
   const resolvedArchive = path.resolve(base, archivePath);
   const imported = importRun(resolvedArchive, target);
   const registry = new RunRegistry(target).refresh({ scope: "repo" });
@@ -69,7 +65,7 @@ export interface RunRestoreResult {
  *  import, then reuse the import's own verification verdict. */
 export function runRestoreCli(archivePath: string, args: Record<string, unknown>): RunRestoreResult {
   const base = cwdArg(args);
-  const target = optionalString(args.target || args.repo) || base;
+  const target = optionalArg(args.target || args.repo) || base;
   const resolvedArchive = path.resolve(base, archivePath);
   const inspect = inspectArchive(resolvedArchive);
   if (!inspect.ok) {

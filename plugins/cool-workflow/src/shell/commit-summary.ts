@@ -4,7 +4,7 @@
 // `commitSummaryCli` thin adapter both front doors call. Impure: reads
 // run state from disk.
 
-import { cwdArg } from "../core/util/cli-args";
+import { cwdArg, requireArg } from "../core/util/cli-args";
 import { WorkflowRun, StateCommit } from "../core/state/types";
 import { loadRunFromCwd } from "./run-store";
 import { stableCompare } from "../core/util/collate";
@@ -59,15 +59,9 @@ export function summarizeOperatorCommits(run: WorkflowRun): OperatorCommitSummar
   };
 }
 
-function req(value: unknown, label: string): string {
-  const s = value === undefined || value === null ? "" : String(value);
-  if (!s) throw new Error(`Missing ${label}`);
-  return s;
-}
-
 /** Thin adapter both front doors call: summarizeOperatorCommits(loadRun(runId)). */
 export function commitSummaryCli(args: Record<string, unknown>): OperatorCommitSummary {
-  const run = loadRunFromCwd(req(args.runId, "run id"), cwdArg(args));
+  const run = loadRunFromCwd(requireArg(args.runId, "run id"), cwdArg(args));
   return summarizeOperatorCommits(run);
 }
 

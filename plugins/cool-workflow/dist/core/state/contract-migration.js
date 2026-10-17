@@ -18,10 +18,8 @@ exports.proveMigration = proveMigration;
 const hash_1 = require("../hash");
 const version_1 = require("../version");
 const migrations_1 = require("./migrations");
+const cli_args_1 = require("../util/cli-args");
 exports.CONTRACT_MIGRATION_SCHEMA_VERSION = 1;
-function isRecord(value) {
-    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
 const RUN_STATE_EDGES = migrations_1.RUN_STATE_MIGRATIONS.map((step) => ({
     contract: "run-state",
     from: step.from,
@@ -56,7 +54,7 @@ function getContract(contractId) {
     return contract;
 }
 function detectVersion(contractId, snapshot) {
-    const declared = isRecord(snapshot) && typeof snapshot.schemaVersion === "number" ? snapshot.schemaVersion : undefined;
+    const declared = (0, cli_args_1.isRecord)(snapshot) && typeof snapshot.schemaVersion === "number" ? snapshot.schemaVersion : undefined;
     if (typeof declared === "number")
         return declared;
     return contractId === "run-state" ? version_1.LEGACY_RUN_STATE_SCHEMA_VERSION : 0;
@@ -137,9 +135,9 @@ function checkMigration(contractId, snapshot) {
 /** Append-only proof: every key in the source survives into the output
  *  (recursive). */
 function keysSurvive(source, output) {
-    if (!isRecord(source))
+    if (!(0, cli_args_1.isRecord)(source))
         return true;
-    if (!isRecord(output))
+    if (!(0, cli_args_1.isRecord)(output))
         return false;
     for (const key of Object.keys(source)) {
         if (!(key in output))
@@ -164,7 +162,7 @@ function proveMigration(contractId, snapshot) {
             const migrated = (0, migrations_1.migrateRunState)(snapshot);
             result = migrated.run;
             validatesAtCurrent =
-                migrated.report.status !== "unsupported" && isRecord(result) && result.schemaVersion === version_1.CURRENT_RUN_STATE_SCHEMA_VERSION;
+                migrated.report.status !== "unsupported" && (0, cli_args_1.isRecord)(result) && result.schemaVersion === version_1.CURRENT_RUN_STATE_SCHEMA_VERSION;
             appendOnly = keysSurvive(snapshot, result);
             const reRun = (0, migrations_1.migrateRunState)(result, { dryRun: true });
             idempotent = reRun.report.changes.length === 0 && reRun.report.status === "current";

@@ -10,10 +10,7 @@ import { spawnSync } from "node:child_process";
 import { sha256 } from "../../core/hash";
 import { hasExecutable } from "./probes";
 import { BackendDescriptor, ExecutionRequest, ExecutionResultEnvelope, ResolvedSandboxPolicy, ResultEnvelope, SandboxAttestation } from "./types";
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+import { messageOf } from "../../core/util/cli-args";
 
 /** CW's OWN secrets that must NEVER reach ANY child process — on any backend
  *  (local/container/remote/agent), regardless of policy.env.inherit / expose /

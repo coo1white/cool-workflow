@@ -4,15 +4,11 @@
 // Evidence: SPEC/ledger-trust.md "CLI: `cw telemetry verify`", "`cw
 // telemetry verify` JSON".
 
-import { cwdArg } from "../core/util/cli-args";
+import { cwdArg, optionalArg } from "../core/util/cli-args";
 import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation";
 import { loadRunFromCwd } from "./run-store";
 import { verifyTelemetryLedger } from "./telemetry-ledger-io";
 import { TelemetryVerifyResult } from "./telemetry-demo";
-
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 
 export function telemetryVerifyCli(runId: string, args: Record<string, unknown>): TelemetryVerifyResult {
   if (!runId) throw new Error("telemetry verify requires a run id (cw telemetry verify <run-id>)");
@@ -22,7 +18,7 @@ export function telemetryVerifyCli(runId: string, args: Record<string, unknown>)
   // public key (--pubkey / CW_AGENT_ATTEST_PUBKEY) additionally RE-RUNS
   // the ed25519 check over each `attested` record's stored raw usage
   // rather than trusting that verdict.
-  const trustPublicKeyInput = optionalString(args.pubkey || args.pubKey || args.publicKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+  const trustPublicKeyInput = optionalArg(args.pubkey || args.pubKey || args.publicKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
   const trustPublicKey = resolveTrustPublicKey(trustPublicKeyInput);
   const keyChecks = trustPublicKeyInput && !trustPublicKey ? [{ name: "signature-key", pass: false, code: "telemetry-pubkey-unreadable" }] : [];
   const sig = verifyTelemetrySignatures(v.records, trustPublicKey);

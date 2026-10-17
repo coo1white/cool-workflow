@@ -47,6 +47,7 @@ const telemetry_ledger_io_1 = require("./telemetry-ledger-io");
 const run_registry_io_1 = require("./run-registry-io");
 const collate_1 = require("../core/util/collate");
 const result_normalize_1 = require("../core/pipeline/result-normalize");
+const cli_args_1 = require("../core/util/cli-args");
 /** One report head line: every control character (newline, CR, ESC and the
  *  rest of C0, and DEL; not tab) becomes a space, so a value from state.json
  *  such as `workflow.title` cannot start a new line in report.md. A value
@@ -64,14 +65,6 @@ function formatCounts(counts) {
     if (!entries.length)
         return "none";
     return entries.map(([k, v]) => `${k}=${v}`).join(", ");
-}
-function countBy(values, key) {
-    const counts = {};
-    for (const value of values) {
-        const bucket = key(value);
-        counts[bucket] = (counts[bucket] || 0) + 1;
-    }
-    return counts;
 }
 function renderCommits(run) {
     if (!run.commits.length)
@@ -160,9 +153,9 @@ function renderFeedback(run) {
         return ["No feedback records."];
     return [
         `- Total: ${records.length}`,
-        `- By status: ${formatCounts(countBy(records, (r) => r.status))}`,
-        `- By severity: ${formatCounts(countBy(records, (r) => r.severity))}`,
-        `- By classification: ${formatCounts(countBy(records, (r) => r.classification))}`,
+        `- By status: ${formatCounts((0, cli_args_1.countBy)(records, (r) => r.status))}`,
+        `- By severity: ${formatCounts((0, cli_args_1.countBy)(records, (r) => r.severity))}`,
+        `- By classification: ${formatCounts((0, cli_args_1.countBy)(records, (r) => r.classification))}`,
     ];
 }
 /** The worker's model-identity label. Comes only from the usage record the
@@ -176,7 +169,7 @@ function renderWorkers(run) {
     const workers = run.workers || [];
     if (!workers.length)
         return ["No worker scopes yet."];
-    const lines = [`- Total: ${workers.length}`, `- By status: ${formatCounts(countBy(workers, (w) => w.status))}`];
+    const lines = [`- Total: ${workers.length}`, `- By status: ${formatCounts((0, cli_args_1.countBy)(workers, (w) => w.status))}`];
     // Per-worker guarantee labels — rendered only for a worker that carries
     // an attestation or a usage record, so a run with neither keeps a
     // byte-identical report. Labels come ONLY from sandboxGuaranteeLabels.

@@ -77,9 +77,6 @@ const envelopes_1 = require("./envelopes");
 const perf_trace_1 = require("../perf-trace");
 const cli_args_1 = require("../../core/util/cli-args");
 Object.defineProperty(exports, "substituteAgentArg", { enumerable: true, get: function () { return cli_args_1.substituteAgentArg; } });
-function messageOf(error) {
-    return error instanceof Error ? error.message : String(error);
-}
 const AGENT_PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i;
 /** Build the env for a REAL spawned agent child under a sandbox policy: the
  *  policy's own PATH+HOME+expose/deny base (buildChildEnv), plus provider-key
@@ -425,7 +422,7 @@ function reconcileBatchOutcomes(jobs, child) {
         });
     }
     const reason = child.error
-        ? messageOf(child.error)
+        ? (0, cli_args_1.messageOf)(child.error)
         : typeof child.status === "number" && child.status !== 0
             ? `batch delegate exited with ${child.status}`
             : "batch delegate produced no outcome for this job";
@@ -601,7 +598,7 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
             }
             catch { /* usually already gone */ }
             outcome = {
-                ...(child.error ? { spawnError: messageOf(child.error) } : {}),
+                ...(child.error ? { spawnError: (0, cli_args_1.messageOf)(child.error) } : {}),
                 exitCode: typeof child.status === "number" ? child.status : null,
                 stdout: String(child.stdout || ""),
                 ...(typeof child.status === "number" && child.status !== 0 && typeof child.stderr === "string" && child.stderr.trim() ? { stderr: child.stderr } : {}),
@@ -709,7 +706,7 @@ function runAgentEndpoint(descriptor, policy, request, label, resolved, attestat
         maxBuffer: 32 * 1024 * 1024,
     });
     if (child.error) {
-        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent endpoint delegation failed: ${messageOf(child.error)}`, {
+        return (0, envelopes_1.refusedEnvelope)(descriptor, policy, label, "delegation-failed", `agent endpoint delegation failed: ${(0, cli_args_1.messageOf)(child.error)}`, {
             ...attestation,
             handle: baseHandle,
         });

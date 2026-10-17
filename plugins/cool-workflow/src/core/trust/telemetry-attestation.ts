@@ -15,6 +15,7 @@
 // verify", byte-compat items 2 and 11.
 
 import * as crypto from "node:crypto";
+import { messageOf } from "../util/cli-args";
 
 export type TelemetryAttestationStatus = "attested" | "unattested" | "absent";
 
@@ -72,10 +73,6 @@ export function canonicalTelemetryPayload(
     // payload, so every pre-result-coverage signature still verifies.
     ...(ctx.resultDigest !== undefined ? { resultDigest: ctx.resultDigest } : {}),
   });
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function numberAt(usage: Record<string, unknown>, ...keys: string[]): number | undefined {

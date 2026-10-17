@@ -8,6 +8,7 @@ import { loadWorkflowApp } from "./workflow-app-loader";
 import { showSandboxProfileCli } from "./exec-backend-cli";
 import { summarizeOperatorRun } from "./operator-ux";
 import { loadRunFromCwd } from "./run-store";
+import { optionalArg, isRecord } from "../core/util/cli-args";
 
 /** Keys that steer the run/tool call itself, never workflow inputs. */
 const RUNTIME_KEYS = new Set(["cwd", "sandbox", "sandboxProfile", "sandboxProfileId", "appId", "workflowId", "inputs"]);
@@ -21,16 +22,8 @@ function withoutRuntimeKeys(args: Record<string, unknown>): Record<string, unkno
   return out;
 }
 
-function optionalString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
 function sandboxProfileIdFrom(args: Record<string, unknown>): string | undefined {
-  return optionalString(args.sandbox || args.sandboxProfile || args.sandboxProfileId || args.profileId);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+  return optionalArg(args.sandbox || args.sandboxProfile || args.sandboxProfileId || args.profileId);
 }
 
 /** `cw_sandbox_choose` — resolve + validate a profile choice: defaults

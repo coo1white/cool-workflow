@@ -11,6 +11,7 @@ const workflow_app_loader_1 = require("./workflow-app-loader");
 const exec_backend_cli_1 = require("./exec-backend-cli");
 const operator_ux_1 = require("./operator-ux");
 const run_store_1 = require("./run-store");
+const cli_args_1 = require("../core/util/cli-args");
 /** Keys that steer the run/tool call itself, never workflow inputs. */
 const RUNTIME_KEYS = new Set(["cwd", "sandbox", "sandboxProfile", "sandboxProfileId", "appId", "workflowId", "inputs"]);
 function withoutRuntimeKeys(args) {
@@ -22,14 +23,8 @@ function withoutRuntimeKeys(args) {
     }
     return out;
 }
-function optionalString(value) {
-    return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 function sandboxProfileIdFrom(args) {
-    return optionalString(args.sandbox || args.sandboxProfile || args.sandboxProfileId || args.profileId);
-}
-function isRecord(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
+    return (0, cli_args_1.optionalArg)(args.sandbox || args.sandboxProfile || args.sandboxProfileId || args.profileId);
 }
 /** `cw_sandbox_choose` — resolve + validate a profile choice: defaults
  *  to "readonly", returns the resolved profile object under `profile`. */
@@ -50,7 +45,7 @@ function appRunCli(args) {
     const appId = String(args.appId || args.workflowId || "");
     if (!appId)
         throw new Error("cw_app_run requires an app id (appId)");
-    const inputs = isRecord(args.inputs) ? args.inputs : {};
+    const inputs = (0, cli_args_1.isRecord)(args.inputs) ? args.inputs : {};
     const planOptions = { ...inputs, ...withoutRuntimeKeys(args) };
     if (typeof args.cwd === "string" && args.cwd.trim())
         planOptions.cwd = args.cwd;

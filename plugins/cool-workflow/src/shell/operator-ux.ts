@@ -14,6 +14,7 @@ import { WorkerScope } from "./worker-isolation";
 import { updatePhaseStatuses } from "../core/pipeline/dispatch";
 import { summarizeTrustAudit, TrustAuditSummary } from "./trust-audit";
 import { stableCompare } from "../core/util/collate";
+import { countBy } from "../core/util/cli-args";
 
 export interface OperatorRecommendation {
   command: string;
@@ -34,12 +35,6 @@ export interface RunSummary {
   reportPath: string;
   commits: StateCommit[];
   workers: { total: number; byStatus: Record<string, number> };
-}
-
-function countBy<T>(values: T[], key: (v: T) => string): Record<string, number> {
-  const counts: Record<string, number> = {};
-  for (const value of values) counts[key(value)] = (counts[key(value)] || 0) + 1;
-  return counts;
 }
 
 function firstRunnablePhase(run: WorkflowRun): RunPhase | undefined {

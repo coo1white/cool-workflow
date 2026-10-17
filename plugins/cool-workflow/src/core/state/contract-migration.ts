@@ -17,6 +17,7 @@ import {
   WORKFLOW_APP_SCHEMA_VERSION,
 } from "../version";
 import { findMigrationPath, migrateRunState, RUN_STATE_MIGRATIONS, StateCompatibilityStatus } from "./migrations";
+import { isRecord } from "../util/cli-args";
 
 export const CONTRACT_MIGRATION_SCHEMA_VERSION = 1;
 
@@ -68,10 +69,6 @@ export interface MigrationProof {
   resultHash: string;
   fingerprint: string;
   errors: string[];
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 const RUN_STATE_EDGES: MigrationEdge[] = RUN_STATE_MIGRATIONS.map((step) => ({

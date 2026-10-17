@@ -16,10 +16,7 @@ import {
   ResolvedSandboxPolicy,
   SandboxAttestation,
 } from "./types";
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+import { messageOf } from "../../core/util/cli-args";
 
 /** buildContainerEnvArgs — build the `-e NAME=value` args passed into the
  *  container run command. Pulled out as its own pure function so it can be

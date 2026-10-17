@@ -17,6 +17,7 @@ import {
   resolveLedgerInbox,
   verifyLedgerEntry,
 } from "../core/trust/ledger";
+import { isRecord } from "../core/util/cli-args";
 
 export interface LedgerListResult {
   dir: string;
@@ -24,10 +25,6 @@ export interface LedgerListResult {
   allOk: boolean;
   entries: LedgerListEntry[];
   resolution: LedgerInboxResolution;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** Read every `*.json` in `dir`, verify each entry fail-closed, and

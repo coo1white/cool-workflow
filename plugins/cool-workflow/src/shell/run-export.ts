@@ -18,6 +18,7 @@ import { checkRunStateFile, ensureRunDirs, saveCheckpoint } from "./run-store";
 import { verifyTelemetryLedger } from "./telemetry-ledger-io";
 import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation";
 import { verifyTrustAudit } from "./trust-audit";
+import { messageOf } from "../core/util/cli-args";
 
 export type ArchiveFileRole = "artifact" | "audit" | "telemetry" | "run-file";
 export type TrustKeySource = "bundle" | "argument" | "environment" | "none";
@@ -1019,8 +1020,4 @@ function safeArchiveBasename(value: string): string {
  *  change, but a truly different key (different base64 body) does. */
 function normalizePem(pem: string | undefined): string {
   return (pem || "").replace(/\s+/g, "");
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

@@ -12,10 +12,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ERROR_FEEDBACK_SCHEMA_VERSION = void 0;
 exports.classifyFeedback = classifyFeedback;
 exports.feedbackKey = feedbackKey;
+exports.compactMetadata = compactMetadata;
 exports.formatFeedbackId = formatFeedbackId;
 exports.findExistingFeedback = findExistingFeedback;
 exports.buildFeedbackRecord = buildFeedbackRecord;
 exports.summarizeFeedback = summarizeFeedback;
+const cli_args_1 = require("../util/cli-args");
 exports.ERROR_FEEDBACK_SCHEMA_VERSION = 1;
 function normalizeError(error, now) {
     if (typeof error === "string") {
@@ -89,6 +91,7 @@ function sourceFor(classification) {
 function feedbackKey(value) {
     return [value.runId || "", value.code || "", value.message || "", value.nodeId || "", value.stageId || "", value.contractId || "", value.path || ""].join("\u001f");
 }
+/** A copy of `metadata` without its undefined values; undefined when none are left. */
 function compactMetadata(metadata) {
     const compacted = {};
     for (const [key, value] of Object.entries(metadata))
@@ -145,16 +148,8 @@ function buildFeedbackRecord(runId, input, existingCount, now) {
 function summarizeFeedback(records) {
     return {
         total: records.length,
-        byStatus: countBy(records, (r) => r.status),
-        bySeverity: countBy(records, (r) => r.severity),
-        byClassification: countBy(records, (r) => r.classification),
+        byStatus: (0, cli_args_1.countBy)(records, (r) => r.status),
+        bySeverity: (0, cli_args_1.countBy)(records, (r) => r.severity),
+        byClassification: (0, cli_args_1.countBy)(records, (r) => r.classification),
     };
-}
-function countBy(values, key) {
-    const counts = {};
-    for (const value of values) {
-        const bucket = key(value);
-        counts[bucket] = (counts[bucket] || 0) + 1;
-    }
-    return counts;
 }

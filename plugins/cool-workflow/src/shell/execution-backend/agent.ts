@@ -33,11 +33,7 @@ import {
 import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local";
 import { delegatedEnvelope, refusedEnvelope } from "./envelopes";
 import { withPerfTraceGroup } from "../perf-trace";
-import { agentCommandArgv, splitAgentCommandLine, substituteAgentArg } from "../../core/util/cli-args";
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+import { agentCommandArgv, splitAgentCommandLine, substituteAgentArg, messageOf } from "../../core/util/cli-args";
 
 const AGENT_PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i;
 

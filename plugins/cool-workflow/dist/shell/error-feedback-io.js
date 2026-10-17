@@ -97,14 +97,6 @@ function stringMetadata(metadata, key) {
     const value = metadata?.[key];
     return typeof value === "string" ? value : undefined;
 }
-function compactMetadata(metadata) {
-    const compacted = {};
-    for (const [key, value] of Object.entries(metadata)) {
-        if (value !== undefined)
-            compacted[key] = value;
-    }
-    return Object.keys(compacted).length ? compacted : undefined;
-}
 function mergeById(existing, next) {
     const values = [...existing];
     for (const item of next) {
@@ -291,7 +283,7 @@ function resolveFeedback(run, feedbackId, result) {
         resolutionNote: result.message || record.resolutionNote,
         evidence: mergeById(record.evidence, result.evidence || []),
         artifacts: mergeById(record.artifacts, result.artifacts || []),
-        metadata: compactMetadata({ ...(record.metadata || {}), resolutionMessage: result.message, resolution: result.metadata }),
+        metadata: (0, error_feedback_1.compactMetadata)({ ...(record.metadata || {}), resolutionMessage: result.message, resolution: result.metadata }),
     });
     (0, run_store_1.saveCheckpoint)(run);
     return requireFeedback(run, feedbackId);

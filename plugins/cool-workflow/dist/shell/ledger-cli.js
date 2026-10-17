@@ -55,13 +55,11 @@ exports.ledgerListMcp = ledgerListMcp;
 const fs = __importStar(require("node:fs"));
 const ledger_1 = require("../core/trust/ledger");
 const ledger_io_1 = require("./ledger-io");
+const cli_args_1 = require("../core/util/cli-args");
 /** Coerce a repeatable/comma-joined list option to a clean string[]. */
 function listOption(value) {
     const parts = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
     return parts.map((p) => String(p).trim()).filter(Boolean);
-}
-function stringOption(value) {
-    return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 function required(value, label) {
     if (!value)
@@ -73,10 +71,10 @@ function nowIso() {
 }
 function ledgerProposeCli(options) {
     return (0, ledger_1.buildLedgerProposal)({
-        from: required(stringOption(options.from), "--from <agent/repo>"),
-        to: required(stringOption(options.to), "--to <agent/repo>"),
-        title: required(stringOption(options.title), "--title <text>"),
-        rationale: required(stringOption(options.rationale), "--rationale <text>"),
+        from: required((0, cli_args_1.optionalArg)(options.from), "--from <agent/repo>"),
+        to: required((0, cli_args_1.optionalArg)(options.to), "--to <agent/repo>"),
+        title: required((0, cli_args_1.optionalArg)(options.title), "--title <text>"),
+        rationale: required((0, cli_args_1.optionalArg)(options.rationale), "--rationale <text>"),
         targetFiles: listOption(options.files),
         // Do NOT trim the diff: it is a unified patch (payload, not a
         // label), and trimming strips the trailing newline `git apply`
@@ -102,14 +100,14 @@ function ledgerProposeMcp(args) {
     });
 }
 function ledgerReviewCli(options) {
-    const verdictRaw = required(stringOption(options.verdict), "--verdict <approved|rejected>").toUpperCase();
+    const verdictRaw = required((0, cli_args_1.optionalArg)(options.verdict), "--verdict <approved|rejected>").toUpperCase();
     if (verdictRaw !== "APPROVED" && verdictRaw !== "REJECTED") {
         throw new Error('--verdict must be "approved" or "rejected".');
     }
     return (0, ledger_1.buildLedgerReview)({
-        from: required(stringOption(options.from), "--from <agent/repo>"),
-        to: required(stringOption(options.to), "--to <agent/repo>"),
-        target: required(stringOption(options.target), "--target <proposal-id|pr-ref>"),
+        from: required((0, cli_args_1.optionalArg)(options.from), "--from <agent/repo>"),
+        to: required((0, cli_args_1.optionalArg)(options.to), "--to <agent/repo>"),
+        target: required((0, cli_args_1.optionalArg)(options.target), "--target <proposal-id|pr-ref>"),
         verdict: verdictRaw,
         findings: listOption(options.findings),
         createdAt: nowIso(),
@@ -147,7 +145,7 @@ const BAD_JSON_APPLY = {
     failedChecks: [{ name: "parse", code: "ledger-bad-json" }],
 };
 function readLedgerEntryInput(options) {
-    const file = stringOption(options.file);
+    const file = (0, cli_args_1.optionalArg)(options.file);
     try {
         // --file <path>, else read the entry from stdin (fd 0).
         return fs.readFileSync(file || 0, "utf8");
@@ -195,7 +193,7 @@ function ledgerListCli(options) {
     const dirs = Array.isArray(input) ? input.map(String).filter(Boolean) : [];
     if (dirs.length > 1)
         return (0, ledger_io_1.unionLedgerEntries)(dirs);
-    const dir = required(dirs[0] || stringOption(input), "--ledger-dir <ledger-directory>");
+    const dir = required(dirs[0] || (0, cli_args_1.optionalArg)(input), "--ledger-dir <ledger-directory>");
     return (0, ledger_io_1.listLedgerEntries)(dir);
 }
 /** MCP-facing verify/apply take the entry OBJECT directly (not a file/
@@ -211,6 +209,6 @@ function ledgerListMcp(args) {
     const dirs = Array.isArray(dirsArg) ? dirsArg.map(String).filter(Boolean) : [];
     if (dirs.length > 1)
         return (0, ledger_io_1.unionLedgerEntries)(dirs);
-    const dir = required(dirs[0] || stringOption(args.dir), "dir");
+    const dir = required(dirs[0] || (0, cli_args_1.optionalArg)(args.dir), "dir");
     return (0, ledger_io_1.listLedgerEntries)(dir);
 }

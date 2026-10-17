@@ -50,27 +50,24 @@ const cli_args_1 = require("../core/util/cli-args");
 const run_export_1 = require("./run-export");
 const run_store_1 = require("./run-store");
 const run_registry_io_1 = require("./run-registry-io");
-function optionalString(value) {
-    return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
 /** `cw run export <run-id> [--output|--path|--archive P] [--with-trust-key K] [--cwd P]`. */
 function runExportCli(runId, args) {
     const base = (0, cli_args_1.cwdArg)(args);
     const run = (0, run_store_1.loadRunFromCwd)(runId, base);
-    const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
+    const output = (0, cli_args_1.optionalArg)(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
     const outputPath = path.resolve(base, output);
     if (SYSTEM_DIRS.test(outputPath)) {
         throw new Error(`Refusing to write archive to a system directory: ${output}`);
     }
-    const trustKeyArg = optionalString(args["with-trust-key"] || args.withTrustKey || args.trustKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
+    const trustKeyArg = (0, cli_args_1.optionalArg)(args["with-trust-key"] || args.withTrustKey || args.trustKey) || process.env.CW_AGENT_ATTEST_PUBKEY;
     return (0, run_export_1.exportRun)(run, outputPath, { trustPublicKey: trustKeyArg });
 }
 /** `cw run import <archive> [--target|--repo|--cwd P]` — prints
  *  ImportResult + `registry` (a repo-registry refresh side effect). */
 function runImportCli(archivePath, args) {
     const base = (0, cli_args_1.cwdArg)(args);
-    const target = optionalString(args.target || args.repo) || base;
+    const target = (0, cli_args_1.optionalArg)(args.target || args.repo) || base;
     const resolvedArchive = path.resolve(base, archivePath);
     const imported = (0, run_export_1.importRun)(resolvedArchive, target);
     const registry = new run_registry_io_1.RunRegistry(target).refresh({ scope: "repo" });
@@ -91,7 +88,7 @@ function runInspectArchiveCli(archivePath, args) {
  *  import, then reuse the import's own verification verdict. */
 function runRestoreCli(archivePath, args) {
     const base = (0, cli_args_1.cwdArg)(args);
-    const target = optionalString(args.target || args.repo) || base;
+    const target = (0, cli_args_1.optionalArg)(args.target || args.repo) || base;
     const resolvedArchive = path.resolve(base, archivePath);
     const inspect = (0, run_export_1.inspectArchive)(resolvedArchive);
     if (!inspect.ok) {

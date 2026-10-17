@@ -88,9 +88,6 @@ const workflow_app_loader_1 = require("./workflow-app-loader");
 const scheduler_io_1 = require("./scheduler-io");
 const reclamation_io_1 = require("./reclamation-io");
 const pipeline_cli_1 = require("./pipeline-cli");
-function optionalString(value) {
-    return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
 function scopeOf(options, fallback) {
     return options.scope === "repo" || options.scope === "home" ? options.scope : fallback;
 }
@@ -101,7 +98,7 @@ function scheduleCreateCli(options = {}) {
     return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).create(options);
 }
 function scheduleListCli(options = {}) {
-    return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).list(optionalString(options.status));
+    return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).list((0, cli_args_1.optionalArg)(options.status));
 }
 function scheduleDeleteCli(id, options = {}) {
     return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).delete(id);
@@ -140,7 +137,7 @@ function routineCreateCli(options = {}) {
     return new scheduler_io_1.RoutineTriggerBridge((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).create(options);
 }
 function routineListCli(options = {}) {
-    return new scheduler_io_1.RoutineTriggerBridge((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).list(optionalString(options.kind));
+    return new scheduler_io_1.RoutineTriggerBridge((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).list((0, cli_args_1.optionalArg)(options.kind));
 }
 function routineDeleteCli(id, options = {}) {
     return new scheduler_io_1.RoutineTriggerBridge((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).delete(id);
@@ -176,12 +173,12 @@ function registryShowCli(options = {}) {
 function runSearchCli(options = {}) {
     return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).search({
         scope: scopeOf(options, "home"),
-        text: optionalString(options.text),
-        app: optionalString(options.app),
-        status: optionalString(options.status),
-        repo: optionalString(options.repo),
-        since: optionalString(options.since),
-        until: optionalString(options.until),
+        text: (0, cli_args_1.optionalArg)(options.text),
+        app: (0, cli_args_1.optionalArg)(options.app),
+        status: (0, cli_args_1.optionalArg)(options.status),
+        repo: (0, cli_args_1.optionalArg)(options.repo),
+        since: (0, cli_args_1.optionalArg)(options.since),
+        until: (0, cli_args_1.optionalArg)(options.until),
         includeArchived: options.includeArchived === undefined ? undefined : Boolean(options.includeArchived),
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
         offset: (0, numeric_flag_1.requiredNumberFlag)(options.offset, "--offset"),
@@ -207,7 +204,7 @@ async function runResumeCli(runId, options = {}) {
     // lookup to that folder: no quiet registry-wide fallback. With no folder
     // named, or with --scope home given, resume finds the run by id across the
     // registry as before.
-    const namedBy = options.scope === undefined ? (optionalString(options.cwd) ? "--cwd" : optionalString(options.repo) ? "--repo" : undefined) : undefined;
+    const namedBy = options.scope === undefined ? ((0, cli_args_1.optionalArg)(options.cwd) ? "--cwd" : (0, cli_args_1.optionalArg)(options.repo) ? "--repo" : undefined) : undefined;
     const base = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).resume(runId, {
         scope: scopeOf(options, "home"),
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
@@ -233,7 +230,7 @@ function runArchiveCli(runId, options = {}) {
         }, { scope: scopeOf(options, "home") });
     }
     return registry.archive(runId, {
-        reason: optionalString(options.reason),
+        reason: (0, cli_args_1.optionalArg)(options.reason),
         scope: scopeOf(options, "home"),
         unarchive: Boolean(options.unarchive),
     });
@@ -247,36 +244,36 @@ function cliRunPlanner() {
     return { plan: (appId, inputs) => (0, pipeline_1.plan)((0, workflow_app_loader_1.loadWorkflowApp)(appId), inputs) };
 }
 function runRerunCli(runId, options = {}) {
-    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true), cliRunPlanner()).rerun(runId, { reason: optionalString(options.reason), scope: scopeOf(options, "home") });
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true), cliRunPlanner()).rerun(runId, { reason: (0, cli_args_1.optionalArg)(options.reason), scope: scopeOf(options, "home") });
 }
 function runLinkCli(runId, options = {}) {
-    const url = optionalString(options.url);
+    const url = (0, cli_args_1.optionalArg)(options.url);
     if (!url)
         throw new Error("Missing run link url (--url <url>)");
-    return (0, run_link_io_1.recordRunLink)(new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)), runId, { url, kind: optionalString(options.kind), note: optionalString(options.note), actor: optionalString(options.actor) }, { scope: scopeOf(options, "home") });
+    return (0, run_link_io_1.recordRunLink)(new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)), runId, { url, kind: (0, cli_args_1.optionalArg)(options.kind), note: (0, cli_args_1.optionalArg)(options.note), actor: (0, cli_args_1.optionalArg)(options.actor) }, { scope: scopeOf(options, "home") });
 }
 function historyCli(options = {}) {
     return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).history({
         scope: scopeOf(options, "home"),
-        app: optionalString(options.app),
-        status: optionalString(options.status),
+        app: (0, cli_args_1.optionalArg)(options.app),
+        status: (0, cli_args_1.optionalArg)(options.status),
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
         offset: (0, numeric_flag_1.requiredNumberFlag)(options.offset, "--offset"),
     });
 }
 function queueAddCli(options = {}) {
     return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).queueAdd({
-        runId: optionalString(options.runId),
-        appId: optionalString(options.app || options.appId),
-        workflowId: optionalString(options.workflow || options.workflowId),
-        repo: optionalString(options.repo),
+        runId: (0, cli_args_1.optionalArg)(options.runId),
+        appId: (0, cli_args_1.optionalArg)(options.app || options.appId),
+        workflowId: (0, cli_args_1.optionalArg)(options.workflow || options.workflowId),
+        repo: (0, cli_args_1.optionalArg)(options.repo),
         priority: (0, numeric_flag_1.requiredNumberFlag)(options.priority, "--priority"),
-        note: optionalString(options.note),
-        id: optionalString(options.id),
+        note: (0, cli_args_1.optionalArg)(options.note),
+        id: (0, cli_args_1.optionalArg)(options.id),
     });
 }
 function queueListCli(options = {}) {
-    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).queueList({ status: optionalString(options.status), repo: optionalString(options.repo) });
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).queueList({ status: (0, cli_args_1.optionalArg)(options.status), repo: (0, cli_args_1.optionalArg)(options.repo) });
 }
 function queueShowCli(id, options = {}) {
     return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).queueShow(id);
@@ -284,7 +281,7 @@ function queueShowCli(id, options = {}) {
 function queueDrainCli(options = {}) {
     return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).queueDrain({
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
-        repo: optionalString(options.repo),
+        repo: (0, cli_args_1.optionalArg)(options.repo),
     });
 }
 // ---------------------------------------------------------------------
@@ -317,7 +314,7 @@ function gcPlanCli(runId, options = {}) {
         scope: scopeOf(options, "home"),
         runId,
         policy: gcPolicyOverridesFrom(options),
-        now: optionalString(options.now),
+        now: (0, cli_args_1.optionalArg)(options.now),
     });
 }
 function gcRunCli(runId, options = {}) {
@@ -326,8 +323,8 @@ function gcRunCli(runId, options = {}) {
         scope: scopeOf(options, "home"),
         runId,
         policy: gcPolicyOverridesFrom(options),
-        now: optionalString(options.now),
-        actor: optionalString(options.actor),
+        now: (0, cli_args_1.optionalArg)(options.now),
+        actor: (0, cli_args_1.optionalArg)(options.actor),
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
     });
 }
@@ -337,7 +334,7 @@ function gcVerifyCli(runId, options = {}) {
 }
 function orphansListCli(options = {}) {
     const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true));
-    return (0, reclamation_io_1.listOrphanRuns)(registry, { scope: scopeOf(options, "home"), now: optionalString(options.now) });
+    return (0, reclamation_io_1.listOrphanRuns)(registry, { scope: scopeOf(options, "home"), now: (0, cli_args_1.optionalArg)(options.now) });
 }
 function orphansGcCli(options = {}) {
     const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true));
@@ -345,7 +342,7 @@ function orphansGcCli(options = {}) {
         scope: scopeOf(options, "home"),
         minAgeMinutes: (0, numeric_flag_1.requiredNumberFlag)(options.minAgeMinutes ?? options["min-age-minutes"], "--min-age-minutes"),
         all: Boolean(options.all),
-        now: optionalString(options.now),
+        now: (0, cli_args_1.optionalArg)(options.now),
     });
 }
 function clonesListCli() {
