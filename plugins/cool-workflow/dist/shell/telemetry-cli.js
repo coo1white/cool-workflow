@@ -2,11 +2,8 @@
 // shell/telemetry-cli.ts — CLI/MCP-reachable body for `cw telemetry
 // verify`.
 //
-// MILESTONE 8. Byte-exact port of the old build's capability-core module's
-// `telemetryVerify` + cli maintenance-handler module's argv shape.
-//
 // Evidence: SPEC/ledger-trust.md "CLI: `cw telemetry verify`", "`cw
-// telemetry verify` JSON"; the old build's capability-core module.
+// telemetry verify` JSON".
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.telemetryVerifyCli = telemetryVerifyCli;
 const cli_args_1 = require("../core/util/cli-args");

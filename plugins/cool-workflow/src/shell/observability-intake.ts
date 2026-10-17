@@ -1,8 +1,5 @@
 // shell/observability-intake.ts — POLICY as DATA + host-attested usage
-// parsing for shell/observability.ts. Byte-exact port of the old build's
-// observability intake module.
-//
-// MILESTONE 11 (reporting/observability).
+// parsing for shell/observability.ts.
 
 import * as fs from "node:fs";
 import * as path from "node:path";

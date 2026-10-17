@@ -1,20 +1,16 @@
 "use strict";
-// wiring/capability-table/exec-backend.ts — MILESTONE 5 (execution backend,
-// agent spawn, sandbox) CLI bindings: sandbox.*, backend.*, app.run. Split
-// out of core/capability-table.ts, byte-for-byte (extracted with sed, not
-// retyped).
+// wiring/capability-table/exec-backend.ts — CLI bindings for the execution
+// backend, agent spawn and sandbox: sandbox.*, backend.*, app.run.
 Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
-// MILESTONE 5 (execution backend, agent spawn, sandbox) CLI bindings:
+// Execution backend, agent spawn, sandbox CLI bindings:
 // sandbox.list|show|validate, backend.list|show|probe,
 // backend.agent.config.show|set, doctor, fix. Handler BODIES live in
 // shell/exec-backend-cli.ts / shell/doctor.ts (impure — env/fs reads);
 // this table only wires argv shape -> handler call, per cli/dispatch.ts's
-// generic executor contract. `sandbox.list`/`backend.list` are ALREADY
-// declared MCP-only rows from milestone 2 (MCP_TOOL_DATA above) — this
-// section layers a `cli` binding onto them (attachCliBinding) and replaces
-// their milestone-2 placeholder `mcp.handler` with the real body, exactly
-// as milestones 3/4 did for their own rows.
+// generic executor contract. `sandbox.list`/`backend.list` are declared
+// rows in MCP_TOOL_DATA — this section layers a `cli` binding onto them
+// (attachCliBinding) and sets their real `mcp.handler`.
 // ---------------------------------------------------------------------
 const cli_args_1 = require("../../core/util/cli-args");
 // This slice is required unconditionally at startup for every command; every
@@ -36,9 +32,7 @@ function loadExecBackendCli() {
     handler: (args) => ({ json: loadExecBackendCli().listSandboxProfilesCli(args.options) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.list").mcp.handler = (args) => loadExecBackendCli().listSandboxProfilesCli(args);
-// GAP #24: cw_sandbox_choose + cw_app_run were declared
-// MCP-only rows with the notYetImplemented placeholder handler. Wire them to
-// the ported shell bodies (both are MCP-only in the old build — no CLI path).
+// cw_sandbox_choose + cw_app_run: wire the MCP rows to their shell bodies.
 registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.choose").mcp.handler = (args) => loadAppRunCli().sandboxChooseCli(args);
 registry_core_1.REGISTRY_BY_CAPABILITY.get("app.run").mcp.handler = (args) => loadAppRunCli().appRunCli(args);
 (0, registry_core_1.attachCliBinding)("sandbox.show", {
@@ -56,13 +50,9 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.show").mcp.handler = (args) 
     },
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("sandbox.validate").mcp.handler = (args) => loadExecBackendCli().validateSandboxProfileCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.profileFile), "profile file"), args);
-// PARITY: `sandbox.choose` is a BOTH-surface capability per SPEC/mcp.md
-// (old build cli.path ["sandbox","choose"]). Its pure alias
-// `sandbox.resolve` was taken out on 2026-09-28. It was left MCP-only at GAP #24 (see the comment
-// above sandboxChooseCli's mcp.handler wiring). Attach the same, already-
-// working shell body as the cli.handler too, so the CLI front door and
-// the parity payload probe both reach it (no new business logic, same
-// function both surfaces already call over MCP).
+// PARITY: `sandbox.choose` is a BOTH-surface capability per SPEC/mcp.md:
+// the same shell body serves the cli.handler too, so the CLI front door and
+// the parity payload probe both reach it (no new business logic).
 (0, registry_core_1.attachCliBinding)("sandbox.choose", {
     path: ["sandbox", "choose"],
     jsonMode: "default",
@@ -89,9 +79,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args)
 // `backend agent config [show]` = read-only; `backend agent config set
 // ...` = mutating. CLI path is ["backend", "agent"] (2 tokens, matching
 // dispatchTable's supported path lengths); the remaining positionals
-// ("config", "show"/"set") are read inside the handler, byte-exact to the
-// old build's handleBackend "agent" case (src/cli/handlers/
-// operational.ts:52-62).
+// ("config", "show"/"set") are read inside the handler.
 (0, registry_core_1.attachCliBinding)("backend.agent.config.show", {
     path: ["backend", "agent"],
     helpPath: ["backend", "agent", "config"],
@@ -105,15 +93,12 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.probe").mcp.handler = (args)
 });
 // `backend.agent.config.set` shares the SAME dispatch path/handler as
 // `.show` above (dispatchTable only supports 2-token paths, and the
-// show-vs-set branch lives inside that one handler on positionals[1] —
-// byte-exact to the old build's handleBackend "agent" case). This second
-// attachCliBinding call exists ONLY so `cw help backend` lists both rows
-// (cliCommandHelpRows iterates cliCapabilities(), one row per capability),
-// matching the old registry's two declared rows sharing one caseTokens
-// group; dispatchTable itself never reaches this row a second time because
+// show-vs-set branch lives inside that one handler on positionals[1]).
+// This second attachCliBinding call exists ONLY so `cw help backend` lists
+// both rows (cliCommandHelpRows iterates cliCapabilities(), one row per
+// capability); dispatchTable itself never reaches this row, because
 // `backend.agent.config.show`'s row is found first by
-// findCapabilityByCliPath's linear scan and its handler already covers
-// both actions.
+// findCapabilityByCliPath's linear scan and its handler covers both actions.
 (0, registry_core_1.attachCliBinding)("backend.agent.config.set", {
     path: ["backend", "agent"],
     helpPath: ["backend", "agent", "config"],
@@ -140,20 +125,15 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
     handler: (args) => {
         const doctor = loadDoctor();
         const report = doctor.runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
-        // Byte-exact port of the old build's command-surface module: both text
-        // branches are written as `${formatX(report)}\n` UNCONDITIONALLY —
-        // formatDoctorFixes already ends in its own "\n" (its last joined
-        // element is ""), so its case needs one MORE explicit "\n" here to
-        // reproduce that unconditional append; cli/dispatch.ts's generic
-        // renderer only appends "\n" when the text does NOT already end in
-        // one, so a bare `formatDoctorFixes(report)` here would silently
-        // drop the old build's trailing blank line.
+        // Both text branches are written as `${formatX(report)}\n`
+        // UNCONDITIONALLY — formatDoctorFixes already ends in its own "\n"
+        // (its last joined element is ""), so its case needs one MORE explicit
+        // "\n" here to keep the trailing blank line; cli/dispatch.ts's generic
+        // renderer only appends "\n" when the text does NOT already end in one.
         const text = (0, cli_args_1.wantsJson)(args.options) ? undefined : args.options.fix ? `${doctor.formatDoctorFixes(report)}\n` : doctor.formatDoctorReport(report);
         return { json: report, text, exitCode: report.ok ? undefined : 1 };
     },
-    // UI/UX fix: `cw help doctor` used to list only the one-line summary
-    // above, so a first-run user had no way to learn these flags without
-    // reading source. Real flag names verified against this handler and
+    // The flags `cw help doctor` lists, checked against this handler and
     // the `runDoctor(args.options, ...)` call it makes (shell/doctor.ts).
     flags: [
         { name: "--onramp", summary: "Run the extra onramp checks (3-step quick start)." },
@@ -174,9 +154,8 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("backend.agent.config.set").reason =
         const doctor = loadDoctor();
         const report = doctor.runDoctor(args.options, process.env, String(args.options.cwd || process.cwd()));
         // See the "doctor" handler's comment above: formatDoctorFixes
-        // already ends in "\n", so one more explicit "\n" here reproduces
-        // the old build's command-surface module's unconditional
-        // `${formatDoctorFixes(report)}\n` write.
+        // already ends in "\n", so one more explicit "\n" here keeps the
+        // trailing blank line.
         return { text: `${doctor.formatDoctorFixes(report)}\n`, exitCode: report.ok ? undefined : 1 };
     },
 }, "Environment fix commands are local diagnostics, same reasoning as doctor.");

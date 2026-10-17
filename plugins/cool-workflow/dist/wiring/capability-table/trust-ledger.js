@@ -1,13 +1,10 @@
 "use strict";
-// wiring/capability-table/trust-ledger.ts — MILESTONE 8 (ledger, telemetry,
-// trust-audit, tamper/bundle demos) CLI bindings: ledger.*, telemetry.verify,
-// audit.verify, audit.head, demo.*, report.bundle/verify-bundle. Split out
-// of core/capability-table.ts, byte-for-byte (extracted with sed, not
-// retyped).
+// wiring/capability-table/trust-ledger.ts — CLI bindings for ledger.*,
+// telemetry.verify, audit.verify, audit.head, demo.*, report.bundle/verify-bundle.
 Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
 const cli_args_1 = require("../../core/util/cli-args");
-// MILESTONE 8 (ledger, telemetry, trust-audit, tamper/bundle demos) CLI
+// Ledger, telemetry, trust-audit and tamper/bundle demo CLI
 // bindings: ledger propose|review|verify|apply|list, telemetry verify,
 // audit verify, demo tamper|bundle, report bundle|verify-bundle. Handler
 // BODIES live in shell/ledger-cli.ts, shell/telemetry-cli.ts, shell/
@@ -44,9 +41,7 @@ function loadReportCli() {
     path: ["ledger", "propose"],
     jsonMode: "default",
     handler: (args) => ({ json: loadLedgerCli().ledgerProposeCli(args.options) }),
-    // UI/UX fix: `cw help ledger` used to list only the one-line summary for
-    // each row, so a first-run user had no way to learn these flags without
-    // reading source. Real flag names verified against ledgerProposeCli's
+    // The flags `cw help ledger` lists, checked against ledgerProposeCli's
     // required()/stringOption() calls above.
     flags: [
         { name: "--from AGENT/REPO", summary: "Who is making the change." },
@@ -108,10 +103,10 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("ledger.apply").mcp.handler = (args) 
         const result = loadLedgerCli().ledgerListCli(args.options);
         return { json: result, exitCode: result.allOk ? undefined : 1 };
     },
-    // UI/UX fix: `--dir` here named the ledger directory, while the global
-    // front door (cli/entry.ts) treats `--dir` as an alias of `--repo` for
-    // every command — one flag, two meanings. `--ledger-dir` is the
-    // unambiguous spelling; `--dir` stays as the legacy alias, byte-compat.
+    // `--dir` here names the ledger directory, while the global front door
+    // (cli/entry.ts) treats `--dir` as an alias of `--repo` for every command
+    // — one flag, two meanings. `--ledger-dir` is the unambiguous spelling;
+    // `--dir` stays as the legacy alias, byte-compat.
     flags: [
         { name: "--ledger-dir DIR", summary: "The ledger directory to read. Give it more than once to union-verify mirrors." },
         { name: "--dir DIR", summary: "Old name for --ledger-dir (also the global --repo alias; kept working)." },

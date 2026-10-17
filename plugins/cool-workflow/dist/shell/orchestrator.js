@@ -1,20 +1,17 @@
 "use strict";
 // shell/orchestrator.ts — a THIN, SCOPED CoolWorkflowRunner facade for the two
 // shipping tooling scripts (scripts/dogfood-release.js and
-// scripts/dogfood-architecture-review.js) that still `require` the old flat
-// build's `dist/orchestrator.js` and drive a run through
+// scripts/dogfood-architecture-review.js) that drive a run through
 // `new CoolWorkflowRunner({ pluginRoot }).<verb>(...)`.
 //
-// v2 dismantled the old wide facade into core/shell functions, so this module
-// restores ONLY the ~12 verbs those two scripts call, each a thin
-// `loadRun -> delegate` over an EXISTING v2 shell function (mostly the
-// `*Cli(args)` byte-behavior ports, which already replicate the old build's
-// option-key normalization). It is a standalone tooling module: it is NOT wired
-// into the CLI/MCP capability table and registers no capability, so the
-// CLI<->MCP parity gate and the black-box conformance suite stay untouched.
+// It holds ONLY the verbs those two scripts call, each a thin
+// `loadRun -> delegate` over an EXISTING shell function (mostly the
+// `*Cli(args)` functions, which already do the option-key normalization).
+// It is a standalone tooling module: it is NOT wired into the CLI/MCP
+// capability table and registers no capability, so the CLI<->MCP parity
+// gate and the black-box conformance suite stay untouched.
 //
-// The facade is an intentional keep, not a god-class to dismantle (see the
-// project memory note "Orchestrator facade is intentional").
+// The facade is an intentional keep, not a god-class to dismantle.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -64,13 +61,13 @@ const audit_cli_1 = require("./audit-cli");
 const commit_1 = require("./commit");
 const report_1 = require("./report");
 class CoolWorkflowRunner {
-    // Kept for API compatibility with the old constructor shape the scripts use
-    // (`new CoolWorkflowRunner({ pluginRoot })`). v2's workflow-app-loader finds
+    // Kept for API compatibility with the constructor shape the scripts use
+    // (`new CoolWorkflowRunner({ pluginRoot })`). workflow-app-loader finds
     // the plugin root itself (walks up from __dirname), so this value is inert
     // here — the run-resolving cwd is `baseDir` (below).
     pluginRoot;
     // The directory a run is resolved against; undefined falls back to
-    // process.cwd(). Mirrors the old F7 withBaseDir (no process.chdir).
+    // process.cwd() (no process.chdir).
     baseDir;
     constructor(opts = {}) {
         this.pluginRoot = opts.pluginRoot;
@@ -78,7 +75,7 @@ class CoolWorkflowRunner {
     }
     /** Return a runner that resolves runs against `dir` instead of
      *  process.cwd(), WITHOUT chdir-ing the process. Same instance when the dir
-     *  is unchanged. Matches the old orchestrator withBaseDir. */
+     *  is unchanged. */
     withBaseDir(dir) {
         const resolved = dir ? path.resolve(dir) : undefined;
         if (resolved === this.baseDir)
@@ -122,8 +119,8 @@ class CoolWorkflowRunner {
             throw new Error(`Unknown worker id for run ${runId}: ${workerId}`);
         return (0, worker_isolation_1.writeWorkerManifest)(run, scope);
     }
-    /** `recordWorkerOutput` — accept a worker's result and checkpoint. Mirrors
-     *  v2's workerOutputCli: recordWorkerOutput + saveCheckpoint. */
+    /** `recordWorkerOutput` — accept a worker's result and checkpoint, as
+     *  workerOutputCli does: recordWorkerOutput + saveCheckpoint. */
     recordWorkerOutput(runId, workerId, resultPath, options = {}) {
         // Hold the state.json lock across the whole load -> change -> save so a
         // concurrent run mutation cannot drop this worker output (lost-update class).
@@ -146,7 +143,7 @@ class CoolWorkflowRunner {
         });
     }
     /** `recordAuditAttestation` — host/operator sandbox attestation. Delegates
-     *  to auditAttestCli, which loads the run, applies the old option-key
+     *  to auditAttestCli, which loads the run, applies the option-key
      *  normalization, records the event, and checkpoints. */
     recordAuditAttestation(runId, options = {}) {
         return (0, audit_cli_1.auditAttestCli)(runId, { ...options, runId, cwd: this.cwd() });
@@ -158,8 +155,7 @@ class CoolWorkflowRunner {
         return (0, audit_cli_1.auditDecisionCli)(runId, workerId, { ...options, runId, cwd: this.cwd() });
     }
     /** `commit` — verifier-gated (or explicit-checkpoint) state commit. Returns
-     *  `{ runId, commit }` to match the old orchestrator's shape (the scripts
-     *  read `commitResult.commit`). */
+     *  `{ runId, commit }` (the scripts read `commitResult.commit`). */
     commit(runId, input = {}) {
         // Hold the state.json lock across the whole load -> commit -> save (both
         // the success and the fail-closed catch persist) so a concurrent run
@@ -209,12 +205,10 @@ function numberOption(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
 }
-// Back-compat `drive` for scripts/dogfood-architecture-review.js, which calls
-// `drive(runner, run.id, { now, agentConfig })` — the OLD drive arg order.
-// v2's shell/drive.ts drive is `drive(runId, cwd, options)` and never uses a
-// runner object (it resolves the run from cwd), so this adapter forwards the
-// runner's cwd. The script's require for `drive` points at THIS module so its
-// call shape stays unchanged (require-path change only).
+// `drive` for scripts/dogfood-architecture-review.js, which calls
+// `drive(runner, run.id, { now, agentConfig })`. shell/drive.ts's drive is
+// `drive(runId, cwd, options)` and resolves the run from cwd, so this
+// adapter forwards the runner's cwd.
 const drive_1 = require("./drive");
 function drive(runner, runId, options = {}) {
     const cwd = (runner && runner.baseDir) || process.cwd();

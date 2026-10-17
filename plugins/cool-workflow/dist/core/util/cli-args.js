@@ -9,7 +9,7 @@
 // Pure. No fs, no child_process, no net, no process.env, no Date.now(), no
 // Math.random().
 //
-// Moved out of cli/io.ts (architecture-review P2): a cli/-layer file may
+// These live in core/, not cli/io.ts: a cli/-layer file may
 // not be imported by wiring/ (see scripts/purity-gate.js's layer rule),
 // but every wiring/capability-table/*.ts slice called these three pure
 // functions directly to coerce its own handler's args. Shared by CLI argv
@@ -125,7 +125,7 @@ function flagOn(value, onValues) {
 /** The folder named by the first set key of `args` (default `cwd`; e.g.
  *  `["cwd", "repo"]`), resolved untrimmed; with none set, the process cwd
  *  (`path.resolve()`). Set = a non-blank string, or with `anyTruthy` any
- *  truthy value, read as `String(v)` (the old `String(o.cwd || ...)` form). */
+ *  truthy value, read as `String(v)`. */
 function cwdArg(args, keys = ["cwd"], anyTruthy = false) {
     for (const key of keys) {
         const v = args[key];
@@ -139,9 +139,9 @@ function cwdArg(args, keys = ["cwd"], anyTruthy = false) {
  *  number or `true` becomes its string form (`{"runId": 5}` is run "5", not
  *  a dropped arg). JSON `false` is the one exception: it stays the real
  *  boolean `false`. Its string form "false" is a non-empty string, and the
- *  handlers read flags with `Boolean(args.x)`, so `{"write": false}` used to
- *  WRITE, `{"all": false}` swept orphans of every age, and
- *  `{"allowUnverifiedCheckpoint": false}` wrote an unverified checkpoint
+ *  handlers read flags with `Boolean(args.x)`, so `{"write": false}` would
+ *  WRITE, `{"all": false}` would sweep orphans of every age, and
+ *  `{"allowUnverifiedCheckpoint": false}` would write an unverified checkpoint
  *  (fail-open). The CLI never makes a real `false`, so CLI bytes do not
  *  change; a tri-state reader (`parseBoolFlag`) still sees an explicit
  *  false, not "unset". Arrays, objects, null and undefined pass through. */

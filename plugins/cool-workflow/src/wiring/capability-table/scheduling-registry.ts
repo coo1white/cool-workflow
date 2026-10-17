@@ -1,24 +1,18 @@
-// wiring/capability-table/scheduling-registry.ts — MILESTONE 10
-// (scheduling, registry, gc/reclamation, orphans, clones) CLI bindings:
-// schedule *, cw loop, routine *, sched *, registry *, queue *, run *
-// (list/show/search/rerun/resume/archive), history, gc *, orphans *,
-// clones *. Split out of core/capability-table.ts, byte-for-byte
-// (extracted with sed, not retyped).
+// wiring/capability-table/scheduling-registry.ts — CLI bindings for
+// scheduling, registry, gc/reclamation, orphans and clones (see below).
 
 import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
 import { required, optionalArg, wantsJson } from "../../core/util/cli-args";
 import type { CapabilityCliArgs, CliHandlerResult } from "../../core/capability-data";
 
-// MILESTONE 10 (scheduling, registry, gc/reclamation, orphans, clones)
+// Scheduling, registry, gc/reclamation, orphans and clones
 // CLI bindings: schedule *, cw loop, routine *, sched *, registry *,
 // queue *, gc *, orphans *, clones *, run search|list|show|resume|
 // archive|rerun, history. Handler BODIES live in shell/registry-cli.ts,
 // shell/scheduler-io.ts, shell/scheduling-io.ts, shell/reclamation-io.ts,
 // shell/run-registry-io.ts (impure — disk-scanning IO); this table only
 // wires argv shape -> handler call, per cli/dispatch.ts's generic
-// executor contract. Usage-error strings are copied byte-for-byte from
-// the old build's handlers/{scheduling,registry,maintenance,orphans,
-// clones}.ts.
+// executor contract. Usage-error strings are byte-pinned.
 // ---------------------------------------------------------------------
 
 // This whole module is required unconditionally at CLI/MCP startup for
@@ -87,7 +81,7 @@ addCliOnlyCapability(
           return { json: registryCli.scheduleHistoryCli(id, args.options) };
         case "daemon": {
           if (args.options.once) return { json: registryCli.scheduleDaemonTickCli(args.options) };
-          // Never returns (matches the old build's forever daemon loop);
+          // Never returns (a forever daemon loop);
           // the process stays alive via the DesktopSchedulerDaemon's own
           // setInterval, printing one tick line per interval. The daemon's
           // run() already guards each tick and fails closed with a `cw:`
@@ -107,10 +101,7 @@ addCliOnlyCapability(
   "cw schedule is the desktop wall-clock scheduler; SPEC/mcp.md declares its MCP peers per verb (cw_schedule_*), each wired below."
 );
 
-// GAP #24: the cw_schedule_* MCP peers were declared but left on the
-// notYetImplemented placeholder (the "each wired below" comment was never
-// satisfied). Mirror the CLI switch's shell fns; arg-name reads (id/status)
-// copied from the old build's mcp/tool-call.ts scheduler arms.
+// The cw_schedule_* MCP peers call the CLI switch's shell fns.
 REGISTRY_BY_CAPABILITY.get("schedule.create")!.mcp!.handler = (args) => loadRegistryCli().scheduleCreateCli(args);
 REGISTRY_BY_CAPABILITY.get("schedule.list")!.mcp!.handler = (args) => loadRegistryCli().scheduleListCli(args);
 REGISTRY_BY_CAPABILITY.get("schedule.due")!.mcp!.handler = (args) => loadRegistryCli().scheduleDueCli(args);
@@ -246,7 +237,7 @@ REGISTRY_BY_CAPABILITY.get("sched.policy.set")!.mcp!.handler = (args) => loadSch
 // sub-verb, positionals[0]=idArg (release/complete read --leaseId or that
 // positional; reset reads --id or that positional). `sched.policy.show`/
 // `.set` share the ["sched","policy"] path with the [show|set] action read
-// from the first positional (like blackboard.message.post/list).
+// from the first positional.
 // `hiddenFromHelp` keeps `cw help sched`'s rows coming from the single
 // literal COMMAND_HELP_ROWS.sched block.
 attachCliBinding("sched.plan", { path: ["sched", "plan"], jsonMode: "default", hiddenFromHelp: true, handler: (args) => ({ json: loadSchedulingIo().schedPlanCli(args.options) }) });
@@ -350,7 +341,7 @@ REGISTRY_BY_CAPABILITY.get("queue.show")!.mcp!.handler = (args) => loadRegistryC
 // (found before the ["queue"] catch-all). `hiddenFromHelp` keeps `cw help
 // queue`'s rows coming from the single literal COMMAND_HELP_ROWS.queue
 // block. `queue.list` is jsonMode "flag" (human table by default); the
-// others are always-JSON "default", matching the old build's registry.
+// others are always-JSON "default".
 attachCliBinding("queue.add", {
   path: ["queue", "add"],
   jsonMode: "default",
@@ -423,22 +414,16 @@ REGISTRY_BY_CAPABILITY.get("gc.run")!.payloadIdentical = false;
 REGISTRY_BY_CAPABILITY.get("gc.run")!.reason =
   "Mutating: frees disk and appends a tombstone; both surfaces perform the identical transaction but the payload reports now-derived bytesFreed/tombstone.";
 
-// PARITY: `gc.plan`/`gc.verify` now ALSO carry their own two-token
-// cli.path ["gc","plan"]/["gc","verify"], same as the old build's
-// registry rows and the same reversed-candidate-order pattern used for
-// run.drive/run.search above: findCapabilityByCliPath tries the 2-token
-// candidate before the 1-token ["gc"] catch-all row, so these rows — not
-// the "gc" capability's combined switch — now serve `cw gc plan`/`cw gc
-// verify`. Same functions, same output; only which row answers the
-// dispatch changes, so both become real both-surface, dual-bound
-// capabilities for the payload-identity probe. `gc.run` stays reachable
-// only via the ["gc"] catch-all (it is a documented payload-probe
-// opt-out above, so it does not need its own dual-bound row).
-// `hiddenFromHelp` keeps `cw help gc`'s rows coming from the single
-// literal COMMAND_HELP_ROWS.gc entries, same as `gc.run` below — without
-// it these rows double-print alongside those literal rows (a rebuild
-// regression the old build's `plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/gc.txt` ground
-// truth does not show; fixed here to match `gc.run`'s existing pattern).
+// PARITY: `gc.plan`/`gc.verify` also carry their own two-token cli.path
+// ["gc","plan"]/["gc","verify"], the same reversed-candidate-order pattern
+// used for run.drive/run.search above: findCapabilityByCliPath tries the
+// 2-token candidate before the 1-token ["gc"] catch-all row, so these rows
+// — not the "gc" capability's combined switch — serve `cw gc plan`/`cw gc
+// verify`, making both real both-surface, dual-bound capabilities for the
+// payload-identity probe. `hiddenFromHelp` keeps `cw help gc`'s rows
+// coming from the single literal COMMAND_HELP_ROWS.gc entries (as
+// `plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/gc.txt` shows),
+// same as `gc.run` below — without it these rows double-print.
 attachCliBinding("gc.plan", {
   path: ["gc", "plan"],
   jsonMode: "flag",

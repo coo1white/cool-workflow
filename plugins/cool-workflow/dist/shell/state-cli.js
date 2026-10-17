@@ -3,11 +3,8 @@
 // capability rows (state.check, migration.list|check|prove, node.list|
 // show|graph|snapshot|diff|replay|replay.verify, contract.show).
 //
-// MILESTONE 3. Byte-exact port of the old build's checkState,
-// migrationList/Check/Prove, and the node.* runner
-// methods. Impure (fs) — this is the
-// shell layer the capability-table's CLI/MCP handlers delegate to; the
-// decision logic itself lives in core/state/*.
+// Impure (fs) — this is the shell layer the capability-table's CLI/MCP
+// handlers delegate to; the decision logic itself lives in core/state/*.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -88,8 +85,7 @@ function migrationList() {
     return { contracts: (0, contract_migration_1.listMigrationContracts)() };
 }
 /** Resolves `target` to an existing file (absolute/relative to
- *  `process.cwd()`, NOT the `--cwd` option — matches the old build's
- *  `loadMigrationSnapshot` literally) else `<cwd>/.cw/runs/<target>/
+ *  `process.cwd()`, NOT the `--cwd` option) else `<cwd>/.cw/runs/<target>/
  *  state.json`. Throws `Migration target not found: <target>` when
  *  neither exists. */
 function loadMigrationSnapshot(target, options) {
@@ -130,10 +126,9 @@ function loadRun(runId, options = {}) {
 }
 /** `cw next <run-id> [--limit N]` — the read-only "what would dispatch next"
  *  preview: the runnable tasks the next `cw dispatch` would pick, in order,
- *  without mutating state. A byte-behavior port of the old build's
- *  orchestrator.next (nextDispatchTasks over the loaded run). Both the CLI and
- *  the cw_next MCP tool render this same DispatchTask[] value, so their
- *  payloads stay identical. */
+ *  without mutating state (nextDispatchTasks over the loaded run). Both
+ *  the CLI and the cw_next MCP tool render this same DispatchTask[] value,
+ *  so their payloads stay identical. */
 function nextCli(runId, options = {}) {
     return (0, dispatch_1.nextDispatchTasks)(loadRun(runId, options), (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"));
 }
@@ -182,7 +177,7 @@ function firstStringArg(value) {
     return typeof value === "string" && value.trim() ? value.trim() : Array.isArray(value) && typeof value[0] === "string" ? value[0] : undefined;
 }
 /** `cw contract show <run> [contract-id]` / `cw_contract_show` — the run's
- *  resolved pipeline contract. Port of the old runner.showContract. */
+ *  resolved pipeline contract. */
 function contractShowCli(args, contractId) {
     const runId = firstStringArg(args.runId);
     if (!runId)

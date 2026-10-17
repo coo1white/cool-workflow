@@ -2,10 +2,8 @@
 // shell/scheduler-io.ts — Scheduler (cw schedule/loop), the daemon tick
 // (cw schedule daemon), and routine triggers (cw routine).
 //
-// MILESTONE 10 (project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
-// old build's scheduler module + daemon module + triggers module. Reuses
-// shell/fs-atomic.ts's `withFileLock`/`readJson`/`writeJson`/`safeFileName`
-// directly (no reimplementation).
+// Reuses shell/fs-atomic.ts's `withFileLock`/`readJson`/`writeJson`/
+// `safeFileName` directly (no reimplementation).
 //
 // Two separate systems, never merged (SPEC/scheduling-registry.md
 // "Rebuild risks" #4): `Scheduler`/`DesktopSchedulerDaemon`/
@@ -15,9 +13,7 @@
 // — see shell/scheduling-io.ts. `cw loop` is only sugar for
 // `schedule create --kind loop`.
 //
-// Evidence: SPEC/scheduling-registry.md sections A, B;
-// the old build's scheduler module, daemon module, triggers module
-// (byte-exact source).
+// Evidence: SPEC/scheduling-registry.md sections A, B.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);

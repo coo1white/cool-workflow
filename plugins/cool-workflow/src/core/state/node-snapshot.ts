@@ -1,8 +1,7 @@
 // core/state/node-snapshot.ts — snapshotNode / diffNodeSnapshots /
 // replayNodeSnapshot / verifyNodeReplay.
 //
-// MILESTONE 3. Byte-exact port of the old build's node-snapshot module,
-// split into a PURE half (this file) and a shell half (shell/node-
+// Split into a PURE half (this file) and a shell half (shell/node-
 // store.ts, which supplies the actual `writeJson` persistence and file
 // scans for readNodeSnapshot/readNodeReplay). Every function here is pure
 // given `(run, clock)` — no direct fs/Date calls; `now` is always an

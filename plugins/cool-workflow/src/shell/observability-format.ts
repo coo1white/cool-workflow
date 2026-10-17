@@ -1,8 +1,7 @@
 // shell/observability-format.ts — human formatters for `cw metrics show`/
-// `cw metrics summary`. Byte-exact port of the old build's
-// observability format module.
+// `cw metrics summary`.
 //
-// MILESTONE 11 (reporting/observability). Evidence: SPEC/reporting-ux.md
+// Evidence: SPEC/reporting-ux.md
 // "cw metrics show / summary" (exact line shapes).
 
 import { CostMetric, MetricsReport, MetricsSummaryReport, RateMetric } from "./observability";

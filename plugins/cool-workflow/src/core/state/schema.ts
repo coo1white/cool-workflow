@@ -1,6 +1,5 @@
 // core/state/schema.ts — the single field-list source for WorkflowRun.
 //
-// MILESTONE 3. Byte-exact port of the old build's run-state-schema module.
 // Both migrations.ts's validation AND (eventually) a build gate derive
 // their field knowledge from this module — a field added to WorkflowRun
 // must be added here too.

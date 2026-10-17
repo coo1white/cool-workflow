@@ -1,19 +1,17 @@
 "use strict";
-// wiring/capability-table/basics.ts — MILESTONE 2's CLI bindings (version,
-// list, status, sandbox.list). Split out of core/capability-table.ts,
-// byte-for-byte (extracted with sed, not retyped).
+// wiring/capability-table/basics.ts — CLI bindings for version, list,
+// status, sandbox.list, completion and search.
 Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
 // ---------------------------------------------------------------------
-// CLI bindings wired at THIS milestone (version, list, status,
-// sandbox.list). `version` is cli-only per SPEC/mcp.md's declared
-// one-surface list (`help` is handled directly by cli/entry.ts's
-// top-level flag redirect, same as milestone 1 — it is not itself a
+// CLI bindings for version, list, status, sandbox.list. `version` is
+// cli-only per SPEC/mcp.md's declared one-surface list (`help` is handled
+// directly by cli/entry.ts's top-level flag redirect — it is not itself a
 // dispatchable command row); `list`/`status`/`sandbox.list` reuse the mcp
 // row's capability id and get a cli binding layered on top. Every handler
 // below returns a `CliHandlerResult`; core/ never touches process.stdout
-// or process.exitCode directly (see plugins/cool-workflow/project/docs/rebuild/PLAN.md's core/shell split) —
-// cli/dispatch.ts's generic executor performs the actual write.
+// or process.exitCode directly — cli/dispatch.ts's generic executor
+// performs the actual write.
 // ---------------------------------------------------------------------
 const version_1 = require("../../core/version");
 const help_1 = require("../../core/format/help");
@@ -45,18 +43,12 @@ function loadWorkflowAppLoader() {
     },
 }, "shell-completion output is a script for the user's OWN shell to source, not data an MCP client could use — CLI-only, same reasoning as doctor/fix.");
 /** `cw search <keyword>` — filters the SAME real app discovery `cw list`
- *  shows, by id/title/summary (byte-behavior port of cli/dispatch.ts's
- *  milestone-1 carry-over `search` arm, moved here so the dispatchLegacy
- *  switch shrinks per its file header's rule). The old v0.1.98 CLI DID
- *  have its own `cw help search` row (`plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/
- *  search.txt`: "cw search  Search workflow apps by keyword (title,
- *  description, id)."); `hiddenFromHelp` here was a rebuild regression
- *  that hid it, not a preserved old-build quirk — removed so the row
- *  shows again. The summary text below is intentionally NOT byte-matched
- *  to that old capture: the old wording says "description," but the
- *  filter below matches `summary` (there is no `description` field) — so
- *  the summary text stays accurate to current fields rather than
- *  reproducing the old capture's stale terminology. */
+ *  shows, by id/title/summary. It has its own `cw help search` row
+ *  (`plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/search.txt`).
+ *  The summary text below is intentionally NOT byte-matched to that
+ *  capture: it says "description," but the filter below matches `summary`
+ *  (there is no `description` field), so the summary stays accurate to
+ *  current fields. */
 (0, registry_core_1.addCliOnlyCapability)("search", "Search bundled workflows by id/title/summary keyword.", {
     path: ["search"],
     jsonMode: "flag",
@@ -78,7 +70,6 @@ function loadWorkflowAppLoader() {
     path: ["list"],
     jsonMode: "default",
     handler: () => ({ json: (0, registry_core_1.listBundledWorkflows)() }),
-    // UI/UX fix: a person at a real terminal used to get the raw JSON array.
     // On a TTY (and only there — piped bytes stay the exact same JSON, see
     // cli/dispatch.ts's shouldRenderHuman) render one "<id> — <title>" line
     // per workflow plus the next-step footer.

@@ -2,12 +2,8 @@
 // shell/error-feedback-io.ts — recordFeedback: the impure wrapper around
 // core/pipeline/error-feedback.ts's pure record builder.
 //
-// MILESTONE 9 (needed by candidate-scoring/collaboration selection/score
-// failures; not built by milestone 6+7 since nothing there needed the
-// operator-facing `feedback/<id>.json` + index.json + saveCheckpoint
-// write path yet). Byte-exact port of the old build's src/error-
-// feedback.ts's `recordFeedback` (dedup-on-open-record, disk write,
-// saveCheckpoint).
+// recordFeedback dedups on an open record, writes `feedback/<id>.json`
+// + index.json, and saves a checkpoint.
 //
 // Evidence: SPEC/pipeline-run.md "Error feedback — error-feedback module".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -95,8 +91,7 @@ function recordFeedback(run, input, options = {}) {
 }
 // ---------------------------------------------------------------------------
 // Operator feedback lifecycle primitives — collect / list / get / correction
-// task / resolve. Byte-behavior port of the old error-feedback module halves
-// that v2 had not yet ported (v2 shipped only the record-builder half).
+// task / resolve.
 // ---------------------------------------------------------------------------
 function stringMetadata(metadata, key) {
     const value = metadata?.[key];
@@ -303,9 +298,8 @@ function resolveFeedback(run, feedbackId, result) {
 }
 /** Shell-bound `runPipelineStage`: the core pure runner with `recordFeedback`
  *  wired in, so a failed pipeline stage that preserves its failure node ALSO
- *  writes a durable ErrorFeedback record (byte-behavior port of the old
- *  build's pipeline-runner, whose runPipelineStage recorded feedback on
- *  failure). The core runner stays feedback-free; this is the impure seam. */
+ *  writes a durable ErrorFeedback record. The core runner stays
+ *  feedback-free; this is the impure seam. */
 function runPipelineStage(run, stageId, inputNodeId, options = {}, runnerOptions = {}) {
     return (0, runner_1.runPipelineStage)(run, stageId, inputNodeId, options, {
         ...runnerOptions,
@@ -315,8 +309,7 @@ function runPipelineStage(run, stageId, inputNodeId, options = {}, runnerOptions
         // `requireReadablePaths` / `missing-artifact-path` gate live. A caller may
         // still override it (e.g. a replay against a captured path set).
         pathExists: runnerOptions.pathExists || fs.existsSync,
-        // Keep the caller-named failure node id (the old build honored outputNodeId
-        // for the preserved failure node); the raw core auto-mints when unset.
+        // Keep the caller-named failure node id; the raw core auto-mints when unset.
         failureNodeId: runnerOptions.failureNodeId || options.outputNodeId,
         recordFeedback: (r, error, nodeId) => {
             // Read the failure node's own contractId so this feedback's dedup key

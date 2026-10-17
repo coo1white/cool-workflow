@@ -1,9 +1,8 @@
 // shell/run-export-cli.ts — CLI/MCP-facing entry points for `cw run
 // export|import|verify-import|inspect-archive|restore`.
 //
-// MILESTONE 11 (reporting/observability, run export/bundle). Wires
-// shell/run-export.ts into the shapes core/capability-table.ts's CLI/MCP
-// bindings call, matching shell/report-cli.ts's pattern.
+// Wires shell/run-export.ts into the shapes core/capability-table.ts's
+// CLI/MCP bindings call, matching shell/report-cli.ts's pattern.
 //
 // Evidence: SPEC/reporting-ux.md "Run export / import / restore".
 

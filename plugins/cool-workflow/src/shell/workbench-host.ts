@@ -1,13 +1,12 @@
 // shell/workbench-host.ts — the localhost-only, read-only Workbench HTTP
 // server: `cw workbench serve`.
 //
-// MILESTONE 11 (reporting/observability). Byte-exact port of the old
-// build's workbench-host module's HTTP behavior: loopback bind only,
-// GET-only, non-localhost Host header refused, optional bearer-token
-// auth (timing-safe compare), pretty (2-space) JSON responses with
-// `Cache-Control: no-store` + `X-Content-Type-Options: nosniff`, a fixed
-// fallback index page when the UI is not installed, and `--once`/`--json`
-// printing only the descriptor and starting nothing.
+// HTTP behavior: loopback bind only, GET-only, non-localhost Host header
+// refused, optional bearer-token auth (timing-safe compare), pretty
+// (2-space) JSON responses with `Cache-Control: no-store` +
+// `X-Content-Type-Options: nosniff`, a fixed fallback index page when the
+// UI is not installed, and `--once`/`--json` printing only the descriptor
+// and starting nothing.
 //
 // CRITICAL: the MCP path (mcp/dispatch.ts) must NEVER start a persistent
 // listener — it always forces `once: true` so `cw_workbench_serve` only
@@ -26,9 +25,8 @@ import { buildWorkbenchIndex, buildWorkbenchRunView, buildWorkbenchServeDescript
 
 // `[::1]` is the form Node's URL parser returns for a bracketed IPv6
 // literal Host header (verified); the bare `::1` covers a non-bracketed
-// header that our fallback split still yields. `.split(":")[0]` alone could
-// never produce either (it returns `[` or ``), so those entries used to be
-// dead — parseHostname below fixes that.
+// header that our fallback split still yields. parseHostname below yields
+// both (a bare `.split(":")[0]` would give `[` or ``).
 const ALLOWED_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
 /** Extract the hostname from a Host header, correctly handling a bracketed
@@ -72,8 +70,7 @@ function timingSafeEqual(a: string, b: string): boolean {
   const bufB = Buffer.from(b, "utf8");
   if (bufA.length !== bufB.length) {
     // Compare against a same-length dummy so the check still takes
-    // constant time relative to the (wrong) input length, matching the
-    // old build's mismatched-length handling.
+    // constant time relative to the (wrong) input length.
     crypto.timingSafeEqual(bufA, bufA);
     return false;
   }
@@ -163,7 +160,7 @@ export class WorkbenchHost {
         sendJson(res, 400, { error: "bad request: invalid URL" });
         return;
       }
-      // Decode the route path ONCE (old build's decodeRoutePath). Node's
+      // Decode the route path ONCE. Node's
       // `new URL()` does NOT throw on a malformed percent-escape like
       // `/%E0%A4%A`; only decodeURIComponent does — so this is where a
       // malformed URL is caught as a 400 client error (not a 404, not a
@@ -180,8 +177,7 @@ export class WorkbenchHost {
 
       // Auth is checked AFTER the route is decoded, and only where run data
       // can flow: /api/* stays behind the token, the static UI files do not
-      // (a token used to 401 the browser's own /ui/ static files,
-      // giving an unstyled page with no reason given). The index route is
+      // (or the browser's own page would load unstyled). The index route is
       // split: an INSTALLED index.html is generic static code (open), but
       // the FALLBACK page embeds the serve descriptor with the absolute repo
       // root path, so a missing UI keeps it behind the token.

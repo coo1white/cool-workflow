@@ -7,7 +7,7 @@
 export const CURRENT_COOL_WORKFLOW_VERSION = "0.3.0";
 
 // State-kernel schema version constants (SPEC/state-core.md "Version
-// constants"). Pinned to the old build's version module byte-for-byte.
+// constants"), pinned.
 export const WORKFLOW_APP_SCHEMA_VERSION = 1;
 export const CURRENT_RUN_STATE_SCHEMA_VERSION = 1;
 export const LEGACY_RUN_STATE_SCHEMA_VERSION = 0;

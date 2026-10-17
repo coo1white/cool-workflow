@@ -1,8 +1,7 @@
 "use strict";
 // shell/worker-cli.ts — `cw worker list|show|manifest|output|fail|validate`
-// (and the mirrored cw_worker_* MCP tools) handler bodies. Byte-exact behavior
-// port of the old build's cli worker-handler module routing into the
-// worker-isolation shell. Impure: loads run state, mutates, persists.
+// (and the mirrored cw_worker_* MCP tools) handler bodies, routing into
+// the worker-isolation shell. Impure: loads run state, mutates, persists.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.workerListCli = workerListCli;
 exports.workerShowCli = workerShowCli;
@@ -51,13 +50,12 @@ function workerManifestCli(args) {
     });
 }
 /** `cw worker output <run> <worker> <result>` — records the worker's result
- *  and returns the full RunSummary, a byte-behavior port of the old build's
- *  orchestrator recordWorkerOutput wrapper (lifecycle-operations.ts). The bare
+ *  and returns the full RunSummary. The bare
  *  accept (worker-isolation.recordWorkerOutput) only mutates the worker/task;
  *  the operator-facing verb ALSO advances the run: loopStage -> observe, refresh
  *  phase statuses, expand a bounded loop round if one is ready, commit the
  *  accept as its own `worker:<id>:result` checkpoint, and write the report.
- *  Callers (pdca / run-export / the golden-path smoke) read the RunSummary's
+ *  Callers (run-export / the golden-path smoke) read the RunSummary's
  *  tasks.completed, workers.byStatus, and loopStage. The drive loop does these
  *  same steps itself around the bare accept, so it never routes through here. */
 function workerOutputCli(args) {

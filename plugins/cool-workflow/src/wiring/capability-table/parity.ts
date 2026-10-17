@@ -1,13 +1,9 @@
 // wiring/capability-table/parity.ts — CLI <-> MCP parity planning + report.
-// Split out of core/capability-table.ts, byte-for-byte (extracted with
-// sed, not retyped).
 
 import { REGISTRY, declaredMcpTools } from "./registry-core";
 import type { Capability } from "../../core/capability-data";
 
-// CLI <-> MCP parity planning + report. Ported from the old flat build's
-// capability-registry module (its single source of parity data) onto this
-// table's row shape. Same rule as that module's header: a capability marked
+// CLI <-> MCP parity planning + report. The rule: a capability marked
 // `payloadIdentical` (the default for `surface: "both"`) MUST return a
 // byte-for-byte equal JSON payload from `cw <cmd> --json` and from the
 // `cw_<tool>` MCP result (whitespace aside); any divergence is drift. A
@@ -15,10 +11,9 @@ import type { Capability } from "../../core/capability-data";
 // undeclared payload divergence, is a release-blocking fail-closed error —
 // see scripts/parity-check.js.
 //
-// `CAPABILITY_REGISTRY` is an alias so callers written against the old
+// `CAPABILITY_REGISTRY` is an alias so callers written against that
 // name (and the two smokes that import this module) find the same array
-// under either name; `REGISTRY` stays the primary export other v2 modules
-// already use.
+// under either name; `REGISTRY` is the primary export.
 export const CAPABILITY_REGISTRY: Capability[] = REGISTRY;
 
 export type PayloadProbeKind = "global" | "run" | "scenario";
@@ -174,16 +169,14 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS: Array<{ reason: string; capabilities: strin
     ],
   },
   {
-    // The CLI bindings layered onto these previously MCP-only rows make each
-    // a real both-surface dual-bound capability, so
-    // the payload probe now sees them. Each needs a seeded fixture beyond a
-    // bare cwd/runId — a scheduled task / routine trigger / durable queue
-    // entry / lease / portable archive on disk, a target entity id
-    // (schedule/lease id), a workflow-app
-    // id to scaffold or drive, or a registry index to refresh — so each is
-    // deferred until a bootstrap fixture is added, exactly like the
-    // scenario/deferred split the older batches use. `init` also folds into
-    // app.init on both surfaces (scaffold), so it defers with the app family.
+    // The CLI bindings on these rows make each a real both-surface
+    // dual-bound capability, so the payload probe sees them. Each needs a
+    // seeded fixture beyond a bare cwd/runId — a scheduled task / routine
+    // trigger / durable queue entry / lease / portable archive on disk, a
+    // target entity id (schedule/lease id), a workflow-app id to scaffold or
+    // drive, or a registry index to refresh — so each is deferred until a
+    // bootstrap fixture is added. `init` also folds into app.init on both
+    // surfaces (scaffold), so it defers with the app family.
     reason:
       "Not safe for the deterministic bootstrap parity probe yet: this capability needs a seeded fixture beyond cwd/runId (a scheduled task / routine trigger / queue entry / lease / portable archive on disk, a target entity id, or a workflow-app id to scaffold or drive). Both surfaces route through the same shell fn; each defers until a bootstrap fixture seeds its state.",
     capabilities: [
@@ -253,7 +246,7 @@ export function declaredCliHelpTokens(): string[] {
     }
   }
   tokens.delete("help");
-  // `init` is a help-index-only token: v2 folds the standalone `init`
+  // `init` is a help-index-only token: it folds the standalone `init`
   // capability into `app.init` (its cli.path is ["init"] only so the
   // dispatcher can still run `cw init`, but `cw help` lists it in the
   // frozen "More commands" index line, never as its own per-command help
@@ -350,19 +343,13 @@ function lintRegistry(): string[] {
       if (seenTools.has(cap.mcp.tool)) issues.push(`duplicate MCP tool: ${cap.mcp.tool}`);
       seenTools.add(cap.mcp.tool);
     }
-    // NOTE (v2 build-order difference from the old flat registry): the old
-    // build's registry was written all at once, so a "both" row ALWAYS had
-    // both bindings the moment it was declared. This table is built up
-    // MILESTONE BY MILESTONE (this file's header note): `REGISTRY` starts
-    // from the full, literal 196-tool `mcp` surface (SPEC/mcp.md) and each
-    // milestone LAYERS a `cli` binding onto the rows it wires next — so a
-    // "both" row with an `mcp` binding but no `cli` binding YET is the
-    // expected, honest mid-rollout state, not a lint error. `cli` bindings
-    // are added without ever touching `surface`, so the lint only fails
-    // closed on what is actually impossible: a `mcp` binding must always
-    // exist for "both" (every row starts from `MCP_TOOL_DATA`), and
-    // `cli-only`/`mcp-only` rows must carry exactly the one binding their
-    // name promises.
+    // `REGISTRY` starts from the literal `mcp` surface (SPEC/mcp.md) and
+    // each slice LAYERS a `cli` binding onto its rows, never touching
+    // `surface`, so a "both" row with an `mcp` binding but no `cli` binding
+    // is not a lint error here. The lint only fails closed on what is
+    // actually impossible: a `mcp` binding must always exist for "both"
+    // (every row starts from `MCP_TOOL_DATA`), and `cli-only`/`mcp-only`
+    // rows must carry exactly the one binding their name promises.
     if (cap.surface === "both" && !cap.mcp) {
       issues.push(`${cap.capability}: surface "both" requires an mcp binding`);
     }

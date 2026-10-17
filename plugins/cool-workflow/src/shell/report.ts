@@ -1,15 +1,6 @@
 // shell/report.ts — report.md generation (the byte-exact section
 // headers/fallback lines from the spec), the actual file write.
 //
-// MILESTONE 6+7 (combined), EXTENDED at MILESTONE 11 (reporting/
-// observability) with the sections that were deferred while their own
-// subsystems' milestones (8/5) had not yet landed: Sandbox Profiles
-// (milestone 5) and Trust Audit (milestone 8). Byte-exact port of the old
-// build's orchestrator report module's renderX helpers for each. The State
-// Size & Compaction, Multi-Agent Runtime, Blackboard / Coordinator,
-// Acceptance Rationale and Candidates sections went with the multi-agent
-// family (slim-and-esm step 2).
-//
 // Evidence: SPEC/reporting-ux.md "report.md (written by writeReport)".
 
 import * as fs from "node:fs";
@@ -69,8 +60,7 @@ function renderCommits(run: WorkflowRun): string[] {
   });
 }
 
-/** `## Sandbox Profiles` — byte-exact port of the old build's
- *  renderSandboxProfiles. */
+/** `## Sandbox Profiles`. */
 function renderSandboxProfiles(run: WorkflowRun): string[] {
   const profiles = (run.sandboxProfiles as SandboxProfileLike[] | undefined) || [];
   if (!profiles.length) return ["No sandbox profiles selected yet."];
@@ -83,8 +73,7 @@ function renderSandboxProfiles(run: WorkflowRun): string[] {
   );
 }
 
-/** `## Trust Audit` — byte-exact port of the old build's renderTrustAudit
- *  + renderTelemetryAttestation. */
+/** `## Trust Audit` (plus renderTelemetryAttestation). */
 function renderTrustAudit(run: WorkflowRun): string[] {
   const summary = summarizeTrustAudit(run);
   const integrity = summary.integrity;
@@ -120,7 +109,7 @@ function renderTrustAudit(run: WorkflowRun): string[] {
 }
 
 /** Telemetry attestation coverage + a LOUD list of any `unattested`
- *  usage, byte-exact port of the old build's renderTelemetryAttestation. */
+ *  usage. */
 function renderTelemetryAttestation(run: WorkflowRun): string[] {
   const delegations = listTrustAuditEvents(run).filter(
     (event) => event.kind === "worker.agent-delegation" && event.metadata && event.metadata.telemetryAttestation

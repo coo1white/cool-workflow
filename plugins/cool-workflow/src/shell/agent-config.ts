@@ -1,9 +1,6 @@
 // shell/agent-config.ts — agent delegation config: env/file/flag resolution
 // order, CW_HOME resolution, builtin:<name> expansion, PATH auto-detect.
 //
-// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// the old build's agent-config module.
-//
 // Resolution order per field: flags > env > a durable
 // $CW_HOME/agent-config.json > auto-detect > none. The command and its args
 // are one field: both come from the first layer that sets a command. NO SECRETS IN COMMITTED

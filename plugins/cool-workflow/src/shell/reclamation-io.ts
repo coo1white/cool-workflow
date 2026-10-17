@@ -1,14 +1,10 @@
 // shell/reclamation-io.ts — gc plan/run/verify's write-ahead reclamation
 // transaction, plus the orphan-run sweep and the clone cache gc.
 //
-// MILESTONE 10 (project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
-// old build's reclamation, reclamation-hash, run-registry gc/orphans, and
-// clones modules. Reuses
-// shell/fs-atomic.ts's `withFileLock` directly (no reimplementation, per
-// the task's instruction) and core/state/node-projection.ts's
-// `replayStableStringify`/`nodeProjectionDigestInput` so the tombstone
-// hash-chain input shares the exact same canonical bytes as node-
-// snapshot.ts (never re-derived).
+// Reuses shell/fs-atomic.ts's `withFileLock` directly and
+// core/state/node-projection.ts's `replayStableStringify`/
+// `nodeProjectionDigestInput` so the tombstone hash-chain input shares the
+// exact same canonical bytes as node-snapshot.ts (never re-derived).
 //
 // WRITE-AHEAD ORDER (the safety property; SPEC/scheduling-registry.md
 // section E, "Rebuild risks" #2): extractSkeleton -> validateSkeleton +
@@ -23,9 +19,7 @@
 // BEFORE it is hashed (this is exactly what the tombstonesort-*.case.js
 // conformance cases pin) — see `planReclamation`'s explicit sort below.
 //
-// Evidence: SPEC/scheduling-registry.md sections E, F, G; the old build's
-// reclamation, reclamation-hash, run-registry gc/orphans, and clones
-// modules (byte-exact source).
+// Evidence: SPEC/scheduling-registry.md sections E, F, G.
 
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -99,7 +93,7 @@ function contentDigest(p: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Reclamation types (byte-exact port of reclamation types module)
+// Reclamation types
 // ---------------------------------------------------------------------------
 
 export type ReclaimKind = "scratch" | "reconstructable-snapshot" | "candidate" | "reference-free-blackboard" | "commit-snapshot";
@@ -1074,8 +1068,7 @@ export function verifyReclamation(run: WorkflowRun): { reclaimed: boolean; verif
 }
 
 // ---------------------------------------------------------------------------
-// GcHost contract + gc plan/run/verify (byte-exact port of
-// run-registry gc module)
+// GcHost contract + gc plan/run/verify
 // ---------------------------------------------------------------------------
 
 export interface GcHost {
@@ -1097,7 +1090,7 @@ export function reclamationPolicy(overrides: Partial<RunRegistryPolicy> = {}): R
  *  reclaimed.json (loadReclaimedFromDir), so a corrupted log makes `tier`
  *  itself unreliable — it reads "live", not "reclaimed", exactly the
  *  reading that would let a run past the already-reclaimed gate and into a
- *  destructive re-reclaim (self-audit-cool-workflow-v0.2.6.md P2). */
+ *  destructive re-reclaim. */
 export function reclaimEligibility(record: RunRecord, policy: RunRegistryPolicy, nowMs: number): ReclaimRefusalCode | null {
   if (record.reclamationLogCorrupted) return "reclamation-log-corrupted";
   if (record.tier === "reclaimed") return "already-reclaimed";
@@ -1347,7 +1340,7 @@ export function formatGcVerify(result: GcVerifyResult): string {
 }
 
 // ---------------------------------------------------------------------------
-// Orphan Run Sweep (byte-exact port of run-registry orphans module)
+// Orphan Run Sweep
 // ---------------------------------------------------------------------------
 
 export interface OrphanRunEntry {
@@ -1537,7 +1530,7 @@ export function formatOrphanRunsGc(result: OrphanRunsGcResult): string {
 }
 
 // ---------------------------------------------------------------------------
-// Clone cache gc (byte-exact port of clones module)
+// Clone cache gc
 // ---------------------------------------------------------------------------
 
 export interface CloneEntry {
@@ -1578,9 +1571,7 @@ function clonesRoot(env: NodeJS.ProcessEnv = process.env): string {
 
 // Local, tiny re-implementation of run-registry-io.ts's resolveCwHome so
 // this module has no import-time dependency on that file beyond the type
-// re-exports already pulled in above (keeps the module boundary the same
-// shape as the old build's clones.ts -> run-registry.ts single-function
-// import).
+// re-exports already pulled in above.
 function resolveCwHomeForClones(env: NodeJS.ProcessEnv): string {
   if (env.CW_HOME && String(env.CW_HOME).trim()) return path.resolve(String(env.CW_HOME));
   if (env.XDG_STATE_HOME && String(env.XDG_STATE_HOME).trim()) {

@@ -1,18 +1,13 @@
-// shell/onramp.ts — the change-contract onramp subsystem.
-//
-// Byte-exact port of the old flat build's onramp module (added in #198):
+// shell/onramp.ts — the change-contract onramp subsystem:
 // evaluateOnrampContract, recommendSmokeTests, resolveChangedFiles,
-// buildDoctorOnramp. Impure (git/fs reads), so it lives under shell/.
-// The v2 rebuild dropped this module on purpose for a later milestone;
-// this restores it and shell/doctor.ts wires --onramp back to it.
+// buildDoctorOnramp. Impure (git/fs reads), so it lives under shell/;
+// shell/doctor.ts wires --onramp to it.
 //
 // The classification in evaluateOnrampContract works on path STRINGS only
 // (it never stats files) — which cuts both ways: it never breaks on a
 // missing file, but it also never notices when a literal it matches
-// against has moved. isSurfaceFile and CURATED_SMOKE_MAP both drifted this
-// way after the v2 core/shell/wiring split (self-audit-cool-workflow-v0.2.6.md
-// P2) — 19 of 33 CURATED_SMOKE_MAP rows named a file gone as of #598.
-// test/onramp-check-smoke.js now checks every row against the real tree.
+// against has moved. test/onramp-check-smoke.js checks every
+// CURATED_SMOKE_MAP row against the real tree.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -100,21 +95,14 @@ export const CURATED_SMOKE_MAP: Array<{ patterns: string[]; smokes: string[] }> 
     smokes: ["cli-command-surface-smoke.js", "cli-jsonmode-parity-smoke.js", "cli-mcp-parity-smoke.js"]
   },
   {
-    // Pre-rebuild this was the single flat orchestrator module; the real
-    // current file is shell/orchestrator.ts (self-audit-cool-workflow-v0.2.6.md P2).
     patterns: ["src/shell/orchestrator.ts"],
     smokes: ["cli-mcp-parity-smoke.js"]
   },
   {
-    // Pre-rebuild this was the single flat capability-registry module; it was
-    // split into core/capability-data.ts plus wiring/capability-table/*.ts at
-    // the v2 rebuild (PR #368) — same finding as above.
     patterns: ["src/core/capability-table.ts", "src/core/capability-data.ts", "src/wiring/capability-table/", "scripts/parity-check.js"],
     smokes: ["cli-mcp-parity-smoke.js", "cli-jsonmode-parity-smoke.js", "parity-doc-sync-smoke.js"]
   },
   {
-    // Pre-rebuild this was the single flat mcp-surface module, which did not
-    // survive the v2 cutover; the real current MCP surface is src/mcp/*.ts.
     patterns: ["src/mcp-server.ts", "src/mcp/"],
     smokes: ["mcp-surface-registry-smoke.js", "mcp-app-surface-smoke.js", "cli-mcp-parity-smoke.js"]
   },
@@ -432,12 +420,10 @@ export function evaluateOnrampContract(
   const typeFiles = classifiable.filter((file) => file.startsWith("plugins/cool-workflow/src/core/types/") && file.endsWith(".ts"));
   const surfaceFiles = classifiable.filter(isSurfaceFile);
   const smokeFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+-smoke\.js$/.test(file));
-  // WP1.1 (#360) restored a second, parallel test layer: pure `core/`
-  // logic proven by `test/**/*.test.js` under `npm run test:unit`, run and
-  // gated separately from the black-box `test/*-smoke.js` suite. A cycle
-  // that proves its fix with a unit test only (no smoke touched) is a
-  // real, complete cycle — the gate must accept either kind, not just
-  // the one that existed before the unit-test layer came back.
+  // A second, parallel test layer: pure `core/` logic proven by
+  // `test/**/*.test.js` under `npm run test:unit`, run and gated separately
+  // from the black-box `test/*-smoke.js` suite. A cycle that proves its fix
+  // with a unit test only (no smoke touched) is a real, complete cycle.
   const unitTestFiles = normalized.filter((file) => /^plugins\/cool-workflow\/test\/.+\.test\.js$/.test(file));
   // The black-box conformance suite (v2/conformance/cases/*.case.js) is a
   // third, equally real proof layer — CI-gated on every push, and the one
@@ -535,8 +521,7 @@ function resolveBaseRef(root: string, changedFrom: string | undefined, env: Node
   // resolve there (a shallow clone that never fetched the base, a missing
   // origin ref), we must NOT quietly degrade to HEAD -- a HEAD..HEAD diff on a
   // clean, already-committed tree is empty, and an empty change set has no
-  // issues, so onramp:check would report ok:true on a real, unseen change (the
-  // same vacuous-pass class PR #446 closed one layer below). Fail closed.
+  // issues, so onramp:check would report ok:true on an unseen change. Fail closed.
   if (env.GITHUB_BASE_REF) {
     const baseBranch = `origin/${env.GITHUB_BASE_REF}`;
     const mergeBase = gitOne(root, ["merge-base", "HEAD", baseBranch]);
@@ -587,12 +572,11 @@ function gitLines(cwd: string, args: string[]): string[] {
 
 /** Same as gitLines, but a failed git invocation THROWS instead of silently
  *  becoming []. resolveChangedFiles must never mistake "git could not run
- *  this diff" for "there is nothing to diff" -- that turns a transient git
- *  failure into a vacuous onramp-contract pass (a 2026-07-12 security audit
- *  finding: a broken base ref or a git error made the changed-file set
- *  empty, and an empty set has no issues, so the gate reported ok:true on a
- *  real, unseen change). Callers that WANT a soft fallback (merge-base
- *  probing, optional discovery) should keep using gitLines/gitOne. */
+ *  this diff" for "there is nothing to diff": a broken base ref or a git
+ *  error would make the changed-file set empty, and an empty set has no
+ *  issues, so the gate would report ok:true on a real, unseen change.
+ *  Callers that WANT a soft fallback (merge-base probing, optional
+ *  discovery) should keep using gitLines/gitOne. */
 function gitLinesOrThrow(cwd: string, args: string[]): string[] {
   const result = spawnSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: GIT_TIMEOUT_MS });
   if (result.error) throw new Error(`onramp: git ${args.join(" ")} failed to run: ${result.error.message}`);
@@ -618,11 +602,10 @@ function availableSmokeTests(cwd: string): string[] {
 
 function normalizeChangedPath(file: string): string {
   const normalized = file.replace(/\\/g, "/").replace(/^\.\//, "");
-  // "docs" is deliberately absent from this list: the last real repo-root docs/
-  // directory moved to plugins/cool-workflow/project/docs/ in the 2026-08-04 root
-  // consolidation, so no git-diff path starts with bare "docs/" anymore. Rewriting
-  // one to plugins/cool-workflow/docs/ (the separate, still-in-place man-page tree)
-  // would silently mislabel it.
+  // "docs" is deliberately absent from this list: no git-diff path starts
+  // with bare "docs/" (engineering docs are under
+  // plugins/cool-workflow/project/docs/). Rewriting one to
+  // plugins/cool-workflow/docs/ (the man-page tree) would silently mislabel it.
   if (/^(src|apps|scripts|test|dist|manifest|ui|workflows)\//.test(normalized)) {
     return `plugins/cool-workflow/${normalized}`;
   }
@@ -649,15 +632,8 @@ function isTypeSource(file: string): boolean {
   );
 }
 
-// Pre-rebuild flat literals here (capability-registry module, mcp-surface module,
-// orchestrator module) named files that no longer exist anywhere in the
-// tree after the v2 core/shell/wiring split — capability-registry.ts
-// became core/capability-table.ts + core/capability-data.ts +
-// wiring/capability-table/*.ts (PR #368), mcp-surface.ts became mcp/*.ts,
-// and orchestrator.ts moved to shell/orchestrator.ts. Real, current
-// capability/MCP surface changes were silently invisible to this check,
-// so they skipped both "surface-docs-required" and the parity:check/
-// gen:manifests hint below (self-audit-cool-workflow-v0.2.6.md P2).
+// Capability/MCP surface files: a change to one needs "surface-docs-required"
+// and gets the parity:check/gen:manifests hint below.
 function isSurfaceFile(file: string): boolean {
   const pluginPath = stripPluginPrefix(file);
   return (
@@ -677,10 +653,8 @@ function isDocFile(file: string): boolean {
   // "surface-docs-required" means the SHIPPED surface (README.md, the man-page tree
   // under plugins/cool-workflow/docs/) — see its fix message below. Repo-internal
   // engineering docs (plugins/cool-workflow/project/docs/) never satisfy it; they are
-  // not public docs. A bare "docs/" branch used to sit here, but normalizeChangedPath
-  // rewrites any bare top-level "docs/..." path before this function ever sees it, so
-  // it was already dead code even before the 2026-08-04 root consolidation removed the
-  // last real repo-root docs/ directory it could have matched.
+  // not public docs. normalizeChangedPath rewrites any bare top-level "docs/..."
+  // path before this function sees it, so no bare "docs/" branch is needed.
   return (
     file === "README.md" ||
     file === "plugins/cool-workflow/README.md" ||

@@ -2,10 +2,8 @@
 // (listLedgerEntries/unionLedgerEntries). Impure (fs); the pure verify
 // logic they call lives in core/trust/ledger.ts.
 //
-// MILESTONE 8. Byte-exact port of the old build's ledger module stage-2
-// git-transport functions (listLedgerEntries, unionLedgerEntries), split
-// out per project/docs/rebuild/PLAN.md's core/shell rule since these two functions are the
-// ONLY impure ones in the old ledger.ts module.
+// These two functions are the ONLY impure ones of the ledger, split out
+// per project/docs/rebuild/PLAN.md's core/shell rule.
 //
 // Evidence: SPEC/ledger-trust.md "Handoff ledger entry" (listLedgerEntries/
 // unionLedgerEntries JSON shapes), "Edge cases" (dir-unreadable/entry-not-

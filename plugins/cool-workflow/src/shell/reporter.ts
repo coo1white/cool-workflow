@@ -1,8 +1,7 @@
 // shell/reporter.ts — the cw-side run reporter: drive progress lines +
-// the end-of-run summary. Byte-exact port of the old build's
-// reporter module.
+// the end-of-run summary.
 //
-// MILESTONE 11 (reporting/observability). Everything here goes to
+// Everything here goes to
 // STDERR; stdout (the machine payload) carries NO term styling ever, so
 // it stays byte-exact under any color env. The end-of-run summary
 // (formatQuickstartSummary) is printed only on a real terminal.

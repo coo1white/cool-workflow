@@ -1,11 +1,10 @@
 "use strict";
 // core/format/help.ts — formatHelp, formatCommandHelp.
 //
-// Pure functions of already-loaded data. Byte-exact port of the old
-// build's formatHelp and formatCommandHelp, plus the color helpers
+// Pure functions of already-loaded data, plus the color helpers
 // `bold`/`dim` keyed off stdout.
 //
-// LOAD-BEARING LAYOUT (project/docs/rebuild/PLAN.md byte-compat item 14 — do not "clean up"):
+// LOAD-BEARING LAYOUT (do not "clean up"):
 //   - The command-line rows under "Cool Workflow" and the `cw <path...>`
 //     rows in formatCommandHelp use a 2-space indent. The CLI/MCP parity
 //     help-token checker parses ONLY 2-space lines as command tokens.
@@ -15,15 +14,11 @@
 //
 // The header/flags/more-commands banner text stays hard-coded (it is not
 // capability-table data — see SPEC/cli-help/_root.txt). The per-verb
-// subcommand-row table (`COMMAND_HELP_ROWS`) is now a MIX: verbs whose
-// capability already has a `cli` binding in core/capability-table.ts
-// (`list`, `version`, `status`, `doctor`, `fix`, `backend`, `sandbox` as of
-// milestone 5) are dropped from the literal table below and read from the
-// capability table instead, via `cliCommandHelpRows()`; every other verb
-// stays literal here until its own milestone lands. This satisfies
-// project/docs/rebuild/PLAN.md milestone 2's own "done when": a CLI `--help` walk and an MCP
-// `tools/list` round-trip read the SAME table rows for any capability
-// wired into both.
+// subcommand-row table (`COMMAND_HELP_ROWS`) is a MIX: a verb whose
+// capability has a per-subcommand `cli` binding in core/capability-table.ts
+// is read from the capability table via `cliCommandHelpRows()`; every other
+// verb stays literal here. A CLI `--help` walk and an MCP `tools/list`
+// round-trip read the SAME table rows for any capability wired into both.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MORE_COMMANDS_TOKENS = void 0;
 exports.formatHelp = formatHelp;
@@ -32,15 +27,13 @@ exports.formatInfo = formatInfo;
 exports.formatSearchResults = formatSearchResults;
 exports.formatWorkflowList = formatWorkflowList;
 const capability_table_1 = require("../capability-table");
-/** The "More commands" token set, in the old
- *  build's order (space-joined in the source, pipe-joined for display).
- *  One change from the old capture: `update` is gone. The verb had no code
- *  behind it in this build (`cw update` said "Unknown command"), so the
- *  help must not offer it. See parseargv.ts KNOWN_COMMANDS. Exported (only
- *  as a read-only source list, `formatHelp` below still owns the byte-
- *  pinned display format) so `core/format/completion.ts` can build a
- *  shell-completion word list from the SAME data instead of a third
- *  hand-maintained copy. */
+/** The "More commands" token set, in its pinned order (space-joined in
+ *  the source, pipe-joined for display). `update` is not in it: the verb
+ *  has no code behind it (`cw update` says "Unknown command"), so the help
+ *  must not offer it. See parseargv.ts KNOWN_COMMANDS. Exported (only as a
+ *  read-only source list, `formatHelp` below still owns the byte-pinned
+ *  display format) so `core/format/completion.ts` can build a
+ *  shell-completion word list from the SAME data, not a third copy. */
 exports.MORE_COMMANDS_TOKENS = [
     "list", "search", "info", "init", "plan", "status", "next", "dispatch",
     "result", "state", "commit", "report", "app", "sandbox", "backend",
@@ -72,32 +65,23 @@ function wrapPipeJoined(tokens, width) {
         lines.push(line);
     return lines;
 }
-/** The per-verb subcommand rows, keyed by
- *  the verb (`cli.path[0]` in the old registry). Verbs whose capability
- *  now has a real `cli` binding in core/capability-table.ts (`list`,
- *  `version`, `status`) are read from `cliCommandHelpRows()` instead (see
- *  `formatCommandHelp` below) and are DELIBERATELY ABSENT from this
- *  literal table — do not re-add them here, that would be exactly the
- *  hand-sync drift this milestone's table exists to remove. Every other
- *  verb stays literal until its own milestone lands. */
+/** The per-verb subcommand rows, keyed by the verb (`cli.path[0]`). Verbs
+ *  whose capability has a real `cli` binding in core/capability-table.ts
+ *  (`list`, `version`, `status`, ...) are read from `cliCommandHelpRows()`
+ *  instead (see `formatCommandHelp` below) and are DELIBERATELY ABSENT from
+ *  this literal table — do not re-add them here, that would be exactly the
+ *  hand-sync drift the table exists to remove. */
 const COMMAND_HELP_ROWS = {
     help: [{ command: "cw help", summary: "Print the human CLI help text." }],
-    // NOTE: "ledger" is not listed here any more — ledger propose/review/
-    // verify/apply/list are now real capability-table rows (milestone 8,
-    // core/capability-table.ts) and come from cliCommandHelpRows("ledger")
-    // below, so their summary text lives in exactly one place.
-    //
     // "clones" (and, below, "schedule"/"routine"/"sched"/"registry"/"queue"/
-    // "gc"/"orphans") STAY literal here even though milestone 10 gave each
-    // verb a real capability-table row: that row's OWN `cli.path` is the
-    // bare 1-token verb (e.g. ["clones"]) because dispatchTable only
-    // supports 1- or 2-token paths and these verbs each have MANY
-    // subcommands handled by one internal switch — so the row's `cli`
-    // binding is a dispatch/usage-error mechanism, not a per-subcommand
-    // help entry, and is marked `hiddenFromHelp` for exactly that reason
-    // (core/capability-table.ts). The per-subcommand summaries a human
-    // reads via `cw help clones` therefore still come from literal rows
-    // here, same as every other not-yet-per-subcommand-tabled verb below.
+    // "gc"/"orphans") STAY literal here even though each verb has a real
+    // capability-table row: that row's OWN `cli.path` is the bare 1-token verb
+    // (e.g. ["clones"]) because dispatchTable only supports 1- or 2-token
+    // paths and these verbs each have MANY subcommands handled by one internal
+    // switch — so the row's `cli` binding is a dispatch/usage-error mechanism,
+    // not a per-subcommand help entry, and is marked `hiddenFromHelp` for
+    // exactly that reason (core/capability-table.ts). The per-subcommand
+    // summaries a human reads via `cw help clones` come from literal rows here.
     clones: [
         {
             command: "cw clones gc",
@@ -134,12 +118,9 @@ const COMMAND_HELP_ROWS = {
         { command: "cw sched complete", summary: "Complete a held lease (terminal success)." },
         { command: "cw sched reclaim", summary: "Reclaim expired leases (each counts a failed attempt)." },
         { command: "cw sched reset", summary: "Reset a parked entry to ready (operator recovery)." },
-        // Two rows for one command string, on purpose — SPEC/cli-probe.md's
-        // "Odd things a rebuild must copy or fix on purpose" item 5 names
-        // `sched policy` as one of the show/set pairs a rebuild's help
-        // printer must keep doubled; this single merged row was a regression
-        // that lost the doubling (plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/sched.txt has
-        // both), restored here with the old ground truth's exact wording.
+        // Two rows for one command string, on purpose: `sched policy` is one of
+        // the show/set pairs the help printer must keep doubled
+        // (SPEC/cli-probe.md item 5; plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/sched.txt has both).
         { command: "cw sched policy", summary: "Show the scheduling policy (file or default)." },
         { command: "cw sched policy", summary: "Set scheduling policy fields (concurrency/attempts/backoff/TTL)." },
     ],
@@ -178,17 +159,12 @@ const COMMAND_HELP_ROWS = {
         },
     ],
     run: [
-        // NOTE: neither "cw run drive" row is listed here any more. The first
-        // (read-only preview, "Preview the next agent-delegation...") is now a
-        // real capability-table row (run.drive, PARITY WIRING) with its own
-        // `cli.path`; the second (mutating "Drive a run by delegating...") is
-        // also a real capability-table row (run.drive.step, milestone 6+7)
-        // whose `helpPath` override displays it under the same "cw run drive"
-        // command column. Both come from cliCommandHelpRows("run") below, so
-        // neither is hand-duplicated here. Same for run archive/list/rerun/
-        // resume/search/show (milestone 10, core/capability-table.ts) — only
-        // the not-yet-implemented run-export family (milestone 11) stays
-        // literal here.
+        // Neither "cw run drive" row is listed here: the read-only preview
+        // (run.drive) and the mutating drive (run.drive.step, whose `helpPath`
+        // override displays it under the same "cw run drive" column) are both
+        // capability-table rows and come from cliCommandHelpRows("run") below,
+        // as do run archive/list/rerun/resume/search/show. The run-export
+        // family stays literal here.
         {
             command: "cw run export",
             summary: "Export a run to a portable archive with run-local files and digest integrity.",
@@ -210,31 +186,18 @@ const COMMAND_HELP_ROWS = {
             summary: "Verify an imported run against its restore manifest and telemetry chain.",
         },
     ],
-    // NOTE: "quickstart" is not listed here any more — it is now a real
-    // capability-table row (milestone 6+7, core/capability-table.ts) and
-    // comes from cliCommandHelpRows("quickstart") below, so its summary
-    // text lives in exactly one place.
     man: [{ command: "cw man", summary: "Show a man page from docs/ (e.g. cw man release-tooling)." }],
-    // NOTE: "demo" is not listed here any more — demo tamper/bundle are now
-    // real capability-table rows (milestone 8, core/capability-table.ts)
-    // and come from cliCommandHelpRows("demo") below.
 };
-/** The top-level `cw help` text. Color is
- *  intentionally NOT applied here (this milestone's conformance runs pipe
- *  stdout, so NO_COLOR/non-TTY always wins); byte content matches the
- *  plain-text capture at SPEC/cli-help/_root.txt, but for the dead
- *  `update` lines, which were taken out on purpose (no code was behind
- *  the verb — see MORE_COMMANDS_TOKENS note above), for a `--json`
- *  Flags row, added because the old build's capture predates the ~68
- *  capability-table rows that now support `--json`/`--format json`
- *  (io.ts's wantsJson) — the flag existed but was never documented here —
- *  and for a `--quiet` Flags row, a new CLI spelling of the existing
- *  CW_DRIVE_PROGRESS=0 env var (see cli/entry.ts); and for a `--resume`
- *  Flags row (architecture-review-driven fix), documenting the existing
- *  `--resume --run <id>` continuation flag (shell/pipeline-cli.ts's
- *  quickstartRun) that previously existed only in code comments and an
- *  auto-generated continue hint — a user who never happened to type it
- *  first had no way to discover it via `cw help`. */
+/** The top-level `cw help` text. Color is intentionally NOT applied here
+ *  (conformance pipes stdout, so NO_COLOR/non-TTY always wins); byte
+ *  content matches the plain-text capture at SPEC/cli-help/_root.txt, but
+ *  for: no `update` lines (no code is behind the verb — see the
+ *  MORE_COMMANDS_TOKENS note above); a `--json` Flags row (the capture
+ *  predates the capability-table rows that support `--json`/`--format
+ *  json`, io.ts's wantsJson); a `--quiet` Flags row, a CLI spelling of the
+ *  CW_DRIVE_PROGRESS=0 env var (see cli/entry.ts); and a `--resume` Flags
+ *  row, for the `--resume --run <id>` continuation flag
+ *  (shell/pipeline-cli.ts's quickstartRun). */
 function formatHelp() {
     const moreCommandsLines = wrapPipeJoined(exports.MORE_COMMANDS_TOKENS, MORE_COMMANDS_WRAP_WIDTH);
     const lines = [
@@ -269,12 +232,11 @@ function formatHelp() {
     ];
     return `${lines.join("\n")}\n`;
 }
-/** MILESTONE 2 — the capability-table projection half of
- *  `COMMAND_HELP_ROWS`: every declared `cli` binding whose `path[0]`
- *  matches `verb` becomes one row, `cw <path.join(" ")>` / `summary`.
- *  Merged into `formatCommandHelp` below so a verb can have BOTH literal
- *  rows (not-yet-migrated subcommands) and table-derived rows (migrated
- *  ones) without duplicating data by hand. */
+/** The capability-table projection half of `COMMAND_HELP_ROWS`: every
+ *  declared `cli` binding whose `path[0]` matches `verb` becomes one row,
+ *  `cw <path.join(" ")>` / `summary`. Merged into `formatCommandHelp` below
+ *  so a verb can have BOTH literal rows and table-derived rows without
+ *  duplicating data by hand. */
 function cliCommandHelpRows(verb) {
     return (0, capability_table_1.cliCapabilities)()
         .filter((row) => row.cli.path[0] === verb && !row.cli.hiddenFromHelp)
@@ -298,14 +260,12 @@ function aliasTargetVerb(verb) {
     }
     return undefined;
 }
-/** `formatCommandHelp(verb)`. Unknown verb
- *  gives a SOFT text (never a throw); known verb lists its registry rows,
- *  sorted by command string, padded to the longest command column + 2
- *  (capped at 40, per the old registry's own cap; none of the milestone-1
- *  fixture rows exceed it). An alias verb (a `caseTokens` token like
- *  `audit-run`) gets an alias header line plus its target verb's rows —
- *  before this fix it fell into the unknown-verb text and, worse, the
- *  Did-you-mean line suggested the very verb the user just typed. */
+/** `formatCommandHelp(verb)`. Unknown verb gives a SOFT text (never a
+ *  throw); known verb lists its registry rows, sorted by command string,
+ *  padded to the longest command column + 2 (capped at 40). An alias verb
+ *  (a `caseTokens` token like `audit-run`) gets an alias header line plus
+ *  its target verb's rows, never the unknown-verb text (whose Did-you-mean
+ *  line would suggest the very verb the user just typed). */
 function formatCommandHelp(verb, suggestCommand) {
     const rows = [...(COMMAND_HELP_ROWS[verb] ?? []), ...cliCommandHelpRows(verb)];
     if (rows.length === 0) {
@@ -325,7 +285,7 @@ function formatCommandHelp(verb, suggestCommand) {
     }
     return renderCommandHelpRows(`cw ${verb}`, rows);
 }
-/** The row-list rendering `formatCommandHelp` has always done, extracted
+/** The row-list rendering of `formatCommandHelp`, shared
  *  so the alias page above can render its target's rows under its own
  *  header line without a second copy of the sort/pad/Flags logic. */
 function renderCommandHelpRows(header, rows) {
@@ -359,11 +319,10 @@ function renderCommandHelpRows(header, rows) {
     }
     return `${lines.join("\n")}\n`;
 }
-/** `cw info <id>` human card — MILESTONE 12. Byte-exact in spirit to
- *  the old build's `formatInfo` (color stripped, matching
- *  this file's own `formatHelp`/`formatCommandHelp` — styling, if any, is
- *  applied by the shell layer, never here). `data` is the `showApp`/
- *  `showWorkflowApp` payload. */
+/** `cw info <id>` human card. Color is stripped, matching this file's own
+ *  `formatHelp`/`formatCommandHelp` — styling, if any, is applied by the
+ *  shell layer, never here. `data` is the `showApp`/`showWorkflowApp`
+ *  payload. */
 function formatInfo(appId, data) {
     const inputs = (Array.isArray(data.inputs) ? data.inputs : []);
     const phases = (Array.isArray(data.phases) ? data.phases : []);
@@ -399,10 +358,9 @@ function formatInfo(appId, data) {
     lines.push(`  Run: cw quickstart ${appId} --repo . --question "..."`);
     return lines.join("\n");
 }
-/** `cw search <keyword>`'s human text — byte-exact to the milestone-1
- *  carry-over's own formatSearchResults (moved here from cli/dispatch.ts
- *  so the search capability-table row, which lives in core/, can render
- *  its own text without core importing from cli/). */
+/** `cw search <keyword>`'s human text. Lives in core/ so the search
+ *  capability-table row can render its own text without core importing
+ *  from cli/. */
 function formatSearchResults(keyword, results) {
     if (results.length === 0) {
         return `No workflows matched "${keyword}".\n  Tip: cw list for all available workflows.`;

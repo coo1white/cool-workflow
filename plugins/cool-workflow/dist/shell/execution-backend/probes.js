@@ -1,10 +1,9 @@
 "use strict";
 // shell/execution-backend/probes.ts — per-backend readiness probe bodies.
 //
-// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// the old build's execution-backend probes module. Each probe is a
-// pure free function of the host (PATH + configured env); the registry's
-// `probeBackend` wraps these with the descriptor-derived envelope.
+// Each probe is a pure free function of the host (PATH + configured env);
+// the registry's `probeBackend` wraps these with the descriptor-derived
+// envelope.
 //
 // Evidence: SPEC/execution-backend.md "Probes".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {

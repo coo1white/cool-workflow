@@ -1,25 +1,18 @@
 // shell/doctor.ts — `cw doctor` environment diagnostics, in the spirit of
 // `brew doctor`.
 //
-// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// the old build's doctor module's checks this milestone needs
-// (node/agent/agent-binary/git/home-registry/repo-state). The `--onramp`
-// section (buildDoctorOnramp) is later-milestone (reporting) territory and
-// is intentionally NOT wired here — no milestone-5 conformance case passes
-// `--onramp`, and DoctorReport.onramp is optional so this is a strict
-// subset, not a behavior change for any case this milestone must pass.
+// Checks: node/agent/agent-binary/git/home-registry/repo-state, plus the
+// `--onramp` section (buildDoctorOnramp) when asked.
 //
-// Discipline (unchanged from the old build):
+// Discipline:
 //  - READ-ONLY. Never creates .cw/ or $CW_HOME as a side effect.
 //  - FAIL CLOSED. Any `fail` check => ok:false => the CLI exits non-zero.
 //    A `warn` (e.g. no agent yet) does not fail.
 //  - TWO RENDERINGS. Human text by default; a stable `--json` payload.
 //
-// Evidence: SPEC/execution-backend.md "Agent delegation config"; the doctor
-// behavior itself is documented in the old build's doctor module (not yet a
-// dedicated SPEC file — this milestone's conformance case,
-// exec-doctor-agent-config.case.js, pins the exact text this file must
-// produce).
+// Evidence: SPEC/execution-backend.md "Agent delegation config";
+// exec-doctor-agent-config.case.js pins the exact text this file must
+// produce.
 
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -295,9 +288,9 @@ export function runDoctor(
     ok,
     checks,
     summary,
-    // `--onramp` attaches the change-contract onramp block (byte-exact port
-    // of the old build's doctor module wiring). `--changed-from REF` threads
-    // the base ref through to resolveChangedFiles + evaluateOnrampContract.
+    // `--onramp` attaches the change-contract onramp block. `--changed-from
+    // REF` threads the base ref through to resolveChangedFiles +
+    // evaluateOnrampContract.
     ...(optionEnabled(args.onramp)
       ? {
           onramp: buildDoctorOnramp({

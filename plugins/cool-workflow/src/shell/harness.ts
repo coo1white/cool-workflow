@@ -1,8 +1,5 @@
 // shell/harness.ts — writeTaskFiles, renderTask (task file template).
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// harness module.
-//
 // Evidence: SPEC/pipeline-run.md "Task files — harness module", "Task
 // file template (verbatim skeleton from renderTask)".
 

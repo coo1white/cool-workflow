@@ -2,8 +2,7 @@
 // core/pipeline/error-feedback.ts — classifyFeedback, recordFeedback's
 // decision half, dedup key.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the DECISION half of the
-// old build's error-feedback module (record shape, classification,
+// The DECISION half of error feedback (record shape, classification,
 // severity, dedup key, id formatting). The disk write (feedback/*.json +
 // index.json + saveCheckpoint) is the caller's job (shell/), since this
 // file stays pure per the core/shell split.
@@ -38,7 +37,7 @@ function codeFromError(error) {
         return "phase-gate-blocked";
     return "runtime-error";
 }
-/** classifyFeedback — fixed order, byte-exact to the old build. */
+/** classifyFeedback — fixed (pinned) order. */
 function classifyFeedback(error, context = {}, now = new Date(0).toISOString()) {
     const normalized = normalizeError(error, now);
     const code = normalized.code.toLowerCase();

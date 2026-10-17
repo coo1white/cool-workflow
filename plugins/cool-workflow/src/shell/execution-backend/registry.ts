@@ -2,9 +2,8 @@
 // registerBackend, resolveBackendSelection, attestSandbox, probeBackend,
 // runBackend, and the CLI-facing inspection payloads.
 //
-// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// the old build's execution-backend module (the parts not carved into
-// local.ts/container.ts/remote.ts/ci.ts/agent.ts/probes.ts).
+// The parts not carved into local.ts/container.ts/remote.ts/ci.ts/
+// agent.ts/probes.ts.
 //
 // Evidence: SPEC/execution-backend.md "The driver registry".
 
@@ -564,6 +563,5 @@ export function backendProbePayload(
 }
 
 // Re-export the shared leaf so importers that expect it from the registry
-// module (mirroring the old build's single-file re-export surface) find it
-// here too.
+// module find it here too.
 export { hasExecutable };

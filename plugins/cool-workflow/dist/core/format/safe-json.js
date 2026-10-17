@@ -8,7 +8,7 @@
 // MB: a useless dump for a calling agent's context window at best, and at
 // worst a RangeError ("Invalid string length") once the string crosses
 // V8's per-string ceiling (~256M UTF-16 code units) — the same failure
-// class PR #316 fixed for batch stdout reconciliation, here on the output
+// class as batch stdout reconciliation, here on the output
 // side instead. Both `--json` and MCP callers already catch a thrown error
 // and report it cleanly (cli/entry.ts's top-level catch; mcp/server.ts's
 // tools/call try/catch), so this is not a crash fix so much as a "return

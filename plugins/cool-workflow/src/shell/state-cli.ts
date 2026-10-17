@@ -2,11 +2,8 @@
 // capability rows (state.check, migration.list|check|prove, node.list|
 // show|graph|snapshot|diff|replay|replay.verify, contract.show).
 //
-// MILESTONE 3. Byte-exact port of the old build's checkState,
-// migrationList/Check/Prove, and the node.* runner
-// methods. Impure (fs) — this is the
-// shell layer the capability-table's CLI/MCP handlers delegate to; the
-// decision logic itself lives in core/state/*.
+// Impure (fs) — this is the shell layer the capability-table's CLI/MCP
+// handlers delegate to; the decision logic itself lives in core/state/*.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -52,8 +49,7 @@ export function migrationList(): { contracts: ReturnType<typeof listMigrationCon
 }
 
 /** Resolves `target` to an existing file (absolute/relative to
- *  `process.cwd()`, NOT the `--cwd` option — matches the old build's
- *  `loadMigrationSnapshot` literally) else `<cwd>/.cw/runs/<target>/
+ *  `process.cwd()`, NOT the `--cwd` option) else `<cwd>/.cw/runs/<target>/
  *  state.json`. Throws `Migration target not found: <target>` when
  *  neither exists. */
 function loadMigrationSnapshot(
@@ -101,10 +97,9 @@ function loadRun(runId: string, options: Record<string, unknown> = {}): Workflow
 
 /** `cw next <run-id> [--limit N]` — the read-only "what would dispatch next"
  *  preview: the runnable tasks the next `cw dispatch` would pick, in order,
- *  without mutating state. A byte-behavior port of the old build's
- *  orchestrator.next (nextDispatchTasks over the loaded run). Both the CLI and
- *  the cw_next MCP tool render this same DispatchTask[] value, so their
- *  payloads stay identical. */
+ *  without mutating state (nextDispatchTasks over the loaded run). Both
+ *  the CLI and the cw_next MCP tool render this same DispatchTask[] value,
+ *  so their payloads stay identical. */
 export function nextCli(runId: string, options: Record<string, unknown> = {}) {
   return nextDispatchTasks(loadRun(runId, options), requiredNumberFlag(options.limit, "--limit"));
 }
@@ -166,7 +161,7 @@ function firstStringArg(value: unknown): string | undefined {
 }
 
 /** `cw contract show <run> [contract-id]` / `cw_contract_show` — the run's
- *  resolved pipeline contract. Port of the old runner.showContract. */
+ *  resolved pipeline contract. */
 export function contractShowCli(args: Record<string, unknown>, contractId?: string): PipelineContract {
   const runId = firstStringArg(args.runId);
   if (!runId) throw new Error("Missing run id");

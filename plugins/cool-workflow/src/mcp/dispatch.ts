@@ -1,18 +1,14 @@
 // mcp/dispatch.ts — the generic MCP tool-call reader over
 // core/capability-table.ts.
 //
-// MILESTONE 2 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 2). Replaces the old build's
-// 196-arm `callTool` switch (the old build's tool-call module) with a data-driven
-// lookup: resolve the row by tool name, check its declared required-arg
-// groups (SPEC/mcp.md's `McpBinding.requiredArgs`), re-base `cwd` if
-// given, then call the row's `mcp.handler`. Every future milestone adds
-// capabilities as capability-table ROWS; this file is not touched again.
+// A data-driven lookup: resolve the row by tool name, check its declared
+// required-arg groups (SPEC/mcp.md's `McpBinding.requiredArgs`), re-base
+// `cwd` if given, then call the row's `mcp.handler`. A new capability is a
+// capability-table ROW; this file does not change for it.
 //
 // `cwd` handling here (resolve, must be a directory, inject the resolved
-// path back into a COPY of args) matches SPEC/mcp.md invariant 7. This
-// milestone's own real handlers (`list`, `sandbox.list`, `status`) do not
-// themselves need cwd, but the re-base is still performed uniformly so a
-// later milestone's handler can rely on it without dispatch.ts changing.
+// path back into a COPY of args) matches SPEC/mcp.md invariant 7, and is
+// performed uniformly so any handler can rely on it.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -25,7 +21,7 @@ export function toolDefinitions(): McpToolDefinition[] {
   return mcpToolDefinitions();
 }
 
-/** SPEC/mcp.md invariant 6 / the old build's mcp-surface module — required-argument
+/** SPEC/mcp.md invariant 6 — required-argument
  *  groups are declared data, not code. `undefined`/`null` become `{}`; a
  *  non-object throws; a group "keyA|keyB" passes when at least one named
  *  key is not `undefined`, not `null`, and not `""`. */
@@ -53,7 +49,7 @@ export function requiredToolArguments(name: string, value: unknown): Record<stri
  *  can arrive as a number or boolean (e.g. `{"runId": 5}`). Every capability
  *  handler coerces its args through optionalString/numberArg/boolArg, all of
  *  which expect the CLI's string form — optionalString silently DROPS a
- *  number, so `{"runId": 5}` used to look like "no runId given" and returned
+ *  number, so `{"runId": 5}` would look like "no runId given" and return
  *  a success-shaped WRONG answer (the "create a run first" payload). Coerce
  *  top-level scalars to their string form so an MCP arg behaves exactly like
  *  the CLI's argv, which is always strings. Arrays/objects (e.g.
@@ -71,8 +67,7 @@ function coerceScalarArgs(args: Record<string, unknown>): Record<string, unknown
 
 /** `callTool(name, args)` — resolves `cwd` (SPEC/mcp.md invariant 7),
  *  checks required args, then calls the row's `mcp.handler`. Throws
- *  `Unknown tool: <name>` for a name with no row (the old build's
- *  tool-call module had the same parity). */
+ *  `Unknown tool: <name>` for a name with no row. */
 export function callTool(name: string, rawArgs: unknown): unknown {
   const row = findCapabilityByMcpTool(name);
   if (!row || !row.mcp) {

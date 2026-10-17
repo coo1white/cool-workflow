@@ -157,7 +157,7 @@ function readJson(file) {
     }
 }
 // ---------------------------------------------------------------------------
-// Safe ids / names — from the old build's state module.
+// Safe ids / names
 // ---------------------------------------------------------------------------
 /** Replaces every run of chars outside `[a-zA-Z0-9_.:-]` with a single `_`. */
 function safeFileName(value) {
@@ -179,7 +179,7 @@ function assertSafeRunId(value, context = "run id") {
     return value;
 }
 // ---------------------------------------------------------------------------
-// Symlink-hardened path containment — from the old build's state module.
+// Symlink-hardened path containment
 // ---------------------------------------------------------------------------
 /** Realpath the deepest EXISTING ancestor (follows symlinks), then re-join
  *  the not-yet-created tail. If nothing exists up to the root, returns
@@ -399,16 +399,12 @@ function releaseOwnedLock(lock, pid) {
 }
 /** Steal a stale lock, serialized through a single-winner guard file.
  *
- *  Every earlier steal design judged the lock and then deleted it as two
- *  separate steps with no exclusion around them, and every narrowing of
- *  that gap (content-equality re-read, liveness gate, unlinkSync over
- *  rmSync) still lost a CI run eventually: under load, the judging
- *  process can be preempted between its last read and its unlink, a
- *  concurrent stealer completes the whole steal-and-reacquire in that
- *  gap, and the sleeper's unlink then removes the NEW owner's lock —
- *  two processes end up inside the critical section (reproduced in PR
- *  #420's CI on arm64 Node 22, trial 10, after the linkSync acquire fix
- *  landed). The gap cannot be closed from the judging side; POSIX has no
+ *  Judging a lock and then deleting it are two separate steps, and under
+ *  load the judging process can be preempted between its last read and
+ *  its unlink: a concurrent stealer completes the whole steal-and-
+ *  reacquire in that gap, and the sleeper's unlink then removes the NEW
+ *  owner's lock — two processes end up inside the critical section. The
+ *  gap cannot be closed from the judging side; POSIX has no
  *  compare-and-delete.
  *
  *  So close it by exclusion instead: only the holder of `<lock>.steal`
@@ -541,9 +537,7 @@ function withFileLock(targetPath, fn) {
             continue;
         }
         // Give up on wall-clock, never on a raw try count: this keeps the worst-
-        // case block at ~6s even though the per-sleep backoff grew. Bounding by a
-        // fixed try count instead (as the old flat-25ms loop's 240 tries did)
-        // would have let the growing backoff roughly double that worst case.
+        // case block at ~6s even though the per-sleep backoff grows.
         if (Date.now() >= deadline)
             break;
         // Sleep a jittered span in [BASE, backoff] — never 0, so never a busy

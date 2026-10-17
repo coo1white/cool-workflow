@@ -1,10 +1,9 @@
 // core/pipeline/dispatch.ts — nextDispatchTasks, firstRunnablePhase,
 // updatePhaseStatuses, formatDispatchTask, dispatch-id formatting.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the PURE parts of the old
-// build's dispatch module (the decision half — worker-scope allocation,
-// manifest file writes, and multi-agent attachment are shell-side, see
-// shell/worker-isolation.ts and shell/drive.ts).
+// The PURE decision half of dispatch (worker-scope allocation and
+// manifest file writes are shell-side, see shell/worker-isolation.ts and
+// shell/drive.ts).
 //
 // Evidence: SPEC/pipeline-run.md "Dispatch — dispatch module".
 
@@ -105,7 +104,7 @@ export function formatDispatchTask(task: RunTask): DispatchTask {
 /** `nextDispatchTasks(run, limit?)` — pending tasks of the first runnable
  *  phase (and of any phase that overlaps it), capped, mapped through formatDispatchTask. `??`, not `||`: an
  *  explicit `limit: 0` (or a configured `maxConcurrentAgents: 0`) means
- *  "dispatch nothing", not "no limit was given" — `0 || fallback` used to
+ *  "dispatch nothing", not "no limit was given" — `0 || fallback` would
  *  silently replace a real zero with the fallback. Negative numbers are
  *  clamped to 0 before reaching `.slice()`, which otherwise treats a
  *  negative end index as "drop that many from the end" instead of "cap at

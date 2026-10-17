@@ -1,10 +1,9 @@
 // shell/node-store.ts — writeRunNode, node-snapshot/replay disk persistence
 // and reads.
 //
-// MILESTONE 3. The disk half of core/state/state-node.ts (writeRunNode)
-// and core/state/node-snapshot.ts (persist callbacks + readNodeSnapshot/
-// readNodeReplay's directory scans). Byte-exact port of the old build's
-// state-node and node-snapshot modules.
+// The disk half of core/state/state-node.ts (writeRunNode) and
+// core/state/node-snapshot.ts (persist callbacks + readNodeSnapshot/
+// readNodeReplay's directory scans).
 
 import * as fs from "node:fs";
 import * as path from "node:path";

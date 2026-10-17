@@ -1,7 +1,6 @@
-// wiring/capability-table/state.ts — MILESTONE 3 (state kernel) CLI
-// bindings: state.check, migration.list|check|prove, node.list|show|graph|
-// snapshot|diff|replay|replay.verify, contract.show. Split out of
-// core/capability-table.ts, byte-for-byte (extracted with sed, not retyped).
+// wiring/capability-table/state.ts — state-kernel CLI bindings:
+// state.check, migration.list|check|prove, node.list|show|graph|
+// snapshot|diff|replay|replay.verify, contract.show.
 
 import { attachCliBinding, REGISTRY_BY_CAPABILITY } from "./registry-core";
 import { optionalArg } from "../../core/util/cli-args";
@@ -15,15 +14,14 @@ function loadStateCli(): typeof import("../../shell/state-cli") {
   return require("../../shell/state-cli") as typeof import("../../shell/state-cli");
 }
 
-// MILESTONE 3 (state kernel) CLI bindings: state.check, migration.list|
+// State-kernel CLI bindings: state.check, migration.list|
 // check|prove, node.list|show|graph|snapshot|diff|replay|replay.verify.
 // Handler BODIES live in shell/state-cli.ts (impure — they read/write
 // run state on disk); this table only wires argv shape -> handler call
 // and the row's own exit-code rule, per cli/dispatch.ts's generic
 // executor contract. `required`/`optionalArg` are core/util/cli-args.ts's
 // shared coercion helpers, imported here so the wiring stays a thin adapter
-// (Usage-error strings copied byte-for-byte from the old build's
-// handlers/*.ts).
+// (Usage-error strings are byte-pinned).
 // ---------------------------------------------------------------------
 
 import { required } from "../../core/util/cli-args";
@@ -81,8 +79,7 @@ attachCliBinding("node.show", {
 });
 
 // jsonMode "flag": `--json` prints the node array (graphNodes); the bare
-// verb prints the operator run-graph text, byte-for-byte the old build's
-// `node graph` render (formatOperatorGraph over runner.operatorGraph).
+// verb prints the operator run-graph text (formatOperatorGraph).
 attachCliBinding("node.graph", {
   path: ["node", "graph"],
   jsonMode: "flag",
@@ -134,9 +131,7 @@ attachCliBinding("node.replay.verify", {
   },
 });
 
-// GAP #24: mirror the state-kernel CLI shell fns as MCP handlers (they were
-// declared MCP tool rows but left on notYetImplemented). Arg-name reads copied
-// byte-for-byte from the old build's mcp/tool-call.ts switch arms.
+// The state-kernel CLI shell fns, as MCP handlers.
 REGISTRY_BY_CAPABILITY.get("state.check")!.mcp!.handler = (args) => loadStateCli().checkState(required(optionalArg(args.runId), "run id"), args);
 REGISTRY_BY_CAPABILITY.get("migration.list")!.mcp!.handler = () => loadStateCli().migrationList();
 REGISTRY_BY_CAPABILITY.get("migration.check")!.mcp!.handler = (args) => loadStateCli().migrationCheck(required(optionalArg(args.target ?? args.runId), "target (run-id or state/app file)"), args);
@@ -150,8 +145,7 @@ REGISTRY_BY_CAPABILITY.get("node.replay")!.mcp!.handler = (args) => loadStateCli
 REGISTRY_BY_CAPABILITY.get("node.replay.verify")!.mcp!.handler = (args) => loadStateCli().nodeReplayVerifyCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.replayId), "replay id"), args);
 
 // `cw contract show <run> [contract-id]` / `cw_contract_show` — the run's
-// own pipeline contract. Moved here from the deleted multi-agent slice
-// (slim-and-esm step 2); same handler body, now in shell/state-cli.ts.
+// own pipeline contract, in shell/state-cli.ts.
 attachCliBinding("contract.show", {
   path: ["contract", "show"],
   jsonMode: "default",

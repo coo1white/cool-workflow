@@ -3,10 +3,9 @@
 // spine: planRun, runDrivePreview, runDriveStep, quickstartRun,
 // dispatchRun, recordResultRun, commitRun.
 //
-// MILESTONE 6+7 (combined). Wires the pieces built in shell/pipeline.ts,
-// shell/drive.ts, shell/dispatch.ts, shell/commit.ts, shell/worker-
-// isolation.ts, shell/workflow-app-loader.ts into the shapes
-// core/capability-table.ts's CLI bindings call.
+// Wires shell/pipeline.ts, shell/drive.ts, shell/dispatch.ts,
+// shell/commit.ts, shell/worker-isolation.ts and shell/workflow-app-loader.ts
+// into the shapes core/capability-table.ts's CLI bindings call.
 //
 // Evidence: SPEC/pipeline-run.md "CLI / MCP surface (capability layer)".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -78,8 +77,7 @@ const QUICKSTART_DEFAULT_APP = "architecture-review";
 // `--fast`: the 6-worker review for one focused question (Map and Assess
 // two workers each), in place of the default 14.
 const QUICKSTART_FAST_APP = "architecture-review-fast";
-/** First non-empty string among the given arg values (mirrors the old
- *  build's optionalString read over several alias keys). */
+/** First non-empty string among the given arg values. */
 function firstString(...values) {
     for (const value of values) {
         if (typeof value === "string" && value.trim())
@@ -87,8 +85,7 @@ function firstString(...values) {
     }
     return undefined;
 }
-/** Shell-quote a token for a copy-pasteable next command (byte-exact to the
- *  old build's shellWord). */
+/** Shell-quote a token for a copy-pasteable next command. */
 function shellWord(value) {
     if (/^[A-Za-z0-9_./:@%+=,-]+$/.test(value))
         return value;
@@ -96,8 +93,7 @@ function shellWord(value) {
 }
 /** The copy-pasteable `cw quickstart …` line the `--check` payload echoes,
  *  weaving in --bundle / --with-trust-key / --strict-signatures so the
- *  suggested resume preserves bundle intent. Byte-exact port of the old
- *  build's quickstartNextCommand. */
+ *  suggested resume preserves bundle intent. */
 function quickstartNextCommand(appId, repo, args) {
     const parts = ["cw", "quickstart", shellWord(appId), "--repo", shellWord(repo)];
     const question = firstString(args.question);
@@ -116,8 +112,7 @@ function quickstartNextCommand(appId, repo, args) {
     return parts.join(" ");
 }
 /** Runtime keys that must NEVER leak into run.inputs (they are drive/CLI
- *  plumbing, not workflow-declared inputs). Byte-exact to the old
- *  build's DRIVE_RUNTIME_KEYS list. */
+ *  plumbing, not workflow-declared inputs). */
 const RUNTIME_KEYS = new Set([
     "once", "now", "preview", "step", "drive", "json", "format", "run", "runId", "cwd",
     "agentCommand", "agent-command", "agentArgs", "agent-args", "agentEndpoint", "agent-endpoint",
@@ -125,12 +120,10 @@ const RUNTIME_KEYS = new Set([
     "concurrency", "link", "ref", "branch", "refresh", "check", "app", "appId", "workflowId", "question", "repo",
     "fast",
 ]);
-/** Byte-exact port of the old build's `normalizeInputs`:
- *  repeated `--arg
- *  key=value` pairs unpack into inputs (key = text before the first "=",
- *  value = the rest re-joined with "="); `repo` copies to `cwd` when `cwd`
- *  is not already set. Per SPEC/orchestrator.md's "Plan input rules" and
- *  SPEC/workflow-apps.md. */
+/** Repeated `--arg key=value` pairs unpack into inputs (key = text before
+ *  the first "=", value = the rest re-joined with "="); `repo` copies to
+ *  `cwd` when `cwd` is not already set. Per SPEC/orchestrator.md's "Plan
+ *  input rules" and SPEC/workflow-apps.md. */
 function planInputsFor(args) {
     const out = {};
     for (const [key, value] of Object.entries(args)) {
@@ -150,9 +143,9 @@ function planInputsFor(args) {
         out.repo = args.repo;
     if (typeof args.question === "string")
         out.question = args.question;
-    // An explicit --cwd is stripped by RUNTIME_KEYS above, but the old build
-    // honored it for the run anchor. Re-add it (like repo) so a caller-supplied
-    // cwd is not silently dropped to process.cwd() — a cross-request bleed.
+    // An explicit --cwd is stripped by RUNTIME_KEYS above, but it anchors the
+    // run. Re-add it (like repo) so a caller-supplied cwd is not silently
+    // dropped to process.cwd() — a cross-request bleed.
     if (typeof args.cwd === "string" && args.cwd.trim())
         out.cwd = args.cwd;
     if (out.repo && !out.cwd)
@@ -173,8 +166,8 @@ function loadExistingRunAt(runId, cwd) {
     }
     return run;
 }
-/** True for a value that counts as "not supplied" — byte-exact to the old
- *  build's cli-options.isMissing (undefined / null / empty string). */
+/** True for a value that counts as "not supplied" (undefined / null /
+ *  empty string). */
 function isMissingInput(value) {
     return value === undefined || value === null || value === "";
 }
@@ -199,14 +192,12 @@ function assertRepoFolder(repo) {
         throw new Error(`${repo} is not a folder. Pass --repo <path> to a project folder.`);
 }
 /** Resolve a workflow app for `plan`/`run --drive` over the SAME surface `cw
- *  list` shows — bundled apps AND legacy `<name>.workflow.js` files. The old
- *  build's plan() resolved via loadWorkflowAppById (full discovery over both the
- *  workflows/ and apps/ roots, in its orchestrator app-operations module), so any id `cw list`
- *  surfaces is plannable. v2's fast-path loadWorkflowApp only reads
- *  apps/<id>/app.json, so a legacy workflow-file wrapper (e.g.
- *  legacy-research-synthesis) that `list` CAN resolve died with "Workflow app
- *  not found". Fall back to the full-discovery record (loadWorkflowAppRecordById)
- *  and adapt it to the minimal LoadedWorkflowApp plan() consumes. */
+ *  list` shows — bundled apps AND legacy `<name>.workflow.js` files. The
+ *  fast-path loadWorkflowApp only reads apps/<id>/app.json, so a legacy
+ *  workflow-file wrapper (e.g. legacy-research-synthesis) that `list` CAN
+ *  resolve would die with "Workflow app not found". Fall back to the
+ *  full-discovery record (loadWorkflowAppRecordById) and adapt it to the
+ *  minimal LoadedWorkflowApp plan() consumes. */
 function resolveWorkflowAppForPlan(appId) {
     try {
         return (0, workflow_app_loader_1.loadWorkflowApp)(appId);
@@ -236,11 +227,11 @@ function resolveWorkflowAppForPlan(appId) {
 function planRun(args) {
     const appId = String(args.workflowId || args.app || QUICKSTART_DEFAULT_APP);
     // POLA: `cw plan <app>` does NOT default repo to the caller's cwd (unlike the
-    // one-command quickstart). The old build validated required inputs FIRST
-    // (orchestrator lifecycle-operations module's validateInputs, message `Missing required input
-    // --<name>`), so a missing --repo surfaces the copy-pasteable `-dir` recovery
-    // line (cli/entry.ts recoveryHint's "missing"+"repo" branch) instead of a
-    // silent cwd-anchored run. Auto-filling repo here would hide that recovery.
+    // one-command quickstart). Required inputs are checked first (message
+    // `Missing required input --<name>`), so a missing --repo surfaces the
+    // copy-pasteable `-dir` recovery line (cli/entry.ts recoveryHint's
+    // "missing"+"repo" branch) instead of a silent cwd-anchored run.
+    // Auto-filling repo here would hide that recovery.
     const app = resolveWorkflowAppForPlan(appId);
     const planInputs = planInputsFor(args);
     for (const declared of app.workflow.inputs || []) {
@@ -249,10 +240,9 @@ function planRun(args) {
         }
     }
     const run = (0, pipeline_1.plan)(app, planInputs);
-    // `pendingTasks` is the canonical plan-payload key both `cw plan` and
-    // `cw_plan` carry (old build's planSummary:
-    // `pendingTasks: run.tasks.filter(status === "pending").length`, and
-    // SPEC/workflow-apps.md). `taskCount` stays as a harmless extra.
+    // `pendingTasks` is the canonical plan-payload (planSummary) key both `cw
+    // plan` and `cw_plan` carry (SPEC/workflow-apps.md); version-sync-check.js
+    // pins the planSummary word in this file. `taskCount` stays as a harmless extra.
     const pendingTasks = run.tasks.filter((task) => task.status === "pending").length;
     return { schemaVersion: 1, runId: run.id, workflowId: run.workflow.id, statePath: run.paths.state, reportPath: run.paths.report, pendingTasks, taskCount: run.tasks.length };
 }
@@ -385,8 +375,7 @@ function quickstartCheck(appId, args, remoteCandidate) {
     return { schemaVersion: 1, mode: "check", ok, appId, repo, checks, nextCommand: quickstartNextCommand(appId, repo, args) };
 }
 /** `--check` for a `--link`/URL review: validates the URL shape + git tooling
- *  WITHOUT fetching (byte-behavior port of the old build's remoteQuickstartCheck).
- *  `repo` carries the sanitized URL. */
+ *  WITHOUT fetching. `repo` carries the sanitized URL. */
 function remoteQuickstartCheck(appId, args, candidate) {
     const validation = (0, remote_source_1.validateRemoteUrl)(candidate);
     const checks = [];
@@ -446,8 +435,7 @@ async function promptForQuestion() {
  *  read-only preflight that never plans/drives/writes (see
  *  `quickstartCheck` above). `--preview` is a read-only next-step
  *  projection (never drives), `--resume` advances one step (no --run) or
- *  continues a named run to completion (--run <id>) — both ported byte-for-
- *  byte from the old build's capability-core module quickstart(). */
+ *  continues a named run to completion (--run <id>). */
 async function quickstartRun(args) {
     const namedApp = args.appId || args.app || args.workflowId;
     const fast = (0, cli_args_1.flagOn)(args.fast);
@@ -478,29 +466,25 @@ async function quickstartRun(args) {
     // `--resume`: a discoverability flag over the existing continuation. With no
     // `--run`, advance exactly ONE step (reuse the `--once` path) and print a
     // copy-pasteable continue line; with `--run <id>`, continue that run to
-    // completion (the default drive). It adds no new execution path. Byte-exact to
-    // the old build's capability-core module quickstart(). Hoisted above the TTY
-    // prompt below: `existingRunId` is the one fact (mirrored at both the
-    // `--preview` branch's `if (!previewRunId)` and the main path's `if
-    // (existingRunId) {...} else { run = plan(...) }`) that decides whether THIS
-    // invocation plans a fresh run at all — an existing run never needs a
+    // completion (the default drive). It adds no new execution path. Hoisted
+    // above the TTY prompt below: `existingRunId` is the one fact (mirrored at
+    // both the `--preview` branch's `if (!previewRunId)` and the main path's
+    // `if (existingRunId) {...} else { run = plan(...) }`) that decides whether
+    // THIS invocation plans a fresh run at all — an existing run never needs a
     // question, no matter which mode (--preview/--resume/plain) is asking for it.
     const resume = Boolean(args.resume);
     const existingRunId = String(args.runId || args.run || "");
     const resumeRunId = resume && existingRunId ? existingRunId : undefined;
     // On an interactive TTY with no --question, ask for one instead of
-    // failing closed with "Missing required input: question" (byte-behavior
-    // port of the old build's TTY prompt — SPEC/cli-surface.md:34,502). A
-    // blank/empty answer leaves `question` unset, same as never passing
-    // --question at all — plan()'s own required-input check still fails
-    // closed for an app that declares `question` required. Never fires
-    // under --check (returned above; --check reports a missing question as
-    // a preflight issue, not something to prompt for), off a TTY (a piped
-    // invocation must never block on stdin), or when `existingRunId` is set
-    // (a `--preview --run <id>` or `--resume --run <id>` continues an
-    // already-planned run and never calls `plan()` again, so it never
-    // needs a question — prompting there would block on stdin for no
-    // reason; a review on this cycle caught exactly that regression).
+    // failing closed with "Missing required input: question". A blank/empty
+    // answer leaves `question` unset, same as never passing --question at
+    // all — plan()'s own required-input check still fails closed for an app
+    // that declares `question` required. Never fires under --check (returned
+    // above; --check reports a missing question as a preflight issue), off a
+    // TTY (a piped invocation must never block on stdin), or when
+    // `existingRunId` is set (a `--preview --run <id>` or `--resume --run
+    // <id>` continues an already-planned run and never calls `plan()` again,
+    // so prompting there would block on stdin for no reason).
     if (process.stdin.isTTY && !existingRunId && !(typeof args.question === "string" && args.question.trim())) {
         const answer = await promptForQuestion();
         if (answer)
@@ -588,7 +572,7 @@ async function quickstartRun(args) {
     // on completion: a partial/blocked run is NEVER sealed. Run-state resolution
     // anchors to the run's OWN repo (run.cwd) — quickstart runs cross-directory — but
     // OUTPUT paths resolve against the CALLER's cwd so artifacts land where the
-    // operator ran the command. Byte-behavior port of the old build's quickstart().
+    // operator ran the command.
     const wantsBundle = (0, cli_args_1.flagOn)(args.bundle);
     let bundle;
     if (wantsBundle && result.status === "complete") {
@@ -603,8 +587,7 @@ async function quickstartRun(args) {
         });
     }
     // Human-facing triage `hint` (stderr-side; absent on a clean completion so the
-    // default payload is byte-identical). Byte-exact wording to the old build's
-    // capability-core module quickstart(): the fail-closed "not configured …
+    // default payload is byte-identical): the fail-closed "not configured …
     // DELEGATES" line reaffirms the red line; the resume/once lines are copy-paste
     // continue commands.
     let hint;
@@ -644,14 +627,12 @@ async function quickstartRun(args) {
             /* opener missing or failed: no reportOpened, the summary still shows */
         }
     }
-    // Byte-exact to the old build's quickstart() return shape
-    // (capability-core module): `appId` is the resolved app id (the
-    // argument, or its architecture-review default; for a continued
-    // --run <id> with no app and no --fast, the app the run was planned
-    // with), distinct from
-    // `workflowId` which is the driven run's own workflow id (equal for a
-    // top-level run, different for a sub-workflow hop). `remote` is present only
-    // for a --link/URL source, so a local-repo run stays byte-identical.
+    // The return shape: `appId` is the resolved app id (the argument, or its
+    // architecture-review default; for a continued --run <id> with no app and
+    // no --fast, the app the run was planned with), distinct from `workflowId`
+    // which is the driven run's own workflow id (equal for a top-level run,
+    // different for a sub-workflow hop). `remote` is present only for a
+    // --link/URL source, so a local-repo run stays byte-identical.
     // `resumedFrom` is stamped ONLY when an explicit --run was continued
     // (conditional spread keeps the key absent on the fresh/default path).
     return {
@@ -746,9 +727,9 @@ function recordResultRun(args) {
     const runId = String(args.runId);
     const taskId = String(args.taskId);
     const resultPath = String(args.resultPath);
-    // Two processes recording results for two tasks of the SAME run used to
-    // race: both loaded, and the later saveCheckpoint dropped the earlier
-    // task's completion. The lock now covers the whole cycle.
+    // The lock covers the whole cycle: two processes recording results for
+    // two tasks of the SAME run would otherwise both load, and the later
+    // saveCheckpoint would drop the earlier task's completion.
     return (0, run_store_1.withRunStateLock)(runId, (0, cli_args_1.cwdArg)(args), (run) => {
         const task = run.tasks.find((t) => t.id === taskId);
         if (!task || !task.workerId)
@@ -756,8 +737,7 @@ function recordResultRun(args) {
         const absolute = path.resolve(resultPath);
         // A result path inside a system directory is never accepted (POLA): the
         // operator file gets copied into the worker's result.md, so a /etc/passwd
-        // source would smuggle system content into a run. Byte-behavior port of the
-        // old build's recordResult system-directory blacklist.
+        // source would smuggle system content into a run.
         if (/^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//.test(absolute)) {
             throw new Error(`Result path must not be a system directory: ${resultPath}`);
         }
@@ -766,14 +746,11 @@ function recordResultRun(args) {
         const workerId = String(task.workerId);
         // Host-attested `cw result <run> <task> <file>` intake: the operator hands CW
         // an EXTERNAL result file that lives OUTSIDE the worker's read-only write
-        // boundary. The old task-level recordResult (in the orchestrator lifecycle-operations module)
-        // COPIED that external file into the run's results area and recorded the
-        // internal path — it never ran the external path through validateSandboxWrite.
-        // v2 collapsed the two intakes into recordWorkerOutput, which sandbox-validates
-        // its input against the worker boundary, so a bare external path is rejected
-        // ("write path is outside sandbox profile <id>"). Restore the copy-in: stage
-        // the operator file at the worker's OWN result.md (which IS inside the write
-        // boundary), then record that internal path exactly like a driven worker.
+        // boundary. recordWorkerOutput sandbox-validates its input against the
+        // worker boundary, so a bare external path would be rejected ("write path
+        // is outside sandbox profile <id>"). So stage the operator file at the
+        // worker's OWN result.md (which IS inside the write boundary), then record
+        // that internal path exactly like a driven worker.
         const manifest = (0, worker_isolation_1.showWorkerManifest)(run, workerId);
         // Check the staging target BEFORE the copy: a result.md that a worker left
         // as a symlink would make the copy write through it, outside the boundary.
@@ -786,16 +763,13 @@ function recordResultRun(args) {
             requireAttestedTelemetry: (0, agent_config_1.resolveAgentConfig)(args).requireAttestedTelemetry,
             allowUnattested: Boolean(args.allowUnattested ?? args["allow-unattested"]),
         });
-        // Host-attested token usage (v0.1.31): record it verbatim as provenance when
-        // the operator supplied `--usage-*` flags; CW never synthesizes usage. The old
-        // task-level recordResult set `task.usage = usage` (in the orchestrator
-        // lifecycle-operations module)
-        // and its unit was the TASK. v2 records through recordWorkerOutput, which gives
-        // the worker an `output` record — so the observability usage UNIT becomes the
-        // WORKER (deriveUsageTotals reads worker.usage for workers with output, and
-        // EXCLUDES that task). Attach the usage to the worker scope so the report counts
-        // it as an attested unit; also stamp task.usage for byte-parity with the old
-        // task-level record.
+        // Host-attested token usage: record it verbatim as provenance when the
+        // operator supplied `--usage-*` flags; CW never synthesizes usage.
+        // recordWorkerOutput gives the worker an `output` record, so the
+        // observability usage UNIT is the WORKER (deriveUsageTotals reads
+        // worker.usage for workers with output, and EXCLUDES that task). Attach
+        // the usage to the worker scope so the report counts it as an attested
+        // unit; task.usage is stamped too, as the task-level record carries it.
         const usage = (0, observability_1.parseUsageFromArgs)(args, new Date().toISOString());
         if (usage) {
             task.usage = usage;
@@ -803,21 +777,19 @@ function recordResultRun(args) {
             if (scope)
                 scope.usage = usage;
         }
-        // Byte-exact to the old build's orchestrator recordWorkerOutput()
-        // wrapper: an accepted result is its own checkpoint commit, not just a
-        // bare saveCheckpoint (SPEC/pipeline-run.md's persist-ordering rule).
+        // An accepted result is its own checkpoint commit, not just a bare
+        // saveCheckpoint (SPEC/pipeline-run.md's persist-ordering rule).
         (0, commit_1.commitState)(run, `worker:${workerId}:result`);
         (0, run_store_1.saveCheckpoint)(run);
         (0, report_1.writeReport)(run);
         return output;
     });
 }
-/** `cw commit <run-id>` — byte-exact port of the old build's
- *  orchestrator lifecycle-operations module's `commit()`: the CLI/MCP
- *  payload wraps the commit record as `{runId, commit}` (NOT the commit
- *  record at top level). Both the success AND the throw path write the
- *  report + checkpoint before returning/re-throwing — a gate failure
- *  still leaves the run's report/state current on disk. */
+/** `cw commit <run-id>`: the CLI/MCP payload wraps the commit record as
+ *  `{runId, commit}` (NOT the commit record at top level). Both the success
+ *  AND the throw path write the report + checkpoint before returning/
+ *  re-throwing — a gate failure still leaves the run's report/state current
+ *  on disk. */
 function commitRun(args) {
     const runId = String(args.runId);
     // Hold the state.json lock across the whole load -> commit -> save (both the

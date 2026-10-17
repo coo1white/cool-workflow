@@ -2,15 +2,6 @@
 // shell/report.ts — report.md generation (the byte-exact section
 // headers/fallback lines from the spec), the actual file write.
 //
-// MILESTONE 6+7 (combined), EXTENDED at MILESTONE 11 (reporting/
-// observability) with the sections that were deferred while their own
-// subsystems' milestones (8/5) had not yet landed: Sandbox Profiles
-// (milestone 5) and Trust Audit (milestone 8). Byte-exact port of the old
-// build's orchestrator report module's renderX helpers for each. The State
-// Size & Compaction, Multi-Agent Runtime, Blackboard / Coordinator,
-// Acceptance Rationale and Candidates sections went with the multi-agent
-// family (slim-and-esm step 2).
-//
 // Evidence: SPEC/reporting-ux.md "report.md (written by writeReport)".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -91,8 +82,7 @@ function renderCommits(run) {
         return `- ${commit.id}: ${commit.reason} [${commit.loopStage}; ${kind}; ${gate}] (${commit.snapshotPath})`;
     });
 }
-/** `## Sandbox Profiles` — byte-exact port of the old build's
- *  renderSandboxProfiles. */
+/** `## Sandbox Profiles`. */
 function renderSandboxProfiles(run) {
     const profiles = run.sandboxProfiles || [];
     if (!profiles.length)
@@ -103,8 +93,7 @@ function renderSandboxProfiles(run) {
         `  hostRequired=${profile.enforcement.hostRequired.join("; ")}`,
     ].join("\n"));
 }
-/** `## Trust Audit` — byte-exact port of the old build's renderTrustAudit
- *  + renderTelemetryAttestation. */
+/** `## Trust Audit` (plus renderTelemetryAttestation). */
 function renderTrustAudit(run) {
     const summary = (0, trust_audit_1.summarizeTrustAudit)(run);
     const integrity = summary.integrity;
@@ -139,7 +128,7 @@ function renderTrustAudit(run) {
     ];
 }
 /** Telemetry attestation coverage + a LOUD list of any `unattested`
- *  usage, byte-exact port of the old build's renderTelemetryAttestation. */
+ *  usage. */
 function renderTelemetryAttestation(run) {
     const delegations = (0, trust_audit_1.listTrustAuditEvents)(run).filter((event) => event.kind === "worker.agent-delegation" && event.metadata && event.metadata.telemetryAttestation);
     if (!delegations.length)

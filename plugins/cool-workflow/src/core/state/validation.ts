@@ -1,8 +1,7 @@
 // core/state/validation.ts — RecordValidationError + per-record shape
 // guards.
 //
-// MILESTONE 3 (+ WorkerScope port). Byte-exact port of the old build's
-// validation module. NodeSnapshot / NodeReplayRun are read at the
+// NodeSnapshot / NodeReplayRun are read at the
 // `readNodeSnapshot`/`readNodeReplay` edge in shell/node-store.ts.
 // WorkerScope is read at the `getWorkerScope`/`loadWorkerScopesFromDisk`
 // edge in shell/worker-isolation.ts.
@@ -10,7 +9,7 @@
 // WorkerScope itself is a shell-layer concept (its full type carries
 // ResolvedSandboxPolicy/SandboxAttestation from shell/execution-backend),
 // so this pure core module does not import that type. Instead it
-// declares WorkerScopeShape: the subset of required fields the old guard
+// declares WorkerScopeShape: the subset of required fields the guard
 // actually checks. Any real WorkerScope satisfies this shape structurally
 // (TypeScript structural typing), so shell/worker-isolation.ts can call
 // this guard and get its own WorkerScope back without a core -> shell

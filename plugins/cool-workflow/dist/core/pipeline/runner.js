@@ -2,8 +2,7 @@
 // core/pipeline/runner.ts — findRunnablePipelineStages, runPipelineStage
 // (pure transform), advancePipeline, failPipelineStage.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// pipeline-runner module, split so this file stays PURE (no fs — actual
+// This file stays PURE (no fs — actual
 // disk writes are the caller's `persist` callback, threaded through from
 // shell/). The real per-stage disk write (node file + checkpoint) is
 // shell/run-store.ts + shell/node-store.ts; this file only mutates the
@@ -43,7 +42,7 @@ function getRunNode(run, nodeId) {
         throw new Error(`Unknown state node for run ${run.id}: ${nodeId}`);
     return node;
 }
-/** Byte-exact port of the old build's `hasRequiredEvidence`: a stage's own
+/** `hasRequiredEvidence`: a stage's own
  *  `requiredEvidence` list AND the contract-wide
  *  `evidencePolicy.requireEvidence` flag both gate this pre-filter, exactly
  *  like assertRequiredEvidence's stricter check in state-node.ts — so a
@@ -217,7 +216,6 @@ function failPipelineStage(run, stageId, inputNode, error, options = {}) {
         contractId: contract.id,
         // `pipelineStage` names the stage that failed so collectRunErrors's
         // dedup key matches the feedback recorded here (both key on stageId).
-        // Byte-behavior port of the old build's failed-node metadata.
         metadata: { pipelineStage: stageId, preserved: true },
     }), structured);
     const [linkedInput, linkedError] = (0, state_node_1.linkStateNodes)(inputNode, errorNode);

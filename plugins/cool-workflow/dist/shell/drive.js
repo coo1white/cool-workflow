@@ -1,16 +1,10 @@
 "use strict";
 // shell/drive.ts — the thin imperative loop that calls drive-decide.ts
 // once per step and performs the spawn/commit/cache-write IO the
-// decision names.
-//
-// MILESTONE 6+7 (combined; see project/docs/rebuild/PLAN.md Open risk 9/10 — the LARGEST
-// milestone). Byte-exact port of the old build's drive module's
-// imperative shell around the pure decision core now in
-// core/pipeline/drive-decide.ts. Sub-workflow nesting and `--incremental`
-// are ported; the concurrent-round driver (driveConcurrentRound, below)
-// dispatches and settles a whole round's tasks in one batch (see
-// `--concurrency`/`roundWidth`), pinned by
-// v2/conformance/cases/pipeline-concurrent-round.case.js.
+// decision names; the pure decision core is core/pipeline/drive-decide.ts.
+// The concurrent-round driver (driveConcurrentRound, below) dispatches and
+// settles a whole round's tasks in one batch (see `--concurrency`/
+// `roundWidth`), pinned by v2/conformance/cases/pipeline-concurrent-round.case.js.
 //
 // Evidence: SPEC/pipeline-run.md "Drive loop — drive module".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -89,10 +83,8 @@ const perf_trace_1 = require("./perf-trace");
  *  parseAgentReport hands back verbatim) is counted — not silently zeroed.
  *  Reuses deriveUsageTotals' own unit selection (its `rows` are the
  *  deduped attested units) so worker-vs-task double-counting stays fixed;
- *  only the key-reading is corrected here. The old build normalized at
- *  store time in worker-accept/verifier-completion.ts; v2 stores the raw
- *  reportedUsage, so the drive's budget accounting normalizes at read
- *  time — same net RECORDED total, same fail-closed backstop. */
+ *  only the key-reading is corrected here. State keeps the raw
+ *  reportedUsage, so the budget count normalizes at read time. */
 function recordedTokenTotal(run) {
     let total = 0;
     for (const row of (0, observability_1.deriveUsageTotals)(run).rows) {
@@ -130,8 +122,7 @@ function agentConfigured(config) {
 /** Progress to STDERR (stdout stays clean JSON). On by default when
  *  stderr is a TTY; silent in CI/pipes. CW_DRIVE_PROGRESS=0 forces off,
  *  =1 forces on. This is gate point #2 of the Rule of Silence's three
- *  gate points (SPEC/reporting-ux.md rebuild risk #1) — byte-exact port
- *  of the old build's drive module's emitProgress. */
+ *  gate points. */
 function progressEnabled() {
     const forcedOff = process.env.CW_DRIVE_PROGRESS === "0";
     const forcedOn = process.env.CW_DRIVE_PROGRESS === "1";
@@ -182,10 +173,8 @@ function withDriveTicker(label, fn) {
 // round is active for a given run id, loadRun returns the SAME mutated
 // object instead of re-reading (necessarily stale) disk state. Keyed by
 // run id (not a stack) so a sub-workflow task's nested drive() call on a
-// DIFFERENT run id is unaffected — re-entrant, matches the old build's
-// runner.loadWithCache. Byte-exact in spirit to drive module's own
-// per-runner cache; ported here as a module-level map since this build
-// has no persistent "runner" object to hang it on.
+// DIFFERENT run id is unaffected (re-entrant). A module-level map, as
+// there is no long-lived "runner" object to hang it on.
 const roundCache = new Map();
 function loadRun(ctx) {
     const cached = roundCache.get(ctx.runId);
@@ -373,14 +362,11 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         // One audit lock and one durable write for the dispatch's events, as the
         // concurrent round does; flushed before the dispatch checkpoint below.
         const manifest = (0, trust_audit_1.withTrustAuditBatch)(run, () => (0, dispatch_2.createDispatchManifest)(run, 1, { backendId: selected.agentType || "agent" }));
-        // Advance the RUN-level lifecycle stage on dispatch, exactly as the old
-        // build's orchestrator dispatch() wrapper did (run.loopStage = "act").
-        // The operator status "Stage:" line reads run.loopStage; v2's shell/
-        // dispatch.ts advances the task/node loopStage but never the run, so a
-        // driven run's operator status stayed frozen at "interpret".
+        // Advance the RUN-level lifecycle stage on dispatch (run.loopStage =
+        // "act"). The operator status "Stage:" line reads run.loopStage, and
+        // shell/dispatch.ts advances only the task/node loopStage, never the run's.
         run.loopStage = "act";
-        // Byte-exact to the old build's orchestrator dispatch() wrapper: a
-        // successful dispatch is its own checkpoint commit (reason
+        // A successful dispatch is its own checkpoint commit (reason
         // `dispatch:<dispatch-id>`), not just a bare saveCheckpoint — SPEC/
         // pipeline-run.md's persist-ordering section pins this exact reason.
         if (!deferPersist) {
@@ -406,9 +392,8 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     // NEVER stable across separate runs. It feeds ONLY recordWorkerOutput's
     // agentDelegation telemetry below, never the cache key. The cache key
     // instead digests the task's own static, workflow-authored prompt text
-    // (selected.prompt), which IS stable across runs — byte-exact to the
-    // old build (two differently-sourced digests,
-    // easy to collapse into one by mistake).
+    // (selected.prompt), which IS stable across runs. Two differently-sourced
+    // digests, easy to collapse into one by mistake.
     const promptDigest = fs.existsSync(manifest.inputPath) ? (0, hash_1.sha256)(fs.readFileSync(manifest.inputPath, "utf8")) : (0, hash_1.sha256)(manifest.prompt || "");
     const cacheKeyPromptDigest = (0, hash_1.sha256)(selected.prompt || "");
     const delegationDigest = ctx.incremental
@@ -439,17 +424,14 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
                         metadata: { reason: "result-cache hit; original attestation gate applied at first acceptance, not re-verified here" },
                     });
                 }
-                // Advance the run lifecycle stage on accept, as the old build's
-                // recordWorkerOutput wrapper did (run.loopStage = "observe").
+                // Advance the run lifecycle stage on accept (run.loopStage = "observe").
                 run.loopStage = "observe";
                 // Bounded dynamic loops: after a round's tasks complete, evaluate the
                 // predicate and either append the next round or mark the loop done —
-                // folded into this same worker:<id>:result checkpoint, exactly as the
-                // old build's recordWorkerOutput wrapper did (no-op for non-loop runs).
+                // folded into this same worker:<id>:result checkpoint (no-op otherwise).
                 maybeExpandLoop(run);
             });
-            // Byte-exact to the old build's orchestrator recordWorkerOutput()
-            // wrapper: an accepted result is its own checkpoint commit (reason
+            // An accepted result is its own checkpoint commit (reason
             // `worker:<worker-id>:result`), not just a bare saveCheckpoint.
             if (!deferPersist) {
                 (0, commit_1.commitState)(run, `worker:${workerId}:result`);
@@ -519,10 +501,9 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
                 },
                 requireAttestedTelemetry: ctx.config.requireAttestedTelemetry,
             });
-            // Advance the run lifecycle stage on accept (old build: "observe").
+            // Advance the run lifecycle stage on accept.
             run.loopStage = "observe";
-            // Bounded dynamic loops: same round-boundary evaluation the old build's
-            // recordWorkerOutput wrapper performed, folded into this checkpoint.
+            // Bounded dynamic loops: the round-boundary check, in this checkpoint.
             maybeExpandLoop(run);
         });
         if (!deferPersist) {
@@ -618,10 +599,9 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
         fs.writeFileSync(manifest.resultPath, childBytes, "utf8");
         (0, worker_isolation_1.recordWorkerOutput)(run, workerId, manifest.resultPath);
         // Cross-link the child run onto the parent's delegate task + a tamper-
-        // evident `worker.sub-workflow` trust-audit event (byte-behavior port of
-        // the old build's drive sub-workflow cross-link). subRunId/subRunDir let a
-        // reader walk from the parent task to the child run; the audit event binds
-        // the child report digest + verification into the parent's hash chain.
+        // evident `worker.sub-workflow` trust-audit event. subRunId/subRunDir let
+        // a reader walk from the parent task to the child run; the audit event
+        // binds the child report digest + verification into the parent's hash chain.
         selected.subRunId = childRun.id;
         selected.subRunDir = finalChild.paths.runDir;
         try {
@@ -645,7 +625,7 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
         catch {
             /* the cross-link is provenance; a failure here must not undo an accepted hop */
         }
-        // Advance the run lifecycle stage on accept (old build: "observe").
+        // Advance the run lifecycle stage on accept.
         run.loopStage = "observe";
         // Bounded dynamic loops: evaluate the round boundary in the same
         // checkpoint (no-op unless this task's phase is a loop round).
@@ -675,13 +655,10 @@ function compareBytes(a, b) {
  *  done. One deterministic `loop-control` node is recorded per round
  *  boundary — the replay source of truth. No-op when the run has no loop
  *  phases (POLA). Expands at most ONE loop boundary per call; the next
- *  accept handles the next. Byte-exact port of the old build's
- *  orchestrator/lifecycle-operations.ts maybeExpandLoop, called there from
- *  recordWorkerOutput; v2's recordWorkerOutput (shell/worker-isolation.ts)
+ *  accept handles the next. recordWorkerOutput (shell/worker-isolation.ts)
  *  does not expand, so the drive shell wires it in right after an accept.
- *  Exported so the standalone `cw worker output` CLI verb (worker-cli.ts) can
- *  run the same round-expansion after a hand-recorded accept, matching the old
- *  build's recordWorkerOutput wrapper. */
+ *  Exported so the standalone `cw worker output` CLI verb (worker-cli.ts)
+ *  can run the same round-expansion after a hand-recorded accept. */
 function maybeExpandLoop(run) {
     for (const phase of [...run.phases]) {
         const originId = phase.loop ? phase.id : phase.loopOrigin;
@@ -779,8 +756,7 @@ function driveStep(ctx) {
     const selected = (0, drive_decide_1.selectDriveTask)(run);
     const gate = (0, drive_decide_1.terminalOrConfigStep)(run, selected, agentConfigured(ctx.config), tokenBudgetUsage(run));
     if (gate.kind === "commit") {
-        // Terminal commit: advance the run lifecycle stage as the old build's
-        // commit() wrapper did (run.loopStage = "checkpoint").
+        // Terminal commit: advance the run lifecycle stage ("checkpoint").
         run.loopStage = "checkpoint";
         let commit;
         try {
@@ -952,10 +928,9 @@ function prepareConcurrentOutcomes(ctx, batch) {
  *  it flushes once: commitState(run, "concurrent-round:<n>-tasks") +
  *  writeReport + saveCheckpoint. Cache-hit tasks get no prepared outcome and
  *  settle through the serial path (still inside this one deferred-persist
- *  round). If no step was produced (nothing
- *  runnable at round entry — terminal/blocked/token-budget gate) the
- *  round degrades to one plain driveStep. Byte-exact to the old build's
- *  drive module's driveConcurrentRound. */
+ *  round). If no step was produced (nothing runnable at round entry —
+ *  terminal/blocked/token-budget gate) the round degrades to one plain
+ *  driveStep. */
 function driveConcurrentRound(ctx, limit) {
     return withRoundCache(ctx, () => {
         const run = loadRun(ctx);
@@ -999,30 +974,20 @@ function driveConcurrentRound(ctx, limit) {
         return steps.length > 0 ? steps : [driveStep(ctx)];
     });
 }
-// A bare Ctrl-C (SIGINT) or an external SIGTERM used to kill the process
-// outright between steps -- no handler was ever installed, so the default
-// kernel action ran: instant termination, no `finally` anywhere gets a
-// chance to run. If that landed mid-`withFileLock` critical section (e.g.
-// the state.json or trust-audit-log lock in run-store.ts/trust-audit.ts),
-// the lock's release `finally` never ran either, leaving a stale `.lock`
-// file that makes the NEXT command retry for ~6s before failing outright
-// (well under the 30s stale-lock steal window).
+// SIGINT/SIGTERM. With no handler, a signal kills the process outright
+// between steps and no `finally` runs, so a lock taken by `withFileLock`
+// (state.json or trust-audit-log, in run-store.ts/trust-audit.ts) is left
+// as a stale `.lock` that makes the NEXT command retry for ~6s before
+// failing (well under the 30s stale-lock steal window).
 //
-// The FIRST fix for this (installing onStopSignal below) assumed the
-// signal would at least be caught BETWEEN rounds, only missing it
-// mid-spawnSync. That assumption was wrong: Node.js does not dispatch a
-// queued POSIX signal to a JS `process.on(signal, ...)` listener until
-// the event loop actually gets a turn, and drive()'s whole multi-round
-// loop -- every round's agent spawn uses spawnSync, and nothing between
-// rounds ever awaits anything -- is ONE continuous synchronous span with
-// no such turn anywhere inside it. A signal landing at any point during
-// that whole span (confirmed live: even a plain CPU-only busy loop with
-// no spawnSync at all drops it the same way) sits queued until the loop
-// finishes on its own, by which point the `finally` below has already
-// removed the listener -- so it is never invoked at all. `drive()` keeps
-// this exact (buggy but byte-identical) shape for full backward
-// compatibility; `driveAsync()` below is the actual fix, for callers
-// that need a live run to really respond to Ctrl-C/SIGTERM.
+// A listener alone is not enough: Node.js does not dispatch a queued POSIX
+// signal to a JS `process.on(signal, ...)` listener until the event loop
+// gets a turn, and drive()'s whole multi-round loop (spawnSync agents,
+// nothing awaited between rounds) is ONE synchronous span with no such
+// turn. The signal sits queued until the loop ends, by which point the
+// `finally` below has removed the listener. `drive()` keeps this exact
+// synchronous shape for its callers; `driveAsync()` below is the fix, for
+// callers that need a live run to really respond to Ctrl-C/SIGTERM.
 const DRIVE_STOP_SIGNALS = ["SIGINT", "SIGTERM"];
 const DRIVE_STOP_EXIT_CODE = { SIGINT: 130, SIGTERM: 143 };
 function buildDriveContext(runId, cwd, options) {
@@ -1044,8 +1009,7 @@ function buildDriveContext(runId, cwd, options) {
 // Phase-boundary progress (brew-style): announce each phase when it becomes
 // active and when it finishes — `==> Map ✓ (6/6)` / `==> Assess ⇉ (3/6)`.
 // Describes CW's OWN phases (vendor-neutral); goes to stderr via
-// emitProgress so stdout stays clean data. Byte-exact port of the old
-// build's drive module emitPhaseProgress. term.phaseProgressLine renders
+// emitProgress so stdout stays clean data. term.phaseProgressLine renders
 // the line; the returned closure decides WHEN to emit each boundary.
 // Shared by drive() and driveAsync() so the two never drift apart.
 /** The name the ticker line gives the round: the first runnable phase,

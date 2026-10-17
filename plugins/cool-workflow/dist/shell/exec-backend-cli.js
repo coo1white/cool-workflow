@@ -3,11 +3,7 @@
 // backend + sandbox-profile capability rows (backend.list|show|probe,
 // backend.agent.config.show|set, sandbox.list|show|validate).
 //
-// MILESTONE 5. Byte-exact port of the old build's orchestrator methods
-// (listSandboxProfiles/showSandboxProfile/
-// validateSandboxProfile/listBackends/showBackend/probeBackend) plus
-// cli operational-handler module's handleSandbox/handleBackend argv
-// shape. Impure (fs/env) — this is the shell layer the capability-table's
+// Impure (fs/env) — this is the shell layer the capability-table's
 // CLI/MCP handlers delegate to.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;

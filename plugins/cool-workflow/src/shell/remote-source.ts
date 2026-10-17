@@ -1,7 +1,7 @@
 // remote-source module — materialize a REMOTE repository (a URL) into a LOCAL checkout
 // so the existing review pipeline can run against it unchanged.
 //
-// This lives in the CAPABILITY layer and is imported ONLY by capability-core (+ smokes),
+// This lives in the CAPABILITY layer and is imported ONLY by shell/pipeline-cli.ts (+ smokes),
 // never by the orchestrator/drive core — cloning is non-deterministic network I/O and the
 // core must stay replay-deterministic. After materialize(), the caller points `args.repo`
 // at the returned local path and everything downstream is identical to a local run.
@@ -336,13 +336,13 @@ function fetchArchiveBytes(rawUrl: string, sanitizedUrl: string, dest: string, o
  *  this). Symlinks/specials and decompression bombs are caught separately (below). */
 function listArchive(file: string, isZip: boolean, timeoutMs?: number): string[] {
   const cmd = isZip ? ["unzip", "-Z1", "--", file] : ["tar", "-tf", file];
-  // Same unset-timeout hazard as a hung local/container task (post-v0.2.2
-  // robustness hardening): a pathological archive must not hang the CLI
-  // forever with no kill path. Matches git()'s own fallback below.
+  // Same unset-timeout hazard as a hung local/container task: a
+  // pathological archive must not hang the CLI forever with no kill path.
+  // Matches git()'s own fallback below.
   const result = spawnSync(cmd[0], cmd.slice(1), { encoding: "utf8", timeout: timeoutMs || 120000 });
   if (result.status !== 0) {
     // Distinguish "unzip not installed" (ENOENT) from "archive is corrupt" — never conflate the
-    // two (a corrupt .tar mislabeled .zip used to surface a bogus "unzip not found").
+    // two (a corrupt .tar mislabeled .zip is not "unzip not found").
     if (isZip && (result.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT") {
       throw new Error("unzip is required to review a .zip link but was not found on PATH (use a .tar.gz or a git URL)");
     }

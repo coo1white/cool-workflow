@@ -1,11 +1,9 @@
 "use strict";
 // shell/commit-summary.ts — `cw commit summary` / `cw_commit_summary`.
 //
-// GAP #26 port: v2 dropped the CLI binding + shell body for commit.summary,
-// keeping only the MCP tool row. This restores the old build's
-// `summarizeOperatorCommits` + `formatCommitRow` byte-for-byte, plus the `commitSummaryCli`
-// thin adapter both front doors call (mirrors feedbackSummaryCli /
-// candidateSummaryCli shape). Impure: reads run state from disk.
+// `summarizeOperatorCommits` + `formatCommitRow`, plus the
+// `commitSummaryCli` thin adapter both front doors call. Impure: reads
+// run state from disk.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.summarizeOperatorCommits = summarizeOperatorCommits;
 exports.commitSummaryCli = commitSummaryCli;
@@ -27,7 +25,6 @@ function formatCommitRow(commit) {
         evidenceCount: commit.evidence?.length || 0,
     };
 }
-/** Byte-exact port of the old build's `summarizeOperatorCommits`. */
 function summarizeOperatorCommits(run) {
     const commits = [...(run.commits || [])].sort((left, right) => (0, collate_1.stableCompare)(left.createdAt, right.createdAt) || (0, collate_1.stableCompare)(left.id, right.id));
     const rows = commits.map(formatCommitRow);
@@ -45,14 +42,12 @@ function req(value, label) {
         throw new Error(`Missing ${label}`);
     return s;
 }
-/** Thin adapter both front doors call (mirrors the old build's orchestrator
- *  `summarizeCommitRecords(runId)` = `summarizeOperatorCommits(loadRun(runId))`). */
+/** Thin adapter both front doors call: summarizeOperatorCommits(loadRun(runId)). */
 function commitSummaryCli(args) {
     const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
     return summarizeOperatorCommits(run);
 }
-/** `cw commit summary <run>` human text — port of the old build's
- *  formatCommitPanel (operator-ux/format.ts): a `Commits` rollup with the
+/** `cw commit summary <run>` human text: a `Commits` rollup with the
  *  verifier-gated / checkpoint counts and the latest commit. */
 function formatCommitSummaryText(summary) {
     const lines = [

@@ -171,13 +171,60 @@ Budget: docs only.
 
 ## What this spec got wrong (recorded at close)
 
-(filled at close)
+Found in the comment PR (run as step 3 of `2026-09-28-slim-and-esm.md`,
+numbers measured again on `b73733d2`, after the D1 delete):
+
+- The tree it measured is gone. `src/` was 36,053 lines in 131 files
+  (shell 23,002, core 8,212, wiring 3,328, mcp 776 + 35, cli 691 + 9),
+  not 49,848. Comment lines by the `growth:check` count were 6,167 (the
+  manifest said 5,999 as of 2026-10-16; the five refactors #793 to #797
+  had put 168 back, leaving only 60 lines of room under 6,227). With
+  `/*` lines counted too, as the slim-and-esm file counts them: 6,947.
+- History lines were 536, not 683, by the same patterns ("rebuild" 309,
+  "milestone" 186, "port of" 146, "byte-for-byte" 192, audit 2, version
+  tags 9). Step 2 took many history blocks with the files they were in.
+- The budget of src net -1,500 (aim -2,000) does not hold on this tree.
+  Taking out every H block, and keeping the K sentences of mixed blocks,
+  gave src 36,053 to 35,355 (-698) and comment lines 6,167 to 5,481
+  (-686). History-pattern lines went 536 to 65; what is left is file
+  citations (`project/docs/rebuild/PLAN.md`, the SPEC "Rebuild risks"
+  items) and pinned byte contracts, which are K. A larger cut would need
+  K comments to go, which this spec rules out.
+- `src/shell/drive.ts` was 378 comment lines, and its history share was
+  near a tenth (-37), not near half.
+- Some comments were not history but out of date, and would mislead a
+  reader, so they were made true in the same pass (no code changed):
+  `help.ts` called the run-export family not yet built; `cli/dispatch.ts`
+  and `workflow-apps.ts` named switch arms and a `next` placeholder that
+  are gone; `doctor.ts` said `--onramp` was not wired; `registry-core.ts`
+  and `capability-data.ts` said 196 tools; `trust-audit.ts` named
+  multi-agent callers; `app-run-cli.ts` said both tools are MCP-only.
+- "No test edited except where a test asserts on a comment" missed a
+  pin outside `test/`: `scripts/version-sync-check.js` asks
+  `src/shell/pipeline-cli.ts` to hold the word `planSummary`, and the
+  only place it was is a history comment. The comment that took its
+  place keeps the word and names the pin; `dogfood-release-smoke` found
+  it.
+- The proof that no code line changed is stronger than reading the diff:
+  `tsc --removeComments` of `src/` before and after gives the same bytes
+  for all 131 output files.
+- The duplicate-helper table is out of date: `invocationCwd`, `now`,
+  `sha`, `safeFileName` and `truncate` no longer have three copies
+  (#795 put the cwd and flag readers in `core/util/cli-args.ts`). Three
+  or more copies now: `optionalString` 8 (7 the same), `messageOf` 7
+  (all the same), `isRecord` 7 (4 spellings, one meaning), `countBy` 4
+  (3 bodies), `stringOption` 3, `req` 3 (the same), `compactMetadata` 3
+  (3 bodies). A new shared module is one more module load on every
+  command that loads a copy, and `test/perf-ratchet-smoke.js` lets no
+  module count go up, so the helper PR has to keep the count or put the
+  helpers in a module those paths already load.
+- md count: 124/124 at this PR, not 135/135.
 
 ## Status ledger
 
 | Item | State | PR |
 |---|---|---|
 | Intent + spec (this file) | open | |
-| History goes, "what" and "why" stay | | |
+| History goes, "what" and "why" stay | done on its branch, PR to come | |
 | One copy of each small helper | | |
 | Closing ledger and receipt | | |

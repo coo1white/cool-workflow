@@ -1,16 +1,14 @@
 // mcp/server.ts — the stdio JSON-RPC loop: initialize / tools/list /
 // tools/call.
 //
-// MILESTONE 2 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 2). Byte-exact port of the
-// framing rules in SPEC/mcp.md's "JSON-RPC methods" / "Exact outputs" /
+// Framing rules, from SPEC/mcp.md's "JSON-RPC methods" / "Exact outputs" /
 // "Invariants and error behavior" #9 / "Edge cases" sections:
 //   - transport: stdin/stdout, ONE JSON object per line, no
 //     Content-Length headers (mcp.md:13);
 //   - `initialize` -> protocolVersion/capabilities/serverInfo (mcp.md:
 //     19,263-269); the reply's protocolVersion echoes the client's
 //     requested one when it is in SUPPORTED_PROTOCOL_VERSIONS below, and
-//     falls back to the newest supported entry otherwise (with today's
-//     one-entry list this is byte-identical to the old fixed reply);
+//     falls back to the newest supported entry otherwise;
 //   - `tools/list` -> { tools: [...] } from core/capability-table.ts via
 //     mcp/dispatch.ts, ignoring params (mcp.md:20,271-277); by default
 //     only the CW_MCP_TOOLS `core` profile is listed (see toolProfile);
@@ -44,15 +42,13 @@
 //     the unconsumed buffer exceeds this with no newline yet, the partial
 //     bytes are DROPPED and a -32700 "Parse error: request line exceeds
 //     16777216 bytes" is sent with id: null (mcp.md:291,418);
-//   - outbound size cap (post-v0.2.2 robustness hardening, not in the
-//     original mcp.md): content[0].text goes through core/format/
+//   - outbound size cap (not in mcp.md): content[0].text goes through core/format/
 //     safe-json.ts's safeJsonStringify, so a result over 10MB (an
 //     aggregate/dashboard tool on a very large run, or anything that would
 //     blow V8's per-string limit) becomes a small overflow notice instead
 //     of a multi-hundred-MB payload — every result under the cap is
 //     untouched, so this never affects the parity gate's own fixtures.
-//   - `tools/call` FAILURE result shape (post-v0.2.4 robustness hardening,
-//     not in the original mcp.md): an unknown tool name, a missing
+//   - `tools/call` FAILURE result shape (not in mcp.md): an unknown tool name, a missing
 //     required tool argument, or the tool's own handler throwing is a
 //     normal RESULT, not a bare -32000 JSON-RPC protocol error — many MCP
 //     hosts never surface a protocol error back to the calling model, so
@@ -60,8 +56,7 @@
 //     { content: [{ type: "text", text: <message, plus a "Try: <hint>"
 //     line when core/format/recovery-hint.ts's recoveryHint finds one>
 //     }], isError: true }, same `resultMessage` helper as the success
-//     path. The envelope-level "missing field: name" check (right above
-//     this bullet) is unchanged — it still answers -32000.
+//     path. The envelope-level "missing field: name" check above still answers -32000.
 
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version";
 import { recoveryHint } from "../core/format/recovery-hint";
@@ -75,9 +70,8 @@ const MAX_LINE_BYTES = 16 * 1024 * 1024;
 /** Protocol versions this server can speak, oldest first. `initialize`
  *  echoes the client's `params.protocolVersion` when it is in this list,
  *  and answers with the newest entry (the last one) otherwise — the
- *  standard MCP version-negotiation shape. With one entry this is
- *  behavior-identical to the old hard-coded reply (mechanism first; a
- *  second version is a one-line append here). */
+ *  standard MCP version-negotiation shape (a second version is a one-line
+ *  append here). */
 const SUPPORTED_PROTOCOL_VERSIONS = ["2024-11-05"];
 
 interface McpToolAuthority {
@@ -163,13 +157,10 @@ export function negotiateProtocolVersion(requested: unknown): string {
 // scripts/parity-check.js compares) is never touched; the advisory rides
 // along as a second content block instead.
 //
-// This list is deliberately exhaustive over every MCP tool a repo-wide
-// review found reachable from a worker/agent/operator-authored free-text
-// field (2026-07-08 security review). The "aggregate/dashboard" tools
-// (cw_workbench_view, cw_operator_status, cw_operator_report) carried such
-// text only through the multi-agent, blackboard, review and judge panels;
-// those panels went with that family (slim-and-esm step 2), so the
-// dashboards no longer re-surface stored text and need no advisory.
+// This list is deliberately exhaustive over every MCP tool reachable from
+// a worker/agent/operator-authored free-text field. The aggregate
+// dashboards (cw_workbench_view, cw_operator_status, cw_operator_report)
+// re-surface no stored text, so they need no advisory.
 const UNTRUSTED_RESULT_FIELDS: Record<string, string[]> = {
   cw_worker_list: ["[].errors[].message"],
   cw_worker_show: ["errors[].message"],
@@ -394,8 +385,8 @@ export function startServer(): void {
   // client closed the pipe, or any other throw out of handleLine — and
   // without a handler that one rejection would leave `queue` REJECTED for
   // good, so every later `queue.then(...)` is skipped and the server goes
-  // silent and answers no more requests (finding: one bad write poisons the
-  // queue). The `.catch` swallows the single failure onto stderr
+  // silent and answers no more requests. The `.catch` swallows the single
+  // failure onto stderr
   // (diagnostics, never stdout data) and hands back a RESOLVED promise, so
   // the next request is still served. Order is still kept: the next task
   // only runs after this one settles.

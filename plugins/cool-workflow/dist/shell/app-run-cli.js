@@ -1,14 +1,8 @@
 "use strict";
 // shell/app-run-cli.ts — `cw_app_run` and `cw_sandbox_choose`.
 //
-// GAP #24 port: v2 declared the cw_app_run + cw_sandbox_choose/resolve MCP
-// tool rows but left their handlers as notYetImplemented. This restores the
-// old build's `appRun` + `sandboxChoose` (capability-core module) as thin
-// shell bodies over the same v2 `plan` + `showSandboxProfileCli` the CLI
-// front door already uses, so the MCP surface no longer throws.
-//
-// Both are MCP-only in the old build (no CLI path row), so only an
-// mcp.handler is wired for them in capability-table.ts.
+// Thin shell bodies over the same `plan` + `showSandboxProfileCli` the CLI
+// front door uses.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sandboxChooseCli = sandboxChooseCli;
 exports.appRunCli = appRunCli;
@@ -17,8 +11,7 @@ const workflow_app_loader_1 = require("./workflow-app-loader");
 const exec_backend_cli_1 = require("./exec-backend-cli");
 const operator_ux_1 = require("./operator-ux");
 const run_store_1 = require("./run-store");
-/** Keys that steer the run/tool call itself, never workflow inputs — the
- *  old build's `withoutRuntimeKeys` (capability-core module). */
+/** Keys that steer the run/tool call itself, never workflow inputs. */
 const RUNTIME_KEYS = new Set(["cwd", "sandbox", "sandboxProfile", "sandboxProfileId", "appId", "workflowId", "inputs"]);
 function withoutRuntimeKeys(args) {
     const out = {};
@@ -38,10 +31,8 @@ function sandboxProfileIdFrom(args) {
 function isRecord(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
-/** `cw_sandbox_choose` — resolve + validate a profile
- *  choice. Byte-exact port of the old build's `sandboxChoose`
- *  (capability-core module): defaults to "readonly", returns the resolved
- *  profile object under `profile`. */
+/** `cw_sandbox_choose` — resolve + validate a profile choice: defaults
+ *  to "readonly", returns the resolved profile object under `profile`. */
 function sandboxChooseCli(args) {
     const profileId = sandboxProfileIdFrom(args) || "readonly";
     const profile = (0, exec_backend_cli_1.showSandboxProfileCli)(profileId, args);
@@ -52,10 +43,9 @@ function sandboxChooseCli(args) {
         profile,
     };
 }
-/** `cw_app_run` — create a run from an app id + structured inputs. Byte-exact
- *  port of the old build's `appRun` (capability-core module): merges
- *  `inputs` with the non-runtime args, plans a fresh run, and returns the
- *  run descriptor + a compact operator status. */
+/** `cw_app_run` — create a run from an app id + structured inputs:
+ *  merges `inputs` with the non-runtime args, plans a fresh run, and
+ *  returns the run descriptor + a compact operator status. */
 function appRunCli(args) {
     const appId = String(args.appId || args.workflowId || "");
     if (!appId)

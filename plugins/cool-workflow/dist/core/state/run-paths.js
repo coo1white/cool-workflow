@@ -1,7 +1,6 @@
 "use strict";
 // core/state/run-paths.ts — pure RunPaths construction.
 //
-// MILESTONE 3. Byte-exact port of the old build's state module.
 // `createRunPaths` is pure path math. The directory write mechanism lives in
 // shell/run-store.ts.
 //

@@ -4,11 +4,9 @@
 // graph`). Lives in shell/ (not core/format/) because it calls term.ts's
 // `dim()`, which is TTY/env-aware.
 //
-// MILESTONE 11 (reporting/observability). Byte-exact port of the parts of
-// the old build's operator-ux format module this milestone's conformance
-// surface exercises: formatOperatorSummary (`--summary`/`--brief`),
-// formatOperatorStatus (full `cw status`), formatOperatorReport (`cw
-// report --show`), formatOperatorGraph (`cw graph`).
+// formatOperatorSummary (`--summary`/`--brief`), formatOperatorStatus
+// (full `cw status`), formatOperatorReport (`cw report --show`),
+// formatOperatorGraph (`cw graph`).
 //
 // Evidence: SPEC/reporting-ux.md "Operator UX human text".
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -35,8 +33,7 @@ function formatRecommendations(actions) {
     }
     return lines;
 }
-/** Compact summary — `cw status <id> --summary`/`--brief`. Byte-exact
- *  port of formatOperatorSummary. */
+/** Compact summary — `cw status <id> --summary`/`--brief`. */
 function formatOperatorSummary(summary) {
     return [
         `Run: ${summary.runId}`,
@@ -76,8 +73,8 @@ function formatTrustPanel(summary) {
         `  Chain integrity: ${summary.integrity.verified ? "verified" : "FAILED"}`,
     ].join("\n");
 }
-/** The full `cw status <id>` human render — port of formatOperatorStatus's
- *  panel order (worker/feedback/commit, then trust and the report path). */
+/** The full `cw status <id>` human render, in panel order
+ *  (worker/feedback/commit, then trust and the report path). */
 function formatOperatorStatus(summary) {
     return [
         formatOperatorSummary(summary),
@@ -99,8 +96,8 @@ function formatTaskList(tasks) {
         return ["  none"];
     return active.map((id) => `  ${id}`);
 }
-/** `cw report <id> --show` — port of formatOperatorReport's Resource
- *  Commands tail plus Active/Pending Tasks and Evidence sections. */
+/** `cw report <id> --show`: the Resource Commands tail plus
+ *  Active/Pending Tasks and Evidence sections. */
 function formatOperatorReport(summary, evidencePaths) {
     return [
         formatOperatorStatus(summary),
@@ -128,7 +125,7 @@ function groupBy(values, key) {
     }
     return groups;
 }
-/** `cw graph <id>` human render — byte-exact port of formatOperatorGraph. */
+/** `cw graph <id>` human render. */
 function formatOperatorGraph(graph) {
     const lines = [`Run Graph: ${graph.runId}`, "", "Nodes"];
     const groups = groupBy(graph.nodes, (node) => node.kind);
@@ -147,8 +144,7 @@ function formatOperatorGraph(graph) {
     }
     return lines.join("\n");
 }
-/** `cw feedback summary <run>` human text — port of the old build's
- *  formatFeedbackPanel (operator-ux/format.ts): a `Feedback` rollup with
+/** `cw feedback summary <run>` human text: a `Feedback` rollup with
  *  status/severity/classification counts. */
 function formatFeedbackSummaryText(summary) {
     return [
