@@ -302,3 +302,43 @@ right has no point."). Which of them change default bytes:
 | Batch delegate child exit code after a stop signal | 0 when every job then ended on its own | 130 (SIGINT) or 143 (SIGTERM) | Internal: the child's exit code is read only by `runAgentBatchOutcomes`, not shown to users |
 | A refused envelope for a timeout | no `timedOutMs` key | `timedOutMs: <ms>` added | Additive JSON key, only on a timeout |
 | Env of the delegated agent child (found in the operator's 0.3.3 test run: `claude -p` worked in the shell, but every `cw -q ... -claude` worker got `403 Request not allowed`, as the proxy vars were dropped) | `PATH`, `HOME`, `expose`, provider-key vars, `USER` | also `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY` (and the lowercase forms), `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, and `CLAUDE_*` | Only the names list of the `worker.agent-env` audit event, and only when such vars are set; values are never kept; a policy `deny` still takes them out |
+
+### `cw doctor` runs the agent one time (agent-runs)
+
+In the operator's 0.3.3 acceptance test, `cw doctor` said all was well
+(`✓ agent-binary: Agent binary ... found`), but the agent could not run:
+`claude` printed `Error: claude native binary not installed. ... Or
+reinstall without --ignore-scripts / --omit=optional.` and exited 1 (npm
+had stopped its postinstall). Doctor only looked to see that the file was
+there.
+
+The question, word for word, as it was shown (in Chinese): "0.3.3
+发布前，还要加哪些？（可多选；都不选就直接发 0.3.3）" In English: "Before
+0.3.3 goes out, what more should be added? (More than one may be picked;
+pick none and 0.3.3 goes out as it is.)"
+
+The answer picked, its label word for word: "doctor 真的运行一次 agent".
+Its description as it was shown, word for word: "cw doctor 运行 agent 的
+--version，跑不起来就报错并贴出它的修复提示（这次的安装不完整问题能提前发现）。会改变
+doctor 的输出。" In English: "`cw doctor` runs the agent's `--version`; if it
+will not run, doctor says so and shows the agent's own fix hint (so this
+time's broken install is seen before a run). It changes doctor's output."
+
+The operator's full answer, word for word (2026-10-17): "doctor 真的运行一次
+agent,把 ⇉ 换成常见符号,修正进度行互相打架" In English: "doctor really
+runs the agent once; put a common sign in place of ⇉; fix the progress
+lines that get in each other's way." This part covers the first of the
+three; the other two are in their own PRs.
+
+So this default change is approved under the POLA exception (AGENTS.md,
+FreeBSD rule 1). The bytes that change, 0.3.2 to 0.3.3:
+
+| Change | 0.3.2 | 0.3.3 | Code | Man page |
+|---|---|---|---|---|
+| `cw doctor` human output, an agent command set | no `agent-runs` line | one more line after the agent lines: `✓ agent-runs: <cli> --version → <first line>`, `✗ agent-runs: ...` with a `fix:` line, or `! agent-runs: not probed: ...` | `src/shell/doctor.ts`, `src/shell/agent-config.ts` (`agentProbeTarget`), `scripts/agents/builtin-templates.json` (`versionProbe`) | `docs/doctor.7.md` (CHECKS, agent-runs) |
+| `cw doctor --json`, an agent command set | no `agent-runs` entry | one more entry in `checks`, the same `name`/`status`/`detail`/`fix` shape | same | same |
+| `cw doctor` verdict and exit code when the set agent's CLI will not run | `ready`, exit 0 | `1 blocking problem found`, `ok: false`, exit 1 | same | same |
+| `cw doctor` with a custom `CW_AGENT_COMMAND` (not a known vendor CLI) | `ready — all checks passed` | `ready, with 1 warning` (`not probed: custom command`); the custom command is never run | same | same |
+
+With no agent set, or an HTTP endpoint only, doctor's bytes do not change.
+The other checks keep their bytes. Doctor never prints env values.

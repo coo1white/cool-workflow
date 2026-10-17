@@ -14,7 +14,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { boolWord } from "../core/util/cli-args.js";
 import { writeJson } from "./fs-atomic.js";
-import { splitAgentCommand } from "../core/util/cli-args.js";
+import { agentCommandArgv, splitAgentCommand } from "../core/util/cli-args.js";
 import { stripSecretArgs } from "./execution-backend/agent.js";
 export const AGENT_CONFIG_SCHEMA_VERSION = 1;
 /** CW_HOME resolution: CW_HOME > XDG_STATE_HOME/cool-workflow > ~/.local/state/cool-workflow. */
@@ -128,12 +128,28 @@ function detectAgentFromPath(env = process.env) {
     }
     return undefined;
 }
+const AGENTS_DIR = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
+function builtinManifest() {
+    return JSON.parse(fs.readFileSync(path.join(AGENTS_DIR, "builtin-templates.json"), "utf8"));
+}
+export function agentProbeTarget(command, args) {
+    if (!command)
+        return undefined;
+    const manifest = builtinManifest();
+    const clis = manifest.versionProbe?.clis || {};
+    const { binary: bin, args: [script] } = agentCommandArgv(command, args);
+    for (const [name, file] of Object.entries(manifest.templates || {})) {
+        if (path.basename(bin) === "node" && script && path.resolve(script) === path.join(AGENTS_DIR, file)) {
+            return clis[name] ? { cli: clis[name] } : { skip: `builtin:${name} has no vendor CLI` };
+        }
+    }
+    return Object.values(clis).includes(path.basename(bin).replace(/\.(exe|cmd|bat)$/i, "")) ? { cli: bin } : { skip: "custom command" };
+}
 function builtinAgentTemplates() {
-    const agentsDir = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
-    const manifest = JSON.parse(fs.readFileSync(path.join(agentsDir, "builtin-templates.json"), "utf8"));
+    const manifest = builtinManifest();
     const out = {};
     for (const [name, script] of Object.entries(manifest.templates || {})) {
-        out[name] = `node ${path.join(agentsDir, script)} {{input}} {{result}}`;
+        out[name] = `node ${path.join(AGENTS_DIR, script)} {{input}} {{result}}`;
     }
     return out;
 }

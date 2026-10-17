@@ -33,7 +33,7 @@ make the exit fail.
 
 ## CHECKS
 
-The command runs six checks in order:
+The command runs these checks in order:
 
 **node**
 : The Node.js version. CW needs v22.13 or higher. A `fail` here stops everything.
@@ -52,6 +52,37 @@ real runs report `status: blocked`, but `demo` and `--preview` still work.
 : When the agent is set by a command name (not auto or HTTP), this check sees if
 the binary is on `$PATH`. Missing here gives a `warn` — the run will get a clear
 error later, but CW will not guess at a different agent.
+
+**agent-runs** (new in 0.3.3)
+: When an agent command is set (auto, `builtin:<name>`, `--agent-command`, or
+`CW_AGENT_COMMAND`), doctor runs its vendor CLI one time with `--version`, to
+see that it truly starts, not only that the file is there. The vendor CLI is
+the one named for each builtin wrapper in `scripts/agents/builtin-templates.json`
+(`versionProbe`), or the command itself when its first word is one of those
+CLIs (for example `claude -p`). The run is argv-style (no shell), in the repo
+folder, with the same env a real agent gets, and stops after 15 seconds
+(`CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS` makes this different). Doctor reads only
+the exit code and the first lines of its output, and never prints env values.
+- Exit 0: `ok`, with the first line it printed:
+  `✓ agent-runs: claude --version → 2.1.302 (Claude Code)`.
+- Exit non-zero, no start, or timeout: `fail` (doctor is then not ready and
+  exits 1), with up to 4 of its own lines (300 characters at most), so its own
+  fix hint is in view, and a `fix:` line. For example:
+  `✗ agent-runs: claude --version exited 1: Error: claude native binary not installed. | ...`
+- A custom command (a wrapper of your own, such as `$HOME/bin/review {{input}}`)
+  is never run, as its arguments are not known and it may start real work. It
+  gets a `warn`: `! agent-runs: not probed: custom command — doctor runs only a
+  known vendor CLI with --version, never a custom command.` A builtin with no
+  CLI (`builtin:deepseek`, HTTP) says `not probed: builtin:deepseek has no
+  vendor CLI`. With no agent, or an HTTP endpoint only, there is no
+  `agent-runs` check.
+
+Up to 0.3.2 doctor did not run the agent, so an install whose CLI could not
+start (for example, npm stopped its postinstall) still said `ready`. Changed
+in 0.3.3 with the operator's dated yes:
+`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions for
+0.3.3 (2026-10-17)". In `--json` it is one more entry in `checks`, in the same
+shape as the others; the other checks do not change.
 
 **git**
 : The `git` command. CW uses it for commit place of origin. A `warn` here means

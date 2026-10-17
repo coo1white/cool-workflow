@@ -1,8 +1,8 @@
 // shell/doctor.ts — `cw doctor` environment diagnostics, in the spirit of
 // `brew doctor`.
 //
-// Checks: node/agent/agent-binary/git/home-registry/repo-state, plus the
-// `--onramp` section (buildDoctorOnramp) when asked.
+// Checks: node/agent/agent-binary/agent-runs/git/home-registry/repo-state, plus
+// the `--onramp` section (buildDoctorOnramp) when asked.
 //
 // Discipline:
 //  - READ-ONLY. Never creates .cw/ or $CW_HOME as a side effect.
@@ -17,7 +17,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
-import { resolveAgentConfig } from "./agent-config.js";
+import { agentProbeTarget, resolveAgentConfig } from "./agent-config.js";
+import { buildAgentChildEnv } from "./execution-backend/agent.js";
 import { splitAgentCommandLine } from "../core/util/cli-args.js";
 import { buildDoctorOnramp, optionEnabled } from "./onramp.js";
 import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store.js";
@@ -76,6 +77,34 @@ function dirWritable(target) {
         }
     }
 }
+function probeAgent(target, env, cwd) {
+    if ("skip" in target) {
+        return {
+            name: "agent-runs",
+            status: "warn",
+            detail: `not probed: ${target.skip} — doctor runs only a known vendor CLI with --version, never a custom command.`,
+            fix: "Run your agent command once by hand to check that it starts.",
+        };
+    }
+    const shown = `${target.cli} --version`;
+    const timeoutMs = Number(env.CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS) > 0 ? Number(env.CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS) : 15000;
+    const childEnv = buildAgentChildEnv({ env: { inherit: false, expose: [] } }, env).env;
+    const r = spawnSync(target.cli, ["--version"], { cwd, env: childEnv, encoding: "utf8", timeout: timeoutMs, killSignal: "SIGKILL", shell: false, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1024 * 1024, windowsHide: true });
+    const lines = (text) => text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (!r.error && r.status === 0) {
+        const first = lines(`${r.stdout || ""}\n${r.stderr || ""}`)[0] || "(no output)";
+        return { name: "agent-runs", status: "ok", detail: `${shown} → ${first.slice(0, 120)}` };
+    }
+    const code = r.error?.code;
+    const why = code === "ETIMEDOUT" ? `timed out after ${timeoutMs / 1000}s` : r.error ? `could not start (${code || r.error.message})` : r.signal ? `was stopped by ${r.signal}` : `exited ${r.status}`;
+    const said = lines(`${r.stderr || ""}\n${r.stdout || ""}`).slice(0, 4).join(" | ").slice(0, 300);
+    return {
+        name: "agent-runs",
+        status: "fail",
+        detail: `${shown} ${why}${said ? `: ${said}` : "."}`,
+        fix: `Make "${shown}" work by hand first (its own message says how, e.g. reinstall it), or pick another agent with --agent-command / $CW_AGENT_COMMAND.`,
+    };
+}
 export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
     const checks = [];
     // 1. Node runtime — the one hard prerequisite (v22.13+, as package.json
@@ -127,6 +156,9 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
                 });
         }
     }
+    const probe = agentProbeTarget(cfg.command, cfg.args);
+    if (probe)
+        checks.push(probeAgent(probe, env, cwd));
     // 3. Sandbox enforcement boundary — a fixed architectural fact (see
     // docs/sandbox-profiles.7.md), not a host-specific problem to fix, so this
     // is "ok" (informational), never "warn": CW validates sandbox policy and
