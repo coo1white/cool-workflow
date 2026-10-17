@@ -2,7 +2,7 @@
 // citation-check-smoke — proves live docs cannot silently point at files
 // that are not in the tree.
 //
-// The gate is scripts/citation-check.js (`npm run citation:check`). A 2026-08
+// The gate is scripts/citation-check.mjs (`npm run citation:check`). A 2026-08
 // sweep found 30+ dead source-path citations in the man pages; this smoke
 // keeps the gate itself from rotting into a no-op:
 //   1. positive — the check PASSES on the real committed docs.
@@ -21,7 +21,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const script = path.join(pluginRoot, "scripts", "citation-check.js");
+const script = path.join(pluginRoot, "scripts", "citation-check.mjs");
 
 function run(env) {
   return cp.spawnSync(process.execPath, [script], {

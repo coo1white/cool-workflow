@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // architecture-review-fast — userland accelerator wrapper.
 //
@@ -8,12 +7,12 @@
 // architecture-review app. The model still runs only through CW's external agent
 // backend; this script imports no model SDK and holds no key.
 
-const crypto = require("node:crypto");
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 
-const pluginRoot = path.resolve(__dirname, "..");
+const pluginRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
 const node = process.execPath;
 const cw = path.join(pluginRoot, "scripts", "cw.js");

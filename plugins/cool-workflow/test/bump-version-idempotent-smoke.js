@@ -21,7 +21,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const bump = path.join(pluginRoot, "scripts", "bump-version.js");
+const bump = path.join(pluginRoot, "scripts", "bump-version.mjs");
 const pkgPath = path.join(pluginRoot, "package.json");
 
 const current = JSON.parse(fs.readFileSync(pkgPath, "utf8")).version;
@@ -50,16 +50,16 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
   fs.mkdirSync(path.join(fixPlugin, "scripts"), { recursive: true });
   fs.mkdirSync(path.join(fixPlugin, "apps"), { recursive: true });
   fs.mkdirSync(path.join(fixPlugin, "docs"), { recursive: true });
-  fs.copyFileSync(bump, path.join(fixPlugin, "scripts", "bump-version.js"));
+  fs.copyFileSync(bump, path.join(fixPlugin, "scripts", "bump-version.mjs"));
   fs.copyFileSync(
-    path.join(pluginRoot, "scripts", "canonical-apps-list.js"),
-    path.join(fixPlugin, "scripts", "canonical-apps-list.js")
+    path.join(pluginRoot, "scripts", "canonical-apps-list.mjs"),
+    path.join(fixPlugin, "scripts", "canonical-apps-list.mjs")
   );
   fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify({ name: "x", version: "9.9.9", scripts: {} }, null, 2)}\n`);
   const surfacePath = path.join(fixPlugin, "docs", "trust-audit-anchor.7.md");
   fs.writeFileSync(surfacePath, "# Trust Audit Anchor\n\nno version mention here\n");
 
-  const gate = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.js"), "9.9.9"], {
+  const gate = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.mjs"), "9.9.9"], {
     cwd: fixPlugin,
     encoding: "utf8"
   });
@@ -74,7 +74,7 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
   const pkg = JSON.parse(fs.readFileSync(path.join(fixPlugin, "package.json"), "utf8"));
   pkg.scripts["version:sync"] = "exit 0";
   fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify(pkg, null, 2)}\n`);
-  const fill = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.js"), "9.9.9", "--content"], {
+  const fill = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.mjs"), "9.9.9", "--content"], {
     cwd: fixPlugin,
     encoding: "utf8"
   });

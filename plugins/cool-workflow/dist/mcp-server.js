@@ -12,7 +12,7 @@ import { startServer } from "./mcp/server.js";
  *  left to say. Any other stream error is thrown again, same as before.
  *
  *  This is a small COPY of cli/entry.ts's helper, not an import: the purity
- *  gate (scripts/purity-gate.js) forbids an mcp/ file from importing cli/,
+ *  gate (scripts/purity-gate.mjs) forbids an mcp/ file from importing cli/,
  *  and pulling in the whole CLI entry graph for five lines would be worse. */
 function exitQuietOnEpipe(stream) {
     stream.on("error", (error) => {

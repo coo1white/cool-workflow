@@ -167,12 +167,12 @@ function emitProgress(message: string): void {
 
 // A sign of life while a round waits on its agents: every agent wait is a
 // spawnSync, so this process cannot print until the round ends. A small
-// separate process (scripts/children/drive-ticker.js) prints
+// separate process (scripts/children/drive-ticker.mjs) prints
 // `[drive]   … <Phase> still working — 20s` to the inherited stderr every
 // CW_DRIVE_TICK_MS (default 10000) and is stopped when the round ends. Only
 // when [drive] progress is on (a TTY, or CW_DRIVE_PROGRESS=1), so a piped
 // run's bytes do not change; CW_DRIVE_TICK_MS=0 turns it off.
-const DRIVE_TICKER_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "scripts", "children", "drive-ticker.js");
+const DRIVE_TICKER_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "scripts", "children", "drive-ticker.mjs");
 
 function withDriveTicker<T>(label: string, fn: () => T): T {
   const rawInterval = process.env.CW_DRIVE_TICK_MS;

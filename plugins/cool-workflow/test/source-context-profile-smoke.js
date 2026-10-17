@@ -103,7 +103,7 @@ const subprofileExpectations = {
     excludes: ["plugins/cool-workflow/src/mcp-server.ts"]
   },
   release: {
-    includes: ["plugins/cool-workflow/scripts/release-flow.js", "plugins/cool-workflow/scripts/version-sync-check.js"],
+    includes: ["plugins/cool-workflow/scripts/release-flow.mjs", "plugins/cool-workflow/scripts/version-sync-check.mjs"],
     excludes: ["plugins/cool-workflow/src/shell/drive.ts"]
   },
   "agent-wrappers": {

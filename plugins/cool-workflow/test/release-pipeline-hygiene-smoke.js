@@ -8,7 +8,7 @@
 // exercised before they ship.
 //
 // Guards:
-//   1. release-flow.js cut() must NOT `git add -A` (an untracked stray — e.g. the
+//   1. release-flow.mjs cut() must NOT `git add -A` (an untracked stray — e.g. the
 //      reviewer transcript with the operator's home path — must never ride into the
 //      immutable tag commit). It must stage tracked changes with `git add -u`.
 //   2. npm-publish.yml must check out BEFORE any `run:` step (a pre-checkout run
@@ -31,19 +31,19 @@ let checks = 0;
 
 // ---- Guard 1: cut() staging --------------------------------------------------
 {
-  const src = fs.readFileSync(path.join(pluginRoot, "scripts", "release-flow.js"), "utf8");
+  const src = fs.readFileSync(path.join(pluginRoot, "scripts", "release-flow.mjs"), "utf8");
   assert.ok(
     !/git\(\s*\[\s*"add"\s*,\s*"-A"\s*\]/.test(src),
-    "release-flow.js cut() must not `git add -A` — stage tracked changes with `git add -u` plus the explicit verdict path so no untracked stray rides into the tag"
+    "release-flow.mjs cut() must not `git add -A` — stage tracked changes with `git add -u` plus the explicit verdict path so no untracked stray rides into the tag"
   );
   assert.ok(
     /git\(\s*\[\s*"add"\s*,\s*"-u"\s*\]/.test(src),
-    "release-flow.js cut() must stage tracked modifications with `git add -u`"
+    "release-flow.mjs cut() must stage tracked modifications with `git add -u`"
   );
   // The single intended new file (the verdict) is added explicitly.
   assert.ok(
     /git\(\s*\[\s*"add"\s*,\s*"--"\s*,\s*path\.relative\(repoRoot,\s*resultPath\)\s*\]/.test(src),
-    "release-flow.js cut() must explicitly add the verdict file (the only new path it may commit)"
+    "release-flow.mjs cut() must explicitly add the verdict file (the only new path it may commit)"
   );
   // The .sig sidecar (verdict signing, opt-in) must ride in the SAME commit as
   // the verdict when present — every --cut test case is --dry-run (it would
@@ -52,7 +52,7 @@ let checks = 0;
   // edit silently dropping or breaking this line.
   assert.ok(
     /git\(\s*\[\s*"add"\s*,\s*"--"\s*,\s*path\.relative\(repoRoot,\s*sigPath\)\s*\]/.test(src),
-    "release-flow.js cut() must explicitly add the verdict's .sig sidecar when it exists"
+    "release-flow.mjs cut() must explicitly add the verdict's .sig sidecar when it exists"
   );
   // The push must be TAG-ONLY (refs/tags/v<version>). The old shape —
   // `git push --atomic origin HEAD v<x>` — either hit main's branch
@@ -63,11 +63,11 @@ let checks = 0;
   // a one-hop leaf on the reviewed commit, carried by the tag alone.
   assert.ok(
     /push"\s*,\s*"origin"\s*,\s*`refs\/tags\/v\$\{cutVersion\}`/.test(src),
-    "release-flow.js cut() must push ONLY the tag ref (refs/tags/v<version>)"
+    "release-flow.mjs cut() must push ONLY the tag ref (refs/tags/v<version>)"
   );
   assert.ok(
     !/push"\s*,\s*"--atomic"\s*,\s*"origin"\s*,\s*"HEAD"/.test(src),
-    "release-flow.js cut() must NOT push HEAD/a branch (branch protection + stray-branch hazard)"
+    "release-flow.mjs cut() must NOT push HEAD/a branch (branch protection + stray-branch hazard)"
   );
   checks += 6;
 }

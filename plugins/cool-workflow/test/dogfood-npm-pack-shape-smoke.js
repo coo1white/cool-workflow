@@ -12,7 +12,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { packDryRunCommand } = require("../scripts/dogfood-release.js");
+const { packDryRunCommand } = require("../scripts/dogfood-release.mjs");
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-npm-pack-shape-"));
 const entry = (files) => ({ name: "cool-workflow", filename: "cool-workflow-0.0.0.tgz", entryCount: files.length, files: files.map((p) => ({ path: p, size: 1, mode: 420 })) });

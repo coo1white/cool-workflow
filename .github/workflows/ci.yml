@@ -162,7 +162,7 @@ jobs:
   # operator's machine during a real cut. Gated per job like
   # steering-config-gate above: a step reads the changed files with git and
   # sets an output; later steps run only when it says yes. It runs the real
-  # flow in check mode: version sync, release-flow.js --check --local-tests
+  # flow in check mode: version sync, release-flow.mjs --check --local-tests
   # (the deterministic gate: build, full test:gate, substance, test evidence,
   # branch naming; then the reviewer spawn and verdict check), and
   # dogfood-release --smoke (npm pack --dry-run --json). --local-tests is
@@ -187,7 +187,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Full history and tags: release-gate.js finds the previous release
+          # Full history and tags: release-gate.mjs finds the previous release
           # tag by semver and fails closed on a shallow clone.
           fetch-depth: 0
       - id: changed
@@ -220,11 +220,11 @@ jobs:
         if: steps.changed.outputs.run == 'true'
       - run: npm run version:sync
         if: steps.changed.outputs.run == 'true'
-      # GITHUB_HEAD_REF (set on a PR) is what release-gate.js judges for
+      # GITHUB_HEAD_REF (set on a PR) is what release-gate.mjs judges for
       # branch naming on the detached merge checkout.
-      - run: node scripts/release-flow.js --check --local-tests
+      - run: node scripts/release-flow.mjs --check --local-tests
         if: steps.changed.outputs.run == 'true'
         env:
           CW_AGENT_COMMAND: node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.js {{input}}
-      - run: node scripts/dogfood-release.js --smoke
+      - run: node scripts/dogfood-release.mjs --smoke
         if: steps.changed.outputs.run == 'true'

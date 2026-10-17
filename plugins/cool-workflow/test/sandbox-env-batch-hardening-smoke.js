@@ -21,10 +21,10 @@ const pluginRoot = path.resolve(__dirname, "..");
 const { buildChildEnv, CW_NEVER_FORWARD_ENV } = require(path.join(pluginRoot, "dist/shell/execution-backend/local.js"));
 const { buildAgentChildEnv } = require(path.join(pluginRoot, "dist/shell/execution-backend/agent.js"));
 const { buildContainerEnvArgs } = require(path.join(pluginRoot, "dist/shell/execution-backend/container.js"));
-const adapterCore = require(path.join(pluginRoot, "scripts/agents/agent-adapter-core.js"));
+const adapterCore = require(path.join(pluginRoot, "scripts/agents/agent-adapter-core.mjs"));
 
 // test the directory listing for the child scripts
-const batchChildScript = path.join(pluginRoot, "scripts", "children", "batch-delegate-child.js");
+const batchChildScript = path.join(pluginRoot, "scripts", "children", "batch-delegate-child.mjs");
 const httpChildScript = path.join(pluginRoot, "scripts", "children", "http-delegate-child.js");
 
 async function main() {

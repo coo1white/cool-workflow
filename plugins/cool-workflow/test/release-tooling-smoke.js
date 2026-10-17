@@ -55,7 +55,7 @@ const pluginRoot = path.resolve(__dirname, "..");
 }
 
 // --- 3. the three scripts parse, and their npm aliases are declared -----------
-for (const s of ["bump-version.js", "new-feature.js", "forward-ref-docs.js"]) {
+for (const s of ["bump-version.mjs", "new-feature.mjs", "forward-ref-docs.mjs"]) {
   const abs = path.join(pluginRoot, "scripts", s);
   assert.ok(fs.existsSync(abs), `scripts/${s} must exist`);
   const parsed = cp.spawnSync(process.execPath, ["--check", abs], { encoding: "utf8" });

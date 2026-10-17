@@ -147,7 +147,7 @@ function contract(files) {
     "plugins/cool-workflow/src/doctor.ts",
     "plugins/cool-workflow/src/onramp.ts",
     "plugins/cool-workflow/src/shell/orchestrator.ts",
-    "plugins/cool-workflow/scripts/onramp-check.js",
+    "plugins/cool-workflow/scripts/onramp-check.mjs",
     "plugins/cool-workflow/test/doctor-smoke.js",
     "plugins/cool-workflow/test/onramp-check-smoke.js",
     "plugins/cool-workflow/docs/getting-started.md",
@@ -244,7 +244,7 @@ const RELOCATED_SMOKES = {
 // GIT_INDEX_FILE at a broken file makes ref resolution pass and the diff step
 // fail on its own -- this is the exact path that used to turn a real git
 // error into a false "ok:true" (2026-07-12 security audit finding). Before
-// the fix, onramp-check.js printed changedFiles: [] and ok:true here and
+// the fix, onramp-check.mjs printed changedFiles: [] and ok:true here and
 // exited 0; after the fix it must exit non-zero with a clear message.
 {
   const badIndex = path.join(os.tmpdir(), `onramp-check-smoke-bad-index-${process.pid}`);
@@ -253,7 +253,7 @@ const RELOCATED_SMOKES = {
   let combinedOutput = "";
   try {
     execFileSync(process.execPath, [
-      path.join(pluginRoot, "scripts", "onramp-check.js"),
+      path.join(pluginRoot, "scripts", "onramp-check.mjs"),
       "--changed-from",
       "HEAD",
       "--check"

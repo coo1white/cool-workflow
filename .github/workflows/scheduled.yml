@@ -42,6 +42,6 @@ jobs:
       - run: bun run build
       # Stub agent, zero think-delay: what is left is CW's own plan/drive
       # overhead — the number this job exists to watch.
-      - run: node scripts/bench/run.js --arch ci-x64 --agent claude --delay-ms 0 --runs 5 --skip-workbench --json-report bench-report.json
+      - run: node scripts/bench/run.mjs --arch ci-x64 --agent claude --delay-ms 0 --runs 5 --skip-workbench --json-report bench-report.json
       - name: Print report
         run: cat bench-report.json

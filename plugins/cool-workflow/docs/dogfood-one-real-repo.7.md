@@ -32,7 +32,7 @@ The full dry-run gets real repository evidence from:
 
 ```bash
 git status --short --branch
-node scripts/version-sync-check.js
+node scripts/version-sync-check.mjs
 npm run build
 npm run check
 npm test
@@ -87,7 +87,7 @@ node test/dogfood-release-smoke.js
 node test/dogfood-architecture-review-smoke.js
 ```
 
-The smoke test runs `scripts/dogfood-release.js --smoke --json`. It still
+The smoke test runs `scripts/dogfood-release.mjs --smoke --json`. It still
 uses the real repository, `release-cut`, worker manifests, trust audit records,
 a verifier-gated commit, and a report, but keeps the
 command set smaller so it does not do recursive release checking. Smoke mode
@@ -132,7 +132,7 @@ scriptable, and fail-closed.
 
 ## Architecture-Review Agent-Delegation Dogfood (v0.1.38)
 
-`scripts/dogfood-architecture-review.js` dogfoods the v0.1.38 Agent Delegation
+`scripts/dogfood-architecture-review.mjs` dogfoods the v0.1.38 Agent Delegation
 Drive: the `architecture-review` app driven from end to end by the `agent` backend,
 with no hand-written `result.md` at all.
 
@@ -140,7 +140,7 @@ It is cut into two halves, just like the release dogfood above:
 
 - **`--smoke` (CI-verifiable).** A hermetic STUB agent (no live binary, no second
   repo, no network, no model SDK) drives the real app to a committed audited
-  report. `node scripts/dogfood-architecture-review.js --smoke --json` gives back
+  report. `node scripts/dogfood-architecture-review.mjs --smoke --json` gives back
   `{ ok: true, mode: "smoke" }` with a `reportPath` and `auditSummaryPath` that
   are there, the Verdict node accepted, and `audit.byKind["worker.agent-delegation"]
   >= 1`. This is checked under `npm test` (`test/dogfood-release-smoke.js`).
@@ -151,7 +151,7 @@ It is cut into two halves, just like the release dogfood above:
 
   ```bash
   CW_AGENT_COMMAND="claude -p {{input}}" \
-    node scripts/dogfood-architecture-review.js --repo /path/to/real/repo \
+    node scripts/dogfood-architecture-review.mjs --repo /path/to/real/repo \
     --question "Audit this repo's architecture and rank the real risks."
   ```
 

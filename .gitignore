@@ -11,7 +11,7 @@ bun.lockb
 # Ephemeral release-gate pass markers; the reviewer verdict (review-*.verdict)
 # stays tracked so the tag-push CI can confirm an APPROVED review was committed.
 .cw-release/gate-*.ok
-# Gate CI evidence (release-gate.js --tests-from-ci): regenerated per run.
+# Gate CI evidence (release-gate.mjs --tests-from-ci): regenerated per run.
 .cw-release/gate-ci-*.json
 # Transient GitHub-Release notes bodies (regenerated from CHANGELOG + verdict).
 .cw-release/release-notes-*.md

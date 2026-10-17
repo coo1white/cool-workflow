@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// release-gate-smoke — exercises scripts/release-gate.js against throwaway git
+// release-gate-smoke — exercises scripts/release-gate.mjs against throwaway git
 // fixtures. The gate's heavy steps (build, test) are satisfied by a fixture
 // package.json whose build/test scripts are `true`, so the real script runs
 // unmodified with NO recursion back into this suite. We assert the diff-driven
@@ -19,8 +19,8 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const GATE = path.resolve(__dirname, "..", "scripts", "release-gate.js");
-assert.ok(fs.existsSync(GATE), "release-gate.js must exist");
+const GATE = path.resolve(__dirname, "..", "scripts", "release-gate.mjs");
+assert.ok(fs.existsSync(GATE), "release-gate.mjs must exist");
 
 let caseId = 0;
 function freshRepo() {

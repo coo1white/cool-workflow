@@ -121,7 +121,7 @@ takes into its context; the core twelve are about 6.7 KB (measured
 
 The profile decides only what is listed. It is not a permission:
 `tools/call` still takes every known tool name, so a script, a test, or
-`scripts/parity-check.js` that calls a tool by name works the same under
+`scripts/parity-check.mjs` that calls a tool by name works the same under
 either profile. When `CW_MCP_ENABLED_TOOLS` or `CW_MCP_DISABLED_TOOLS` is set,
 that policy decides the list and the profile is not used. To get the old
 list back, start the server with `CW_MCP_TOOLS=full`.
@@ -404,7 +404,7 @@ CLI string form (`"true"`, `"5"`).
 
 ## Enforcement & Smoke Coverage
 
-Parity is checked by `scripts/parity-check.js --check`, run by
+Parity is checked by `scripts/parity-check.mjs --check`, run by
 `npm run parity:check` and joined into `npm run release:check`. The check loads
 the registry, lists the live CLI commands and MCP tools, and fails closed on any
 of the rules above.

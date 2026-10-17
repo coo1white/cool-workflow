@@ -35,7 +35,7 @@ const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 // dispatcher lookup and reads real `cw help`; it does not use a token list made
 // from the registry as proof of that same registry.
 const registry = require(path.join(pluginRoot, "dist", "core", "capability-table.js"));
-const { cliHelpTokens, cliReachabilityIssues } = require(path.join(pluginRoot, "scripts", "parity-check.js"));
+const { cliHelpTokens, cliReachabilityIssues } = require(path.join(pluginRoot, "scripts", "parity-check.mjs"));
 
 function liveMcpToolDefinitions() {
   const out = execFileSync(node, [mcpServer], {

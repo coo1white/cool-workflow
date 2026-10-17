@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// vendor-preflight-smoke -- exercises scripts/vendor-preflight.js LOGIC (matrix +
+// vendor-preflight-smoke -- exercises scripts/vendor-preflight.mjs LOGIC (matrix +
 // hard-block exit code) with shim wrappers. No live vendor, no keys: the shims
 // stand in for the real adapters so the gate is tested deterministically offline.
 // (The live gate itself runs on the release machine where the real keys exist.)
@@ -13,7 +13,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const preflight = path.join(pluginRoot, "scripts", "vendor-preflight.js");
+const preflight = path.join(pluginRoot, "scripts", "vendor-preflight.mjs");
 const BT = String.fromCharCode(96).repeat(3); // ``` without breaking this template
 
 // specs: { vendorName: "ok" | "fail" | "empty" }

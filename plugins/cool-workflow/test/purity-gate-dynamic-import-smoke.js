@@ -2,7 +2,7 @@
 "use strict";
 
 // purity-gate-dynamic-import-smoke — pins the FIXED behavior of the
-// core/shell purity ratchet's specifier scan (scripts/purity-gate.js).
+// core/shell purity ratchet's specifier scan (scripts/purity-gate.mjs).
 //
 // FINDING #23 (P3): extractSpecifiers matched static `import ... from "x"`
 // and `require("x")`, but NOT a dynamic `import("x")` call. So an
@@ -22,7 +22,7 @@
 // the repo's tooling holds to.
 
 const assert = require("node:assert/strict");
-const { extractSpecifiers } = require("../scripts/purity-gate");
+const { extractSpecifiers } = require("../scripts/purity-gate.mjs");
 
 function specsOf(code) {
   return extractSpecifiers(code);

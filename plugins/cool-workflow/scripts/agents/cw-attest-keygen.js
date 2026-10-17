@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // cw-attest-keygen (Track 1) — generate the ed25519 keypair for telemetry
 // attestation. The PRIVATE key stays with the executor/signing wrapper
@@ -11,9 +10,9 @@
 //   node cw-attest-keygen.js [--out-dir DIR]   # writes cw-attest.key + cw-attest.pub
 //   node cw-attest-keygen.js --print           # print both PEMs to stdout, write nothing
 
-const fs = require("node:fs");
-const crypto = require("node:crypto");
-const path = require("node:path");
+import fs from "node:fs";
+import crypto from "node:crypto";
+import path from "node:path";
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(name);

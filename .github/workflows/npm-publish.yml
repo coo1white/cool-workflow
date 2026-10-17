@@ -113,7 +113,7 @@ jobs:
           TAG_REF: ${{ steps.tagref.outputs.ref }}
       - name: Take the release verifier from origin/main, not from the tag
         # The checked-out tree IS the tag under judgment: a tag whose own
-        # scripts/verify-release-verdict.js is `process.exit(0)` would pass any
+        # scripts/verify-release-verdict.mjs is `process.exit(0)` would pass any
         # check that runs it. So the verifier (and every local file it loads) is
         # read out of origin/main -- a ref the tag being judged cannot rewrite --
         # into $RUNNER_TEMP, and the next step runs it from there against the
@@ -125,7 +125,7 @@ jobs:
           rm -rf "$VDIR"
           mkdir -p "$VDIR"
           printf '{"type":"commonjs"}\n' > "$VDIR/package.json"
-          for f in verify-release-verdict.js verify-verdict-signature.js verify-bump-reproduction.js fake-date-for-reproduction.js; do
+          for f in verify-release-verdict.mjs verify-verdict-signature.mjs verify-bump-reproduction.mjs fake-date-for-reproduction.mjs; do
             if ! git show "origin/main:plugins/cool-workflow/scripts/$f" > "$VDIR/$f" || [ ! -s "$VDIR/$f" ]; then
               echo "origin/main has no plugins/cool-workflow/scripts/$f -- refusing to verify with the tag's own copy" >&2
               exit 1
@@ -148,13 +148,13 @@ jobs:
         # checked-out commit to be exactly that tag's commit (blocks a
         # same-named branch standing in for the tag), and re-runs the full
         # verdict check -- including its signature check and its
-        # deterministic-bump-reproduction check (verify-bump-reproduction.js),
-        # if .cw-release/verdict-signing.pub is committed (see verdict-keygen.js).
+        # deterministic-bump-reproduction check (verify-bump-reproduction.mjs),
+        # if .cw-release/verdict-signing.pub is committed (see verdict-keygen.mjs).
         # A validly-signed verdict for the PARENT alone does not prove HEAD is
-        # the same mechanical bump release-flow.js's cut() would have produced —
+        # the same mechanical bump release-flow.mjs's cut() would have produced —
         # the shared script's header comment keeps the full rationale. The
         # tag-identity checks below are THIS file's own logic; the verdict
-        # check itself is delegated to verify-release-verdict.js AS COMMITTED ON
+        # check itself is delegated to verify-release-verdict.mjs AS COMMITTED ON
         # origin/main (copied out by the step above, never the tag's own copy),
         # which judges the repo of its cwd -- the tag checkout here (it anchors
         # itself on `git rev-parse --show-toplevel`).
@@ -169,7 +169,7 @@ jobs:
             echo "::error::checked-out commit $HEAD_SHA does not match refs/tags/$REF ($TAG_SHA) — refusing to publish"
             exit 1
           fi
-          node "$RUNNER_TEMP/cw-release-verifier/verify-release-verdict.js" --context "Publishing cannot be used to skip the gated release flow."
+          node "$RUNNER_TEMP/cw-release-verifier/verify-release-verdict.mjs" --context "Publishing cannot be used to skip the gated release flow."
         env:
           TAG_REF: ${{ steps.tagref.outputs.ref }}
       - name: Verify committed dist/ matches source (fail closed on drift)

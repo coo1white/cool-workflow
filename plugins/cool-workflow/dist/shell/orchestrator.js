@@ -1,6 +1,6 @@
 // shell/orchestrator.ts — a THIN, SCOPED CoolWorkflowRunner facade for the two
-// shipping tooling scripts (scripts/dogfood-release.js and
-// scripts/dogfood-architecture-review.js) that drive a run through
+// shipping tooling scripts (scripts/dogfood-release.mjs and
+// scripts/dogfood-architecture-review.mjs) that drive a run through
 // `new CoolWorkflowRunner({ pluginRoot }).<verb>(...)`.
 //
 // It holds ONLY the verbs those two scripts call, each a thin
@@ -167,7 +167,7 @@ function numberOption(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : undefined;
 }
-// `drive` for scripts/dogfood-architecture-review.js, which calls
+// `drive` for scripts/dogfood-architecture-review.mjs, which calls
 // `drive(runner, run.id, { now, agentConfig })`. shell/drive.ts's drive is
 // `drive(runId, cwd, options)` and resolves the run from cwd, so this
 // adapter forwards the runner's cwd.

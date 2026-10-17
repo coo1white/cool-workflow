@@ -2,7 +2,7 @@
 "use strict";
 
 // release-oneclick-resume-repush-smoke — pins two resume-path fixes in
-// scripts/release-oneclick.js (the operator's `npm run release -- X.Y.Z`):
+// scripts/release-oneclick.mjs (the operator's `npm run release -- X.Y.Z`):
 //
 //   Finding #1 (P1): a cut can leave the vX.Y.Z tag LOCAL-ONLY — `git tag`
 //     succeeds, then the tag push dies (a network drop, an auth expiry).
@@ -25,7 +25,7 @@
 //     done and hangs. The cutoff must come from the gate run's OWN completion
 //     time, not resume-time now.
 //
-// Both are exercised against the REAL release-oneclick.js (it always resolves
+// Both are exercised against the REAL release-oneclick.mjs (it always resolves
 // its repoRoot from __dirname, so it cannot be pointed at a fixture) with the
 // git + gh binaries swapped for tiny node stubs via the script's existing
 // CW_ONECLICK_GIT_CMD / CW_ONECLICK_GH_CMD seams. No real git/gh/npm/network is
@@ -41,8 +41,8 @@ const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const ONECLICK = path.join(pluginRoot, "scripts", "release-oneclick.js");
-assert.ok(fs.existsSync(ONECLICK), "release-oneclick.js must exist");
+const ONECLICK = path.join(pluginRoot, "scripts", "release-oneclick.mjs");
+assert.ok(fs.existsSync(ONECLICK), "release-oneclick.mjs must exist");
 
 const VERSION = "99.99.99"; // no such tag/CHANGELOG section in the real repo
 

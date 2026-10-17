@@ -1,5 +1,5 @@
 "use strict";
-// lang-policy-check-smoke — exercises scripts/lang-policy-check.js (the
+// lang-policy-check-smoke — exercises scripts/lang-policy-check.mjs (the
 // gate for the "JS/TS only" project rule) against throwaway git fixtures,
 // plus one real-repo sanity check.
 
@@ -11,8 +11,8 @@ const { spawnSync } = require("node:child_process");
 
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const pluginRoot = path.resolve(__dirname, "..");
-const SCRIPT = path.join(pluginRoot, "scripts", "lang-policy-check.js");
-assert.ok(fs.existsSync(SCRIPT), "lang-policy-check.js must exist");
+const SCRIPT = path.join(pluginRoot, "scripts", "lang-policy-check.mjs");
+assert.ok(fs.existsSync(SCRIPT), "lang-policy-check.mjs must exist");
 
 function git(dir, args) {
   const r = spawnSync("git", args, { cwd: dir, encoding: "utf8" });

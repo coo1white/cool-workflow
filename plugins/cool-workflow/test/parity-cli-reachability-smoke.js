@@ -8,7 +8,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { cliReachabilityIssues } = require(path.join(pluginRoot, "scripts", "parity-check.js"));
+const { cliReachabilityIssues } = require(path.join(pluginRoot, "scripts", "parity-check.mjs"));
 
 const cap = { capability: "test.show", cli: { path: ["test", "show"], handler() {} } };
 

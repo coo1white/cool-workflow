@@ -13,7 +13,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 export const CURATED_SMOKE_MAP = [
     {
-        patterns: ["src/shell/doctor.ts", "src/shell/onramp.ts", "scripts/onramp-check.js"],
+        patterns: ["src/shell/doctor.ts", "src/shell/onramp.ts", "scripts/onramp-check.mjs"],
         smokes: ["doctor-smoke.js", "onramp-check-smoke.js"]
     },
     {
@@ -29,7 +29,7 @@ export const CURATED_SMOKE_MAP = [
         smokes: ["cli-mcp-parity-smoke.js"]
     },
     {
-        patterns: ["src/core/capability-table.ts", "src/core/capability-data.ts", "src/wiring/capability-table/", "scripts/parity-check.js"],
+        patterns: ["src/core/capability-table.ts", "src/core/capability-data.ts", "src/wiring/capability-table/", "scripts/parity-check.mjs"],
         smokes: ["cli-mcp-parity-smoke.js", "cli-jsonmode-parity-smoke.js", "parity-doc-sync-smoke.js"]
     },
     {
@@ -569,7 +569,7 @@ function isSurfaceFile(file) {
         pluginPath === "src/core/capability-data.ts" ||
         pluginPath.startsWith("src/wiring/capability-table/") ||
         pluginPath === "src/shell/orchestrator.ts" ||
-        pluginPath === "scripts/parity-check.js");
+        pluginPath === "scripts/parity-check.mjs");
 }
 function isDocFile(file) {
     // "surface-docs-required" means the SHIPPED surface (README.md, the man-page tree

@@ -47,8 +47,8 @@ and are wrapped as compatibility apps with explicit `legacy-*` ids.
 ```bash
 # Delegate the independent review to the model of this host (Codex shown):
 export CW_AGENT_COMMAND="codex exec {{input}}"
-node plugins/cool-workflow/scripts/release-flow.js --check
-node plugins/cool-workflow/scripts/release-flow.js --cut --version 0.1.77 [--push]
+node plugins/cool-workflow/scripts/release-flow.mjs --check
+node plugins/cool-workflow/scripts/release-flow.mjs --cut --version 0.1.77 [--push]
 ```
 
 One zero-dependency orchestrator runs the gate + independent reviewer under any

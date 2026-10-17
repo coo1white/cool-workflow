@@ -22,10 +22,10 @@ Steps:
 2. Run the flow in check mode (gate + independent review, no mutation):
 
    ```bash
-   node plugins/cool-workflow/scripts/release-flow.js --check
+   node plugins/cool-workflow/scripts/release-flow.mjs --check
    ```
 
-   It runs `scripts/release-gate.js`, then spawns the configured agent
+   It runs `scripts/release-gate.mjs`, then spawns the configured agent
    (argv-style, shell:false — CW holds no key) to review the candidate and write
    `.cw-release/review-<HEAD>.verdict`. The flow fails closed unless the verdict
    begins with `APPROVED`.
@@ -34,7 +34,7 @@ Report the JSON summary from step 2 (`verdict`, `capability`) and stop at
 the first failure. Do not write the verdict file yourself — the delegated
 reviewer is the only writer, and `release-gate.yml` re-checks it in CI.
 
-Stop here. Do NOT run `release-flow.js --cut` yourself, on this host or
+Stop here. Do NOT run `release-flow.mjs --cut` yourself, on this host or
 any other — cutting a tag needs `CW_RELEASE_VERDICT_PRIVKEY`, the ed25519
 signing key that stays with the release operator and must never be read
 or held by an agent (see AGENTS.md's "Shipping a release" section). Once
@@ -45,12 +45,12 @@ operator cuts it themselves:
 npm run release -- <x.y.z>
 ```
 
-(`plugins/cool-workflow/scripts/release-oneclick.js`, the normal path) or,
+(`plugins/cool-workflow/scripts/release-oneclick.mjs`, the normal path) or,
 for manual control on a non-npm host, the lower-level command run by the
 operator in their own shell:
 
 ```bash
-node plugins/cool-workflow/scripts/release-flow.js --cut --version <x.y.z> --push
+node plugins/cool-workflow/scripts/release-flow.mjs --cut --version <x.y.z> --push
 ```
 
 See `docs/release-tooling.7.md` for the per-platform `CW_AGENT_COMMAND` presets

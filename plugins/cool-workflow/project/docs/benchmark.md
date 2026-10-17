@@ -13,7 +13,7 @@ scripts/...` command in this project.
 
 ### Agent Stub
 
-A configurable stub agent (`scripts/bench/agent-stub.js`) that simulates LLM latency:
+A configurable stub agent (`scripts/bench/agent-stub.mjs`) that simulates LLM latency:
 
 | agent | delay | rationale |
 |-------|-------|-----------|
@@ -67,7 +67,7 @@ The old rows above use long stub waits. Use the opt-in low-delay form below to
 look at the Track A path without model, network, or Workbench time:
 
 ```text
-node scripts/bench/run.js --arch portable --agent codex --conc 4 --runs 5 \
+node scripts/bench/run.mjs --arch portable --agent codex --conc 4 --runs 5 \
   --delay-ms 0 --skip-workbench --json-report /tmp/cw-workflow-overhead.json
 ```
 
@@ -104,7 +104,7 @@ write facts. It is for the benchmark runner only. It does not change CW CLI or
 MCP work, CSV stdout, or the old JSON report.
 
 ```text
-node scripts/bench/run.js --arch portable --agent codex --conc 4 --runs 5 \
+node scripts/bench/run.mjs --arch portable --agent codex --conc 4 --runs 5 \
   --delay-ms 0 --skip-workbench --json-report /tmp/cw-workflow-overhead.json \
   --trace-report /tmp/cw-cold-path.json
 ```
@@ -166,14 +166,14 @@ for one minute each. There must be no error or dropped work, p95 at or under
 
 The numbers above are wall-clock times, which move between runs. What
 CI holds is a set of exact counts that do not move:
-`scripts/bench/perf-counts.js` runs the journeys a person waits on (the
+`scripts/bench/perf-counts.mjs` runs the journeys a person waits on (the
 cold commands, MCP `initialize`, and a 16-worker stub drive) under
-`scripts/bench/perf-count-hook.js`. It counts CW modules loaded,
+`scripts/bench/perf-count-hook.mjs`. It counts CW modules loaded,
 `state.json` reads, whole-state JSON round trips, fsyncs, renames and
 git processes. `test/perf-ratchet-smoke.js` fails when a count goes
 above its ceiling in `scripts/bench/perf-ceilings.json`, and also when
 it goes below: a gain is locked by lowering the ceiling in the same
-diff (`node scripts/bench/perf-counts.js --update`, which never raises
+diff (`node scripts/bench/perf-counts.mjs --update`, which never raises
 one). Why counts and not milliseconds, and what each count costs in
 time: `project/docs/intent/2026-09-archive.md`
 (the perf-ratchets part). Since 2026-09-26 a save builds `state.json`
@@ -184,14 +184,14 @@ holds the loads only (the state-parts part).
 
 ```bash
 # the counts the ratchet holds
-node scripts/bench/perf-counts.js
+node scripts/bench/perf-counts.mjs
 
 # ARM64 native
-node scripts/bench/run.js --arch ARM64 --agent claude --conc 4 --runs 3
+node scripts/bench/run.mjs --arch ARM64 --agent claude --conc 4 --runs 3
 
 # Docker x86_64 (requires Docker daemon)
 docker run --rm --platform linux/amd64 -v "$(pwd):/repo" -w /repo \
-  node:22 node scripts/bench/run.js --arch x86_64 --agent deepseek --conc 4
+  node:22 node scripts/bench/run.mjs --arch x86_64 --agent deepseek --conc 4
 ```
 
 ## Raw Data

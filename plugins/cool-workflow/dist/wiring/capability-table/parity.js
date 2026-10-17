@@ -6,7 +6,7 @@ import { REGISTRY, declaredMcpTools } from "./registry-core.js";
 // `cw_<tool>` MCP result (whitespace aside); any divergence is drift. A
 // capability reachable on one surface but absent on the other, or an
 // undeclared payload divergence, is a release-blocking fail-closed error —
-// see scripts/parity-check.js.
+// see scripts/parity-check.mjs.
 //
 // `CAPABILITY_REGISTRY` is an alias so callers written against that
 // name (and the two smokes that import this module) find the same array
@@ -46,7 +46,7 @@ const RUN_PAYLOAD_PROBE_CAPABILITIES = [
 ];
 /** Capabilities that need bespoke scenario setup (extra args, seeded state,
  *  a dispatched worker, ...) beyond a bare `cwd`/`runId` — see
- *  scripts/parity-check.js's `prepareScenarioCli`/`prepareScenarioMcp` and
+ *  scripts/parity-check.mjs's `prepareScenarioCli`/`prepareScenarioMcp` and
  *  `runScenarioCli`/`runScenarioMcp` for the setup + invocation each one
  *  actually runs. */
 const SCENARIO_PAYLOAD_PROBE_CAPABILITIES = [

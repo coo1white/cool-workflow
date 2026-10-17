@@ -5,7 +5,7 @@
 //
 // Evidence: src/core/format/recovery-hint.ts (moved out of cli/entry.ts so
 // mcp/server.ts can reuse it without crossing the mcp/-may-never-import-
-// cli/ layer rule scripts/purity-gate.js enforces).
+// cli/ layer rule scripts/purity-gate.mjs enforces).
 
 const assert = require("node:assert/strict");
 const { recoveryHint } = require("../../../dist/core/format/recovery-hint");

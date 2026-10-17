@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// dist-drift-check-smoke — proves scripts/dist-drift-check.js catches a
+// dist-drift-check-smoke — proves scripts/dist-drift-check.mjs catches a
 // hand-edited dist/ file even with a warm tsc cache (before this PR, tsc's
 // incremental build emits nothing when src/ is unchanged, so a stale cache
 // let a hand-edit pass as "matches"). Runs in a private COPY of the package
@@ -22,11 +22,10 @@ try {
     fs.cpSync(path.join(pluginRoot, rel), path.join(tmp, rel), { recursive: true });
   }
   fs.mkdirSync(path.join(tmp, "scripts"));
-  fs.cpSync(path.join(pluginRoot, "scripts", "dist-drift-check.js"), path.join(tmp, "scripts", "dist-drift-check.js"));
-  fs.cpSync(path.join(pluginRoot, "scripts", "package.json"), path.join(tmp, "scripts", "package.json"));
+  fs.cpSync(path.join(pluginRoot, "scripts", "dist-drift-check.mjs"), path.join(tmp, "scripts", "dist-drift-check.mjs"));
   fs.symlinkSync(path.join(pluginRoot, "node_modules"), path.join(tmp, "node_modules"));
 
-  const script = path.join(tmp, "scripts", "dist-drift-check.js");
+  const script = path.join(tmp, "scripts", "dist-drift-check.mjs");
   const target = path.join(tmp, "dist", "cli.js");
   const original = fs.readFileSync(target, "utf8");
   const run = () => cp.spawnSync(process.execPath, [script], { cwd: tmp, encoding: "utf8" });

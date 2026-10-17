@@ -1,0 +1,738 @@
+#!/usr/bin/env node
+
+// CLI <-> MCP parity gate. Two renderings of one data source must agree.
+//
+//   node scripts/parity-check.mjs            # print the parity report (JSON)
+//   node scripts/parity-check.mjs --check    # fail (exit 1) on ANY drift
+//
+// FAIL CLOSED ON DRIFT (BSD discipline, same shape as gen-manifests --check):
+//   1. STATIC parity — the declared capability registry must exactly match the
+//      live MCP tool list (tools/list), every declared CLI path must resolve
+//      through the live dispatcher, and real `cw help` must match the declared
+//      help surface. Any gap is release-blocking.
+//   2. PAYLOAD parity — for every capability declared `payloadIdentical`, the
+//      `cw <cmd> --json` payload must equal the `cw_<tool>` MCP result on a real
+//      bootstrap run (whitespace + generation-moment ISO timestamps aside).
+//
+// The registry (src/core/capability-table.ts -> dist/core/capability-table.js)
+// is the single source of truth; this script never re-declares capabilities.
+//
+// v2 repoint: the old flat dist/capability-registry.js, dist/orchestrator.js,
+// dist/state.js, dist/state-node.js are gone. Each function this script
+// actually calls now lives in its v2 core/shell home:
+//   - registry (capability + parity planning data) -> core/capability-table.js
+//   - formatHelp                                    -> core/format/help.js
+//   - loadRunFromCwd, saveCheckpoint                 -> shell/run-store.js
+//   - appendRunNode, createStateNode                 -> core/state/state-node.js
+
+import assert from "node:assert/strict";
+import { execFileSync, spawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import readline from "node:readline";
+import { pathToFileURL } from "node:url";
+import * as registry from "../dist/core/capability-table.js";
+import { loadRunFromCwd, saveCheckpoint } from "../dist/shell/run-store.js";
+import { appendRunNode, createStateNode } from "../dist/core/state/state-node.js";
+
+const pluginRoot = path.resolve(import.meta.dirname, "..");
+const node = process.execPath;
+const cli = path.join(pluginRoot, "dist", "cli.js");
+const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
+
+function capById(id) {
+  const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === id);
+  assert.ok(cap, `probe references unknown capability ${id}`);
+  return cap;
+}
+
+function jsonFlag(cap) {
+  return cap.cli.jsonMode === "flag" ? ["--json"] : [];
+}
+
+function runCli(argv, cwd) {
+  return JSON.parse(execFileSync(node, [cli, ...argv], { cwd, encoding: "utf8" }));
+}
+
+// ---- 1. static surface parity ---------------------------------------------
+function liveMcpTools() {
+  const result = execFileSync(node, [mcpServer], {
+    cwd: pluginRoot,
+    // The whole list, not the default core profile (see MCP_CORE_TOOLS).
+    env: { ...process.env, CW_MCP_TOOLS: "full" },
+    input: `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list", params: {} })}\n`,
+    encoding: "utf8"
+  });
+  const line = result
+    .trim()
+    .split("\n")
+    .find((entry) => entry.includes('"tools"'));
+  assert.ok(line, "MCP server returned no tools/list result");
+  return JSON.parse(line).result.tools.map((tool) => tool.name);
+}
+
+// Old-build top-level verbs kept in the frozen help "More commands" index line
+// but folded in v2 into subcommands / the shell layer: init->app.init,
+// search->run.search (declaredCliHelpTokens collapses both to app/run), and
+// update is a shell-level command with no capability-table row. Help-index
+// discovery text, not dispatch-parity tokens — exclude them.
+const HELP_INDEX_ONLY_TOKENS = new Set(["init", "search", "update"]);
+
+function cliHelpTokens(helpText) {
+  const lines = helpText.split(/\r?\n/);
+  const tokens = new Set();
+  for (const line of lines) {
+    // Command lines start with exactly 2 spaces; examples are 4-space.
+    if (!line.startsWith("  ") || line.startsWith("    ")) continue;
+    const trimmed = line.trim();
+    if (!trimmed || !/^[a-z]/.test(trimmed)) continue;
+    const first = trimmed.split(/\s+/)[0];
+    for (const token of first.split("|")) {
+      const clean = token.replace(/[<[].*$/, "");
+      if (clean && !HELP_INDEX_ONLY_TOKENS.has(clean)) tokens.add(clean);
+    }
+  }
+  return [...tokens].sort();
+}
+
+function liveCliHelpTokens() {
+  const helpText = execFileSync(node, [cli, "help", "--no-color"], {
+    cwd: pluginRoot,
+    encoding: "utf8",
+    env: { ...process.env, NO_COLOR: "1" }
+  });
+  return cliHelpTokens(helpText);
+}
+
+/** The CLI dispatcher calls this same lookup. Keep the probe outside the
+ * registry report so the live gate does not compare a token list made from the
+ * registry with another list made from the same registry. */
+function cliReachabilityIssues(table) {
+  const issues = [];
+  for (const cap of table.cliCapabilities()) {
+    const resolved = table.findCapabilityByCliPath(cap.cli.path);
+    if (!resolved || !resolved.cli || typeof resolved.cli.handler !== "function") {
+      issues.push(`${cap.capability}: CLI path ${cap.cli.path.join(" ")} does not resolve through the dispatcher`);
+    }
+  }
+  return issues;
+}
+
+// ---- 2. payload identity ---------------------------------------------------
+// Generation-moment ISO timestamps are presentation metadata, not capability
+// data: the same field carries the wall-clock instant of the render. Neutralize
+// them (and only them) before comparison so we assert canonical-payload identity.
+// Also neutralize the metrics fields derived from a live run's `updatedAt`
+// (wallClockMs = elapsed-since-updatedAt; sourceFingerprint / freshness's
+// current+persisted fingerprints = a hash folding updatedAt). These drift
+// between two separate reads (the CLI subprocess vs the in-process MCP call) of
+// the SAME unchanged run — the same non-determinism web-desktop-workbench-smoke
+// neutralizes with its canonicalStable. Only the workbench/metrics payloads
+// carry these fields, so the extra replacements are a no-op elsewhere.
+function canonical(value) {
+  return JSON.stringify(value)
+    .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, "<ts>")
+    .replace(/"wallClockMs":\d+/g, '"wallClockMs":<ms>')
+    .replace(/"(sourceFingerprint|currentFingerprint|persistedFingerprint)":"[^"]*"/g, '"$1":"<fp>"');
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function replaceAllLiteral(text, search, replacement) {
+  return text.replace(new RegExp(escapeRegExp(search), "g"), replacement);
+}
+
+function canonicalScenario(value, context) {
+  let text = canonical(value);
+  for (const root of context.workspaceRoots || []) {
+    text = replaceAllLiteral(text, root, "<workspace>");
+  }
+  for (const runId of context.runIds || []) {
+    text = replaceAllLiteral(text, runId, "<runId>");
+  }
+  return text
+    .replace(/"durationMs":\d+/g, '"durationMs":<ms>')
+    .replace(/dispatch-\d{8}T\d{6}Z-\d{4}/g, "dispatch-<ts>-<seq>")
+    .replace(/(architecture-review|end-to-end-golden-path)-\d{8}T\d{6}Z-[a-f0-9]+/g, "<runId>")
+    .replace(/(architecture-review|end-to-end-golden-path)-<timestamp>-[a-f0-9]+/g, "<runId>")
+    .replace(/snap-<runId>([^"]*)-[a-f0-9]{12}/g, "snap-<runId>$1-<snap>")
+    .replace(/replay-snap-<runId>([^"]*)-<snap>-[a-f0-9]{8}/g, "replay-snap-<runId>$1-<snap>-<replay>")
+    .replace(/sha256:[a-f0-9]{32,64}/g, "sha256:<hash>")
+    .replace(/[a-f0-9]{64}/g, "<hex64>");
+}
+
+function makeWorkspace(label) {
+  const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `cw-parity-${label}-`)));
+  fs.writeFileSync(path.join(workspace, "README.md"), "# CLI/MCP parity fixture\n", "utf8");
+  return workspace;
+}
+
+function bootstrapRun(workspace) {
+  return runCli(["plan", "end-to-end-golden-path", "--question", "CLI/MCP scenario payload parity"], workspace);
+}
+
+function writeParityResult(resultPath) {
+  fs.writeFileSync(
+    resultPath,
+    [
+      "# Result",
+      "",
+      "Deterministic parity result.",
+      "",
+      "```cw:result",
+      '{ "summary": "parity result", "findings": [], "evidence": ["README.md:1"] }',
+      "```",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+}
+
+function readmePath(workspace) {
+  return path.join(workspace, "README.md");
+}
+
+function dispatchWorkerCli(workspace, runId) {
+  const dispatch = runCli(["dispatch", runId, "--limit", "1"], workspace);
+  const task = dispatch.tasks[0];
+  assert.ok(task?.workerId, `${runId}: dispatch produced no worker id`);
+  assert.ok(task.workerResultPath, `${runId}: dispatch produced no worker result path`);
+  return {
+    workerId: task.workerId,
+    taskId: task.id,
+    resultPath: task.workerResultPath
+  };
+}
+
+async function dispatchWorkerMcp(mcp, workspace, runId) {
+  const dispatch = await mcp.tool("cw_dispatch", { cwd: workspace, runId, limit: 1 });
+  const task = dispatch.tasks[0];
+  assert.ok(task?.workerId, `${runId}: MCP dispatch produced no worker id`);
+  assert.ok(task.workerResultPath, `${runId}: MCP dispatch produced no worker result path`);
+  return {
+    workerId: task.workerId,
+    taskId: task.id,
+    resultPath: task.workerResultPath
+  };
+}
+
+function workerOutputCli(workspace, runId, worker) {
+  writeParityResult(worker.resultPath);
+  runCli(["worker", "output", runId, worker.workerId, worker.resultPath], workspace);
+  return worker;
+}
+
+async function workerOutputMcp(mcp, workspace, runId, worker) {
+  writeParityResult(worker.resultPath);
+  await mcp.tool("cw_worker_output", { cwd: workspace, runId, workerId: worker.workerId, resultPath: worker.resultPath });
+  return worker;
+}
+
+function verifiedWorkerCli(workspace, runId) {
+  return workerOutputCli(workspace, runId, dispatchWorkerCli(workspace, runId));
+}
+
+async function verifiedWorkerMcp(mcp, workspace, runId) {
+  return workerOutputMcp(mcp, workspace, runId, await dispatchWorkerMcp(mcp, workspace, runId));
+}
+
+function resultNodeId(runId) {
+  return `${runId}:result:golden:path`;
+}
+
+function verifiedNodeCli(workspace, runId) {
+  verifiedWorkerCli(workspace, runId);
+  return { nodeId: resultNodeId(runId) };
+}
+
+async function verifiedNodeMcp(mcp, workspace, runId) {
+  await verifiedWorkerMcp(mcp, workspace, runId);
+  return { nodeId: resultNodeId(runId) };
+}
+
+function nodeSnapshotsCli(workspace, runId) {
+  const node = verifiedNodeCli(workspace, runId);
+  const baseline = runCli(["node", "snapshot", runId, node.nodeId], workspace);
+  const candidate = runCli(["node", "snapshot", runId, node.nodeId], workspace);
+  return { ...node, baselineSnapshotId: baseline.snapshotId, candidateSnapshotId: candidate.snapshotId };
+}
+
+async function nodeSnapshotsMcp(mcp, workspace, runId) {
+  const node = await verifiedNodeMcp(mcp, workspace, runId);
+  const baseline = await mcp.tool("cw_node_snapshot", { cwd: workspace, runId, nodeId: node.nodeId });
+  const candidate = await mcp.tool("cw_node_snapshot", { cwd: workspace, runId, nodeId: node.nodeId });
+  return { ...node, baselineSnapshotId: baseline.snapshotId, candidateSnapshotId: candidate.snapshotId };
+}
+
+function nodeReplayCli(workspace, runId) {
+  const snapshots = nodeSnapshotsCli(workspace, runId);
+  const replay = runCli(["node", "replay", runId, snapshots.baselineSnapshotId], workspace);
+  return { ...snapshots, replayId: replay.replayId };
+}
+
+async function nodeReplayMcp(mcp, workspace, runId) {
+  const snapshots = await nodeSnapshotsMcp(mcp, workspace, runId);
+  const replay = await mcp.tool("cw_node_replay", { cwd: workspace, runId, snapshotId: snapshots.baselineSnapshotId });
+  return { ...snapshots, replayId: replay.replayId };
+}
+
+function failedWorkerFeedbackCli(workspace, runId) {
+  const worker = dispatchWorkerCli(workspace, runId);
+  const failed = runCli([
+    "worker",
+    "fail",
+    runId,
+    worker.workerId,
+    "parity failure",
+    "--code",
+    "runtime-error",
+    "--path",
+    readmePath(workspace)
+  ], workspace);
+  const feedbackId = failed.feedbackIds?.[0];
+  assert.ok(feedbackId, `${runId}: worker failure produced no feedback id`);
+  return { worker, feedbackId };
+}
+
+async function failedWorkerFeedbackMcp(mcp, workspace, runId) {
+  const worker = await dispatchWorkerMcp(mcp, workspace, runId);
+  const failed = await mcp.tool("cw_worker_fail", {
+    cwd: workspace,
+    runId,
+    workerId: worker.workerId,
+    message: "parity failure",
+    code: "runtime-error",
+    path: readmePath(workspace)
+  });
+  const feedbackId = failed.feedbackIds?.[0];
+  assert.ok(feedbackId, `${runId}: MCP worker failure produced no feedback id`);
+  return { worker, feedbackId };
+}
+
+function seedFailedNode(workspace, runId) {
+  const run = loadRunFromCwd(runId, workspace);
+  const nodeId = `${run.id}:parity:failed-node`;
+  if (!(run.nodes || []).some((node) => node.id === nodeId)) {
+    appendRunNode(run, createStateNode({
+      id: nodeId,
+      kind: "error",
+      status: "failed",
+      loopStage: "adjust",
+      errors: [{
+        code: "runtime-error",
+        message: "parity collect failure",
+        at: "2020-01-01T00:00:00.000Z",
+        path: readmePath(workspace),
+        retryable: false
+      }],
+      metadata: { pipelineStage: "parity" }
+    }));
+    saveCheckpoint(run);
+  }
+  return nodeId;
+}
+
+function seedVerifiedNode(workspace, runId) {
+  const run = loadRunFromCwd(runId, workspace);
+  const nodeId = `${run.id}:parity:verified-node`;
+  if (!(run.nodes || []).some((node) => node.id === nodeId)) {
+    appendRunNode(run, createStateNode({
+      id: nodeId,
+      kind: "verifier",
+      status: "verified",
+      loopStage: "adjust",
+      evidence: [{ id: "parity:verified", source: "test", locator: "README.md:1" }]
+    }));
+    saveCheckpoint(run);
+  }
+  return nodeId;
+}
+
+function sandboxProfileFile(workspace) {
+  const profileFile = path.join(workspace, "parity-sandbox-profile.json");
+  const profile = {
+    schemaVersion: 1,
+    id: "parity-readonly",
+    title: "Parity Readonly",
+    description: "Local sandbox profile fixture for CLI/MCP parity.",
+    readPaths: ["$cwd"],
+    writePaths: [],
+    workerOutput: { result: true, artifacts: true, logs: true },
+    execute: { mode: "none" },
+    network: { mode: "none" },
+    env: { inherit: false, expose: [] },
+    hostInstructions: ["Used only by the parity check."]
+  };
+  fs.writeFileSync(profileFile, `${JSON.stringify(profile, null, 2)}\n`, "utf8");
+  return profileFile;
+}
+
+function scenarioWorkspacePair(capability) {
+  const slug = capability.replace(/[^a-z0-9]+/gi, "-");
+  return {
+    cliWorkspace: makeWorkspace(`${slug}-cli`),
+    mcpWorkspace: makeWorkspace(`${slug}-mcp`)
+  };
+}
+
+const RUNLESS_SCENARIOS = new Set([
+  "plan",
+  "app.show",
+  "app.validate",
+  "app.package",
+  "sandbox.show",
+  "sandbox.validate",
+  "sandbox.choose"
+]);
+
+function prepareScenarioCli(capability, workspace, runId) {
+  switch (capability) {
+    case "node.show":
+    case "node.snapshot":
+      return verifiedNodeCli(workspace, runId);
+    case "node.diff":
+      return nodeSnapshotsCli(workspace, runId);
+    case "node.replay":
+      return { snapshotId: nodeSnapshotsCli(workspace, runId).baselineSnapshotId };
+    case "node.replay.verify":
+      return nodeReplayCli(workspace, runId);
+    case "worker.list":
+    case "worker.show":
+    case "worker.manifest":
+    case "worker.validate":
+    case "worker.fail":
+      return { worker: dispatchWorkerCli(workspace, runId) };
+    case "worker.output": {
+      const worker = dispatchWorkerCli(workspace, runId);
+      writeParityResult(worker.resultPath);
+      return { worker };
+    }
+    case "feedback.collect":
+      return { failedNodeId: seedFailedNode(workspace, runId) };
+    case "feedback.list":
+    case "feedback.show":
+    case "feedback.task":
+      return failedWorkerFeedbackCli(workspace, runId);
+    case "feedback.resolve": {
+      const feedback = failedWorkerFeedbackCli(workspace, runId);
+      return { ...feedback, verifierNodeId: seedVerifiedNode(workspace, runId) };
+    }
+    default:
+      return {};
+  }
+}
+
+async function prepareScenarioMcp(capability, mcp, workspace, runId) {
+  switch (capability) {
+    case "node.show":
+    case "node.snapshot":
+      return verifiedNodeMcp(mcp, workspace, runId);
+    case "node.diff":
+      return nodeSnapshotsMcp(mcp, workspace, runId);
+    case "node.replay": {
+      const snapshots = await nodeSnapshotsMcp(mcp, workspace, runId);
+      return { snapshotId: snapshots.baselineSnapshotId };
+    }
+    case "node.replay.verify":
+      return nodeReplayMcp(mcp, workspace, runId);
+    case "worker.list":
+    case "worker.show":
+    case "worker.manifest":
+    case "worker.validate":
+    case "worker.fail":
+      return { worker: await dispatchWorkerMcp(mcp, workspace, runId) };
+    case "worker.output": {
+      const worker = await dispatchWorkerMcp(mcp, workspace, runId);
+      writeParityResult(worker.resultPath);
+      return { worker };
+    }
+    case "feedback.collect":
+      return { failedNodeId: seedFailedNode(workspace, runId) };
+    case "feedback.list":
+    case "feedback.show":
+    case "feedback.task":
+      return failedWorkerFeedbackMcp(mcp, workspace, runId);
+    case "feedback.resolve": {
+      const feedback = await failedWorkerFeedbackMcp(mcp, workspace, runId);
+      return { ...feedback, verifierNodeId: seedVerifiedNode(workspace, runId) };
+    }
+    default:
+      return {};
+  }
+}
+
+function runScenarioCli(capability, workspace, runId, context = {}) {
+  switch (capability) {
+    case "plan":
+      return runCli(["plan", "end-to-end-golden-path", "--question", "CLI/MCP scenario payload parity"], workspace);
+    case "app.show":
+      return runCli(["app", "show", "end-to-end-golden-path"], workspace);
+    case "app.validate":
+      return runCli(["app", "validate", "end-to-end-golden-path"], workspace);
+    case "app.package":
+      return runCli(["app", "package", "end-to-end-golden-path"], workspace);
+    case "sandbox.show":
+      return runCli(["sandbox", "show", "readonly"], workspace);
+    case "sandbox.validate":
+      return runCli(["sandbox", "validate", sandboxProfileFile(workspace)], workspace);
+    case "sandbox.choose":
+      return runCli(["sandbox", "choose", "readonly"], workspace);
+    case "node.show":
+      return runCli(["node", "show", runId, context.nodeId], workspace);
+    case "node.snapshot":
+      return runCli(["node", "snapshot", runId, context.nodeId], workspace);
+    case "node.diff":
+      return runCli(["node", "diff", runId, context.baselineSnapshotId, context.candidateSnapshotId], workspace);
+    case "node.replay":
+      return runCli(["node", "replay", runId, context.snapshotId], workspace);
+    case "node.replay.verify":
+      return runCli(["node", "verify", runId, context.replayId], workspace);
+    case "worker.list":
+      return runCli(["worker", "list", runId], workspace);
+    case "worker.show":
+      return runCli(["worker", "show", runId, context.worker.workerId], workspace);
+    case "worker.manifest":
+      return runCli(["worker", "manifest", runId, context.worker.workerId], workspace);
+    case "worker.output":
+      return runCli(["worker", "output", runId, context.worker.workerId, context.worker.resultPath], workspace);
+    case "worker.fail":
+      return runCli(["worker", "fail", runId, context.worker.workerId, "parity failure", "--code", "runtime-error", "--path", readmePath(workspace)], workspace);
+    case "worker.validate":
+      return runCli(["worker", "validate", runId, context.worker.workerId, context.worker.resultPath], workspace);
+    case "feedback.list":
+      return runCli(["feedback", "list", runId], workspace);
+    case "feedback.show":
+      return runCli(["feedback", "show", runId, context.feedbackId], workspace);
+    case "feedback.collect":
+      return runCli(["feedback", "collect", runId], workspace);
+    case "feedback.task":
+      return runCli(["feedback", "task", runId, context.feedbackId, "--verify", "npm test"], workspace);
+    case "feedback.resolve":
+      return runCli(["feedback", "resolve", runId, context.feedbackId, "--status", "resolved", "--node", context.verifierNodeId, "--message", "parity resolved"], workspace);
+    default:
+      throw new Error(`No CLI payload scenario for ${capability}`);
+  }
+}
+
+async function runScenarioMcp(capability, mcp, workspace, runId, context = {}) {
+  switch (capability) {
+    case "plan":
+      return mcp.tool("cw_plan", { cwd: workspace, workflowId: "end-to-end-golden-path", question: "CLI/MCP scenario payload parity" });
+    case "app.show":
+      return mcp.tool("cw_app_show", { cwd: workspace, appId: "end-to-end-golden-path" });
+    case "app.validate":
+      return mcp.tool("cw_app_validate", { cwd: workspace, appId: "end-to-end-golden-path" });
+    case "app.package":
+      return mcp.tool("cw_app_package", { cwd: workspace, appId: "end-to-end-golden-path" });
+    case "sandbox.show":
+      return mcp.tool("cw_sandbox_show", { cwd: workspace, profileId: "readonly" });
+    case "sandbox.validate":
+      return mcp.tool("cw_sandbox_validate", { cwd: workspace, profileFile: sandboxProfileFile(workspace) });
+    case "sandbox.choose":
+      return mcp.tool("cw_sandbox_choose", { cwd: workspace, profileId: "readonly" });
+    case "node.show":
+      return mcp.tool("cw_node_show", { cwd: workspace, runId, nodeId: context.nodeId });
+    case "node.snapshot":
+      return mcp.tool("cw_node_snapshot", { cwd: workspace, runId, nodeId: context.nodeId });
+    case "node.diff":
+      return mcp.tool("cw_node_diff", { cwd: workspace, runId, baselineSnapshotId: context.baselineSnapshotId, candidateSnapshotId: context.candidateSnapshotId });
+    case "node.replay":
+      return mcp.tool("cw_node_replay", { cwd: workspace, runId, snapshotId: context.snapshotId });
+    case "node.replay.verify":
+      return mcp.tool("cw_node_replay_verify", { cwd: workspace, runId, replayId: context.replayId });
+    case "worker.list":
+      return mcp.tool("cw_worker_list", { cwd: workspace, runId });
+    case "worker.show":
+      return mcp.tool("cw_worker_show", { cwd: workspace, runId, workerId: context.worker.workerId });
+    case "worker.manifest":
+      return mcp.tool("cw_worker_manifest", { cwd: workspace, runId, workerId: context.worker.workerId });
+    case "worker.output":
+      return mcp.tool("cw_worker_output", { cwd: workspace, runId, workerId: context.worker.workerId, resultPath: context.worker.resultPath });
+    case "worker.fail":
+      return mcp.tool("cw_worker_fail", { cwd: workspace, runId, workerId: context.worker.workerId, message: "parity failure", code: "runtime-error", path: readmePath(workspace) });
+    case "worker.validate":
+      return mcp.tool("cw_worker_validate", { cwd: workspace, runId, workerId: context.worker.workerId, resultPath: context.worker.resultPath });
+    case "feedback.list":
+      return mcp.tool("cw_feedback_list", { cwd: workspace, runId });
+    case "feedback.show":
+      return mcp.tool("cw_feedback_show", { cwd: workspace, runId, feedbackId: context.feedbackId });
+    case "feedback.collect":
+      return mcp.tool("cw_feedback_collect", { cwd: workspace, runId });
+    case "feedback.task":
+      return mcp.tool("cw_feedback_task", { cwd: workspace, runId, feedbackId: context.feedbackId, verify: "npm test" });
+    case "feedback.resolve":
+      return mcp.tool("cw_feedback_resolve", { cwd: workspace, runId, feedbackId: context.feedbackId, status: "resolved", node: context.verifierNodeId, message: "parity resolved" });
+    default:
+      throw new Error(`No MCP payload scenario for ${capability}`);
+  }
+}
+
+async function executeScenario(target, mcp) {
+  const { cliWorkspace, mcpWorkspace } = scenarioWorkspacePair(target.capability);
+  if (RUNLESS_SCENARIOS.has(target.capability)) {
+    const cliOut = runScenarioCli(target.capability, cliWorkspace);
+    const mcpOut = await runScenarioMcp(target.capability, mcp, mcpWorkspace);
+    return {
+      cliPayload: canonicalScenario(cliOut, {
+        workspaceRoots: [cliWorkspace],
+        runIds: cliOut.runId ? [cliOut.runId] : []
+      }),
+      mcpPayload: canonicalScenario(mcpOut, {
+        workspaceRoots: [mcpWorkspace],
+        runIds: mcpOut.runId ? [mcpOut.runId] : []
+      })
+    };
+  }
+
+  const cliPlan = bootstrapRun(cliWorkspace);
+  const mcpPlan = bootstrapRun(mcpWorkspace);
+  const cliContext = prepareScenarioCli(target.capability, cliWorkspace, cliPlan.runId);
+  const mcpContext = await prepareScenarioMcp(target.capability, mcp, mcpWorkspace, mcpPlan.runId);
+  const cliOut = runScenarioCli(target.capability, cliWorkspace, cliPlan.runId, cliContext);
+  const mcpOut = await runScenarioMcp(target.capability, mcp, mcpWorkspace, mcpPlan.runId, mcpContext);
+  return {
+    cliPayload: canonicalScenario(cliOut, {
+      workspaceRoots: [cliWorkspace],
+      runIds: [cliPlan.runId]
+    }),
+    mcpPayload: canonicalScenario(mcpOut, {
+      workspaceRoots: [mcpWorkspace],
+      runIds: [mcpPlan.runId]
+    })
+  };
+}
+
+function openMcp() {
+  const server = spawn(node, [mcpServer], { cwd: pluginRoot, stdio: ["pipe", "pipe", "pipe"] });
+  const lines = readline.createInterface({ input: server.stdout });
+  const pending = new Map();
+  let nextId = 1;
+  lines.on("line", (line) => {
+    let message;
+    try {
+      message = JSON.parse(line);
+    } catch {
+      return;
+    }
+    const waiter = pending.get(message.id);
+    if (!waiter) return;
+    pending.delete(message.id);
+    if (message.error) waiter.reject(new Error(message.error.message));
+    else waiter.resolve(message.result);
+  });
+  const rpc = (method, params) => {
+    const id = nextId++;
+    server.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
+    return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+  };
+  const tool = (name, args) => rpc("tools/call", { name, arguments: args }).then((result) => JSON.parse(result.content[0].text));
+  return { server, rpc, tool };
+}
+
+async function payloadParity() {
+  // realpath so the CLI (which realpath-resolves its cwd) and the MCP server we
+  // hand `cwd` to observe identical absolute paths — a workspace symlink would
+  // otherwise masquerade as a payload divergence.
+  const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-parity-")));
+  const plan = JSON.parse(
+    execFileSync(node, [cli, "plan", "architecture-review", "--repo", workspace, "--question", "v0.1.27 CLI<->MCP parity probe"], {
+      cwd: workspace,
+      encoding: "utf8"
+    })
+  );
+  const runId = plan.runId;
+  const mismatches = [];
+  const checked = [];
+  const probePlan = registry.payloadProbePlan();
+  assert.deepEqual(probePlan.unclassified, [], "payload probe classification has unclassified capabilities");
+  assert.deepEqual(probePlan.duplicateClassifications, [], "payload probe classification has duplicates");
+  assert.deepEqual(probePlan.invalidClassifications, [], "payload probe classification names non-payload capabilities");
+  const mcp = openMcp();
+  try {
+    await mcp.rpc("initialize", {});
+    for (const target of registry.payloadProbeTargets()) {
+      const cap = capById(target.capability);
+      if (target.kind === "scenario") {
+        const result = await executeScenario(target, mcp);
+        checked.push(target.capability);
+        if (result.cliPayload !== result.mcpPayload) mismatches.push(target.capability);
+        continue;
+      }
+      // jsonMode is the single source for the CLI's --json policy; this probe only
+      // appends --json for "flag" verbs and JSON.parse-es the result. The human
+      // rendering and "default"-verb no-flag JSON are pinned to cap.cli.jsonMode by
+      // the companion test/cli-jsonmode-parity-smoke.js, so cli.ts can't silently
+      // re-encode that policy by hand and drift from this registry data.
+      if (target.kind !== "global" && target.kind !== "run") throw new Error(`Unknown payload probe target kind: ${target.kind}`);
+      const cliArgv = target.kind === "run"
+        ? [...cap.cli.path, runId, ...jsonFlag(cap)]
+        : [...cap.cli.path, ...jsonFlag(cap)];
+      const cliOut = runCli(cliArgv, workspace);
+      const mcpArgs = target.kind === "run" ? { cwd: workspace, runId } : { cwd: workspace };
+      const mcpOut = await mcp.tool(cap.mcp.tool, mcpArgs);
+      checked.push(target.capability);
+      if (canonical(cliOut) !== canonical(mcpOut)) mismatches.push(target.capability);
+    }
+  } finally {
+    mcp.server.kill();
+  }
+  return { runId, checked, mismatches };
+}
+
+async function main() {
+  const check = process.argv.includes("--check");
+  const tools = liveMcpTools();
+  const helpTokens = liveCliHelpTokens();
+  const report = registry.buildParityReport({ mcpTools: tools, helpTokens });
+  const reachabilityIssues = cliReachabilityIssues(registry);
+  report.registryLint.push(...reachabilityIssues);
+  report.ok = report.ok && reachabilityIssues.length === 0;
+  const payload = await payloadParity();
+
+  const ok = report.ok && payload.mismatches.length === 0;
+  const out = {
+    ok,
+    static: report,
+    payload: {
+      ok: payload.mismatches.length === 0,
+      runId: payload.runId,
+      checked: payload.checked.length,
+      capabilities: payload.checked,
+      mismatches: payload.mismatches
+    }
+  };
+  process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
+
+  if (check && !ok) {
+    const lines = ["", "CLI <-> MCP parity drift detected (release-blocking):"];
+    if (report.missingMcpTools.length) lines.push(`  - registry declares MCP tools absent from the server: ${report.missingMcpTools.join(", ")}`);
+    if (report.undeclaredMcpTools.length) lines.push(`  - server exposes MCP tools not declared in the registry: ${report.undeclaredMcpTools.join(", ")}`);
+    if (report.missingCliTokens.length) lines.push(`  - registry declares CLI tokens absent from dist/cli.js: ${report.missingCliTokens.join(", ")}`);
+    if (report.undeclaredCliTokens.length) lines.push(`  - dist/cli.js dispatches tokens not declared in the registry: ${report.undeclaredCliTokens.join(", ")}`);
+    if (report.helpMissingCliTokens.length) lines.push(`  - registry declares CLI commands absent from cw help: ${report.helpMissingCliTokens.join(", ")}`);
+    if (report.helpUndeclaredCliTokens.length) lines.push(`  - cw help lists commands not declared in the registry: ${report.helpUndeclaredCliTokens.join(", ")}`);
+    if (report.reasonlessExceptions.length) lines.push(`  - surface-specific / payload-divergent capabilities missing a recorded reason: ${report.reasonlessExceptions.join(", ")}`);
+    if (report.payloadProbeUnclassified.length) lines.push(`  - payload-identical capabilities neither probed nor deferred: ${report.payloadProbeUnclassified.join(", ")}`);
+    if (report.payloadProbeDuplicateClassifications.length) lines.push(`  - payload probe duplicate classifications: ${report.payloadProbeDuplicateClassifications.join(", ")}`);
+    if (report.payloadProbeInvalidClassifications.length) lines.push(`  - payload probe classifications for invalid capabilities: ${report.payloadProbeInvalidClassifications.join(", ")}`);
+    if (report.registryLint.length) lines.push(`  - registry lint: ${report.registryLint.join("; ")}`);
+    if (payload.mismatches.length) lines.push(`  - cw --json != cw_<tool> payload for: ${payload.mismatches.join(", ")}`);
+    lines.push("Reconcile src/wiring/capability-table, src/cli, and src/mcp so both surfaces render one data source.\n");
+    process.stderr.write(lines.join("\n"));
+    process.exitCode = 1;
+  }
+}
+
+export { cliHelpTokens, cliReachabilityIssues };
+
+// The ES module form of `require.main === module`, checked by URL.
+const isMain = Boolean(process.argv[1]) && pathToFileURL(fs.realpathSync(process.argv[1])).href === import.meta.url;
+if (isMain) {
+  main().catch((error) => {
+    process.stderr.write(`parity-check: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  });
+}

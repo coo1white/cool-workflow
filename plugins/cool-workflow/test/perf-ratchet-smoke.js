@@ -7,7 +7,7 @@
 //
 // 1. positive: the real counts equal the ceilings. A count above its ceiling
 //    is a slowdown; a count below it is a gain that must be locked by
-//    lowering the ceiling in the same diff (`node scripts/bench/perf-counts.js
+//    lowering the ceiling in the same diff (`node scripts/bench/perf-counts.mjs
 //    --update`, which refuses to raise one).
 // 2. the counts are real: the drive journey reads state, writes durably and
 //    loads modules, and a second measure gives the same numbers.
@@ -25,7 +25,7 @@ if (typeof require("node:module").registerHooks !== "function") {
   process.exit(0);
 }
 
-const { compare, measure, readCeilings } = require(path.join(__dirname, "..", "scripts", "bench", "perf-counts.js"));
+const { compare, measure, readCeilings } = require(path.join(__dirname, "..", "scripts", "bench", "perf-counts.mjs"));
 
 // 1. The real counts against the committed ceilings.
 const counts = measure();

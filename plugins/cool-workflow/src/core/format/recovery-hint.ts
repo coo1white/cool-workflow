@@ -3,7 +3,7 @@
 //
 // It lives in core/ so mcp/server.ts can use the same lookup for its own
 // error text without crossing the mcp/-may-never-import-cli/ layer rule
-// that scripts/purity-gate.js enforces — core/ may be read by both cli/
+// that scripts/purity-gate.mjs enforces — core/ may be read by both cli/
 // and mcp/. cli/entry.ts re-exports this function.
 //
 // Content-based (reads the message text, not the call site), so it stays

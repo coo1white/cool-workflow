@@ -9,7 +9,7 @@
 // command "claude -p" + args ["x"]. resolveAgentInvocation kept the command
 // whole when explicit args were set, so drive spawned a binary literally
 // named "claude -p" and failed with ENOENT. The release reviewer
-// (release-flow.js) already built `claude -p x`. Now drive builds the same
+// (release-flow.mjs) already built `claude -p x`. Now drive builds the same
 // argv: the command's first word is the binary, its other words go first,
 // then the explicit args. Every other shape stays as it was.
 

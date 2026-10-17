@@ -157,7 +157,7 @@ function main() {
 
   {
     // RELEASE REVIEW path: CW_RELEASE_REVIEW=1 (the vendor-agnostic signal that
-    // release-flow.js sets on the reviewer spawn) must raise codex to high effort
+    // release-flow.mjs sets on the reviewer spawn) must raise codex to high effort
     // and a workspace-write sandbox so it can re-run the gate it judges. A
     // read-only/low reviewer can't execute the gate and fabricates verdicts.
     fs.rmSync(resultPath, { force: true });

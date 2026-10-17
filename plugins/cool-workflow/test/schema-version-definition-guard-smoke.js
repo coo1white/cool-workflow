@@ -7,7 +7,7 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const { validateSchemaVersionInventory } = require(path.join(pluginRoot, "scripts", "validate-run-state-schema.js"));
+const { validateSchemaVersionInventory } = require(path.join(pluginRoot, "scripts", "validate-run-state-schema.mjs"));
 const coreDrive = require(path.join(pluginRoot, "dist", "core", "pipeline", "drive-decide.js"));
 const shellDrive = require(path.join(pluginRoot, "dist", "shell", "drive.js"));
 

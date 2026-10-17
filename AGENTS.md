@@ -78,7 +78,7 @@ required status checks: take out `check (18)`, add `check (24)`, keep
 The macOS leg stays not required.)
 
 (2026-10-16: a `release-rehearsal` job, NOT required, runs
-`release-flow.js --check --local-tests` with a stub reviewer and `dogfood-release
+`release-flow.mjs --check --local-tests` with a stub reviewer and `dogfood-release
 --smoke` on Node 24 with the bundled and the newest npm, on PRs that touch
 release tooling (and main pushes that do); see
 `plugins/cool-workflow/docs/release-tooling.7.md`.)
@@ -101,7 +101,7 @@ The stack for every project under `~/Developer` is in
 - The Workbench (`plugins/cool-workflow/ui/workbench/`) is a Next
   16.3.0 + React 19.2.8 static export (owner's decision 2026-09-07;
   program `project/docs/sdlc/unify-js-architecture/`): a bun sub-package, `out/`
-  built by `node scripts/build-ui.js` and never committed, tests under
+  built by `node scripts/build-ui.mjs` and never committed, tests under
   `ui/workbench/tests/` with `bun test`. The CLI stays zero-dependency;
   `report.html` stays one offline file. bun 1.4.1 is the one developer
   installer (`project/docs/sdlc/unify-package-manager-bun/`); npm stays the user's.
@@ -132,7 +132,7 @@ The stack for every project under `~/Developer` is in
 4. RELEASE — Versioning rules (hard constraints):
    - Accumulate cycles on a feature branch; tag only when the batch forms
      a coherent, describable capability. (There is no cadence rate-limit
-     on tags as of 2026-08-04 — release-gate.js's cadence check and
+     on tags as of 2026-08-04 — release-gate.mjs's cadence check and
      ITERATION_LOG.md, its data source, were both removed. Judgment on
      "is this a coherent, describable capability yet" replaces the
      mechanical cycle-count/time floor.)
@@ -456,15 +456,15 @@ short, and simple to add to. Do not use it for guesses.)
   (the v0.1.97 codex case: two REJECTs in <65 s vs a ~12-min gate). Review intent
   is wired through as `CW_RELEASE_REVIEW=1`; the wrapper raises effort and opens
   the sandbox to workspace-write. Never trust a read-only/low-effort verdict.
-- **What the gate actually runs.** `release-gate.js` = build, tests,
+- **What the gate actually runs.** `release-gate.mjs` = build, tests,
   diff-substance / test-evidence checks, branch-naming. In a cut
-  (`release-flow.js`, so `npm run release`) the tests step is by default
+  (`release-flow.mjs`, so `npm run release`) the tests step is by default
   the green required CI checks (`check (22)`, `check (24)`; list in
-  `scripts/release-ci-checks.js`) on the exact reviewed SHA, read with
+  `scripts/release-ci-checks.mjs`) on the exact reviewed SHA, read with
   `gh`, failing closed on pending/red/missing/error; `--local-tests` or
   `CW_RELEASE_LOCAL_TESTS=1` runs the full `test:gate` suite locally
   instead (operator's yes 2026-10-16, intent
-  `2026-10-16-release-gate-ci.md`). `release-gate.js` alone, as
+  `2026-10-16-release-gate-ci.md`). `release-gate.mjs` alone, as
   `release.yml` runs it, still runs the full suite. It does
   NOT run `readme:check` or the dogfood release-cut — those live only in the
   broader `release:check`.
@@ -525,7 +525,7 @@ short, and simple to add to. Do not use it for guesses.)
   fails when a count in `scripts/bench/perf-ceilings.json` (modules loaded,
   state reads, whole-state JSON round trips, fsyncs, git processes) goes up,
   and also when it goes down: lock a gain by lowering the ceiling in the same
-  diff (`node scripts/bench/perf-counts.js --update`, which never raises one).
+  diff (`node scripts/bench/perf-counts.mjs --update`, which never raises one).
 - **A pure helper of twenty lines or less that three files need lives once
   in `src/core/util/`; a copy is a bug.** Today that is `cli-args.ts`, a
   module every command already loads, so sharing adds no module load (a new
@@ -533,7 +533,7 @@ short, and simple to add to. Do not use it for guesses.)
   they do stay apart. `test/core/util/cli-args-sharedhelpers.test.js` holds
   the merged ones to one home.
 - **Two docs trees, different gate scope AND different distribution scope.**
-  `plugins/cool-workflow/docs/` is the shipped man-page tree: `sync-project-index.js`
+  `plugins/cool-workflow/docs/` is the shipped man-page tree: `sync-project-index.mjs`
   indexes it (non-recursively — one directory level only), and it is in
   `package.json`'s npm `files` allowlist, so it ships to every `npm`/`brew` install.
   `plugins/cool-workflow/project/docs/` (moved from repo-root `docs/` in the root
@@ -679,7 +679,7 @@ regardless of the capability it ships. The long form lives in
    needed file that genuinely cannot be JS/TS (a Homebrew formula, a
    Dockerfile, the workbench's disk-served html/css) is a scoped, one-off,
    reasoned EXCEPTION, never a new pattern — add it to the `EXCEPT_PATHS` in
-   `plugins/cool-workflow/scripts/lang-policy-check.js` (`npm run
+   `plugins/cool-workflow/scripts/lang-policy-check.mjs` (`npm run
    lang:check`, wired into `release:check`) with a one-line reason, at its
    exact path, never a whole directory. Docs/data/config files (md, json,
    yaml, txt, etc.) are outside this rule's scope; it is about what the
@@ -720,7 +720,7 @@ evidence and are never "cleaned up".
   kernel, chatter on stdout, silent fallback, new runtime dependency,
   undocumented shipped behavior)
 - A new non-JS/TS source file without a scoped, reasoned exception in
-  `plugins/cool-workflow/scripts/lang-policy-check.js` (`npm run lang:check`)
+  `plugins/cool-workflow/scripts/lang-policy-check.mjs` (`npm run lang:check`)
 - A new file that breaks a File Lifecycle rule above (orphan tool, committed
   draft, stale version snapshot, stub/copy of another file)
 - Stopping a process you did not start; before you kill anything, check
@@ -772,7 +772,7 @@ Pause and ask the human if:
 # Portable release flow
 The gated release (gate → independent review → verdict → tag) is one
 zero-dependency orchestrator that runs the same under any harness:
-`node plugins/cool-workflow/scripts/release-flow.js --check`. The review is
+`node plugins/cool-workflow/scripts/release-flow.mjs --check`. The review is
 DELEGATED to the model you configure (`CW_AGENT_COMMAND="claude -p {{input}}"`
 / `codex exec` / `gemini -p` / `opencode run -m <model>`, or `CW_AGENT_ENDPOINT`
 for DeepSeek/HTTP) — CW spawns it argv-style (shell:false), holds no key, and
@@ -797,7 +797,7 @@ package.json — same convention as the VERIFY step above):
    few seconds, no tests; it gives every problem at once with its fix),
    then the release operator runs `npm run release --
    X.Y.Z` in their own terminal
-   (`plugins/cool-workflow/scripts/release-oneclick.js`). It fail-fasts
+   (`plugins/cool-workflow/scripts/release-oneclick.mjs`). It fail-fasts
    on every known precondition BEFORE the gate/vendor/
    reviewer spend anything, waits for the required CI checks on the cut
    commit, runs the gated cut (its test step is those green checks, not a
@@ -822,7 +822,7 @@ Hard rules the tooling enforces (do not work around them by hand):
 - The tag commit's first parent must be EXACTLY the reviewed sha (one
   hop). Never retag by hand, never route a fix onto the tag's line with
   a merge commit — recut instead (`release-oneclick` handles this).
-- Never `git tag` directly; never bypass `release-flow.js`.
+- Never `git tag` directly; never bypass `release-flow.mjs`.
 
 ### Dry-run gate
 
@@ -855,7 +855,7 @@ command logs, and release verdict.
    keeping.
 3. Make sure `npm run version:sync` passes after `npm run build`. This also
    gates `Formula/cool-workflow.rb` (the Homebrew formula):
-   `bump-version.js` auto-moves its `tag:`/`version` to the target, so no
+   `bump-version.mjs` auto-moves its `tag:`/`version` to the target, so no
    manual edit or checksum step is needed — it is a git-tag formula with no
    sha256.
 4. Make sure generated `plugins/cool-workflow/dist/` output is committed.
@@ -865,7 +865,7 @@ command logs, and release verdict.
 6. Make sure the reviewer verdict is committed:
    `.cw-release/review-<FULLSHA>.verdict` must exist in the tag's commit
    history and its first line must be `APPROVED <FULLSHA>`. Run `node
-   scripts/release-flow.js --cut --version x.y.z` to auto-create it and
+   scripts/release-flow.mjs --cut --version x.y.z` to auto-create it and
    commit it, then `git push`. The `release-gate` CI workflow will verify
    this file is present at the tag commit.
 
@@ -907,11 +907,11 @@ Only use `--write` when you have a mind to normalize a state file in place.
 hand-written one. Set up ed25519 signing once to close that gap:
 
 ```bash
-node scripts/verdict-keygen.js --out-dir ~/.cw-keys
+node scripts/verdict-keygen.mjs --out-dir ~/.cw-keys
 # .cw-release/ lives at the REPO ROOT, not under plugins/cool-workflow (where
 # this checklist's cwd has been since the top) — anchor on the real root so
 # the public key lands where release.yml/npm-publish.yml/
-# block-unapproved-tag.js actually look for it, not silently under
+# block-unapproved-tag.mjs actually look for it, not silently under
 # plugins/cool-workflow/.cw-release/ where no verifier will ever find it.
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cp ~/.cw-keys/verdict-signing.pub "$REPO_ROOT/.cw-release/verdict-signing.pub"
@@ -920,10 +920,10 @@ git -C "$REPO_ROOT" commit -m "chore: add release-verdict signing public key"
 export CW_RELEASE_VERDICT_PRIVKEY=~/.cw-keys/verdict-signing.key   # keep this OFF the repo
 ```
 
-Once `.cw-release/verdict-signing.pub` is committed, `release-flow.js`
+Once `.cw-release/verdict-signing.pub` is committed, `release-flow.mjs`
 signs every verdict it writes (a `.sig` sidecar next to the `.verdict`
 file, included in the cut's verdict commit), and `release.yml`,
-`npm-publish.yml`, and the local `block-unapproved-tag.js` hook all start
+`npm-publish.yml`, and the local `block-unapproved-tag.mjs` hook all start
 REQUIRING a valid signature on top of the existing `APPROVED` text check.
 Until that public key is committed, every check stays exactly as before
 (grep-only) — this is opt-in, not a breaking change.

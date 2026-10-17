@@ -83,7 +83,7 @@ export interface SourceCheckout {
 
 export const CURATED_SMOKE_MAP: Array<{ patterns: string[]; smokes: string[] }> = [
   {
-    patterns: ["src/shell/doctor.ts", "src/shell/onramp.ts", "scripts/onramp-check.js"],
+    patterns: ["src/shell/doctor.ts", "src/shell/onramp.ts", "scripts/onramp-check.mjs"],
     smokes: ["doctor-smoke.js", "onramp-check-smoke.js"]
   },
   {
@@ -99,7 +99,7 @@ export const CURATED_SMOKE_MAP: Array<{ patterns: string[]; smokes: string[] }> 
     smokes: ["cli-mcp-parity-smoke.js"]
   },
   {
-    patterns: ["src/core/capability-table.ts", "src/core/capability-data.ts", "src/wiring/capability-table/", "scripts/parity-check.js"],
+    patterns: ["src/core/capability-table.ts", "src/core/capability-data.ts", "src/wiring/capability-table/", "scripts/parity-check.mjs"],
     smokes: ["cli-mcp-parity-smoke.js", "cli-jsonmode-parity-smoke.js", "parity-doc-sync-smoke.js"]
   },
   {
@@ -645,7 +645,7 @@ function isSurfaceFile(file: string): boolean {
     pluginPath === "src/core/capability-data.ts" ||
     pluginPath.startsWith("src/wiring/capability-table/") ||
     pluginPath === "src/shell/orchestrator.ts" ||
-    pluginPath === "scripts/parity-check.js"
+    pluginPath === "scripts/parity-check.mjs"
   );
 }
 

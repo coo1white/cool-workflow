@@ -39,7 +39,7 @@ const repoRoot = path.resolve(pluginRoot, "..", "..");
 const wrapper = path.join(pluginRoot, "scripts", "agents", "claude-p-agent.js");
 // The single canonical contract shared by every vendor wrapper. The claude
 // wrapper must send THIS verbatim — not a drifted private copy.
-const { RESULT_CONTRACT } = require("../scripts/agents/agent-adapter-core");
+const { RESULT_CONTRACT } = require("../scripts/agents/agent-adapter-core.mjs");
 
 function shimDir(behavior) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-claude-shim-"));

@@ -55,7 +55,7 @@ function cwJson(args, cwd = workspace) {
   return JSON.parse(cw(args, cwd));
 }
 // ISO generation-moment timestamps are presentation metadata, not capability
-// data (same convention as scripts/parity-check.js). Neutralize them only.
+// data (same convention as scripts/parity-check.mjs). Neutralize them only.
 function canonical(value) {
   return JSON.stringify(value).replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z/g, "<ts>");
 }

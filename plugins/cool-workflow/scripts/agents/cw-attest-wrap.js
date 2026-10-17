@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // cw-attest-wrap (Track 1) — EXECUTOR-SIDE telemetry signing wrapper.
 //
@@ -27,12 +26,10 @@
 // wrapper passes the report through UNSIGNED — CW then records it `unattested`,
 // never a fabricated attestation.
 
-const fs = require("node:fs");
-const crypto = require("node:crypto");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
-
-const ta = require(path.resolve(__dirname, "..", "..", "dist", "core", "trust", "telemetry-attestation.js"));
+import fs from "node:fs";
+import crypto from "node:crypto";
+import { spawnSync } from "node:child_process";
+import * as ta from "../../dist/core/trust/telemetry-attestation.js";
 
 function fail(message) {
   process.stderr.write(`cw-attest-wrap: ${message}\n`);

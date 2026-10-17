@@ -197,7 +197,7 @@ export function planRun(args: Record<string, unknown>): Record<string, unknown> 
   }
   const run = plan(app, planInputs);
   // `pendingTasks` is the canonical plan-payload (planSummary) key both `cw
-  // plan` and `cw_plan` carry (SPEC/workflow-apps.md); version-sync-check.js
+  // plan` and `cw_plan` carry (SPEC/workflow-apps.md); version-sync-check.mjs
   // pins the planSummary word in this file. `taskCount` stays as a harmless extra.
   const pendingTasks = run.tasks.filter((task) => task.status === "pending").length;
   return { schemaVersion: 1, runId: run.id, workflowId: run.workflow.id, statePath: run.paths.state, reportPath: run.paths.report, pendingTasks, taskCount: run.tasks.length };

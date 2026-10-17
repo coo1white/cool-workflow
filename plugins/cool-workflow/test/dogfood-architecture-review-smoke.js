@@ -12,7 +12,7 @@ const pluginRoot = path.resolve(__dirname, "..");
 // verifiable; the live full-drive against a real repo is the maintainer bar, OUT
 // of CI). A hermetic STUB agent drives the real app to a committed audited report.
 const summary = JSON.parse(
-  execFileSync(process.execPath, [path.join(pluginRoot, "scripts/dogfood-architecture-review.js"), "--smoke", "--json"], {
+  execFileSync(process.execPath, [path.join(pluginRoot, "scripts/dogfood-architecture-review.mjs"), "--smoke", "--json"], {
     cwd: pluginRoot,
     encoding: "utf8",
     maxBuffer: 1024 * 1024 * 30

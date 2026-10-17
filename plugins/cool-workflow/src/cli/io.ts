@@ -4,7 +4,7 @@
 // See SPEC/cli-surface.md "Shared io helpers". Arg-coercion helpers
 // (`required`/`optionalArg`/`wantsJson`) live in core/util/cli-args.ts —
 // wiring/capability-table/*.ts needs them directly, and a cli/-layer file
-// may not be imported by wiring/ (scripts/purity-gate.js's layer rule).
+// may not be imported by wiring/ (scripts/purity-gate.mjs's layer rule).
 //
 // `styledHelp` is the one place `formatHelp()`'s plain text gets its
 // "Cool Workflow" header bolded, TTY/env-gated via shell/term.ts's

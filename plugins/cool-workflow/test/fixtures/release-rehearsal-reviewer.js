@@ -2,7 +2,7 @@
 "use strict";
 // release-rehearsal-reviewer.js — the STUB reviewer for the CI release
 // rehearsal. Consumer: the `release-rehearsal` job in .github/workflows/ci.yml,
-// which runs `scripts/release-flow.js --check` with
+// which runs `scripts/release-flow.mjs --check` with
 //   CW_AGENT_COMMAND="node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.js {{input}}"
 // so the real reviewer spawn and verdict extraction run with no vendor CLI,
 // no key, and no model call. It is never a real review: it approves whatever

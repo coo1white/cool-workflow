@@ -13,7 +13,7 @@
 //   cli.ts is a hand-written switch on args.command that re-encodes that same
 //   policy by hand per case. So the fact lives in TWO places and can silently
 //   drift (e.g. a flag verb made always-JSON, or a default verb gated behind
-//   --json). scripts/parity-check.js is the ONLY current reader of jsonMode
+//   --json). scripts/parity-check.mjs is the ONLY current reader of jsonMode
 //   (it appends --json only for "flag" verbs) and it only ever JSON.parse-es the
 //   JSON rendering — it never asserts the HUMAN rendering, nor the no-flag JSON
 //   of "default" verbs.
@@ -27,7 +27,7 @@
 //                              --json (always-JSON; --json is a no-op).
 //     jsonMode === "human"   : skipped (no canonical JSON on this surface).
 //   If cli.ts ever drifts from the registry declaration for a probed verb, this
-//   trips. It is the companion consumer to parity-check.js for the human-side and
+//   trips. It is the companion consumer to parity-check.mjs for the human-side and
 //   default-verb gap that the payload probe never exercises.
 //
 // Read-only by construction: it plans one architecture-review run in a private
@@ -64,7 +64,7 @@ assert.ok(registry.CAPABILITY_REGISTRY, "dist/core/capability-table.js must expo
 
 // Read-only capabilities that are safe to invoke on a freshly planned run with
 // just a runId (RUN_PROBES) or with no run context at all (GLOBAL_PROBES). This
-// is the same safe inspection set scripts/parity-check.js probes, chosen so a
+// is the same safe inspection set scripts/parity-check.mjs probes, chosen so a
 // single planned run exercises both jsonMode branches across both surfaces. We do
 // NOT enumerate every registry verb: most are mutating (commit/dispatch/result/
 // register/...) or need bespoke args, and running them here would not be

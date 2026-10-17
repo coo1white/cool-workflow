@@ -29,8 +29,8 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const GATE = path.resolve(__dirname, "..", "scripts", "release-gate.js");
-assert.ok(fs.existsSync(GATE), "release-gate.js must exist");
+const GATE = path.resolve(__dirname, "..", "scripts", "release-gate.mjs");
+assert.ok(fs.existsSync(GATE), "release-gate.mjs must exist");
 
 let caseId = 0;
 function freshRepo() {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 
-// release-flow-smoke — exercises scripts/release-flow.js, the portable,
+// release-flow-smoke — exercises scripts/release-flow.mjs, the portable,
 // vendor-neutral release orchestrator. We run the REAL script against throwaway
 // git fixtures with:
 //   - the deterministic gate stubbed out (CW_RELEASE_FLOW_GATE_CMD=true) so we
@@ -21,10 +21,10 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawnSync } = require("node:child_process");
 
-const FLOW = path.resolve(__dirname, "..", "scripts", "release-flow.js");
-assert.ok(fs.existsSync(FLOW), "release-flow.js must exist");
-const VERIFY_SCRIPT = path.resolve(__dirname, "..", "scripts", "verify-verdict-signature.js");
-assert.ok(fs.existsSync(VERIFY_SCRIPT), "verify-verdict-signature.js must exist");
+const FLOW = path.resolve(__dirname, "..", "scripts", "release-flow.mjs");
+assert.ok(fs.existsSync(FLOW), "release-flow.mjs must exist");
+const VERIFY_SCRIPT = path.resolve(__dirname, "..", "scripts", "verify-verdict-signature.mjs");
+assert.ok(fs.existsSync(VERIFY_SCRIPT), "verify-verdict-signature.mjs must exist");
 const REVIEWER_PROMPT = path.resolve(__dirname, "..", "agents", "release-reviewer.md");
 assert.ok(fs.existsSync(REVIEWER_PROMPT), "release reviewer prompt must exist");
 
@@ -84,7 +84,7 @@ if (kind === "APPROVED") fs.writeFileSync(resultPath, "APPROVED " + (process.env
 else if (kind === "MARKDOWN") fs.writeFileSync(resultPath, "review notes\\n\\nAPPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
 else if (kind === "SEMANTIC_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. Stub finding at README.md:1.\\n");
 else if (kind === "FENCED_REJECTED") fs.writeFileSync(resultPath, "\`\`\`\\nREJECTED\\nkind: semantic-review \\n1. Stub finding at README.md:1.\\n\`\`\`\\n");
-else if (kind === "GATE_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\n1. tests failed at scripts/release-gate.js:86.\\n");
+else if (kind === "GATE_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\n1. tests failed at scripts/release-gate.mjs:86.\\n");
 else if (kind === "MIXED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. Stub finding at README.md:1.\\nAPPROVED wrongsha\\nshould not pass\\n");
 // NONE: write nothing (simulate an agent that produced no verdict)
 process.exit(0);
@@ -764,11 +764,11 @@ function releaseFixtureNonAncestorPrevTag() {
   assert.match(r.out, /vendor preflight — SKIPPED via CW_SKIP_VENDOR_PREFLIGHT/, "escape hatch is reported");
 }
 
-// ---- Verdict signing (opt-in — see scripts/verdict-keygen.js) --------------
+// ---- Verdict signing (opt-in — see scripts/verdict-keygen.mjs) --------------
 // NOTE: every case here uses --check (or --cut --dry-run, which signs BEFORE
 // cut()'s dry-run short-circuit) — never a real --cut. A non-dry-run --cut
 // runs `npm run bump:version`/`sync:project-index` against pluginRoot (the
-// REAL plugins/cool-workflow checkout, resolved from release-flow.js's own
+// REAL plugins/cool-workflow checkout, resolved from release-flow.mjs's own
 // __dirname, not the fixture), which would mutate this actual working tree.
 // Every existing --cut case in this file is --dry-run for the same reason;
 // the git-add-the-.sig-sidecar line inside cut() is verified by inspection
@@ -793,7 +793,7 @@ function releaseFixtureNonAncestorPrevTag() {
     assert.match(r.out, /verdict signed/, "flow should report the verdict was signed");
     assert.ok(fs.existsSync(sigPath), ".sig sidecar must be written next to the verdict");
     const verify = spawnSync("node", [VERIFY_SCRIPT, verdictPath, sigPath, pubPath], { encoding: "utf8" });
-    assert.equal(verify.status, 0, `verify-verdict-signature.js must accept a real signature: ${verify.stderr}`);
+    assert.equal(verify.status, 0, `verify-verdict-signature.mjs must accept a real signature: ${verify.stderr}`);
   }
 
   // ---- Case: verdict edited after signing -> verification now fails ----

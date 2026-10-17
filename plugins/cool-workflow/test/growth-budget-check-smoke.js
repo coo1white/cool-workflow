@@ -1,7 +1,7 @@
 "use strict";
 // growth-budget-check-smoke — proves the growth-budget gate has teeth.
 //
-// The gate is scripts/growth-budget-check.js (`npm run growth:check`). This
+// The gate is scripts/growth-budget-check.mjs (`npm run growth:check`). This
 // smoke: 1. positive on the real tree, pass line names the frozen count.
 // 2. teeth: fixture over the .md ceiling fails closed. 3. frozen teeth:
 // fixture path one line over its own ceiling fails closed. The teeth cases
@@ -15,7 +15,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const script = path.join(pluginRoot, "scripts", "growth-budget-check.js");
+const script = path.join(pluginRoot, "scripts", "growth-budget-check.mjs");
 
 function run(env) {
   return cp.spawnSync(process.execPath, [script], {

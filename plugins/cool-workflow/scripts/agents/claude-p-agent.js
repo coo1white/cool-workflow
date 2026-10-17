@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-"use strict";
 
 // claude-p-agent.js — EXAMPLE operator agent config for CW Agent Delegation Drive.
 //
@@ -27,14 +26,14 @@
 // Point CW at it (from plugins/cool-workflow/), or use the `builtin:claude` alias:
 //   CW_AGENT_COMMAND="node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}"
 
-const fs = require("node:fs");
-const path = require("node:path");
-const { spawnSync } = require("node:child_process");
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 // Share the ONE canonical result contract with the codex/gemini/opencode
 // wrappers instead of carrying a private copy. A drifted inline copy (ASCII
 // hyphens silently became em-dashes here) meant claude was sent a different
 // instruction text than the other providers for the same contract.
-const { buildPrompt, createRenderer, persistStderr, spawnVendor, toolLabel, summarizeToolResult, buildFailureDetail, recordVendorPid } = require("./agent-adapter-core");
+import { buildPrompt, createRenderer, persistStderr, spawnVendor, toolLabel, summarizeToolResult, buildFailureDetail, recordVendorPid } from "./agent-adapter-core.mjs";
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];

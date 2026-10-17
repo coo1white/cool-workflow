@@ -25,7 +25,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const pluginRoot = path.resolve(__dirname, "..");
-const script = path.join(pluginRoot, "scripts", "sync-readme.js");
+const script = path.join(pluginRoot, "scripts", "sync-readme.mjs");
 const npmReadme = path.join(pluginRoot, "README.md");
 
 const cleanups = [];
