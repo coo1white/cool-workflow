@@ -41,6 +41,9 @@ CW does not keep secrets or raw environment values. Environment audit records
 keep names only — for example, `worker.agent-env` records which provider-namespace
 env var NAMES (`CW_`, `ANTHROPIC_`, `OPENAI_`, and similar) were forwarded from
 the host process to a delegated agent child, queryable via `cw audit summary`/`cw audit`.
+From 0.3.3 the list may also name the proxy, trust, and `CLAUDE_*` vars
+the agent child now gets (see `docs/sandbox-profiles.7.md`); their values
+are not kept.
 
 ## Enforcement Boundary
 

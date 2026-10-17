@@ -35,7 +35,9 @@ import { delegatedEnvelope, refusedEnvelope } from "./envelopes.js";
 import { withPerfTraceGroup } from "../perf-trace.js";
 import { agentCommandArgv, splitAgentCommandLine, substituteAgentArg, messageOf } from "../../core/util/cli-args.js";
 
-const AGENT_PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i;
+const AGENT_PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|CLAUDE_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i;
+// Proxy + TLS trust: the vendor CLI reaches its API through these (0.3.3).
+const AGENT_NETWORK_ENV: ReadonlySet<string> = new Set(["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR"]);
 
 /** Build the env for a REAL spawned agent child under a sandbox policy: the
  *  policy's own PATH+HOME+expose/deny base (buildChildEnv), plus provider-key
@@ -107,7 +109,7 @@ export function buildAgentChildEnv(
     // `forwarded` list). CW_AGENT_ATTEST_PRIVKEY is intentionally NOT in that
     // set, so the attest wrapper still gets its signing key.
     if (CW_NEVER_FORWARD_ENV.has(key)) continue;
-    if (AGENT_PROVIDER_KEY_ENV_RE.test(key)) {
+    if (AGENT_PROVIDER_KEY_ENV_RE.test(key) || AGENT_NETWORK_ENV.has(key)) {
       env[key] = baseEnv[key];
       forwarded.push(key);
     }
