@@ -32,7 +32,7 @@ function main() {
     const appValidation = runJson(["app", "validate", "end-to-end-golden-path"], pluginRoot);
     assert.equal(appValidation.valid, true);
     assert.equal(appValidation.summary.id, "end-to-end-golden-path");
-    assert.equal(appValidation.summary.version, "0.3.1");
+    assert.equal(appValidation.summary.version, "0.3.2");
 
     const plan = runJson(
       [
@@ -41,7 +41,7 @@ function main() {
         "--repo",
         tmp,
         "--question",
-        "Prove the deterministic v0.3.1 end-to-end golden path."
+        "Prove the deterministic v0.3.2 end-to-end golden path."
       ],
       pluginRoot
     );
@@ -51,7 +51,7 @@ function main() {
 
     let state = readJson(plan.statePath);
     assert.equal(state.workflow.app.id, "end-to-end-golden-path");
-    assert.equal(state.workflow.app.version, "0.3.1");
+    assert.equal(state.workflow.app.version, "0.3.2");
     assert.equal(state.loopStage, "interpret");
 
     const dispatch = runJson(["dispatch", plan.runId, "--limit", "1", "--sandbox", "readonly"], tmp);
@@ -135,7 +135,7 @@ function main() {
     assert.equal(reportPath, plan.reportPath);
     assert.ok(fs.existsSync(reportPath));
     const report = fs.readFileSync(reportPath, "utf8");
-    assert.match(report, /Workflow App: end-to-end-golden-path@0\.3\.1/);
+    assert.match(report, /Workflow App: end-to-end-golden-path@0\.3\.2/);
     assert.match(report, /## Trust Audit/);
     assert.match(report, /verifier-gated commit/);
     assert.match(report, /golden path verifier-gated commit/);
