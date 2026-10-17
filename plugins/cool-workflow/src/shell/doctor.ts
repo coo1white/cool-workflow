@@ -26,6 +26,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 import { resolveAgentConfig } from "./agent-config";
+import { splitAgentCommandLine } from "../core/util/cli-args";
 import { buildDoctorOnramp, DoctorOnramp, optionEnabled } from "./onramp";
 import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store";
 import { verifyTrustAudit } from "./trust-audit";
@@ -134,7 +135,7 @@ export function runDoctor(
       fix: 'Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.',
     });
   } else {
-    const binToken = cfg.command ? String(cfg.command).split(/\s+/)[0] : undefined;
+    const binToken = cfg.command ? splitAgentCommandLine(String(cfg.command))[0] : undefined;
     checks.push({
       name: "agent",
       status: "ok",

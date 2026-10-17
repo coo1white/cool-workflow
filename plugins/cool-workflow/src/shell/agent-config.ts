@@ -18,6 +18,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { boolWord } from "../core/util/cli-args";
 import { writeJson } from "./fs-atomic";
+import { splitAgentCommand } from "../core/util/cli-args";
 import { stripSecretArgs } from "./execution-backend/agent";
 import { AgentDelegationConfig } from "./execution-backend/types";
 
@@ -53,19 +54,6 @@ function firstDefined<T>(...values: (T | undefined)[]): T | undefined {
   return undefined;
 }
 
-/** Split a single command string ("claude -p {{manifest}}") into binary +
- *  argv template — NEVER shell-interpreted. An explicit args array always
- *  wins. */
-function splitCommand(command: string | undefined, args: string[] | undefined): { command?: string; args?: string[] } {
-  if (!command) return { command: undefined, args };
-  if (args && args.length) return { command, args };
-  if (/\s/.test(command)) {
-    const parts = command.split(/\s+/).filter(Boolean);
-    return { command: parts[0], args: parts.slice(1) };
-  }
-  return { command, args };
-}
-
 /** Read the durable config FILE (if any). Never throws — a corrupt file is
  *  treated as absent (fail closed). */
 export function loadAgentConfigFile(env: NodeJS.ProcessEnv = process.env): AgentDelegationConfig | undefined {
@@ -90,7 +78,7 @@ export function loadAgentConfigFile(env: NodeJS.ProcessEnv = process.env): Agent
 }
 
 function agentConfigFromEnv(env: NodeJS.ProcessEnv): AgentDelegationConfig {
-  const split = splitCommand(trimmed(env.CW_AGENT_COMMAND), undefined);
+  const split = splitAgentCommand(trimmed(env.CW_AGENT_COMMAND), undefined);
   return {
     schemaVersion: 1,
     command: split.command,
@@ -107,7 +95,7 @@ function agentConfigFromEnv(env: NodeJS.ProcessEnv): AgentDelegationConfig {
 function agentConfigFromArgs(args: Record<string, unknown>): AgentDelegationConfig {
   const rawCommand = trimmed(args.agentCommand ?? args["agent-command"]);
   const rawArgs = asStringArray(args.agentArgs ?? args["agent-args"]);
-  const split = splitCommand(rawCommand, rawArgs);
+  const split = splitAgentCommand(rawCommand, rawArgs);
   const rawTimeout = args.agentTimeoutMs ?? args["agent-timeout-ms"];
   return {
     schemaVersion: 1,

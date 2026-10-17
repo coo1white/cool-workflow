@@ -1,7 +1,10 @@
 "use strict";
 // core/util/cli-args.ts — shared CLI argv / MCP tool-call arg-coercion
 // helpers: required(), optionalArg(), wantsJson(), the bool readers
-// (boolWord, flagOn, parseBoolFlag) and the one --cwd reader, cwdArg().
+// (boolWord, flagOn, parseBoolFlag), the one --cwd reader, cwdArg(); and THE
+// one agent-command parser (CW_AGENT_COMMAND, --agent-command,
+// agent-config.json "command", builtin:<name> templates) — split on white
+// space, NEVER shell-interpreted.
 //
 // Pure. No fs, no child_process, no net, no process.env, no Date.now(), no
 // Math.random().
@@ -55,6 +58,10 @@ exports.boolWord = boolWord;
 exports.flagOn = flagOn;
 exports.cwdArg = cwdArg;
 exports.coerceMcpScalar = coerceMcpScalar;
+exports.splitAgentCommandLine = splitAgentCommandLine;
+exports.splitAgentCommand = splitAgentCommand;
+exports.agentCommandArgv = agentCommandArgv;
+exports.substituteAgentArg = substituteAgentArg;
 const path = __importStar(require("node:path"));
 /** Require a positional/option value or fail with a copy-pasteable recovery tip. */
 function required(value, label) {
@@ -142,4 +149,31 @@ function coerceMcpScalar(value) {
     if (value === false)
         return false;
     return typeof value === "number" || typeof value === "boolean" || typeof value === "bigint" ? String(value) : value;
+}
+/** Split one command line on white space into argv tokens. */
+function splitAgentCommandLine(line) {
+    return line.split(/\s+/).filter(Boolean);
+}
+/** Config-layer split: an explicit args array always wins and the command
+ *  is kept whole; else a command with white space is split. */
+function splitAgentCommand(command, args) {
+    if (!command)
+        return { command: undefined, args };
+    if (args && args.length)
+        return { command, args };
+    if (/\s/.test(command)) {
+        const parts = splitAgentCommandLine(command);
+        return { command: parts[0], args: parts.slice(1) };
+    }
+    return { command, args };
+}
+/** Spawn argv from a resolved config: the command's inline tokens, then
+ *  the explicit args after them. */
+function agentCommandArgv(command, args) {
+    const parts = splitAgentCommandLine(command);
+    return { binary: parts[0], args: [...parts.slice(1), ...(args || [])] };
+}
+/** Fill {{key}} placeholders; an unknown key is left as written. */
+function substituteAgentArg(arg, subst) {
+    return arg.replace(/\{\{(\w+)\}\}/g, (_, key) => (key in subst ? subst[key] : `{{${key}}}`));
 }

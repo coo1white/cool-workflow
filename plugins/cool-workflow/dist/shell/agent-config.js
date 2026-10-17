@@ -62,6 +62,7 @@ const os = __importStar(require("node:os"));
 const path = __importStar(require("node:path"));
 const cli_args_1 = require("../core/util/cli-args");
 const fs_atomic_1 = require("./fs-atomic");
+const cli_args_2 = require("../core/util/cli-args");
 const agent_1 = require("./execution-backend/agent");
 exports.AGENT_CONFIG_SCHEMA_VERSION = 1;
 /** CW_HOME resolution: CW_HOME > XDG_STATE_HOME/cool-workflow > ~/.local/state/cool-workflow. */
@@ -94,20 +95,6 @@ function firstDefined(...values) {
             return value;
     return undefined;
 }
-/** Split a single command string ("claude -p {{manifest}}") into binary +
- *  argv template — NEVER shell-interpreted. An explicit args array always
- *  wins. */
-function splitCommand(command, args) {
-    if (!command)
-        return { command: undefined, args };
-    if (args && args.length)
-        return { command, args };
-    if (/\s/.test(command)) {
-        const parts = command.split(/\s+/).filter(Boolean);
-        return { command: parts[0], args: parts.slice(1) };
-    }
-    return { command, args };
-}
 /** Read the durable config FILE (if any). Never throws — a corrupt file is
  *  treated as absent (fail closed). */
 function loadAgentConfigFile(env = process.env) {
@@ -133,7 +120,7 @@ function loadAgentConfigFile(env = process.env) {
     }
 }
 function agentConfigFromEnv(env) {
-    const split = splitCommand(trimmed(env.CW_AGENT_COMMAND), undefined);
+    const split = (0, cli_args_2.splitAgentCommand)(trimmed(env.CW_AGENT_COMMAND), undefined);
     return {
         schemaVersion: 1,
         command: split.command,
@@ -149,7 +136,7 @@ function agentConfigFromEnv(env) {
 function agentConfigFromArgs(args) {
     const rawCommand = trimmed(args.agentCommand ?? args["agent-command"]);
     const rawArgs = asStringArray(args.agentArgs ?? args["agent-args"]);
-    const split = splitCommand(rawCommand, rawArgs);
+    const split = (0, cli_args_2.splitAgentCommand)(rawCommand, rawArgs);
     const rawTimeout = args.agentTimeoutMs ?? args["agent-timeout-ms"];
     return {
         schemaVersion: 1,

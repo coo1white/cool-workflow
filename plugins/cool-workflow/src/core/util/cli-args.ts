@@ -1,6 +1,9 @@
 // core/util/cli-args.ts — shared CLI argv / MCP tool-call arg-coercion
 // helpers: required(), optionalArg(), wantsJson(), the bool readers
-// (boolWord, flagOn, parseBoolFlag) and the one --cwd reader, cwdArg().
+// (boolWord, flagOn, parseBoolFlag), the one --cwd reader, cwdArg(); and THE
+// one agent-command parser (CW_AGENT_COMMAND, --agent-command,
+// agent-config.json "command", builtin:<name> templates) — split on white
+// space, NEVER shell-interpreted.
 //
 // Pure. No fs, no child_process, no net, no process.env, no Date.now(), no
 // Math.random().
@@ -99,4 +102,33 @@ export function cwdArg(args: Record<string, unknown>, keys: readonly string[] = 
 export function coerceMcpScalar(value: unknown): unknown {
   if (value === false) return false;
   return typeof value === "number" || typeof value === "boolean" || typeof value === "bigint" ? String(value) : value;
+}
+
+/** Split one command line on white space into argv tokens. */
+export function splitAgentCommandLine(line: string): string[] {
+  return line.split(/\s+/).filter(Boolean);
+}
+
+/** Config-layer split: an explicit args array always wins and the command
+ *  is kept whole; else a command with white space is split. */
+export function splitAgentCommand(command: string | undefined, args: string[] | undefined): { command?: string; args?: string[] } {
+  if (!command) return { command: undefined, args };
+  if (args && args.length) return { command, args };
+  if (/\s/.test(command)) {
+    const parts = splitAgentCommandLine(command);
+    return { command: parts[0], args: parts.slice(1) };
+  }
+  return { command, args };
+}
+
+/** Spawn argv from a resolved config: the command's inline tokens, then
+ *  the explicit args after them. */
+export function agentCommandArgv(command: string, args: string[] | undefined): { binary: string; args: string[] } {
+  const parts = splitAgentCommandLine(command);
+  return { binary: parts[0], args: [...parts.slice(1), ...(args || [])] };
+}
+
+/** Fill {{key}} placeholders; an unknown key is left as written. */
+export function substituteAgentArg(arg: string, subst: Record<string, string>): string {
+  return arg.replace(/\{\{(\w+)\}\}/g, (_, key: string) => (key in subst ? subst[key] : `{{${key}}}`));
 }

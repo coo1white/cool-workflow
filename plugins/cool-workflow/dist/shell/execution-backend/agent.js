@@ -52,13 +52,13 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.substituteAgentArg = void 0;
 exports.reapRecordedVendor = reapRecordedVendor;
 exports.buildAgentChildEnv = buildAgentChildEnv;
 exports.resolveAgentInvocation = resolveAgentInvocation;
 exports.stripSecretArgs = stripSecretArgs;
 exports.parseAgentReport = parseAgentReport;
 exports.agentSubstitutions = agentSubstitutions;
-exports.substituteAgentArg = substituteAgentArg;
 exports.recordedAgentHandle = recordedAgentHandle;
 exports.extractEndpointResult = extractEndpointResult;
 exports.agentHandle = agentHandle;
@@ -76,6 +76,8 @@ const node_child_process_1 = require("node:child_process");
 const local_1 = require("./local");
 const envelopes_1 = require("./envelopes");
 const perf_trace_1 = require("../perf-trace");
+const cli_args_1 = require("../../core/util/cli-args");
+Object.defineProperty(exports, "substituteAgentArg", { enumerable: true, get: function () { return cli_args_1.substituteAgentArg; } });
 function messageOf(error) {
     return error instanceof Error ? error.message : String(error);
 }
@@ -176,13 +178,13 @@ function resolveAgentInvocation(request, env = process.env) {
     let binary = delegation.command || request.command || undefined;
     let rawArgs = delegation.args ? [...delegation.args] : request.args ? [...request.args] : [];
     if (!binary && envCommand) {
-        const parts = envCommand.split(/\s+/).filter(Boolean);
+        const parts = (0, cli_args_1.splitAgentCommandLine)(envCommand);
         binary = parts[0];
         if (!delegation.args)
             rawArgs = parts.slice(1);
     }
     else if (binary && !delegation.args && /\s/.test(binary)) {
-        const parts = binary.split(/\s+/).filter(Boolean);
+        const parts = (0, cli_args_1.splitAgentCommandLine)(binary);
         binary = parts[0];
         rawArgs = parts.slice(1);
     }
@@ -292,9 +294,6 @@ function agentSubstitutions(request, model) {
         prompt: manifest?.prompt || "",
     };
 }
-function substituteAgentArg(arg, subst) {
-    return arg.replace(/\{\{(\w+)\}\}/g, (_, key) => (key in subst ? subst[key] : `{{${key}}}`));
-}
 /** Build the recorded process handle for the envelope — secret-stripped +
  *  the agent-reported model. Same SHAPE that lands in provenance, never in
  *  evidence. */
@@ -363,7 +362,7 @@ function prepareAgentSpawn(request) {
     const subst = agentSubstitutions(request, resolved.model);
     return {
         binary: resolved.binary,
-        args: resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst)),
+        args: resolved.rawArgs.map((arg) => (0, cli_args_1.substituteAgentArg)(arg, subst)),
         cwd: request.cwd,
         timeoutMs: resolved.timeoutMs || 600000,
     };
@@ -539,7 +538,7 @@ function runAgentProcess(descriptor, policy, request, label, attestation) {
     const resolved = resolveAgentInvocation(request);
     const subst = agentSubstitutions(request, resolved.model);
     if (resolved.binary) {
-        const realArgs = resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst));
+        const realArgs = resolved.rawArgs.map((arg) => (0, cli_args_1.substituteAgentArg)(arg, subst));
         const recordedArgs = stripSecretArgs(realArgs);
         let outcome;
         // Names only, never values — for the worker.agent-env trust-audit event

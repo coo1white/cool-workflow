@@ -313,10 +313,6 @@ function buildReviewerInput(resultPath, gateTests) {
   ].join("\n");
 }
 
-function substitute(arg, map) {
-  return arg.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in map ? String(map[k]) : m));
-}
-
 /** True when `line` is a REJECTED verdict line, allowing the markdown
  *  decoration a reviewer commonly wraps it in (`**REJECTED**`, `REJECTED:`,
  *  `### REJECTED`, `REJECTED.`) — stripped of leading heading/quote/emphasis
@@ -387,9 +383,10 @@ function buildReviewerEnv() {
 
 function delegateReview(resultPath, inputPath) {
   // Reuse the canonical agent-config resolver (flags > env > file).
-  let resolveAgentConfig;
+  let resolveAgentConfig, agentCommandArgv, substituteAgentArg;
   try {
     ({ resolveAgentConfig } = require(path.join(pluginRoot, "dist", "shell", "agent-config.js")));
+    ({ agentCommandArgv, substituteAgentArg } = require(path.join(pluginRoot, "dist", "core", "util", "cli-args.js")));
   } catch (e) {
     die("cannot load dist/shell/agent-config.js — run `npm run build` first", String(e));
   }
@@ -420,17 +417,15 @@ function delegateReview(resultPath, inputPath) {
     // builtin:<vendor> template (CW_AGENT_COMMAND=builtin:claude) expands to
     // "node /abs/claude-p-agent.js {{input}} {{result}}" with cfg.args undefined,
     // and a durable agent-config.json command field is read verbatim (no split).
-    // Split it on whitespace into binary + inline args — the SAME way the
-    // orchestrator does (src/shell/execution-backend/agent.ts resolveAgentInvocation) —
+    // Split it on whitespace into binary + inline args with the one shared
+    // parser (src/core/util/cli-args.ts agentCommandArgv) —
     // so we spawn the real binary, never one literally named
     // "node /abs/... {{input}}" (an instant ENOENT the old code mislabeled as a
     // timeout). An explicit cfg.args array still follows the inline args. A plain
     // CW_AGENT_COMMAND="claude -p {{input}}" is already pre-split by
     // resolveAgentConfig, so this leaves it unchanged (no inline args).
-    const parts = cfg.command.split(/\s+/).filter(Boolean);
-    const bin = parts[0];
-    const argTemplate = [...parts.slice(1), ...(cfg.args || [])];
-    const args = argTemplate.map((a) => substitute(a, subMap));
+    const { binary: bin, args: argTemplate } = agentCommandArgv(cfg.command, cfg.args);
+    const args = argTemplate.map((a) => substituteAgentArg(a, subMap));
     say(`[2/3] reviewer — delegating to: ${bin} ${argTemplate.join(" ")} (model: ${cfg.model || "unreported"})`);
     // RED LINE: argv-style, shell:false. The agent runs the model in its own
     // process and inherits its own credentials; CW holds none.

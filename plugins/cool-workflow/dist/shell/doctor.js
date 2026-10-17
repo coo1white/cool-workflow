@@ -63,6 +63,7 @@ const os = __importStar(require("node:os"));
 const path = __importStar(require("node:path"));
 const node_child_process_1 = require("node:child_process");
 const agent_config_1 = require("./agent-config");
+const cli_args_1 = require("../core/util/cli-args");
 const onramp_1 = require("./onramp");
 const run_store_1 = require("./run-store");
 const trust_audit_1 = require("./trust-audit");
@@ -151,7 +152,7 @@ function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
         });
     }
     else {
-        const binToken = cfg.command ? String(cfg.command).split(/\s+/)[0] : undefined;
+        const binToken = cfg.command ? (0, cli_args_1.splitAgentCommandLine)(String(cfg.command))[0] : undefined;
         checks.push({
             name: "agent",
             status: "ok",
