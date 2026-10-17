@@ -166,6 +166,28 @@ checks, reports, exports, and resumes. Those fields are kept as data, just as
 CW keeps any other user data; no command reads them as live state any more.
 `test/legacy-multi-agent-state-smoke.js` holds this.
 
+## Node Floor: 22.13
+
+The release after 0.3.1 needs Node.js 22.13 or newer; 0.3.1 is the last
+release for Node 18 and 20 (slim-and-esm program, step 4; the operator's yes
+of 2026-09-28 is decision D4 in
+`project/docs/intent/2026-09-28-slim-and-esm.md`).
+
+- `package.json` `engines.node` is `>=22.13.0`. npm gives a warning when the
+  Node in use is older.
+- `cw doctor` gives `fail` on the `node` check below 22.13, with the text
+  `(>= 22.13)` in place of `(>= 18)` (see doctor(7)).
+- CI tests Node 22 and 24. The checks the release gate takes are
+  `check (22)` and `check (24)` (see release-tooling(7)).
+- Why 22.13: it is the first Node 22 in which `require()` of an ES module
+  works with no flag and writes nothing to stderr. 22.11 cannot do it, and
+  22.12 does it but writes an `ExperimentalWarning`.
+  `test/node-floor-require-esm-smoke.js` loads an ES module with `require()`
+  on the Node in use and fails on any stderr output.
+
+Saved run state is not changed by this: a run made on an older Node loads,
+checks and resumes the same way on 22.13 or newer.
+
 ## Unsupported Cases
 
 CW does not quietly load:

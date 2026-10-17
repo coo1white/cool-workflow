@@ -38,7 +38,7 @@ cw version
 Upgrade later with `brew update && brew upgrade cool-workflow`.
 </details>
 
-**You need:** Node.js v18 or newer. No agent yet? Step 1 below still works — **CW never runs a model itself.**
+**You need:** Node.js v22.13 or newer. No agent yet? Step 1 below still works — **CW never runs a model itself.**
 
 ## Works with your agent
 

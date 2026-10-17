@@ -264,7 +264,7 @@ It reads GitHub's check runs for the exact HEAD sha
 the `origin` remote) and passes only when every required check is there,
 made by GitHub Actions for that sha, `completed`, with conclusion
 `success`. The required checks are the ones `main`'s branch protection
-requires, `check (18)` and `check (22)` (the ubuntu legs of `ci.yml`'s
+requires, `check (22)` and `check (24)` (the ubuntu legs of `ci.yml`'s
 `check` job). They are named in one place, `REQUIRED_CHECKS` in
 `scripts/release-ci-checks.js`, and `test/ci-shape-gate-smoke.js` fails when
 a name there is not a leg of that job. The other four steps still run

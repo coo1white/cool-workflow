@@ -8,6 +8,8 @@ class CoolWorkflow < Formula
   url "https://github.com/coo1white/cool-workflow.git", tag: "v0.3.1"
   license "BSD-2-Clause"
 
+  # Needs Node.js 22.13 or newer (package.json engines). Homebrew's "node" is
+  # the newest Node line, which is above that floor.
   depends_on "node"
 
   # The npm package lives in plugins/cool-workflow/ inside the repo. dist/ is

@@ -16,7 +16,7 @@
 //
 // REQUIRED_CHECKS is the ONE place the release tooling names the required
 // checks. It must stay equal to main's branch protection (AGENTS.md: the
-// ubuntu `check` legs on Node 18 and 22); ci-shape-gate-smoke fails when a
+// ubuntu `check` legs on Node 22 and 24); ci-shape-gate-smoke fails when a
 // name here is not a leg of ci.yml's `check` job.
 //
 // Fail closed: only a check run that is `completed` with conclusion
@@ -29,7 +29,7 @@
 
 const { spawnSync } = require("node:child_process");
 
-const REQUIRED_CHECKS = Object.freeze(["check (18)", "check (22)"]);
+const REQUIRED_CHECKS = Object.freeze(["check (22)", "check (24)"]);
 const REQUIRED_APP = "github-actions";
 
 /** owner/repo from a github.com remote URL, or null — the same match as

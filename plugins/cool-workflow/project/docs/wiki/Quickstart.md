@@ -5,7 +5,7 @@ The fast command reference. If a step here is not clear, the
 
 ## Requirements
 
-- Node.js 18 or newer.
+- Node.js 22.13 or newer.
 - One agent CLI on your `PATH` for live reviews: `claude`, `codex`, `gemini`,
   or `opencode` — or an HTTP agent endpoint via `CW_AGENT_ENDPOINT`.
 

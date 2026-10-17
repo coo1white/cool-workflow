@@ -36,7 +36,7 @@ make the exit fail.
 The command runs six checks in order:
 
 **node**
-: The Node.js version. CW needs v18 or higher. A `fail` here stops everything.
+: The Node.js version. CW needs v22.13 or higher. A `fail` here stops everything.
 
 **agent**
 : The AI agent backend. CW can auto-detect agents (Claude, Codex, Gemini,

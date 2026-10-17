@@ -41,7 +41,7 @@ function run(args, env, cwd) {
   for (const n of ["node", "agent", "sandbox-enforceability", "home-registry", "repo-state"]) assert.ok(names.includes(n), `check ${n} present`);
   for (const c of report.checks) assert.ok(["ok", "warn", "fail"].includes(c.status), `valid status for ${c.name}`);
   assert.equal(report.onramp, undefined, "onramp is opt-in");
-  // node check must pass (the test runs on Node 18+).
+  // node check must pass (the test runs on Node 22.13+).
   assert.equal(report.checks.find((c) => c.name === "node").status, "ok", "node check ok");
   // sandbox-enforceability is a fixed architectural fact, not a per-host
   // problem: always "ok", never "warn"/"fail", so it can never contaminate

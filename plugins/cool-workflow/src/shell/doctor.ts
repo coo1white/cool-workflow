@@ -98,16 +98,18 @@ export function runDoctor(
 ): DoctorReport {
   const checks: DoctorCheck[] = [];
 
-  // 1. Node runtime — the one hard prerequisite (v18+).
-  const major = Number((process.version.match(/^v(\d+)/) || [])[1]);
+  // 1. Node runtime — the one hard prerequisite (v22.13+, as package.json
+  // engines says: the first Node 22 that loads an ES module with require()
+  // and no warning on stderr).
+  const [major, minor] = (process.version.match(/^v(\d+)\.(\d+)/) || []).slice(1).map(Number);
   checks.push(
-    Number.isFinite(major) && major >= 18
-      ? { name: "node", status: "ok", detail: `Node ${process.version} (>= 18).` }
+    Number.isFinite(major) && Number.isFinite(minor) && (major > 22 || (major === 22 && minor >= 13))
+      ? { name: "node", status: "ok", detail: `Node ${process.version} (>= 22.13).` }
       : {
           name: "node",
           status: "fail",
-          detail: `Node ${process.version} is below the required v18.`,
-          fix: "Install Node.js 18+ (e.g. `brew install node`, or https://nodejs.org).",
+          detail: `Node ${process.version} is below the required v22.13.`,
+          fix: "Install Node.js 22.13+ (e.g. `brew install node`, or https://nodejs.org).",
         }
   );
 
