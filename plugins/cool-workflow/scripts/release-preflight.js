@@ -264,9 +264,10 @@ function resolveOnPath(bin, env) {
 // reviewer is never run.
 function checkReviewer(ctx) {
   const fixExample = 'export CW_AGENT_COMMAND="claude -p --permission-mode acceptEdits {{input}}"   (or codex exec / gemini -p / opencode run)';
-  let resolveAgentConfig;
+  let resolveAgentConfig, agentCommandArgv;
   try {
     ({ resolveAgentConfig } = require(path.join(pluginRoot, "dist", "shell", "agent-config.js")));
+    ({ agentCommandArgv } = require(path.join(pluginRoot, "dist", "core", "util", "cli-args.js")));
   } catch (error) {
     return finding("reviewer", "fail", "cannot load dist/shell/agent-config.js to resolve the reviewer — run `npm run build` first", { detail: String(error && error.message), fix: "npm run build" });
   }
@@ -290,9 +291,7 @@ function checkReviewer(ctx) {
     if (!ok) return finding("reviewer", "fail", "CW_AGENT_ENDPOINT is not an http(s) URL", { fix: "export CW_AGENT_ENDPOINT=https://<agent host>/..." });
     return finding("reviewer", "ok", "reviewer is an HTTP endpoint (not contacted by the doctor)");
   }
-  const parts = String(cfg.command).split(/\s+/).filter(Boolean);
-  const bin = parts[0];
-  const rest = [...parts.slice(1), ...(cfg.args || [])];
+  const { binary: bin, args: rest } = agentCommandArgv(String(cfg.command), cfg.args);
   let resolved;
   if (bin.includes("/") || bin.includes(path.sep)) {
     const abs = path.resolve(ctx.repoRoot, bin);

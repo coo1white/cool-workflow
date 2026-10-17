@@ -34,6 +34,7 @@ import {
 import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local";
 import { delegatedEnvelope, refusedEnvelope } from "./envelopes";
 import { withPerfTraceGroup } from "../perf-trace";
+import { splitAgentCommandLine, substituteAgentArg } from "../../core/util/cli-args";
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -146,11 +147,11 @@ export function resolveAgentInvocation(
   let binary = delegation.command || request.command || undefined;
   let rawArgs = delegation.args ? [...delegation.args] : request.args ? [...request.args] : [];
   if (!binary && envCommand) {
-    const parts = envCommand.split(/\s+/).filter(Boolean);
+    const parts = splitAgentCommandLine(envCommand);
     binary = parts[0];
     if (!delegation.args) rawArgs = parts.slice(1);
   } else if (binary && !delegation.args && /\s/.test(binary)) {
-    const parts = binary.split(/\s+/).filter(Boolean);
+    const parts = splitAgentCommandLine(binary);
     binary = parts[0];
     rawArgs = parts.slice(1);
   }
@@ -267,9 +268,7 @@ export function agentSubstitutions(request: ExecutionRequest, model?: string): R
   };
 }
 
-export function substituteAgentArg(arg: string, subst: Record<string, string>): string {
-  return arg.replace(/\{\{(\w+)\}\}/g, (_, key: string) => (key in subst ? subst[key] : `{{${key}}}`));
-}
+export { substituteAgentArg };
 
 /** Build the recorded process handle for the envelope — secret-stripped +
  *  the agent-reported model. Same SHAPE that lands in provenance, never in

@@ -39,6 +39,13 @@ const REAL_TAGS = path.resolve(__dirname, "..", "scripts", "release-tags.js");
 assert.ok(fs.existsSync(REAL_TAGS), "release-tags.js must exist");
 const REAL_PREFLIGHT = path.resolve(__dirname, "..", "scripts", "release-preflight.js");
 assert.ok(fs.existsSync(REAL_PREFLIGHT), "release-preflight.js must exist");
+// The real agent-command parser, which release-flow loads from dist next to
+// agent-config.
+const REAL_CLI_ARGS = path.resolve(__dirname, "..", "dist", "core", "util", "cli-args.js");
+function copyAgentCommandParser(dir) {
+  fs.mkdirSync(path.join(dir, "dist", "core", "util"), { recursive: true });
+  fs.copyFileSync(REAL_CLI_ARGS, path.join(dir, "dist", "core", "util", "cli-args.js"));
+}
 
 let caseId = 0;
 function run(bin, args, cwd, env) {
@@ -153,6 +160,7 @@ function baseEnv(dir, extra = {}) {
     "  return { source: 'env', command: cmd, endpoint: '', model: '' };\n" +
     "}\n" +
     "module.exports = { resolveAgentConfig };\n");
+  copyAgentCommandParser(dir);
   // A stub reviewer agent that writes an APPROVED verdict for THIS HEAD.
   const agent = path.join(dir, "stub-agent.js");
   fs.writeFileSync(agent,
@@ -221,6 +229,7 @@ function prepareCutFixture(dir, agentBody) {
     "  return { source: 'env', command: cmd, endpoint: '', model: '' };\n" +
     "}\n" +
     "module.exports = { resolveAgentConfig };\n");
+  copyAgentCommandParser(dir);
   const agent = path.join(dir, "stub-agent.js");
   fs.writeFileSync(agent, agentBody);
   run("git", ["add", "-A"], dir);
