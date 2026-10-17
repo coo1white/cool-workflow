@@ -6,44 +6,11 @@
 // `summarizeOperatorCommits` + `formatCommitRow` byte-for-byte, plus the `commitSummaryCli`
 // thin adapter both front doors call (mirrors feedbackSummaryCli /
 // candidateSummaryCli shape). Impure: reads run state from disk.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.summarizeOperatorCommits = summarizeOperatorCommits;
 exports.commitSummaryCli = commitSummaryCli;
 exports.formatCommitSummaryText = formatCommitSummaryText;
-const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const run_store_1 = require("./run-store");
 const collate_1 = require("../core/util/collate");
 function formatCommitRow(commit) {
@@ -78,13 +45,10 @@ function req(value, label) {
         throw new Error(`Missing ${label}`);
     return s;
 }
-function cwdFor(args) {
-    return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
 /** Thin adapter both front doors call (mirrors the old build's orchestrator
  *  `summarizeCommitRecords(runId)` = `summarizeOperatorCommits(loadRun(runId))`). */
 function commitSummaryCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
+    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
     return summarizeOperatorCommits(run);
 }
 /** `cw commit summary <run>` human text — port of the old build's

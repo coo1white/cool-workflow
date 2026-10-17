@@ -59,6 +59,7 @@ exports.contractShowCli = contractShowCli;
 exports.optionalStringArg = optionalStringArg;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const fs_atomic_1 = require("./fs-atomic");
 const run_store_1 = require("./run-store");
 const node_store_1 = require("./node-store");
@@ -70,15 +71,12 @@ const numeric_flag_1 = require("../core/util/numeric-flag");
 function optionalStringArg(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
-function resolveCwd(options) {
-    return path.resolve(String(options.cwd || process.cwd()));
-}
 // ---------------------------------------------------------------------
 // state.check
 // ---------------------------------------------------------------------
 /** `cw state check <run-id> [--state PATH] [--write] [--cwd PATH]`. */
 function checkState(runId, options = {}) {
-    const cwd = resolveCwd(options);
+    const cwd = (0, cli_args_1.cwdArg)(options, ["cwd"], true);
     const statePath = options.state ? path.resolve(String(options.state)) : path.join(cwd, ".cw", "runs", runId, "state.json");
     const result = (0, run_store_1.migrateRunStateFile)(statePath, { write: Boolean(options.write) });
     return result.report;
@@ -127,7 +125,7 @@ function migrationProve(target, options = {}) {
 // node.replay | node.replay.verify
 // ---------------------------------------------------------------------
 function loadRun(runId, options = {}) {
-    const cwd = options.cwd ? path.resolve(String(options.cwd)) : process.cwd();
+    const cwd = (0, cli_args_1.cwdArg)(options, ["cwd"], true);
     return (0, run_store_1.loadRunFromCwd)(runId, cwd);
 }
 /** `cw next <run-id> [--limit N]` — the read-only "what would dispatch next"

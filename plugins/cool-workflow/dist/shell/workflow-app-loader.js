@@ -72,6 +72,7 @@ exports.initWorkflowApp = initWorkflowApp;
 exports.packageWorkflowApp = packageWorkflowApp;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const app_schema_1 = require("../core/workflow-apps/app-schema");
 const sandbox_profile_1 = require("./sandbox-profile");
 const version_1 = require("../core/version");
@@ -696,7 +697,7 @@ function initWorkflowApp(appId, options = {}) {
  *  (`options.cwd`) so the CLI/MCP surfaces never write into the process cwd
  *  when a different working directory was requested — and never chdir. */
 function packageWorkflowApp(appId, options = {}, cwd) {
-    const base = cwd || (typeof options.cwd === "string" && options.cwd.trim() ? path.resolve(String(options.cwd)) : process.cwd());
+    const base = cwd || (0, cli_args_1.cwdArg)(options);
     const record = loadWorkflowAppRecordById(appId);
     const destination = path.resolve(base, String(options.output || path.join(".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`)));
     fs.mkdirSync(path.dirname(destination), { recursive: true });

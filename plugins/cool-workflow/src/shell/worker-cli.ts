@@ -3,7 +3,7 @@
 // port of the old build's cli worker-handler module routing into the
 // worker-isolation shell. Impure: loads run state, mutates, persists.
 
-import * as path from "node:path";
+import { cwdArg } from "../core/util/cli-args";
 import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "./run-store";
 import {
   getWorkerScope,
@@ -20,10 +20,6 @@ import { writeReport } from "./report";
 import { summarizeRun } from "./operator-ux";
 import { resolveAgentConfig } from "./agent-config";
 
-function cwdFor(args: Record<string, unknown>): string {
-  return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
-
 function req(value: unknown, label: string): string {
   const s = value === undefined || value === null ? "" : String(value);
   if (!s) throw new Error(`Missing ${label}`);
@@ -36,19 +32,19 @@ function allowUnattestedOption(args: Record<string, unknown>): boolean {
 }
 
 export function workerListCli(args: Record<string, unknown>): unknown {
-  const run = loadRunFromCwd(req(args.runId, "run id"), cwdFor(args));
+  const run = loadRunFromCwd(req(args.runId, "run id"), cwdArg(args));
   return listWorkerScopes(run, { status: typeof args.status === "string" ? args.status : undefined });
 }
 
 export function workerShowCli(args: Record<string, unknown>): unknown {
-  const run = loadRunFromCwd(req(args.runId, "run id"), cwdFor(args));
+  const run = loadRunFromCwd(req(args.runId, "run id"), cwdArg(args));
   const scope = getWorkerScope(run, req(args.workerId, "worker id"));
   if (!scope) throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
   return scope;
 }
 
 export function workerManifestCli(args: Record<string, unknown>): unknown {
-  return withRunStateLock(req(args.runId, "run id"), cwdFor(args), (run) => {
+  return withRunStateLock(req(args.runId, "run id"), cwdArg(args), (run) => {
     const scope = getWorkerScope(run, req(args.workerId, "worker id"));
     if (!scope) throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
     const manifest = writeWorkerManifest(run, scope);
@@ -68,7 +64,7 @@ export function workerManifestCli(args: Record<string, unknown>): unknown {
  *  tasks.completed, workers.byStatus, and loopStage. The drive loop does these
  *  same steps itself around the bare accept, so it never routes through here. */
 export function workerOutputCli(args: Record<string, unknown>): unknown {
-  return withRunStateLock(req(args.runId, "run id"), cwdFor(args), (run) => {
+  return withRunStateLock(req(args.runId, "run id"), cwdArg(args), (run) => {
     recordWorkerOutput(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {
       requireAttestedTelemetry: resolveAgentConfig(args).requireAttestedTelemetry,
       allowUnattested: allowUnattestedOption(args),
@@ -84,7 +80,7 @@ export function workerOutputCli(args: Record<string, unknown>): unknown {
 }
 
 export function workerFailCli(args: Record<string, unknown>): unknown {
-  return withRunStateLock(req(args.runId, "run id"), cwdFor(args), (run) => {
+  return withRunStateLock(req(args.runId, "run id"), cwdArg(args), (run) => {
     const message = String(args.message || req(args.resultPath, "failure message"));
     const scope = recordWorkerFailure(run, req(args.workerId, "worker id"), message, {
       code: typeof args.code === "string" ? args.code : undefined,
@@ -100,7 +96,7 @@ export function workerFailCli(args: Record<string, unknown>): unknown {
  *  allowed) and signals a violation through a non-zero exit code, not just
  *  stdout — a validate verb must report an invalid verdict via its exit code. */
 export function workerValidateCli(args: Record<string, unknown>): { violation: unknown; exitCode?: number } {
-  return withRunStateLock(req(args.runId, "run id"), cwdFor(args), (run) => {
+  return withRunStateLock(req(args.runId, "run id"), cwdArg(args), (run) => {
     const target = args.path || args.resultPath;
     const violation = validateWorkerBoundary(run, req(args.workerId, "worker id"), target ? { path: String(target) } : {});
     saveCheckpoint(run);

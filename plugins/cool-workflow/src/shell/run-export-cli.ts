@@ -8,6 +8,7 @@
 // Evidence: SPEC/reporting-ux.md "Run export / import / restore".
 
 import * as path from "node:path";
+import { cwdArg } from "../core/util/cli-args";
 import { exportRun, importRun, restoreRunAtomically, verifyImportedRun, inspectArchive, ExportResult, ImportResult, RestoreVerificationResult, ArchiveInspectResult } from "./run-export";
 import { loadRunFromCwd } from "./run-store";
 import { RunRegistry } from "./run-registry-io";
@@ -16,15 +17,11 @@ function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function invocationCwd(args: Record<string, unknown>): string {
-  return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
-
 const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
 
 /** `cw run export <run-id> [--output|--path|--archive P] [--with-trust-key K] [--cwd P]`. */
 export function runExportCli(runId: string, args: Record<string, unknown>): ExportResult {
-  const base = invocationCwd(args);
+  const base = cwdArg(args);
   const run = loadRunFromCwd(runId, base);
   const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
   const outputPath = path.resolve(base, output);
@@ -38,7 +35,7 @@ export function runExportCli(runId: string, args: Record<string, unknown>): Expo
 /** `cw run import <archive> [--target|--repo|--cwd P]` — prints
  *  ImportResult + `registry` (a repo-registry refresh side effect). */
 export function runImportCli(archivePath: string, args: Record<string, unknown>): ImportResult & { registry: unknown } {
-  const base = invocationCwd(args);
+  const base = cwdArg(args);
   const target = optionalString(args.target || args.repo) || base;
   const resolvedArchive = path.resolve(base, archivePath);
   const imported = importRun(resolvedArchive, target);
@@ -48,13 +45,13 @@ export function runImportCli(archivePath: string, args: Record<string, unknown>)
 
 /** `cw run verify-import <run-id> [--strict]`. */
 export function runVerifyImportCli(runId: string, args: Record<string, unknown>): RestoreVerificationResult {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   return verifyImportedRun(run);
 }
 
 /** `cw run inspect-archive <path>` — read-only, never throws. */
 export function runInspectArchiveCli(archivePath: string, args: Record<string, unknown>): ArchiveInspectResult {
-  const resolved = path.resolve(invocationCwd(args), archivePath);
+  const resolved = path.resolve(cwdArg(args), archivePath);
   return inspectArchive(resolved);
 }
 
@@ -72,7 +69,7 @@ export interface RunRestoreResult {
  *  (read-only) first, refuse a bad archive with nothing written, then
  *  import, then reuse the import's own verification verdict. */
 export function runRestoreCli(archivePath: string, args: Record<string, unknown>): RunRestoreResult {
-  const base = invocationCwd(args);
+  const base = cwdArg(args);
   const target = optionalString(args.target || args.repo) || base;
   const resolvedArchive = path.resolve(base, archivePath);
   const inspect = inspectArchive(resolvedArchive);

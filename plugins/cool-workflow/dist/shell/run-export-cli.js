@@ -47,19 +47,17 @@ exports.runVerifyImportCli = runVerifyImportCli;
 exports.runInspectArchiveCli = runInspectArchiveCli;
 exports.runRestoreCli = runRestoreCli;
 const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const run_export_1 = require("./run-export");
 const run_store_1 = require("./run-store");
 const run_registry_io_1 = require("./run-registry-io");
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
-function invocationCwd(args) {
-    return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
 const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
 /** `cw run export <run-id> [--output|--path|--archive P] [--with-trust-key K] [--cwd P]`. */
 function runExportCli(runId, args) {
-    const base = invocationCwd(args);
+    const base = (0, cli_args_1.cwdArg)(args);
     const run = (0, run_store_1.loadRunFromCwd)(runId, base);
     const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
     const outputPath = path.resolve(base, output);
@@ -72,7 +70,7 @@ function runExportCli(runId, args) {
 /** `cw run import <archive> [--target|--repo|--cwd P]` — prints
  *  ImportResult + `registry` (a repo-registry refresh side effect). */
 function runImportCli(archivePath, args) {
-    const base = invocationCwd(args);
+    const base = (0, cli_args_1.cwdArg)(args);
     const target = optionalString(args.target || args.repo) || base;
     const resolvedArchive = path.resolve(base, archivePath);
     const imported = (0, run_export_1.importRun)(resolvedArchive, target);
@@ -81,19 +79,19 @@ function runImportCli(archivePath, args) {
 }
 /** `cw run verify-import <run-id> [--strict]`. */
 function runVerifyImportCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return (0, run_export_1.verifyImportedRun)(run);
 }
 /** `cw run inspect-archive <path>` — read-only, never throws. */
 function runInspectArchiveCli(archivePath, args) {
-    const resolved = path.resolve(invocationCwd(args), archivePath);
+    const resolved = path.resolve((0, cli_args_1.cwdArg)(args), archivePath);
     return (0, run_export_1.inspectArchive)(resolved);
 }
 /** `cw run restore <path> [--target P]` — fail-closed one step: inspect
  *  (read-only) first, refuse a bad archive with nothing written, then
  *  import, then reuse the import's own verification verdict. */
 function runRestoreCli(archivePath, args) {
-    const base = invocationCwd(args);
+    const base = (0, cli_args_1.cwdArg)(args);
     const target = optionalString(args.target || args.repo) || base;
     const resolvedArchive = path.resolve(base, archivePath);
     const inspect = (0, run_export_1.inspectArchive)(resolvedArchive);

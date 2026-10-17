@@ -6,7 +6,7 @@
 // thin adapter both front doors call (mirrors feedbackSummaryCli /
 // candidateSummaryCli shape). Impure: reads run state from disk.
 
-import * as path from "node:path";
+import { cwdArg } from "../core/util/cli-args";
 import { WorkflowRun, StateCommit } from "../core/state/types";
 import { loadRunFromCwd } from "./run-store";
 import { stableCompare } from "../core/util/collate";
@@ -68,14 +68,10 @@ function req(value: unknown, label: string): string {
   return s;
 }
 
-function cwdFor(args: Record<string, unknown>): string {
-  return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
-
 /** Thin adapter both front doors call (mirrors the old build's orchestrator
  *  `summarizeCommitRecords(runId)` = `summarizeOperatorCommits(loadRun(runId))`). */
 export function commitSummaryCli(args: Record<string, unknown>): OperatorCommitSummary {
-  const run = loadRunFromCwd(req(args.runId, "run id"), cwdFor(args));
+  const run = loadRunFromCwd(req(args.runId, "run id"), cwdArg(args));
   return summarizeOperatorCommits(run);
 }
 

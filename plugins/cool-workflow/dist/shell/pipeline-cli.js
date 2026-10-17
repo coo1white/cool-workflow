@@ -78,14 +78,6 @@ const QUICKSTART_DEFAULT_APP = "architecture-review";
 // `--fast`: the 6-worker review for one focused question (Map and Assess
 // two workers each), in place of the default 14.
 const QUICKSTART_FAST_APP = "architecture-review-fast";
-/** True when `value` is a truthy CLI flag (present, or "true"/"1"/"yes"/"on"). */
-function truthyFlag(value) {
-    if (value === true)
-        return true;
-    if (typeof value === "string")
-        return /^(1|true|yes|on)$/i.test(value.trim());
-    return false;
-}
 /** First non-empty string among the given arg values (mirrors the old
  *  build's optionalString read over several alias keys). */
 function firstString(...values) {
@@ -114,12 +106,12 @@ function quickstartNextCommand(appId, repo, args) {
     const command = firstString(args.agentCommand, args["agent-command"]);
     if (command)
         parts.push("--agent-command", shellWord(command));
-    if (truthyFlag(args.bundle))
+    if ((0, cli_args_1.flagOn)(args.bundle))
         parts.push("--bundle");
     const trustKey = firstString(args["with-trust-key"], args.withTrustKey, args.trustKey);
     if (trustKey)
         parts.push("--with-trust-key", shellWord(trustKey));
-    if (truthyFlag(args["strict-signatures"]) || truthyFlag(args.strictSignatures) || truthyFlag(args.strictSigs))
+    if ((0, cli_args_1.flagOn)(args["strict-signatures"]) || (0, cli_args_1.flagOn)(args.strictSignatures) || (0, cli_args_1.flagOn)(args.strictSigs))
         parts.push("--strict-signatures");
     return parts.join(" ");
 }
@@ -167,28 +159,8 @@ function planInputsFor(args) {
         out.cwd = out.repo;
     return out;
 }
-function invocationCwd(args) {
-    return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
-/** Same as invocationCwd, but ALSO falls back to `--repo` before
- *  process.cwd() -- for resolving an EXISTING run's directory specifically
- *  (loadRunFromCwd's target), never for a fresh plan()'s repo input (see
- *  planRun's own comment on why THAT path deliberately never auto-fills
- *  repo from cwd). A caller resuming a run they didn't originally start
- *  from this exact directory (the common case: `cw run resume <id>
- *  --drive` or `cw quickstart <app> --resume --run <id>` typed from
- *  wherever the terminal happens to be, not necessarily the run's own
- *  --repo) must not have that already-known fact silently discarded in
- *  favor of process.cwd() -- this mirrors the --preview branch's own
- *  repoCwd fallback a few lines below, which already gets this right. */
-function existingRunCwd(args) {
-    if (typeof args.cwd === "string" && args.cwd.trim())
-        return path.resolve(args.cwd);
-    if (typeof args.repo === "string" && args.repo.trim())
-        return path.resolve(args.repo);
-    return process.cwd();
-}
-/** Loads an EXISTING run from the folder the caller named (existingRunCwd)
+/** Loads an EXISTING run from the folder the caller named (--cwd, then --repo:
+ *  an existing run's --repo is a known fact, unlike a fresh plan's input)
  *  and refuses, fail-closed, when the run says it was made for a different
  *  real folder (`state.cwd`). The drive goes on at `run.cwd`, so without
  *  this a `--repo`/`--cwd` naming a copied or moved repo would silently
@@ -286,7 +258,7 @@ function planRun(args) {
 }
 function runDrivePreview(args) {
     const runId = String(args.runId || args.run || "");
-    const cwd = invocationCwd(args);
+    const cwd = (0, cli_args_1.cwdArg)(args);
     return (0, drive_1.drivePreview)(runId, cwd, args);
 }
 /** `cw run <app|--run id> --drive [--once]` — plans a fresh run (unless
@@ -305,7 +277,7 @@ async function runDriveStep(args, extra = {}) {
         incremental: Boolean(args.incremental),
     };
     if (existingRunId) {
-        const cwd = existingRunCwd(args);
+        const cwd = (0, cli_args_1.cwdArg)(args, ["cwd", "repo"]);
         const run = loadExistingRunAt(existingRunId, cwd);
         return (0, drive_1.driveAsync)(existingRunId, run.cwd, options);
     }
@@ -313,7 +285,7 @@ async function runDriveStep(args, extra = {}) {
     if (!appId)
         throw new Error("run --drive requires an app id (or --run <run-id> to continue)");
     if (!args.repo && !args.cwd)
-        args.repo = invocationCwd(args);
+        args.repo = (0, cli_args_1.cwdArg)(args);
     const app = (0, workflow_app_loader_1.loadWorkflowApp)(appId);
     const run = (0, pipeline_1.plan)(app, planInputsFor(args));
     return (0, drive_1.driveAsync)(run.id, run.cwd, options);
@@ -329,7 +301,7 @@ function quickstartCheck(appId, args, remoteCandidate) {
     // sanitized URL so the result reports what would be reviewed.
     if (remoteCandidate)
         return remoteQuickstartCheck(appId, args, remoteCandidate);
-    const base = invocationCwd(args);
+    const base = (0, cli_args_1.cwdArg)(args);
     const repoArg = typeof args.repo === "string" && args.repo.trim() ? args.repo : base;
     const repo = path.resolve(base, repoArg);
     const checks = [];
@@ -397,12 +369,12 @@ function quickstartCheck(appId, args, remoteCandidate) {
     // --bundle preflight: a completed run sealed into a bundle re-verifies offline
     // only with a public trust key. Warn (not block) by default; block only under
     // --strict-signatures where an unkeyed bundle would fail verification.
-    if (truthyFlag(args.bundle)) {
+    if ((0, cli_args_1.flagOn)(args.bundle)) {
         const trustKey = firstString(args["with-trust-key"], args.withTrustKey, args.trustKey, args.pubkey) || process.env.CW_AGENT_ATTEST_PUBKEY;
         if (trustKey) {
             checks.push({ name: "bundle-trust-key", status: "ok", detail: "Bundle trust public key is configured." });
         }
-        else if (truthyFlag(args["strict-signatures"]) || truthyFlag(args.strictSignatures) || truthyFlag(args.strictSigs)) {
+        else if ((0, cli_args_1.flagOn)(args["strict-signatures"]) || (0, cli_args_1.flagOn)(args.strictSignatures) || (0, cli_args_1.flagOn)(args.strictSigs)) {
             checks.push({ name: "bundle-trust-key", status: "blocked", detail: "Strict signature verification needs a public trust key.", fix: "Pass --with-trust-key PATH or set $CW_AGENT_ATTEST_PUBKEY." });
         }
         else {
@@ -478,7 +450,7 @@ async function promptForQuestion() {
  *  byte from the old build's capability-core module quickstart(). */
 async function quickstartRun(args) {
     const namedApp = args.appId || args.app || args.workflowId;
-    const fast = truthyFlag(args.fast);
+    const fast = (0, cli_args_1.flagOn)(args.fast);
     // `--fast` only picks the default app; next to another named app it is a
     // contradiction, so refuse it rather than drop one of the two quietly.
     if (fast && namedApp && String(namedApp) !== QUICKSTART_FAST_APP) {
@@ -495,7 +467,7 @@ async function quickstartRun(args) {
     const remoteCandidate = linkArg || (repoArgRaw && (0, remote_source_1.isRemoteUrl)(repoArgRaw) ? repoArgRaw : undefined);
     const repoFromCwd = !remoteCandidate && !args.repo && !args.cwd;
     if (repoFromCwd)
-        args.repo = invocationCwd(args);
+        args.repo = (0, cli_args_1.cwdArg)(args);
     if (Boolean(args.check))
         return quickstartCheck(appId, args, remoteCandidate);
     // An existing --run <id> never plans a fresh run, so it skips this check.
@@ -564,7 +536,7 @@ async function quickstartRun(args) {
             previewRunId = planned.id;
             repoCwd = planned.cwd;
         }
-        const target = repoCwd && fs.existsSync(repoCwd) ? repoCwd : invocationCwd(args);
+        const target = repoCwd && fs.existsSync(repoCwd) ? repoCwd : (0, cli_args_1.cwdArg)(args);
         return (0, drive_1.drivePreview)(previewRunId, target, args);
     }
     const options = {
@@ -582,7 +554,7 @@ async function quickstartRun(args) {
     };
     let run;
     if (existingRunId) {
-        run = loadExistingRunAt(existingRunId, existingRunCwd(args));
+        run = loadExistingRunAt(existingRunId, (0, cli_args_1.cwdArg)(args, ["cwd", "repo"]));
         // A continued run names its own app: with no app and no --fast given,
         // appId is the app the run was planned with, not the default review.
         if (!namedApp && !fast)
@@ -617,10 +589,10 @@ async function quickstartRun(args) {
     // anchors to the run's OWN repo (run.cwd) — quickstart runs cross-directory — but
     // OUTPUT paths resolve against the CALLER's cwd so artifacts land where the
     // operator ran the command. Byte-behavior port of the old build's quickstart().
-    const wantsBundle = truthyFlag(args.bundle);
+    const wantsBundle = (0, cli_args_1.flagOn)(args.bundle);
     let bundle;
     if (wantsBundle && result.status === "complete") {
-        const callerBase = invocationCwd(args);
+        const callerBase = (0, cli_args_1.cwdArg)(args);
         const outArg = firstString(args.output, args.path, args.archive);
         const extractArg = firstString(args["extract-report"], args.extractReport, args.extractReportTo);
         bundle = (0, report_cli_1.reportBundleCli)(result.runId, {
@@ -663,7 +635,7 @@ async function quickstartRun(args) {
     // (the safety rail). `--no-open`/CW_NO_OPEN=1 turns it off; this never
     // runs off a TTY at all (the Rule of Silence).
     let reportOpened;
-    if (Boolean(process.stdout.isTTY) && !(0, cli_args_1.wantsJson)(args) && !truthyFlag(args["no-open"] ?? args.noOpen) && process.env.CW_NO_OPEN !== "1") {
+    if (Boolean(process.stdout.isTTY) && !(0, cli_args_1.wantsJson)(args) && !(0, cli_args_1.flagOn)(args["no-open"] ?? args.noOpen) && process.env.CW_NO_OPEN !== "1") {
         try {
             (0, report_view_cli_1.ensureAndOpenReportHtml)(result.reportPath);
             reportOpened = true;
@@ -756,7 +728,7 @@ function dispatchRun(args) {
     const runId = String(args.runId);
     // The whole load -> change -> save cycle holds the state.json lock so a
     // concurrent dispatch/result on the same run cannot drop this update.
-    return (0, run_store_1.withRunStateLock)(runId, invocationCwd(args), (run) => {
+    return (0, run_store_1.withRunStateLock)(runId, (0, cli_args_1.cwdArg)(args), (run) => {
         const manifest = (0, dispatch_1.createDispatchManifest)(run, (0, numeric_flag_1.requiredNumberFlag)(args.limit, "--limit"), {
             sandboxProfileId: typeof args.sandbox === "string" ? args.sandbox : undefined,
             sandbox: typeof args.sandbox === "string" ? args.sandbox : undefined,
@@ -777,7 +749,7 @@ function recordResultRun(args) {
     // Two processes recording results for two tasks of the SAME run used to
     // race: both loaded, and the later saveCheckpoint dropped the earlier
     // task's completion. The lock now covers the whole cycle.
-    return (0, run_store_1.withRunStateLock)(runId, invocationCwd(args), (run) => {
+    return (0, run_store_1.withRunStateLock)(runId, (0, cli_args_1.cwdArg)(args), (run) => {
         const task = run.tasks.find((t) => t.id === taskId);
         if (!task || !task.workerId)
             throw new Error(`Unknown task id for run ${runId}: ${taskId}`);
@@ -851,7 +823,7 @@ function commitRun(args) {
     // Hold the state.json lock across the whole load -> commit -> save (both the
     // success and the fail-closed catch persist) so a concurrent run mutation
     // cannot drop this commit (lost-update class, matching dispatchRun/recordResultRun).
-    return (0, run_store_1.withRunStateLock)(runId, invocationCwd(args), (run) => {
+    return (0, run_store_1.withRunStateLock)(runId, (0, cli_args_1.cwdArg)(args), (run) => {
         const allowCheckpoint = Boolean(args.allowUnverifiedCheckpoint || args["allow-unverified-checkpoint"]);
         const hasGateOption = Boolean(args.verifier || args.verifierNode || args["verifier-node"]);
         try {

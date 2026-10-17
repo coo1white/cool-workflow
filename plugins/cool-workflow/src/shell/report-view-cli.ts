@@ -11,16 +11,13 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { cwdArg, flagOn } from "../core/util/cli-args";
 import { spawnSync } from "node:child_process";
 import { loadRunFromCwd } from "./run-store";
 import { reportAnswer, writeReport } from "./report";
 import { adviseNoRun, buildOperatorGraph, summarizeOperatorRun, summarizeRun } from "./operator-ux";
 import { formatOperatorGraph, formatOperatorReport, formatOperatorStatus, formatOperatorSummary } from "./operator-ux-text";
 import { reportToHtml } from "../core/format/report-html";
-
-function invocationCwd(args: Record<string, unknown>): string {
-  return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
 
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
@@ -30,7 +27,7 @@ function optionalString(value: unknown): string | undefined {
  *  path (the CLI binding prints ONLY this path + "\n" to stdout; `--json`
  *  prints `{path}`). */
 export function reportWriteCli(runId: string, args: Record<string, unknown>): { path: string } {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   return { path: writeReport(run) };
 }
 
@@ -40,17 +37,11 @@ export function reportWriteCli(runId: string, args: Record<string, unknown>): { 
  *  evidence } or null); `markdown: true` adds `markdown`, the text of
  *  report.md. With neither, the result is byte-identical to before. */
 export function reportMcp(runId: string, args: Record<string, unknown>): { path: string; answer?: ReturnType<typeof reportAnswer>; markdown?: string } {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   const result: { path: string; answer?: ReturnType<typeof reportAnswer>; markdown?: string } = { path: writeReport(run) };
-  if (mcpFlag(args.answer)) result.answer = reportAnswer(run);
-  if (mcpFlag(args.markdown)) result.markdown = fs.readFileSync(result.path, "utf8");
+  if (flagOn(args.answer, ["true"])) result.answer = reportAnswer(run);
+  if (flagOn(args.markdown, ["true"])) result.markdown = fs.readFileSync(result.path, "utf8");
   return result;
-}
-
-// MCP scalars reach a handler as strings, except JSON `false`, which stays
-// a real `false` (mcp/dispatch.ts coerceScalarArgs).
-function mcpFlag(value: unknown): boolean {
-  return value === true || value === "true";
 }
 
 /** `cw report` with no run id: the newest run under this repo's
@@ -59,7 +50,7 @@ function mcpFlag(value: unknown): boolean {
  *  `createdAt`), so "newest" is just the last name after a sort.
  *  Returns undefined when the repo has no run yet. */
 export function resolveReportRunId(args: Record<string, unknown>): string | undefined {
-  const runsDir = path.join(invocationCwd(args), ".cw", "runs");
+  const runsDir = path.join(cwdArg(args), ".cw", "runs");
   if (!fs.existsSync(runsDir)) return undefined;
   const ids = fs
     .readdirSync(runsDir, { withFileTypes: true })
@@ -90,7 +81,7 @@ export function ensureAndOpenReportHtml(mdPath: string): string {
 /** `cw report --open [run-id]` — a fresh report.md, then the html+open
  *  step above. */
 export function reportOpenCli(runId: string, args: Record<string, unknown>): { path: string } {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   return { path: ensureAndOpenReportHtml(writeReport(run)) };
 }
 
@@ -98,51 +89,51 @@ export function reportOpenCli(runId: string, args: Record<string, unknown>): { p
  *  with an id: `summarizeRun`'s payload. */
 export function statusCli(runId: string | undefined, args: Record<string, unknown>): unknown {
   if (!runId) return { runId: null, nextActions: adviseNoRun() };
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   return summarizeRun(run);
 }
 
 /** `cw status <id> --summary`/`--brief` human text. */
 export function statusSummaryText(runId: string, args: Record<string, unknown>): string {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   return formatOperatorSummary(summarizeOperatorRun(run));
 }
 
 /** The full `cw status <id>` human text. */
 export function statusFullText(runId: string, args: Record<string, unknown>): string {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   return formatOperatorStatus(summarizeOperatorRun(run));
 }
 
 /** `cw operator status <id> [--json]`. */
 export function operatorStatusCli(runId: string, args: Record<string, unknown>): unknown {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   return summarizeOperatorRun(run);
 }
 
 /** `cw operator report <id> [--json]` — also re-writes report.md as a
  *  side effect (byte-exact to the old build's operator report verb). */
 export function operatorReportCli(runId: string, args: Record<string, unknown>): unknown {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   writeReport(run);
   return summarizeOperatorRun(run);
 }
 
 export function operatorReportText(runId: string, args: Record<string, unknown>): string {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   writeReport(run);
   return formatOperatorReport(summarizeOperatorRun(run), []);
 }
 
 /** `cw graph <id> [--json]` / `cw operator graph`. */
 export function graphCli(runId: string, args: Record<string, unknown>): unknown {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   if (args.__cwWorkbenchReadOnlyProjection === true) (run as unknown as Record<string, unknown>).__cwWorkbenchReadOnlyProjection = true;
   return buildOperatorGraph(run);
 }
 
 export function graphText(runId: string, args: Record<string, unknown>): string {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   return formatOperatorGraph(buildOperatorGraph(run));
 }
 

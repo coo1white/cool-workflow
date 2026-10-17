@@ -82,7 +82,7 @@ exports.orphansGcCli = orphansGcCli;
 exports.clonesListCli = clonesListCli;
 exports.clonesGcCli = clonesGcCli;
 const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const numeric_flag_1 = require("../core/util/numeric-flag");
 const run_registry_io_1 = require("./run-registry-io");
 const run_link_io_1 = require("./run-link-io");
@@ -91,9 +91,6 @@ const workflow_app_loader_1 = require("./workflow-app-loader");
 const scheduler_io_1 = require("./scheduler-io");
 const reclamation_io_1 = require("./reclamation-io");
 const pipeline_cli_1 = require("./pipeline-cli");
-function resolveCwd(options) {
-    return path.resolve(String(options.cwd || options.repo || process.cwd()));
-}
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -104,38 +101,38 @@ function scopeOf(options, fallback) {
 // schedule.* / cw loop
 // ---------------------------------------------------------------------
 function scheduleCreateCli(options = {}) {
-    return new scheduler_io_1.Scheduler(resolveCwd(options)).create(options);
+    return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).create(options);
 }
 function scheduleListCli(options = {}) {
-    return new scheduler_io_1.Scheduler(resolveCwd(options)).list(optionalString(options.status));
+    return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).list(optionalString(options.status));
 }
 function scheduleDeleteCli(id, options = {}) {
-    return new scheduler_io_1.Scheduler(resolveCwd(options)).delete(id);
+    return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).delete(id);
 }
 function scheduleDueCli(options = {}) {
-    return new scheduler_io_1.Scheduler(resolveCwd(options)).due();
+    return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).due();
 }
 function scheduleCompleteCli(id, options = {}) {
-    return new scheduler_io_1.Scheduler(resolveCwd(options)).complete(id, options);
+    return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).complete(id, options);
 }
 function schedulePauseCli(id, options = {}) {
-    return new scheduler_io_1.Scheduler(resolveCwd(options)).pause(id);
+    return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).pause(id);
 }
 function scheduleResumeCli(id, options = {}) {
-    return new scheduler_io_1.Scheduler(resolveCwd(options)).resume(id);
+    return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).resume(id);
 }
 function scheduleRunNowCli(id, options = {}) {
-    return new scheduler_io_1.Scheduler(resolveCwd(options)).runNow(id);
+    return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).runNow(id);
 }
 function scheduleHistoryCli(id, options = {}) {
-    return new scheduler_io_1.Scheduler(resolveCwd(options)).history(id);
+    return new scheduler_io_1.Scheduler((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).history(id);
 }
 function scheduleDaemonTickCli(options = {}) {
-    return new scheduler_io_1.DesktopSchedulerDaemon({ cwd: resolveCwd(options), intervalSeconds: options.intervalSeconds ? Number(options.intervalSeconds) : options.interval ? Number(options.interval) : undefined }).tick();
+    return new scheduler_io_1.DesktopSchedulerDaemon({ cwd: (0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true), intervalSeconds: options.intervalSeconds ? Number(options.intervalSeconds) : options.interval ? Number(options.interval) : undefined }).tick();
 }
 function scheduleDaemonRunForever(options = {}) {
     return new scheduler_io_1.DesktopSchedulerDaemon({
-        cwd: resolveCwd(options),
+        cwd: (0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true),
         intervalSeconds: options.intervalSeconds ? Number(options.intervalSeconds) : options.interval ? Number(options.interval) : undefined,
     }).run();
 }
@@ -143,16 +140,16 @@ function scheduleDaemonRunForever(options = {}) {
 // routine.*
 // ---------------------------------------------------------------------
 function routineCreateCli(options = {}) {
-    return new scheduler_io_1.RoutineTriggerBridge(resolveCwd(options)).create(options);
+    return new scheduler_io_1.RoutineTriggerBridge((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).create(options);
 }
 function routineListCli(options = {}) {
-    return new scheduler_io_1.RoutineTriggerBridge(resolveCwd(options)).list(optionalString(options.kind));
+    return new scheduler_io_1.RoutineTriggerBridge((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).list(optionalString(options.kind));
 }
 function routineDeleteCli(id, options = {}) {
-    return new scheduler_io_1.RoutineTriggerBridge(resolveCwd(options)).delete(id);
+    return new scheduler_io_1.RoutineTriggerBridge((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).delete(id);
 }
 function routineFireCli(kind, payload, options = {}) {
-    return new scheduler_io_1.RoutineTriggerBridge(resolveCwd(options)).fire(kind, payload);
+    return new scheduler_io_1.RoutineTriggerBridge((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).fire(kind, payload);
 }
 /** Resolves a `routine fire` payload: a `--payload-path`/positional file wins
  *  (parsed as JSON) over the raw CLI/MCP options bag. The file read lives
@@ -168,19 +165,19 @@ function resolveRoutineFirePayload(payloadPath, options) {
     }
 }
 function routineEventsCli(id, options = {}) {
-    return new scheduler_io_1.RoutineTriggerBridge(resolveCwd(options)).events(id);
+    return new scheduler_io_1.RoutineTriggerBridge((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).events(id);
 }
 // ---------------------------------------------------------------------
 // registry.* / run.* / queue.* / history
 // ---------------------------------------------------------------------
 function registryRefreshCli(options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options)).refresh({ scope: scopeOf(options, "repo") });
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).refresh({ scope: scopeOf(options, "repo") });
 }
 function registryShowCli(options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options)).show({ scope: scopeOf(options, "repo") });
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).show({ scope: scopeOf(options, "repo") });
 }
 function runSearchCli(options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options)).search({
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).search({
         scope: scopeOf(options, "home"),
         text: optionalString(options.text),
         app: optionalString(options.app),
@@ -194,7 +191,7 @@ function runSearchCli(options = {}) {
     });
 }
 function runListCli(options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options)).list({
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).list({
         scope: scopeOf(options, "home"),
         includeArchived: options.includeArchived === undefined ? undefined : Boolean(options.includeArchived),
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
@@ -202,7 +199,7 @@ function runListCli(options = {}) {
     });
 }
 function runShowCli(runId, options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options)).showRun(runId, { scope: scopeOf(options, "home") });
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).showRun(runId, { scope: scopeOf(options, "home") });
 }
 /** `run resume <run-id> [--drive|--once]` — SPEC/pipeline-run.md: default
  *  is read-only and byte-identical to the registry resume payload; with
@@ -214,7 +211,7 @@ async function runResumeCli(runId, options = {}) {
     // named, or with --scope home given, resume finds the run by id across the
     // registry as before.
     const namedBy = options.scope === undefined ? (optionalString(options.cwd) ? "--cwd" : optionalString(options.repo) ? "--repo" : undefined) : undefined;
-    const base = new run_registry_io_1.RunRegistry(resolveCwd(options)).resume(runId, {
+    const base = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).resume(runId, {
         scope: scopeOf(options, "home"),
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
         namedBy,
@@ -225,7 +222,7 @@ async function runResumeCli(runId, options = {}) {
     return { ...base, drive };
 }
 function runArchiveCli(runId, options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true));
     if (!runId) {
         const olderThanDays = (0, numeric_flag_1.requiredNumberFlag)(options.olderThanDays ?? options["older-than-days"], "--older-than-days");
         if (olderThanDays === undefined)
@@ -255,16 +252,16 @@ function cliRunPlanner() {
     return { plan: (appId, inputs) => (0, pipeline_1.plan)((0, workflow_app_loader_1.loadWorkflowApp)(appId), inputs) };
 }
 function runRerunCli(runId, options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options), cliRunPlanner()).rerun(runId, { reason: optionalString(options.reason), scope: scopeOf(options, "home") });
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true), cliRunPlanner()).rerun(runId, { reason: optionalString(options.reason), scope: scopeOf(options, "home") });
 }
 function runLinkCli(runId, options = {}) {
     const url = optionalString(options.url);
     if (!url)
         throw new Error("Missing run link url (--url <url>)");
-    return (0, run_link_io_1.recordRunLink)(new run_registry_io_1.RunRegistry(resolveCwd(options)), runId, { url, kind: optionalString(options.kind), note: optionalString(options.note), actor: optionalString(options.actor) }, { scope: scopeOf(options, "home") });
+    return (0, run_link_io_1.recordRunLink)(new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)), runId, { url, kind: optionalString(options.kind), note: optionalString(options.note), actor: optionalString(options.actor) }, { scope: scopeOf(options, "home") });
 }
 function historyCli(options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options)).history({
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).history({
         scope: scopeOf(options, "home"),
         app: optionalString(options.app),
         status: optionalString(options.status),
@@ -273,7 +270,7 @@ function historyCli(options = {}) {
     });
 }
 function queueAddCli(options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options)).queueAdd({
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).queueAdd({
         runId: optionalString(options.runId),
         appId: optionalString(options.app || options.appId),
         workflowId: optionalString(options.workflow || options.workflowId),
@@ -284,13 +281,13 @@ function queueAddCli(options = {}) {
     });
 }
 function queueListCli(options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options)).queueList({ status: optionalString(options.status), repo: optionalString(options.repo) });
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).queueList({ status: optionalString(options.status), repo: optionalString(options.repo) });
 }
 function queueShowCli(id, options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options)).queueShow(id);
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).queueShow(id);
 }
 function queueDrainCli(options = {}) {
-    return new run_registry_io_1.RunRegistry(resolveCwd(options)).queueDrain({
+    return new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true)).queueDrain({
         limit: (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit"),
         repo: optionalString(options.repo),
     });
@@ -320,7 +317,7 @@ function gcPolicyOverridesFrom(options) {
     return overrides;
 }
 function gcPlanCli(runId, options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true));
     return (0, reclamation_io_1.gcPlan)(registry, {
         scope: scopeOf(options, "home"),
         runId,
@@ -329,7 +326,7 @@ function gcPlanCli(runId, options = {}) {
     });
 }
 function gcRunCli(runId, options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true));
     return (0, reclamation_io_1.gcRun)(registry, {
         scope: scopeOf(options, "home"),
         runId,
@@ -340,15 +337,15 @@ function gcRunCli(runId, options = {}) {
     });
 }
 function gcVerifyCli(runId, options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true));
     return (0, reclamation_io_1.gcVerify)(registry, runId, { scope: scopeOf(options, "home") });
 }
 function orphansListCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true));
     return (0, reclamation_io_1.listOrphanRuns)(registry, { scope: scopeOf(options, "home"), now: optionalString(options.now) });
 }
 function orphansGcCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd", "repo"], true));
     return (0, reclamation_io_1.gcOrphanRuns)(registry, {
         scope: scopeOf(options, "home"),
         minAgeMinutes: (0, numeric_flag_1.requiredNumberFlag)(options.minAgeMinutes ?? options["min-age-minutes"], "--min-age-minutes"),
