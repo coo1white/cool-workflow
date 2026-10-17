@@ -627,8 +627,9 @@ regardless of the capability it ships. The long form lives in
    old behavior byte-identical by default. One exception, for a default the
    operator chooses to change: an intent file records the operator's own
    yes (quoted, dated), the matching `docs/*.7.md` says the new default in
-   the same range, and the release raises the minor version (0.x) or the
-   major version (1.0 on). Missing any one, it is a POLA break. The release
+   the same range, and the release raises the version (on 0.x a patch
+   raise is enough, 0.3.0 -> 0.3.1, the operator's choice of 2026-10-17;
+   from 1.0, the major version). Missing any one, it is a POLA break. The release
    reviewer (`agents/release-reviewer.md`) checks all three.
 2. Mechanism, not policy. The kernel (plugins/cool-workflow/src/) provides
    mechanisms; policy lives in userland — apps, configs, wrappers, env.

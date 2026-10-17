@@ -252,7 +252,7 @@ stray remote branch is created.
 
 ### The gate's test step: the green CI checks on the reviewed commit
 
-(New default from 0.4.0; the operator's yes is in
+(New default from 0.3.1; the operator's yes is in
 `project/docs/intent/2026-10-16-release-gate-ci.md`.)
 
 The gate (`scripts/release-gate.js`) has five steps: build, tests,
@@ -296,7 +296,7 @@ npm run release -- X.Y.Z --local-tests
 CW_RELEASE_LOCAL_TESTS=1 npm run release -- X.Y.Z
 ```
 
-With it, the gate runs the full `test:gate` suite here, as before 0.4.0,
+With it, the gate runs the full `test:gate` suite here, as before 0.3.1,
 and GitHub is not asked. `release-gate.js` run by hand, with no flag, is
 also unchanged: the tag-push gate in `release.yml` runs the full suite in
 CI. Test seam: `CW_RELEASE_GATE_GH_CMD` puts a stub in place of the `gh`
@@ -379,8 +379,8 @@ one exception: a default change the operator chose. The reviewer takes it
 only when all three hold, each checked by the reviewer in the diff range:
 an intent file under `project/docs/intent/` has the operator's own words and
 a date for that change; the matching `docs/*.7.md` says the new default in
-the same range; and the release raises the minor version (0.x) or the major
-version (from 1.0). If one is missing, the verdict is REJECTED.
+the same range; and the release raises the version (on 0.x a patch raise is
+enough, 0.3.0 to 0.3.1; from 1.0, the major version). If one is missing, the verdict is REJECTED.
 
 `{{input}}` is put in place of the reviewer prompt file path. Gemini and OpenCode
 also get generated MCP manifests (`.gemini-plugin/`, `.opencode-plugin/`) so the

@@ -2,9 +2,9 @@
 // resume-named-repo-strict-smoke: `cw run resume <id> --repo X` (or --cwd X)
 // used to look in X first and then quietly fall back to every repo the home
 // registry knows, so `--drive --repo X` could drive the run in another repo Y
-// (issue #786). The operator approved a new default for 0.4.0 (2026-10-16,
+// (issue #786). The operator approved a new default for 0.3.1 (2026-10-16,
 // project/docs/intent/2026-10-16-release-gate-ci.md, "Operator decisions for
-// 0.4.0"): when the caller names a folder and the run is not in it, resume is
+// 0.3.1"): when the caller names a folder and the run is not in it, resume is
 // refused (exit 1, nothing written) and the error names where the run is and
 // the fix. With no folder named, or with an explicit --scope home, resume
 // still finds the run by id across the registry, as before.

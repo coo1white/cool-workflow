@@ -243,7 +243,7 @@ export function setAgentConfigFile(patch: Record<string, unknown>, env: NodeJS.P
   // The command and its args are one unit: a NEW command takes only the args
   // given with it, never the args stored for the old one. Re-setting the same
   // command with no args keeps the stored args. Operator-approved default
-  // change for 0.4.0 (2026-10-16, #784).
+  // change for 0.3.1 (2026-10-16, #784).
   const commandChanged = incoming.command !== undefined && incoming.command !== current.command;
   const merged: AgentDelegationConfig = {
     schemaVersion: 1,

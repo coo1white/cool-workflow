@@ -8,9 +8,9 @@
 // command mycli with args written for claude. Now a CHANGED command takes
 // only the args given with it (none here, so the stored args are cleared);
 // re-setting the SAME command with no args keeps the stored args. Operator-
-// approved default change for 0.4.0, recorded in
+// approved default change for 0.3.1, recorded in
 // project/docs/intent/2026-10-16-release-gate-ci.md ("Operator decisions
-// for 0.4.0").
+// for 0.3.1").
 
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
