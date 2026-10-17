@@ -307,15 +307,60 @@ export function nextBackoffMs(previous: number): number {
  *  it) is treated as alive — the conservative, never-wrongly-steal
  *  direction. */
 function isLockOwnerAlive(lockBody: string): boolean {
+  return isPidAlive(lockBodyPid(lockBody));
+}
+
+/** The pid at the front of a lock body ("<pid>@<ISO>\n"), or 0 when the
+ *  body names none (0 is never a live owner). */
+function lockBodyPid(lockBody: string): number {
   const match = /^(\d+)@/.exec(lockBody);
-  if (!match) return false;
-  const pid = Number(match[1]);
+  return match ? Number(match[1]) : 0;
+}
+
+/** True when `pid` names a live process on this machine (see
+ *  isLockOwnerAlive). `EPERM` counts as ALIVE; a malformed/absent pid is
+ *  "not alive". */
+function isPidAlive(pid: number): boolean {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
     return true;
   } catch (error) {
     return Boolean(error && typeof error === "object" && (error as { code?: string }).code === "EPERM");
+  }
+}
+
+/** One single-winner acquire try: write `body` to the per-attempt `tmp`
+ *  file and `link(2)` it onto `lock` (see withFileLock for why link and not
+ *  `open(wx)`). Returns true when this process now owns `lock`, false on
+ *  EEXIST (another owner has it); any other error is rethrown. `tmp` is
+ *  always removed. The ONE acquire step every lock in this file uses. */
+function tryLinkLock(lock: string, tmp: string, body: string): boolean {
+  try {
+    fs.writeFileSync(tmp, body, { mode: 0o600 });
+    fs.linkSync(tmp, lock);
+    return true;
+  } catch (error) {
+    if (error && typeof error === "object" && (error as { code?: string }).code === "EEXIST") return false;
+    throw error;
+  } finally {
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      /* already gone, or the link consumed it — either is fine */
+    }
+  }
+}
+
+/** Remove `lock` only while its body still names `pid` as the owner — a
+ *  lock stolen by a later process must not be removed by us. A missing
+ *  lock is fine. The ONE release step every lock in this file uses. */
+function releaseOwnedLock(lock: string, pid: string): void {
+  try {
+    const current = fs.readFileSync(lock, "utf8");
+    if (current.startsWith(pid + "@")) fs.rmSync(lock, { force: true });
+  } catch {
+    /* releasing a missing lock is fine */
   }
 }
 
@@ -365,20 +410,11 @@ function stealStaleLockUnderGuard(lock: string, pid: string, attempt: number): b
     /* no guard, or another cleaner beat us to it */
   }
 
-  const tmp = `${guard}.${pid}.${attempt}.tmp`;
   let haveGuard = false;
   try {
-    fs.writeFileSync(tmp, `${pid}@${new Date().toISOString()}\n`, { mode: 0o600 });
-    fs.linkSync(tmp, guard);
-    haveGuard = true;
+    haveGuard = tryLinkLock(guard, `${guard}.${pid}.${attempt}.tmp`, `${pid}@${new Date().toISOString()}\n`);
   } catch {
-    /* EEXIST — another stealer holds the guard */
-  } finally {
-    try {
-      fs.unlinkSync(tmp);
-    } catch {
-      /* already gone */
-    }
+    /* the guard could not be written — back off as for a busy guard */
   }
   if (!haveGuard) return false;
 
@@ -439,25 +475,8 @@ export function withFileLock<T>(targetPath: string, fn: () => T): T {
     // stress-tested directly (24-process contention, 15/15 trials) with
     // zero double-winners where the same rig reproduced `open(wx)`
     // double-winners within a handful of trials.
-    const tmp = `${lock}.${pid}.${attempt}.tmp`;
-    let linkError: unknown = null;
-    try {
-      fs.writeFileSync(tmp, `${pid}@${new Date().toISOString()}\n`, { mode: 0o600 });
-      fs.linkSync(tmp, lock);
-      acquired = true;
-    } catch (error) {
-      linkError = error;
-    } finally {
-      try {
-        fs.unlinkSync(tmp);
-      } catch {
-        /* already gone, or the link consumed it — either is fine */
-      }
-    }
+    acquired = tryLinkLock(lock, `${lock}.${pid}.${attempt}.tmp`, `${pid}@${new Date().toISOString()}\n`);
     if (acquired) break;
-    if (!(linkError && typeof linkError === "object" && (linkError as { code?: string }).code === "EEXIST")) {
-      throw linkError;
-    }
     try {
       const age = Date.now() - fs.statSync(lock).mtimeMs;
       if (age > FILE_LOCK_STALE_MS) {
@@ -523,12 +542,76 @@ export function withFileLock<T>(targetPath: string, fn: () => T): T {
     return result;
   } finally {
     HELD_LOCKS.delete(heldKey);
-    try {
-      // Only release if we still own the lock.
-      const current = fs.readFileSync(lock, "utf8");
-      if (current.startsWith(pid + "@")) fs.rmSync(lock, { force: true });
-    } catch {
-      /* releasing a missing lock is fine */
-    }
+    // Only release if we still own the lock.
+    releaseOwnedLock(lock, pid);
   }
+}
+
+// ---------------------------------------------------------------------------
+// acquireOwnerLock — the same lock file body, acquire step and release as
+// withFileLock, for a lock held far longer than withFileLock's 30s stale
+// window (run-store.ts's drive mutex holds one across a whole drive).
+//
+// So it is NEVER time-stale-stolen and NEVER waits: a lock whose recorded pid
+// is a LIVE process refuses at once with `refuse(ownerPid)` (fail closed —
+// the caller words the refusal); a lock whose owner is GONE, or this
+// process's own leaked lock, is removed and re-tried (3 tries in all) so a
+// crash can never wedge it. Re-entrant in-process: acquiring a lock this
+// process already holds returns a no-op release.
+// ---------------------------------------------------------------------------
+
+/** Owner-lock paths this process holds right now (kept apart from
+ *  HELD_LOCKS: the two lock kinds never re-enter each other). */
+const HELD_OWNER_LOCKS = new Set<string>();
+
+/** The pid recorded in the lock file `lock`, or 0 when it is missing,
+ *  unreadable, or names no pid. */
+export function readLockOwnerPid(lock: string): number {
+  try {
+    return lockBodyPid(fs.readFileSync(lock, "utf8"));
+  } catch {
+    return 0; // vanished or unreadable — treat as no owner
+  }
+}
+
+/** Acquire the owner lock at `lock` (see the block comment above). Returns
+ *  a release function (a no-op when this call re-entered a lock already
+ *  held in-process). Throws `refuse(ownerPid)` when another LIVE process
+ *  holds it, or when 3 tries could not take it. */
+export function acquireOwnerLock(lock: string, refuse: (ownerPid: number) => Error): () => void {
+  const key = path.resolve(lock);
+  if (HELD_OWNER_LOCKS.has(key)) return () => {};
+  fs.mkdirSync(path.dirname(lock), { recursive: true });
+  const pid = process.pid;
+  const body = `${pid}@${new Date().toISOString()}\n`;
+
+  let acquired = false;
+  // A live owner refuses at once; only a stealable (dead-owner / own-leak) lock
+  // loops to re-acquire, so this never hot-spins for a genuinely busy lock.
+  for (let attempt = 0; attempt < 3 && !acquired; attempt++) {
+    if (tryLinkLock(lock, `${lock}.${pid}.${attempt}.tmp`, body)) {
+      acquired = true;
+      continue;
+    }
+    const ownerPid = readLockOwnerPid(lock);
+    // Stealable: our own leaked lock, or an owner that is no longer alive.
+    if (ownerPid === pid || !isPidAlive(ownerPid)) {
+      try {
+        fs.unlinkSync(lock);
+      } catch {
+        /* another process took it first — the next attempt re-judges */
+      }
+      continue;
+    }
+    throw refuse(ownerPid);
+  }
+  if (!acquired) throw refuse(readLockOwnerPid(lock));
+
+  HELD_OWNER_LOCKS.add(key);
+  return () => {
+    HELD_OWNER_LOCKS.delete(key);
+    // Release only while we still own it (a force-stale steal by a later
+    // process must not have its lock removed by us).
+    releaseOwnedLock(lock, String(pid));
+  };
 }
