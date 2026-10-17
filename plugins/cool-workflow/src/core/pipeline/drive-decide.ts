@@ -168,9 +168,20 @@ export function terminalOrConfigStep(
 
 export interface SchedulingPolicy {
   maxAttempts: number;
+  /** Tries for a hop that ran past its time limit (0.3.3; unset = 1, never above maxAttempts). */
+  maxTimeoutAttempts?: number;
 }
 
 export const DEFAULT_SCHEDULING_POLICY: SchedulingPolicy = { maxAttempts: 3 };
+
+/** What a timeout park tells the person to do (0.3.3). */
+export const TIMEOUT_PARK_NEXT_STEP = "raise CW_AGENT_TIMEOUT_MS (or --agent-timeout-ms) or check the agent command";
+
+/** The try count a timed-out hop gets: maxTimeoutAttempts (default 1), at least 1, never above maxAttempts. */
+export function timeoutAttemptLimit(policy: SchedulingPolicy): number {
+  const raw = Number(policy.maxTimeoutAttempts ?? 1);
+  return Math.max(1, Math.min(Number.isFinite(raw) ? Math.floor(raw) : 1, policy.maxAttempts));
+}
 
 export interface RetryOrParkDecision {
   status: "retryable" | "parked";
@@ -179,9 +190,18 @@ export interface RetryOrParkDecision {
 }
 
 /** `retryOrPark` — adds one attempt; at `attempts >= maxAttempts` parks
- *  with `parkedReason = "<reason> (attempt <n>/<max>)"`. */
-export function retryOrPark(priorAttempts: number, policy: SchedulingPolicy, reason: string): RetryOrParkDecision {
+ *  with `parkedReason = "<reason> (attempt <n>/<max>)"`. A timed-out hop
+ *  (`timedOutMs` set) parks at min(maxTimeoutAttempts ?? 1, maxAttempts). */
+export function retryOrPark(priorAttempts: number, policy: SchedulingPolicy, reason: string, timedOutMs?: number): RetryOrParkDecision {
   const attempts = priorAttempts + 1;
+  if (timedOutMs && timedOutMs > 0) {
+    const limit = timeoutAttemptLimit(policy);
+    if (attempts >= limit) {
+      const tries = attempts > limit ? String(attempts) : `${attempts}/${limit}`;
+      return { status: "parked", attempts, parkedReason: `${reason} (attempt ${tries}; limit ${shortDuration(timedOutMs)}) — not tried again: ${TIMEOUT_PARK_NEXT_STEP}` };
+    }
+    return { status: "retryable", attempts };
+  }
   if (attempts >= policy.maxAttempts) {
     return { status: "parked", attempts, parkedReason: `${reason} (attempt ${attempts}/${policy.maxAttempts})` };
   }
@@ -212,8 +232,9 @@ export function shortHopReason(reason: string): string {
 /** `handleHop`'s retry progress line, without the `[drive] ` lead:
  *  `✗ <label> (<phase>) — <why>; trying again (<next>/<max>)`, where
  *  `attempts` is the count of tries so far. New in 0.3.3. */
-export function hopRetryLine(label: string, phase: string, reason: string, attempts: number, policy: SchedulingPolicy): string {
-  return `✗ ${label} (${phase}) — ${shortHopReason(reason)}; trying again (${attempts + 1}/${policy.maxAttempts})`;
+export function hopRetryLine(label: string, phase: string, reason: string, attempts: number, policy: SchedulingPolicy, timedOutMs?: number): string {
+  const max = timedOutMs ? timeoutAttemptLimit(policy) : policy.maxAttempts;
+  return `✗ ${label} (${phase}) — ${shortHopReason(reason)}; trying again (${attempts + 1}/${max})`;
 }
 
 /** `handleHop`'s attempt-accounting rule: prior attempts = max(in-memory

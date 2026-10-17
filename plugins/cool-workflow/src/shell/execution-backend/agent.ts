@@ -613,10 +613,10 @@ export function runAgentProcess(
         // the wrapper in cw's group.
         reapRecordedVendor(vendorPidFile);
         const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
-        return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
+        return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
           ...attestation,
           handle: handleOut,
-        });
+        }), timedOutMs: timeoutMs };
       }
       // Non-timeout paths: a wrapper that ran to any normal end removed its own
       // sidecar on exit; clear any stray file best-effort so tmp cannot grow.
@@ -632,10 +632,10 @@ export function runAgentProcess(
     // 0.3.3: a batch job stopped at its limit uses the serial timeout words.
     if (outcome.timedOutMs) {
       const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
-      return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${outcome.timedOutMs}ms and was killed`, {
+      return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${outcome.timedOutMs}ms and was killed`, {
         ...attestation,
         handle: handleOut,
-      });
+      }), timedOutMs: outcome.timedOutMs };
     }
     if (outcome.spawnError) {
       const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);

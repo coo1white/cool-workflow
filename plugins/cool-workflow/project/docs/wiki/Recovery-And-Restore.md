@@ -97,9 +97,11 @@ historical behavior.
 ## Resume A Parked Run
 
 A worker whose agent keeps failing (a wrong agent command, a lost login, a
-prompt too large) parks the run after 3 tries. Fix the cause, then resume the
-same run; the parked worker is run again with 3 fresh tries, and the work that
-was already done is kept:
+prompt too large) parks the run after 3 tries. An agent that runs past its
+time limit parks at once, after 1 try (new in 0.3.3): raise
+`CW_AGENT_TIMEOUT_MS` (or `--agent-timeout-ms`) or check the agent command.
+Fix the cause, then resume the same run; the parked worker is run again with
+fresh tries, and the work that was already done is kept:
 
 ```bash
 cw --resume --run <run-id>

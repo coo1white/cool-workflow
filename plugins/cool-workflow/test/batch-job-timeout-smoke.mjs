@@ -22,9 +22,13 @@
 //      the held jobs carry `timedOutMs: 1000`, the in-group child is gone,
 //      and the quick job keeps its real result.
 //   2. Wording: a timed-out or whole-batch failure is not "failed to spawn".
-//   3. Drive: `[drive] ✗ <task> (<phase>) — timed out after 1s; trying
-//      again (2/3)` on stderr with progress on, a `==> <Phase>` line after
-//      every round, and nothing new on a piped run.
+//   3. Drive: a timed-out task parks after ONE round, its reason says
+//      "not tried again: raise CW_AGENT_TIMEOUT_MS ...", and no "trying
+//      again" line prints for it (operator decision for 0.3.3,
+//      project/docs/intent/2026-10-16-release-gate-ci.md). A failure that is
+//      not a timeout still prints `[drive] ✗ <task> (<phase>) — <why>;
+//      trying again (2/3)` and keeps three tries. A `==> <Phase>` line ends
+//      every round; a piped run prints nothing new.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -125,6 +129,15 @@ try {
     const timedOut = runBackend({ ...base, label: "t", preparedAgentOutcome: { exitCode: null, stdout: "", timedOutMs: 600000 } });
     assert.equal(timedOut.status, "refused");
     assert.match(timedOut.result.summary, /agent process timed out after 600000ms and was killed/, `a timeout says so (got: ${timedOut.result.summary})`);
+    assert.equal(timedOut.timedOutMs, 600000, "a batch timeout refusal carries timedOutMs for the drive's park rule");
+    const serialPid = path.join(work, "serial.pid");
+    const serial = runBackend({ ...base, label: "serial", timeoutMs: 1000, delegation: { command: process.execPath, args: [holder, serialPid, "0"] } });
+    readPid(serialPid);
+    assert.equal(serial.status, "refused");
+    assert.match(serial.result.summary, /agent process timed out after 1000ms and was killed \(SIGKILL\)/);
+    assert.equal(serial.timedOutMs, 1000, "a serial timeout refusal carries timedOutMs too");
+    const notTimeout = runBackend({ ...base, label: "n", preparedAgentOutcome: { exitCode: null, stdout: "" } });
+    assert.equal(notTimeout.timedOutMs, undefined, "a refusal that is not a timeout has no timedOutMs");
     const reconciled = reconcileBatchOutcomes([{}], { error: Object.assign(new Error("spawnSync node ETIMEDOUT"), { code: "ETIMEDOUT" }), status: null, stdout: "" }, 630000);
     assert.equal(reconciled[0].spawnError, "batch delegate failed: timed out after 630000ms (spawnSync node ETIMEDOUT)");
     const whole = runBackend({ ...base, label: "w", preparedAgentOutcome: reconciled[0] });
@@ -136,40 +149,61 @@ try {
     console.log("batch-job-timeout: timeout and whole-batch wording OK");
   }
 
-  // ===== 3. the drive says why it tries again =====
-  {
-    const dir = path.join(work, "repo");
+  // ===== 3. the drive: a timeout parks after one try (operator decision
+  // for 0.3.3); any other failure still says why and tries again =====
+  function freshRepo(name) {
+    const dir = path.join(work, name);
     fs.mkdirSync(dir);
     fs.writeFileSync(path.join(dir, "README.md"), "# target\n", "utf8");
     spawnSync("git", ["init", "-q"], { cwd: dir });
-    const pids = path.join(work, "drive.pid");
-    const env = { ...process.env, CW_AGENT_COMMAND: `node ${holder} ${pids} 0`, CW_AGENT_TIMEOUT_MS: "1000", CW_NO_AUTO_AGENT: "1", CW_NO_OPEN: "1", CW_DRIVE_TICK_MS: "0" };
+    return dir;
+  }
+  const args = [cwBin, "-q", "How does routing work?", "--fast", "--json"];
+  function driveEnv(command) {
+    const env = { ...process.env, CW_AGENT_COMMAND: command, CW_AGENT_TIMEOUT_MS: "1000", CW_NO_AUTO_AGENT: "1", CW_NO_OPEN: "1", CW_DRIVE_TICK_MS: "0" };
     for (const key of ["CW_AGENT_ENDPOINT", "CW_AGENT_STREAM", "CW_DRIVE_PROGRESS", "CW_BATCH_EXIT_GRACE_MS"]) delete env[key];
-    const args = [cwBin, "-q", "How does routing work?", "--fast", "--json"];
-
-    const on = spawnSync(process.execPath, args, { cwd: dir, env: { ...env, CW_DRIVE_PROGRESS: "1" }, encoding: "utf8", timeout: 60000 });
+    return env;
+  }
+  const count = (text, re) => (text.match(re) || []).length;
+  const ROUND = /^\[drive\] ⇉ concurrent round:/gm;
+  const PHASE = /^\[drive\] ==> /gm;
+  {
+    const env = driveEnv(`node ${holder} ${path.join(work, "drive.pid")} 0`);
+    const on = spawnSync(process.execPath, args, { cwd: freshRepo("repo"), env: { ...env, CW_DRIVE_PROGRESS: "1" }, encoding: "utf8", timeout: 60000 });
     assert.equal(on.error, undefined, `the drive ends well before 60s (stderr: ${on.stderr})`);
     const result = JSON.parse(on.stdout);
-    assert.equal(result.status, "parked", "three timed-out rounds park the run");
+    assert.equal(result.status, "parked", "a timed-out round parks the run");
     assert.ok(!/failed to spawn/.test(on.stdout), "the parked reason does not say the agent failed to spawn");
-    assert.match(on.stdout, /timed out after 1000ms/, "the parked reason says the agent timed out");
-    const retry = /^\[drive\] ✗ \S.* \([^)]+\) — timed out after 1s; trying again \((\d)\/3\)$/gm;
-    const tries = [...on.stderr.matchAll(retry)].map((m) => m[1]);
-    assert.ok(tries.includes("2") && tries.includes("3"), `retry lines name the next try (stderr: ${on.stderr})`);
-    const rounds = (on.stderr.match(/^\[drive\] ⇉ concurrent round:/gm) || []).length;
-    const phaseLines = (on.stderr.match(/^\[drive\] ==> /gm) || []).length;
-    assert.ok(rounds >= 3, `the round ran three times (stderr: ${on.stderr})`);
-    assert.ok(phaseLines >= rounds, `every round ends with a ==> phase line (${phaseLines} lines, ${rounds} rounds)`);
-    console.log("batch-job-timeout: drive retry lines and per-round phase lines OK");
-
-    const dir2 = path.join(work, "repo2");
-    fs.mkdirSync(dir2);
-    fs.writeFileSync(path.join(dir2, "README.md"), "# target\n", "utf8");
-    spawnSync("git", ["init", "-q"], { cwd: dir2 });
-    const piped = spawnSync(process.execPath, args, { cwd: dir2, env, encoding: "utf8", timeout: 60000 });
+    assert.match(
+      on.stdout,
+      /agent process timed out after 1000ms and was killed \(attempt 1\/1; limit 1s\) — not tried again: raise CW_AGENT_TIMEOUT_MS \(or --agent-timeout-ms\) or check the agent command/,
+      `the parked reason says what to do (stdout: ${on.stdout})`
+    );
+    assert.ok(!/trying again/.test(on.stderr), `a timeout is not tried again (stderr: ${on.stderr})`);
+    assert.equal(count(on.stderr, ROUND), 1, `a timeout parks after ONE round (stderr: ${on.stderr})`);
+    assert.ok(count(on.stderr, PHASE) >= 1, "the round ends with a ==> phase line");
+    const resumed = spawnSync(process.execPath, [cwBin, "--resume", "--run", result.runId, "--json"], { cwd: path.join(work, "repo"), env: { ...env, CW_DRIVE_PROGRESS: "1" }, encoding: "utf8", timeout: 60000 });
+    const again = JSON.parse(resumed.stdout);
+    assert.ok(Array.isArray(again.reopenedWorkers) && again.reopenedWorkers.length > 0, `a resume reopens the timed-out workers (stdout: ${resumed.stdout})`);
+    assert.equal(count(resumed.stderr, ROUND), 1, `the reopened workers get one fresh try (stderr: ${resumed.stderr})`);
+    assert.equal(again.status, "parked", "a second timeout parks again");
+    const piped =spawnSync(process.execPath, args, { cwd: freshRepo("repo2"), env, encoding: "utf8", timeout: 60000 });
     assert.equal(JSON.parse(piped.stdout).status, "parked");
     assert.ok(!piped.stderr.includes("[drive]"), "a piped run with progress off prints no [drive] line");
-    console.log("batch-job-timeout: piped default prints nothing new OK");
+    console.log("batch-job-timeout: a timeout parks after one round with the next step; piped prints nothing new OK");
+  }
+  {
+    const failing = path.join(work, "fail.js");
+    fs.writeFileSync(failing, "process.exit(1);\n", "utf8");
+    const on = spawnSync(process.execPath, args, { cwd: freshRepo("repo3"), env: { ...driveEnv(`node ${failing}`), CW_DRIVE_PROGRESS: "1" }, encoding: "utf8", timeout: 60000 });
+    assert.equal(JSON.parse(on.stdout).status, "parked", "a failing agent still parks in the end");
+    const tries = [...on.stderr.matchAll(/^\[drive\] ✗ \S.* \([^)]+\) — .*; trying again \((\d)\/3\)$/gm)].map((m) => m[1]);
+    assert.ok(tries.includes("2") && tries.includes("3"), `a non-timeout failure still says why and tries again (stderr: ${on.stderr})`);
+    const rounds = count(on.stderr, ROUND);
+    assert.equal(rounds, 3, `a non-timeout failure keeps three tries (stderr: ${on.stderr})`);
+    assert.ok(count(on.stderr, PHASE) >= rounds, "every round ends with a ==> phase line");
+    assert.match(on.stdout, /\(attempt 3\/3\)"/, "the non-timeout park keeps its old reason shape");
+    console.log("batch-job-timeout: a non-timeout failure retries three times with per-round lines OK");
   }
 } finally {
   for (const pid of leftovers) {

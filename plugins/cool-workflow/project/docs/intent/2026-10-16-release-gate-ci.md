@@ -243,3 +243,58 @@ release notes; the TTY-only change to the order of the "spawning agent"
 lines on stderr (piped output keeps its bytes); and the save that keeps
 feedback written by another process during a driven run in place of
 erasing it.
+
+## Operator decisions for 0.3.3 (2026-10-17)
+
+A user report on 0.3.2 (a `cw -q` run with a user wrapper script as
+`CW_AGENT_COMMAND`, on a TTY) showed three rounds of about 10 minutes
+each, then a park whose reason said the agent "failed to spawn". The
+agent had started; it ran past its time limit, and the drive tried the
+same round three times with no word of why. PR #818 fixes this. One part
+of the fix changes a default, so the question was put to the operator.
+
+The question, word for word, as it was shown (in Chinese): "Agent
+超时后，CW 现在还会再试 2 次（共 3 次，约 30 分钟）。卡住 10 分钟的 agent
+再试基本也会卡住。要改吗？（改默认行为需要你的同意）"
+
+In English: "After an agent times out, CW now tries it 2 more times (3 in
+all, about 30 minutes). An agent that hung for 10 minutes will most likely
+hang again. Change it? (Changing a default needs your yes.)"
+
+The answers offered, word for word:
+
+- "超时只试 1 次 (Recommended)" — "超时后立刻停下保存，屏幕告诉你：调大
+  CW_AGENT_TIMEOUT_MS 或检查 agent 脚本。最多等 10 分钟。其他失败仍试 3
+  次。" In English: "Only 1 try on a timeout (Recommended)": stop and save
+  at once after a timeout, and the screen tells you to raise
+  CW_AGENT_TIMEOUT_MS or check the agent script. At most a 10-minute wait.
+  Other failures still get 3 tries.
+- "超时最多再试 1 次" In English: "At most 1 more try after a timeout."
+- "不改，保持 3 次" In English: "No change; keep 3 tries."
+
+The operator's answer, word for word (2026-10-17): "超时只试 1 次
+(Recommended)"
+
+So this default change is approved under the POLA exception (AGENTS.md,
+FreeBSD rule 1): a hop refused because the agent ran past its time limit
+(the serial path and the concurrent round both) parks on its first try,
+with a reason that ends `(attempt 1/1; limit <time>) — not tried again:
+raise CW_AGENT_TIMEOUT_MS (or --agent-timeout-ms) or check the agent
+command`. Every other failure keeps 3 tries. A resume still gives a parked
+worker a fresh try. The rule is in `src/core/pipeline/drive-decide.ts`
+(`retryOrPark`, `timeoutAttemptLimit`); `docs/agent-delegation-drive.7.md`
+("A timeout parks at once") says the new default. The version raise comes
+in the 0.3.3 bump PR.
+
+The other changes in PR #818 that users can see are fixes, shipped under
+the operator's request to fix everything before 0.3.3. Which of them
+change default bytes:
+
+| Change | Before (0.3.2) | 0.3.3 | Default bytes changed? |
+|---|---|---|---|
+| Refusal text for a concurrent-round agent that timed out | `agent process returned no exit code (timed out or killed)` | `agent process timed out after <ms>ms and was killed` | Yes: the park `reason` in `--json` stdout, `state.json`, and the TTY `Why:` line |
+| Refusal text when the whole batch child fails | `agent process failed to spawn: batch delegate failed: ...` | `agent delegation failed: batch delegate failed: ...` (an ETIMEDOUT also names its limit) | Yes, same places, only on that failure |
+| `[drive] ✗ <label> (<phase>) — <why>; trying again (n/max)` line | none | printed when a hop fails and will be tried again | TTY or `CW_DRIVE_PROGRESS=1` only, stderr only; piped bytes unchanged |
+| `[drive] ==> <Phase> ...` line | after the first round of a phase only | after every concurrent round | TTY or `CW_DRIVE_PROGRESS=1` only, stderr only; piped bytes unchanged |
+| Batch delegate child exit code after a stop signal | 0 when every job then ended on its own | 130 (SIGINT) or 143 (SIGTERM) | Internal: the child's exit code is read only by `runAgentBatchOutcomes`, not shown to users |
+| A refused envelope for a timeout | no `timedOutMs` key | `timedOutMs: <ms>` added | Additive JSON key, only on a timeout |

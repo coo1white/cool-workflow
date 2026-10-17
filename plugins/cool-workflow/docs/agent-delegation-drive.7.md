@@ -159,7 +159,8 @@ the agent's whole process group (POSIX; on Windows to the agent process only),
 so a wrapper script and every process it started are stopped together. The
 agent's outcome then settles at once as a timeout, and the hop is refused with
 `agent process timed out after <ms>ms and was killed`, the same words as a
-serial run. If some process outside the group still keeps the agent's output
+serial run, and the worker parks at once (see "A timeout parks at once"
+below). If some process outside the group still keeps the agent's output
 open after the agent itself has ended, the child waits 2 s
 (`CW_BATCH_EXIT_GRACE_MS`), then settles the agent with what it has. Before
 0.3.3 only the agent's top process was stopped: a child of a wrapper script
@@ -209,6 +210,21 @@ Map and 6 Assess workers run at the same time, 12 in one round.
   scheduling retry budget and lands **parked** (reuse v0.1.37 `retryOrPark`) — the
   drive stops; it is never quietly re-driven forever. Only a resume runs it
   again, with one fresh budget each time (see `--resume` below).
+- **A timeout parks at once (new in 0.3.3, a changed default).** When the
+  agent runs past its time limit (serial or concurrent round), the worker is
+  not tried again: it parks on the first try, and the reason ends with
+  `(attempt 1/1; limit 10m) — not tried again: raise CW_AGENT_TIMEOUT_MS
+  (or --agent-timeout-ms) or check the agent command`.
+  An agent that hung for the full limit will most likely hang again, so the
+  old 3 tries were up to 30 minutes of the same wait. Every other failure
+  still gets 3 tries. The time limit is set by `--agent-timeout-ms`,
+  `CW_AGENT_TIMEOUT_MS`, or `timeoutMs` in the agent config file (in that
+  order), 600000 ms by default. A caller of `drive()` may give
+  `policy.maxTimeoutAttempts` to allow more tries for a timeout; it is never
+  more than `policy.maxAttempts`, and raising `maxAttempts` alone does not
+  change it. The operator's yes is recorded in
+  `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
+  for 0.3.3".
 - **Verdict evidence that is not on disk.** The final commit takes the
   verdict only when every file its evidence names is on disk
   (`CW_REQUIRE_RESOLVABLE_EVIDENCE`, on by default). The same check is made
@@ -339,7 +355,8 @@ A resume also takes on a **parked** worker. `--resume --run <run-id>` and
 `run resume <run-id> --drive` (or `--once`) first put each worker parked past
 its retry budget back to where it was between two tries: the task and worker
 are `running` again, on the same dispatch and the same `input.md`, with a
-fresh retry budget (3 more tries by default). The payload then lists those
+fresh retry budget (3 more tries by default; a worker that times out again
+parks again after that one try, as above). The payload then lists those
 task ids in `reopenedWorkers` (the key is absent when there were none). Fix
 the cause first (a wrong agent command, a lost login, a prompt too large);
 if the agent still fails, the worker parks again after the fresh budget, so a
@@ -456,9 +473,12 @@ never polluted.
   stderr only when progress is on, so a piped run's bytes do not change.
 - **Why a step is tried again (new in 0.3.3).** When an agent hop fails and
   the worker has tries left, one line says why and which try comes next:
-  `[drive] ✗ <label> (<phase>) — timed out after 10m; trying again (2/3)`.
-  A time limit is given short (`10m`, `1m 30s`, `45s`); any other reason is
-  the refusal text after its label, cut to 120 characters. After every
+  `[drive] ✗ <label> (<phase>) — agent hop failed: <task>: failed (exit 3); trying again (2/3)`.
+  The reason is the text after the first ` — ` of the hop's reason (or all
+  of it when there is none), cut to 120 characters. A
+  timeout gets no such line by default, since it parks at once (see "A
+  timeout parks at once" above); when a caller's `maxTimeoutAttempts` allows
+  another try, its time limit is given short: `timed out after 10m`. After every
   concurrent round the active phase line (`[drive] ==> Map ⇉ (0/6)`) prints
   again, so each round has its own end line; before 0.3.3 it printed only
   after the first round of a phase. Same rules as every `[drive]` line:

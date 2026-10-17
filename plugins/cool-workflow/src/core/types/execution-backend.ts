@@ -284,6 +284,8 @@ export interface ExecutionResultEnvelope {
   result: ResultEnvelope;
   evidence: string[];
   provenance: ExecutionProvenance;
+  /** Set only on a refusal because the agent ran past its time limit (0.3.3): the limit in ms. */
+  timedOutMs?: number;
 }
 
 export interface AgentDelegationConfig {

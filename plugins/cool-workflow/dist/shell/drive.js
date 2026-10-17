@@ -280,7 +280,7 @@ function writeResultCache(file, content) {
  *  in-memory `run` can defer the disk flush to a single call at round
  *  end; `sharedRun`, when given, is mutated in place instead of a fresh
  *  loadRun (the round's one shared cached object). */
-function handleHop(ctx, task, workerId, reason, deferPersist = false, sharedRun) {
+function handleHop(ctx, task, workerId, reason, deferPersist = false, sharedRun, timedOutMs) {
     // ONE load, mutated in place and saved — a fresh reload right before
     // saveCheckpoint would discard recordWorkerFailure/RetryAttempt's own
     // in-memory mutation (they return an updated scope but mutate the run
@@ -289,7 +289,7 @@ function handleHop(ctx, task, workerId, reason, deferPersist = false, sharedRun)
     const scope = getWorkerScope(run, workerId);
     const persisted = scope?.retryCount || 0;
     const prior = priorAttempts(ctx.attempts.get(task.id) || 0, persisted);
-    const decided = retryOrPark(prior, ctx.policy, reason);
+    const decided = retryOrPark(prior, ctx.policy, reason, timedOutMs);
     ctx.attempts.set(task.id, decided.attempts);
     if (decided.status === "parked") {
         recordWorkerFailure(run, workerId, decided.parkedReason || reason, { code: "agent-delegation-parked", retryable: false, retryCount: decided.attempts });
@@ -301,7 +301,7 @@ function handleHop(ctx, task, workerId, reason, deferPersist = false, sharedRun)
     if (!deferPersist)
         saveCheckpoint(run, DRIVE_SAVE);
     // 0.3.3: say why, and which try comes next (progress lines only).
-    emitProgress(hopRetryLine(String(task.label || task.id), task.phase, reason, decided.attempts, ctx.policy));
+    emitProgress(hopRetryLine(String(task.label || task.id), task.phase, reason, decided.attempts, ctx.policy, timedOutMs));
     return makeStep("fulfill", "failed", { runId: ctx.runId, taskId: task.id, phase: task.phase, backendId: "agent", attempts: decided.attempts, reason });
 }
 function renderSubInputs(spec, parentInputs) {
@@ -447,7 +447,7 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     const reportedUsage = handle?.metadata?.reportedUsage;
     const usageSignature = handle?.metadata?.usageSignature;
     if (envelope.status !== "completed") {
-        return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, deferPersist, deferPersist ? run : undefined);
+        return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, deferPersist, deferPersist ? run : undefined, envelope.timedOutMs);
     }
     if (!manifest.resultPath || !fs.existsSync(manifest.resultPath)) {
         return handleHop(ctx, selected, workerId, "agent produced no result.md", deferPersist, deferPersist ? run : undefined);
