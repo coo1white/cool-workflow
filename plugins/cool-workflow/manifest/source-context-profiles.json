@@ -89,6 +89,7 @@
         "plugins/cool-workflow/scripts/release-flow.mjs",
         "plugins/cool-workflow/scripts/release-gate.mjs",
         "plugins/cool-workflow/scripts/release-tags.mjs",
+        "plugins/cool-workflow/scripts/release-notes.mjs",
         "plugins/cool-workflow/scripts/dogfood-release.mjs",
         "plugins/cool-workflow/scripts/gen-manifests.mjs",
         "plugins/cool-workflow/scripts/version-sync-check.mjs",

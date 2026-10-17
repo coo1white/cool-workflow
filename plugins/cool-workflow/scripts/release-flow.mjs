@@ -85,6 +85,7 @@ import { createRequire } from "node:module";
 import { REQUIRED_CHECKS } from "./release-ci-checks.mjs";
 import * as pf from "./release-preflight.mjs";
 import * as releaseTags from "./release-tags.mjs";
+import { titlesFromLog, renderWhatChanged } from "./release-notes.mjs";
 
 // dist/ is loaded lazily (a build may be missing; the caller says so).
 const require = createRequire(import.meta.url);
@@ -714,14 +715,32 @@ function verdictForTag(version) {
   return { contentSha: "", capability: "", verdictRel: "" };
 }
 
+// The "What changed" part (release-notes.mjs) from the pull request titles
+// between the previous tag and this one. Fail closed: no previous tag or a git
+// error gives "" and a stderr note, so the notes are the old body, unchanged;
+// it never makes up a change list.
+function whatChangedPart(version, prevTag, slug) {
+  if (!prevTag) {
+    process.stderr.write(`release-flow: note: no previous release tag before v${version} — the notes have no "What changed" part.\n`);
+    return "";
+  }
+  const log = git(["log", "--first-parent", "--format=%s%x1f%b%x1e", `${prevTag}..v${version}`]);
+  if (log.code !== 0) {
+    process.stderr.write(`release-flow: note: git log ${prevTag}..v${version} failed (${log.err || "no detail"}) — the notes have no "What changed" part.\n`);
+    return "";
+  }
+  return renderWhatChanged({ version, prevTag, slug, titles: titlesFromLog(log.out) });
+}
+
 // Pure: assemble the release-notes markdown from already-gathered inputs. No I/O,
 // so the smoke can assert the rendered notes (capability headline, CHANGELOG body,
-// provenance footer links) without touching git or the network.
-function buildReleaseNotes({ version, capability, changelog, slug, contentSha, verdictRel, prevTag }) {
+// "What changed" part, provenance footer links) without touching git or the network.
+function buildReleaseNotes({ version, capability, changelog, whatChanged, slug, contentSha, verdictRel, prevTag }) {
   const base = slug ? `https://github.com/${slug.owner}/${slug.repo}` : "";
   const out = [];
   if (capability) out.push(`> ${capability}`, "");
   if (changelog) out.push(changelog, "");
+  if (whatChanged) out.push(whatChanged, "");
   out.push("---", "", "### Provenance & audit", "");
   if (base && contentSha) out.push(`- **Reviewed commit:** [\`${contentSha.slice(0, 12)}\`](${base}/commit/${contentSha})`);
   if (base && verdictRel) out.push(`- **Independent reviewer verdict (committed):** [\`${verdictRel}\`](${base}/blob/v${version}/${verdictRel})`);
@@ -765,14 +784,17 @@ function releaseGitHub(version, { required = false } = {}) {
   if (!verdictRel) {
     process.stderr.write(`release-flow: note: no committed APPROVED verdict found at ${tag} — the Release notes will make NO gated-review claim (backfilling an ungated tag).\n`);
   }
+  const slug = repoSlug();
+  const prevTag = prevTagOf(version);
   const notes = buildReleaseNotes({
     version,
     capability,
     changelog: changelogSection(version),
-    slug: repoSlug(),
+    whatChanged: whatChangedPart(version, prevTag, slug),
+    slug,
     contentSha,
     verdictRel,
-    prevTag: prevTagOf(version)
+    prevTag
   });
   const notesPath = path.join(repoRoot, ".cw-release", `release-notes-${version}.md`);
   fs.mkdirSync(path.dirname(notesPath), { recursive: true });
