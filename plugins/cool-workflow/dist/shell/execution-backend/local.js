@@ -2,9 +2,8 @@
 // shell/execution-backend/local.ts — the local-execution driver body
 // (executeLocal) shared by the node/bun/shell built-in drivers.
 //
-// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// the old build's execution-backend module's `executeLocal` plus the leaf
-// helpers it needs (sha256/hasExecutable/messageOf).
+// `executeLocal` plus the leaf helpers it needs
+// (sha256/hasExecutable/messageOf).
 //
 // Evidence: SPEC/execution-backend.md "Local execution (executeLocal)".
 Object.defineProperty(exports, "__esModule", { value: true });
@@ -37,8 +36,7 @@ function buildChildEnv(policy, baseEnv = process.env) {
     // deny must win regardless of inherit: a custom profile combining
     // inherit:true with deny:[...] (a valid, normalized combination — see
     // sandbox-profile.ts's normalizeEnv) means "everything EXCEPT these".
-    // An early return on inherit before this loop ran meant deny was
-    // silently skipped whenever inherit was true.
+    // So no early return on inherit before this loop: that would skip deny.
     const env = policy.env.inherit ? { ...baseEnv } : {};
     if (!policy.env.inherit) {
         if (baseEnv.PATH !== undefined)
@@ -64,8 +62,8 @@ function buildChildEnv(policy, baseEnv = process.env) {
  *  taken out first) must not match the control-character set. Throws a
  *  plain Error with the byte-exact message on a hit.
  *
- *  Quote marks and the backslash are in the set as well (2026-08-24, audit
- *  recommendation 7): with them out, every line this guard lets through is
+ *  Quote marks and the backslash are in the set as well: with them out,
+ *  every line this guard lets through is
  *  split by white space only — the same way a POSIX shell would split it —
  *  so the line can be run with NO shell process at all (see executeLocal).
  *  The guard is then a filter, not the safety: even a character that got
@@ -86,8 +84,7 @@ function runtimeNoteFor(backendId) {
     return "node";
 }
 /** executeLocal — spawn a thin child process and capture verifiable
- *  evidence (exit code + output digest). Byte-exact port of
- *  the old build's execution-backend module. */
+ *  evidence (exit code + output digest). */
 function executeLocal(descriptor, request, label, attestation, spawnStyle) {
     const command = String(request.command);
     const args = (request.args || []).map(String);
@@ -113,7 +110,7 @@ function executeLocal(descriptor, request, label, attestation, spawnStyle) {
         // SIGTERM could flush a last partial write or exit with a code before it
         // dies, while under SIGKILL it cannot — but that output belongs to a run
         // we already treat as failed, so the hard kill loses nothing that counts.
-        // Mirrors execution-backend/agent.ts's fix.
+        // Same rule as execution-backend/agent.ts.
         killSignal: "SIGKILL",
     };
     if (spawnStyle === "shell") {
@@ -124,11 +121,11 @@ function executeLocal(descriptor, request, label, attestation, spawnStyle) {
     if (isTTY)
         process.stderr.write(`● Running ${shortLabel}...\n`);
     const startedAt = process.hrtime.bigint();
-    // The "shell" style takes a command LINE, but no shell process ever runs
-    // (audit recommendation 7). The guard above has already refused every
+    // The "shell" style takes a command LINE, but no shell process ever runs.
+    // The guard above has already refused every
     // control character, quote, and escape, so POSIX word-splitting of the
     // line is white-space splitting — done here, then spawned as plain argv
-    // with shell:false. Same child, same argv bytes as the old /bin/sh path
+    // with shell:false. Same child, same argv bytes as a /bin/sh run would give
     // for every line the guard accepts; structurally safe for every line it
     // might ever miss.
     const shellTokens = spawnStyle === "shell"

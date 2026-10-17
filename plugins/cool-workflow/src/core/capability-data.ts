@@ -2,33 +2,24 @@
 // the MCP_TOOL_DATA transcript, and the handful of dependency-free helpers
 // that only touch that data.
 //
-// Split out of core/capability-table.ts (which still wires this data into
-// the REGISTRY, attaches CLI bindings, and holds the real handler bodies —
-// all of which import from ../shell/ and stay there). This file has ZERO
-// imports of its own: no reference-site changes anywhere else, since
-// capability-table.ts imports everything below and re-exports the types
-// external files already import from it.
+// The capability table itself (REGISTRY, CLI bindings, real handler
+// bodies, which import from ../shell/) lives under wiring/capability-table/;
+// core/capability-table.ts re-exports it and the types below. This file has
+// ZERO imports of its own.
 //
-// MILESTONE 2 (plugins/cool-workflow/project/docs/rebuild/PLAN.md build order, step 2). Replaces the old build's
-// `capability-registry.ts` (940 lines) + 40 CLI handler files + the
-// 196-arm MCP switch + the 1000-line tool-definitions array with ONE data
-// table plus two generic front-door readers (`cli/dispatch.ts`,
+// ONE data table plus two generic front-door readers (`cli/dispatch.ts`,
 // `mcp/dispatch.ts`).
 //
-// Byte-compat item 5 (plugins/cool-workflow/project/docs/rebuild/PLAN.md): 12 capabilities have CLI and MCP call
-// DIFFERENT functions with DIFFERENT payloads. So a row carries a SEPARATE
-// `cli.handler` and `mcp.handler`, never one shared "handler" — even
-// though every row landed so far happens to share one function, the type
-// itself must not collapse the two fields into one, or a later milestone
-// would need a breaking shape change to add the first real divergent row.
+// Byte-compat item 5: some capabilities have CLI and MCP call DIFFERENT
+// functions with DIFFERENT payloads, so a row carries a SEPARATE
+// `cli.handler` and `mcp.handler`, never one shared "handler".
 //
-// `MCP_TOOL_DATA` below is the full, literal 196-tool surface transcribed
-// from SPEC/mcp.md's "All 196 MCP tools" table (name, capability id,
-// required-argument groups, input property names, description) — this is
-// exactly the kind of declarative surface data this table exists to hold.
-// Every tool's `mcp.handler` not listed in capability-table.ts's
-// MCP_REAL_HANDLERS side table is `notYetImplemented(capability)`, which
-// throws a clean, typed error if ever actually called. A NEW post-rebuild
+// `MCP_TOOL_DATA` below is the literal MCP tool surface, transcribed from
+// SPEC/mcp.md's "All 196 MCP tools" table (name, capability id,
+// required-argument groups, input property names, description) less the
+// tools since removed, in its pinned order. A tool's `mcp.handler` that no
+// wiring/capability-table/ module sets is `notYetImplemented(capability)`,
+// which throws a clean, typed error if ever actually called. A NEW
 // capability is APPENDED after the transcript's last row (never inserted),
 // so every existing position keeps its pinned order.
 
@@ -83,8 +74,7 @@ export interface McpToolDefinition {
  *  directly — see plugins/cool-workflow/project/docs/rebuild/PLAN.md's core/shell split); the generic executor in
  *  cli/dispatch.ts is the one place that turns this into real output.
  *   - `text` — human-readable stdout body (dispatch.ts appends "\n" only
- *     if the string doesn't already end in one, matching the old
- *     build's per-call-site convention of pre-joined lines).
+ *     if the string doesn't already end in one).
  *   - `json` — a plain JS value; dispatch.ts prints it via `printJson`.
  *   - `exitCode` — set when the capability's own success/failure shape
  *     needs a specific process exit code (e.g. `gc verify` on an
@@ -98,13 +88,13 @@ export interface CliHandlerResult {
 
 /** A capability's CLI-facing binding. `path` is the `cw <path...>` token
  *  sequence (path[0] is the verb `formatCommandHelp`/help-token generation
- *  groups by); `jsonMode` mirrors the old registry's `CliJsonMode`.
+ *  groups by); `jsonMode` is the row's `CliJsonMode`.
  *
  *  `helpPath` — OPTIONAL display-only override for `cw help <verb>`'s
  *  per-row command column, used ONLY when a capability's real dispatch
  *  `path` (what `dispatchTable` matches against) is shorter than the
- *  fuller token sequence a human help page shows — the old registry's
- *  `caseTokens` field, e.g. `backend.agent.config.show`/`.set` both
+ *  fuller token sequence a human help page shows, e.g.
+ *  `backend.agent.config.show`/`.set` both
  *  dispatch on `["backend","agent"]` (the sub-action lives in a
  *  positional the handler reads) but the help page shows the full
  *  `cw backend agent config` token sequence, once per capability row. */
@@ -121,17 +111,14 @@ export interface CliBinding {
    *  needs a real event-loop turn to stay interruptible, actually do; every
    *  other handler keeps returning a plain CliHandlerResult unchanged. */
   handler: (args: CapabilityCliArgs) => CliHandlerResult | Promise<CliHandlerResult>;
-  /** MILESTONE 10 addition. A 1-token `path` row (e.g. `["clones"]`) that
-   *  exists ONLY to own the unknown-subcommand usage error for a verb
-   *  whose real subcommands are each their own 2-token row (e.g.
-   *  `clones.list` at `["clones","list"]`) must not ALSO show up as its
-   *  own `cw help <verb>` line — the old build's registry never declared
-   *  a row for the bare verb in this shape, only for its leaf
-   *  subcommands. `cliCommandHelpRows` (core/format/help.ts) skips a row
-   *  with this flag; `dispatchTable` (cli/dispatch.ts) is untouched — the
-   *  1-token candidate is still tried (and still wins) exactly when no
-   *  2-token candidate matches, per that file's existing reversed-
-   *  candidate-order contract. */
+  /** A 1-token `path` row (e.g. `["clones"]`) that exists ONLY to own the
+   *  unknown-subcommand usage error for a verb whose real subcommands are
+   *  each their own 2-token row (e.g. `clones.list` at `["clones","list"]`)
+   *  must not ALSO show up as its own `cw help <verb>` line.
+   *  `cliCommandHelpRows` (core/format/help.ts) skips a row with this flag;
+   *  `dispatchTable` (cli/dispatch.ts) is untouched — the 1-token candidate
+   *  is still tried (and still wins) exactly when no 2-token candidate
+   *  matches, per that file's reversed-candidate-order contract. */
   hiddenFromHelp?: boolean;
   /** The CLI verb token(s) this binding owns, INCLUDING any alias tokens
    *  that dispatch to the same entry (e.g. `["quickstart", "audit-run"]`).
@@ -143,7 +130,7 @@ export interface CliBinding {
    *  "Flags" block after the row list, ONLY for a verb that declares at
    *  least one. Not required — most rows leave this unset and the row's
    *  `summary` (on the owning `Capability`, not here) stays the only help
-   *  text, same as before this field existed. */
+   *  text. */
   flags?: Array<{ name: string; summary: string }>;
   /** OPTIONAL human projection of this row's canonical JSON, used ONLY by
    *  cli/dispatch.ts's renderCliResult, and ONLY when stdout is a real
@@ -203,9 +190,7 @@ export interface Capability {
   entry?: string;
 }
 
-/** Thrown by every not-yet-wired MCP tool handler. Never hit by this
- *  milestone's conformance filter — every tool mcp-basic.case.js actually
- *  calls (`cw_list`, `cw_sandbox_list`) has a real handler below. */
+/** Thrown by every not-yet-wired MCP tool handler. */
 export class CapabilityNotImplementedError extends Error {
   constructor(capability: string) {
     super(`${capability} is not implemented in this milestone`);
@@ -475,13 +460,12 @@ export const MCP_CORE_TOOLS: readonly string[] = [
   "cw_run_restore",
 ];
 
-/** Literal transcription of SPEC/mcp.md's "All 196 MCP tools" table, in
- *  its exact source order (`cw_list` first, `cw_history` last in that
- *  transcript — the array order IS the `tools/list` order, per that
- *  spec's "Exact outputs" section). Do not reorder, alphabetize, or
- *  regroup this array; the order itself is a pinned behavior. A NEW
- *  post-rebuild capability is APPENDED after the transcript's last row
- *  (never inserted), so every existing position keeps its pinned order. */
+/** One row of the literal transcription of SPEC/mcp.md's "All 196 MCP
+ *  tools" table, in its exact source order (the array order IS the
+ *  `tools/list` order, per that spec's "Exact outputs" section). Do not
+ *  reorder, alphabetize, or regroup the array; the order itself is a
+ *  pinned behavior. A NEW capability is APPENDED after the transcript's
+ *  last row (never inserted), so every existing position keeps its order. */
 export interface McpToolRow {
   tool: string;
   capability: string;
@@ -612,7 +596,7 @@ export const MCP_TOOL_DATA: McpToolRow[] = [
   { tool: "cw_orphans_gc", capability: "orphans.gc", requiredArgs: [], properties: ["cwd", "scope", "minAgeMinutes", "all"], description: "Reclaim orphan run directories (no state.json): an age sweep (--min-age-minutes, default 60) or --all. Deletes only inside a scanned repo's .cw/runs/, never a run the registry knows about." },
   { tool: "cw_telemetry_verify", capability: "telemetry.verify", requiredArgs: ["runId"], properties: ["cwd", "runId", "pubkey"], description: "Re-prove a run's telemetry attestation ledger offline: chain linkage + independent hash recompute, and (with --pubkey / CW_AGENT_ATTEST_PUBKEY) re-verify each attested hop's ed25519 signature against the public key." },
   { tool: "cw_history", capability: "history", requiredArgs: [], properties: ["cwd", "scope", "app", "status", "limit", "offset"], description: "Read a cross-repo unified run timeline (newest first)." },
-  // --- post-rebuild additions (appended; see the header note above) ---
+  // --- later additions (appended; see the header note above) ---
   { tool: "cw_audit_head", capability: "audit.head", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the trust-audit chain head anchor (event count + head hash) for a later truncation-proof audit.verify." },
   { tool: "cw_run_link", capability: "run.link", requiredArgs: ["runId", "url"], properties: ["runId", "cwd", "scope", "url", "kind", "note", "actor"], description: "Add an append-only link (PR/issue/ticket url) to a run record; no network call. A repeat of the same url is an idempotent no-op." },
 ];

@@ -1,8 +1,5 @@
-// wiring/capability-table/workflow-apps.ts — MILESTONE 12 (workflow-apps:
-// app.*, info, man) CLI bindings, plus the `next` capability (a milestone
-// 3/6 placeholder folded in alongside app.* per the file's own history).
-// Split out of core/capability-table.ts, byte-for-byte (extracted with
-// sed, not retyped).
+// wiring/capability-table/workflow-apps.ts — CLI bindings for the
+// workflow-app family (app.*, info, man), plus the `next` capability.
 
 import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "./registry-core";
 import { required, optionalArg } from "../../core/util/cli-args";
@@ -18,7 +15,7 @@ function loadAppRunCli(): typeof import("../../shell/app-run-cli") {
   return require("../../shell/app-run-cli") as typeof import("../../shell/app-run-cli");
 }
 
-// MILESTONE 12 (workflow-apps). Handler BODIES live in
+// Workflow apps. Handler BODIES live in
 // shell/workflow-app-loader.ts (impure — they scan apps/*/app.json +
 // workflows/*.workflow.js on disk and `require()` each entrypoint); this
 // table only wires argv/tool-args shape -> handler call, per SPEC/
@@ -69,12 +66,11 @@ attachCliBinding("app.init", {
 });
 REGISTRY_BY_CAPABILITY.get("app.init")!.mcp!.handler = (args) => loadWorkflowAppLoader().initWorkflowApp(required(optionalArg(args.appId), "app id"), args);
 
-// `cw init <id>` — the standalone scaffold verb. v2 folds `init` into
-// `app.init` (the old build's legacy `.workflow.js` scaffold is gone), so
-// both surfaces route through initWorkflowApp, same as `cw app init`. The
-// `init` help token is folded away (declaredCliHelpTokens) — it stays in
-// the frozen "More commands" index line only, matching the parity smoke's
-// HELP_INDEX_ONLY_TOKENS treatment. `workflowId` is the old init arg name.
+// `cw init <id>` — the standalone scaffold verb, routed through
+// initWorkflowApp, same as `cw app init`. The `init` help token is folded
+// away (declaredCliHelpTokens) — it stays in the frozen "More commands"
+// index line only, matching the parity smoke's HELP_INDEX_ONLY_TOKENS
+// treatment. `workflowId` is the legacy init arg name.
 attachCliBinding("init", {
   path: ["init"],
   jsonMode: "default",
@@ -92,7 +88,7 @@ REGISTRY_BY_CAPABILITY.get("app.package")!.mcp!.handler = (args) => loadWorkflow
 // `cw app run <app-id>` — plan+drive+report an app in one call. 2-token
 // cli.path found before the ["app"] usage catch-all; `appRunCli` reads the
 // app id from `appId`, so the first positional after "run" is forwarded as
-// appId (old build: appRun(runner, { ...options, appId: <positional> })).
+// appId.
 attachCliBinding("app.run", {
   path: ["app", "run"],
   jsonMode: "default",
@@ -100,14 +96,11 @@ attachCliBinding("app.run", {
 });
 
 // A 1-token `["app"]` row that exists ONLY to own the fixed usage string
-// for an unrecognized `app` subcommand (`app run` is not yet CLI-wired at
-// this milestone — cw_app_run stays MCP-only — so a bogus or `run`
-// subcommand both fall through to this same usage throw, matching
-// SPEC/cli-surface.md's "Usage strings" table byte-for-byte). Per
-// dispatchTable's reversed-candidate-order contract (cli/dispatch.ts),
-// this 1-token row is only ever reached when no 2-token `app.*` row
-// above matched. `hiddenFromHelp` keeps it off `cw help app`'s own line
-// (see CliBinding.hiddenFromHelp's doc comment).
+// for an unrecognized `app` subcommand (SPEC/cli-surface.md's "Usage
+// strings" table, byte-for-byte). Per dispatchTable's reversed-candidate-
+// order contract (cli/dispatch.ts), this 1-token row is only ever reached
+// when no 2-token `app.*` row above matched. `hiddenFromHelp` keeps it off
+// `cw help app`'s own line (see CliBinding.hiddenFromHelp's doc comment).
 addCliOnlyCapability(
   "app.usage",
   "cw app list|show|validate|init|package|run [app-id|path] — the workflow-app framework.",
@@ -344,8 +337,7 @@ addCliOnlyCapability(
     path: ["man"],
     jsonMode: "human",
     // core/format/help.ts's COMMAND_HELP_ROWS.man already owns the
-    // human-facing "cw man" help line (byte-ported from the old build's
-    // orchestrator.ts help table); hiddenFromHelp avoids a duplicate row.
+    // human-facing "cw man" help line; hiddenFromHelp avoids a duplicate row.
     hiddenFromHelp: true,
     handler: (args) => {
       const topic = args.positionals[0];
@@ -378,18 +370,8 @@ addCliOnlyCapability(
 
 // ---- PARITY WIRING -------------------------------------------------------
 //
-// `next` had a raw `case "next"` arm in cli/dispatch.ts (a milestone 3/6
-// PLACEHOLDER that always throws "not implemented in this milestone") but
-// no row in this table's cli binding, so it had no cli-mcp-parity-smoke /
-// cli-jsonmode-parity-smoke coverage. This row makes `next` a real,
-// dual-bound capability (matching the old build's `cli: { path: ["next"],
-// jsonMode: "default" }`) with the SAME placeholder body as the dispatch.ts
-// arm — no new capability logic, just giving the existing placeholder a
-// home in the one data table. dispatchTable() in cli/dispatch.ts tries this
-// row before the switch statement is reached, so the old `case "next"` arm
-// is now dead code for the CLI path (left in place, like the other
-// superseded arms in that file, each with its own "dispatchTable() above
-// always matches first" note).
+// `next` is a real, dual-bound capability (CLI + MCP), both surfaces
+// routed through shell/state-cli.ts's nextCli.
 attachCliBinding("next", {
   path: ["next"],
   jsonMode: "default",
@@ -398,14 +380,12 @@ attachCliBinding("next", {
 REGISTRY_BY_CAPABILITY.get("next")!.mcp!.handler = (args) => loadStateCli().nextCli(required(optionalArg(args.runId), "run id"), args);
 
 // `ledger.propose`/`.review`/`.verify`/`.apply`/`.list` are documented
-// payload-probe opt-outs in the old build (each mints a fresh timestamped/
-// digested entry, or reads args that arrive by --file/stdin on the CLI vs
-// a plain `entry` argument over MCP, or reads an on-disk ledger directory
-// the generic probe does not populate) — same reasoning applies here
-// unchanged, since both surfaces still route through the same
+// payload-probe opt-outs: each mints a fresh timestamped/digested entry,
+// or reads args that arrive by --file/stdin on the CLI vs a plain `entry`
+// argument over MCP, or reads an on-disk ledger directory the generic
+// probe does not populate. Both surfaces still route through the same
 // buildLedgerProposal/buildLedgerReview/verifyLedgerEntry/
-// applyLedgerProposal/listLedgerEntries core. Ported so these rows do not
-// sit unclassified in the payload-identity probe.
+// applyLedgerProposal/listLedgerEntries core.
 REGISTRY_BY_CAPABILITY.get("ledger.propose")!.payloadIdentical = false;
 REGISTRY_BY_CAPABILITY.get("ledger.propose")!.reason =
   "Mints a fresh entry each call: createdAt is the wall-clock instant and the id/digest are derived from it, so the output is inherently non-deterministic and a byte-identity probe does not apply. Both surfaces call the same buildLedgerProposal core; round-trip + fail-closed behavior is covered by ledger-verify-smoke.";

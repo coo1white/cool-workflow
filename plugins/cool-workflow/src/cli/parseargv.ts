@@ -1,7 +1,6 @@
 // cli/parseargv.ts — parseArgv, KNOWN_COMMANDS, suggestCommand.
 //
-// Pure. Byte-exact port of the old build's orchestrator (now src/shell/orchestrator.ts).
-// See plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 15 and SPEC/cli-surface.md "Argument
+// Pure. See plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 15 and SPEC/cli-surface.md "Argument
 // parsing (parseArgv)" / SPEC/orchestrator.md "Module-level exports".
 //
 // Rules (do not "clean up" — every one of these is pinned by a conformance
@@ -111,13 +110,12 @@ export function parseArgv(argv: string[]): ParsedArgv {
   return { command, positionals, options };
 }
 
-/** src/shell/orchestrator.ts — every top-level command name, used for
- *  "did you mean". NOTE: this deliberately does NOT include "ledger" even
- *  though the dispatcher handles it and formatHelp lists it — a known,
- *  intentionally-preserved wart (see plugins/cool-workflow/project/docs/rebuild/PLAN.md "Kept byte-for-byte").
- *  NOTE: "update" is gone from the old capture's list on purpose: no code
- *  was behind the verb in this build, so having it here made `cw update`
- *  say "Did you mean: update?" — a hint that points at itself. */
+/** Every top-level command name, used for "did you mean". NOTE: this
+ *  deliberately does NOT include "ledger" even though the dispatcher
+ *  handles it and formatHelp lists it — a known, intentionally-preserved
+ *  wart (see plugins/cool-workflow/project/docs/rebuild/PLAN.md "Kept byte-for-byte").
+ *  "update" is not here: no code is behind the verb, so having it here
+ *  would make `cw update` say "Did you mean: update?". */
 export const KNOWN_COMMANDS: Set<string> = new Set([
   "help", "list", "doctor", "info", "search", "man", "init", "quickstart",
   "plan", "status", "next", "dispatch", "result", "state", "commit", "report",
@@ -150,13 +148,13 @@ function levenshtein(a: string, b: string): number {
   return dp[n];
 }
 
-/** src/shell/orchestrator.ts — nearest known command by edit distance.
+/** Nearest known command by edit distance.
  *  Gives `undefined` when the input is under 2 chars, or when the best
  *  distance is over 3 or over half the input length. Never gives back the
  *  input itself: a caller only asks for a suggestion when the input did
  *  NOT resolve, so a distance-0 self-match (an alias token like
  *  `audit-run` that IS in KNOWN_COMMANDS but has no help rows of its own)
- *  was a hint that pointed at the very thing the user just typed. */
+ *  would be a hint that points at the very thing the user just typed. */
 export function suggestCommand(input: string): string | undefined {
   if (!input || input.length < 2) return undefined;
   let best: string | undefined;

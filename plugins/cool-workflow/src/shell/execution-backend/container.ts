@@ -1,8 +1,6 @@
 // shell/execution-backend/container.ts — the container delegating driver.
 //
-// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// the old build's execution-backend module's container handle builder
-// and `runContainer`.
+// The container handle builder and `runContainer`.
 //
 // Evidence: SPEC/execution-backend.md "container driver (runContainer)".
 
@@ -30,9 +28,9 @@ function messageOf(error: unknown): string {
  *
  *  deny must win here too: an operator who sets inherit:true plus a deny
  *  list (a valid, normalized combination — see sandbox-profile.ts's
- *  normalizeEnv) means "everything EXCEPT these". Before this fix, deny was
- *  never read here, so a secret like AWS_SECRET_ACCESS_KEY that the operator
- *  named in deny still got copied into the container's `-e` args.
+ *  normalizeEnv) means "everything EXCEPT these", so a secret like
+ *  AWS_SECRET_ACCESS_KEY that the operator named in deny must never be
+ *  copied into the container's `-e` args.
  *
  *  This backend builds its `-e` args straight from baseEnv rather than through
  *  buildChildEnv, so it must apply CW_NEVER_FORWARD_ENV itself — otherwise
@@ -65,7 +63,7 @@ export function containerHandle(request: ExecutionRequest, env: NodeJS.ProcessEn
 /** container — real `docker`/`podman run` under the sandbox contract. Fails
  *  closed when no runtime is on PATH, the daemon is unreachable, or the
  *  runtime itself errors (exit 125) — distinct from the command's own
- *  non-zero exit. Byte-exact port of the old build's execution-backend module. */
+ *  non-zero exit. */
 export function runContainer(
   descriptor: BackendDescriptor,
   policy: ResolvedSandboxPolicy,

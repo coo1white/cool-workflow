@@ -9,7 +9,7 @@ exports.MIN_SUPPORTED_RUN_STATE_SCHEMA_VERSION = exports.LEGACY_RUN_STATE_SCHEMA
 // conformance/cases/version-basic.case.js (regex `/^\d+\.\d+\.\d+\n$/`).
 exports.CURRENT_COOL_WORKFLOW_VERSION = "0.3.0";
 // State-kernel schema version constants (SPEC/state-core.md "Version
-// constants"). Pinned to the old build's version module byte-for-byte.
+// constants"), pinned.
 exports.WORKFLOW_APP_SCHEMA_VERSION = 1;
 exports.CURRENT_RUN_STATE_SCHEMA_VERSION = 1;
 exports.LEGACY_RUN_STATE_SCHEMA_VERSION = 0;

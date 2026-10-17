@@ -2,15 +2,13 @@
 // core/trust/evidence-grounding.ts — isGroundedEvidence, confidence tiers,
 // extractEvidenceContent's PURE decision half.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// evidence-grounding module, split so this file stays pure (no fs):
+// This file stays pure (no fs):
 // resolution against real disk paths takes a caller-supplied
 // `pathExists`/`readFile`, matching the core/shell split. Real callers
 // (shell/) pass `fs.existsSync`/`fs.readFileSync`.
 //
 // Evidence: SPEC/pipeline-run.md "Result ingest — result-normalize module"
-// (isGroundedEvidence is its evidence-classification primitive);
-// the old build's evidence-grounding module (byte-exact source).
+// (isGroundedEvidence is its evidence-classification primitive).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isGroundedEvidence = isGroundedEvidence;
 exports.hasGroundedEvidence = hasGroundedEvidence;
@@ -131,9 +129,8 @@ function extractEvidenceContent(locator, baseDirs, ops, readFile) {
     if (shape.kind !== "file" || !shape.pathPart)
         return undefined;
     // Match the same shapes LINE_SUFFIX_RE (classify) accepts: ":<n>" and
-    // ":<n>-<m>". A range that only matched classify used to fall through to
-    // the head-of-file slice below — returning bytes that had nothing to do
-    // with the cited lines.
+    // ":<n>-<m>", or a range would fall through to the head-of-file slice
+    // below — bytes that have nothing to do with the cited lines.
     const lineMatch = locator.match(/:(\d+)(?:-(\d+))?$/);
     const lineNum = lineMatch ? Number(lineMatch[1]) : undefined;
     const lineEnd = lineMatch && lineMatch[2] ? Number(lineMatch[2]) : undefined;

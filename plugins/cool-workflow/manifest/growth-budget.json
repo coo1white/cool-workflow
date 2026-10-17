@@ -8,19 +8,19 @@
   },
   "srcCommentLines": {
     "description": "Ceiling on comment lines under plugins/cool-workflow/src (git-tracked files; a line counts if its first non-space chars are // or *).",
-    "measuredAt": "2026-10-16",
-    "measured": 5999,
-    "maxCount": 6227
+    "measuredAt": "2026-10-17",
+    "measured": 5481,
+    "maxCount": 5531
   },
   "frozenPaths": [
-    { "path": "plugins/cool-workflow/src/shell/scheduler-io.ts", "measuredAt": "2026-09-03", "measured": 730, "maxLines": 730 },
-    { "path": "plugins/cool-workflow/src/shell/scheduling-io.ts", "measuredAt": "2026-09-03", "measured": 329, "maxLines": 329 },
-    { "path": "plugins/cool-workflow/src/shell/workbench.ts", "measuredAt": "2026-10-16", "measured": 266, "maxLines": 266 },
-    { "path": "plugins/cool-workflow/src/shell/workbench-host.ts", "measuredAt": "2026-09-03", "measured": 340, "maxLines": 340 },
-    { "path": "plugins/cool-workflow/src/shell/workbench-text.ts", "measuredAt": "2026-09-03", "measured": 18, "maxLines": 18 },
-    { "path": "plugins/cool-workflow/src/shell/orchestrator.ts", "measuredAt": "2026-10-16", "measured": 206, "maxLines": 206 },
-    { "path": "plugins/cool-workflow/src/shell/telemetry-demo.ts", "measuredAt": "2026-09-03", "measured": 410, "maxLines": 410 },
-    { "path": "plugins/cool-workflow/src/shell/observability-intake.ts", "measuredAt": "2026-09-03", "measured": 82, "maxLines": 82 },
-    { "path": "plugins/cool-workflow/src/shell/reclamation-io.ts", "measuredAt": "2026-09-03", "measured": 1728, "maxLines": 1728 }
+    { "path": "plugins/cool-workflow/src/shell/scheduler-io.ts", "measuredAt": "2026-10-17", "measured": 726, "maxLines": 726 },
+    { "path": "plugins/cool-workflow/src/shell/scheduling-io.ts", "measuredAt": "2026-10-17", "measured": 318, "maxLines": 318 },
+    { "path": "plugins/cool-workflow/src/shell/workbench.ts", "measuredAt": "2026-10-17", "measured": 264, "maxLines": 264 },
+    { "path": "plugins/cool-workflow/src/shell/workbench-host.ts", "measuredAt": "2026-10-17", "measured": 336, "maxLines": 336 },
+    { "path": "plugins/cool-workflow/src/shell/workbench-text.ts", "measuredAt": "2026-10-17", "measured": 15, "maxLines": 15 },
+    { "path": "plugins/cool-workflow/src/shell/orchestrator.ts", "measuredAt": "2026-10-17", "measured": 200, "maxLines": 200 },
+    { "path": "plugins/cool-workflow/src/shell/telemetry-demo.ts", "measuredAt": "2026-10-17", "measured": 409, "maxLines": 409 },
+    { "path": "plugins/cool-workflow/src/shell/observability-intake.ts", "measuredAt": "2026-10-17", "measured": 79, "maxLines": 79 },
+    { "path": "plugins/cool-workflow/src/shell/reclamation-io.ts", "measuredAt": "2026-10-17", "measured": 1717, "maxLines": 1717 }
   ]
 }

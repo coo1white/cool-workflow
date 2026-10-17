@@ -1,12 +1,10 @@
 "use strict";
 // core/state/node-projection.ts — the canonical StateNode projection.
 //
-// MILESTONE 3. Byte-exact port of the old build's node-projection module,
-// PLUS the `normalizeValue`/`replayStableStringify` pair it depends on
-// (defined below). This is the SINGLE source of
-// truth for the 13-field projected-node shape; node-snapshot.ts and (in a
-// later milestone) reclamation.ts's tombstone chain both read from here so
-// the field set can only change in one place.
+// It also holds the `normalizeValue`/`replayStableStringify` pair (defined
+// below). This is the SINGLE source of truth for the 13-field
+// projected-node shape; node-snapshot.ts and reclamation-io.ts's tombstone
+// chain both read from here so the field set can only change in one place.
 //
 // BYTE-IDENTITY [load-bearing]: `normalizeValue` sorts object keys, so field
 // ORDER never affects the bytes — only the field SET matters.
@@ -27,9 +25,8 @@ const SCRUBBED_TIMESTAMP_KEYS = new Set(["createdAt", "updatedAt", "recordedAt",
 /** Recursively sorts object keys, drops timestamp-shaped keys, and scrubs
  *  timestamp/tmp-path substrings out of every string value (so a snapshot
  *  body captured at two different wall-clock times, in two different tmp
- *  dirs, is byte-identical). Ported literally from the old build's
- *  multi-agent-eval normalize module — this is the ONE normalizer every
- *  node snapshot/replay/diff path shares. */
+ *  dirs, is byte-identical). This is the ONE normalizer every node
+ *  snapshot/replay/diff path shares. */
 function normalizeValue(value) {
     if (Array.isArray(value))
         return value.map(normalizeValue);
@@ -88,8 +85,8 @@ function rawNodeProjection(node) {
 function projectNodeBody(node) {
     return normalizeValue(rawNodeProjection(node));
 }
-/** `replayStableStringify(rawNodeProjection(node))` — shared with a later
- *  milestone's reclamation tombstone chain so it cannot drift. */
+/** `replayStableStringify(rawNodeProjection(node))` — shared with the
+ *  reclamation tombstone chain so it cannot drift. */
 function nodeProjectionDigestInput(node) {
     return replayStableStringify(rawNodeProjection(node));
 }

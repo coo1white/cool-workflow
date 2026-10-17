@@ -2,14 +2,11 @@
 // lease-plan mechanism over the run-registry-io.ts queue store, plus the
 // policy file IO.
 //
-// MILESTONE 10 (project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
-// old build's scheduling module + the sched-specific slice of
-// capability-core module. `sched` is a DIFFERENT system from `schedule`
+// `sched` is a DIFFERENT system from `schedule`
 // (see scheduler-io.ts's file header) — this operates on
 // `$CW_HOME/registry/queue.json` leases, not wall-clock tasks.
 //
-// Evidence: SPEC/scheduling-registry.md section D;
-// the old build's scheduling module (byte-exact source).
+// Evidence: SPEC/scheduling-registry.md section D.
 
 import * as fs from "node:fs";
 import { cwdArg, flagOn } from "../core/util/cli-args";
@@ -216,7 +213,6 @@ export function resetEntry(entries: RunQueueEntry[], id: string): { entries: Run
 
 // ---------------------------------------------------------------------------
 // Impure CLI-facing ops: policy file IO + the queue read-modify-write.
-// Byte-exact port of the `sched`-specific slice of capability-core module.
 // ---------------------------------------------------------------------------
 
 function nowIso(options: Record<string, unknown>): string {

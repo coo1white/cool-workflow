@@ -1,8 +1,7 @@
 "use strict";
 // core/state/state-node.ts — StateNode lifecycle and pipeline-contract gates.
 //
-// MILESTONE 3. Byte-exact port of the old build's state-node module, split
-// into a PURE half (this file: create/transition/validate/link/record —
+// A PURE half (this file: create/transition/validate/link/record —
 // everything that does not touch disk) and a shell half
 // (shell/node-store.ts: writeRunNode, the only disk write). `appendRunNode`
 // mutates `run.nodes` in place (pure data mutation, no fs) and then calls
@@ -113,7 +112,7 @@ function validatePipelineContract(contract) {
 /** `pathExists` defaults to a function that always returns `true` (no path
  *  ever "missing") ONLY when the caller genuinely has no filesystem to
  *  check against; every real caller (shell/) passes `fs.existsSync` so the
- *  `missing-artifact-path` gate behaves exactly like the old build. Kept as
+ *  `missing-artifact-path` gate checks real paths. Kept as
  *  an explicit parameter (never a top-level `require("node:fs")`) so this
  *  stays a pure core/ module per project/docs/rebuild/PLAN.md's core/shell split. */
 function assertNodeSatisfiesContract(node, contract, stageId, pathExists = () => true) {

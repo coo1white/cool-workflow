@@ -1,15 +1,14 @@
 // core/trust/telemetry-attestation.ts — ed25519 usage/result attestation.
 //
-// MILESTONE 8. The AGENT (executor) signs; CW only VERIFIES with an
-// operator-given PUBLIC key — CW holds no private key, ever. Uses
-// node:crypto's built-in ed25519 sign/verify (no npm dependency).
+// The AGENT (executor) signs; CW only VERIFIES with an operator-given
+// PUBLIC key — CW holds no private key, ever. Uses node:crypto's built-in
+// ed25519 sign/verify (no npm dependency).
 //
 // `crypto.verify`/`crypto.createPublicKey` are allowed here per
-// project/docs/rebuild/PLAN.md's lint carve-out for this exact file (Target shape,
-// core/trust/telemetry-attestation.ts comment) — this remains otherwise
-// pure (no fs, no process.env, no clock; `resolveTrustPublicKey`'s lazy
-// `require("node:fs")` is the one exception, ported byte-identically
-// from the old build's own lazy-require pattern so a bundle that never
+// project/docs/rebuild/PLAN.md's lint carve-out for this exact file (Target
+// shape, core/trust/telemetry-attestation.ts comment) — this remains
+// otherwise pure (no fs, no process.env, no clock; `resolveTrustPublicKey`'s
+// lazy `require("node:fs")` is the one exception, so a bundle that never
 // resolves a key path pays no fs cost).
 //
 // Evidence: SPEC/ledger-trust.md "The signing model", "Attestation
@@ -171,8 +170,7 @@ export function resolveTrustPublicKey(value: string | undefined): string | undef
   if (trimmed.includes("BEGIN") && trimmed.includes("KEY")) return trimmed;
   try {
     // Lazy require so a bundle that never resolves a key path pays no
-    // fs cost — byte-identical pattern to the old build's own lazy
-    // require here.
+    // fs cost.
     const fs = require("node:fs") as typeof import("node:fs");
     if (fs.existsSync(trimmed)) return fs.readFileSync(trimmed, "utf8");
   } catch {

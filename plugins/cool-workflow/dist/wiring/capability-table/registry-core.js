@@ -14,10 +14,6 @@
 // index.ts imports this file plus every slice and composes them in the
 // exact original source order (REGISTRY order is a pinned behavior —
 // tools/list order, gen-parity-doc's byte-diff gate, cw help line order).
-//
-// Split out of core/capability-table.ts's "Public table-derived API"
-// section, byte-for-byte (this file's body is the ORIGINAL file's own
-// text, extracted with sed line ranges, not retyped).
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.REGISTRY_BY_CAPABILITY = exports.REGISTRY = void 0;
 exports.listBundledWorkflows = listBundledWorkflows;
@@ -38,11 +34,8 @@ const recovery_hint_1 = require("../../core/format/recovery-hint");
 // (index.ts's whole point is to populate REGISTRY before dispatch can
 // look anything up) — so a top-level `import` of a shell module here
 // means EVERY invocation pays that module's full load cost, even the
-// 99% of commands that never touch `status`/`list`.
-// Requiring these 3 lazily (inside the handler that actually uses them)
-// measured live: this file alone was ~30-45ms of a ~75-100ms `cw --version`
-// require chain, the single largest slice. The 8 domain slices have the
-// same shape and are a natural follow-up, not attempted here.
+// 99% of commands that never touch `status`/`list`. So these 3 load
+// lazily, inside the handler that uses them.
 function loadRunStore() {
     return require("../../shell/run-store");
 }
@@ -52,12 +45,11 @@ function loadOperatorUx() {
 function loadWorkflowAppLoader() {
     return require("../../shell/workflow-app-loader");
 }
-/** Real handlers implemented at THIS milestone, keyed by capability id.
- *  Every tool row not listed here gets `notYetImplemented`. Kept as a
- *  small side table (rather than inlined into MCP_TOOL_DATA above) so the
- *  196-row literal above stays a pure, mechanically-checkable transcript
- *  of the spec table — handler wiring is a separate, obviously-later-
- *  editable concern. */
+/** The handlers REGISTRY starts with, keyed by capability id; every other
+ *  tool row starts on `notYetImplemented` until a domain slice sets its
+ *  real `mcp.handler`. Kept as a small side table so the MCP_TOOL_DATA
+ *  literal stays a pure, mechanically-checkable transcript of the spec
+ *  table. */
 const MCP_REAL_HANDLERS = {
     list: () => listBundledWorkflows(),
     "sandbox.list": () => listBundledSandboxProfiles(),
@@ -66,18 +58,16 @@ const MCP_REAL_HANDLERS = {
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
-/** `cw list` / `cw_list` (MILESTONE 12) — the real discovery over every
+/** `cw list` / `cw_list` — the real discovery over every
  *  `apps/*\/app.json` + legacy `workflows/*.workflow.js` on disk, per
  *  `listWorkflowsShallow` (shell/workflow-app-loader.ts). */
 function listBundledWorkflows() {
     return loadWorkflowAppLoader().listWorkflowsShallow();
 }
-/** PLACEHOLDER (milestone 5, execution-backend/sandbox) — the real
- *  `sandbox.list` resolves and stamps each of the 4 bundled profiles
- *  (default/readonly/workspace-write/locked-down) with real path lists
- *  via `resolveSandboxProfile` (SPEC/execution-backend.md). This
- *  milestone reproduces only the id/title/schemaVersion subset that
- *  mcp-basic.case.js checks. */
+/** The id/title/schemaVersion subset of the 4 bundled sandbox profiles
+ *  that mcp-basic.case.js checks; the full `sandbox.list` (real path lists
+ *  via `resolveSandboxProfile`, SPEC/execution-backend.md) is wired in the
+ *  exec-backend slice. */
 function listBundledSandboxProfiles() {
     return [
         { schemaVersion: 1, id: "default", title: "Default Worker Boundary" },
@@ -88,7 +78,7 @@ function listBundledSandboxProfiles() {
 }
 /** `cw status` / `cw_status` — SPEC/cli-surface.md pins the no-id JSON
  *  shape exactly (`{runId:null, nextActions}`); a real run id resolves to
- *  `summarizeRun`'s payload (MILESTONE 11, reporting/observability). */
+ *  `summarizeRun`'s payload. */
 function statusPayload(runId, cwd) {
     if (!runId) {
         return { runId: null, nextActions: (0, recovery_hint_1.adviseNoRun)() };
@@ -117,13 +107,9 @@ function buildMcpBinding(row) {
         handler,
     };
 }
-/** The full capability table: one row per MCP tool (196, per SPEC/mcp.md),
- *  in the exact source order `tools/list` must report. CLI bindings are
- *  layered on top for the small set of capabilities this milestone also
- *  exposes on the CLI front door (see `CLI_ROWS` below); every other row
- *  is MCP-only AT THIS MILESTONE (not a permanent `mcp-only` declaration —
- *  just not yet CLI-wired; later milestones add the `cli` binding without
- *  touching this array's mcp side). */
+/** The full capability table: one row per MCP tool, in the exact source
+ *  order `tools/list` must report. CLI bindings are layered on top by
+ *  attachCliBinding; a row without one is MCP-only. */
 exports.REGISTRY = capability_data_1.MCP_TOOL_DATA.map((row) => ({
     capability: row.capability,
     summary: row.description,
@@ -132,17 +118,17 @@ exports.REGISTRY = capability_data_1.MCP_TOOL_DATA.map((row) => ({
 }));
 exports.REGISTRY_BY_CAPABILITY = new Map(exports.REGISTRY.map((row) => [row.capability, row]));
 /** Attach (or replace) a CLI binding for an already-declared MCP capability.
- *  Used once below to wire `list`/`status`/`sandbox.list` onto the CLI
- *  front door too, without duplicating their row data. */
+ *  Used by every domain slice to wire a row onto the CLI front door too,
+ *  without duplicating its row data. */
 function attachCliBinding(capability, cli) {
     const row = exports.REGISTRY_BY_CAPABILITY.get(capability);
     if (!row)
         throw new Error(`capability-table: cannot attach cli binding to undeclared capability ${capability}`);
     row.cli = cli;
 }
-/** Declare a capability that is CLI-only at this milestone (`help`,
- *  `version` — both are permanently `cli-only` per SPEC/mcp.md's
- *  declared one-surface list, so no mcp row is created for them). */
+/** Declare a CLI-only capability (e.g. `help`, `version` — permanently
+ *  `cli-only` per SPEC/mcp.md's declared one-surface list, so no mcp row
+ *  is created for them). */
 function addCliOnlyCapability(capability, summary, cli, reason, entry) {
     const row = { capability, summary, surface: "cli-only", cli, reason, ...(entry ? { entry } : {}) };
     exports.REGISTRY.push(row);

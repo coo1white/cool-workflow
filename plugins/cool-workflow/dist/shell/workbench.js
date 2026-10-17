@@ -2,8 +2,7 @@
 // shell/workbench.ts — the read-only Workbench view: `cw workbench view`
 // (panel-by-panel JSON view of one run) and the serve descriptor.
 //
-// MILESTONE 11 (reporting/observability). Byte-exact port of the panel
-// group/member shape from the old build's workbench module. Each panel
+// Each panel
 // embeds the SAME payload as the matching `cw <cmd> --json` call — built
 // here by calling the matching capability's own MCP handler in-process
 // (never a duplicate implementation), so panel data can never drift from
@@ -198,7 +197,7 @@ function buildWorkbenchServeDescriptor(args = {}, boundPort) {
         routes: WORKBENCH_ROUTES,
     };
 }
-/** The cross-run index (old build's workbench module buildWorkbenchIndex):
+/** The cross-run index:
  *  the registry index (`cw registry show`) plus the run list (`cw run
  *  list`), each embedded VERBATIM from its own already-declared capability
  *  handler — the Workbench adds no new source of truth. Composed the same
@@ -210,8 +209,7 @@ function buildWorkbenchServeDescriptor(args = {}, boundPort) {
  *  via the `run.search` capability instead of `run.list` — `run.list`'s own
  *  handler (`runListCli` -> `RunRegistry.list()`) never reads a `text`
  *  field, so calling it with a filter present would silently ignore it.
- *  With no `text` filter the call is unchanged: `run.list`, byte-identical
- *  to the payload before this branch existed. */
+ *  With no `text` filter the call is plain `run.list`. */
 function buildWorkbenchIndex(args = {}) {
     const scope = args.scope === "home" ? "home" : "repo";
     const scoped = { ...args, scope };

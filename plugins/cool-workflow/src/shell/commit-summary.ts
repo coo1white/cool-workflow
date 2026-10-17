@@ -1,10 +1,8 @@
 // shell/commit-summary.ts — `cw commit summary` / `cw_commit_summary`.
 //
-// GAP #26 port: v2 dropped the CLI binding + shell body for commit.summary,
-// keeping only the MCP tool row. This restores the old build's
-// `summarizeOperatorCommits` + `formatCommitRow` byte-for-byte, plus the `commitSummaryCli`
-// thin adapter both front doors call (mirrors feedbackSummaryCli /
-// candidateSummaryCli shape). Impure: reads run state from disk.
+// `summarizeOperatorCommits` + `formatCommitRow`, plus the
+// `commitSummaryCli` thin adapter both front doors call. Impure: reads
+// run state from disk.
 
 import { cwdArg } from "../core/util/cli-args";
 import { WorkflowRun, StateCommit } from "../core/state/types";
@@ -47,7 +45,6 @@ function formatCommitRow(commit: StateCommit): OperatorCommitRow {
   };
 }
 
-/** Byte-exact port of the old build's `summarizeOperatorCommits`. */
 export function summarizeOperatorCommits(run: WorkflowRun): OperatorCommitSummary {
   const commits = [...(run.commits || [])].sort(
     (left, right) => stableCompare(left.createdAt, right.createdAt) || stableCompare(left.id, right.id)
@@ -68,15 +65,13 @@ function req(value: unknown, label: string): string {
   return s;
 }
 
-/** Thin adapter both front doors call (mirrors the old build's orchestrator
- *  `summarizeCommitRecords(runId)` = `summarizeOperatorCommits(loadRun(runId))`). */
+/** Thin adapter both front doors call: summarizeOperatorCommits(loadRun(runId)). */
 export function commitSummaryCli(args: Record<string, unknown>): OperatorCommitSummary {
   const run = loadRunFromCwd(req(args.runId, "run id"), cwdArg(args));
   return summarizeOperatorCommits(run);
 }
 
-/** `cw commit summary <run>` human text — port of the old build's
- *  formatCommitPanel (operator-ux/format.ts): a `Commits` rollup with the
+/** `cw commit summary <run>` human text: a `Commits` rollup with the
  *  verifier-gated / checkpoint counts and the latest commit. */
 export function formatCommitSummaryText(summary: OperatorCommitSummary): string {
   const lines = [

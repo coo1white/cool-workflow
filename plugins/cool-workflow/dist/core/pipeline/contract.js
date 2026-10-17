@@ -2,8 +2,7 @@
 // core/pipeline/contract.ts — DEFAULT_PIPELINE_CONTRACT_ID,
 // createDefaultPipelineContract.
 //
-// MILESTONE 6+7 (combined; see project/docs/rebuild/PLAN.md Open risk 10). Byte-exact port
-// of the old build's pipeline-contract module. Pure data.
+// Pure data.
 //
 // Evidence: SPEC/pipeline-run.md "Default contract — src/pipeline-
 // contract.ts", "Default contract stage table (byte facts a rebuild must
@@ -71,8 +70,8 @@ function createDefaultPipelineContract() {
             },
         ],
         artifactPolicy: { root: ".cw/runs/<run-id>", requireReadablePaths: true },
-        // highPriorityRequiresEvidence is carried for byte-compat with the old
-        // build's default contract (pinned by SPEC/pipeline-run.md) but is NOT
+        // highPriorityRequiresEvidence is carried for byte-compat (pinned by
+        // SPEC/pipeline-run.md) but is NOT
         // enforced anywhere — no gate reads it, and core has no task-priority
         // concept to key it on. The enforced contract-wide flag is
         // `requireEvidence` (state-node.ts assertRequiredEvidence, runner.ts

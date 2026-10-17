@@ -3,11 +3,9 @@
 // graph`). Lives in shell/ (not core/format/) because it calls term.ts's
 // `dim()`, which is TTY/env-aware.
 //
-// MILESTONE 11 (reporting/observability). Byte-exact port of the parts of
-// the old build's operator-ux format module this milestone's conformance
-// surface exercises: formatOperatorSummary (`--summary`/`--brief`),
-// formatOperatorStatus (full `cw status`), formatOperatorReport (`cw
-// report --show`), formatOperatorGraph (`cw graph`).
+// formatOperatorSummary (`--summary`/`--brief`), formatOperatorStatus
+// (full `cw status`), formatOperatorReport (`cw report --show`),
+// formatOperatorGraph (`cw graph`).
 //
 // Evidence: SPEC/reporting-ux.md "Operator UX human text".
 
@@ -37,8 +35,7 @@ function formatRecommendations(actions: OperatorRecommendation[]): string[] {
   return lines;
 }
 
-/** Compact summary — `cw status <id> --summary`/`--brief`. Byte-exact
- *  port of formatOperatorSummary. */
+/** Compact summary — `cw status <id> --summary`/`--brief`. */
 export function formatOperatorSummary(summary: OperatorRunSummary): string {
   return [
     `Run: ${summary.runId}`,
@@ -81,8 +78,8 @@ function formatTrustPanel(summary: OperatorRunSummary["trust"]): string {
   ].join("\n");
 }
 
-/** The full `cw status <id>` human render — port of formatOperatorStatus's
- *  panel order (worker/feedback/commit, then trust and the report path). */
+/** The full `cw status <id>` human render, in panel order
+ *  (worker/feedback/commit, then trust and the report path). */
 export function formatOperatorStatus(summary: OperatorRunSummary): string {
   return [
     formatOperatorSummary(summary),
@@ -105,8 +102,8 @@ function formatTaskList(tasks: OperatorRunSummary["tasks"]): string[] {
   return active.map((id) => `  ${id}`);
 }
 
-/** `cw report <id> --show` — port of formatOperatorReport's Resource
- *  Commands tail plus Active/Pending Tasks and Evidence sections. */
+/** `cw report <id> --show`: the Resource Commands tail plus
+ *  Active/Pending Tasks and Evidence sections. */
 export function formatOperatorReport(summary: OperatorRunSummary, evidencePaths: string[]): string {
   return [
     formatOperatorStatus(summary),
@@ -136,7 +133,7 @@ function groupBy<T>(values: T[], key: (v: T) => string): Record<string, T[]> {
   return groups;
 }
 
-/** `cw graph <id>` human render — byte-exact port of formatOperatorGraph. */
+/** `cw graph <id>` human render. */
 export function formatOperatorGraph(graph: OperatorGraph): string {
   const lines = [`Run Graph: ${graph.runId}`, "", "Nodes"];
   const groups = groupBy(graph.nodes, (node) => node.kind);
@@ -155,8 +152,7 @@ export function formatOperatorGraph(graph: OperatorGraph): string {
   return lines.join("\n");
 }
 
-/** `cw feedback summary <run>` human text — port of the old build's
- *  formatFeedbackPanel (operator-ux/format.ts): a `Feedback` rollup with
+/** `cw feedback summary <run>` human text: a `Feedback` rollup with
  *  status/severity/classification counts. */
 export function formatFeedbackSummaryText(summary: OperatorFeedbackSummary): string {
   return [

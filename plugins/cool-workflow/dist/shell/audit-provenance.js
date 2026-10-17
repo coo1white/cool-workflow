@@ -1,14 +1,10 @@
 "use strict";
-// shell/audit-provenance.ts — the trust-audit READ + record helpers the
-// old flat build shipped inside trust-audit module but v2's
-// shell/trust-audit.ts dropped: workerTrustAudit, evidenceProvenance, and
-// the two thin record wrappers (recordHostAttestation,
-// recordSandboxPolicyDecision). These are pure wrappers over the primitives
-// shell/trust-audit.ts DOES export (listTrustAuditEvents,
-// recordTrustAuditEvent), so they live in their own module rather than
-// re-open the audited trust-audit.ts chain writer.
-//
-// Byte-behavior port of the old flat build's trust-audit source.
+// shell/audit-provenance.ts — the trust-audit READ + record helpers:
+// workerTrustAudit, evidenceProvenance, and the two thin record wrappers
+// (recordHostAttestation, recordSandboxPolicyDecision). These are pure
+// wrappers over the primitives shell/trust-audit.ts exports
+// (listTrustAuditEvents, recordTrustAuditEvent), so they live in their own
+// module rather than re-open the audited trust-audit.ts chain writer.
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.workerTrustAudit = workerTrustAudit;
 exports.evidenceProvenance = evidenceProvenance;

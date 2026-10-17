@@ -4,22 +4,13 @@
 // `agent`, `artifact`, `subWorkflow`, `input`), and full manifest
 // validation (`validateWorkflowApp`).
 //
-// MILESTONE 12 (project/docs/rebuild/PLAN.md build order; workflow-apps.md). Milestone 6+7
-// built the minimal real subset needed to load ONE app and drive it
-// end to end (see git history / the old header note this replaces).
-// This milestone adds, on top of that, WITHOUT changing any existing
-// exported function's signature or behavior:
-//   - `loop()` — sugar over `phase()` that sets a bounded dynamic loop
-//     spec, byte-exact to the old build's workflow-api module.
-//   - `subWorkflow()` — sugar over `agent()` that adds a `subWorkflow`
-//     field, byte-exact to the old build's workflow-api module.
-//   - `validateWorkflowApp`/`assertValidWorkflowApp`/
-//     `validateWorkflowDefinition` — the full WorkflowAppValidationIssue
-//     taxonomy `cw app validate` needs, ported byte-for-byte from
-//     the old build's workflow-app-framework module.
-//   - `WorkflowAppValidationError` — thrown by a fail-closed manifest
-//     load (see shell/workflow-app-loader.ts's discovery functions).
-//
+// Builders `loop()` (sugar over `phase()` that sets a bounded dynamic
+// loop spec) and `subWorkflow()` (sugar over `agent()` that adds a
+// `subWorkflow` field); `validateWorkflowApp`/`assertValidWorkflowApp`/
+// `validateWorkflowDefinition` — the full WorkflowAppValidationIssue
+// taxonomy `cw app validate` needs; `WorkflowAppValidationError` — thrown
+// by a fail-closed manifest load (see shell/workflow-app-loader.ts's
+// discovery functions).
 // Pure factory + validation functions (this file, no `fs`/`child_process`/
 // `process.env`); the actual `require()`/fs read of an app's manifest +
 // entrypoint, and `cw app list/show/validate/init/package` discovery,
@@ -79,7 +70,7 @@ function parallel(name, tasks, options = {}) {
  *  round completes, the registered `until` predicate decides whether to run
  *  another round (a fresh appended phase with the same tasks, round-suffixed
  *  ids) or stop; capped at `maxRounds`. Sugar over phase() that sets `loop`;
- *  plain phases are unaffected. Byte-exact to the old build's workflow-api module's loop(). */
+ *  plain phases are unaffected. */
 function loop(name, tasks, spec, options = {}) {
     if (!spec || typeof spec.maxRounds !== "number" || spec.maxRounds < 1) {
         throw new Error(`loop ${name} requires a positive integer maxRounds`);
@@ -113,7 +104,7 @@ function agent(id, prompt, options = {}) {
 /** A task fulfilled by an inline SUB-WORKFLOW: instead of spawning an agent,
  *  the drive plans + drives the child `appId` and binds its report back as
  *  this task's result. The prompt is recorded for provenance but is not sent
- *  to an agent. Byte-exact to the old build's workflow-api module's subWorkflow(). */
+ *  to an agent. */
 function subWorkflow(id, appId, options = {}) {
     if (!appId)
         throw new Error(`subWorkflow task ${id} requires an appId`);
@@ -486,8 +477,7 @@ function validateWorkflowDefinition(candidate, context, issues = [], basePath = 
     });
     return issues;
 }
-/** The full `cw app validate` check: byte-exact issue codes/messages to
- *  the old build's workflow-app-framework module's `validateWorkflowApp`. Never throws. */
+/** The full `cw app validate` check, with pinned issue codes/messages. Never throws. */
 function validateWorkflowApp(candidate, context, options = {}) {
     const issues = [];
     const appPath = options.appPath;
@@ -568,7 +558,7 @@ function workflowAppRunMetadata(app) {
         // compatibility + metadata ride into run.workflow.app so report.md can
         // render the domain-gated "- Source:" label (metadata.domain ===
         // "research") and downstream tools can read the app's compatibility
-        // window. Byte-behavior port of the old build's workflowAppRunMetadata.
+        // window.
         compatibility: app.compatibility,
         sandboxProfiles: app.sandboxProfiles,
         source: { manifestPath: app.sourcePath },

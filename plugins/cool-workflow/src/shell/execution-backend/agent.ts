@@ -1,13 +1,12 @@
 // shell/execution-backend/agent.ts — agent-delegation pure helpers +
 // concurrent batch fulfillment.
 //
-// MILESTONE 5 (project/docs/rebuild/PLAN.md build order, step 5). Byte-exact port of
-// the old build's execution-backend agent module. This module holds
-// the PURE data-transform helpers (invocation resolution, arg substitution,
-// secret redaction, report parsing) plus the batch delegate-child spawn — both
-// the CLI-binary batch (runAgentBatchOutcomes) and, added later, its
-// HTTP-endpoint sibling (runEndpointBatchOutcomes) so `--concurrency N` gives
-// endpoint-mode agents real concurrency instead of a serial per-task spawn.
+// It holds the PURE data-transform helpers (invocation resolution, arg
+// substitution, secret redaction, report parsing) plus the batch
+// delegate-child spawn — both the CLI-binary batch (runAgentBatchOutcomes)
+// and its HTTP-endpoint sibling (runEndpointBatchOutcomes), so
+// `--concurrency N` gives endpoint-mode agents real concurrency instead of
+// a serial per-task spawn.
 //
 // THE RED LINE: CW spawns the agent and records its attested output. It
 // NEVER imports a model SDK, holds an API key, or constructs a model API
@@ -98,10 +97,9 @@ export function buildAgentChildEnv(
   const env = buildChildEnv(policy, baseEnv);
   // deny must win here too: buildChildEnv already applied it above, but the
   // provider-key/USER re-add below exists specifically to put vars BACK
-  // that buildChildEnv's readonly/locked-down defaults strip — without this
-  // check that re-add silently overrode an operator's explicit deny (e.g.
-  // deny:["AWS_SECRET_ACCESS_KEY"] still forwarded it, since AWS_ matches
-  // AGENT_PROVIDER_KEY_ENV_RE).
+  // that buildChildEnv's readonly/locked-down defaults strip — so check it,
+  // or an explicit deny (e.g. deny:["AWS_SECRET_ACCESS_KEY"], which matches
+  // AGENT_PROVIDER_KEY_ENV_RE's AWS_ arm) would still be forwarded.
   const denied = new Set(policy.env.deny || []);
   const forwarded: string[] = [];
   for (const key of Object.keys(baseEnv)) {
@@ -401,10 +399,7 @@ export function prepareEndpointJob(request: ExecutionRequest): AgentEndpointJob 
 
 // __dirname is dist/shell/execution-backend at runtime — THREE levels up
 // (execution-backend -> shell -> dist -> package root) reaches scripts/,
-// a sibling of dist/, not two (that was a bug: it resolved to a
-// dist/scripts/... path that is never compiled/copied there — batch
-// concurrent dispatch failed closed with "batch delegate exited with 1"
-// until this was traced to the wrong relative depth).
+// a sibling of dist/, not two (dist/scripts/... is never compiled/copied).
 const BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "batch-delegate-child.js");
 
 interface BatchDelegateLine {
@@ -474,7 +469,7 @@ export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[
   });
 }
 
-// Same package-root depth fix as BATCH_DELEGATE_CHILD_SCRIPT above.
+// Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
 const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-batch-delegate-child.js");
 
 /** Run a batch of ENDPOINT (HTTP-delegate) jobs concurrently; outcomes
@@ -505,9 +500,8 @@ export function runEndpointBatchOutcomes(jobs: AgentEndpointJob[]): AgentChildOu
 }
 
 // ---------------------------------------------------------------------------
-// The stateful agent runners (spawn + settle). Byte-exact port of the old
-// build's execution-backend module's runAgentProcess, runAgentEndpoint,
-// and shouldStreamAgentStderr.
+// The stateful agent runners (spawn + settle): runAgentProcess,
+// runAgentEndpoint and shouldStreamAgentStderr.
 // ---------------------------------------------------------------------------
 
 /** Decide whether cw FORWARDS the agent wrapper's live stderr view (stdio
@@ -520,7 +514,7 @@ export function shouldStreamAgentStderr(env: NodeJS.ProcessEnv, isTTY: boolean):
   return isTTY;
 }
 
-// Same package-root depth fix as BATCH_DELEGATE_CHILD_SCRIPT above.
+// Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
 const HTTP_DELEGATE_CHILD_SCRIPT = path.resolve(__dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");
 
 /** Keep a failed agent's own stderr beside its result.md, at
@@ -549,7 +543,7 @@ function persistAgentStderr(resultPath: string, stderr: string): void {
 
 /** agent — spawns an EXTERNAL agent process per worker argv-style
  *  (shell:false), or POSTs the manifest to a configured HTTP agent
- *  endpoint. Byte-exact port of the old build's execution-backend module. */
+ *  endpoint. */
 export function runAgentProcess(
   descriptor: BackendDescriptor,
   policy: ResolvedSandboxPolicy,
@@ -600,10 +594,8 @@ export function runAgentProcess(
         })
       );
       // A timeout surfaces as child.error with code ETIMEDOUT (status null,
-      // signal set). Classify it FIRST: without this, the generic spawnError
-      // branch below reported "agent process failed to spawn: ...ETIMEDOUT"
-      // and the null-exit-code "timed out or killed" branch was dead code
-      // for real timeouts.
+      // signal set). Classify it FIRST, or the generic spawnError branch
+      // below would report it as "agent process failed to spawn".
       if (child.error && (child.error as NodeJS.ErrnoException).code === "ETIMEDOUT") {
         // spawnSync SIGKILLed the wrapper (uncatchable, so the wrapper could
         // not forward the stop to its vendor child). Reap the vendor a shipped
@@ -706,11 +698,10 @@ function settleEndpointResult(
 }
 
 /** Agent HTTP endpoint variant — POSTs the worker manifest/prompt to a
- *  configured agent endpoint via the shared Node delegate child. Byte-exact
- *  port of the old build's execution-backend module, plus a prepared-outcome branch:
- *  in a concurrent round the POST already ran in the batch child
- *  (runEndpointBatchOutcomes), so settle that pre-collected outcome instead of
- *  spawning again. The serial (no prepared outcome) path is unchanged. */
+ *  configured agent endpoint via the shared Node delegate child. In a
+ *  concurrent round the POST already ran in the batch child
+ *  (runEndpointBatchOutcomes), so settle that pre-collected outcome instead
+ *  of spawning again. */
 function runAgentEndpoint(
   descriptor: BackendDescriptor,
   policy: ResolvedSandboxPolicy,

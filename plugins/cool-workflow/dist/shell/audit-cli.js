@@ -1,11 +1,9 @@
 "use strict";
 // shell/audit-cli.ts — CLI/MCP-reachable body for `cw audit verify`.
 //
-// MILESTONE 8. Byte-exact port of the old build's capability-core module's
-// `auditVerify`. A run id with no run directory at all is a hard load
-// failure (loadRunFromCwd throws) — absence-is-ok only applies once a
-// run exists but never wrote a trust-audit chain file, not to a missing
-// run entirely.
+// A run id with no run directory at all is a hard load failure
+// (loadRunFromCwd throws) — absence-is-ok only applies once a run exists
+// but never wrote a trust-audit chain file, not to a missing run entirely.
 //
 // Evidence: SPEC/ledger-trust.md "CLI: `cw audit verify`".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -144,19 +142,16 @@ function auditRepairCli(runId, args) {
     const result = (0, trust_audit_1.repairTrustAuditTornTail)(run, { write, anchor });
     return { schemaVersion: 1, runId: run.id, write, ...result };
 }
-/** MILESTONE 11 (reporting/observability, workbench audit panel) —
- *  `cw audit summary`. This reads the same trust-audit summary function
- *  the report.md writer already builds, so panel data can never drift
- *  from the standalone command's output. */
+/** `cw audit summary` (also the workbench audit panel). This reads the
+ *  same trust-audit summary function the report.md writer builds, so panel
+ *  data can never drift from the standalone command's output. */
 function auditSummaryCli(runId, args) {
     const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return (0, trust_audit_1.summarizeTrustAudit)(run, { persist: args.__cwWorkbenchReadOnlyProjection !== true });
 }
 // ---------------------------------------------------------------------------
-// The audit worker/provenance/attest/decision verbs the old
-// flat build had (cli/handlers/audit.ts + orchestrator/audit-operations.ts),
-// ported here as thin loadRun -> delegate wrappers over audit-provenance.ts +
-// trust-audit.ts primitives.
+// The audit worker/provenance/attest/decision verbs: thin loadRun ->
+// delegate wrappers over audit-provenance.ts + trust-audit.ts primitives.
 // ---------------------------------------------------------------------------
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : Array.isArray(value) && typeof value[0] === "string" ? value[0] : undefined;
@@ -166,7 +161,6 @@ function valuesOption(value) {
     const raw = value === undefined || value === null || value === true ? [] : Array.isArray(value) ? value : [value];
     return raw.map((entry) => String(entry).split("=")[0]).filter(Boolean);
 }
-/** Byte-exact port of the old build's inferAuditDecisionKind. */
 function inferAuditDecisionKind(options) {
     if (options.command)
         return "sandbox.command";
@@ -219,7 +213,7 @@ function auditAttestCli(runId, args) {
 /** `cw audit decision <run> <worker> --path|--command|--network|--env <t>`
  *  — validate a sandbox decision against the worker's policy, record it
  *  (fail-closed: a denied decision records a structured worker failure), and
- *  return the audit event. Byte-behavior port of the old recordAuditDecision. */
+ *  return the audit event. */
 function auditDecisionCli(runId, workerId, args) {
     // recordAuditDecision does a load -> mutate -> saveCheckpoint; hold the
     // state.json lock across the whole cycle so a concurrent run mutation

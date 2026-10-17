@@ -1,12 +1,10 @@
 // cli/entry.ts — the real entry point (`cw` / `cool-workflow` binaries).
 //
-// Byte-exact port of the shape of src/cli.ts + the top-of-function part of
-// the old build's command-surface module's `runCli`: top-level flag
-// redirects, then dispatch (see cli/dispatch.ts), then the top-level
-// catch that turns any thrown error into the fixed `cw: <message>` /
-// `  Try: <hint>` stderr shape.
+// The top-level flag redirects, then dispatch (see cli/dispatch.ts), then
+// the top-level catch that turns any thrown error into the fixed `cw:
+// <message>` / `  Try: <hint>` stderr shape.
 //
-// Color: MILESTONE 11 (reporting/observability) wires shell/term.ts's
+// Color: this wires shell/term.ts's
 // color primitives here — the "Cool Workflow" help header is bolded and
 // the error path is styled (bold "cw:", red message, dim "Try:"), TTY/
 // env-gated exactly as SPEC/reporting-ux.md's "Color rule" describes.
@@ -24,18 +22,15 @@ import { bold, dim, red } from "../shell/term";
 import { styledHelp } from "./io";
 import { recoveryHint } from "../core/format/recovery-hint";
 
-// recoveryHint now lives in core/format/recovery-hint.ts (a core/-layer
-// file, so mcp/server.ts can use it too without crossing the mcp/-may-
-// never-import-cli/ layer rule). Re-exported here so every existing
-// importer of `recoveryHint` from this file keeps working unchanged.
+// recoveryHint lives in core/format/recovery-hint.ts (so mcp/server.ts
+// can use it without crossing the mcp/-may-never-import-cli/ layer rule);
+// re-exported here for importers of `recoveryHint` from this file.
 export { recoveryHint } from "../core/format/recovery-hint";
 
-/** MILESTONE 2: `version` is now a pure projection of the capability
- *  table's `version` row — there is exactly one place its print text
- *  lives (core/capability-table.ts's cli handler), not a second
- *  hard-coded copy here. `help` has no row of its own (it is cli/
- *  entry.ts's own top-level redirect, same as milestone 1); its text
- *  comes from core/format/help.ts either way. */
+/** `version` is a pure projection of the capability table's `version`
+ *  row — its print text lives in one place (the cli handler), not a second
+ *  hard-coded copy here. `help` has no row of its own (it is this file's
+ *  own top-level redirect); its text comes from core/format/help.ts. */
 function printVersion(): void {
   const row = findCapability("version");
   // `version`'s own handler is a pure, synchronous projection (never one of

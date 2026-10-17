@@ -2,12 +2,10 @@
 // shell/worker-isolation.ts — worker scope allocation, recordWorkerOutput's
 // accept pipeline.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// worker-isolation module's real-execution-path (allocateWorkerScope,
-// writeWorkerManifest, recordWorkerOutput, recordWorkerFailure,
-// recordWorkerRetryAttempt, the worker index). The accept-path ORDER
-// matches the old build: validate -> attest delegation -> accept ->
-// verify -> completion.
+// allocateWorkerScope, writeWorkerManifest, recordWorkerOutput,
+// recordWorkerFailure, recordWorkerRetryAttempt, the worker index. The
+// accept-path ORDER: validate -> attest delegation -> accept -> verify ->
+// completion.
 //
 // Evidence: SPEC/pipeline-run.md's worker-isolation references;
 // exechard-evidence-triple-hygiene.case.js, exechard-model-attestation-
@@ -87,8 +85,7 @@ function workerRoot(run) {
 }
 /** Record a resolved sandbox policy into run.sandboxProfiles (upsert by id) so
  *  the run state carries every profile a worker ran under — reports and
- *  operators read it. Byte-exact to the old sandbox-profile.ts helper v2
- *  dropped. */
+ *  operators read it. */
 function upsertRunSandboxProfile(run, policy) {
     const profiles = run.sandboxProfiles || [];
     const index = profiles.findIndex((candidate) => candidate.id === policy.id);
@@ -106,8 +103,7 @@ function scopePath(scope) {
     return path.join(scope.workerDir, "worker.json");
 }
 /** Deterministic worker id: the task plus a PER-TASK sequence (count of
- *  worker scopes already allocated for THIS task + 1) — byte-exact port
- *  of the old build's worker-isolation paths module. Re-running the
+ *  worker scopes already allocated for THIS task + 1). Re-running the
  *  same workflow yields byte-identical worker ids while retries of the
  *  SAME task still get a fresh, unique id (workerId is excluded from the
  *  snapshot source fingerprint, so this does not change replay digests). */
@@ -148,8 +144,7 @@ function getWorkerScope(run, workerId) {
 }
 /** Load every worker.json under the run's workers dir, skipping (with a
  *  stderr diagnostic) any one that is corrupt/partially-written so a single
- *  bad file cannot blank the whole listing. Byte-exact to the old build's
- *  loadWorkerScopesFromDisk. */
+ *  bad file cannot blank the whole listing. */
 function loadWorkerScopesFromDisk(run) {
     const root = workerRoot(run);
     if (!fs.existsSync(root))
@@ -512,13 +507,9 @@ function requireWorkerTask(run, scope) {
         throw new Error(`Unknown task for worker ${scope.id}: ${scope.taskId}`);
     return task;
 }
-/** recordWorkerOutput — the accept-path orchestrator. Order: validate ->
- *  attest delegation -> accept -> verify -> completion (byte-exact to the
- *  old build; multi-agent fan-out is a no-op here). */
 /** Record the worker.sandbox-boundary trust-audit event: a successful write-path
  *  check documents transparently what CW enforced (write paths) vs what is
- *  delegated to the host (execute/network/env). Byte-exact to the old build's
- *  event emitted inside validateWorkerBoundary. */
+ *  delegated to the host (execute/network/env). */
 function recordSandboxBoundaryEvent(run, scope) {
     const policy = scope.sandboxPolicy;
     (0, trust_audit_1.recordTrustAuditEvent)(run, {
@@ -673,12 +664,9 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     // REJECTED here — BEFORE any accept-side state mutation — so the drive
     // parks it instead of recording unverifiable usage. This fires on BOTH
     // shapes: a delegation present but not attested (telemetry.status !==
-    // "attested"), and NO delegation metadata at all. The second shape is
-    // the gap a manual `cw worker output` / `cw result` accept used to slip
-    // through silently: options.agentDelegation was simply absent, so
-    // `telemetry` was undefined and the old `telemetry &&` condition
-    // short-circuited false — an unattested result could be laundered
-    // through the manual accept path even with the require flag on.
+    // "attested"), and NO delegation metadata at all — a manual `cw worker
+    // output` / `cw result` accept has no options.agentDelegation, and must
+    // not launder an unattested result past the require flag.
     // --allow-unattested is the operator's explicit way past this: it never
     // skips the gate silently, it records a telemetry.gate-override event.
     if (options.requireAttestedTelemetry && (!telemetry || telemetry.status !== "attested")) {
@@ -851,8 +839,7 @@ function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     // Track 1: the attestation verdict (`attested`/`unattested`/`absent`) and its
     // reason ride along, and the token buckets come from normalizeReportedUsage
     // (tolerates snake_case/camelCase) — CW still never measures usage, it only
-    // records + labels what the agent self-reported. Byte-exact to the old
-    // build's worker-accept verifier-completion module.
+    // records + labels what the agent self-reported.
     const usageRecord = agentDelegationMeta && (reportedModel || agentDelegationMeta.reportedUsage)
         ? {
             schemaVersion: 1,
@@ -917,8 +904,7 @@ function recordWorkerFailure(run, workerId, error, options = {}) {
         fs.writeFileSync(scope.inputPath, notice + fs.readFileSync(scope.inputPath, "utf8"), "utf8");
     }
     // Record the failure as append-only operator feedback so worker.feedbackIds
-    // and run.feedback carry it (its absence cascaded: failed workers left no
-    // feedback trail). Byte-exact to the old build.
+    // and run.feedback carry it (failed workers must leave a feedback trail).
     const feedback = (0, error_feedback_io_1.recordFeedback)(run, {
         source: "pipeline-runner",
         error: structured,
@@ -938,11 +924,10 @@ function recordWorkerFailure(run, workerId, error, options = {}) {
         feedbackIds: [...new Set([...(scope.feedbackIds || []), feedback.id])],
         errors: [...(scope.errors || []), structured],
     });
-    // Byte-exact to the old build's updateWorkerScope: worker.json (scope)
-    // AND manifest.json must both reflect the terminal park state — a bare
-    // upsertWorkerScope only rewrites worker.json, leaving manifest.json
-    // (what `cw worker manifest`/`cw worker show` and operators read)
-    // stale at whatever retryCount/status it had at dispatch time.
+    // worker.json (scope) AND manifest.json must both reflect the terminal
+    // park state — a bare upsertWorkerScope only rewrites worker.json, leaving
+    // manifest.json (what `cw worker manifest`/`cw worker show` and operators
+    // read) stale at whatever retryCount/status it had at dispatch time.
     writeWorkerManifest(run, updated);
     writeWorkerIndex(run);
     if (options.persist !== false)
@@ -990,7 +975,7 @@ function showWorkerManifest(run, workerId) {
     const task = run.tasks.find((t) => t.id === scope.taskId);
     return { resultPath: scope.resultPath, inputPath: scope.inputPath, manifestPath: manifestPath(scope), workerDir: scope.workerDir, prompt: task?.prompt, sandboxPolicy: scope.sandboxPolicy };
 }
-/** MILESTONE 11 (reporting/observability) — `cw worker list [--status]`. */
+/** `cw worker list [--status]`. */
 function listWorkerScopes(run, options = {}) {
     ensureWorkerState(run);
     // Reload from disk and merge so a listing reflects the durable truth (and a
@@ -1030,8 +1015,7 @@ function formatCountBucket(counts) {
         return "none";
     return entries.map(([k, v]) => `${k}=${v}`).join(", ");
 }
-/** `cw worker summary <run-id>` human text — port of the old build's
- *  formatWorkerPanel (operator-ux/format.ts): a `Workers` rollup with
+/** `cw worker summary <run-id>` human text: a `Workers` rollup with
  *  status/sandbox/backend counts and one line per worker naming its
  *  sandbox profile and manifest path. */
 function formatWorkerSummaryText(run) {

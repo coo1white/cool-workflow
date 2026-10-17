@@ -1,10 +1,9 @@
 // shell/verifier.ts — taskRequiresEvidence, the small task-level gate the
 // worker-accept path and the commit gate both consult.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// verifier module's `taskRequiresEvidence`. Pure logic; kept under
-// shell/ only because its caller (worker-isolation.ts) is shell-side —
-// the function itself takes no fs/clock/random input.
+// Pure logic; kept under shell/ only because its caller
+// (worker-isolation.ts) is shell-side — the function itself takes no
+// fs/clock/random input.
 //
 // Evidence: SPEC/pipeline-run.md "Commit gate" (verifierNodeRequiresEvidence
 // reuses this exact predicate).
@@ -31,7 +30,7 @@ function validateFinding(task: RunTask, finding: Finding): void {
 /** Validate an accepted result envelope against the task's declared contract:
  *  required grounded evidence, per-finding shape, and (opt-in) the task's
  *  declared output schema. Throws on violation (fail-closed — the drive parks
- *  the hop). Byte-behavior port of the old build's verifier module. */
+ *  the hop). */
 export function validateResultEnvelope(task: RunTask, result: ResultEnvelope): void {
   if (taskRequiresEvidence(task) && !hasGroundedEvidence(result.evidence)) {
     throw new Error(`Task ${task.id} requires grounded cw:result evidence (a path-like locator, URL, or namespace:value token — not free text)`);

@@ -1,9 +1,7 @@
 "use strict";
-// wiring/capability-table/reporting.ts — MILESTONE 11 (reporting,
+// wiring/capability-table/reporting.ts — CLI bindings for reporting,
 // observability, doctor/fix, workbench, run summary/status/operator,
-// worker.*, feedback.*, audit.*) CLI bindings. Split out of
-// core/capability-table.ts, byte-for-byte (extracted with sed, not
-// retyped).
+// worker.*, feedback.*, audit.*.
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
     var desc = Object.getOwnPropertyDescriptor(m, k);
@@ -47,8 +45,7 @@ const recovery_hint_1 = require("../../core/format/recovery-hint");
 function loadRunStore() {
     return require("../../shell/run-store");
 }
-// MILESTONE 11 (reporting, observability, doctor/fix, workbench, run
-// export/bundle) CLI bindings: report, status (real run id), graph,
+// Reporting CLI bindings: report, status (real run id), graph,
 // operator.status|report|graph. Handler bodies live in shell/report-
 // view-cli.ts (impure — they load run state and, for `report`/`operator
 // report`, re-write report.md); this table only wires argv shape ->
@@ -84,17 +81,16 @@ function loadOperatorUxText() {
     },
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("report").mcp.handler = (args) => loadReportViewCli().reportMcp((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-// `status` already carries a milestone-2 CLI binding (`attachCliBinding("status", ...)`
+// `status` already carries a CLI binding (`attachCliBinding("status", ...)`
 // above); replace its handler here with the real run-id-aware body while
-// keeping the same row/path (no reshape needed — see byte-compat item 5).
+// keeping the same row/path (see byte-compat item 5).
 registry_core_1.REGISTRY_BY_CAPABILITY.get("status").cli = {
     path: ["status"],
     jsonMode: "flag",
     handler: (args) => {
         // `cw status <id>` (positional) and `cw status --run <id>` must both
-        // resolve the same run — the flag form used to be silently ignored
-        // (positionals[0] only), so a bogus id given via --run and a real one
-        // looked identical ("No run selected" for both).
+        // resolve the same run, so a bogus id given via --run is never mistaken
+        // for "No run selected".
         const runId = (0, cli_args_1.optionalArg)(args.positionals[0]) || (0, cli_args_1.optionalArg)(args.options.run) || (0, cli_args_1.optionalArg)(args.options.runId);
         if (!runId)
             return { json: { runId: null, nextActions: (0, recovery_hint_1.adviseNoRun)() }, text: `No run selected\n\nNext Action\n${adviseNoRunLines()}` };
@@ -187,7 +183,7 @@ function invocationCwdFor(args) {
     return typeof args.cwd === "string" && args.cwd.trim() ? workerPath.resolve(args.cwd) : process.cwd();
 }
 // jsonMode "flag": human `Workers` panel by default, canonical JSON under
-// --json (old build's worker.summary was flag, cli/handlers/worker.ts).
+// --json.
 (0, registry_core_1.attachCliBinding)("worker.summary", {
     path: ["worker", "summary"],
     jsonMode: "flag",
@@ -198,9 +194,7 @@ function invocationCwdFor(args) {
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.summary").mcp.handler = (args) => workerSummaryCli(args);
 // ---- worker list|show|manifest|output|fail|validate (CLI + MCP) ----------
-// Each worker lifecycle verb over a run. The old build routed all of these
-// via its worker handler module; v2 shipped only worker.summary bound, so the
-// rest fell through to the worker.usage error. positionals: [runId, workerId,
+// Each worker lifecycle verb over a run. positionals: [runId, workerId,
 // resultFile].
 function loadWorkerCli() {
     return require("../../shell/worker-cli");
@@ -245,14 +239,12 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.fail").mcp.handler = (args) =
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("worker.validate").mcp.handler = (args) => loadWorkerCli().workerValidateCli(args).violation;
 // ---- feedback list|show|summary|collect|task|resolve (CLI + MCP) ---------
-// The operator feedback lifecycle. MCP rows were declared but stubbed
-// (notYetImplemented) and no CLI verb was bound; the old build routed all of
-// these. positionals: [runId, feedbackId].
+// The operator feedback lifecycle. positionals: [runId, feedbackId].
 function loadFeedbackCli() {
     return require("../../shell/feedback-cli");
 }
 // jsonMode "flag": human `Feedback` panel by default, canonical JSON under
-// --json (old build's feedback.summary was flag).
+// --json.
 (0, registry_core_1.attachCliBinding)("feedback.summary", {
     path: ["feedback", "summary"],
     jsonMode: "flag",
@@ -324,13 +316,11 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("workbench.view").mcp.handler = (args
         if (args.options.once || (0, cli_args_1.wantsJson)(args.options)) {
             return { json: host.descriptor(true) };
         }
-        // The default (no --once, no --json) actually binds and blocks — this
-        // returns a promise the generic dispatcher does not await today, so
-        // instead we run it directly here and never return (matching the old
-        // build's own blocking `serve` behavior). See cli/dispatch.ts's
-        // renderCliResult: it is synchronous, so a genuinely blocking serve
-        // must perform its own stdout write and keep the event loop alive
-        // rather than returning a CliHandlerResult at all.
+        // The default (no --once, no --json) actually binds and blocks: the
+        // host is started here and the handler never returns. See
+        // cli/dispatch.ts's renderCliResult: it is synchronous, so a genuinely
+        // blocking serve must perform its own stdout write and keep the event
+        // loop alive rather than returning a CliHandlerResult at all.
         // run() already fails closed internally (a `cw:` line + exit 1) for the
         // known bind failures; this .catch is a backstop so any future throw
         // path can never surface as an unhandled-rejection stack dump.
@@ -367,10 +357,8 @@ function loadAuditCli() {
     handler: (args) => ({ json: loadAuditCli().auditSummaryCli((0, cli_args_1.required)(args.positionals[0], "run id"), args.options) }),
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("audit.summary").mcp.handler = (args) => loadAuditCli().auditSummaryCli((0, cli_args_1.required)((0, cli_args_1.optionalArg)(args.runId), "run id"), args);
-// GAP: `cw audit worker|provenance|attest|decision` — the MCP tool rows
-// (cw_audit_worker/provenance/attest/decision) were declared but had no CLI
-// path binding and their mcp.handler was still notYetImplemented. Wire both
-// surfaces (port of the old cli/handlers/audit.ts arms). `audit worker`/
+// `cw audit worker|provenance|attest|decision` — CLI path bindings and the
+// cw_audit_worker/provenance/attest/decision MCP handlers. `audit worker`/
 // `decision` read positionals[1] as the entity id.
 (0, registry_core_1.attachCliBinding)("audit.worker", {
     path: ["audit", "worker"],

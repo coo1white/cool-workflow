@@ -2,7 +2,6 @@
 // core/state/migrations.ts — RUN_STATE_MIGRATIONS, findMigrationPath (BFS),
 // migrateRunState, reverseRunState, normalizeRunState.
 //
-// MILESTONE 3. Byte-exact port of the old build's state-migrations module.
 // Pure: no fs, no clock reads except `new Date(0)` (a fixed epoch
 // constant, not a real clock read) — statePath-derived `runDir`/`cwd`
 // defaults are path math over a string the caller already has, never a

@@ -2,10 +2,9 @@
 // shell/observability.ts — DERIVED metrics, ATTESTED cost. `cw metrics
 // show`/`cw metrics summary`.
 //
-// MILESTONE 11 (reporting/observability). Byte-exact port of the old
-// build's observability module — every number here is a PROJECTION of one
-// run's durable state.json (timestamps -> durations, verifier nodes ->
-// pass rate, candidates -> acceptance rate, failed workers/feedback ->
+// Every number here is a PROJECTION of one run's durable state.json
+// (timestamps -> durations, verifier nodes -> pass rate, candidates ->
+// acceptance rate, failed workers/feedback ->
 // failure rate). No metrics database, no collector daemon. Cost is
 // ATTESTED, never fabricated: absent usage is `unreported`, never 0; a
 // rate over zero samples is `n/a`, never 0%/100%.

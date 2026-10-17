@@ -2,9 +2,8 @@
 // core/hash.ts — THE one hash/stringify module.
 //
 // Pure. No fs, no child_process, no net, no process.env, no Date.now(), no
-// Math.random(). Every input the old build fed these functions (a run id, a
-// content object, a list of strings) still comes in as a plain function
-// argument here.
+// Math.random(). Every input (a run id, a content object, a list of
+// strings) comes in as a plain function argument.
 //
 // Per project/docs/rebuild/PLAN.md's byte-compat section ("Hash dedup — three shapes, not one
 // edge case"), this file must keep THREE things separate, each with its own
@@ -97,9 +96,8 @@ function stableStringify(value) {
  *  casing of a top-level `undefined`. A top-level `undefined` is not a real
  *  call site here in practice, but this must not be assumed to behave like
  *  `telemetryStableStringify` below. Byte-identical to `stableStringify`;
- *  kept as its own named export because the old build kept a private copy
- *  in ledger.ts with this exact (non-)behavior, and the plan requires each
- *  divergent behavior to stay separately named and separately tested. */
+ *  kept as its own named export because each divergent behavior stays
+ *  separately named and separately tested. */
 function ledgerStableStringify(value) {
     return stableStringify(value);
 }

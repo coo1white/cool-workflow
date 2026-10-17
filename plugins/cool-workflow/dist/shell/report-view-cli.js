@@ -2,10 +2,9 @@
 // shell/report-view-cli.ts — CLI/MCP-facing entry points for `cw report
 // <run-id>`, `cw status`, `cw graph`, `cw operator status|report|graph`.
 //
-// MILESTONE 11 (reporting/observability). Wires shell/operator-ux.ts +
-// shell/report.ts + shell/operator-ux-text.ts into the shapes
-// core/capability-table.ts's CLI/MCP bindings call, matching shell/
-// pipeline-cli.ts's pattern.
+// Wires shell/operator-ux.ts + shell/report.ts + shell/operator-ux-text.ts
+// into the shapes core/capability-table.ts's CLI/MCP bindings call,
+// matching shell/pipeline-cli.ts's pattern.
 //
 // Evidence: SPEC/reporting-ux.md "CLI commands" (`cw report`, `cw
 // status`, `cw operator status|report`, `cw graph`).
@@ -155,7 +154,7 @@ function operatorStatusCli(runId, args) {
     return (0, operator_ux_1.summarizeOperatorRun)(run);
 }
 /** `cw operator report <id> [--json]` — also re-writes report.md as a
- *  side effect (byte-exact to the old build's operator report verb). */
+ *  side effect. */
 function operatorReportCli(runId, args) {
     const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     (0, report_1.writeReport)(run);

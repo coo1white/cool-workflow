@@ -3,9 +3,9 @@
 // unknown-flag warning for capability rows that declare `flagsComplete`
 // (core/capability-data.ts's CliBinding).
 //
-// WHY: an unknown flag used to be dropped without a sound — `cw doctor
-// --jsno` ran fine, printed the human report, and exited 0, so a typo of
-// `--json` was easy to miss. A full allowlist check for EVERY command is
+// WHY: unchecked, an unknown flag is dropped without a sound — `cw doctor
+// --jsno` runs fine, prints the human report, and exits 0, so a typo of
+// `--json` is easy to miss. A full allowlist check for EVERY command is
 // not safe (a missed name means a FALSE warning, and many scripted and
 // conformance callers assert stderr === ""), so the design here is
 // incremental and fail-open:

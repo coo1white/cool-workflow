@@ -2,14 +2,10 @@
 // shell/operator-ux.ts — the operator console surface: `cw status`,
 // `cw graph`, `cw operator status|report|graph`.
 //
-// MILESTONE 11 (reporting/observability). A scoped-but-real port of the
-// old build's operator-ux module + orchestrator report module's
-// `summarizeRun`: every summary here reads real run state through the
-// same summarizers report.ts and the trust shell module already use (no
-// duplicate logic, no fabricated fields): workers/feedback/commits/trust/
-// nextActions on `operator status`, and the deterministic run graph. The
-// candidate, multi-agent, blackboard and topology parts went with that
-// family (slim-and-esm step 2).
+// Every summary here reads real run state through the same summarizers
+// report.ts and the trust shell module already use (no duplicate logic,
+// no fabricated fields): workers/feedback/commits/trust/nextActions on
+// `operator status`, and the deterministic run graph.
 //
 // Evidence: SPEC/reporting-ux.md "Operator UX human text", "Exit codes".
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -67,8 +63,8 @@ function summarizeWorkersCounts(run) {
     const workers = run.workers || [];
     return { total: workers.length, byStatus: countBy(workers, (w) => w.status) };
 }
-/** `summarizeRun` — byte-exact port of the old build's report module.
- *  Used by `cw status <id> --json` and `cw report <id>`'s internals. */
+/** `summarizeRun` — used by `cw status <id> --json` and `cw report
+ *  <id>`'s internals. */
 function summarizeRun(run) {
     (0, dispatch_1.updatePhaseStatuses)(run);
     const workerSummary = summarizeWorkersCounts(run);
@@ -146,8 +142,7 @@ function summarizeOperatorWorkers(run) {
         workers: workers.map((w) => ({ id: w.id, taskId: w.taskId, status: w.status, manifestPath: w.workerDir, resultPath: w.resultPath })),
     };
 }
-/** Next-action advice — port of the old build's adviseNextSteps
- *  (operator-ux module): a single ordered chain of guard arms (open
+/** Next-action advice: a single ordered chain of guard arms (open
  *  feedback -> failed worker -> running tasks -> pending tasks -> fallback
  *  `report --show`), each returning as soon as it fires so the operator
  *  sees the ONE next step the run is waiting on. */
@@ -223,8 +218,7 @@ function summarizeOperatorRun(run) {
 function workerManifestPath(worker) {
     return path.join(worker.workerDir, "manifest.json");
 }
-/** `cw graph <id>` — a scoped-but-real port of the old build's
- *  buildOperatorGraph. Nodes/edges sort deterministically (kind then id
+/** `cw graph <id>`. Nodes/edges sort deterministically (kind then id
  *  for nodes; from/to/label for edges, de-duplicated), per SPEC/
  *  reporting-ux.md invariant 12. */
 function buildOperatorGraph(run) {

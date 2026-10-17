@@ -1,12 +1,10 @@
 // core/format/recovery-hint.ts — recoveryHint, a pure content-based lookup
 // from a thrown error's message to ONE copy-pasteable follow-up command.
 //
-// src/cli.ts in the old build. Moved here (out of cli/entry.ts) so
-// mcp/server.ts can use the same lookup for its own error text without
-// crossing the mcp/-may-never-import-cli/ layer rule that
-// scripts/purity-gate.js enforces — core/ may be read by both cli/ and
-// mcp/. cli/entry.ts now just re-exports this function; its own call
-// site and behavior are unchanged.
+// It lives in core/ so mcp/server.ts can use the same lookup for its own
+// error text without crossing the mcp/-may-never-import-cli/ layer rule
+// that scripts/purity-gate.js enforces — core/ may be read by both cli/
+// and mcp/. cli/entry.ts re-exports this function.
 //
 // Content-based (reads the message text, not the call site), so it stays
 // correct no matter which command or tool threw. Returns `undefined`

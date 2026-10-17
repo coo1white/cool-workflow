@@ -3,8 +3,7 @@
 // resolution, absent-vs-corrupt load, durable append. The pure verify
 // math lives in core/trust/telemetry-ledger.ts.
 //
-// MILESTONE 8. Byte-exact port of the old build's telemetry-ledger module
-// IO-touching half. CRITICAL invariant (project/docs/rebuild/PLAN.md byte-compat item 12):
+// CRITICAL invariant (project/docs/rebuild/PLAN.md byte-compat item 12):
 // an ABSENT telemetry.json is an empty, clean-verifying chain
 // (`present:false`); a PRESENT but unparseable one is CORRUPT — reads
 // report `telemetry-ledger-corrupt`, and append THROWS

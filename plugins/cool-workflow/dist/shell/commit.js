@@ -2,8 +2,7 @@
 // shell/commit.ts — commitState: the imperative wrapper around
 // core/pipeline/commit-gate.ts's pure gate resolution.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// commit module's IO half (snapshot write, git-head read, the commit
+// The IO half of the commit (snapshot write, git-head read, the commit
 // node's disk write via the pipeline runner).
 //
 // Evidence: SPEC/pipeline-run.md "Commit gate — commit module".
@@ -209,12 +208,10 @@ function commitState(run, input, behavior = {}) {
     // NOT prematurely move the run off "interpret".
     if (gate.verifierGated)
         run.loopStage = "checkpoint";
-    // Only store the commit's own (small, bounded) record. The whole run
-    // (all tasks, nodes, workers, feedback, and run.commits itself) used to
-    // be embedded here too, but no reader anywhere ever parses a `run` key
-    // back out of a commits/<id>.json file — see docs/run-retention-reclamation.7.md.
-    // Embedding the growing run made total commit-dir bytes grow like N^2
-    // in the number of commits.
+    // Only store the commit's own (small, bounded) record: no reader parses
+    // a `run` key back out of a commits/<id>.json file (see
+    // docs/run-retention-reclamation.7.md), and embedding the growing run
+    // would make total commit-dir bytes grow like N^2 in the number of commits.
     (0, fs_atomic_1.writeJson)(snapshotPath, { commit });
     run.commits.push(commit);
     return commit;
@@ -285,9 +282,8 @@ function recordCommitGateFailure(run, options, gate) {
     if (gate.verifierNodeId)
         linkAdditionalParent(run, gate.verifierNodeId, persisted.id);
     // Record the block as append-only operator feedback so the codes
-    // (commit-verifier-not-found / missing-evidence / …) are not lost — the
-    // old build did this and the commit gate's failure must surface visibly,
-    // not silently.
+    // (commit-verifier-not-found / missing-evidence / …) are not lost: the
+    // commit gate's failure must surface visibly, not silently.
     const feedback = (0, error_feedback_io_1.recordFeedback)(run, {
         source: options.source === "cli" ? "cli" : "verifier",
         error: first,

@@ -1,9 +1,8 @@
 // core/pipeline/commit-gate.ts — commitState's gate resolution + the
 // ~25 error codes.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the DECISION half of the
-// old build's commit module (calls into core/state/state-node.ts's
-// transition matrix + commit-without-verifier gate from milestone 3). The
+// The DECISION half of the commit gate (calls into core/state/
+// state-node.ts's transition matrix + commit-without-verifier gate). The
 // actual snapshot/audit writes are shell/drive.ts + shell/report.ts.
 //
 // Evidence: SPEC/pipeline-run.md "Commit gate — commit module",
@@ -89,8 +88,7 @@ export interface ResolveCommitGateDeps {
 
 /** commitState's gate resolution. Pure decision function; the caller
  *  (shell/) performs the actual snapshot/audit writes on success and the
- *  error-node/feedback write on failure. Error order matches the old
- *  build byte-for-byte. */
+ *  error-node/feedback write on failure. Error order is pinned. */
 export function resolveCommitGate(run: WorkflowRun, options: CommitStateOptions, deps: ResolveCommitGateDeps): CommitGateResolution {
   const metadata: Record<string, unknown> = { verifierGated: false, checkpoint: true };
   const errors: StateNodeError[] = [];

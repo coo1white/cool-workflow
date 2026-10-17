@@ -1,12 +1,10 @@
 // core/pipeline/loop-expansion.ts — predicate registry, maxLoopExpansion,
 // maybeExpandLoop's decision half (round clone, stop reasons).
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// loop-expansion module (predicate registry + maxLoopExpansion are
-// already pure there) plus the DECISION half of
-// orchestrator lifecycle-operations module's maybeExpandLoop (materializing
-// the cloned phase/tasks + loop-control node is the caller's job in
-// shell/, since it needs writeTaskFiles + the plan pipeline stage).
+// The predicate registry + maxLoopExpansion, plus the DECISION half of
+// maybeExpandLoop (materializing the cloned phase/tasks + loop-control
+// node is the caller's job in shell/, since it needs writeTaskFiles + the
+// plan pipeline stage).
 //
 // Evidence: SPEC/pipeline-run.md "loop() expansion — src/loop-
 // expansion.ts + maybeExpandLoop".
@@ -107,8 +105,7 @@ export function evaluateLoopStop(
  *  plan pipeline stage per new task. */
 export function cloneLoopRoundTasks(origin: RunPhase, templateTasks: RunTask[], nextRound: number): { phase: RunPhase; tasks: RunTask[] } {
   // Round-suffix strips any prior @rN so round 3 clones round 1's base id,
-  // never round 2's suffixed id — byte-exact to the old build's
-  // `t.id.replace(/@r\d+$/, "")` in maybeExpandLoop.
+  // never round 2's suffixed id.
   const suffix = `@r${nextRound}`;
   const nextPhaseName = `${origin.name} (round ${nextRound})`;
   const tasks = templateTasks.map((task) => ({

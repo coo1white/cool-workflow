@@ -1,18 +1,15 @@
 // shell/run-registry-io.ts — the on-disk run registry: index/queue/history
 // persistence, lifecycle derivation, search/resume/archive/rerun.
 //
-// MILESTONE 10 (project/docs/rebuild/PLAN.md build order, step 10). Byte-exact port of the
-// old build's run-registry module and its derive/policy/queue helper
-// modules. The registry is a DERIVED, rebuildable index over each repo's
+// The registry is a DERIVED, rebuildable index over each repo's
 // `.cw/runs/<id>/state.json` (the single source of truth, never mutated
 // here except via `archive`/`rerun`'s overlay files). Every read
 // re-derives from source; the persisted index.json is only ever compared,
-// never trusted (fail-OPEN on a corrupt index.json — see the file header
-// note in SPEC/scheduling-registry.md's "Rebuild risks" #1).
+// never trusted (fail-OPEN on a corrupt index.json — see
+// SPEC/scheduling-registry.md's "Rebuild risks" #1).
 //
 // Evidence: SPEC/scheduling-registry.md sections C, D (partial: policy
-// constant), H; the old build's run-registry module and its
-// derive/policy/queue helper modules (byte-exact source).
+// constant), H.
 
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -23,7 +20,7 @@ import { fingerprintStrings } from "../core/hash";
 import { LoopStage, RunLinkAnnotation, WorkflowRun } from "../core/state/types";
 
 // ---------------------------------------------------------------------------
-// Shared types (byte-exact port of run-registry types module)
+// Shared types
 // ---------------------------------------------------------------------------
 
 export type RunLifecycleState = "queued" | "running" | "blocked" | "completed" | "failed" | "archived" | "reclaimed";
@@ -307,13 +304,10 @@ export interface ReclaimedOverlayLite {
 }
 
 // ---------------------------------------------------------------------------
-// Pure helpers (byte-exact port of run-registry derive module)
+// Pure helpers
 // ---------------------------------------------------------------------------
 
-/** Simple byte (UTF-16 code-unit) comparator — matches compare module's
- *  `compareBytes` used throughout the old build's registry/reclamation
- *  code. Kept as a small local copy (same pattern as core/multi-agent's
- *  own local copies) rather than a new shared module. */
+/** Simple byte (UTF-16 code-unit) comparator. */
 export function compareBytes(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;
 }
@@ -489,7 +483,7 @@ function fingerprintRun(run: WorkflowRun): string {
 }
 
 // ---------------------------------------------------------------------------
-// Lifecycle classification (pure; byte-exact port of deriveLifecycle)
+// Lifecycle classification (pure)
 // ---------------------------------------------------------------------------
 
 interface LifecycleInputs {
@@ -665,12 +659,10 @@ export class RunRegistry {
     const file = this.queueFilePath();
     if (!fs.existsSync(file)) return [];
     // queue.json is durable state and fails CLOSED (the conformance rule in
-    // sched-corrupt-fail-closed.case.js). Before this check, a file with
-    // good JSON but a bad shape (entries not an array) read as an empty
-    // queue — and the next queueAdd would then write a fresh file over the
-    // broken one, losing what it held. Same class of fault as the
-    // reclaimed.json fix (feeb1b15): never write over bytes we could not
-    // read.
+    // sched-corrupt-fail-closed.case.js): a file with good JSON but a bad
+    // shape (entries not an array) must not read as an empty queue, or the
+    // next queueAdd would write a fresh file over the broken one, losing
+    // what it held. Never write over bytes we could not read.
     const parsed = readJson(file);
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       throw new Error(

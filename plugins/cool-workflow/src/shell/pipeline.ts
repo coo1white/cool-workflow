@@ -1,12 +1,6 @@
 // shell/pipeline.ts — plan(): the run-lifecycle operation that turns a
 // loaded workflow app + inputs into a full WorkflowRun on disk.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// orchestrator lifecycle-operations module's `plan` function (the
-// multi-agent/topology/blackboard ensure calls are milestone 9's scope
-// and are no-ops here — no case in this milestone's gate reads those
-// fields).
-//
 // Evidence: SPEC/pipeline-run.md's plan() references.
 
 import * as crypto from "node:crypto";
@@ -70,7 +64,6 @@ function flattenTasks(app: LoadedWorkflowApp, inputs: Record<string, unknown>): 
         // Per-phase result-cache policy the drive READS (drive.ts resultCachePath).
         // Carries mode/keyInput and any includeCompletedResults sub-field through,
         // so warm re-runs hit .cw/cache/worker-results instead of re-spawning.
-        // Byte-exact to the old build's flattenTasks (lifecycle-operations.ts).
         ...(task.resultCache ? { resultCache: task.resultCache } : {}),
         // Sub-workflow delegation spec the drive READS (drive.ts's runSubWorkflow
         // branch reads selected.subWorkflow). Without this the delegate task falls

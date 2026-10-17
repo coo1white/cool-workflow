@@ -360,6 +360,14 @@ Found in step 2:
   files are the pinned capture of the old build and keep their D1 rows
   as that record.
 
+Found in step 3:
+
+- The program budget took about 1,750 src lines from step 3. On the
+  smaller tree the comment part gave 698 (src 36,053 to 35,355), as
+  step 2 had already taken most of the history comments with the files
+  they were in. The numbers and the reason are in
+  `2026-09-04-compress-src.md`, "What this spec got wrong".
+
 (the rest filled at close)
 
 ## Status ledger
@@ -368,9 +376,9 @@ Found in step 2:
 |---|---|---|
 | Intent + spec (this file) | open | |
 | D1-D6 answered | yes, all six (operator, 2026-09-28) | #751 |
-| 1 Release tooling off the family (D3) | open | |
-| 2 Delete the D1 family and cut its hooks | done on its branch, PR to come | |
-| 3 Comment and helper sweep (compress-src) | | |
+| 1 Release tooling off the family (D3) | done | #752 |
+| 2 Delete the D1 family and cut its hooks | done | #770 |
+| 3 Comment and helper sweep (compress-src) | comment part done on its branch, PR to come; helper part open | |
 | 4 Node floor (D4) | | |
 | 5 ESM src + dist | | |
 | 6 Scripts to .mjs | | |

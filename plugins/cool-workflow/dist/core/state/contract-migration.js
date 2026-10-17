@@ -1,12 +1,9 @@
 "use strict";
 // core/state/contract-migration.ts — declared migration registry + prover.
 //
-// MILESTONE 3. Byte-exact port of the old build's contract-migration module
-// (renamed target per project/docs/rebuild/PLAN.md's module layout note — listed there as
-// `pipeline/contract-migration.ts`, kept here under state/ since every
-// symbol it needs — RUN_STATE_MIGRATIONS, migrateRunState,
-// findMigrationPath — is this milestone's own state kernel and nothing in
-// `pipeline/` exists yet). Pure: proofs are sha256-fingerprinted; no
+// Kept under state/ (not pipeline/) since every symbol it needs —
+// RUN_STATE_MIGRATIONS, migrateRunState, findMigrationPath — is the state
+// kernel's own. Pure: proofs are sha256-fingerprinted; no
 // wall-clock in the payload.
 //
 // Evidence: SPEC/state-core.md "contract-migration module — declared

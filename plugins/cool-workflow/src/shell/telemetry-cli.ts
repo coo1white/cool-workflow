@@ -1,11 +1,8 @@
 // shell/telemetry-cli.ts — CLI/MCP-reachable body for `cw telemetry
 // verify`.
 //
-// MILESTONE 8. Byte-exact port of the old build's capability-core module's
-// `telemetryVerify` + cli maintenance-handler module's argv shape.
-//
 // Evidence: SPEC/ledger-trust.md "CLI: `cw telemetry verify`", "`cw
-// telemetry verify` JSON"; the old build's capability-core module.
+// telemetry verify` JSON".
 
 import { cwdArg } from "../core/util/cli-args";
 import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation";

@@ -1,8 +1,7 @@
 // core/pipeline/runner.ts — findRunnablePipelineStages, runPipelineStage
 // (pure transform), advancePipeline, failPipelineStage.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// pipeline-runner module, split so this file stays PURE (no fs — actual
+// This file stays PURE (no fs — actual
 // disk writes are the caller's `persist` callback, threaded through from
 // shell/). The real per-stage disk write (node file + checkpoint) is
 // shell/run-store.ts + shell/node-store.ts; this file only mutates the
@@ -65,7 +64,7 @@ export interface PipelineRunnerOptions {
   /** Explicit id for a preserved failure node. When omitted, the node id is
    *  auto-minted (`error-<hash>`). The shell runPipelineStage sets this to the
    *  caller's outputNodeId so a caller-named failure node (e.g.
-   *  `<run>:error:commit`) keeps its id, matching the old build. */
+   *  `<run>:error:commit`) keeps its id. */
   failureNodeId?: string;
 }
 
@@ -128,7 +127,7 @@ export function getRunNode(run: WorkflowRun, nodeId: string): StateNode {
   return node;
 }
 
-/** Byte-exact port of the old build's `hasRequiredEvidence`: a stage's own
+/** `hasRequiredEvidence`: a stage's own
  *  `requiredEvidence` list AND the contract-wide
  *  `evidencePolicy.requireEvidence` flag both gate this pre-filter, exactly
  *  like assertRequiredEvidence's stricter check in state-node.ts — so a
@@ -326,7 +325,6 @@ export function failPipelineStage(
       contractId: contract.id,
       // `pipelineStage` names the stage that failed so collectRunErrors's
       // dedup key matches the feedback recorded here (both key on stageId).
-      // Byte-behavior port of the old build's failed-node metadata.
       metadata: { pipelineStage: stageId, preserved: true },
     }),
     structured

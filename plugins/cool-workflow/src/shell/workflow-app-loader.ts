@@ -14,9 +14,8 @@
 // legacy `workflows/` root sits alongside `apps/` (one level up), same
 // walk-up resolution, `CW_WORKFLOWS_DIR` override.
 //
-// MILESTONE 12 additions on top of the milestone 6+7 minimal loader
-// (`loadWorkflowApp`, kept byte-for-byte — `shell/drive.ts` and
-// `shell/pipeline-cli.ts` call it directly and must keep working):
+// The minimal loader `loadWorkflowApp` (`shell/drive.ts` and
+// `shell/pipeline-cli.ts` call it directly), plus:
 //   - `listWorkflowApps()` / `listWorkflows()` — full discovery over BOTH
 //     `apps/*/app.json` and legacy `workflows/*.workflow.js`, sorted by
 //     id then source path, fail-closed on a duplicate app id.
@@ -83,9 +82,7 @@ function walkUpFor(...tail: string[]): string[] {
  *  On a published/globally-installed package the bundled `apps/`+`workflows/`
  *  sit at the PACKAGE ROOT (`<pkg>/apps`), NOT under a nested
  *  `plugins/cool-workflow/` segment — walkUpFor above only ever builds the
- *  nested monorepo path, so a global install found 0 apps. This restores the
- *  old build's resolvePluginRoot behavior (find the dir with package.json,
- *  then read `<pluginRoot>/apps`). The loader lives at
+ *  nested monorepo path. The loader lives at
  *  `<pkg>/dist/shell/workflow-app-loader.js`, so `<pkg>` is two hops up. */
 function walkUpForPackageRoot(...tail: string[]): string[] {
   const roots: string[] = [];
@@ -170,9 +167,7 @@ function authorNameOf(author: WorkflowAppAuthor | undefined): string | undefined
  *  LoadedWorkflowApp shape `plan`/`drive` consume. Used as the fallback path
  *  in loadWorkflowApp so a legacy `<name>.workflow.js` wrapper — which `cw
  *  list`/`cw app list` already resolve as a record but which has no
- *  `apps/<id>/app.json` directory — can also be planned by id. Without this,
- *  `cw plan legacy-research-synthesis` died "Workflow app not found" even
- *  though `cw list` shows it. */
+ *  `apps/<id>/app.json` directory — can also be planned by id. */
 function loadedAppFromRecord(record: LoadedWorkflowAppRecord): LoadedWorkflowApp {
   const workflowDefinition = record.app.workflow as WorkflowDefinition;
   const entrypointPath = record.source.entrypointPath || record.source.path;
@@ -194,11 +189,10 @@ function loadedAppFromRecord(record: LoadedWorkflowAppRecord): LoadedWorkflowApp
 
 /** Load one real bundled workflow app by id: reads its `app.json`
  *  manifest, then `require()`s its declared `workflow.entrypoint` factory
- *  file (the same `({workflow, phase, parallel, agent, artifact, input})
- *  => workflow({...})` shape the old build's workflow-api.ts factories
- *  produce), and returns the interpreted WorkflowDefinition. A legacy
- *  workflow-file id (no `apps/<id>/app.json`) resolves through the record
- *  fallback below. */
+ *  file (the `({workflow, phase, parallel, agent, artifact, input}) =>
+ *  workflow({...})` shape), and returns the interpreted WorkflowDefinition.
+ *  A legacy workflow-file id (no `apps/<id>/app.json`) resolves through the
+ *  record fallback below. */
 export function loadWorkflowApp(appId: string): LoadedWorkflowApp {
   const dir = findAppDir(appId);
   if (!dir) {
@@ -250,9 +244,6 @@ export function loadWorkflowApp(appId: string): LoadedWorkflowApp {
 
 // ---------------------------------------------------------------------
 // Full discovery: apps/*/app.json + legacy workflows/*.workflow.js
-// (MILESTONE 12). Byte-exact in spirit to
-// orchestrator app-operations module's loadWorkflowApps/listApps/showApp/
-// validateApp/initApp/packageApp.
 // ---------------------------------------------------------------------
 
 const FACTORY_API = { ...createWorkflowApi(), parallel, phase, loop, workflow, agent, artifact, subWorkflow, input };
@@ -332,7 +323,7 @@ function createLegacyWorkflowApp(definition: WorkflowDefinition, source: Workflo
 }
 
 /** Loads one workflow app from a legacy `<name>.workflow.js` entrypoint
- *  (no `app.json`). Ported from `loadWorkflowAppFromEntrypoint`. */
+ *  (no `app.json`). */
 function loadWorkflowAppFromEntrypoint(file: string): LoadedWorkflowAppRecord {
   const entrypointPath = path.resolve(file);
   const materialized = materializeFactoryExport(entrypointPath);
@@ -364,8 +355,7 @@ function assertValid(app: WorkflowAppDefinition & { workflow: WorkflowDefinition
   if (!result.valid) throw new WorkflowAppValidationError("Invalid workflow app", result.issues);
 }
 
-/** Loads one workflow app from an `app.json` manifest path. Ported from
- *  `loadWorkflowAppFromManifest`. */
+/** Loads one workflow app from an `app.json` manifest path. */
 function loadWorkflowAppFromManifest(manifestPath: string): LoadedWorkflowAppRecord {
   const absoluteManifestPath = path.resolve(manifestPath);
   if (!fs.existsSync(absoluteManifestPath)) {
@@ -444,8 +434,7 @@ function sourcePathOf(record: LoadedWorkflowAppRecord): string {
 /** Full discovery over every real bundled app + legacy workflow file: one
  *  root each, walked up from this file's own location (or `CW_APPS_DIR`/
  *  `CW_WORKFLOWS_DIR`). Sorted by app id then source path; a duplicate id
- *  across BOTH roots is a fail-closed error, matching
- *  `loadWorkflowApps` in the old build. */
+ *  across BOTH roots is a fail-closed error. */
 function listWorkflowAppRecords(): LoadedWorkflowAppRecord[] {
   const appsDir = candidateAppsRoots().find((root) => fs.existsSync(root)) || candidateAppsRoots()[0];
   const workflowsDir = candidateWorkflowsRoots().find((root) => fs.existsSync(root)) || candidateWorkflowsRoots()[0];
@@ -476,7 +465,7 @@ export function loadWorkflowAppRecordById(appId: string): LoadedWorkflowAppRecor
 
 /** Resolves a `cw app validate <path-or-id>` / `cw app show <path-or-id>`
  *  target: an existing directory/`app.json`/other-file path wins over an
- *  id lookup, matching `loadWorkflowAppTarget` in the old build. */
+ *  id lookup. */
 function loadWorkflowAppRecordTarget(target: string): LoadedWorkflowAppRecord {
   if (!target) throw new Error("Missing workflow app path or id");
   const resolved = path.resolve(target);
@@ -615,7 +604,7 @@ export function showWorkflowApp(appId: string): Record<string, unknown> {
 
 /** `cw app validate <path-or-id>` / `cw_app_validate`. Never throws — an
  *  unresolvable target gives `{valid:false, appId:target, appPath:target,
- *  issues}`, matching `validateApp` in the old build. */
+ *  issues}`. */
 export function validateWorkflowAppTarget(target: string): WorkflowAppValidationResult {
   const resolvedTarget = path.resolve(target);
   try {
@@ -684,7 +673,7 @@ function validateGeneratedManifest(manifestPath: string): WorkflowAppValidationR
 
 /** `cw app init <id>` / `cw_app_init`. Writes `app.json` + `workflow.js`
  *  from the templates, refusing system directories and (without
- *  `--force`) an existing app. Ported from `initApp`. */
+ *  `--force`) an existing app. */
 export function initWorkflowApp(appId: string, options: Record<string, unknown> = {}): { id: string; manifestPath: string; entrypointPath: string } {
   const id = slugify(appId);
   if (!id) throw new Error("App id must include at least one letter or digit");
@@ -709,7 +698,7 @@ export function initWorkflowApp(appId: string, options: Record<string, unknown> 
   return { id, manifestPath, entrypointPath };
 }
 
-/** `cw app package <id>` / `cw_app_package`. Ported from `packageApp`. The
+/** `cw app package <id>` / `cw_app_package`. The
  *  default package path is anchored under the caller's explicit `cwd`
  *  (`options.cwd`) so the CLI/MCP surfaces never write into the process cwd
  *  when a different working directory was requested — and never chdir. */

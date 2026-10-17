@@ -1,14 +1,12 @@
 "use strict";
-// wiring/capability-table/pipeline.ts — MILESTONE 6+7 (plan, run.drive*,
-// dispatch, result, commit, commit.summary) + MILESTONE 11's run.export/
-// import/verify-import/inspect-archive/restore CLI bindings. Split out of
-// core/capability-table.ts, byte-for-byte (extracted with sed, not
-// retyped).
+// wiring/capability-table/pipeline.ts — CLI bindings for plan, run.drive*,
+// dispatch, result, commit, commit.summary, and run.export/import/
+// verify-import/inspect-archive/restore.
 Object.defineProperty(exports, "__esModule", { value: true });
 const registry_core_1 = require("./registry-core");
 const cli_args_1 = require("../../core/util/cli-args");
 const cli_args_2 = require("../../core/util/cli-args");
-// MILESTONE 6+7 (combined; see plugins/cool-workflow/project/docs/rebuild/PLAN.md Open risk 10) CLI bindings:
+// CLI bindings:
 // plan, quickstart, run --drive, run drive (preview), dispatch, result,
 // commit. Handler BODIES live in shell/pipeline-cli.ts (impure — they
 // plan/drive/dispatch/commit real run state on disk); this table only
@@ -36,8 +34,8 @@ function loadCommitSummary() {
     },
 });
 // `cw run <app> --drive [--once]` and `cw run drive <run-id> [--step]`
-// share the single `run` dispatch path (byte-exact to the old build's
-// handleRun: a run-REGISTRY subcommand keyword is never hijacked by the
+// share the single `run` dispatch path (a run-REGISTRY subcommand keyword
+// is never hijacked by the
 // bare `--drive` intercept just because it carries its own --drive/--step
 // flag). Both rows below dispatch on `["run"]`; the FIRST one registered
 // (run.drive.step) is found first by findCapabilityByCliPath's linear
@@ -46,12 +44,10 @@ function loadCommitSummary() {
 (0, registry_core_1.attachCliBinding)("run.drive.step", {
     path: ["run"],
     // NOTE: the doubled "cw run drive" command column (this row + run.drive's
-    // preview row below) is pinned by SPEC/cli-probe.md "Odd things" item 5
-    // ("run drive (preview + drive)" — "A rebuild's help printer must keep
-    // these doubled rows"), same as `cw sched policy`. So the UI/UX fix for
-    // the two look-alike rows lives in the SUMMARIES (each now names its own
-    // invocation spelling — see the summary edits where these capabilities
-    // are declared), never in the row count or the command column.
+    // preview row below) is pinned by SPEC/cli-probe.md "Odd things" item 5,
+    // same as `cw sched policy`. The two look-alike rows are told apart by
+    // their SUMMARIES (each names its own invocation spelling), never by the
+    // row count or the command column.
     helpPath: ["run", "drive"],
     jsonMode: "default",
     handler: async (args) => {
@@ -78,9 +74,8 @@ function loadCommitSummary() {
             }
             return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: (0, cli_args_1.required)(id, "run id") }) };
         }
-        // MILESTONE 11 (reporting/run-export) — the archive family. Handler
-        // bodies live in shell/run-export-cli.ts; this arm only wires argv
-        // shape -> handler call.
+        // The archive family. Handler bodies live in shell/run-export-cli.ts;
+        // this arm only wires argv shape -> handler call.
         if (subcommand === "export") {
             const result = loadRunExportCli().runExportCli((0, cli_args_1.required)(id, "run id"), args.options);
             return { json: result };
@@ -104,17 +99,13 @@ function loadCommitSummary() {
         throw new Error("Usage: cw run search|list|show|resume|archive|rerun|drive|export|import|verify-import|inspect-archive|restore [run-id|archive] [--scope repo|home] [--json]  |  cw run <app> --drive [--once] [--incremental] [--repo R --question Q]");
     },
 });
-// PARITY: `run.drive` (the read-only MCP preview tool) now ALSO carries
-// its own two-token `cli.path` ["run","drive"], same as the old build's
-// registry row (cli.path ["run","drive"]) and the same reversed-
-// candidate-order pattern already used for run.search/run.list/etc.
-// (see those rows' own comment below): findCapabilityByCliPath tries the
-// 2-token candidate BEFORE the 1-token ["run"] row, so this row — not
-// run.drive.step's combined switch — now serves `cw run drive <run-id>`
-// [--step]. Behavior is unchanged (same runDrivePreview/runDriveStep
-// calls, same --step branch run.drive.step's switch already used); only
-// WHICH row answers the dispatch changes, so run.drive becomes a real
-// both-surface, dual-bound capability for the payload-identity probe.
+// `run.drive` (the read-only MCP preview tool) also carries its own
+// two-token `cli.path` ["run","drive"], the same reversed-candidate-order
+// pattern used for run.search/run.list/etc.: findCapabilityByCliPath tries
+// the 2-token candidate BEFORE the 1-token ["run"] row, so this row — not
+// run.drive.step's combined switch — serves `cw run drive <run-id>`
+// [--step], making run.drive a real both-surface, dual-bound capability
+// for the payload-identity probe.
 (0, registry_core_1.attachCliBinding)("run.drive", {
     path: ["run", "drive"],
     jsonMode: "default",
@@ -131,15 +122,13 @@ function loadCommitSummary() {
 });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive").mcp.handler = (args) => loadPipelineCli().runDrivePreview(args);
 registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive.step").mcp.handler = (args) => loadPipelineCli().runDriveStep(args);
-// UI/UX fix: `cw help run` prints TWO "cw run drive" rows — the doubling
-// itself is pinned by SPEC/cli-probe.md "Odd things" item 5 ("run drive
-// (preview + drive)": a rebuild's help printer must keep these doubled
-// rows), so the command column and the row count must not change. What CAN
-// change is the summary text: it used to leave a reader no way to tell
-// which spelling gets which behavior. Each summary now ends with the exact
-// command form that reaches it. Help-page-only: `summary` is overridden on
-// the Capability row, `mcp.description` (the tools/list byte surface) is
-// already captured by buildMcpBinding and stays untouched.
+// `cw help run` prints TWO "cw run drive" rows — the doubling itself is
+// pinned by SPEC/cli-probe.md "Odd things" item 5, so the command column
+// and the row count must not change. Each summary ends with the exact
+// command form that reaches it, so a reader can tell them apart.
+// Help-page-only: `summary` is overridden on the Capability row,
+// `mcp.description` (the tools/list byte surface) is already captured by
+// buildMcpBinding and stays untouched.
 registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive").summary =
     "Preview the next agent-delegation drive step for a run (read-only, deterministic). Use: cw run drive <run-id>.";
 registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive.step").summary =
@@ -152,17 +141,16 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive.step").payloadIdentical = 
 registry_core_1.REGISTRY_BY_CAPABILITY.get("run.drive.step").reason =
     "Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core.";
 registry_core_1.REGISTRY_BY_CAPABILITY.get("plan").mcp.handler = (args) => loadPipelineCli().planRun(args);
-// GAP #24: dispatchRun reads the sandbox profile from `args.sandbox` only
-// (the CLI's --sandbox flag). The cw_dispatch MCP tool also accepts the
+// dispatchRun reads the sandbox profile from `args.sandbox` only (the
+// CLI's --sandbox flag). The cw_dispatch MCP tool also accepts the
 // `sandboxProfile`/`sandboxProfileId` aliases (its declared properties), so
-// normalize them onto `sandbox` here — mirrors the old build's
-// sandboxProfileIdFrom() alias set — before handing off.
+// normalize them onto `sandbox` here before handing off.
 registry_core_1.REGISTRY_BY_CAPABILITY.get("dispatch").mcp.handler = (args) => loadPipelineCli().dispatchRun({ ...args, sandbox: args.sandbox ?? args.sandboxProfile ?? args.sandboxProfileId });
 registry_core_1.REGISTRY_BY_CAPABILITY.get("result").mcp.handler = (args) => loadPipelineCli().recordResultRun(args);
 // `cw_commit` returns the FLAT commit envelope (verifierGated/checkpoint/
-// verifierNodeId/… at the top level, plus a nested `commit`), matching the old
-// build's commitEnvelope. `commitRun` (CLI shape) returns `{ runId, commit }`;
-// lift the commit's key fields to the top for the MCP surface.
+// verifierNodeId/… at the top level, plus a nested `commit`). `commitRun`
+// (CLI shape) returns `{ runId, commit }`; lift the commit's key fields to
+// the top for the MCP surface.
 registry_core_1.REGISTRY_BY_CAPABILITY.get("commit").mcp.handler = (args) => {
     const result = loadPipelineCli().commitRun(args);
     const commit = result.commit || {};
@@ -188,13 +176,10 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("commit").mcp.handler = (args) => {
 registry_core_1.REGISTRY_BY_CAPABILITY.get("commit").payloadIdentical = false;
 registry_core_1.REGISTRY_BY_CAPABILITY.get("commit").reason =
     "Both surfaces route through the single core entry runner.commit. The CLI emits the raw StateCommitResult for scripting (commit.id, commit.evidence, commit.gate); cw_commit emits the operator commit envelope (commitId, verifierGated, checkpoint, evidenceCount, snapshotPath, nextActions, plus the raw result under `commit`). Declared projection, not drift.";
-// MILESTONE 11 — run.export/import/verify-import/inspect-archive/restore
-// MCP handlers (the CLI side is served by run.drive.step's combined
-// handler above; these tools are called directly by name over MCP, so
-// each needs its own mcp.handler per byte-compat item 5's two-field
-// row shape).
-// Same lazy-load reasoning as loadPipelineCli/loadCommitSummary above, for
-// the run.export/import/verify-import/inspect-archive/restore family.
+// run.export/import/verify-import/inspect-archive/restore MCP handlers:
+// these tools are called directly by name over MCP, so each needs its own
+// mcp.handler. Same lazy-load reasoning as loadPipelineCli/loadCommitSummary
+// above.
 function loadRunExportCli() {
     return require("../../shell/run-export-cli");
 }
@@ -251,7 +236,7 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
 (0, registry_core_1.addCliOnlyCapability)("quickstart", "ONE-COMMAND quickstart: --check preflights without writes; otherwise plan(app, default architecture-review) -> run --drive -> report in a single invocation (--preview for a read-only dry run; --bundle [--with-trust-key K] seals a completed run into a self-verified portable bundle).", {
     path: ["quickstart"],
     // `audit-run` is a CLI-only alias that dispatches to the same quickstart
-    // wrapper (byte-behavior port of the old build's caseTokens).
+    // wrapper.
     caseTokens: ["quickstart", "audit-run"],
     jsonMode: "default",
     handler: async (args) => {
@@ -264,14 +249,11 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
         const exitCode = (result.mode === "check" && result.ok === false) || bundleFailed ? 1 : undefined;
         return { json: result, exitCode };
     },
-    // UI/UX fix: a real terminal used to get raw JSON even outside
-    // --json — see shell/pipeline-cli.ts's formatQuickstartHuman for the
-    // short summary + auto-open this now renders instead (piped/--json
-    // output is untouched; see cli/dispatch.ts's shouldRenderHuman).
+    // A real terminal outside --json gets the short summary + auto-open of
+    // shell/pipeline-cli.ts's formatQuickstartHuman (piped/--json output is
+    // untouched; see cli/dispatch.ts's shouldRenderHuman).
     humanRender: (json) => loadPipelineCli().formatQuickstartHuman(json),
-    // UI/UX fix: `cw help quickstart` used to list only the one-line
-    // summary above, so a first-run user had no way to learn these flags
-    // without reading source. Real flag names verified against
+    // The flags `cw help quickstart` lists, checked against
     // shell/pipeline-cli.ts's quickstartRun.
     flags: [
         { name: "--check", summary: "Check setup only; do not plan, run, or write anything." },
@@ -309,12 +291,9 @@ registry_core_1.REGISTRY_BY_CAPABILITY.get("run.restore").mcp.handler = (args) =
         return { json: loadPipelineCli().commitRun({ ...args.options, runId }) };
     },
 });
-// GAP #26: restore `cw commit summary <run-id>` (CLI + help row). The old
-// build had commit.summary with cli path ["commit","summary"] surface "both"
-// (capability-registry.ts:260-266); v2 kept only the cw_commit_summary MCP
-// tool and dropped both the CLI binding and the COMMAND_HELP_ROWS entry, so
-// `cw commit summary` mis-read "summary" as the run id. Path ["commit","summary"]
-// is 2 tokens; dispatch consumes 1, so positionals[0] is the run id.
+// `cw commit summary <run-id>` (CLI + help row), next to the
+// cw_commit_summary MCP tool. Path ["commit","summary"] is 2 tokens;
+// dispatch consumes 1, so positionals[0] is the run id.
 (0, registry_core_1.attachCliBinding)("commit.summary", {
     path: ["commit", "summary"],
     jsonMode: "flag",

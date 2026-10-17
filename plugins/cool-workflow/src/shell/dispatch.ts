@@ -1,10 +1,9 @@
 // shell/dispatch.ts — createDispatchManifest: the imperative wrapper
 // around core/pipeline/dispatch.ts's pure decision helpers.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// dispatch module's IO half (worker-scope allocation, manifest file
-// write, state-node append), plus custom sandbox profile persistence at
-// dispatch (H7).
+// The IO half of dispatch (worker-scope allocation, manifest file write,
+// state-node append), plus custom sandbox profile persistence at dispatch
+// (H7).
 //
 // Evidence: SPEC/pipeline-run.md "Dispatch — dispatch module".
 

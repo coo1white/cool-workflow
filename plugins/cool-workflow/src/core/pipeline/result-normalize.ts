@@ -1,8 +1,7 @@
 // core/pipeline/result-normalize.ts — normalizeResultEnvelope,
 // isEmptyCapture.
 //
-// MILESTONE 6+7 (combined). Byte-exact port of the old build's
-// result-normalize module. Pure (no fs/clock/random).
+// Pure (no fs/clock/random).
 //
 // Evidence: SPEC/pipeline-run.md "Result ingest — result-normalize module".
 

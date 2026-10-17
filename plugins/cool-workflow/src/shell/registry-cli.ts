@@ -1,13 +1,10 @@
-// shell/registry-cli.ts — CLI/MCP-reachable bodies for the milestone-10
+// shell/registry-cli.ts — CLI/MCP-reachable bodies for the capability
 // capability rows: schedule.*, routine.*, registry.*, run.search|list|
 // show|resume|archive|rerun, queue.*, sched.*, gc.*, orphans.*, clones.*,
 // history.
 //
-// MILESTONE 10. Byte-exact port of the old build's cli handler modules for
-// scheduling/registry/maintenance/orphans/clones, plus the run-registry-owned
-// slice of the capability-core module. Impure (fs) —
-// this is the shell layer the capability-table's CLI/MCP handlers
-// delegate to.
+// Impure (fs) — this is the shell layer the capability-table's CLI/MCP
+// handlers delegate to.
 
 import * as fs from "node:fs";
 import { cwdArg } from "../core/util/cli-args";
@@ -185,13 +182,11 @@ export function runArchiveCli(runId: string | undefined, options: Record<string,
     unarchive: Boolean(options.unarchive),
   });
 }
-/** The CLI/MCP-path run planner: the old build injected the CoolWorkflowRunner
- *  (its `.plan(appId, inputs)`) as RunRegistry's planner so `cw run rerun` /
- *  `cw_run_rerun` could plan the new linked run. v2 dismantled that facade, so
- *  we rebuild the same `.plan(appId, inputs)` surface from the two pieces that
- *  replaced it: resolve the app object with loadWorkflowApp, then hand it to the
- *  pure pipeline plan(). Without this, RunRegistry.rerun throws
- *  "rerun requires a run planner (CoolWorkflowRunner)". */
+/** The CLI/MCP-path run planner RunRegistry needs so `cw run rerun` /
+ *  `cw_run_rerun` can plan the new linked run: a `.plan(appId, inputs)`
+ *  surface built from loadWorkflowApp (resolve the app object) and the
+ *  pure pipeline plan(). Without it, RunRegistry.rerun throws "rerun
+ *  requires a run planner (CoolWorkflowRunner)". */
 function cliRunPlanner(): RunPlanner {
   return { plan: (appId, inputs) => pipelinePlan(loadWorkflowApp(appId), inputs) };
 }

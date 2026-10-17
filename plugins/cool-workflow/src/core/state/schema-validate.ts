@@ -1,6 +1,5 @@
 // core/state/schema-validate.ts — dependency-free JSON-schema subset.
 //
-// MILESTONE 3. Byte-exact port of the old build's schema-validate module.
 // Deliberately a SUBSET of JSON Schema (type, const, enum, required,
 // properties, additionalProperties:false, items) — adds no runtime
 // dependency. Unsupported keywords are surfaced as a stderr diagnostic

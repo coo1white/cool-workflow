@@ -1,20 +1,12 @@
 "use strict";
-// shell/trust-audit.ts — MILESTONE 8: extended from milestone 6+7's
-// scoped-down subset to the FULL trust-audit hash chain: eventHash (the
-// JSON round-trip pre-pass), verifyTrustAudit (chain-link recompute +
-// the era rule — a log is fully chained OR fully legacy, never mixed),
-// event append (hash-chained), the evidence normalizer, and the
-// sandbox-path decision helper.
-//
-// The milestone-6+7 subset (recordTrustAuditEvent, recordSandboxPath-
-// Decision, normalizeEvidence, ensureTrustAudit) keeps its existing
-// signatures byte-for-byte — shell/commit.ts and shell/worker-
-// isolation.ts already import them. This edit ADDS verifyTrustAudit +
-// the era-rule check + trustAuditGenesis on top, and switches
-// computeEventHash to use core/hash.ts's named `eventHashInput` export
-// (byte-identical behavior to the pre-existing inline JSON-round-trip,
-// now shared with the rest of the hash-dedup story per project/docs/rebuild/PLAN.md byte-
-// compat item 2).
+// shell/trust-audit.ts — the trust-audit hash chain: eventHash (the JSON
+// round-trip pre-pass), verifyTrustAudit (chain-link recompute + the era
+// rule — a log is fully chained OR fully legacy, never mixed), event append
+// (hash-chained), the evidence normalizer, and the sandbox-path decision
+// helper. recordTrustAuditEvent, recordSandboxPathDecision,
+// normalizeEvidence and ensureTrustAudit keep their signatures:
+// shell/commit.ts and shell/worker-isolation.ts import them.
+// computeEventHash uses core/hash.ts's named `eventHashInput` export.
 //
 // Evidence: SPEC/ledger-trust.md "Trust-audit chain", invariant 10 (era
 // rule), byte-compat item 2; SPEC/pipeline-run.md's worker-accept
@@ -176,9 +168,7 @@ function readEventsRawCounted(eventLogPath) {
 function readEventsRaw(eventLogPath) {
     return readEventsRawCounted(eventLogPath).events;
 }
-/** Every recorded trust-audit event for this run, in append (file) order.
- *  Used by trust-policy/collaboration summaries (e.g.
- *  hasAcceptedJudgeRationale, summarizeMultiAgentTrust). */
+/** Every recorded trust-audit event for this run, in append (file) order. */
 function listTrustAuditEvents(run) {
     return readEventsRaw(ensureTrustAudit(run).eventLogPath);
 }
@@ -346,9 +336,8 @@ function repairTrustAuditTornTail(run, options = {}) {
         const repairedContent = events.length > 0 ? `${lines.slice(0, -1).join("\n")}\n` : "";
         if (options.write) {
             (0, fs_atomic_1.writeTextDurable)(audit.eventLogPath, repairedContent, { durable: true });
-            // The log's bytes just changed out from under the append tail cache
-            // (perf cycle P1-2) -- invalidate rather than rely on the size check
-            // alone catching every case.
+            // The log's bytes just changed out from under the append tail cache --
+            // invalidate rather than rely on the size check alone.
             invalidateAuditTailCache(audit.eventLogPath);
         }
         return {
@@ -388,16 +377,15 @@ function compact(value) {
     return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined));
 }
 /** `count` must be the number of PRIOR events, read under the SAME lock
- *  the append itself happens under (see `recordTrustAuditEvent`) — an
- *  earlier version read this count separately, outside any lock, so two
- *  concurrent writers could mint the SAME id for two different events
- *  (the hash chain still forked-proof, but the id — referenced elsewhere
- *  as `auditEventIds`/`parentEventIds` for provenance — was not unique). */
+ *  the append itself happens under (see `recordTrustAuditEvent`): read
+ *  outside the lock, two concurrent writers could mint the SAME id for two
+ *  different events (the id is referenced elsewhere as
+ *  `auditEventIds`/`parentEventIds` for provenance, so it must be unique). */
 function createEventId(kind, count) {
     return `audit-${(0, fs_atomic_1.safeFileName)(kind)}-${String(count + 1).padStart(4, "0")}`;
 }
-/** Correlation-id keys copied verbatim (and no others) — byte-exact list/
- *  order to the old build's CORRELATION_ID_FIELDS. */
+/** Correlation-id keys copied verbatim (and no others), in this pinned
+ *  order. */
 const CORRELATION_ID_FIELDS = [
     "candidateId",
     "scoreId",
@@ -425,8 +413,7 @@ function pickCorrelationIds(source) {
         picked[field] = source[field];
     return picked;
 }
-/** The audit index historically omits scoreId (byte-exact to the old build's
- *  INDEX_OMITTED_CORRELATION_IDS). */
+/** The audit index omits scoreId. */
 const INDEX_OMITTED_CORRELATION_IDS = new Set(["scoreId"]);
 function indexCorrelationIds(event) {
     const picked = {};
@@ -499,7 +486,7 @@ function appendTrustAuditEvent(run, input, event, batch) {
     // log's own byte size) serves both without a full parse when nothing
     // else has touched the log since it was written; any size mismatch
     // (a repair, a torn write, this being the very first append) falls
-    // back to the full parse, same as before this cache existed.
+    // back to the full parse.
     event.id = createEventId(input.kind, batch.count);
     event.prevEventHash = batch.lastHash;
     event.eventHash = computeEventHash(event);
@@ -632,18 +619,9 @@ function countBy(values, key) {
     }
     return counts;
 }
-/** MILESTONE 11 (reporting/observability) — the `## Trust Audit` report
- *  section's data source. A scoped-down port of the old build's
- *  `summarizeTrustAudit`:
- *  this milestone's report.ts only renders eventCount/integrity/byDecision/
- *  bySource/bySandboxProfile/paths, so those are the only fields carried
- *  here — the old build's extra workers/candidates/commits/multiAgent/
- *  blackboard rollups are milestone 9's own summarizeMultiAgent/
- *  candidate-scoring-io/coordinator-io surfaces, not duplicated here. */
 /** Groups events by a key field once, so each row below is an O(1) Map
- *  lookup instead of an O(events) `.filter()` re-scan per id -- found
- *  alongside the id.find() version of this same shape while pinning perf
- *  cycle P1-1's review-fix regression test (O(ids x events) otherwise). */
+ *  lookup instead of an O(events) `.filter()` re-scan per id (O(ids x
+ *  events) otherwise). */
 function groupEventsBy(events, key) {
     const groups = new Map();
     for (const event of events) {
@@ -718,23 +696,12 @@ function commitRows(events, run) {
         };
     });
 }
-// Perf cycle P1 (read side): every read command (`cw status`, each
-// `writeReport` call, multi-agent status) called `summarizeTrustAudit`,
-// which read+parsed the log via `readEventsRaw`, THEN called
-// `verifyTrustAudit(run)`, which read+parsed the SAME log AGAIN and
-// recomputed a sha256 for every event -- two full passes for one call.
-// It then durably (fsync) rewrote summary.json AND index.json on EVERY
-// call, even when nothing about the run or the log had changed since the
-// last call (a live audit reaches ~50k events, so `writeReport` alone --
-// which calls this once per pipeline step and per feedback op -- turned
-// into a real, repeated cost).
-//
-// Fix, in two parts:
+// Read side: every read command (`cw status`, each `writeReport` call)
+// calls `summarizeTrustAudit`. Two rules keep that cheap:
 //  1. Read the log ONCE (`readEventsRawCounted`) and hand the SAME parsed
 //     array to `verifyEventsChain` directly -- the exact same check
 //     `verifyTrustAudit` runs with no anchor, so the integrity result is
-//     byte-identical to before. `verifyTrustAudit` itself is untouched and
-//     every OTHER caller (doctor.ts, `cw audit verify`, drive.ts,
+//     the same. Every OTHER caller (doctor.ts, `cw audit verify`, drive.ts,
 //     run-export.ts) still gets a real, independent, always-full check.
 //  2. Skip the durable rewrite of summary.json/index.json when the freshly
 //     and FULLY recomputed content is unchanged from last time. This is
@@ -849,7 +816,7 @@ function summarizeTrustAudit(run, options = {}) {
     };
     // Durable: the summary/index are the read-side view of the audit log; persist
     // them durably so a crash can't leave them pointing past the last durably-
-    // appended event. Byte-behavior port of the old build's summarizeTrustAudit.
+    // appended event.
     //
     // Skip the rewrite only when the freshly, fully recomputed content is
     // unchanged from last time (see the comment on `summaryFingerprintPathFor`

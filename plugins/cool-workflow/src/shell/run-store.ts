@@ -1,10 +1,8 @@
 // shell/run-store.ts — loadRunFromCwd, saveCheckpoint, compactCheckpoint.
 //
-// MILESTONE 3. The ONLY place state.json is read or written. Byte-exact
-// port of the old build's state module load/save/compact functions, now
-// split so the migration DECISION logic lives in core/state/migrations.ts
-// and this file is the thin impure shell around it (disk read, lock,
-// durable write).
+// The ONLY place state.json is read or written. The migration DECISION
+// logic lives in core/state/migrations.ts; this file is the thin impure
+// shell around it (disk read, lock, durable write).
 //
 // Evidence: SPEC/state-core.md "state module — persistence kernel",
 // "Write ordering and atomic rules", "compactCheckpoint on a run with no
@@ -76,8 +74,7 @@ export function ensureRunDirs(paths: RunPaths): void {
 
 /** Read the file at artifact.path and stamp sha256 (the core `sha256:`+hex
  *  form) + sizeBytes onto the StateArtifact. A missing/unreadable file is
- *  silently skipped so hashing an absent artifact never throws. Byte-exact
- *  port of the old flat state module:hashArtifactFile. */
+ *  silently skipped so hashing an absent artifact never throws. */
 export function hashArtifactFile(artifact: StateArtifact): StateArtifact {
   try {
     const content = fs.readFileSync(artifact.path, "utf8");
@@ -179,18 +176,16 @@ export function assertNotSuspectedDataLoss(runId: string, result: StateMigration
 /** Refuses an empty id with `Missing run id`; loads
  *  `<cwd>/.cw/runs/<runId>/state.json` (dry-run — never writes); throws
  *  `Run not found: <runId>` when no such run directory has a state.json
- *  (every caller — report, status, audit, eval snapshot, and more — used
- *  to leak the raw `readJson` message, "File not found: <absolute
- *  path>/state.json", which named neither the run nor a next step, and
- *  didn't contain any of the words `cli/entry.ts`'s `recoveryHint` scans
- *  for, so no `Try: cw run list` line ever appeared); throws `Unsupported
- *  CW run state: <errors joined by "; ">` on an unsupported verdict;
- *  refuses a state.json that lost its core fields (workflow, paths) while
- *  the run dir still has real content next to it, rather than silently
- *  returning it as a fresh empty run; else returns the migrated
- *  WorkflowRun in memory, its `paths` and audit paths made again from the
- *  run dir it was found in (`rebindRunPaths`) — stored paths are never
- *  trusted as write targets. */
+ *  (a message `cli/entry.ts`'s `recoveryHint` scans for, so a `Try: cw run
+ *  list` line appears — never the raw `readJson` "File not found:
+ *  <absolute path>/state.json", which names neither the run nor a next
+ *  step); throws `Unsupported CW run state: <errors joined by "; ">` on an
+ *  unsupported verdict; refuses a state.json that lost its core fields
+ *  (workflow, paths) while the run dir still has real content next to it,
+ *  rather than silently returning it as a fresh empty run; else returns
+ *  the migrated WorkflowRun in memory, its `paths` and audit paths made
+ *  again from the run dir it was found in (`rebindRunPaths`) — stored
+ *  paths are never trusted as write targets. */
 export function loadRunFromCwd(runId: string, cwd = process.cwd()): WorkflowRun {
   if (!runId) throw new Error("Missing run id");
   assertSafeRunId(runId);
@@ -228,8 +223,7 @@ export function resolveRunDir(runId: string, cwd = process.cwd()): string {
 /** Hold the state.json lock over a WHOLE load -> change -> save cycle.
  *  A bare loadRunFromCwd + saveCheckpoint pair leaves a window where two
  *  processes both load the same state and the later save silently drops
- *  the earlier change (the same lost-update class PR #339 fixed for
- *  queue.json / triggers.json). `fn` gets the run loaded UNDER the lock;
+ *  the earlier change (lost update). `fn` gets the run loaded UNDER the lock;
  *  saveCheckpoint calls inside `fn` re-enter the same lock (withFileLock
  *  is re-entrant in-process) and write exactly as before. The probe load
  *  runs BEFORE the lock so an unknown run id throws the exact
@@ -528,10 +522,8 @@ export function compactCheckpoint(run: WorkflowRun): number {
  *  directory tree, migrates `{}` through `normalizeRunState` (so every
  *  default lands exactly like a real legacy-run migration would), stamps
  *  `id`/`workflow.id`/`workflow.title`, and durably writes `state.json`.
- *  This is the minimal "create a run" mechanism this milestone needs to
- *  drive the state kernel end to end; the real `plan`/`quickstart`
- *  pipeline (later milestones) layers phases/tasks/inputs on top of this
- *  same primitive. */
+ *  This is the minimal "create a run" mechanism; the `plan`/`quickstart`
+ *  pipeline layers phases/tasks/inputs on top of this same primitive. */
 export function createRun(runDir: string, runId: string, workflowId: string, cwd: string): WorkflowRun {
   const paths = createRunPaths(runDir);
   ensureRunDirs(paths);

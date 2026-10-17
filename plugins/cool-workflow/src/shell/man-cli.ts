@@ -3,8 +3,7 @@
 // Reads docs/<topic>.7.md, then docs/<topic>.md, then docs/<topic>, and
 // writes the raw file bytes to stdout with NO added trailing newline.
 //
-// Evidence: SPEC/cli-surface.md "man <topic>" row, and the old build's
-// "man" case — docsDir is resolved
+// Evidence: SPEC/cli-surface.md "man <topic>" row. docsDir is resolved
 // relative to the plugin root the same way shell/workflow-app-loader.ts's
 // walkUpFor and shell/metrics-cli.ts's pluginRoot() do (walk up from this
 // file's own location looking for a sibling plugins/cool-workflow tree).
