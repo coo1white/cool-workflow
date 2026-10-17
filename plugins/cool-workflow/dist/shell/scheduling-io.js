@@ -62,7 +62,7 @@ exports.schedResetCli = schedResetCli;
 exports.schedPolicyShowCli = schedPolicyShowCli;
 exports.schedPolicySetCli = schedPolicySetCli;
 const fs = __importStar(require("node:fs"));
-const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const fs_atomic_1 = require("./fs-atomic");
 const run_registry_io_1 = require("./run-registry-io");
 const numeric_flag_1 = require("../core/util/numeric-flag");
@@ -215,9 +215,6 @@ function resetEntry(entries, id) {
 // Impure CLI-facing ops: policy file IO + the queue read-modify-write.
 // Byte-exact port of the `sched`-specific slice of capability-core module.
 // ---------------------------------------------------------------------------
-function resolveCwd(options) {
-    return path.resolve(String(options.cwd || process.cwd()));
-}
 function nowIso(options) {
     return typeof options.now === "string" ? options.now : new Date().toISOString();
 }
@@ -234,12 +231,12 @@ function numericFlag(options, key) {
     return (0, numeric_flag_1.requiredNumberFlag)(options[key], `--${key}`);
 }
 function schedPlanCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
     const { policy } = loadSchedulingPolicy(registry);
     return planSchedule(registry.loadQueueEntries(), policy, nowIso(options));
 }
 function schedLeaseCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
     const now = nowIso(options);
     const policy = loadSchedulingPolicy(registry).policy;
     const limit = (0, numeric_flag_1.requiredNumberFlag)(options.limit, "--limit");
@@ -250,9 +247,9 @@ function schedLeaseCli(options = {}) {
     });
 }
 function schedReleaseCli(leaseId, options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
     const now = nowIso(options);
-    const failed = isTrue(options.failed);
+    const failed = (0, cli_args_1.flagOn)(options.failed, ["true", "1"]);
     const reason = typeof options.reason === "string" ? options.reason : undefined;
     return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
         const { entries, matched } = leaseRelease(registry.loadQueueEntries(), leaseId, loadSchedulingPolicy(registry).policy, now, { failed, reason });
@@ -263,7 +260,7 @@ function schedReleaseCli(leaseId, options = {}) {
     });
 }
 function schedCompleteCli(leaseId, options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
     return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
         const { entries, matched } = leaseComplete(registry.loadQueueEntries(), leaseId, nowIso(options));
         if (!matched)
@@ -273,7 +270,7 @@ function schedCompleteCli(leaseId, options = {}) {
     });
 }
 function schedReclaimCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
     const now = nowIso(options);
     return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
         const { entries, reclaimed } = reclaimExpired(registry.loadQueueEntries(), loadSchedulingPolicy(registry).policy, now);
@@ -282,7 +279,7 @@ function schedReclaimCli(options = {}) {
     });
 }
 function schedResetCli(id, options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
     return (0, fs_atomic_1.withFileLock)(registry.queueFilePath(), () => {
         const { entries, matched } = resetEntry(registry.loadQueueEntries(), id);
         if (!matched)
@@ -292,11 +289,11 @@ function schedResetCli(id, options = {}) {
     });
 }
 function schedPolicyShowCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
     return loadSchedulingPolicy(registry);
 }
 function schedPolicySetCli(options = {}) {
-    const registry = new run_registry_io_1.RunRegistry(resolveCwd(options));
+    const registry = new run_registry_io_1.RunRegistry((0, cli_args_1.cwdArg)(options, ["cwd"], true));
     const patch = {};
     for (const key of ["maxConcurrent", "maxAttempts", "leaseTtlMs", "backoffBaseMs", "backoffFactor", "backoffCapMs"]) {
         const value = numericFlag(options, key);
@@ -312,7 +309,4 @@ function schedPolicySetCli(options = {}) {
         (0, fs_atomic_1.writeJson)(registry.schedulingPolicyPath(), policy);
         return { schemaVersion: 1, policy, source: "file" };
     });
-}
-function isTrue(value) {
-    return value === true || value === "true" || value === "1";
 }

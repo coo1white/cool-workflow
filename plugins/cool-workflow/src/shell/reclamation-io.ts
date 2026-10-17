@@ -30,6 +30,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { flagOn } from "../core/util/cli-args";
 import { isContainedPath, realResolve, withFileLock, writeJson } from "./fs-atomic";
 import { recordTrustAuditEvent, listTrustAuditEvents } from "./trust-audit";
 import { snapshotNode } from "./node-store";
@@ -1565,9 +1566,6 @@ export interface ClonesGcResult {
   all: boolean;
 }
 
-function isTrue(value: unknown): boolean {
-  return value === true || value === "true" || value === "1" || value === 1;
-}
 function optionalNumber(value: unknown): number | undefined {
   if (value === undefined || value === null || value === "") return undefined;
   const n = Number(value);
@@ -1668,7 +1666,7 @@ export function listClones(env: NodeJS.ProcessEnv = process.env): ClonesListResu
  *  clones root (fail closed). */
 export function gcClones(options: { olderThanDays?: unknown; all?: unknown; now?: unknown } = {}, env: NodeJS.ProcessEnv = process.env): ClonesGcResult {
   const root = clonesRoot(env);
-  const all = isTrue(options.all);
+  const all = flagOn(options.all, ["true", "1", 1]);
   let olderThanDays: number | null = null;
   if (!all) {
     const raw = options.olderThanDays;

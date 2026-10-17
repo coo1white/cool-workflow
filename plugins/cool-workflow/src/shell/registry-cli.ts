@@ -10,7 +10,7 @@
 // delegate to.
 
 import * as fs from "node:fs";
-import * as path from "node:path";
+import { cwdArg } from "../core/util/cli-args";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { RunPlanner, RunRegistry } from "./run-registry-io";
 import { recordRunLink } from "./run-link-io";
@@ -28,10 +28,6 @@ import {
 } from "./reclamation-io";
 import { runDriveStep } from "./pipeline-cli";
 
-function resolveCwd(options: Record<string, unknown>): string {
-  return path.resolve(String(options.cwd || options.repo || process.cwd()));
-}
-
 function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -45,38 +41,38 @@ function scopeOf(options: Record<string, unknown>, fallback: "repo" | "home"): "
 // ---------------------------------------------------------------------
 
 export function scheduleCreateCli(options: Record<string, unknown> = {}) {
-  return new Scheduler(resolveCwd(options)).create(options);
+  return new Scheduler(cwdArg(options, ["cwd", "repo"], true)).create(options);
 }
 export function scheduleListCli(options: Record<string, unknown> = {}) {
-  return new Scheduler(resolveCwd(options)).list(optionalString(options.status));
+  return new Scheduler(cwdArg(options, ["cwd", "repo"], true)).list(optionalString(options.status));
 }
 export function scheduleDeleteCli(id: string, options: Record<string, unknown> = {}) {
-  return new Scheduler(resolveCwd(options)).delete(id);
+  return new Scheduler(cwdArg(options, ["cwd", "repo"], true)).delete(id);
 }
 export function scheduleDueCli(options: Record<string, unknown> = {}) {
-  return new Scheduler(resolveCwd(options)).due();
+  return new Scheduler(cwdArg(options, ["cwd", "repo"], true)).due();
 }
 export function scheduleCompleteCli(id: string, options: Record<string, unknown> = {}) {
-  return new Scheduler(resolveCwd(options)).complete(id, options);
+  return new Scheduler(cwdArg(options, ["cwd", "repo"], true)).complete(id, options);
 }
 export function schedulePauseCli(id: string, options: Record<string, unknown> = {}) {
-  return new Scheduler(resolveCwd(options)).pause(id);
+  return new Scheduler(cwdArg(options, ["cwd", "repo"], true)).pause(id);
 }
 export function scheduleResumeCli(id: string, options: Record<string, unknown> = {}) {
-  return new Scheduler(resolveCwd(options)).resume(id);
+  return new Scheduler(cwdArg(options, ["cwd", "repo"], true)).resume(id);
 }
 export function scheduleRunNowCli(id: string, options: Record<string, unknown> = {}) {
-  return new Scheduler(resolveCwd(options)).runNow(id);
+  return new Scheduler(cwdArg(options, ["cwd", "repo"], true)).runNow(id);
 }
 export function scheduleHistoryCli(id: string | undefined, options: Record<string, unknown> = {}) {
-  return new Scheduler(resolveCwd(options)).history(id);
+  return new Scheduler(cwdArg(options, ["cwd", "repo"], true)).history(id);
 }
 export function scheduleDaemonTickCli(options: Record<string, unknown> = {}) {
-  return new DesktopSchedulerDaemon({ cwd: resolveCwd(options), intervalSeconds: options.intervalSeconds ? Number(options.intervalSeconds) : options.interval ? Number(options.interval) : undefined }).tick();
+  return new DesktopSchedulerDaemon({ cwd: cwdArg(options, ["cwd", "repo"], true), intervalSeconds: options.intervalSeconds ? Number(options.intervalSeconds) : options.interval ? Number(options.interval) : undefined }).tick();
 }
 export function scheduleDaemonRunForever(options: Record<string, unknown> = {}): Promise<void> {
   return new DesktopSchedulerDaemon({
-    cwd: resolveCwd(options),
+    cwd: cwdArg(options, ["cwd", "repo"], true),
     intervalSeconds: options.intervalSeconds ? Number(options.intervalSeconds) : options.interval ? Number(options.interval) : undefined,
   }).run();
 }
@@ -86,16 +82,16 @@ export function scheduleDaemonRunForever(options: Record<string, unknown> = {}):
 // ---------------------------------------------------------------------
 
 export function routineCreateCli(options: Record<string, unknown> = {}) {
-  return new RoutineTriggerBridge(resolveCwd(options)).create(options);
+  return new RoutineTriggerBridge(cwdArg(options, ["cwd", "repo"], true)).create(options);
 }
 export function routineListCli(options: Record<string, unknown> = {}) {
-  return new RoutineTriggerBridge(resolveCwd(options)).list(optionalString(options.kind));
+  return new RoutineTriggerBridge(cwdArg(options, ["cwd", "repo"], true)).list(optionalString(options.kind));
 }
 export function routineDeleteCli(id: string, options: Record<string, unknown> = {}) {
-  return new RoutineTriggerBridge(resolveCwd(options)).delete(id);
+  return new RoutineTriggerBridge(cwdArg(options, ["cwd", "repo"], true)).delete(id);
 }
 export function routineFireCli(kind: string, payload: unknown, options: Record<string, unknown> = {}) {
-  return new RoutineTriggerBridge(resolveCwd(options)).fire(kind, payload);
+  return new RoutineTriggerBridge(cwdArg(options, ["cwd", "repo"], true)).fire(kind, payload);
 }
 /** Resolves a `routine fire` payload: a `--payload-path`/positional file wins
  *  (parsed as JSON) over the raw CLI/MCP options bag. The file read lives
@@ -109,7 +105,7 @@ export function resolveRoutineFirePayload(payloadPath: string | undefined, optio
   }
 }
 export function routineEventsCli(id: string | undefined, options: Record<string, unknown> = {}) {
-  return new RoutineTriggerBridge(resolveCwd(options)).events(id);
+  return new RoutineTriggerBridge(cwdArg(options, ["cwd", "repo"], true)).events(id);
 }
 
 // ---------------------------------------------------------------------
@@ -117,14 +113,14 @@ export function routineEventsCli(id: string | undefined, options: Record<string,
 // ---------------------------------------------------------------------
 
 export function registryRefreshCli(options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).refresh({ scope: scopeOf(options, "repo") });
+  return new RunRegistry(cwdArg(options, ["cwd", "repo"], true)).refresh({ scope: scopeOf(options, "repo") });
 }
 export function registryShowCli(options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).show({ scope: scopeOf(options, "repo") });
+  return new RunRegistry(cwdArg(options, ["cwd", "repo"], true)).show({ scope: scopeOf(options, "repo") });
 }
 
 export function runSearchCli(options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).search({
+  return new RunRegistry(cwdArg(options, ["cwd", "repo"], true)).search({
     scope: scopeOf(options, "home"),
     text: optionalString(options.text),
     app: optionalString(options.app),
@@ -138,7 +134,7 @@ export function runSearchCli(options: Record<string, unknown> = {}) {
   });
 }
 export function runListCli(options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).list({
+  return new RunRegistry(cwdArg(options, ["cwd", "repo"], true)).list({
     scope: scopeOf(options, "home"),
     includeArchived: options.includeArchived === undefined ? undefined : Boolean(options.includeArchived),
     limit: requiredNumberFlag(options.limit, "--limit"),
@@ -146,7 +142,7 @@ export function runListCli(options: Record<string, unknown> = {}) {
   });
 }
 export function runShowCli(runId: string, options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).showRun(runId, { scope: scopeOf(options, "home") });
+  return new RunRegistry(cwdArg(options, ["cwd", "repo"], true)).showRun(runId, { scope: scopeOf(options, "home") });
 }
 /** `run resume <run-id> [--drive|--once]` — SPEC/pipeline-run.md: default
  *  is read-only and byte-identical to the registry resume payload; with
@@ -158,7 +154,7 @@ export async function runResumeCli(runId: string, options: Record<string, unknow
   // named, or with --scope home given, resume finds the run by id across the
   // registry as before.
   const namedBy = options.scope === undefined ? (optionalString(options.cwd) ? "--cwd" : optionalString(options.repo) ? "--repo" : undefined) : undefined;
-  const base = new RunRegistry(resolveCwd(options)).resume(runId, {
+  const base = new RunRegistry(cwdArg(options, ["cwd", "repo"], true)).resume(runId, {
     scope: scopeOf(options, "home"),
     limit: requiredNumberFlag(options.limit, "--limit"),
     namedBy,
@@ -168,7 +164,7 @@ export async function runResumeCli(runId: string, options: Record<string, unknow
   return { ...base, drive };
 }
 export function runArchiveCli(runId: string | undefined, options: Record<string, unknown> = {}) {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd", "repo"], true));
   if (!runId) {
     const olderThanDays = requiredNumberFlag(options.olderThanDays ?? options["older-than-days"], "--older-than-days");
     if (olderThanDays === undefined) throw new Error("Missing run id (or --older-than-days N for the retention policy path).");
@@ -201,20 +197,20 @@ function cliRunPlanner(): RunPlanner {
 }
 
 export function runRerunCli(runId: string, options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options), cliRunPlanner()).rerun(runId, { reason: optionalString(options.reason), scope: scopeOf(options, "home") });
+  return new RunRegistry(cwdArg(options, ["cwd", "repo"], true), cliRunPlanner()).rerun(runId, { reason: optionalString(options.reason), scope: scopeOf(options, "home") });
 }
 export function runLinkCli(runId: string, options: Record<string, unknown> = {}) {
   const url = optionalString(options.url);
   if (!url) throw new Error("Missing run link url (--url <url>)");
   return recordRunLink(
-    new RunRegistry(resolveCwd(options)),
+    new RunRegistry(cwdArg(options, ["cwd", "repo"], true)),
     runId,
     { url, kind: optionalString(options.kind), note: optionalString(options.note), actor: optionalString(options.actor) },
     { scope: scopeOf(options, "home") }
   );
 }
 export function historyCli(options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).history({
+  return new RunRegistry(cwdArg(options, ["cwd", "repo"], true)).history({
     scope: scopeOf(options, "home"),
     app: optionalString(options.app),
     status: optionalString(options.status) as never,
@@ -224,7 +220,7 @@ export function historyCli(options: Record<string, unknown> = {}) {
 }
 
 export function queueAddCli(options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).queueAdd({
+  return new RunRegistry(cwdArg(options, ["cwd", "repo"], true)).queueAdd({
     runId: optionalString(options.runId),
     appId: optionalString(options.app || options.appId),
     workflowId: optionalString(options.workflow || options.workflowId),
@@ -235,13 +231,13 @@ export function queueAddCli(options: Record<string, unknown> = {}) {
   });
 }
 export function queueListCli(options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).queueList({ status: optionalString(options.status) as never, repo: optionalString(options.repo) });
+  return new RunRegistry(cwdArg(options, ["cwd", "repo"], true)).queueList({ status: optionalString(options.status) as never, repo: optionalString(options.repo) });
 }
 export function queueShowCli(id: string, options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).queueShow(id);
+  return new RunRegistry(cwdArg(options, ["cwd", "repo"], true)).queueShow(id);
 }
 export function queueDrainCli(options: Record<string, unknown> = {}) {
-  return new RunRegistry(resolveCwd(options)).queueDrain({
+  return new RunRegistry(cwdArg(options, ["cwd", "repo"], true)).queueDrain({
     limit: requiredNumberFlag(options.limit, "--limit"),
     repo: optionalString(options.repo),
   });
@@ -266,7 +262,7 @@ function gcPolicyOverridesFrom(options: Record<string, unknown>) {
 }
 
 export function gcPlanCli(runId: string | undefined, options: Record<string, unknown> = {}) {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd", "repo"], true));
   return gcPlan(registry, {
     scope: scopeOf(options, "home"),
     runId,
@@ -275,7 +271,7 @@ export function gcPlanCli(runId: string | undefined, options: Record<string, unk
   });
 }
 export function gcRunCli(runId: string | undefined, options: Record<string, unknown> = {}) {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd", "repo"], true));
   return gcRun(registry, {
     scope: scopeOf(options, "home"),
     runId,
@@ -286,16 +282,16 @@ export function gcRunCli(runId: string | undefined, options: Record<string, unkn
   });
 }
 export function gcVerifyCli(runId: string, options: Record<string, unknown> = {}) {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd", "repo"], true));
   return gcVerify(registry, runId, { scope: scopeOf(options, "home") });
 }
 
 export function orphansListCli(options: Record<string, unknown> = {}) {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd", "repo"], true));
   return listOrphanRuns(registry, { scope: scopeOf(options, "home"), now: optionalString(options.now) });
 }
 export function orphansGcCli(options: Record<string, unknown> = {}) {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd", "repo"], true));
   return gcOrphanRuns(registry, {
     scope: scopeOf(options, "home"),
     minAgeMinutes: requiredNumberFlag(options.minAgeMinutes ?? options["min-age-minutes"], "--min-age-minutes"),

@@ -1,5 +1,6 @@
 // core/util/cli-args.ts — shared CLI argv / MCP tool-call arg-coercion
-// helpers: required(), optionalArg(), wantsJson().
+// helpers: required(), optionalArg(), wantsJson(), the bool readers
+// (boolWord, flagOn, parseBoolFlag) and the one --cwd reader, cwdArg().
 //
 // Pure. No fs, no child_process, no net, no process.env, no Date.now(), no
 // Math.random().
@@ -11,6 +12,8 @@
 // (cli/dispatch.ts, the wiring slices) AND MCP tool-call args (the same
 // wiring slices' MCP handler bodies) — see core/util/numeric-flag.ts for
 // the same CLI/MCP-shared framing.
+
+import * as path from "node:path";
 
 /** Require a positional/option value or fail with a copy-pasteable recovery tip. */
 export function required(value: string | undefined, label: string): string {
@@ -44,10 +47,42 @@ export function wantsJson(options: Record<string, unknown>): boolean {
 export function parseBoolFlag(value: unknown, label: string): boolean | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value === "boolean") return value;
-  const text = String(value).trim().toLowerCase();
-  if (text === "true" || text === "1" || text === "yes" || text === "on") return true;
-  if (text === "false" || text === "0" || text === "no" || text === "off" || text === "") return false;
+  const text = String(value).trim();
+  if (text === "") return false;
+  const parsed = boolWord(text);
+  if (parsed !== undefined) return parsed;
   throw new Error(`Invalid boolean value for ${label}: "${String(value)}" (use true or false)`);
+}
+
+/** A real boolean as is; a string that is (trimmed, any case) true/1/yes/on
+ *  or false/0/no/off as that boolean; anything else (numbers, "") undefined. */
+export function boolWord(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return undefined;
+  const text = value.trim().toLowerCase();
+  if (text === "true" || text === "1" || text === "yes" || text === "on") return true;
+  if (text === "false" || text === "0" || text === "no" || text === "off") return false;
+  return undefined;
+}
+
+/** True when a flag is on. With no `onValues`, any boolWord() true. With
+ *  `onValues`, only `true` or an exact (===) member: a caller that has read
+ *  only "true" (or "true"/"1") as on keeps that narrower set. */
+export function flagOn(value: unknown, onValues?: readonly unknown[]): boolean {
+  if (onValues) return value === true || onValues.includes(value);
+  return boolWord(value) === true;
+}
+
+/** The folder named by the first set key of `args` (default `cwd`; e.g.
+ *  `["cwd", "repo"]`), resolved untrimmed; with none set, the process cwd
+ *  (`path.resolve()`). Set = a non-blank string, or with `anyTruthy` any
+ *  truthy value, read as `String(v)` (the old `String(o.cwd || ...)` form). */
+export function cwdArg(args: Record<string, unknown>, keys: readonly string[] = ["cwd"], anyTruthy = false): string {
+  for (const key of keys) {
+    const v = args[key];
+    if (anyTruthy ? v : typeof v === "string" && v.trim()) return path.resolve(String(v));
+  }
+  return path.resolve();
 }
 
 /** Coerce one top-level MCP tool-call argument to the form a CLI-shared

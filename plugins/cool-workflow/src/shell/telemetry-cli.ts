@@ -7,7 +7,7 @@
 // Evidence: SPEC/ledger-trust.md "CLI: `cw telemetry verify`", "`cw
 // telemetry verify` JSON"; the old build's capability-core module.
 
-import * as path from "node:path";
+import { cwdArg } from "../core/util/cli-args";
 import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation";
 import { loadRunFromCwd } from "./run-store";
 import { verifyTelemetryLedger } from "./telemetry-ledger-io";
@@ -17,13 +17,9 @@ function optionalString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function invocationCwd(args: Record<string, unknown>): string {
-  return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
-
 export function telemetryVerifyCli(runId: string, args: Record<string, unknown>): TelemetryVerifyResult {
   if (!runId) throw new Error("telemetry verify requires a run id (cw telemetry verify <run-id>)");
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   const v = verifyTelemetryLedger(run);
   // Opt-in independent signature re-verification: supplying the trust
   // public key (--pubkey / CW_AGENT_ATTEST_PUBKEY) additionally RE-RUNS

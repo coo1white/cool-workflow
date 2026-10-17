@@ -8,14 +8,11 @@
 // summary".
 
 import * as path from "node:path";
+import { cwdArg } from "../core/util/cli-args";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
 import { loadRunFromCwd, loadRunStateFile } from "./run-store";
 import { loadCostPolicy, loadPersistedMetricsFingerprint, showMetricsReport, deriveMetricsSummary, SummaryRunInput } from "./observability";
 import { RunRegistry } from "./run-registry-io";
-
-function invocationCwd(args: Record<string, unknown>): string {
-  return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
 
 function pluginRoot(): string {
   let dir = __dirname;
@@ -35,7 +32,7 @@ function nowOf(args: Record<string, unknown>): string {
 
 /** `cw metrics show <run-id> [--json] [--pricing ...] [--now ISO]`. */
 export function metricsShowCli(runId: string, args: Record<string, unknown>): ReturnType<typeof showMetricsReport> {
-  const run = loadRunFromCwd(runId, invocationCwd(args));
+  const run = loadRunFromCwd(runId, cwdArg(args));
   const policy = loadCostPolicy(args, pluginRoot());
   return showMetricsReport(run, { now: nowOf(args), policy, persist: args.__cwWorkbenchReadOnlyProjection !== true });
 }
@@ -43,7 +40,7 @@ export function metricsShowCli(runId: string, args: Record<string, unknown>): Re
 /** `cw metrics summary [--scope repo|home] [--pricing ...] [--now ISO] [--limit N]`.
  *  `--limit` defaults to RunRegistry.list()'s own 50-record floor when omitted. */
 export function metricsSummaryCli(args: Record<string, unknown>): ReturnType<typeof deriveMetricsSummary> {
-  const cwd = invocationCwd(args);
+  const cwd = cwdArg(args);
   const scope = args.scope === "home" ? "home" : "repo";
   const registry = new RunRegistry(cwd);
   const limit = requiredNumberFlag(args.limit, "--limit");

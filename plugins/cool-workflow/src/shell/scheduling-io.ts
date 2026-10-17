@@ -12,7 +12,7 @@
 // the old build's scheduling module (byte-exact source).
 
 import * as fs from "node:fs";
-import * as path from "node:path";
+import { cwdArg, flagOn } from "../core/util/cli-args";
 import { readJson, withFileLock, writeJson } from "./fs-atomic";
 import { compareQueue, RunQueueEntry, RunRegistry } from "./run-registry-io";
 import { requiredNumberFlag } from "../core/util/numeric-flag";
@@ -219,10 +219,6 @@ export function resetEntry(entries: RunQueueEntry[], id: string): { entries: Run
 // Byte-exact port of the `sched`-specific slice of capability-core module.
 // ---------------------------------------------------------------------------
 
-function resolveCwd(options: Record<string, unknown>): string {
-  return path.resolve(String(options.cwd || process.cwd()));
-}
-
 function nowIso(options: Record<string, unknown>): string {
   return typeof options.now === "string" ? options.now : new Date().toISOString();
 }
@@ -241,13 +237,13 @@ function numericFlag(options: Record<string, unknown>, key: string): number | un
 }
 
 export function schedPlanCli(options: Record<string, unknown> = {}): SchedulingLeasePlan {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
   const { policy } = loadSchedulingPolicy(registry);
   return planSchedule(registry.loadQueueEntries(), policy, nowIso(options));
 }
 
 export function schedLeaseCli(options: Record<string, unknown> = {}): { schemaVersion: 1; now: string; granted: number; leases: SchedulingLease[] } {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
   const now = nowIso(options);
   const policy = loadSchedulingPolicy(registry).policy;
   const limit = requiredNumberFlag(options.limit, "--limit");
@@ -259,9 +255,9 @@ export function schedLeaseCli(options: Record<string, unknown> = {}): { schemaVe
 }
 
 export function schedReleaseCli(leaseId: string, options: Record<string, unknown> = {}): { schemaVersion: 1; released: string; failed: boolean } {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
   const now = nowIso(options);
-  const failed = isTrue(options.failed);
+  const failed = flagOn(options.failed, ["true", "1"]);
   const reason = typeof options.reason === "string" ? options.reason : undefined;
   return withFileLock(registry.queueFilePath(), () => {
     const { entries, matched } = leaseRelease(registry.loadQueueEntries(), leaseId, loadSchedulingPolicy(registry).policy, now, { failed, reason });
@@ -272,7 +268,7 @@ export function schedReleaseCli(leaseId: string, options: Record<string, unknown
 }
 
 export function schedCompleteCli(leaseId: string, options: Record<string, unknown> = {}): { schemaVersion: 1; completed: string } {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
   return withFileLock(registry.queueFilePath(), () => {
     const { entries, matched } = leaseComplete(registry.loadQueueEntries(), leaseId, nowIso(options));
     if (!matched) throw new Error(`No active lease to complete: ${leaseId}`);
@@ -282,7 +278,7 @@ export function schedCompleteCli(leaseId: string, options: Record<string, unknow
 }
 
 export function schedReclaimCli(options: Record<string, unknown> = {}): { schemaVersion: 1; now: string; reclaimed: string[] } {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
   const now = nowIso(options);
   return withFileLock(registry.queueFilePath(), () => {
     const { entries, reclaimed } = reclaimExpired(registry.loadQueueEntries(), loadSchedulingPolicy(registry).policy, now);
@@ -292,7 +288,7 @@ export function schedReclaimCli(options: Record<string, unknown> = {}): { schema
 }
 
 export function schedResetCli(id: string, options: Record<string, unknown> = {}): { schemaVersion: 1; reset: string } {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
   return withFileLock(registry.queueFilePath(), () => {
     const { entries, matched } = resetEntry(registry.loadQueueEntries(), id);
     if (!matched) throw new Error(`No parked entry to reset: ${id}`);
@@ -302,12 +298,12 @@ export function schedResetCli(id: string, options: Record<string, unknown> = {})
 }
 
 export function schedPolicyShowCli(options: Record<string, unknown> = {}): SchedulingPolicyReport {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
   return loadSchedulingPolicy(registry);
 }
 
 export function schedPolicySetCli(options: Record<string, unknown> = {}): SchedulingPolicyReport {
-  const registry = new RunRegistry(resolveCwd(options));
+  const registry = new RunRegistry(cwdArg(options, ["cwd"], true));
   const patch: Partial<SchedulingPolicy> = {};
   for (const key of ["maxConcurrent", "maxAttempts", "leaseTtlMs", "backoffBaseMs", "backoffFactor", "backoffCapMs"] as const) {
     const value = numericFlag(options, key);
@@ -324,6 +320,3 @@ export function schedPolicySetCli(options: Record<string, unknown> = {}): Schedu
   });
 }
 
-function isTrue(value: unknown): boolean {
-  return value === true || value === "true" || value === "1";
-}

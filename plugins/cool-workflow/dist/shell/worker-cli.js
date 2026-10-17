@@ -3,39 +3,6 @@
 // (and the mirrored cw_worker_* MCP tools) handler bodies. Byte-exact behavior
 // port of the old build's cli worker-handler module routing into the
 // worker-isolation shell. Impure: loads run state, mutates, persists.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.workerListCli = workerListCli;
 exports.workerShowCli = workerShowCli;
@@ -43,7 +10,7 @@ exports.workerManifestCli = workerManifestCli;
 exports.workerOutputCli = workerOutputCli;
 exports.workerFailCli = workerFailCli;
 exports.workerValidateCli = workerValidateCli;
-const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const run_store_1 = require("./run-store");
 const worker_isolation_1 = require("./worker-isolation");
 const dispatch_1 = require("../core/pipeline/dispatch");
@@ -52,9 +19,6 @@ const commit_1 = require("./commit");
 const report_1 = require("./report");
 const operator_ux_1 = require("./operator-ux");
 const agent_config_1 = require("./agent-config");
-function cwdFor(args) {
-    return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
 function req(value, label) {
     const s = value === undefined || value === null ? "" : String(value);
     if (!s)
@@ -66,18 +30,18 @@ function allowUnattestedOption(args) {
     return Boolean(args.allowUnattested ?? args["allow-unattested"]);
 }
 function workerListCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
+    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
     return (0, worker_isolation_1.listWorkerScopes)(run, { status: typeof args.status === "string" ? args.status : undefined });
 }
 function workerShowCli(args) {
-    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), cwdFor(args));
+    const run = (0, run_store_1.loadRunFromCwd)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args));
     const scope = (0, worker_isolation_1.getWorkerScope)(run, req(args.workerId, "worker id"));
     if (!scope)
         throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
     return scope;
 }
 function workerManifestCli(args) {
-    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), cwdFor(args), (run) => {
+    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
         const scope = (0, worker_isolation_1.getWorkerScope)(run, req(args.workerId, "worker id"));
         if (!scope)
             throw new Error(`Unknown worker for run ${run.id}: ${args.workerId}`);
@@ -97,7 +61,7 @@ function workerManifestCli(args) {
  *  tasks.completed, workers.byStatus, and loopStage. The drive loop does these
  *  same steps itself around the bare accept, so it never routes through here. */
 function workerOutputCli(args) {
-    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), cwdFor(args), (run) => {
+    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
         (0, worker_isolation_1.recordWorkerOutput)(run, req(args.workerId, "worker id"), req(args.resultPath, "result file"), {
             requireAttestedTelemetry: (0, agent_config_1.resolveAgentConfig)(args).requireAttestedTelemetry,
             allowUnattested: allowUnattestedOption(args),
@@ -112,7 +76,7 @@ function workerOutputCli(args) {
     });
 }
 function workerFailCli(args) {
-    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), cwdFor(args), (run) => {
+    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
         const message = String(args.message || req(args.resultPath, "failure message"));
         const scope = (0, worker_isolation_1.recordWorkerFailure)(run, req(args.workerId, "worker id"), message, {
             code: typeof args.code === "string" ? args.code : undefined,
@@ -127,7 +91,7 @@ function workerFailCli(args) {
  *  allowed) and signals a violation through a non-zero exit code, not just
  *  stdout — a validate verb must report an invalid verdict via its exit code. */
 function workerValidateCli(args) {
-    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), cwdFor(args), (run) => {
+    return (0, run_store_1.withRunStateLock)(req(args.runId, "run id"), (0, cli_args_1.cwdArg)(args), (run) => {
         const target = args.path || args.resultPath;
         const violation = (0, worker_isolation_1.validateWorkerBoundary)(run, req(args.workerId, "worker id"), target ? { path: String(target) } : {});
         (0, run_store_1.saveCheckpoint)(run);

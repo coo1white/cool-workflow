@@ -59,15 +59,13 @@ exports.graphText = graphText;
 exports.optionalString = optionalString;
 const fs = __importStar(require("node:fs"));
 const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const node_child_process_1 = require("node:child_process");
 const run_store_1 = require("./run-store");
 const report_1 = require("./report");
 const operator_ux_1 = require("./operator-ux");
 const operator_ux_text_1 = require("./operator-ux-text");
 const report_html_1 = require("../core/format/report-html");
-function invocationCwd(args) {
-    return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
@@ -75,7 +73,7 @@ function optionalString(value) {
  *  path (the CLI binding prints ONLY this path + "\n" to stdout; `--json`
  *  prints `{path}`). */
 function reportWriteCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return { path: (0, report_1.writeReport)(run) };
 }
 /** MCP `cw_report`: the same `{ path }` as the CLI's --json, plus two
@@ -84,18 +82,13 @@ function reportWriteCli(runId, args) {
  *  evidence } or null); `markdown: true` adds `markdown`, the text of
  *  report.md. With neither, the result is byte-identical to before. */
 function reportMcp(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     const result = { path: (0, report_1.writeReport)(run) };
-    if (mcpFlag(args.answer))
+    if ((0, cli_args_1.flagOn)(args.answer, ["true"]))
         result.answer = (0, report_1.reportAnswer)(run);
-    if (mcpFlag(args.markdown))
+    if ((0, cli_args_1.flagOn)(args.markdown, ["true"]))
         result.markdown = fs.readFileSync(result.path, "utf8");
     return result;
-}
-// MCP scalars reach a handler as strings, except JSON `false`, which stays
-// a real `false` (mcp/dispatch.ts coerceScalarArgs).
-function mcpFlag(value) {
-    return value === true || value === "true";
 }
 /** `cw report` with no run id: the newest run under this repo's
  *  `.cw/runs/`. Run ids sort chronologically (checked on three real
@@ -103,7 +96,7 @@ function mcpFlag(value) {
  *  `createdAt`), so "newest" is just the last name after a sort.
  *  Returns undefined when the repo has no run yet. */
 function resolveReportRunId(args) {
-    const runsDir = path.join(invocationCwd(args), ".cw", "runs");
+    const runsDir = path.join((0, cli_args_1.cwdArg)(args), ".cw", "runs");
     if (!fs.existsSync(runsDir))
         return undefined;
     const ids = fs
@@ -135,7 +128,7 @@ function ensureAndOpenReportHtml(mdPath) {
 /** `cw report --open [run-id]` — a fresh report.md, then the html+open
  *  step above. */
 function reportOpenCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return { path: ensureAndOpenReportHtml((0, report_1.writeReport)(run)) };
 }
 /** `cw status [<run-id>]` / `cw_status` — no id: the fixed advice shape;
@@ -143,44 +136,44 @@ function reportOpenCli(runId, args) {
 function statusCli(runId, args) {
     if (!runId)
         return { runId: null, nextActions: (0, operator_ux_1.adviseNoRun)() };
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return (0, operator_ux_1.summarizeRun)(run);
 }
 /** `cw status <id> --summary`/`--brief` human text. */
 function statusSummaryText(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return (0, operator_ux_text_1.formatOperatorSummary)((0, operator_ux_1.summarizeOperatorRun)(run));
 }
 /** The full `cw status <id>` human text. */
 function statusFullText(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return (0, operator_ux_text_1.formatOperatorStatus)((0, operator_ux_1.summarizeOperatorRun)(run));
 }
 /** `cw operator status <id> [--json]`. */
 function operatorStatusCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return (0, operator_ux_1.summarizeOperatorRun)(run);
 }
 /** `cw operator report <id> [--json]` — also re-writes report.md as a
  *  side effect (byte-exact to the old build's operator report verb). */
 function operatorReportCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     (0, report_1.writeReport)(run);
     return (0, operator_ux_1.summarizeOperatorRun)(run);
 }
 function operatorReportText(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     (0, report_1.writeReport)(run);
     return (0, operator_ux_text_1.formatOperatorReport)((0, operator_ux_1.summarizeOperatorRun)(run), []);
 }
 /** `cw graph <id> [--json]` / `cw operator graph`. */
 function graphCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     if (args.__cwWorkbenchReadOnlyProjection === true)
         run.__cwWorkbenchReadOnlyProjection = true;
     return (0, operator_ux_1.buildOperatorGraph)(run);
 }
 function graphText(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return (0, operator_ux_text_1.formatOperatorGraph)((0, operator_ux_1.buildOperatorGraph)(run));
 }

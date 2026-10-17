@@ -10,6 +10,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { cwdArg } from "../core/util/cli-args";
 import { readJson, writeJson } from "./fs-atomic";
 import { loadRunFromCwd, migrateRunStateFile } from "./run-store";
 import { readNodeSnapshot, readNodeReplay, snapshotNode, replayNodeSnapshot } from "./node-store";
@@ -30,17 +31,13 @@ function optionalStringArg(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function resolveCwd(options: Record<string, unknown>): string {
-  return path.resolve(String(options.cwd || process.cwd()));
-}
-
 // ---------------------------------------------------------------------
 // state.check
 // ---------------------------------------------------------------------
 
 /** `cw state check <run-id> [--state PATH] [--write] [--cwd PATH]`. */
 export function checkState(runId: string, options: Record<string, unknown> = {}): StateMigrationReport {
-  const cwd = resolveCwd(options);
+  const cwd = cwdArg(options, ["cwd"], true);
   const statePath = options.state ? path.resolve(String(options.state)) : path.join(cwd, ".cw", "runs", runId, "state.json");
   const result = migrateRunStateFile(statePath, { write: Boolean(options.write) });
   return result.report;
@@ -98,7 +95,7 @@ export function migrationProve(target: string, options: Record<string, unknown> 
 // ---------------------------------------------------------------------
 
 function loadRun(runId: string, options: Record<string, unknown> = {}): WorkflowRun {
-  const cwd = options.cwd ? path.resolve(String(options.cwd)) : process.cwd();
+  const cwd = cwdArg(options, ["cwd"], true);
   return loadRunFromCwd(runId, cwd);
 }
 

@@ -51,28 +51,26 @@ exports.listBackendsCli = listBackendsCli;
 exports.showBackendCli = showBackendCli;
 exports.probeBackendCli = probeBackendCli;
 const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const registry_1 = require("./execution-backend/registry");
 const sandbox_profile_1 = require("./sandbox-profile");
 const agent_config_1 = require("./agent-config");
 Object.defineProperty(exports, "backendAgentConfigSet", { enumerable: true, get: function () { return agent_config_1.backendAgentConfigSet; } });
 Object.defineProperty(exports, "backendAgentConfigShow", { enumerable: true, get: function () { return agent_config_1.backendAgentConfigShow; } });
-function resolveCwd(options) {
-    return path.resolve(String(options.cwd || process.cwd()));
-}
 function resolveFromBase(target, options) {
-    return path.resolve(resolveCwd(options), target);
+    return path.resolve((0, cli_args_1.cwdArg)(options, ["cwd"], true), target);
 }
 // ---------------------------------------------------------------------
 // sandbox.list | sandbox.show | sandbox.validate
 // ---------------------------------------------------------------------
 function listSandboxProfilesCli(options = {}) {
-    return (0, sandbox_profile_1.listBundledSandboxProfiles)((0, sandbox_profile_1.sandboxContextForValidation)(resolveCwd(options)));
+    return (0, sandbox_profile_1.listBundledSandboxProfiles)((0, sandbox_profile_1.sandboxContextForValidation)((0, cli_args_1.cwdArg)(options, ["cwd"], true)));
 }
 function showSandboxProfileCli(profileId, options = {}) {
-    return (0, sandbox_profile_1.showBundledSandboxProfile)(profileId, (0, sandbox_profile_1.sandboxContextForValidation)(resolveCwd(options)));
+    return (0, sandbox_profile_1.showBundledSandboxProfile)(profileId, (0, sandbox_profile_1.sandboxContextForValidation)((0, cli_args_1.cwdArg)(options, ["cwd"], true)));
 }
 function validateSandboxProfileCli(profileFile, options = {}) {
-    return (0, sandbox_profile_1.validateSandboxProfileFile)(resolveFromBase(profileFile, options), (0, sandbox_profile_1.sandboxContextForValidation)(resolveCwd(options)));
+    return (0, sandbox_profile_1.validateSandboxProfileFile)(resolveFromBase(profileFile, options), (0, sandbox_profile_1.sandboxContextForValidation)((0, cli_args_1.cwdArg)(options, ["cwd"], true)));
 }
 // ---------------------------------------------------------------------
 // backend.list | backend.show | backend.probe
@@ -84,5 +82,5 @@ function showBackendCli(backendId) {
     return (0, registry_1.backendShowPayload)(backendId);
 }
 function probeBackendCli(backendId, options = {}) {
-    return (0, registry_1.backendProbePayload)(backendId, { cwd: resolveCwd(options) });
+    return (0, registry_1.backendProbePayload)(backendId, { cwd: (0, cli_args_1.cwdArg)(options, ["cwd"], true) });
 }

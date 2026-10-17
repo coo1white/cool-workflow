@@ -5,7 +5,7 @@
 // retyped).
 
 import { attachCliBinding, REGISTRY_BY_CAPABILITY } from "./registry-core";
-import { required, optionalArg, wantsJson } from "../../core/util/cli-args";
+import { required, optionalArg, wantsJson, cwdArg } from "../../core/util/cli-args";
 import { adviseNoRun } from "../../core/format/recovery-hint";
 // This file is required at startup for every command. Loading these shell
 // modules only when their handler runs, not at import time, keeps that
@@ -151,22 +151,17 @@ REGISTRY_BY_CAPABILITY.get("metrics.summary")!.mcp!.handler = (args) => loadMetr
 function loadWorkerIsolation(): typeof import("../../shell/worker-isolation") {
   return require("../../shell/worker-isolation") as typeof import("../../shell/worker-isolation");
 }
-import * as workerPath from "node:path";
 
 function workerSummaryCli(args: Record<string, unknown>): ReturnType<typeof import("../../shell/worker-isolation").summarizeWorkers> {
   const runId = required(optionalArg(args.runId), "run id");
-  const run = loadRunStore().loadRunFromCwd(runId, invocationCwdFor(args));
+  const run = loadRunStore().loadRunFromCwd(runId, cwdArg(args));
   return loadWorkerIsolation().summarizeWorkers(run);
 }
 function workerSummaryText(args: Record<string, unknown>): string {
   const runId = required(optionalArg(args.runId), "run id");
-  const run = loadRunStore().loadRunFromCwd(runId, invocationCwdFor(args));
+  const run = loadRunStore().loadRunFromCwd(runId, cwdArg(args));
   return loadWorkerIsolation().formatWorkerSummaryText(run);
 }
-function invocationCwdFor(args: Record<string, unknown>): string {
-  return typeof args.cwd === "string" && args.cwd.trim() ? workerPath.resolve(args.cwd) : process.cwd();
-}
-
 // jsonMode "flag": human `Workers` panel by default, canonical JSON under
 // --json (old build's worker.summary was flag, cli/handlers/worker.ts).
 attachCliBinding("worker.summary", {

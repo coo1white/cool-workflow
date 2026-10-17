@@ -51,15 +51,13 @@ exports.auditProvenanceCli = auditProvenanceCli;
 exports.auditAttestCli = auditAttestCli;
 exports.auditDecisionCli = auditDecisionCli;
 const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const trust_audit_1 = require("./trust-audit");
 const run_store_1 = require("./run-store");
 const report_1 = require("./report");
 const audit_provenance_1 = require("./audit-provenance");
 const worker_isolation_1 = require("./worker-isolation");
 const sandbox_profile_1 = require("./sandbox-profile");
-function invocationCwd(args) {
-    return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
 /** Parse the optional truncation anchor off the CLI options / MCP args
  *  (`--expect-head <hash>` / `--expect-count <n>`; MCP: expectHead /
  *  expectCount). Fail-closed on a malformed count — a flag given without
@@ -90,7 +88,7 @@ function auditVerifyCli(runId, args) {
     if (!runId)
         throw new Error("audit verify requires a run id (cw audit verify <run-id>)");
     const anchor = anchorOption(args);
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     const v = (0, trust_audit_1.verifyTrustAudit)(run, anchor);
     const result = {
         schemaVersion: 1,
@@ -119,7 +117,7 @@ function auditVerifyCli(runId, args) {
 function auditHeadCli(runId, args) {
     if (!runId)
         throw new Error("audit head requires a run id (cw audit head <run-id>)");
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     const head = (0, trust_audit_1.trustAuditHead)(run);
     return { schemaVersion: 1, runId: run.id, eventCount: head.eventCount, headHash: head.headHash };
 }
@@ -142,7 +140,7 @@ function auditRepairCli(runId, args) {
         throw new Error("audit repair requires a run id (cw audit repair <run-id>)");
     const write = Boolean(args.write);
     const anchor = anchorOption(args, "audit repair");
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     const result = (0, trust_audit_1.repairTrustAuditTornTail)(run, { write, anchor });
     return { schemaVersion: 1, runId: run.id, write, ...result };
 }
@@ -151,7 +149,7 @@ function auditRepairCli(runId, args) {
  *  the report.md writer already builds, so panel data can never drift
  *  from the standalone command's output. */
 function auditSummaryCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return (0, trust_audit_1.summarizeTrustAudit)(run, { persist: args.__cwWorkbenchReadOnlyProjection !== true });
 }
 // ---------------------------------------------------------------------------
@@ -180,12 +178,12 @@ function inferAuditDecisionKind(options) {
 }
 /** `cw audit worker <run> <worker>` — every audited event for one worker. */
 function auditWorkerCli(runId, workerId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return (0, audit_provenance_1.workerTrustAudit)(run, workerId);
 }
 /** `cw audit provenance <run> [--worker|--candidate|--commit <id>]`. */
 function auditProvenanceCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     return (0, audit_provenance_1.evidenceProvenance)(run, {
         workerId: optionalString(args.worker ?? args.workerId),
         candidateId: optionalString(args.candidate ?? args.candidateId),
@@ -197,7 +195,7 @@ function auditProvenanceCli(runId, args) {
 function auditAttestCli(runId, args) {
     // Hold the state.json lock across the whole load -> record -> save so a
     // concurrent run mutation cannot drop this attestation (lost-update class).
-    return (0, run_store_1.withRunStateLock)(runId, invocationCwd(args), (run) => {
+    return (0, run_store_1.withRunStateLock)(runId, (0, cli_args_1.cwdArg)(args), (run) => {
         const workerId = optionalString(args.worker ?? args.workerId);
         const worker = workerId ? (0, worker_isolation_1.getWorkerScope)(run, workerId) : undefined;
         const event = (0, audit_provenance_1.recordHostAttestation)(run, {
@@ -226,7 +224,7 @@ function auditDecisionCli(runId, workerId, args) {
     // recordAuditDecision does a load -> mutate -> saveCheckpoint; hold the
     // state.json lock across the whole cycle so a concurrent run mutation
     // cannot drop the recorded decision/failure (lost-update class).
-    return (0, run_store_1.withRunStateLock)(runId, invocationCwd(args), (run) => recordAuditDecision(run, workerId, args));
+    return (0, run_store_1.withRunStateLock)(runId, (0, cli_args_1.cwdArg)(args), (run) => recordAuditDecision(run, workerId, args));
 }
 function recordAuditDecision(run, workerId, options) {
     const worker = (0, worker_isolation_1.getWorkerScope)(run, workerId);

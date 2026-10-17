@@ -97,6 +97,7 @@ exports.formatClonesGc = formatClonesGc;
 const fs = __importStar(require("node:fs"));
 const os = __importStar(require("node:os"));
 const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const fs_atomic_1 = require("./fs-atomic");
 const trust_audit_1 = require("./trust-audit");
 const node_store_1 = require("./node-store");
@@ -1311,9 +1312,6 @@ function formatOrphanRunsGc(result) {
         lines.push(`  ${r.runId} (${r.repo}) ${humanBytesLocal(r.bytes)}`);
     return lines.join("\n");
 }
-function isTrue(value) {
-    return value === true || value === "true" || value === "1" || value === 1;
-}
 function optionalNumber(value) {
     if (value === undefined || value === null || value === "")
         return undefined;
@@ -1419,7 +1417,7 @@ function listClones(env = process.env) {
  *  clones root (fail closed). */
 function gcClones(options = {}, env = process.env) {
     const root = clonesRoot(env);
-    const all = isTrue(options.all);
+    const all = (0, cli_args_1.flagOn)(options.all, ["true", "1", 1]);
     let olderThanDays = null;
     if (!all) {
         const raw = options.olderThanDays;

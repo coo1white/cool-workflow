@@ -45,20 +45,18 @@ exports.reportBundleCli = reportBundleCli;
 exports.reportVerifyBundleCli = reportVerifyBundleCli;
 exports.formatReportVerifyBundle = formatReportVerifyBundle;
 const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const run_export_1 = require("./run-export");
 const run_store_1 = require("./run-store");
 const term_1 = require("./term");
 function optionalString(value) {
     return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
-function invocationCwd(args) {
-    return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
 const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
 function reportBundleCli(runId, args) {
     if (!runId)
         throw new Error("report bundle requires a run id (cw report bundle <run-id>)");
-    const base = invocationCwd(args);
+    const base = (0, cli_args_1.cwdArg)(args);
     const run = (0, run_store_1.loadRunFromCwd)(runId, base);
     const output = optionalString(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
     const outputPath = path.resolve(base, output);
@@ -89,7 +87,7 @@ function reportBundleCli(runId, args) {
     };
 }
 function reportVerifyBundleCli(args) {
-    const base = invocationCwd(args);
+    const base = (0, cli_args_1.cwdArg)(args);
     const archive = optionalString(args.archive || args.path || args.file || args.bundle);
     if (!archive)
         throw new Error("report verify-bundle requires a bundle path (positional, --archive, --path, --file, or --bundle)");

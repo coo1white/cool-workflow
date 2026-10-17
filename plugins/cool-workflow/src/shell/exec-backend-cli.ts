@@ -10,6 +10,7 @@
 // CLI/MCP handlers delegate to.
 
 import * as path from "node:path";
+import { cwdArg } from "../core/util/cli-args";
 import {
   backendListPayload,
   backendProbePayload,
@@ -24,12 +25,8 @@ import {
 import { SandboxProfileValidationResult } from "./execution-backend/types";
 import { backendAgentConfigSet, backendAgentConfigShow } from "./agent-config";
 
-function resolveCwd(options: Record<string, unknown>): string {
-  return path.resolve(String(options.cwd || process.cwd()));
-}
-
 function resolveFromBase(target: string, options: Record<string, unknown>): string {
-  return path.resolve(resolveCwd(options), target);
+  return path.resolve(cwdArg(options, ["cwd"], true), target);
 }
 
 // ---------------------------------------------------------------------
@@ -37,15 +34,15 @@ function resolveFromBase(target: string, options: Record<string, unknown>): stri
 // ---------------------------------------------------------------------
 
 export function listSandboxProfilesCli(options: Record<string, unknown> = {}) {
-  return listBundledSandboxProfiles(sandboxContextForValidation(resolveCwd(options)));
+  return listBundledSandboxProfiles(sandboxContextForValidation(cwdArg(options, ["cwd"], true)));
 }
 
 export function showSandboxProfileCli(profileId: string, options: Record<string, unknown> = {}) {
-  return showBundledSandboxProfile(profileId, sandboxContextForValidation(resolveCwd(options)));
+  return showBundledSandboxProfile(profileId, sandboxContextForValidation(cwdArg(options, ["cwd"], true)));
 }
 
 export function validateSandboxProfileCli(profileFile: string, options: Record<string, unknown> = {}): SandboxProfileValidationResult {
-  return validateSandboxProfileFile(resolveFromBase(profileFile, options), sandboxContextForValidation(resolveCwd(options)));
+  return validateSandboxProfileFile(resolveFromBase(profileFile, options), sandboxContextForValidation(cwdArg(options, ["cwd"], true)));
 }
 
 // ---------------------------------------------------------------------
@@ -61,7 +58,7 @@ export function showBackendCli(backendId: string) {
 }
 
 export function probeBackendCli(backendId: string | undefined, options: Record<string, unknown> = {}) {
-  return backendProbePayload(backendId, { cwd: resolveCwd(options) });
+  return backendProbePayload(backendId, { cwd: cwdArg(options, ["cwd"], true) });
 }
 
 // ---------------------------------------------------------------------

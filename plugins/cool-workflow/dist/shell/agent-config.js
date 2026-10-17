@@ -60,6 +60,7 @@ exports.backendAgentConfigShow = backendAgentConfigShow;
 const fs = __importStar(require("node:fs"));
 const os = __importStar(require("node:os"));
 const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const fs_atomic_1 = require("./fs-atomic");
 const agent_1 = require("./execution-backend/agent");
 exports.AGENT_CONFIG_SCHEMA_VERSION = 1;
@@ -80,18 +81,6 @@ function trimmed(value) {
         return undefined;
     const out = value.trim();
     return out ? out : undefined;
-}
-function boolish(value) {
-    if (typeof value === "boolean")
-        return value;
-    if (typeof value === "string") {
-        const v = value.trim().toLowerCase();
-        if (["1", "true", "yes", "on"].includes(v))
-            return true;
-        if (["0", "false", "no", "off"].includes(v))
-            return false;
-    }
-    return undefined;
 }
 function asStringArray(value) {
     if (!Array.isArray(value))
@@ -135,7 +124,7 @@ function loadAgentConfigFile(env = process.env) {
             model: trimmed(parsed.model),
             timeoutMs: typeof parsed.timeoutMs === "number" ? parsed.timeoutMs : undefined,
             attestPublicKey: trimmed(parsed.attestPublicKey),
-            requireAttestedTelemetry: boolish(parsed.requireAttestedTelemetry),
+            requireAttestedTelemetry: (0, cli_args_1.boolWord)(parsed.requireAttestedTelemetry),
             source: "file",
         };
     }
@@ -153,7 +142,7 @@ function agentConfigFromEnv(env) {
         model: trimmed(env.CW_AGENT_MODEL),
         timeoutMs: trimmed(env.CW_AGENT_TIMEOUT_MS) ? Number(env.CW_AGENT_TIMEOUT_MS) : undefined,
         attestPublicKey: trimmed(env.CW_AGENT_ATTEST_PUBKEY),
-        requireAttestedTelemetry: boolish(env.CW_REQUIRE_ATTESTED_TELEMETRY),
+        requireAttestedTelemetry: (0, cli_args_1.boolWord)(env.CW_REQUIRE_ATTESTED_TELEMETRY),
         source: "env",
     };
 }
@@ -170,7 +159,7 @@ function agentConfigFromArgs(args) {
         model: trimmed(args.agentModel ?? args["agent-model"]),
         timeoutMs: rawTimeout !== undefined ? Number(rawTimeout) : undefined,
         attestPublicKey: trimmed(args.agentAttestPublicKey ?? args["agent-attest-public-key"]),
-        requireAttestedTelemetry: boolish(args.requireAttestedTelemetry ?? args["require-attested-telemetry"]),
+        requireAttestedTelemetry: (0, cli_args_1.boolWord)(args.requireAttestedTelemetry ?? args["require-attested-telemetry"]),
         source: "flag",
     };
 }

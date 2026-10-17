@@ -1,6 +1,7 @@
 "use strict";
 // core/util/cli-args.ts — shared CLI argv / MCP tool-call arg-coercion
-// helpers: required(), optionalArg(), wantsJson().
+// helpers: required(), optionalArg(), wantsJson(), the bool readers
+// (boolWord, flagOn, parseBoolFlag) and the one --cwd reader, cwdArg().
 //
 // Pure. No fs, no child_process, no net, no process.env, no Date.now(), no
 // Math.random().
@@ -12,12 +13,49 @@
 // (cli/dispatch.ts, the wiring slices) AND MCP tool-call args (the same
 // wiring slices' MCP handler bodies) — see core/util/numeric-flag.ts for
 // the same CLI/MCP-shared framing.
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.required = required;
 exports.optionalArg = optionalArg;
 exports.wantsJson = wantsJson;
 exports.parseBoolFlag = parseBoolFlag;
+exports.boolWord = boolWord;
+exports.flagOn = flagOn;
+exports.cwdArg = cwdArg;
 exports.coerceMcpScalar = coerceMcpScalar;
+const path = __importStar(require("node:path"));
 /** Require a positional/option value or fail with a copy-pasteable recovery tip. */
 function required(value, label) {
     if (!value) {
@@ -47,12 +85,47 @@ function parseBoolFlag(value, label) {
         return undefined;
     if (typeof value === "boolean")
         return value;
-    const text = String(value).trim().toLowerCase();
+    const text = String(value).trim();
+    if (text === "")
+        return false;
+    const parsed = boolWord(text);
+    if (parsed !== undefined)
+        return parsed;
+    throw new Error(`Invalid boolean value for ${label}: "${String(value)}" (use true or false)`);
+}
+/** A real boolean as is; a string that is (trimmed, any case) true/1/yes/on
+ *  or false/0/no/off as that boolean; anything else (numbers, "") undefined. */
+function boolWord(value) {
+    if (typeof value === "boolean")
+        return value;
+    if (typeof value !== "string")
+        return undefined;
+    const text = value.trim().toLowerCase();
     if (text === "true" || text === "1" || text === "yes" || text === "on")
         return true;
-    if (text === "false" || text === "0" || text === "no" || text === "off" || text === "")
+    if (text === "false" || text === "0" || text === "no" || text === "off")
         return false;
-    throw new Error(`Invalid boolean value for ${label}: "${String(value)}" (use true or false)`);
+    return undefined;
+}
+/** True when a flag is on. With no `onValues`, any boolWord() true. With
+ *  `onValues`, only `true` or an exact (===) member: a caller that has read
+ *  only "true" (or "true"/"1") as on keeps that narrower set. */
+function flagOn(value, onValues) {
+    if (onValues)
+        return value === true || onValues.includes(value);
+    return boolWord(value) === true;
+}
+/** The folder named by the first set key of `args` (default `cwd`; e.g.
+ *  `["cwd", "repo"]`), resolved untrimmed; with none set, the process cwd
+ *  (`path.resolve()`). Set = a non-blank string, or with `anyTruthy` any
+ *  truthy value, read as `String(v)` (the old `String(o.cwd || ...)` form). */
+function cwdArg(args, keys = ["cwd"], anyTruthy = false) {
+    for (const key of keys) {
+        const v = args[key];
+        if (anyTruthy ? v : typeof v === "string" && v.trim())
+            return path.resolve(String(v));
+    }
+    return path.resolve();
 }
 /** Coerce one top-level MCP tool-call argument to the form a CLI-shared
  *  handler reads. CLI argv is strings (or `true` for a bare flag), so a JSON

@@ -28,6 +28,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { cwdArg } from "../core/util/cli-args";
 import {
   agent,
   artifact,
@@ -713,7 +714,7 @@ export function initWorkflowApp(appId: string, options: Record<string, unknown> 
  *  (`options.cwd`) so the CLI/MCP surfaces never write into the process cwd
  *  when a different working directory was requested — and never chdir. */
 export function packageWorkflowApp(appId: string, options: Record<string, unknown> = {}, cwd?: string): { id: string; version: string; path: string } {
-  const base = cwd || (typeof options.cwd === "string" && options.cwd.trim() ? path.resolve(String(options.cwd)) : process.cwd());
+  const base = cwd || cwdArg(options);
   const record = loadWorkflowAppRecordById(appId);
   const destination = path.resolve(base, String(options.output || path.join(".cw", "packages", `${record.app.id}-${record.app.version}.cwapp.json`)));
   fs.mkdirSync(path.dirname(destination), { recursive: true });

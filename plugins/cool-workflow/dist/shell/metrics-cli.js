@@ -44,13 +44,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.metricsShowCli = metricsShowCli;
 exports.metricsSummaryCli = metricsSummaryCli;
 const path = __importStar(require("node:path"));
+const cli_args_1 = require("../core/util/cli-args");
 const numeric_flag_1 = require("../core/util/numeric-flag");
 const run_store_1 = require("./run-store");
 const observability_1 = require("./observability");
 const run_registry_io_1 = require("./run-registry-io");
-function invocationCwd(args) {
-    return typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd();
-}
 function pluginRoot() {
     let dir = __dirname;
     for (let i = 0; i < 8; i++) {
@@ -69,14 +67,14 @@ function nowOf(args) {
 }
 /** `cw metrics show <run-id> [--json] [--pricing ...] [--now ISO]`. */
 function metricsShowCli(runId, args) {
-    const run = (0, run_store_1.loadRunFromCwd)(runId, invocationCwd(args));
+    const run = (0, run_store_1.loadRunFromCwd)(runId, (0, cli_args_1.cwdArg)(args));
     const policy = (0, observability_1.loadCostPolicy)(args, pluginRoot());
     return (0, observability_1.showMetricsReport)(run, { now: nowOf(args), policy, persist: args.__cwWorkbenchReadOnlyProjection !== true });
 }
 /** `cw metrics summary [--scope repo|home] [--pricing ...] [--now ISO] [--limit N]`.
  *  `--limit` defaults to RunRegistry.list()'s own 50-record floor when omitted. */
 function metricsSummaryCli(args) {
-    const cwd = invocationCwd(args);
+    const cwd = (0, cli_args_1.cwdArg)(args);
     const scope = args.scope === "home" ? "home" : "repo";
     const registry = new run_registry_io_1.RunRegistry(cwd);
     const limit = (0, numeric_flag_1.requiredNumberFlag)(args.limit, "--limit");
