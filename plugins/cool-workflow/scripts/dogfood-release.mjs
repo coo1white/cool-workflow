@@ -6,7 +6,7 @@ import path from "node:path";
 import { CoolWorkflowRunner } from "../dist/shell/orchestrator.js";
 import { pathToFileURL } from "node:url";
 
-const TARGET_VERSION = "0.3.1";
+const TARGET_VERSION = "0.3.2";
 const PREVIOUS_VERSION = "0.1.31";
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
