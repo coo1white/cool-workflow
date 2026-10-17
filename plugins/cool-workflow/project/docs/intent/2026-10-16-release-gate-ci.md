@@ -287,8 +287,11 @@ worker a fresh try. The rule is in `src/core/pipeline/drive-decide.ts`
 in the 0.3.3 bump PR.
 
 The other changes in PR #818 that users can see are fixes, shipped under
-the operator's request to fix everything before 0.3.3. Which of them
-change default bytes:
+the operator's request to fix everything before 0.3.3. Their words, as
+written (2026-10-17), after a 0.3.2 run lost about 30 minutes to a stuck
+agent: "有没有办法全部修复好，发版一个无法正常使用的版本，没有任何意义"
+("Is there a way to fix it all? Putting out a version that does not work
+right has no point."). Which of them change default bytes:
 
 | Change | Before (0.3.2) | 0.3.3 | Default bytes changed? |
 |---|---|---|---|
