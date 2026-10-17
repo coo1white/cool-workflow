@@ -41,6 +41,18 @@ spawns — only `PATH`, `HOME`, explicit `expose` entries, and well-known
 `CW_*` + LLM provider API key environment variables pass through. The
 operator's other process environment is not inherited by default.
 
+New in 0.3.3: the agent child also gets the network and trust vars a
+vendor CLI needs to get to its API, when they are set: `HTTP_PROXY`,
+`HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY` (and the lowercase forms),
+`NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, and every `CLAUDE_*`
+var (for example `CLAUDE_CONFIG_DIR`, which the claude CLI reads for its
+login). Without them, an agent behind a proxy was turned away (`403 Request
+not allowed`). A proxy URL may have a password in it; these vars go only to
+the agent command the operator gave, and only their names are kept in the
+`worker.agent-env` audit event, never the values. A name in the policy's
+`deny` list is still taken out. Other (non-agent) backends keep the
+narrow env above.
+
 The design goal is simple:
 
 ```text
