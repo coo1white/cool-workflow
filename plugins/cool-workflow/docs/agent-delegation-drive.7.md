@@ -234,6 +234,11 @@ again with no args, or setting another field with no `--agent-command`, keeps
 the stored args. Other stored fields (endpoint, model, timeout) are kept.
 (New default in 0.4.0; before, a new command with no args kept the old
 command's args.)
+A command of more than one word is split on white space when it runs: its
+first word is the program, its other words come first, then the explicit
+args. So command `claude -p` with args `["x"]` runs `claude -p x`, the same
+argv the release reviewer builds. (Before, drive tried to run a program named
+`claude -p` and failed.)
 claude / codex / ollama are CONFIGS, never CW dependencies. No secrets are written into the config or `.cw/`: it holds a
 command-template + endpoint + operator-chosen model only; recorded command/args
 are secret-stripped.

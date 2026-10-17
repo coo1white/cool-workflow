@@ -183,10 +183,13 @@ function resolveAgentInvocation(request, env = process.env) {
         if (!delegation.args)
             rawArgs = parts.slice(1);
     }
-    else if (binary && !delegation.args && /\s/.test(binary)) {
-        const parts = (0, cli_args_1.splitAgentCommandLine)(binary);
-        binary = parts[0];
-        rawArgs = parts.slice(1);
+    else if (binary && /\s/.test(binary)) {
+        // A command of more than one word ("claude -p") is never a binary name;
+        // its first word is. The other words go first, then any explicit
+        // delegation args: the same argv the release reviewer builds.
+        const argv = (0, cli_args_1.agentCommandArgv)(binary, delegation.args);
+        binary = argv.binary;
+        rawArgs = argv.args;
     }
     return { binary, rawArgs, endpoint, model, timeoutMs: request.timeoutMs };
 }
