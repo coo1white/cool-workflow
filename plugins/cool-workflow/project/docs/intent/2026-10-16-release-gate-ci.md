@@ -160,3 +160,86 @@ dated yes here, the man page in the same range) are unchanged. Changed in
 the same diff: `AGENTS.md` FreeBSD rule 1, `agents/release-reviewer.md`
 check 3, `docs/unix-principles.md`, `docs/release-tooling.7.md`, and
 every "0.4.0" in the man pages, code notes and tests, now "0.3.1".
+
+## Operator decisions for 0.3.2 (2026-10-17)
+
+The release reviewer said no to the first 0.3.2 cut: changes users will
+see had no quoted, dated yes from the operator (the slim-and-esm archive
+only says "Answered by the operator on 2026-09-28: yes to all six"). The
+questions were put to the operator in plain words, as written here.
+
+First question, word for word: "The reviewer needs your own words, dated,
+saying yes to the changes users will see in 0.3.2. Do you approve these:
+(1) CW needs Node 22.13 or newer (Node 18 and 20 can no longer install
+it); (2) `cw doctor` now says '(>= 22.13)' where it said '(>= 18)'; (3)
+`cw doctor --onramp` (only in a CW checkout) names test files ending in
+.mjs instead of .js?"
+
+The operator's answer, word for word (2026-10-17): "Yes, approve all three"
+
+Second question, word for word: "The reviewer's other rule: a release must
+give users something new (a North Star track). 0.3.2 so far is mostly
+cleanup (smaller code, new module style). What should we do?" The two
+answers offered were "Add one small user fix (Recommended): Add a real
+recovery fix to 0.3.2: if you copy a run folder by hand and open the copy,
+CW today writes into the ORIGINAL folder by mistake. Fix: CW refuses and
+tells you to use 'cw run import'. Serves Track B (recovery). About one PR,
+then release." and "Wait for a bigger feature".
+
+The operator's answer, word for word (2026-10-17): "Add one small user fix
+(Recommended)"
+
+The operator also wrote, word for word (2026-10-17): "accept refactor for
+let software better". This is their general yes to the slim-and-ESM
+refactor going out in 0.3.2. It does not take the place of the reviewer's
+direction rule: the Track B fix named below is the part of 0.3.2 that
+serves a track.
+
+The exact byte changes the first answer covers, v0.3.1 to 0.3.2:
+
+| Change | v0.3.1 | 0.3.2 | Code | Man page |
+|---|---|---|---|---|
+| `package.json` `engines.node` | `>=18` | `>=22.13.0` | `package.json` | `docs/release-and-migration.7.md` (Node floor) |
+| `cw doctor` node check, ok detail | `Node <version> (>= 18).` | `Node <version> (>= 22.13).` | `src/shell/doctor.ts` | `docs/doctor.7.md` (CHECKS, node) |
+| `cw doctor` node check, fail detail | `Node <version> is below the required v18.` | `Node <version> is below the required v22.13.` | `src/shell/doctor.ts` | `docs/doctor.7.md` (CHECKS, node) |
+| `cw doctor` node check, fix | `Install Node.js 18+ (...)` | `Install Node.js 22.13+ (...)` | `src/shell/doctor.ts` | `docs/doctor.7.md` (CHECKS, node) |
+| `cw doctor --onramp` smoke and script paths | `<name>-smoke.js`, `scripts/onramp-check.js`, `scripts/parity-check.js` | `<name>-smoke.mjs`, `scripts/onramp-check.mjs`, `scripts/parity-check.mjs` | `src/shell/onramp.ts` | `docs/doctor.7.md` (`--onramp`) |
+
+`docs/release-and-migration.7.md` (Module Form) names these as the only
+output changes of the ES module move.
+
+The second answer also says yes, as an operator-approved default change
+under the same POLA exception, to the copied-run-folder refusal: opening a
+run folder that was copied by hand stops with an error that names
+`cw run import`, where before CW wrote into the original folder. That
+change goes out in its own PR, with its own man page change, in 0.3.2.
+
+Then the operator wrote, word for word (2026-10-17): "if we can get more
+useful feature in this cut, i'm ok for expand content".
+
+Third question, word for word: "Which extra features should go into 0.3.2?
+These are the small, safe ones from the project's own to-do list (each
+about one PR). Pick any." The answers offered (more than one could be
+picked) were:
+
+- "Release notes say what's new: The release tool writes a short 'What
+  changed' list (up to 6 plain bullets from the PR titles) at the top of
+  each GitHub Release, so users know what to try. No AI call. Track A."
+- "Live progress lines in order: When CW runs several agents at once, the
+  screen prints 'spawning agent' for each one only AFTER they all finish,
+  which is backwards. Fix: print them when they start. Only changes what
+  you see in a terminal; piped output stays the same. Track A."
+- "Keep feedback written during a run: If you record feedback (cw feedback
+  / cw worker) while a run is being driven, the next save can silently
+  erase it. Fix: keep the other write instead of losing it. Bigger and
+  riskier (touches saving). Track B."
+
+The operator's answer, word for word (2026-10-17): "Release notes say
+what's new,Live progress lines in order,Keep feedback written during a run"
+
+So these are operator-approved changes for 0.3.2 too, each going out in
+its own PR with its own man page change: the "What changed" list in
+release notes; the TTY-only change to the order of the "spawning agent"
+lines on stderr (piped output keeps its bytes); and the save that keeps
+feedback written by another process during a driven run in place of
+erasing it.

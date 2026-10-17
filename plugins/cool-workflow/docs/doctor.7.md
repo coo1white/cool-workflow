@@ -37,6 +37,11 @@ The command runs six checks in order:
 
 **node**
 : The Node.js version. CW needs v22.13 or higher. A `fail` here stops everything.
+When it is `ok`, the detail is `Node <version> (>= 22.13).`; when it is
+`fail`, it is `Node <version> is below the required v22.13.` Up to 0.3.1 these
+said `(>= 18)` and `v18` (changed in 0.3.2 with the operator's dated yes:
+`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions for
+0.3.2 (2026-10-17)").
 
 **agent**
 : The AI agent backend. CW can auto-detect agents (Claude, Codex, Gemini,
@@ -73,6 +78,11 @@ by itself.
 `--onramp`
 : Add a quick-start guide to the human output, with recommended checks and a
 three-step path to your first report.
+In a CW checkout, the checks it names are the `.mjs` test and script paths
+(for example `test/doctor-smoke.mjs` and `scripts/onramp-check.mjs`). Up to
+0.3.1 they ended in `.js` (changed in 0.3.2 with the operator's dated yes:
+`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions for
+0.3.2 (2026-10-17)").
 
 `--changed-from <ref>`
 : When used with `--onramp`, make the quick-start checks cover only files changed
