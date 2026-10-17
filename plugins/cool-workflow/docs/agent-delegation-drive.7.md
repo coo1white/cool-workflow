@@ -301,7 +301,11 @@ folders (`Run <run-id> was made for <stored>, not <given>; refusing to resume
 it from here (fail closed). ...`). The flag is never quietly used, and the
 stored folder's run is never quietly driven in its place. To take a run to a
 new place, use `cw run export` and `cw run import`, which keep the stored
-folder true.
+folder true. From 0.3.2, when the run folder itself was copied by hand and
+the original run folder is still there, the load refuses first, with the
+error `Refusing to load run <run-id>: the folder <copy> is a copy of
+<original>, ...` and the export and import commands to use; see
+[durable-state-and-locking.7.md](durable-state-and-locking.7.md).
 
 When the folder named with `--repo` or `--cwd` does not hold the run at all,
 `run resume <run-id>` (with or without `--drive`/`--once`) is refused too:

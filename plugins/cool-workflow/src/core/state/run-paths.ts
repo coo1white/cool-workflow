@@ -42,6 +42,52 @@ const AUDIT_FILES: Array<["eventLogPath" | "summaryPath" | "indexPath", string]>
  *  strings are the same place. */
 export type SameLocation = (stored: string, rebuilt: string) => boolean;
 
+/** The repo folder of a run folder in the `<repo>/.cw/runs/<run-id>`
+ *  layout, else undefined. */
+function repoOfRunDir(runDir: string, runId: string): string | undefined {
+  const runs = path.dirname(runDir);
+  const cw = path.dirname(runs);
+  return path.basename(runDir) === runId && path.basename(runs) === "runs" && path.basename(cw) === ".cw" ? path.dirname(cw) : undefined;
+}
+
+/** The refusal for a run folder copied by hand (for one, `cp -R`), or
+ *  undefined when the folder is not such a copy. `foundRunDir` is the
+ *  absolute folder the run's state.json was read from, `storedRunDir` the
+ *  raw `paths.runDir` value in that state.json. It is a copy only when ALL
+ *  of these hold, so a moved repo, a cloned repo, a symlinked path, an old
+ *  state with no usable `paths.runDir`, and a run made by `cw run import`
+ *  all go on as before:
+ *  - the stored value is an absolute path in the `<repo>/.cw/runs/<run-id>`
+ *    layout, for this same run id, and so is the found folder;
+ *  - it is not the found folder (equal after `path.resolve`, or the same
+ *    real place by `sameLocation`, for one macOS /var and /private/var);
+ *  - `originHasRun(stored)` says the original folder still has this run's
+ *    state.json (it is not the found file itself). A moved repo has none.
+ *  Pure: the shell gives `sameLocation` and `originHasRun`. */
+export function copiedRunRefusal(
+  runId: string,
+  foundRunDir: string,
+  storedRunDir: unknown,
+  sameLocation: SameLocation,
+  originHasRun: (storedRunDir: string) => boolean
+): string | undefined {
+  if (typeof storedRunDir !== "string" || !path.isAbsolute(storedRunDir)) return undefined;
+  const stored = path.resolve(storedRunDir);
+  const found = path.resolve(foundRunDir);
+  if (stored === found) return undefined;
+  const originRepo = repoOfRunDir(stored, runId);
+  const copyRepo = repoOfRunDir(found, runId);
+  if (originRepo === undefined || copyRepo === undefined) return undefined;
+  if (sameLocation(stored, found) || !originHasRun(stored)) return undefined;
+  const archive = path.join(copyRepo, `${runId}.cwrun.json`);
+  return (
+    `Refusing to load run ${runId}: the folder ${found} is a copy of ${stored}, made outside cw (for one, with cp -R), ` +
+    `and its state still points at that original folder, which is still there. Using the copy could read or write the original, so cw stops here (fail closed). ` +
+    `To move a run, take away this copy, then run: cw run export ${runId} --cwd ${originRepo} --output ${archive} ` +
+    `and then: cw run import ${archive} --target ${copyRepo}`
+  );
+}
+
 /** Make a loaded run's `paths` (and the audit paths under them) again from
  *  `runDir`, the folder the run's state.json was really found in. The
  *  stored values are never trusted as write targets: a state.json from a

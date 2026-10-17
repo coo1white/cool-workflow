@@ -11,7 +11,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { acquireOwnerLock, assertSafeRunId, readJson, withFileLock, writeJson, writePartsDurable } from "./fs-atomic.js";
-import { createRunPaths, rebindRunPaths as rebindRunPathsCore } from "../core/state/run-paths.js";
+import { copiedRunRefusal, createRunPaths, rebindRunPaths as rebindRunPathsCore } from "../core/state/run-paths.js";
 import { migrateRunState, StateMigrationResult } from "../core/state/migrations.js";
 import { WorkflowRun, StateArtifact, RunPaths } from "../core/state/types.js";
 import { sha256 } from "../core/hash.js";
@@ -53,6 +53,29 @@ export function sameRealLocation(stored: string, rebuilt: string): boolean {
  *  printed paths); any other stored path is replaced. */
 export function rebindRunPaths<T extends Parameters<typeof rebindRunPathsCore>[0]>(run: T, runDir: string): T {
   return rebindRunPathsCore(run, runDir, sameRealLocation);
+}
+
+/** True when `storedRunDir` still holds a state.json that is not the
+ *  file at `foundStatePath` (not the same dev and inode, so a bind mount
+ *  or hard link of the same file is not a second run). */
+function otherRunStateAt(storedRunDir: string, foundStatePath: string): boolean {
+  try {
+    const origin = fs.statSync(path.join(storedRunDir, "state.json"));
+    const found = fs.statSync(foundStatePath);
+    return origin.isFile() && !(origin.dev === found.dev && origin.ino === found.ino);
+  } catch {
+    return false;
+  }
+}
+
+/** Refuses (throws) a run folder copied by hand from a run folder that is
+ *  still there: see core copiedRunRefusal for the rule. Shared by every
+ *  full run load (`loadRunFromCwd` here, `RunRegistry.loadRun`), and
+ *  called BEFORE rebindRunPaths, which drops the stored `paths.runDir`. */
+export function assertNotHandCopiedRun(runId: string, result: StateMigrationResult, statePath: string): void {
+  const stored = (result.run.paths as unknown as Record<string, unknown> | undefined)?.runDir;
+  const refusal = copiedRunRefusal(runId, path.dirname(statePath), stored, sameRealLocation, (dir) => otherRunStateAt(dir, statePath));
+  if (refusal) throw new Error(refusal);
 }
 
 /** `mkdirSync` (recursive) every always-written directory. `artifacts`,
@@ -182,7 +205,9 @@ export function assertNotSuspectedDataLoss(runId: string, result: StateMigration
  *  step); throws `Unsupported CW run state: <errors joined by "; ">` on an
  *  unsupported verdict; refuses a state.json that lost its core fields
  *  (workflow, paths) while the run dir still has real content next to it,
- *  rather than silently returning it as a fresh empty run; else returns
+ *  rather than silently returning it as a fresh empty run; refuses a run
+ *  folder copied by hand from one that is still there
+ *  (`assertNotHandCopiedRun`), before any write; else returns
  *  the migrated WorkflowRun in memory, its `paths` and audit paths made
  *  again from the run dir it was found in (`rebindRunPaths`) — stored
  *  paths are never trusted as write targets. */
@@ -199,6 +224,7 @@ export function loadRunFromCwd(runId: string, cwd = process.cwd()): WorkflowRun 
   if (result.report.status === "unsupported") {
     throw new Error(`Unsupported CW run state: ${result.report.errors.join("; ")}`);
   }
+  assertNotHandCopiedRun(runId, result, path.resolve(statePath));
   rebindRunPaths(result.run, path.resolve(path.dirname(statePath)));
   assertNotSuspectedDataLoss(runId, result);
   if (stamp) RUN_STAMPS.set(result.run, stamp);

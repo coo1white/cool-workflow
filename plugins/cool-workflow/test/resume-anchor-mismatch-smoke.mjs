@@ -6,7 +6,9 @@
 // STORED cwd silently: `cw --resume --run <id> --repo <copy>` drove the
 // original repo's run. Now it is refused, fail-closed, before any write.
 // The agreeing case (same real folder, also through a symlink, as with
-// macOS /var vs /private/var) keeps working as before.
+// macOS /var vs /private/var) keeps working as before. From 0.3.2 a copied
+// run folder whose original is still there is refused on load, before this
+// cwd check, with the hand-copy refusal (copied-run-refuse-smoke).
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -70,14 +72,14 @@ function cw(args) {
   const beforeCopy = stateText(copy, runId);
   const r = cw(["--resume", "--run", runId, "--repo", copy]);
   assert.notEqual(r.status, 0, `resume of a copied run must be refused; stdout=${r.stdout} stderr=${r.stderr}`);
-  assert.match(r.stderr, /was made for .*original.*not .*copy/, `the refusal names both folders; stderr=${r.stderr}`);
+  assert.match(r.stderr, /the folder .*copy.* is a copy of .*original.*cw run export/, `the refusal names both folders; stderr=${r.stderr}`);
   assert.equal(stateText(original, runId), beforeOriginal, "the original run is NOT driven through the copy's --repo");
   assert.equal(stateText(copy, runId), beforeCopy, "the copy's run is not changed either");
 
   // (2) `cw run resume <id> --drive --repo <copy>`: the same refusal.
   const r2 = cw(["run", "resume", runId, "--drive", "--repo", copy]);
   assert.notEqual(r2.status, 0, `run resume --drive of a copied run must be refused; stdout=${r2.stdout} stderr=${r2.stderr}`);
-  assert.match(r2.stderr, /was made for .*original.*not .*copy/, `the refusal names both folders; stderr=${r2.stderr}`);
+  assert.match(r2.stderr, /the folder .*copy.* is a copy of .*original.*cw run export/, `the refusal names both folders; stderr=${r2.stderr}`);
   assert.equal(stateText(original, runId), beforeOriginal, "run resume --drive does not drive the original run");
   assert.equal(stateText(copy, runId), beforeCopy, "run resume --drive does not change the copy");
 
