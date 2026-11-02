@@ -481,8 +481,27 @@ wrappers, git, and so on), check that the proxy and certificate vars are
 passed right, and fix them all the same way."
 
 The operator picked it (2026-11-02), with the other two choices, and then
-said, word for word: "继续，都修好" ("Go on, fix all of it"), and later
-the standing instruction quoted above, "别问我了，都按照你的推荐迭代".
+said, word for word: "继续，都修好" ("Go on, fix all of it"). That choice
+did not name the default it changes, and the 0.3.3 release review (grok,
+2026-11-02) rejected the cut for it. So the default itself was put to the
+operator as its own question, word for word:
+
+"0.3.3 默认行为改动①（代理）：0.3.2 之前，CW 的 local 后端（node/bun/shell 任务）和 container 后端（docker/podman）只传 PATH 和 HOME，所以在代理后面联网会失败。0.3.3 改成：只要沙箱配置允许联网（default、workspace-write），就把 HTTP_PROXY/HTTPS_PROXY/NO_PROXY、证书变量（NODE_EXTRA_CA_CERTS 等）也传给它们；readonly、locked-down 不变；remote/ci 永远不传（代理地址可能含密码）。另外 CW 自己用 fetch 的子进程（HTTP agent、remote/ci、下载 --repo 压缩包），在设了代理时会自动加 NODE_USE_ENV_PROXY=1，让它们走代理。你同意把这个作为 0.3.3 的新默认吗？"
+
+In English: "0.3.3 default change 1 (proxy): up to 0.3.2, CW's local
+backend (node/bun/shell tasks) and container backend (docker/podman)
+passed only PATH and HOME, so going online behind a proxy failed. 0.3.3
+changes this: when the sandbox profile lets the network through
+(default, workspace-write), HTTP_PROXY/HTTPS_PROXY/NO_PROXY and the
+certificate vars (NODE_EXTRA_CA_CERTS and so on) are passed to them too;
+readonly and locked-down do not change; remote/ci never get them (a proxy
+URL may hold a password). Also, CW's own children that use fetch (the
+HTTP agent, remote/ci, the --repo archive download) get
+NODE_USE_ENV_PROXY=1 when a proxy is set, so they go through the proxy.
+Do you agree to make this the new default in 0.3.3?"
+
+The operator's answer, word for word (2026-11-02): "同意，保留新默认"
+("Agreed, keep the new default").
 
 So under the POLA exception (PR #831): the `local` and `container`
 backends pass the same proxy and CA vars when the profile lets the
@@ -498,3 +517,31 @@ their stderr. The code is `NETWORK_ENV_NAMES`, `addNetworkEnv` and
 `agent.ts` and `src/shell/remote-source.ts`; `docs/sandbox-profiles.7.md`
 ("Proxy and CA for the other children") says the new default; the version
 raise is 0.3.2 -> 0.3.3.
+
+### `cw help ledger`: the `--diff` line (2026-11-02)
+
+A doc audit (PR #830) found that the help line for `cw ledger propose
+--diff`, "The change as one diff file.", reads as if `--diff` takes a file
+path; it takes the diff text itself. The line was changed, and the 0.3.3
+release review (grok, 2026-11-02) rejected the cut as that changed the
+bytes of `cw help ledger` without the operator's yes. The question, word
+for word:
+
+"0.3.3 默认行为改动②（帮助文字）：`cw help ledger` 里 --diff 的说明，0.3.2 是 "The change as one diff file."（意思是传一个 diff 文件），但实际上它要的是 diff 的文本内容，不是文件路径，原说明会误导人。0.3.3 改成了 "The change itself, as diff text (e.g. "$(git diff)")."。只是帮助文字变了，--diff 的行为没变。你同意这个帮助文字的改动吗？"
+
+In English: "0.3.3 default change 2 (help text): in `cw help ledger`, the
+--diff line in 0.3.2 is \"The change as one diff file.\" (that is, pass a
+diff file), but it in fact takes the diff's text, not a file path, so the
+old line misleads. 0.3.3 changed it to \"The change itself, as diff text
+(e.g. \"$(git diff)\").\". Only the help text changed; what --diff does did
+not. Do you agree to this help text change?"
+
+The operator's answer, word for word (2026-11-02): "同意，用新说明"
+("Agreed, use the new text").
+
+So under the POLA exception: `cw help ledger` (and the matching MCP tool
+description) shows the new `--diff` line. The code is
+`src/wiring/capability-table/trust-ledger.ts`; the v2 fixture
+`v2/conformance/cases/fixtures/cli-help/ledger.txt` and
+`test/ledger-verify-smoke.mjs` pin it; `docs/cross-agent-ledger.7.md`
+says it; the version raise is 0.3.2 -> 0.3.3.
