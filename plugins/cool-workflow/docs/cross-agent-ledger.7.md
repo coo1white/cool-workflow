@@ -61,6 +61,12 @@ cw ledger apply   [--file <path>]        # verify a proposal, then print its dif
 cw ledger list    --ledger-dir <ledger-dir> [--ledger-dir <mirror-2> ...]   # verify a dir (or union of mirrors)
 ```
 
+`--diff` takes the change itself, as diff text (for example
+`--diff "$(git diff)"`), not a path to a diff file. Since 0.3.3,
+`cw help ledger` says so: "The change itself, as diff text (e.g.
+\"$(git diff)\")."; up to 0.3.2 it read "The change as one diff file.",
+which read as a file path. What `--diff` does is unchanged.
+
 All write JSON to stdout (stdout is data). `propose` and `review` print a sealed
 entry; `verify` prints a check report; `apply` prints a verify-plus-diff report;
 `list` prints a per-entry report over a directory.
