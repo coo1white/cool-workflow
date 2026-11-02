@@ -11,6 +11,9 @@
 //   2. The new app is found by id (`cw plan <id>` loads it) and validates.
 //   3. CW_APPS_DIR, when set, is the default root instead.
 //   4. --output DIR still wins over both.
+//   5. `cw app list` run in that folder lists ./apps too (also new in 0.3.3),
+//      next to the bundled apps; an id that is also a bundled one fails
+//      closed (exit 1, "Duplicate workflow app id"), never shown twice.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -45,6 +48,20 @@ try {
     assert.doesNotMatch(plan.stderr + plan.stdout, /not found/i, `the new app is found by id from its folder: ${plan.stderr}`);
     const valid = cw(["app", "validate", "apps/init-default-probe", "--json"], dir);
     assert.equal(JSON.parse(valid.stdout).valid, true, "and it validates");
+
+    // 5
+    const list = cw(["app", "list", "--json"], dir);
+    assert.equal(list.status, 0, list.stderr);
+    const ids = JSON.parse(list.stdout).map((app) => app.id);
+    assert.ok(ids.includes("init-default-probe"), `cw app list shows ./apps: ${ids}`);
+    assert.ok(ids.includes("architecture-review"), "and still the bundled apps");
+    const outside = cw(["app", "list", "--json"], work);
+    assert.ok(!JSON.parse(outside.stdout).some((app) => app.id === "init-default-probe"), "only from that folder");
+
+    fs.cpSync(path.join(pluginRoot, "apps", "release-cut"), path.join(dir, "apps", "release-cut"), { recursive: true });
+    const dup = cw(["app", "list", "--json"], dir);
+    assert.notEqual(dup.status, 0, "a ./apps id that is also bundled fails closed");
+    assert.match(dup.stderr + dup.stdout, /Duplicate workflow app id release-cut/);
   }
   // 3
   {

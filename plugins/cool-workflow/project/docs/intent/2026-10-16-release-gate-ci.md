@@ -448,7 +448,19 @@ app folder is `$CW_APPS_DIR/<id>` when `CW_APPS_DIR` is set, else
 `./apps/<id>` in the folder the command runs in (the MCP tool's `cwd`
 when it gives one). `--output` still wins. The app is still found by id
 (`cw plan <id>`, `cw run`) from that folder, since `./apps` was already a
-place CW looks. `cw app list` is unchanged: it lists the first apps root
-it finds, as before. The code is `initWorkflowApp` in
+place CW looks. `cw app list` then did not show such an app (it listed only the first
+apps root it found), so a second question followed: list `./apps` too? The
+operator's answer, word for word (2026-11-02): "同意，cw app list 也显示
+./apps" ("Agreed, cw app list shows ./apps too"). So `cw app list` (and
+`cw list`, which reads the same records) now also lists the apps in
+`./apps` of the folder it runs in, when that folder is not the apps root
+already listed. An id that is in both fails closed, as any duplicate id
+always has ("Duplicate workflow app id ..."), so an app is never shown
+twice or silently hidden.
+
+Standing instruction from the operator, word for word (2026-11-02): "别问我了，
+都按照你的推荐迭代" ("Stop asking me; iterate on all of it as you
+recommend"). Changes of a default made under it still get their own part
+here, naming that instruction as the yes. The code is `initWorkflowApp` in
 `src/shell/workflow-app-loader.ts`; `docs/init.7.md` says the new default;
 the version raise is 0.3.2 -> 0.3.3.

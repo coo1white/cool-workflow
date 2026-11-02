@@ -438,12 +438,20 @@ function sourcePathOf(record: LoadedWorkflowAppRecord): string {
  *  root each, walked up from this file's own location (or `CW_APPS_DIR`/
  *  `CW_WORKFLOWS_DIR`). Sorted by app id then source path; a duplicate id
  *  across BOTH roots is a fail-closed error. */
+function realOrSelf(dir: string): string {
+  try { return fs.realpathSync(dir); } catch { return path.resolve(dir); }
+}
+
 function listWorkflowAppRecords(): LoadedWorkflowAppRecord[] {
   const appsDir = candidateAppsRoots().find((root) => fs.existsSync(root)) || candidateAppsRoots()[0];
   const workflowsDir = candidateWorkflowsRoots().find((root) => fs.existsSync(root)) || candidateWorkflowsRoots()[0];
+  // ./apps in the folder it runs in is listed too (0.3.3, operator's yes 2026-11-02), where
+  // `cw init` now puts new apps; a duplicate id there still fails closed below.
+  const localApps = path.resolve(process.cwd(), "apps");
+  const extraAppsDirs = fs.existsSync(localApps) && realOrSelf(localApps) !== realOrSelf(appsDir) ? [localApps] : [];
   const records = [
     ...loadWorkflowFiles(workflowsDir).map((file) => loadWorkflowAppFromEntrypoint(file)),
-    ...loadAppManifestFiles(appsDir).map((file) => loadWorkflowAppFromManifest(file)),
+    ...[appsDir, ...extraAppsDirs].flatMap((dir) => loadAppManifestFiles(dir).map((file) => loadWorkflowAppFromManifest(file))),
   ].sort((left, right) => {
     const byId = stableCompare(left.app.id, right.app.id);
     if (byId) return byId;
