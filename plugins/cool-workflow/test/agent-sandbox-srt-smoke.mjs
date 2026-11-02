@@ -16,6 +16,10 @@
 //      CW_AGENT_SANDBOX value refuses the hop with a reason; the agent is
 //      never run unsandboxed.
 //   5. A bundled agent gets its vendor's hosts from the templates data.
+//   7. The settings file is removed once the hop ends (serial and batch), the
+//      hop's handle names what enforced it ("srt 0.0.81"), and a drive records
+//      it as the worker.agent-sandbox trust-audit event (serial and
+//      concurrent rounds).
 //   6. cw doctor: an agent-sandbox row only when CW_AGENT_SANDBOX is set;
 //      ok with a usable srt (and bwrap + socat on Linux), else fail with how
 //      to fix it.
@@ -89,7 +93,7 @@ function hop(env, batch = false) {
       out = { job: job && { binary: job.binary, args: job.args }, outcome: job && runAgentBatchOutcomes([job])[0] };
     } else {
       const env = runBackend(request);
-      out = { status: env.status, summary: env.result.summary, wrote: fs.existsSync(resultPath) };
+      out = { status: env.status, summary: env.result.summary, wrote: fs.existsSync(resultPath), enforcedBy: env.provenance?.handle?.metadata?.sandboxEnforcedBy };
     }
     process.stdout.write(JSON.stringify(out));`;
   const childEnv = { ...process.env, HOME: path.join(work, "home"), ...env };
@@ -126,6 +130,8 @@ try {
     assert.ok(rec.settings.filesystem.allowWrite.some((p) => p.endsWith(`${path.sep}worker`)), `the worker's own folder is writable (readonly has no writePaths): ${rec.settings.filesystem.allowWrite}`);
     assert.ok(!rec.settings.filesystem.allowWrite.includes(home), "the home folder is not writable");
     assert.deepEqual(rec.settings.network.allowedDomains, ["api.example.test", "*.example.test"], "only the hosts given");
+    assert.equal(fs.existsSync(rec.argv[1]), false, "the settings file is removed once the hop ends");
+    assert.equal(out.enforcedBy, "srt 0.0.81", "the handle names what enforced the hop");
   }
   // 3. batch
   {
@@ -134,7 +140,9 @@ try {
     assert.equal(out.job.binary, goodSrt, "a concurrent job runs srt");
     assert.equal(out.job.args[2], "--");
     assert.equal(out.outcome.exitCode, 0, JSON.stringify(out.outcome));
+    assert.equal(out.outcome.sandboxEnforcedBy, "srt 0.0.81", "a batch outcome names what enforced it");
     assert.equal(records().length, 1);
+    assert.equal(fs.existsSync(records()[0].argv[1]), false, "a batch job's settings file is removed too");
   }
   // 4. fail closed
   {
@@ -169,6 +177,40 @@ try {
     assert.deepEqual(v.direct, { name: "codex", ...vendors.codex });
     assert.equal(v.direct.hosts[0], "api.openai.com");
     assert.deepEqual(v.custom, { hosts: [], write: [] }, "a custom agent gets no hosts by default");
+  }
+  // 7. a drive records what enforced each hop (serial, then a concurrent round)
+  for (const concurrency of [1, 2]) {
+    clearMarks();
+    const repo = fs.mkdtempSync(path.join(work, "drive-"));
+    fs.writeFileSync(path.join(repo, "README.md"), "# target\n");
+    const stub = path.join(work, "drive-agent.js");
+    fs.writeFileSync(stub, [
+      'const fs = require("fs"); const fence = String.fromCharCode(96).repeat(3);',
+      'fs.writeFileSync(process.argv[2], "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "s", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + fence + "\\n");',
+      'process.stdout.write(JSON.stringify({ model: "stub-drive" }));',
+    ].join("\n"));
+    const r = spawnSync(process.execPath, ["--input-type=module", "-e", `
+      import { plan } from ${JSON.stringify(path.join(pluginRoot, "dist/shell/pipeline.js"))};
+      import { loadWorkflowApp } from ${JSON.stringify(path.join(pluginRoot, "dist/shell/workflow-app-loader.js"))};
+      import { drive } from ${JSON.stringify(path.join(pluginRoot, "dist/shell/drive.js"))};
+      import { loadRunFromCwd } from ${JSON.stringify(path.join(pluginRoot, "dist/shell/run-store.js"))};
+      import { listTrustAuditEvents } from ${JSON.stringify(path.join(pluginRoot, "dist/shell/trust-audit.js"))};
+      const run = plan(loadWorkflowApp("architecture-review"), { repo: process.cwd(), question: "Sound?" });
+      const result = drive(run.id, process.cwd(), { concurrency: ${concurrency}, agentConfig: { schemaVersion: 1, command: process.execPath, args: [${JSON.stringify(stub)}, "{{result}}"], model: "m", source: "flag" } });
+      const final = loadRunFromCwd(run.id, process.cwd());
+      const events = listTrustAuditEvents(final).filter((e) => e.kind === "worker.agent-sandbox");
+      process.stdout.write(JSON.stringify({ status: result.status, workers: final.tasks.length, events }));`],
+      { cwd: repo, env: { ...process.env, HOME: path.join(work, "home"), CW_AGENT_SANDBOX: "srt", CW_SRT_BIN: goodSrt }, encoding: "utf8", timeout: 120000 });
+    assert.equal(r.status, 0, r.stderr);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.status, "complete", `concurrency ${concurrency}: ${r.stdout}`);
+    assert.equal(out.events.length, records().length, `concurrency ${concurrency}: one worker.agent-sandbox event for each sandboxed hop`);
+    assert.ok(out.events.length >= 2, `concurrency ${concurrency}: hops ran sandboxed`);
+    for (const ev of out.events) {
+      assert.equal(ev.decision, "enforced");
+      assert.equal(ev.metadata.enforcedBy, "srt 0.0.81");
+    }
+    assert.ok(records().every((rec) => !fs.existsSync(rec.argv[1])), `concurrency ${concurrency}: every settings file was removed`);
   }
   // 6. doctor
   {

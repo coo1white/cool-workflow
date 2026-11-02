@@ -614,6 +614,19 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
     });
   }
 
+  const sandboxEnforcedBy = handle?.metadata?.sandboxEnforcedBy as string | undefined;
+  if (sandboxEnforcedBy) {
+    recordTrustAuditEvent(run, {
+      kind: "worker.agent-sandbox",
+      decision: "enforced",
+      source: "runtime-derived",
+      workerId,
+      taskId: selected.id,
+      nodeId: selected.resultNodeId as string | undefined,
+      metadata: { enforcedBy: sandboxEnforcedBy, profileId: manifest.sandboxPolicy?.id },
+    });
+  }
+
   if (cachePath && fs.existsSync(manifest.resultPath)) {
     writeResultCache(cachePath, fs.readFileSync(manifest.resultPath, "utf8"));
   }

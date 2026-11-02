@@ -464,3 +464,37 @@ recommend"). Changes of a default made under it still get their own part
 here, naming that instruction as the yes. The code is `initWorkflowApp` in
 `src/shell/workflow-app-loader.ts`; `docs/init.7.md` says the new default;
 the version raise is 0.3.2 -> 0.3.3.
+
+### Proxy and CA vars for CW's other children (2026-11-02)
+
+The first set above passed the proxy and CA vars to the delegated agent
+child only. While 0.3.3 waited, the operator's own test of `srt` on WSL
+showed the same fault one step out (a child that loses the proxy vars
+cannot reach the network behind a proxy), so the question was put to the
+operator, in Chinese, word for word: "\"以点带面，全局检查修复\" — 你指的“点”是
+哪一个？", with, among others, this choice, its label and description word
+for word: "所有子进程的代理/环境变量" — "把 CW 启动子进程的每一处（agent、doctor
+探测、release 流程、wrapper、git 等）都查一遍代理、证书变量是否正确传递，统一修。"
+In English: "Proxy/env vars for every child process — go through every
+place CW starts a child process (agent, doctor probes, the release flow,
+wrappers, git, and so on), check that the proxy and certificate vars are
+passed right, and fix them all the same way."
+
+The operator picked it (2026-11-02), with the other two choices, and then
+said, word for word: "继续，都修好" ("Go on, fix all of it"), and later
+the standing instruction quoted above, "别问我了，都按照你的推荐迭代".
+
+So under the POLA exception (PR #831): the `local` and `container`
+backends pass the same proxy and CA vars when the profile lets the
+network through (`network.mode` is not `none`); under `readonly` and
+`locked-down` nothing changes, and the `remote` and `ci` backends never
+get them (a proxy URL may hold a password). When a proxy var is set, the
+children CW starts to run `fetch` (the HTTP agent, the `remote` and `ci`
+backends, the archive `--repo` download) get `NODE_USE_ENV_PROXY=1`
+unless the user set it, and Node's "experimental" note is kept out of
+their stderr. The code is `NETWORK_ENV_NAMES`, `addNetworkEnv` and
+`fetchChildEnv` in `src/core/util/cli-args.ts`, used by
+`src/shell/execution-backend/local.ts`, `container.ts`, `remote.ts`,
+`agent.ts` and `src/shell/remote-source.ts`; `docs/sandbox-profiles.7.md`
+("Proxy and CA for the other children") says the new default; the version
+raise is 0.3.2 -> 0.3.3.

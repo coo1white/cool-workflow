@@ -136,5 +136,5 @@ the operator's WSL (Ubuntu; bubblewrap 0.9.0-1ubuntu0.3, socat
 | Settings builder, fail-closed resolution, argv wrap (serial + batch) | in this PR | |
 | Doctor row, man page | in this PR | |
 | Real-srt smoke (skips without bwrap/socat) | in this PR | |
-| Trust-audit record of what enforced the hop; settings-file cleanup | | |
+| Trust-audit record of what enforced the hop (`worker.agent-sandbox`, `enforcedBy: srt 0.0.81`); settings-file cleanup | done (found by the 0.3.3 release review) | |
 | Operator check on WSL with `-claude` and `cw doctor --conformance` | | |

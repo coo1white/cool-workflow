@@ -254,7 +254,7 @@ export { substituteAgentArg };
 /** Build the recorded process handle for the envelope — secret-stripped +
  *  the agent-reported model. Same SHAPE that lands in provenance, never in
  *  evidence. */
-export function recordedAgentHandle(binary, endpoint, recordedArgs, model, reportedModel, reportedUsage, usageSignature, forwardedEnvVars) {
+export function recordedAgentHandle(binary, endpoint, recordedArgs, model, reportedModel, reportedUsage, usageSignature, forwardedEnvVars, sandboxEnforcedBy) {
     const ref = binary ? [binary, ...recordedArgs].join(" ") : endpoint || "";
     return {
         kind: "process",
@@ -269,6 +269,7 @@ export function recordedAgentHandle(binary, endpoint, recordedArgs, model, repor
             ...(reportedUsage ? { reportedUsage } : {}),
             ...(usageSignature ? { usageSignature } : {}),
             ...(forwardedEnvVars && forwardedEnvVars.length ? { forwardedEnvVars } : {}),
+            ...(sandboxEnforcedBy ? { sandboxEnforcedBy } : {}),
         },
     };
 }
@@ -347,6 +348,7 @@ export function prepareAgentSpawn(request) {
         cwd: request.cwd,
         timeoutMs: resolved.timeoutMs || 600000,
         ...(agentIdleTimeoutMs() ? { idleTimeoutMs: agentIdleTimeoutMs() } : {}),
+        ...(sandbox ? { sandbox: { enforcedBy: sandbox.enforcedBy, settingsFile: sandbox.settingsFile } } : {}),
     };
 }
 /** Resolve a request to an endpoint (HTTP-delegate) batch job, or undefined when
@@ -429,7 +431,7 @@ export function runAgentBatchOutcomes(jobs, aliveFile) {
         let child;
         try {
             child = spawnSync(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
-                input: JSON.stringify(jobs),
+                input: JSON.stringify(jobs.map(({ sandbox: _sandbox, ...job }) => job)),
                 maxBuffer: 34 * 1024 * 1024 * jobs.length,
                 timeout: maxTimeout + 30000,
                 ...(aliveFile ? { env: { ...process.env, CW_BATCH_ALIVE_FILE: aliveFile } } : {}),
@@ -438,8 +440,21 @@ export function runAgentBatchOutcomes(jobs, aliveFile) {
         catch (error) {
             child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
         }
-        return reconcileBatchOutcomes(jobs, child, maxTimeout + 30000);
+        const outcomes = reconcileBatchOutcomes(jobs, child, maxTimeout + 30000);
+        return outcomes.map((outcome, i) => {
+            const sandbox = jobs[i].sandbox;
+            if (!sandbox)
+                return outcome;
+            removeSandboxSettings(sandbox.settingsFile);
+            return { ...outcome, sandboxEnforcedBy: sandbox.enforcedBy };
+        });
     });
+}
+function removeSandboxSettings(file) {
+    try {
+        fs.unlinkSync(file);
+    }
+    catch { /* already gone */ }
 }
 // Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
 const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-batch-delegate-child.mjs");
@@ -535,6 +550,7 @@ export function runAgentProcess(descriptor, policy, request, label, attestation)
         }
         const spawnBinary = sandbox ? sandbox.binary : resolved.binary;
         const spawnArgs = sandbox ? sandbox.args : realArgs;
+        const enforcedBy = sandbox ? sandbox.enforcedBy : request.preparedAgentOutcome?.sandboxEnforcedBy;
         let outcome;
         // Names only, never values — for the worker.agent-env trust-audit event
         // below. Stays empty for a preparedAgentOutcome (a batch-delegated child
@@ -555,6 +571,7 @@ export function runAgentProcess(descriptor, policy, request, label, attestation)
                     timeoutMs: resolved.timeoutMs || 600000,
                     idleTimeoutMs,
                     env: built.env,
+                    ...(sandbox ? { sandbox: { enforcedBy: sandbox.enforcedBy, settingsFile: sandbox.settingsFile } } : {}),
                 }])[0];
         }
         else {
@@ -589,6 +606,8 @@ export function runAgentProcess(descriptor, policy, request, label, attestation)
                     fs.unlinkSync(driveTtyClaimPath());
                 }
                 catch { /* not claimed */ }
+            if (sandbox)
+                removeSandboxSettings(sandbox.settingsFile);
             // A timeout surfaces as child.error with code ETIMEDOUT (status null,
             // signal set). Classify it FIRST, or the generic spawnError branch
             // below would report it as "agent process failed to spawn".
@@ -605,7 +624,7 @@ export function runAgentProcess(descriptor, policy, request, label, attestation)
                 // longer reach it (strictly worse); reaping from the recorded PID keeps
                 // the wrapper in cw's group.
                 reapRecordedVendor(vendorPidFile);
-                const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+                const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
                 return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
                         ...attestation,
                         handle: handleOut,
@@ -626,7 +645,7 @@ export function runAgentProcess(descriptor, policy, request, label, attestation)
         if (outcome.exitCode !== 0 && outcome.stderr)
             persistAgentStderr(subst.result, outcome.stderr);
         if (outcome.idleTimedOutMs) {
-            const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+            const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
             return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process produced no output for ${outcome.idleTimedOutMs}ms and was killed`, {
                     ...attestation,
                     handle: handleOut,
@@ -634,14 +653,14 @@ export function runAgentProcess(descriptor, policy, request, label, attestation)
         }
         // 0.3.3: a batch job stopped at its limit uses the serial timeout words.
         if (outcome.timedOutMs) {
-            const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+            const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
             return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${outcome.timedOutMs}ms and was killed`, {
                     ...attestation,
                     handle: handleOut,
                 }), timedOutMs: outcome.timedOutMs };
         }
         if (outcome.spawnError) {
-            const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+            const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
             // 0.3.3: a whole-batch failure is not a spawn failure; the agent did start.
             const summary = outcome.spawnError.startsWith("batch delegate failed:")
                 ? `agent delegation failed: ${outcome.spawnError}`
@@ -655,7 +674,7 @@ export function runAgentProcess(descriptor, policy, request, label, attestation)
         const stdout = outcome.stdout;
         const report = parseAgentReport(stdout);
         const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
-        const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage, report.usageSignature, forwardedEnvVars);
+        const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage, report.usageSignature, forwardedEnvVars, enforcedBy);
         if (exitCode === null) {
             return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process returned no exit code (timed out or killed)`, { ...attestation, handle: handleOut });
         }

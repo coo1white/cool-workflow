@@ -291,7 +291,8 @@ export function recordedAgentHandle(
   reportedModel: string,
   reportedUsage?: Record<string, unknown>,
   usageSignature?: string,
-  forwardedEnvVars?: string[]
+  forwardedEnvVars?: string[],
+  sandboxEnforcedBy?: string
 ): BackendExecutionHandle {
   const ref = binary ? [binary, ...recordedArgs].join(" ") : endpoint || "";
   return {
@@ -307,6 +308,7 @@ export function recordedAgentHandle(
       ...(reportedUsage ? { reportedUsage } : {}),
       ...(usageSignature ? { usageSignature } : {}),
       ...(forwardedEnvVars && forwardedEnvVars.length ? { forwardedEnvVars } : {}),
+      ...(sandboxEnforcedBy ? { sandboxEnforcedBy } : {}),
     },
   };
 }
@@ -362,6 +364,8 @@ export interface AgentSpawnJob {
   /** Opt-in (0.3.3): stop the job once it has written nothing for this long. */
   idleTimeoutMs?: number;
   env?: NodeJS.ProcessEnv;
+  /** Set when the job runs inside srt: what enforces it, and the settings file to remove once it ends. */
+  sandbox?: { enforcedBy: string; settingsFile: string };
 }
 
 /** CW_AGENT_IDLE_TIMEOUT_MS in ms when a positive number, else undefined (off). Opt-in, 0.3.3. */
@@ -401,6 +405,7 @@ export function prepareAgentSpawn(request: ExecutionRequest): AgentSpawnJob | un
     cwd: request.cwd,
     timeoutMs: resolved.timeoutMs || 600000,
     ...(agentIdleTimeoutMs() ? { idleTimeoutMs: agentIdleTimeoutMs() } : {}),
+    ...(sandbox ? { sandbox: { enforcedBy: sandbox.enforcedBy, settingsFile: sandbox.settingsFile } } : {}),
   };
 }
 
@@ -503,7 +508,7 @@ export function runAgentBatchOutcomes(jobs: AgentSpawnJob[], aliveFile?: string)
     let child: { error?: Error | null; status: number | null; stdout?: Buffer | null };
     try {
       child = spawnSync(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
-        input: JSON.stringify(jobs),
+        input: JSON.stringify(jobs.map(({ sandbox: _sandbox, ...job }) => job)),
         maxBuffer: 34 * 1024 * 1024 * jobs.length,
         timeout: maxTimeout + 30000,
         ...(aliveFile ? { env: { ...process.env, CW_BATCH_ALIVE_FILE: aliveFile } } : {}),
@@ -511,8 +516,18 @@ export function runAgentBatchOutcomes(jobs: AgentSpawnJob[], aliveFile?: string)
     } catch (error) {
       child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
     }
-    return reconcileBatchOutcomes(jobs, child, maxTimeout + 30000);
+    const outcomes = reconcileBatchOutcomes(jobs, child, maxTimeout + 30000);
+    return outcomes.map((outcome, i) => {
+      const sandbox = jobs[i].sandbox;
+      if (!sandbox) return outcome;
+      removeSandboxSettings(sandbox.settingsFile);
+      return { ...outcome, sandboxEnforcedBy: sandbox.enforcedBy };
+    });
   });
+}
+
+function removeSandboxSettings(file: string): void {
+  try { fs.unlinkSync(file); } catch { /* already gone */ }
 }
 
 // Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
@@ -613,6 +628,7 @@ export function runAgentProcess(
     }
     const spawnBinary = sandbox ? sandbox.binary : resolved.binary;
     const spawnArgs = sandbox ? sandbox.args : realArgs;
+    const enforcedBy = sandbox ? sandbox.enforcedBy : request.preparedAgentOutcome?.sandboxEnforcedBy;
     let outcome: AgentChildOutcome;
     // Names only, never values — for the worker.agent-env trust-audit event
     // below. Stays empty for a preparedAgentOutcome (a batch-delegated child
@@ -632,6 +648,7 @@ export function runAgentProcess(
         timeoutMs: resolved.timeoutMs || 600000,
         idleTimeoutMs,
         env: built.env,
+        ...(sandbox ? { sandbox: { enforcedBy: sandbox.enforcedBy, settingsFile: sandbox.settingsFile } } : {}),
       }])[0];
     } else {
       const streamStderr = shouldStreamAgentStderr(process.env, Boolean(process.stderr.isTTY));
@@ -663,6 +680,7 @@ export function runAgentProcess(
         })
       );
       if (streamStderr) try { fs.unlinkSync(driveTtyClaimPath()); } catch { /* not claimed */ }
+      if (sandbox) removeSandboxSettings(sandbox.settingsFile);
       // A timeout surfaces as child.error with code ETIMEDOUT (status null,
       // signal set). Classify it FIRST, or the generic spawnError branch
       // below would report it as "agent process failed to spawn".
@@ -679,7 +697,7 @@ export function runAgentProcess(
         // longer reach it (strictly worse); reaping from the recorded PID keeps
         // the wrapper in cw's group.
         reapRecordedVendor(vendorPidFile);
-        const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+        const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
         return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
           ...attestation,
           handle: handleOut,
@@ -696,7 +714,7 @@ export function runAgentProcess(
     }
     if (outcome.exitCode !== 0 && outcome.stderr) persistAgentStderr(subst.result, outcome.stderr);
     if (outcome.idleTimedOutMs) {
-      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
       return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process produced no output for ${outcome.idleTimedOutMs}ms and was killed`, {
         ...attestation,
         handle: handleOut,
@@ -704,14 +722,14 @@ export function runAgentProcess(
     }
     // 0.3.3: a batch job stopped at its limit uses the serial timeout words.
     if (outcome.timedOutMs) {
-      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
       return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${outcome.timedOutMs}ms and was killed`, {
         ...attestation,
         handle: handleOut,
       }), timedOutMs: outcome.timedOutMs };
     }
     if (outcome.spawnError) {
-      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
       // 0.3.3: a whole-batch failure is not a spawn failure; the agent did start.
       const summary = outcome.spawnError.startsWith("batch delegate failed:")
         ? `agent delegation failed: ${outcome.spawnError}`
@@ -725,7 +743,7 @@ export function runAgentProcess(
     const stdout = outcome.stdout;
     const report = parseAgentReport(stdout);
     const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
-    const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage, report.usageSignature, forwardedEnvVars);
+    const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage, report.usageSignature, forwardedEnvVars, enforcedBy);
     if (exitCode === null) {
       return refusedEnvelope(
         descriptor,
