@@ -50,8 +50,29 @@ login). Without them, an agent behind a proxy was turned away (`403 Request
 not allowed`). A proxy URL may have a password in it; these vars go only to
 the agent command the operator gave, and only their names are kept in the
 `worker.agent-env` audit event, never the values. A name in the policy's
-`deny` list is still taken out. Other (non-agent) backends keep the
-narrow env above.
+`deny` list is still taken out. `NODE_USE_ENV_PROXY` is passed through
+too, when you set it.
+
+**Proxy and CA for the other children (also new in 0.3.3).**
+
+- The `local` backend (`node`, `bun` and `shell` tasks) and the
+  `container` backend (`docker`/`podman run -e`) now pass the same proxy and
+  CA vars, but only under a profile that lets the network through
+  (`network.mode` is not `none`, as in `default` and `workspace-write`).
+  Up to 0.3.2 they kept only `PATH` and `HOME`, so a task that used the
+  network failed behind a proxy. Under `readonly` and `locked-down` (network
+  `none`) nothing changes. The `remote` and `ci` backends send their env to
+  a remote runner, so they never get these vars: a proxy URL may hold a
+  password.
+- Node's own `fetch` reads `HTTP(S)_PROXY` only when `NODE_USE_ENV_PROXY=1`
+  is set (Node 22.21+ and 24.5+; on an older Node the proxy is not used).
+  So when a proxy var is set, CW now sets `NODE_USE_ENV_PROXY=1` for the
+  children it starts to run `fetch`: the HTTP agent (`CW_AGENT_ENDPOINT`,
+  one at a time or in a concurrent round), the `remote` and `ci` backends,
+  and the download of an archive `--repo` URL. Up to 0.3.2 those children
+  went straight to the endpoint and did not use the proxy. A
+  `NODE_USE_ENV_PROXY` you set yourself (for example `0`) is kept. Node's
+  "experimental" note about it is kept out of their stderr.
 
 The design goal is simple:
 

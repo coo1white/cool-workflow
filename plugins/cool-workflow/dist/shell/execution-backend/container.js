@@ -7,7 +7,7 @@ import { spawnSync } from "node:child_process";
 import { hasExecutable } from "./probes.js";
 import { CW_NEVER_FORWARD_ENV } from "./local.js";
 import { delegatedEnvelope, refusedEnvelope } from "./envelopes.js";
-import { messageOf } from "../../core/util/cli-args.js";
+import { messageOf, NETWORK_ENV_NAMES } from "../../core/util/cli-args.js";
 /** buildContainerEnvArgs — build the `-e NAME=value` args passed into the
  *  container run command. Pulled out as its own pure function so it can be
  *  checked without a real docker/podman on the box (see local.ts's
@@ -37,6 +37,16 @@ export function buildContainerEnvArgs(policy, baseEnv = process.env) {
             const value = baseEnv[name];
             if (value !== undefined)
                 args.push("-e", `${name}=${value}`);
+        }
+    }
+    // A profile that lets the network through also lets the proxy and CA settings through (0.3.3).
+    if (policy.network && policy.network.mode !== "none") {
+        const deny = new Set(policy.env.deny || []);
+        for (const name of NETWORK_ENV_NAMES) {
+            const value = baseEnv[name];
+            if (value === undefined || deny.has(name) || args.some((arg) => arg.startsWith(`${name}=`)))
+                continue;
+            args.push("-e", `${name}=${value}`);
         }
     }
     return args;

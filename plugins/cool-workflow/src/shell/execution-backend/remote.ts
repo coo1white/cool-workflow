@@ -12,7 +12,7 @@ import { spawnSync } from "node:child_process";
 import { delegatedEnvelope, refusedEnvelope } from "./envelopes.js";
 import { buildChildEnv } from "./local.js";
 import { BackendDescriptor, BackendExecutionHandle, ExecutionRequest, ExecutionResultEnvelope, ResolvedSandboxPolicy, SandboxAttestation } from "./types.js";
-import { messageOf } from "../../core/util/cli-args.js";
+import { messageOf, fetchChildEnv, FETCH_CHILD_NODE_ARGS } from "../../core/util/cli-args.js";
 
 /** Resolves scripts/children/http-delegate-child.js next to the compiled
  *  module. Throws the exact broken-installation message when missing. */
@@ -74,9 +74,9 @@ export function runHttpDelegation(
     jobId: handle.jobId,
   });
 
-  const child = spawnSync(process.execPath, [delegateChildScript()], {
+  const child = spawnSync(process.execPath, [...FETCH_CHILD_NODE_ARGS, delegateChildScript()], {
     input: job,
-    env: { ...process.env, CW_DELEGATE_ENDPOINT: endpoint },
+    env: fetchChildEnv({ ...process.env, CW_DELEGATE_ENDPOINT: endpoint }),
     encoding: "utf8",
     timeout: request.timeoutMs || 120000,
     maxBuffer: 32 * 1024 * 1024,

@@ -8,7 +8,7 @@
 import { spawnSync } from "node:child_process";
 import { sha256 } from "../../core/hash.js";
 import { hasExecutable } from "./probes.js";
-import { messageOf } from "../../core/util/cli-args.js";
+import { messageOf, addNetworkEnv } from "../../core/util/cli-args.js";
 /** CW's OWN secrets that must NEVER reach ANY child process — on any backend
  *  (local/container/remote/agent), regardless of policy.env.inherit / expose /
  *  deny. Each is read only by parent-side tooling, so no spawned child ever
@@ -79,7 +79,9 @@ export function runtimeNoteFor(backendId) {
 export function executeLocal(descriptor, request, label, attestation, spawnStyle) {
     const command = String(request.command);
     const args = (request.args || []).map(String);
-    const env = buildChildEnv(request.sandboxPolicy);
+    // A profile that lets the network through also lets the proxy and CA settings through (0.3.3).
+    const policy = request.sandboxPolicy;
+    const env = policy.network && policy.network.mode !== "none" ? addNetworkEnv(buildChildEnv(policy), process.env, policy.env.deny) : buildChildEnv(policy);
     const options = {
         cwd: request.cwd,
         env,
