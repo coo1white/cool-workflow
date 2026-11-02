@@ -515,9 +515,11 @@ short, and simple to add to. Do not use it for guesses.)
 #### Gates & repo mechanics
 
 - **Tests are auto-discovered from `test/*-smoke.mjs`** by `run-all.mjs` — a new
-  smoke runs the moment it lands, but it bumps the smoke count in
+  smoke runs the moment it lands, but it adds a line to the smoke list in
   `plugins/cool-workflow/docs/project-index.md`, so run `npm run sync:project-index`
-  or `index:check` fails.
+  or `index:check` fails. The index keeps no date and no counts (2026-11-02):
+  a line that every PR rewrites made any two open PRs conflict; the lists
+  are sorted, so two new smokes add two separate lines.
 - **Unit tests sit in folders that mirror `src/`** (a test of
   `src/core/state/run-paths.ts` goes in `test/core/state/`); smokes stay
   flat at the top of `test/`. `test/test-layout-smoke.mjs` holds this shape.

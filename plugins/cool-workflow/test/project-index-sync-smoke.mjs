@@ -8,12 +8,16 @@
 // that gate, exercised with teeth so the gate itself can't rot into a no-op:
 //   1. positive  — `--check` passes against the in-sync committed index.
 //   2. teeth     — `--check` FAILS closed (exit 1) on a deliberately drifted index.
-//   3. date-safe — `--check` ignores the now-derived "Generated on <date>" line,
-//                  so the gate does not flap every day (parity now-derived rule).
+//   3. no-churn  — the index holds no line that every PR rewrites: no generated
+//                  date and no module/doc/smoke COUNT. Two runs on two different
+//                  days give the same bytes. Before this, every PR that added a
+//                  smoke test changed the one "Smoke tests: N" line, so any two
+//                  open PRs conflicted on it at merge time.
 //
 // Portable by design: node only (no test framework), same constraint the rest of
 // the repo's tooling holds to. The teeth/date cases point the check at throwaway
 // fixtures via CW_PROJECT_INDEX_PATH so the real tracked doc is never mutated.
+// The no-churn case pins the clock with scripts/fake-date-for-reproduction.mjs.
 
 import assert from "node:assert/strict";
 import cp from "node:child_process";
@@ -57,31 +61,47 @@ try {
     assert.ok(/stale/.test(r.stderr), `drift failure must explain itself, got: ${r.stderr}`);
   }
 
-  // 2b. teeth on a Snapshot COUNT specifically. The counts are the gate's core
-  //     signal (they prove the index matches the tree), so a wrong count must
-  //     fail closed. This pins the count fields as IN-SCOPE for the comparison
-  //     and would fail if normalizeForCompare ever over-reached and masked them.
+  // 2b. teeth on a LIST entry specifically. The smoke-test list is now the
+  //     gate's signal that the index matches the tree (the counts are gone),
+  //     so a missing entry must fail closed. This would fail if
+  //     normalizeForCompare ever over-reached and masked the lists.
   {
-    const badCount = path.join(tmp, "bad-count.md");
-    fs.writeFileSync(badCount, base.replace(/- Smoke tests: `\d+`/, "- Smoke tests: `999`"));
-    const r = runCheck({ CW_PROJECT_INDEX_PATH: badCount });
-    assert.equal(r.status, 1, `--check must FAIL when a Snapshot count is wrong (counts must not be normalized away). exit=${r.status}`);
+    const missing = path.join(tmp, "missing-entry.md");
+    const entry = "- [project-index-sync-smoke.mjs](../test/project-index-sync-smoke.mjs)\n";
+    assert.ok(base.includes(entry), "the committed index must list this smoke");
+    fs.writeFileSync(missing, base.replace(entry, ""));
+    const r = runCheck({ CW_PROJECT_INDEX_PATH: missing });
+    assert.equal(r.status, 1, `--check must FAIL when a list entry is missing. exit=${r.status}`);
   }
 
-  // 3. date-safe: identical content but a different generated date must STILL
-  //    pass — the date is now-derived; if it weren't normalized the gate would
-  //    go red the day after every regeneration.
+  // 3. no-churn: nothing in the committed index may change from PR to PR
+  //    unless the tree itself changed there. No date line, no count lines, and
+  //    two renders on two different days are byte-identical.
   {
-    const redated = path.join(tmp, "redated.md");
-    fs.writeFileSync(redated, base.replace(/on \d{4}-\d{2}-\d{2} by/, "on 1999-01-01 by"));
-    const r = runCheck({ CW_PROJECT_INDEX_PATH: redated });
-    assert.equal(r.status, 0, `--check must ignore the now-derived generated date. exit=${r.status}\n${r.stderr}`);
+    assert.ok(!/\d{4}-\d{2}-\d{2}/.test(base.split("\n").slice(0, 4).join("\n")),
+      "the index header must not carry a generated date");
+    for (const label of ["Source modules", "Docs", "Smoke tests"]) {
+      assert.ok(!new RegExp(`^- ${label}: `, "m").test(base),
+        `the Snapshot must not carry a "${label}" count (every PR would rewrite it)`);
+    }
+    const preload = path.join(pluginRoot, "scripts", "fake-date-for-reproduction.mjs");
+    const renderOn = (day) => {
+      const out = path.join(tmp, `render-${day}.md`);
+      const r = cp.spawnSync(process.execPath, ["--require", preload, script, "--repo-only"], {
+        cwd: pluginRoot,
+        encoding: "utf8",
+        env: { ...process.env, CW_FAKE_DATE: day, CW_PROJECT_INDEX_PATH: out }
+      });
+      assert.equal(r.status, 0, `render on ${day} failed: ${r.stderr}`);
+      return fs.readFileSync(out, "utf8");
+    };
+    assert.equal(renderOn("2026-01-01"), renderOn("2026-12-31"),
+      "two renders on two different days must give the same bytes");
   }
-
 } finally {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
 process.stdout.write(
-  "project-index-sync-smoke: ok (in-sync passes, drift fails closed, generated-date normalized)\n"
+  "project-index-sync-smoke: ok (in-sync passes, drift fails closed, no per-PR churn lines)\n"
 );

@@ -205,16 +205,17 @@ function renderIndex(target, context) {
   const lines = [];
   lines.push("# Cool Workflow Project Index");
   lines.push("");
-  lines.push(`Generated from the current repository code on ${generatedDate} by \`npm run sync:project-index\`.`);
+  // No date and no file counts here: every PR that adds a smoke test or syncs
+  // on another day would rewrite the same line, so two open PRs always
+  // conflicted on it. The lists below already name every module, doc and
+  // smoke test; the counts stay in this script's stdout JSON.
+  lines.push("Generated from the current repository code by `npm run sync:project-index`.");
   lines.push("");
   lines.push("## Snapshot");
   lines.push("");
   lines.push(`- Package: \`${packageJson.name}\``);
   lines.push(`- Version: \`${packageJson.version}\``);
-  lines.push(`- Source modules: \`${context.sourceFiles.length}\``);
   lines.push(`- Workflow apps: \`${context.apps.length}\``);
-  lines.push(`- Docs: \`${context.docs.length}\``);
-  lines.push(`- Smoke tests: \`${context.smokeTests.length}\``);
   lines.push(`- Repository: ${repoUrl}`);
   lines.push("");
   lines.push("## Architecture");
@@ -355,18 +356,15 @@ function normalizeForCompare(text) {
   // tree), so the gate compares purely source-derived content — it can neither
   // false-RED across machines/forks nor false-GREEN by over-normalizing. Mirrors
   // the parity payload-identity rule: normalize now/env-derived fields, nothing
-  // else. Exactly two such fields exist in the rendered index:
-  //   1. the generated date ("Generated on <date>") — changes every day;
-  //   2. the Repository URL — derived from `git remote get-url origin`, so it
-  //      differs on every fork/mirror clone of an otherwise in-sync tree.
-  // The Snapshot COUNTS are source-derived and MUST NOT be normalized — a wrong
-  // count is exactly the drift this gate exists to catch.
+  // else. Exactly one such field exists in the rendered index: the Repository
+  // URL — derived from `git remote get-url origin`, so it differs on every
+  // fork/mirror clone of an otherwise in-sync tree. (The index no longer
+  // carries a generated date, so there is nothing day-derived to strip.)
+  // The module, doc and smoke-test LISTS are source-derived and MUST NOT be
+  // normalized — a missing or extra entry is exactly the drift this gate
+  // exists to catch.
   return text
     .replace(/\r\n/g, "\n")
-    .replace(
-      /(Generated from the current repository code on )\d{4}-\d{2}-\d{2}( by)/,
-      "$1<DATE>$2"
-    )
     .replace(/^(- Repository: ).*$/m, "$1<REPO>");
 }
 
