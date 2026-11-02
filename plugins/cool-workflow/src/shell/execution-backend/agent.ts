@@ -21,6 +21,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import {
   AgentChildOutcome,
   BackendDescriptor,
@@ -369,6 +370,20 @@ export function agentIdleTimeoutMs(env: NodeJS.ProcessEnv = process.env): number
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : undefined;
 }
 
+/** CW_AGENT_SANDBOX=srt (opt-in, 0.3.3): undefined when off, so nothing extra loads; else the srt argv or a refusal. */
+function agentSandboxWrap(binary: string, rawArgs: string[], realArgs: string[], request: ExecutionRequest): import("./agent-sandbox.js").AgentSandboxWrap {
+  const raw = String(process.env.CW_AGENT_SANDBOX ?? "").trim().toLowerCase();
+  if (!raw || raw === "off") return undefined;
+  const load = createRequire(import.meta.url);
+  const { wrapAgentForSandbox } = load("./agent-sandbox.js") as typeof import("./agent-sandbox.js");
+  const { agentSandboxVendor } = load("../agent-config.js") as typeof import("../agent-config.js");
+  // The worker writes its own folder (result.md, logs/): a profile's writePaths can be empty (readonly).
+  const policy = request.sandboxPolicy;
+  const workerDir = request.manifest?.workerDir || (request.manifest?.resultPath ? path.dirname(request.manifest.resultPath) : undefined);
+  const writePaths = [...(policy.writePaths || []), ...(workerDir ? [workerDir] : [])];
+  return wrapAgentForSandbox(binary, realArgs, { readPaths: policy.readPaths, writePaths }, agentSandboxVendor(binary, rawArgs));
+}
+
 /** Resolve a request to a spawn-style (CLI-binary) batch job, or undefined when
  *  the agent is endpoint-configured (see prepareEndpointJob) or unconfigured
  *  (those settle through the serial path). */
@@ -376,9 +391,13 @@ export function prepareAgentSpawn(request: ExecutionRequest): AgentSpawnJob | un
   const resolved = resolveAgentInvocation(request);
   if (!resolved.binary) return undefined;
   const subst = agentSubstitutions(request, resolved.model);
+  const args = resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst));
+  const sandbox = agentSandboxWrap(resolved.binary, resolved.rawArgs, args, request);
+  // A refusal is not a job: the hop settles on the serial path, which refuses with the reason.
+  if (sandbox && "refusal" in sandbox) return undefined;
   return {
-    binary: resolved.binary,
-    args: resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst)),
+    binary: sandbox ? sandbox.binary : resolved.binary,
+    args: sandbox ? sandbox.args : args,
     cwd: request.cwd,
     timeoutMs: resolved.timeoutMs || 600000,
     ...(agentIdleTimeoutMs() ? { idleTimeoutMs: agentIdleTimeoutMs() } : {}),
@@ -585,6 +604,15 @@ export function runAgentProcess(
   if (resolved.binary) {
     const realArgs = resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst));
     const recordedArgs = stripSecretArgs(realArgs);
+    const sandbox = request.preparedAgentOutcome ? undefined : agentSandboxWrap(resolved.binary, resolved.rawArgs, realArgs, request);
+    if (sandbox && "refusal" in sandbox) {
+      return refusedEnvelope(descriptor, policy, label, "delegation-failed", sandbox.refusal, {
+        ...attestation,
+        handle: recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported"),
+      });
+    }
+    const spawnBinary = sandbox ? sandbox.binary : resolved.binary;
+    const spawnArgs = sandbox ? sandbox.args : realArgs;
     let outcome: AgentChildOutcome;
     // Names only, never values — for the worker.agent-env trust-audit event
     // below. Stays empty for a preparedAgentOutcome (a batch-delegated child
@@ -598,8 +626,8 @@ export function runAgentProcess(
       const built = buildAgentChildEnv(policy);
       forwardedEnvVars = built.forwarded;
       outcome = runAgentBatchOutcomes([{
-        binary: resolved.binary,
-        args: realArgs,
+        binary: spawnBinary,
+        args: spawnArgs,
         cwd: request.cwd,
         timeoutMs: resolved.timeoutMs || 600000,
         idleTimeoutMs,
@@ -618,7 +646,7 @@ export function runAgentProcess(
       const vendorPidFile = vendorPidFilePath();
       const childEnv = { ...built.env, CW_AGENT_VENDOR_PIDFILE: vendorPidFile, ...(streamStderr ? { CW_DRIVE_TTY_CLAIM: driveTtyClaimPath() } : {}) };
       const child = withPerfTraceGroup("agent-wait", () =>
-        spawnSync(resolved.binary!, realArgs, {
+        spawnSync(spawnBinary, spawnArgs, {
           cwd: request.cwd,
           env: childEnv,
           encoding: "utf8",

@@ -85,6 +85,12 @@ in 0.3.3 with the operator's dated yes:
 0.3.3 (2026-10-17)". In `--json` it is one more entry in `checks`, in the same
 shape as the others; the other checks do not change.
 
+**agent-sandbox** (new in 0.3.3)
+: Only while `CW_AGENT_SANDBOX` is set (see sandbox-profiles(7)). `ok` when
+`srt` 0.0.81 is found (`CW_SRT_BIN` or `PATH`) and, on Linux, `bwrap` and
+`socat` are on `PATH`; `fail` (doctor is then not ready) with how to install
+what is missing, or for a value other than `srt`/`off`.
+
 **git**
 : The `git` command. CW uses it for commit place of origin. A `warn` here means
 commit roots will be recorded as absent; no other part of a run needs git.
@@ -144,6 +150,7 @@ since `<ref>` (a Git branch, tag, or commit). Good for CI and code reading.
 ```text
 src/shell/doctor.ts
 src/shell/doctor-conformance.ts
+src/shell/execution-backend/agent-sandbox.ts
 dist/shell/doctor.js
 ```
 
