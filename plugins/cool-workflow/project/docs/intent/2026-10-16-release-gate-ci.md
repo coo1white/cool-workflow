@@ -427,3 +427,40 @@ suggest putting it in v0.3.3" and "only that makes it a big release". So
 `srt` run of the agent, still to come), and the labels say 0.3.3. The
 version raise is 0.3.2 -> 0.3.3, already on `main` from the bump PR #824;
 0.3.2 is the last version on npm.
+
+### `cw init` writes to ./apps by default (2026-11-02)
+
+A doc audit found that `cw init <id>` (and `cw app init`) with no
+`--output` wrote the new app into the `apps/` folder of the CW package
+that was running: for an installed CW, a folder inside `node_modules`,
+which may not be writable and is wiped on the next upgrade. The question
+was put to the operator, in Chinese; in English: "By default `cw init`
+puts a new app inside the installed CW package, which may not be
+writable and is lost on upgrade. My advice: make the default `./apps` in
+the current folder. That changes behaviour, so it needs your yes. Change
+it?"
+
+The operator's answer, word for word (2026-11-02): "同意，cw init 默认改成
+./apps". In English: "Agreed, change the cw init default to ./apps".
+
+So under the POLA exception: with no `--output` (or `--directory`), the
+app folder is `$CW_APPS_DIR/<id>` when `CW_APPS_DIR` is set, else
+`./apps/<id>` in the folder the command runs in (the MCP tool's `cwd`
+when it gives one). `--output` still wins. The app is still found by id
+(`cw plan <id>`, `cw run`) from that folder, since `./apps` was already a
+place CW looks. `cw app list` then did not show such an app (it listed only the first
+apps root it found), so a second question followed: list `./apps` too? The
+operator's answer, word for word (2026-11-02): "同意，cw app list 也显示
+./apps" ("Agreed, cw app list shows ./apps too"). So `cw app list` (and
+`cw list`, which reads the same records) now also lists the apps in
+`./apps` of the folder it runs in, when that folder is not the apps root
+already listed. An id that is in both fails closed, as any duplicate id
+always has ("Duplicate workflow app id ..."), so an app is never shown
+twice or silently hidden.
+
+Standing instruction from the operator, word for word (2026-11-02): "别问我了，
+都按照你的推荐迭代" ("Stop asking me; iterate on all of it as you
+recommend"). Changes of a default made under it still get their own part
+here, naming that instruction as the yes. The code is `initWorkflowApp` in
+`src/shell/workflow-app-loader.ts`; `docs/init.7.md` says the new default;
+the version raise is 0.3.2 -> 0.3.3.
