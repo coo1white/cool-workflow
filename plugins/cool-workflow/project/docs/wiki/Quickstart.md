@@ -112,7 +112,7 @@ not need a new one.
 
 ```bash
 cd plugins/cool-workflow
-npm install
+bun install --frozen-lockfile
 npm run build
 node scripts/cw.js app list
 node scripts/cw.js demo tamper

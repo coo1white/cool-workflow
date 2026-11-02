@@ -118,10 +118,10 @@ Run the smallest check that fits the change:
 ```bash
 npm run check
 npm run build
-node test/<nearest-smoke>.js
+node test/<nearest>-smoke.mjs
 npm run onramp:check
 npm run test:fast
-npm test                    # slow serial backstop
+npm test                    # a fast sample of 35 smokes (npm run test:gate runs them all)
 npm run canonical-apps
 npm run golden-path
 npm run fixture-compat

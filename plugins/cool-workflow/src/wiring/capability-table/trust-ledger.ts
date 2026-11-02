@@ -54,7 +54,7 @@ attachCliBinding("ledger.propose", {
     { name: "--title TEXT", summary: "A short name for the change." },
     { name: "--rationale TEXT", summary: "Why the change should happen." },
     { name: "--files LIST", summary: "The files the change touches, as a comma list." },
-    { name: "--diff PATCH", summary: "The change as one diff file." },
+    { name: "--diff PATCH", summary: "The change itself, as diff text (e.g. \"$(git diff)\")." },
   ],
   // ledgerProposeCli reads exactly from/to/title/rationale/files/diff
   // (shell/ledger-cli.ts) — the list above is complete, so the dispatcher

@@ -22,7 +22,7 @@ cw                 # the short menu
 cw help            # every command and flag
 cw doctor          # checks node, git, your agent, and file write access
 cw demo tamper     # builds a signed record, breaks it three ways, catches all three
-cw app list        # the ten built-in apps and what each one needs
+cw app list        # the built-in apps and what each one needs
 ```
 
 If you type a command wrong, CW tells you the near one:

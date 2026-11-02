@@ -311,8 +311,9 @@ references, and metadata. It does not copy workflow source into run state.
 ## Files
 
 ```text
-src/workflow-app-framework.ts
-dist/workflow-app-framework.js
+src/shell/workflow-app-loader.ts
+src/core/workflow-apps/app-schema.ts
+dist/shell/workflow-app-loader.js
 apps/workflow-app-framework-demo/app.json
 apps/workflow-app-framework-demo/workflow.js
 apps/architecture-review/app.json

@@ -17,7 +17,7 @@ cw ledger
       --title TEXT       A short name for the change.
       --rationale TEXT   Why the change should happen.
       --files LIST       The files the change touches, as a comma list.
-      --diff PATCH       The change as one diff file.
+      --diff PATCH       The change itself, as diff text (e.g. "$(git diff)").
 
     Flags (cw ledger review)
       --from AGENT/REPO            Who is doing the review.

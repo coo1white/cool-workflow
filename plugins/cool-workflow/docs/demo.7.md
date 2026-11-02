@@ -70,7 +70,7 @@ holds. No repo, no server, no key handed over.
 ## FILES
 
 ```text
-src/telemetry-demo.ts
+src/shell/telemetry-demo.ts
 ```
 
 ## SEE ALSO
