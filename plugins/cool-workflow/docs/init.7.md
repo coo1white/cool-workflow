@@ -2,56 +2,66 @@
 
 ## NAME
 
-`cw init` — scaffold a new workflow definition from nothing
+`cw init` — scaffold a new workflow app from nothing
 
 ## SYNOPSIS
 
 ```text
-node dist/cli.js init <workflow-id> [--title TITLE] [--output PATH] [--force]
+node dist/cli.js init <app-id> [--title TITLE] [--output DIR] [--force] [--json]
 ```
 
 ## DESCRIPTION
 
-`cw init` makes a new workflow definition file — a `.workflow.js` file filled
-with a simple template. The template has a basic run shape: one step with a
-sandbox profile, one evidence gate, and the hooks you need to add your own
-steps.
+`cw init` makes a new workflow app: a folder with two files, made from a
+simple template.
 
-This is how you start a new workflow app from zero. After `init`, you have a
-real file you can edit to make your own run shape.
+- `app.json` — the app's manifest (id, title, inputs, sandbox profile).
+- `workflow.js` — the run shape: one step with a sandbox profile, one
+  evidence gate, and the hooks you need to add your own steps.
 
-The workflow id you give is turned into a safe file name (spaces become dashes,
-special signs are taken out). By default, the file is written to the current
-working directory, but you can point it somewhere else with `--output`.
+The new manifest is checked with the same rules as `cw app validate`. This
+is how you start a new workflow app from zero; after `init` you edit the
+two files to make your own run shape.
 
-If a file of that name is already there, the command refuses to overwrite it
-unless you pass `--force`.
+The app id you give is turned into a safe name (spaces become dashes,
+special signs are taken out). The folder is `--output DIR` when you give
+it. Without `--output`, it is `<apps>/<app-id>`, where `<apps>` is the first
+of these that is there: `$CW_APPS_DIR`, the `apps/` folder of the CW
+checkout or installed package that is running, or `./apps`. For an
+installed CW that is a folder inside the package itself, so give
+`--output` (or set `CW_APPS_DIR`) to keep the app with your own project.
+
+If `app.json` or `workflow.js` is already in that folder, the command
+refuses to overwrite it unless you pass `--force`. A system folder (such as
+`/usr` or `/etc`) is always refused.
 
 ## OPTIONS
 
 `--title TITLE`
-: A human name for the workflow. If not given, a title is made from the id.
+: A human name for the app. If not given, a title is made from the id.
 
-`--output PATH`
-: Where to write the workflow file. Default is `<id>.workflow.js` in the
-current directory.
+`--output DIR`
+: The folder to write `app.json` and `workflow.js` into. It is made if it
+is not there.
 
 `--force`
-: Overwrite an existing file. Without this flag, the command fails if the
-file already exists.
+: Overwrite an existing `app.json` / `workflow.js`. Without this flag, the
+command fails if either is already there.
+
+`--json`
+: Print `{"id", "manifestPath", "entrypointPath"}`.
 
 ## EXIT CODES
 
 | Exit | Meaning |
 | --- | --- |
-| 0 | Workflow file written |
-| 1 | Missing workflow id, invalid id, or file exists without `--force` |
+| 0 | App folder written |
+| 1 | Missing or invalid id, files there without `--force`, a system folder, or a template that fails validation |
 
 ## FILES
 
 ```text
-src/orchestrator.ts (init method)
-src/workflow-app-framework.ts (template renderer)
+src/shell/workflow-app-loader.ts (initWorkflowApp, the templates)
 ```
 
 ## SEE ALSO

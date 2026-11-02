@@ -58,7 +58,7 @@ See [Workflow Apps](Workflow-Apps.md) for when to use each one.
 | `cw dispatch <run-id> --limit N` | Allocate worker scopes. |
 | `cw worker manifest <run-id> <worker-id>` | Read a worker manifest. |
 | `cw worker output <run-id> <worker-id> <result.md>` | Accept and verify worker output. |
-| `cw commit <run-id> --selection <selection-id>` | Create a verifier-gated state commit. |
+| `cw commit <run-id> --verifier <verifier-node-id> --reason "..."` | Create a verifier-gated state commit. |
 | `cw report <run-id> --show` | Render the saved report. |
 
 ## Registry And Recovery

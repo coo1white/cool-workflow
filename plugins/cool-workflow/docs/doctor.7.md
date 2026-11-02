@@ -142,8 +142,9 @@ since `<ref>` (a Git branch, tag, or commit). Good for CI and code reading.
 ## FILES
 
 ```text
-src/doctor.ts
-dist/doctor.js
+src/shell/doctor.ts
+src/shell/doctor-conformance.ts
+dist/shell/doctor.js
 ```
 
 ## EXIT CODES

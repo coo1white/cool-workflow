@@ -109,6 +109,10 @@ function countRenamesTo(targetPaths, fn) {
   const onDiskFirst = JSON.parse(fs.readFileSync(summaryPath, "utf8"));
 
   recordTrustAuditEvent(run, { kind: "sandbox.path", decision: "denied", source: "cw-validated", workerId: "w1" });
+  // generatedAt has millisecond resolution; on a fast machine both writes can
+  // land in the same millisecond, and then a fresh stamp equals the old one.
+  // Wait until the clock has moved on, so the check below means "fresh".
+  while (new Date().toISOString() === onDiskFirst.generatedAt) { /* spin < 1 ms */ }
   const renameCount = countRenamesTo([summaryPath, indexPath], () => {
     summarizeTrustAudit(run);
   });

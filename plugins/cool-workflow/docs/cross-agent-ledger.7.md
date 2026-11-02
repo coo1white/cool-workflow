@@ -97,8 +97,8 @@ is composition through files, and `git` is the operator's (or a wrapper's) step:
 ```
 # Producing side (cool-workflow), inside the shared repo's working tree:
 cw ledger propose --from cool-workflow --to chime \
-  --title "Add retry" --rationale "flaky net" --files src/net.ts \
-  > ledger/$(cw ledger propose ... | jq -r .id).json      # or any unique name
+  --title "Add retry" --rationale "flaky net" --files src/net.ts > entry.json
+mv entry.json "ledger/$(jq -r .id entry.json).json"      # or any unique name
 git add ledger/ && git commit -m "propose: add retry" && git push
 
 # Consuming side (chime):
