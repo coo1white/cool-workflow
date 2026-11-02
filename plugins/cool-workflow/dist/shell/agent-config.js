@@ -145,6 +145,26 @@ export function agentProbeTarget(command, args) {
     }
     return Object.values(clis).includes(path.basename(bin).replace(/\.(exe|cmd|bat)$/i, "")) ? { cli: bin } : { skip: "custom command" };
 }
+/** CW_AGENT_SANDBOX=srt (0.3.3): the hosts and state paths of the bundled agent this command is, from
+ *  the templates file's `sandbox.vendors` (data, not kernel code); none for a command of the user's own. */
+export function agentSandboxVendor(command, args) {
+    if (!command)
+        return { hosts: [], write: [] };
+    const manifest = builtinManifest();
+    const vendors = manifest.sandbox?.vendors || {};
+    const { binary: bin, args: [script] } = agentCommandArgv(command, args);
+    let name;
+    for (const [key, file] of Object.entries(manifest.templates || {})) {
+        if (path.basename(bin) === "node" && script && path.resolve(script) === path.join(AGENTS_DIR, file))
+            name = key;
+    }
+    if (!name) {
+        const cli = path.basename(bin).replace(/\.(exe|cmd|bat)$/i, "");
+        name = Object.entries(manifest.versionProbe?.clis || {}).find(([, value]) => value === cli)?.[0];
+    }
+    const vendor = (name && vendors[name]) || {};
+    return { ...(name ? { name } : {}), hosts: [...(vendor.hosts || [])], write: [...(vendor.write || [])] };
+}
 function builtinAgentTemplates() {
     const manifest = builtinManifest();
     const out = {};

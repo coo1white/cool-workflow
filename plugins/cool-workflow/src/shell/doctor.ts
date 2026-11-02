@@ -122,6 +122,22 @@ function probeAgent(target: AgentProbeTarget, env: NodeJS.ProcessEnv, cwd: strin
   };
 }
 
+/** CW_AGENT_SANDBOX=srt (0.3.3): can the sandbox run here? Loaded only when asked for. */
+function probeAgentSandbox(env: NodeJS.ProcessEnv): DoctorCheck {
+  const load = createRequire(import.meta.url);
+  const { agentSandboxMode } = load("../core/trust/srt-settings.js") as typeof import("../core/trust/srt-settings.js");
+  const { resolveSrt, SRT_INSTALL_HINT } = load("./execution-backend/agent-sandbox.js") as typeof import("./execution-backend/agent-sandbox.js");
+  const mode = agentSandboxMode(env);
+  if ("error" in mode) return { name: "agent-sandbox", status: "fail", detail: mode.error, fix: "Set CW_AGENT_SANDBOX=srt, or unset it." };
+  const srt = resolveSrt(env);
+  if ("error" in srt) return { name: "agent-sandbox", status: "fail", detail: srt.error, fix: SRT_INSTALL_HINT };
+  const missing = process.platform === "linux" ? ["bwrap", "socat"].filter((bin) => !whichBinary(bin, env)) : [];
+  if (missing.length) {
+    return { name: "agent-sandbox", status: "fail", detail: `srt ${srt.version} needs ${missing.join(" and ")}, not found on PATH; every agent hop would be refused.`, fix: "sudo apt-get install bubblewrap socat" };
+  }
+  return { name: "agent-sandbox", status: "ok", detail: `srt ${srt.version} (${srt.bin}) will run each agent; check your agent's hosts with \`cw doctor --conformance\`.` };
+}
+
 export function runDoctor(
   args: Record<string, unknown> = {},
   env: NodeJS.ProcessEnv = process.env,
@@ -184,6 +200,8 @@ export function runDoctor(
 
   const probe = agentProbeTarget(cfg.command, cfg.args);
   if (probe) checks.push(probeAgent(probe, env, cwd));
+  const sandboxAsk = String(env.CW_AGENT_SANDBOX ?? "").trim().toLowerCase();
+  if (sandboxAsk && sandboxAsk !== "off") checks.push(probeAgentSandbox(env));
   if (optionEnabled(args.conformance)) {
     const conformance = createRequire(import.meta.url)("./doctor-conformance.js") as typeof import("./doctor-conformance.js");
     checks.push(conformance.probeAgentConformance(args, env));

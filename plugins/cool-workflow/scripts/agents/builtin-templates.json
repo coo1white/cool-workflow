@@ -20,5 +20,101 @@
       "opencode": "opencode",
       "muse": "muse"
     }
+  },
+  "sandbox": {
+    "comment": "Used only with CW_AGENT_SANDBOX=srt (0.3.3, opt-in): per template, the hosts the vendor CLI must reach and its own state paths it writes. Data, not kernel code (policy in userland). Best effort until checked on a real login with `cw doctor --conformance`; a host missing here shows as a refused connection, and CW_AGENT_SANDBOX_HOSTS adds more. Spec: project/docs/intent/2026-11-02-agent-sandbox-srt.md.",
+    "vendors": {
+      "claude": {
+        "hosts": [
+          "api.anthropic.com",
+          "*.anthropic.com",
+          "claude.ai",
+          "*.claude.ai"
+        ],
+        "write": [
+          "~/.claude",
+          "~/.claude.json",
+          "~/.cache/claude"
+        ]
+      },
+      "codex": {
+        "hosts": [
+          "api.openai.com",
+          "*.openai.com",
+          "chatgpt.com",
+          "*.chatgpt.com"
+        ],
+        "write": [
+          "~/.codex"
+        ]
+      },
+      "gemini-cli": {
+        "hosts": [
+          "generativelanguage.googleapis.com",
+          "*.googleapis.com",
+          "accounts.google.com"
+        ],
+        "write": [
+          "~/.gemini"
+        ]
+      },
+      "gemini": {
+        "hosts": [
+          "opencode.ai",
+          "*.opencode.ai",
+          "models.dev",
+          "api.deepseek.com",
+          "generativelanguage.googleapis.com",
+          "api.anthropic.com",
+          "api.openai.com"
+        ],
+        "write": [
+          "~/.local/share/opencode",
+          "~/.local/state/opencode",
+          "~/.config/opencode",
+          "~/.cache/opencode"
+        ]
+      },
+      "opencode": {
+        "hosts": [
+          "opencode.ai",
+          "*.opencode.ai",
+          "models.dev",
+          "api.deepseek.com",
+          "generativelanguage.googleapis.com",
+          "api.anthropic.com",
+          "api.openai.com"
+        ],
+        "write": [
+          "~/.local/share/opencode",
+          "~/.local/state/opencode",
+          "~/.config/opencode",
+          "~/.cache/opencode"
+        ]
+      },
+      "deepseek": {
+        "hosts": [
+          "opencode.ai",
+          "*.opencode.ai",
+          "models.dev",
+          "api.deepseek.com",
+          "generativelanguage.googleapis.com",
+          "api.anthropic.com",
+          "api.openai.com"
+        ],
+        "write": [
+          "~/.local/share/opencode",
+          "~/.local/state/opencode",
+          "~/.config/opencode",
+          "~/.cache/opencode"
+        ]
+      },
+      "muse": {
+        "hosts": [],
+        "write": [
+          "~/.muse"
+        ]
+      }
+    }
   }
 }

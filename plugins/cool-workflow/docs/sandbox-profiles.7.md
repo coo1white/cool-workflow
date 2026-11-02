@@ -151,6 +151,44 @@ Worker manifests have both lists as `sandbox.enforcedByCW` and
 `sandbox.hostRequired`. Do not put forward CW Sandbox Profiles as OS-level
 sandboxing unless the agent host truly puts OS policy to work.
 
+**The agent sandbox, `CW_AGENT_SANDBOX=srt` (new in 0.3.3, opt-in).** CW can
+run each agent command inside Anthropic's sandbox runtime, `srt`
+(`@anthropic-ai/sandbox-runtime`; bubblewrap on Linux and WSL, Seatbelt on
+macOS, and a proxy that lets through only listed hosts). CW does not enforce
+anything itself here: it DELEGATES to `srt`, run as an outside program,
+never a package dependency, the way it delegates the model to a vendor CLI.
+
+- Set `CW_AGENT_SANDBOX=srt` (unset, empty or `off` changes nothing). CW
+  uses `CW_SRT_BIN`, else `srt` on `PATH`, and needs version 0.0.81:
+  `npm i -g @anthropic-ai/sandbox-runtime@0.0.81`, and on Linux and WSL
+  `sudo apt-get install bubblewrap socat`.
+- Each agent run becomes `srt -s <settings> -- <agent> <args...>` (the
+  `--` keeps an agent argument such as `-s x` from being read as srt's),
+  in a single hop and in a concurrent round alike. The settings come from
+  the worker's profile:
+  - writes: only the profile's `writePaths`, the worker's own folder
+    (`result.md`, `logs/`), the temp folder, and the vendor CLI's own state
+    paths (`sandbox.vendors` in `scripts/agents/builtin-templates.json`, for
+    example `~/.claude`);
+  - reads: everything but `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.config/gh`,
+    `~/.config/gcloud`, `~/.docker`, `~/.kube`, `~/.netrc` and `~/.cw-keys`
+    (the release signing key). A profile `readPaths` entry at or inside one
+    of them keeps that one readable; a broader one (the repo being `$HOME`)
+    does not;
+  - network: only the vendor's API hosts (the same templates data) plus a
+    comma list in `CW_AGENT_SANDBOX_HOSTS`; an agent of your own gets only
+    that list. srt sends allowed hosts through your `HTTPS_PROXY`.
+- Fail closed: an unknown value, no `srt`, a different srt version, or an
+  srt that cannot start its sandbox (no bubblewrap) refuses the hop with the
+  reason. The agent is never run without the sandbox it was asked to have.
+- `cw doctor` shows an `agent-sandbox` row while it is set, and
+  `cw doctor --conformance` runs your agent through srt, so you can check
+  its hosts on your own login before you rely on it.
+
+With it on, "stopping reads outside `readPaths`" (for the secret folders
+above), "stopping writes before CW takes a result" and "network
+restrictions" move from host-required to enforced by srt.
+
 ## FILES
 
 ```text
