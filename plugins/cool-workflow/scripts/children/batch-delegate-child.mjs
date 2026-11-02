@@ -22,6 +22,15 @@
 // also carries `timedOutMs` (new in 0.3.3), and the stop reaches the job's
 // whole process group (see killJob below).
 //
+// New in 0.3.4 (all additive; the parent ignores keys it does not read):
+// every line carries `startedAt`, `endedAt` and `lastOutputAt` (epoch ms;
+// lastOutputAt is the last stdout OR stderr byte, or startedAt when the job
+// wrote nothing), so "it ran 10 minutes" can be told apart from "it went
+// silent after 20 seconds". A job given `idleTimeoutMs` > 0 (opt-in; the
+// parent sets it only from CW_AGENT_IDLE_TIMEOUT_MS) is stopped the same way
+// as at its time limit once it has written nothing for that long, and its
+// line carries `idleTimedOutMs` in place of `timedOutMs`.
+//
 // THE RED LINE: this child only `spawn`s the operator-resolved agent binary with
 // shell:false. It imports NO model SDK and reads NO credentials.
 //
@@ -160,16 +169,18 @@ process.stdin.on("end", () => {
       const tail = decoder.end();
       if (tail) stdout += tail;
     };
+    const startedAt = Date.now();
+    let lastOutputAt = startedAt;
     const settle = (o) => {
       if (settled) return;
       settled = true;
-      let line = JSON.stringify({ i, ...o }) + "\n";
+      let line = JSON.stringify({ i, ...o, startedAt, endedAt: Date.now(), lastOutputAt }) + "\n";
       const lineBytes = Buffer.byteLength(line);
       if (lineBytes > LINE_CAP) {
         // Same fail-closed shape as the raw-cap path in the close handler
         // below: capped output is never evidence, so drop it entirely and
         // name the cap — never ship a line the parent's buffer cannot hold.
-        line = JSON.stringify({ i, spawnError: `serialized stdout line exceeded ${LINE_CAP} byte cap (${lineBytes} bytes)`, exitCode: null, stdout: "" }) + "\n";
+        line = JSON.stringify({ i, spawnError: `serialized stdout line exceeded ${LINE_CAP} byte cap (${lineBytes} bytes)`, exitCode: null, stdout: "", startedAt, endedAt: Date.now(), lastOutputAt }) + "\n";
       }
       process.stdout.write(line);
     };
@@ -192,10 +203,31 @@ process.stdin.on("end", () => {
     // says so (`timedOutMs`, new in 0.3.3, additive) instead of looking like
     // any other kill.
     let timedOut = false;
-    const term = setTimeout(() => { timedOut = true; killJob(child, "SIGTERM"); }, job.timeoutMs);
+    let idleTimedOut = false;
+    const term = setTimeout(() => { if (!idleTimedOut) timedOut = true; killJob(child, "SIGTERM"); }, job.timeoutMs);
     const kill = setTimeout(() => killJob(child, "SIGKILL"), job.timeoutMs + 5000);
-    const timeoutField = () => (timedOut ? { timedOutMs: job.timeoutMs } : {});
+    const timeoutField = () => (idleTimedOut ? { idleTimedOutMs: job.idleTimeoutMs } : timedOut ? { timedOutMs: job.timeoutMs } : {});
+    // Opt-in idle limit: re-armed on every output byte. When it fires, the
+    // job is stopped exactly like at its time limit (group SIGTERM, SIGKILL
+    // 5s later). Off (no timer at all) unless idleTimeoutMs > 0.
+    const idleMs = Number(job.idleTimeoutMs) > 0 ? Number(job.idleTimeoutMs) : 0;
+    let idleTerm;
+    let idleKill;
+    const armIdle = () => {
+      if (!idleMs || timedOut || idleTimedOut) return;
+      clearTimeout(idleTerm);
+      idleTerm = setTimeout(() => {
+        if (settled || timedOut) return;
+        idleTimedOut = true;
+        killJob(child, "SIGTERM");
+        idleKill = setTimeout(() => killJob(child, "SIGKILL"), 5000);
+      }, idleMs);
+    };
+    const clearIdle = () => { clearTimeout(idleTerm); clearTimeout(idleKill); };
+    const sawOutput = () => { lastOutputAt = Date.now(); armIdle(); };
+    armIdle();
     child.stdout.on("data", (d) => {
+      sawOutput();
       const chunk = Buffer.isBuffer(d) ? d : Buffer.from(String(d));
       stdoutBytes += chunk.length;
       if (stdoutTruncated) return;
@@ -218,11 +250,12 @@ process.stdin.on("end", () => {
     let stderrTail = "";
     const stderrDecoder = new StringDecoder("utf8");
     child.stderr.on("data", (d) => {
+      sawOutput();
       const text = Buffer.isBuffer(d) ? stderrDecoder.write(d) : String(d);
       stderrTail = (stderrTail + text).slice(-STDERR_TAIL);
     });
     child.on("error", (error) => {
-      clearTimeout(term); clearTimeout(kill);
+      clearTimeout(term); clearTimeout(kill); clearIdle();
       children.delete(child);
       // Flush the decoder here too, symmetric with the close handler below —
       // "error" can fire instead of "close" (e.g. a post-spawn stream or
@@ -235,7 +268,7 @@ process.stdin.on("end", () => {
     });
     let grace;
     const finish = (code) => {
-      clearTimeout(term); clearTimeout(kill); clearTimeout(grace);
+      clearTimeout(term); clearTimeout(kill); clearTimeout(grace); clearIdle();
       children.delete(child);
       if (stdoutTruncated) {
         settle({ spawnError: `stdout exceeded ${CAP} byte cap (${stdoutBytes} bytes)`, exitCode: null, stdout: "" });
@@ -251,7 +284,7 @@ process.stdin.on("end", () => {
     child.on("exit", (code) => {
       grace = setTimeout(() => {
         if (settled) return;
-        if (timedOut) killJob(child, "SIGKILL");
+        if (timedOut || idleTimedOut) killJob(child, "SIGKILL");
         try { child.stdout.destroy(); } catch {}
         try { child.stderr.destroy(); } catch {}
         finish(code);

@@ -371,7 +371,7 @@ function writeResultCache(file: string, content: string): void {
  *  in-memory `run` can defer the disk flush to a single call at round
  *  end; `sharedRun`, when given, is mutated in place instead of a fresh
  *  loadRun (the round's one shared cached object). */
-function handleHop(ctx: DriveContext, task: { id: string; phase: string; label?: unknown }, workerId: string, reason: string, deferPersist = false, sharedRun?: WorkflowRun, timedOutMs?: number): DriveStep {
+function handleHop(ctx: DriveContext, task: { id: string; phase: string; label?: unknown }, workerId: string, reason: string, deferPersist = false, sharedRun?: WorkflowRun, timedOutMs?: number, idle = false): DriveStep {
   // ONE load, mutated in place and saved — a fresh reload right before
   // saveCheckpoint would discard recordWorkerFailure/RetryAttempt's own
   // in-memory mutation (they return an updated scope but mutate the run
@@ -380,7 +380,7 @@ function handleHop(ctx: DriveContext, task: { id: string; phase: string; label?:
   const scope = getWorkerScope(run, workerId);
   const persisted = scope?.retryCount || 0;
   const prior = priorAttempts(ctx.attempts.get(task.id) || 0, persisted);
-  const decided = retryOrPark(prior, ctx.policy, reason, timedOutMs);
+  const decided = retryOrPark(prior, ctx.policy, reason, timedOutMs, idle);
   ctx.attempts.set(task.id, decided.attempts);
 
   if (decided.status === "parked") {
@@ -552,7 +552,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
   const usageSignature = handle?.metadata?.usageSignature as string | undefined;
 
   if (envelope.status !== "completed") {
-    return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, deferPersist, deferPersist ? run : undefined, envelope.timedOutMs);
+    return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, deferPersist, deferPersist ? run : undefined, envelope.timedOutMs ?? envelope.idleTimedOutMs, Boolean(envelope.idleTimedOutMs) && !envelope.timedOutMs);
   }
   if (!manifest.resultPath || !fs.existsSync(manifest.resultPath)) {
     return handleHop(ctx, selected, workerId, "agent produced no result.md", deferPersist, deferPersist ? run : undefined);
