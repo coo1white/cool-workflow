@@ -518,6 +518,18 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
             metadata: { reason: "provider-namespace env vars forwarded from host process env to the delegated agent child" },
         });
     }
+    const sandboxEnforcedBy = handle?.metadata?.sandboxEnforcedBy;
+    if (sandboxEnforcedBy) {
+        recordTrustAuditEvent(run, {
+            kind: "worker.agent-sandbox",
+            decision: "enforced",
+            source: "runtime-derived",
+            workerId,
+            taskId: selected.id,
+            nodeId: selected.resultNodeId,
+            metadata: { enforcedBy: sandboxEnforcedBy, profileId: manifest.sandboxPolicy?.id },
+        });
+    }
     if (cachePath && fs.existsSync(manifest.resultPath)) {
         writeResultCache(cachePath, fs.readFileSync(manifest.resultPath, "utf8"));
     }

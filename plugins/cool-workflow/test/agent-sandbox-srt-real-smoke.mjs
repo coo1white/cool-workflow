@@ -66,7 +66,7 @@ try {
       sandboxPolicy: showBundledSandboxProfile("readonly", { ...sandboxContextForValidation(repo), workerDir, resultPath }),
       manifest: { workerDir, resultPath, prompt: "x" },
       delegation: { command: process.execPath, args: [${JSON.stringify(agent)}, "{{result}}", repo, ${JSON.stringify(path.join(home, ".ssh", "id_test"))}] } });
-    process.stdout.write(JSON.stringify({ status: env.status, summary: env.result.summary, result: fs.existsSync(resultPath) ? fs.readFileSync(resultPath, "utf8") : null }));`;
+    process.stdout.write(JSON.stringify({ status: env.status, summary: env.result.summary, enforcedBy: env.provenance?.handle?.metadata?.sandboxEnforcedBy, result: fs.existsSync(resultPath) ? fs.readFileSync(resultPath, "utf8") : null }));`;
   const r = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
     env: { ...process.env, HOME: home, TMPDIR: tmp, CW_AGENT_SANDBOX: "srt", CW_SRT_BIN: srt },
     encoding: "utf8",
@@ -78,6 +78,8 @@ try {
   assert.ok(out.result, "the agent wrote its result.md in its worker folder");
   assert.match(out.result, /srt-real stopped:\w+ stopped:\w+/, `a write to the repo and a read of ~/.ssh were both stopped: ${out.result}`);
   assert.equal(fs.existsSync(path.join(repo, "escape.txt")), false, "nothing was written into the repo");
+  assert.equal(out.enforcedBy, "srt 0.0.81", "the hop's handle names what enforced it");
+  assert.deepEqual(fs.readdirSync(tmp).filter((f) => f.startsWith("cw-srt-")), [], "the srt settings file was removed");
 } finally {
   fs.rmSync(work, { recursive: true, force: true });
 }

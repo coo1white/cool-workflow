@@ -269,6 +269,8 @@ export interface AgentChildOutcome {
   timedOutMs?: number;
   /** Set when the batch child stopped this job for no output (CW_AGENT_IDLE_TIMEOUT_MS, 0.3.3): the limit in ms. */
   idleTimedOutMs?: number;
+  /** What enforced the agent sandbox (CW_AGENT_SANDBOX=srt, 0.3.3), e.g. "srt 0.0.81"; drive audits it as worker.agent-sandbox. */
+  sandboxEnforcedBy?: string;
 }
 
 export interface ExecutionProvenance {

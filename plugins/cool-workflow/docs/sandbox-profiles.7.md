@@ -181,6 +181,10 @@ never a package dependency, the way it delegates the model to a vendor CLI.
 - Fail closed: an unknown value, no `srt`, a different srt version, or an
   srt that cannot start its sandbox (no bubblewrap) refuses the hop with the
   reason. The agent is never run without the sandbox it was asked to have.
+- Each sandboxed hop's handle records `sandboxEnforcedBy: "srt 0.0.81"`,
+  and a drive writes it as a `worker.agent-sandbox` trust-audit event
+  (`decision: "enforced"`, with `enforcedBy` and the profile id). The
+  settings file, in the temp folder, is removed once the hop ends.
 - `cw doctor` shows an `agent-sandbox` row while it is set, and
   `cw doctor --conformance` runs your agent through srt, so you can check
   its hosts on your own login before you rely on it.
