@@ -618,7 +618,9 @@ export function initWorkflowApp(appId, options = {}) {
     if (!id)
         throw new Error("App id must include at least one letter or digit");
     const title = String(options.title || titleize(id));
-    const appsDir = candidateAppsRoots().find((root) => fs.existsSync(root)) || candidateAppsRoots()[0];
+    // Default (0.3.3, operator's yes 2026-11-02): `$CW_APPS_DIR/<id>`, else `./apps/<id>` in the
+    // folder it runs in -- never the installed package's own apps/ (wiped on upgrade, maybe read-only).
+    const appsDir = process.env.CW_APPS_DIR ? path.resolve(process.env.CW_APPS_DIR) : path.resolve(String(options.cwd || process.cwd()), "apps");
     const destinationDir = path.resolve(String(options.directory || options.output || path.join(appsDir, id)));
     if (SYSTEM_DIR_PATTERN.test(destinationDir)) {
         throw new Error(`Refusing to create app in a system directory: ${destinationDir}`);

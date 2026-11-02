@@ -352,6 +352,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [headline-commands-smoke.mjs](../test/headline-commands-smoke.mjs)
 - [http-delegate-child-multibyte-stdin-smoke.mjs](../test/http-delegate-child-multibyte-stdin-smoke.mjs)
 - [incremental-resume-smoke.mjs](../test/incremental-resume-smoke.mjs)
+- [init-default-dir-smoke.mjs](../test/init-default-dir-smoke.mjs)
 - [lang-policy-check-smoke.mjs](../test/lang-policy-check-smoke.mjs)
 - [ledger-apply-smoke.mjs](../test/ledger-apply-smoke.mjs)
 - [ledger-resolution-smoke.mjs](../test/ledger-resolution-smoke.mjs)
