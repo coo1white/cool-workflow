@@ -77,6 +77,8 @@ try {
     assert.equal(byI.get(1).done, false, "the slow job is still running");
     assert.ok(byI.get(1).lastOutputAt >= byI.get(1).startedAt, "it has a last-output time");
     await new Promise((r) => child.on("close", r));
+    const last = JSON.parse(fs.readFileSync(alive, "utf8"));
+    assert.ok(last.jobs.every((j) => j.done), `the last job's end is written before the child exits: ${JSON.stringify(last)}`);
     console.log("drive-ticker-alive: batch child keeps the alive file OK");
   }
 

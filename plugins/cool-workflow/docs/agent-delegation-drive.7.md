@@ -216,9 +216,16 @@ parks on its first try, like a timeout, with
 writing output; check the agent command, or raise or unset
 CW_AGENT_IDLE_TIMEOUT_MS`. An agent that keeps writing is never stopped by
 it; the overall time limit still holds. Unset, empty, `0` or a value that is
-not a positive number means off, and then nothing changes. Choose a value
-above the longest quiet stretch your agent has: some vendor CLIs write
-nothing until they end, and those need the idle limit off. With the idle
+not a positive number means off, and then nothing changes. CW's bundled
+agent wrappers write nothing on a stderr that is not a terminal, so with the
+idle limit on (and while the ticker's quiet note is on, see "Live output")
+the agent is started with `CW_AGENT_STREAM=1`, which makes them write one
+plain progress line per step; a `CW_AGENT_STREAM` you set yourself is kept.
+An agent that ends by itself is never an idle stop, even when a process it
+left behind keeps its output open for a moment. Choose a value well above
+the longest quiet stretch your agent has: a model may think for minutes
+between two steps, and a CLI of your own that writes nothing until it ends
+needs the idle limit off. With the idle
 limit on, a one-agent (serial) run goes through the batch delegate child too,
 since a blocking spawn cannot see output as it comes; its stderr is then kept
 (the last 8 KB on failure) and not shown live.
@@ -531,7 +538,9 @@ never polluted.
   child keeps the times in a temp file (`cw-drive-alive-<pid>.json` in the
   temp folder, at most one write a second) only while the ticker runs, and
   cw removes it when the round ends. A serial hop, and any tick before the
-  first write, prints the line as before. Up to 0.3.2 the line had no such
+  first write, prints the line as before. The agents of such a round are
+  started with `CW_AGENT_STREAM=1` (unless you set it), so CW's bundled
+  wrappers write a progress line per step and the number means something. Up to 0.3.2 the line had no such
   note, so ten minutes of a stuck agent looked the same as ten minutes of
   work. Only the bytes on a TTY, or with `CW_DRIVE_PROGRESS=1`, change; a
   piped run prints no ticker and writes no such file. The operator's yes:

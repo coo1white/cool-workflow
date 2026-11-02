@@ -74,6 +74,32 @@ try {
     assert.equal(out[2].idleTimedOutMs, undefined);
   }
 
+  // A job that exits by itself is never an idle stop, even when a process it
+  // left behind keeps its stdout open through the grace window (review fix).
+  {
+    const leaver = path.join(work, "leaver.js");
+    fs.writeFileSync(leaver, 'setTimeout(() => { require("child_process").spawn(process.execPath, ["-e", "setTimeout(() => {}, 5000)"], { stdio: ["ignore", "inherit", "inherit"] }); process.stdout.write("done"); process.exit(0); }, 1500);\n');
+    const [out] = runAgentBatchOutcomes([{ binary: process.execPath, args: [leaver], cwd: work, timeoutMs: 60000, idleTimeoutMs: 2000 }]);
+    assert.equal(out.exitCode, 0, `a job that ended by itself keeps its exit 0: ${JSON.stringify(out)}`);
+    assert.equal(out.idleTimedOutMs, undefined, "and is not reported as an idle stop");
+  }
+
+  // CW's bundled wrappers are silent on a piped stderr unless CW_AGENT_STREAM=1,
+  // so with an idle limit the job gets it (and a user's own value wins).
+  {
+    const tell = path.join(work, "tell.js");
+    fs.writeFileSync(tell, 'process.stdout.write(String(process.env.CW_AGENT_STREAM));\n');
+    const base = { binary: process.execPath, args: [tell], cwd: work, timeoutMs: 60000 };
+    const [withIdle, userZero, noIdle] = runAgentBatchOutcomes([
+      { ...base, idleTimeoutMs: 5000, env: { ...process.env, CW_AGENT_STREAM: undefined } },
+      { ...base, idleTimeoutMs: 5000, env: { ...process.env, CW_AGENT_STREAM: "0" } },
+      { ...base, env: Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== "CW_AGENT_STREAM")) },
+    ]);
+    assert.equal(withIdle.stdout, "1", "an idle-limited job gets CW_AGENT_STREAM=1");
+    assert.equal(userZero.stdout, "0", "the user's own CW_AGENT_STREAM=0 is kept");
+    assert.equal(noIdle.stdout, "undefined", "with no idle limit nothing is added");
+  }
+
   // The new time keys on the raw NDJSON line (reconcile does not need them).
   {
     const { spawnSync } = await import("node:child_process");

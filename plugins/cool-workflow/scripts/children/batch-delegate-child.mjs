@@ -135,6 +135,9 @@ function writeAlive() {
 function noteAlive(i, entry) {
   if (!ALIVE_FILE) return;
   aliveJobs[i] = { ...aliveJobs[i], i, ...entry };
+  // A job's end is written at once: the timer below is unref'd, so a pending
+  // write would be lost when the last job ends and this process exits.
+  if (entry.done) { clearTimeout(aliveTimer); writeAlive(); return; }
   if (!aliveTimer) aliveTimer = setTimeout(writeAlive, 1000).unref();
 }
 let raw = "";
@@ -218,7 +221,12 @@ process.stdin.on("end", () => {
       // Mirrors the serial path (agent.ts runAgentProcess stdio ["ignore",...]).
       // detached (POSIX only): the job leads its own process group, so the
       // timeout and stop kills below reach every process the job started.
-      child = spawn(job.binary, job.args, { cwd: job.cwd, env: job.env || process.env, shell: false, stdio: ["ignore", "pipe", "pipe"], detached: GROUP_KILL });
+      // The idle limit and the alive file measure output, but CW's bundled
+      // agent wrappers are silent on a non-TTY stderr unless CW_AGENT_STREAM=1
+      // (plain progress lines). Turn that on for them, unless the user set it.
+      const baseEnv = job.env || process.env;
+      const env = (Number(job.idleTimeoutMs) > 0 || ALIVE_FILE) && baseEnv.CW_AGENT_STREAM === undefined ? { ...baseEnv, CW_AGENT_STREAM: "1" } : baseEnv;
+      child = spawn(job.binary, job.args, { cwd: job.cwd, env, shell: false, stdio: ["ignore", "pipe", "pipe"], detached: GROUP_KILL });
     } catch (error) {
       settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout: "" });
       return;
@@ -238,8 +246,9 @@ process.stdin.on("end", () => {
     const idleMs = Number(job.idleTimeoutMs) > 0 ? Number(job.idleTimeoutMs) : 0;
     let idleTerm;
     let idleKill;
+    let exited = false;
     const armIdle = () => {
-      if (!idleMs || timedOut || idleTimedOut) return;
+      if (!idleMs || timedOut || idleTimedOut || exited) return;
       clearTimeout(idleTerm);
       idleTerm = setTimeout(() => {
         if (settled || timedOut) return;
@@ -307,6 +316,9 @@ process.stdin.on("end", () => {
     // "close" settles it; if a process outside its group still holds them,
     // settle after EXIT_GRACE_MS anyway, with the exit code we have.
     child.on("exit", (code) => {
+      // The job ended by itself: a quiet grace window is not an idle stop.
+      exited = true;
+      clearIdle();
       grace = setTimeout(() => {
         if (settled) return;
         if (timedOut || idleTimedOut) killJob(child, "SIGKILL");
