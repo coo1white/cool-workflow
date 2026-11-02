@@ -353,7 +353,15 @@ export interface AgentSpawnJob {
   args: string[];
   cwd: string;
   timeoutMs: number;
+  /** Opt-in (0.3.4): stop the job once it has written nothing for this long. */
+  idleTimeoutMs?: number;
   env?: NodeJS.ProcessEnv;
+}
+
+/** CW_AGENT_IDLE_TIMEOUT_MS in ms when a positive number, else undefined (off). Opt-in, 0.3.4. */
+export function agentIdleTimeoutMs(env: NodeJS.ProcessEnv = process.env): number | undefined {
+  const raw = Number(String(env.CW_AGENT_IDLE_TIMEOUT_MS ?? "").trim() || NaN);
+  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : undefined;
 }
 
 /** Resolve a request to a spawn-style (CLI-binary) batch job, or undefined when
@@ -368,6 +376,7 @@ export function prepareAgentSpawn(request: ExecutionRequest): AgentSpawnJob | un
     args: resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst)),
     cwd: request.cwd,
     timeoutMs: resolved.timeoutMs || 600000,
+    ...(agentIdleTimeoutMs() ? { idleTimeoutMs: agentIdleTimeoutMs() } : {}),
   };
 }
 
@@ -412,6 +421,7 @@ interface BatchDelegateLine {
   stdout?: string;
   stderr?: string;
   timedOutMs?: unknown;
+  idleTimedOutMs?: unknown;
 }
 
 /** Parse the delegate child's NDJSON stdout and reconcile it against `jobs`
@@ -444,6 +454,7 @@ export function reconcileBatchOutcomes(
       ...(typeof parsed.stderr === "string" && parsed.stderr ? { stderr: parsed.stderr } : {}),
       stdout: String(parsed.stdout || ""),
       ...(typeof parsed.timedOutMs === "number" && parsed.timedOutMs > 0 ? { timedOutMs: parsed.timedOutMs } : {}),
+      ...(typeof parsed.idleTimedOutMs === "number" && parsed.idleTimedOutMs > 0 ? { idleTimedOutMs: parsed.idleTimedOutMs } : {}),
     });
   }
   // 0.3.3: a whole-batch ETIMEDOUT says it timed out, and after how long.
@@ -572,8 +583,21 @@ export function runAgentProcess(
     // below. Stays empty for a preparedAgentOutcome (a batch-delegated child
     // that already ran elsewhere; this code path forwards nothing itself).
     let forwardedEnvVars: string[] = [];
+    const idleTimeoutMs = agentIdleTimeoutMs();
     if (request.preparedAgentOutcome) {
       outcome = request.preparedAgentOutcome;
+    } else if (idleTimeoutMs) {
+      // Opt-in idle limit (0.3.4): spawnSync cannot see output as it comes; the batch child can.
+      const built = buildAgentChildEnv(policy);
+      forwardedEnvVars = built.forwarded;
+      outcome = runAgentBatchOutcomes([{
+        binary: resolved.binary,
+        args: realArgs,
+        cwd: request.cwd,
+        timeoutMs: resolved.timeoutMs || 600000,
+        idleTimeoutMs,
+        env: built.env,
+      }])[0];
     } else {
       const streamStderr = shouldStreamAgentStderr(process.env, Boolean(process.stderr.isTTY));
       const built = buildAgentChildEnv(policy);
@@ -626,8 +650,7 @@ export function runAgentProcess(
           handle: handleOut,
         }), timedOutMs: timeoutMs };
       }
-      // Non-timeout paths: a wrapper that ran to any normal end removed its own
-      // sidecar on exit; clear any stray file best-effort so tmp cannot grow.
+      // Other ends: the wrapper removed its own sidecar; clear any stray one so tmp cannot grow.
       try { fs.unlinkSync(vendorPidFile); } catch { /* usually already gone */ }
       outcome = {
         ...(child.error ? { spawnError: messageOf(child.error) } : {}),
@@ -637,6 +660,13 @@ export function runAgentProcess(
       };
     }
     if (outcome.exitCode !== 0 && outcome.stderr) persistAgentStderr(subst.result, outcome.stderr);
+    if (outcome.idleTimedOutMs) {
+      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);
+      return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process produced no output for ${outcome.idleTimedOutMs}ms and was killed`, {
+        ...attestation,
+        handle: handleOut,
+      }), idleTimedOutMs: outcome.idleTimedOutMs };
+    }
     // 0.3.3: a batch job stopped at its limit uses the serial timeout words.
     if (outcome.timedOutMs) {
       const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars);

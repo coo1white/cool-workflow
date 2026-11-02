@@ -284,7 +284,7 @@ function writeResultCache(file, content) {
  *  in-memory `run` can defer the disk flush to a single call at round
  *  end; `sharedRun`, when given, is mutated in place instead of a fresh
  *  loadRun (the round's one shared cached object). */
-function handleHop(ctx, task, workerId, reason, deferPersist = false, sharedRun, timedOutMs) {
+function handleHop(ctx, task, workerId, reason, deferPersist = false, sharedRun, timedOutMs, idle = false) {
     // ONE load, mutated in place and saved — a fresh reload right before
     // saveCheckpoint would discard recordWorkerFailure/RetryAttempt's own
     // in-memory mutation (they return an updated scope but mutate the run
@@ -293,7 +293,7 @@ function handleHop(ctx, task, workerId, reason, deferPersist = false, sharedRun,
     const scope = getWorkerScope(run, workerId);
     const persisted = scope?.retryCount || 0;
     const prior = priorAttempts(ctx.attempts.get(task.id) || 0, persisted);
-    const decided = retryOrPark(prior, ctx.policy, reason, timedOutMs);
+    const decided = retryOrPark(prior, ctx.policy, reason, timedOutMs, idle);
     ctx.attempts.set(task.id, decided.attempts);
     if (decided.status === "parked") {
         recordWorkerFailure(run, workerId, decided.parkedReason || reason, { code: "agent-delegation-parked", retryable: false, retryCount: decided.attempts });
@@ -451,7 +451,7 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     const reportedUsage = handle?.metadata?.reportedUsage;
     const usageSignature = handle?.metadata?.usageSignature;
     if (envelope.status !== "completed") {
-        return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, deferPersist, deferPersist ? run : undefined, envelope.timedOutMs);
+        return handleHop(ctx, selected, workerId, `agent hop ${envelope.status}: ${envelope.result.summary}`, deferPersist, deferPersist ? run : undefined, envelope.timedOutMs ?? envelope.idleTimedOutMs, Boolean(envelope.idleTimedOutMs) && !envelope.timedOutMs);
     }
     if (!manifest.resultPath || !fs.existsSync(manifest.resultPath)) {
         return handleHop(ctx, selected, workerId, "agent produced no result.md", deferPersist, deferPersist ? run : undefined);

@@ -7,7 +7,7 @@
 // maxTimeoutAttempts in the policy wins, but never goes above maxAttempts.
 
 import assert from "node:assert/strict";
-import { retryOrPark, timeoutAttemptLimit, hopRetryLine, DEFAULT_SCHEDULING_POLICY, TIMEOUT_PARK_NEXT_STEP } from "../../../dist/core/pipeline/drive-decide.js";
+import { retryOrPark, timeoutAttemptLimit, hopRetryLine, shortHopReason, DEFAULT_SCHEDULING_POLICY, TIMEOUT_PARK_NEXT_STEP, IDLE_PARK_NEXT_STEP } from "../../../dist/core/pipeline/drive-decide.js";
 
 const reason = "agent hop refused: map:api: refused (delegation-failed) — agent process timed out after 600000ms and was killed";
 
@@ -52,6 +52,25 @@ const reason = "agent hop refused: map:api: refused (delegation-failed) — agen
   assert.equal(second.status, "parked");
   assert.match(second.parkedReason, /\(attempt 2\/2; limit 10m\) — not tried again/);
   assert.equal(hopRetryLine("map:api", "Map", reason, 1, policy, 600000), "✗ map:api (Map) — timed out after 10m; trying again (2/2)");
+}
+
+// Idle limit (opt-in, 0.3.4): an agent stopped for writing nothing parks on
+// its first try too, with its own next step; the time-limit words are unchanged.
+{
+  const idleReason = "agent hop refused: map:api: refused (delegation-failed) — agent process produced no output for 120000ms and was killed";
+  const decided = retryOrPark(0, DEFAULT_SCHEDULING_POLICY, idleReason, 120000, true);
+  assert.equal(decided.status, "parked");
+  assert.equal(
+    decided.parkedReason,
+    `${idleReason} (attempt 1/1; no output for 2m) — not tried again: the agent stopped writing output; check the agent command, or raise or unset CW_AGENT_IDLE_TIMEOUT_MS`
+  );
+  assert.equal(IDLE_PARK_NEXT_STEP, "the agent stopped writing output; check the agent command, or raise or unset CW_AGENT_IDLE_TIMEOUT_MS");
+  assert.equal(shortHopReason(idleReason), "no output for 2m");
+  assert.equal(
+    retryOrPark(0, DEFAULT_SCHEDULING_POLICY, reason, 600000, false).parkedReason,
+    retryOrPark(0, DEFAULT_SCHEDULING_POLICY, reason, 600000).parkedReason,
+    "idle defaults to false: the time-limit park is byte-identical"
+  );
 }
 
 console.log("drivedecide-timeoutpark: ok");

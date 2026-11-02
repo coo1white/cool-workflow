@@ -246,6 +246,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [agent-backend-user-env-smoke.mjs](../test/agent-backend-user-env-smoke.mjs)
 - [agent-config-atomic-write-smoke.mjs](../test/agent-config-atomic-write-smoke.mjs)
 - [agent-delegation-drive-smoke.mjs](../test/agent-delegation-drive-smoke.mjs)
+- [agent-idle-timeout-smoke.mjs](../test/agent-idle-timeout-smoke.mjs)
 - [agent-muse-native-smoke.mjs](../test/agent-muse-native-smoke.mjs)
 - [agent-stderr-reason-smoke.mjs](../test/agent-stderr-reason-smoke.mjs)
 - [agent-stream-gate-smoke.mjs](../test/agent-stream-gate-smoke.mjs)

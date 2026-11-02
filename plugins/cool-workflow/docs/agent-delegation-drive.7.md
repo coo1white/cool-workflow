@@ -172,6 +172,32 @@ still do (each writes its own line the moment it ends). When the whole batch
 child does go past that backstop, the refusal now reads
 `agent delegation failed: batch delegate failed: timed out after <ms>ms (...)`.
 
+**Idle limit (new in 0.3.4, opt-in).** A time limit cannot tell an agent that
+works for 10 minutes from one that went silent after 20 seconds. Set
+`CW_AGENT_IDLE_TIMEOUT_MS` to a positive number of ms to stop an agent once it
+has written nothing, on stdout or stderr, for that long. The stop is the same
+as at the time limit: SIGTERM to the agent's whole process group, SIGKILL 5 s
+later. The hop is refused with
+`agent process produced no output for <ms>ms and was killed`, and the worker
+parks on its first try, like a timeout, with
+`(attempt 1/1; no output for <time>) — not tried again: the agent stopped
+writing output; check the agent command, or raise or unset
+CW_AGENT_IDLE_TIMEOUT_MS`. An agent that keeps writing is never stopped by
+it; the overall time limit still holds. Unset, empty, `0` or a value that is
+not a positive number means off, and then nothing changes. Choose a value
+above the longest quiet stretch your agent has: some vendor CLIs write
+nothing until they end, and those need the idle limit off. With the idle
+limit on, a one-agent (serial) run goes through the batch delegate child too,
+since a blocking spawn cannot see output as it comes; its stderr is then kept
+(the last 8 KB on failure) and not shown live.
+
+**When each agent ran (new in 0.3.4).** Each line the batch delegate child
+writes also carries `startedAt`, `endedAt` and `lastOutputAt`, in epoch ms;
+`lastOutputAt` is the time of the agent's last stdout or stderr byte, or
+`startedAt` when it wrote nothing. A line stopped by the idle limit carries
+`idleTimedOutMs` in place of `timedOutMs`. These keys are additive: no
+output, state or report changes because of them.
+
 ## Overlapping phases (`overlapPrevious`)
 
 Phases run one after another: a phase starts only when every task of the

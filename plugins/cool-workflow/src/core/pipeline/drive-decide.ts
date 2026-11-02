@@ -177,6 +177,9 @@ export const DEFAULT_SCHEDULING_POLICY: SchedulingPolicy = { maxAttempts: 3 };
 /** What a timeout park tells the person to do (0.3.3). */
 export const TIMEOUT_PARK_NEXT_STEP = "raise CW_AGENT_TIMEOUT_MS (or --agent-timeout-ms) or check the agent command";
 
+/** What an idle-timeout park tells the person to do (opt-in, 0.3.4). */
+export const IDLE_PARK_NEXT_STEP = "the agent stopped writing output; check the agent command, or raise or unset CW_AGENT_IDLE_TIMEOUT_MS";
+
 /** The try count a timed-out hop gets: maxTimeoutAttempts (default 1), at least 1, never above maxAttempts. */
 export function timeoutAttemptLimit(policy: SchedulingPolicy): number {
   const raw = Number(policy.maxTimeoutAttempts ?? 1);
@@ -191,14 +194,15 @@ export interface RetryOrParkDecision {
 
 /** `retryOrPark` — adds one attempt; at `attempts >= maxAttempts` parks
  *  with `parkedReason = "<reason> (attempt <n>/<max>)"`. A timed-out hop
- *  (`timedOutMs` set) parks at min(maxTimeoutAttempts ?? 1, maxAttempts). */
-export function retryOrPark(priorAttempts: number, policy: SchedulingPolicy, reason: string, timedOutMs?: number): RetryOrParkDecision {
+ *  (`timedOutMs` set; `idle` for the 0.3.4 idle limit) parks at min(maxTimeoutAttempts ?? 1, maxAttempts). */
+export function retryOrPark(priorAttempts: number, policy: SchedulingPolicy, reason: string, timedOutMs?: number, idle = false): RetryOrParkDecision {
   const attempts = priorAttempts + 1;
   if (timedOutMs && timedOutMs > 0) {
     const limit = timeoutAttemptLimit(policy);
     if (attempts >= limit) {
       const tries = attempts > limit ? String(attempts) : `${attempts}/${limit}`;
-      return { status: "parked", attempts, parkedReason: `${reason} (attempt ${tries}; limit ${shortDuration(timedOutMs)}) — not tried again: ${TIMEOUT_PARK_NEXT_STEP}` };
+      const what = idle ? `no output for ${shortDuration(timedOutMs)}` : `limit ${shortDuration(timedOutMs)}`;
+      return { status: "parked", attempts, parkedReason: `${reason} (attempt ${tries}; ${what}) — not tried again: ${idle ? IDLE_PARK_NEXT_STEP : TIMEOUT_PARK_NEXT_STEP}` };
     }
     return { status: "retryable", attempts };
   }
@@ -224,6 +228,8 @@ export function shortDuration(ms: number): string {
 export function shortHopReason(reason: string): string {
   const timeout = /timed out after (\d+)ms/.exec(reason);
   if (timeout) return `timed out after ${shortDuration(Number(timeout[1]))}`;
+  const idle = /produced no output for (\d+)ms/.exec(reason);
+  if (idle) return `no output for ${shortDuration(Number(idle[1]))}`;
   const dash = reason.indexOf(" — ");
   const tail = (dash >= 0 ? reason.slice(dash + 3) : reason).trim();
   return tail.length > 120 ? `${tail.slice(0, 119)}…` : tail;
