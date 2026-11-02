@@ -31,6 +31,12 @@
 // as at its time limit once it has written nothing for that long, and its
 // line carries `idleTimedOutMs` in place of `timedOutMs`.
 //
+// New in 0.3.4: when CW_BATCH_ALIVE_FILE is set (the drive sets it only
+// while its TTY ticker runs), this child keeps
+// `{"jobs":[{"i","startedAt","lastOutputAt","done"}]}` there, rewritten
+// atomically at most once a second, so the ticker can say how long each
+// running agent has been quiet. Nothing else reads it.
+//
 // THE RED LINE: this child only `spawn`s the operator-resolved agent binary with
 // shell:false. It imports NO model SDK and reads NO credentials.
 //
@@ -113,7 +119,24 @@ process.on("SIGINT", () => onStopSignal("SIGINT"));
 process.on("SIGTERM", () => onStopSignal("SIGTERM"));
 
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import { StringDecoder } from "node:string_decoder";
+const ALIVE_FILE = process.env.CW_BATCH_ALIVE_FILE || "";
+const aliveJobs = [];
+let aliveTimer;
+function writeAlive() {
+  aliveTimer = undefined;
+  try {
+    const tmp = `${ALIVE_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify({ jobs: aliveJobs.filter(Boolean) }));
+    fs.renameSync(tmp, ALIVE_FILE);
+  } catch {}
+}
+function noteAlive(i, entry) {
+  if (!ALIVE_FILE) return;
+  aliveJobs[i] = { ...aliveJobs[i], i, ...entry };
+  if (!aliveTimer) aliveTimer = setTimeout(writeAlive, 1000).unref();
+}
 let raw = "";
 const MAX_STDIN_BYTES = 32 * 1024 * 1024;
 process.stdin.setEncoding("utf8");
@@ -171,9 +194,11 @@ process.stdin.on("end", () => {
     };
     const startedAt = Date.now();
     let lastOutputAt = startedAt;
+    noteAlive(i, { startedAt, lastOutputAt, done: false });
     const settle = (o) => {
       if (settled) return;
       settled = true;
+      noteAlive(i, { done: true });
       let line = JSON.stringify({ i, ...o, startedAt, endedAt: Date.now(), lastOutputAt }) + "\n";
       const lineBytes = Buffer.byteLength(line);
       if (lineBytes > LINE_CAP) {
@@ -224,7 +249,7 @@ process.stdin.on("end", () => {
       }, idleMs);
     };
     const clearIdle = () => { clearTimeout(idleTerm); clearTimeout(idleKill); };
-    const sawOutput = () => { lastOutputAt = Date.now(); armIdle(); };
+    const sawOutput = () => { lastOutputAt = Date.now(); noteAlive(i, { lastOutputAt }); armIdle(); };
     armIdle();
     child.stdout.on("data", (d) => {
       sawOutput();

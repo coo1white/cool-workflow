@@ -325,6 +325,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [drive-result-prewrite-symlink-smoke.mjs](../test/drive-result-prewrite-symlink-smoke.mjs)
 - [drive-round-cache-serial-smoke.mjs](../test/drive-round-cache-serial-smoke.mjs)
 - [drive-run-mutex-smoke.mjs](../test/drive-run-mutex-smoke.mjs)
+- [drive-ticker-alive-smoke.mjs](../test/drive-ticker-alive-smoke.mjs)
 - [drive-ticker-smoke.mjs](../test/drive-ticker-smoke.mjs)
 - [drive-ticker-tty-smoke.mjs](../test/drive-ticker-tty-smoke.mjs)
 - [durable-atomic-write-smoke.mjs](../test/durable-atomic-write-smoke.mjs)

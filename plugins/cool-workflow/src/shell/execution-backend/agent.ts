@@ -64,6 +64,11 @@ export function driveTtyClaimPath(): string {
   return path.join(os.tmpdir(), `cw-drive-tty-${process.pid}.claim`);
 }
 
+/** Where a concurrent round's batch child keeps each agent's last-output time for the drive ticker (0.3.4). */
+export function driveAlivePath(): string {
+  return path.join(os.tmpdir(), `cw-drive-alive-${process.pid}.json`);
+}
+
 /** Reap the vendor process a shipped wrapper recorded, then remove the sidecar.
  *  A wrapper that exited cleanly already removed the file, so this is a no-op
  *  then; only a wrapper cw SIGKILLed on a timeout leaves a live vendor PID
@@ -472,7 +477,7 @@ export function reconcileBatchOutcomes(
 /** Run a batch of agent spawns concurrently; outcomes index-align with
  *  jobs. See SPEC/execution-backend.md's rebuild-risk note on maxBuffer
  *  scaling with job count and the no-`encoding` (raw Buffer) requirement. */
-export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[] {
+export function runAgentBatchOutcomes(jobs: AgentSpawnJob[], aliveFile?: string): AgentChildOutcome[] {
   if (!jobs.length) return [];
   return withPerfTraceGroup("agent-wait", () => {
     const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
@@ -482,6 +487,7 @@ export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[
         input: JSON.stringify(jobs),
         maxBuffer: 34 * 1024 * 1024 * jobs.length,
         timeout: maxTimeout + 30000,
+        ...(aliveFile ? { env: { ...process.env, CW_BATCH_ALIVE_FILE: aliveFile } } : {}),
       });
     } catch (error) {
       child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };

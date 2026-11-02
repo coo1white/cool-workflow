@@ -519,6 +519,24 @@ never polluted.
   progress is on (a TTY, or `CW_DRIVE_PROGRESS=1`), so a piped run's bytes do
   not change, and `--quiet` turns it off with the other `[drive]` lines.
   `CW_DRIVE_TICK_MS` sets the time between lines; `0` turns them off.
+- **How long the agents have been quiet (new in 0.3.4, a changed default on
+  the TTY).** In a concurrent round the line also says when the running
+  agents last wrote anything (stdout or stderr):
+  `[drive]   … Map still working — 4m 10s (last output 3m 50s ago)` for one
+  agent, and
+  `[drive]   … Map still working — 4m 10s (3 agents running, longest without output 3m 50s)`
+  for more. A quiet agent may be thinking, or may be stuck; the number lets
+  you tell a long quiet from a normal one, and `CW_AGENT_IDLE_TIMEOUT_MS`
+  (see "Idle limit" above) stops one that stays quiet. The batch delegate
+  child keeps the times in a temp file (`cw-drive-alive-<pid>.json` in the
+  temp folder, at most one write a second) only while the ticker runs, and
+  cw removes it when the round ends. A serial hop, and any tick before the
+  first write, prints the line as before. Up to 0.3.3 the line had no such
+  note, so ten minutes of a stuck agent looked the same as ten minutes of
+  work. Only the bytes on a TTY, or with `CW_DRIVE_PROGRESS=1`, change; a
+  piped run prints no ticker and writes no such file. The operator's yes:
+  `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
+  for 0.3.4 (2026-11-02)".
 - **One writer at a time on the terminal (new in 0.3.3).** In a serial hop
   (Verify, Verdict) the agent's stderr is the terminal itself, and a shipped
   wrapper's live view redraws its rows in place. Before 0.3.3 the

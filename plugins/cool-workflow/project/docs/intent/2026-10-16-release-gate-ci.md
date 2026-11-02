@@ -383,3 +383,39 @@ Why `»` (U+00BB): it is in Latin-1, so every terminal font has it
 block) is not in every one of them, and Windows Terminal on WSL showed a
 box. ASCII `>>` was weighed and turned down: `==> Map >> (0/2)` is hard to
 tell from the `==>` mark itself, and `»` keeps the one-column shape.
+
+## Operator decisions for 0.3.4 (2026-11-02)
+
+After 0.3.3, a study of a sibling project (yokoten, record 0029: keep
+"is it alive" apart from "how did it end") gave three ideas for CW. The
+first, an opt-in idle limit (`CW_AGENT_IDLE_TIMEOUT_MS`, PR #827), changes
+no default. The second, `cw doctor --conformance` (PR #828), is a new
+flag. The third shows on the TTY how long the agents have been quiet, and
+that changes the bytes of an existing line, so it was put to the operator.
+
+The proposal, as it was shown (in Chinese), in part: "进度行（只在终端里
+显示）：现在 `… still working — 4m 10s`，改成 `… still working — 4m 10s
+(last output 3m 50s ago)` … 我的建议：第 3 层默认打开。它只在终端（TTY）
+出现，被管道接走时一个字节都不变" and the question: "第 3 层（终端进度行显示
+'最后输出在 N 秒前'）默认打开，同意吗？"
+
+In English: "The progress line (shown only on a terminal): now
+`… still working — 4m 10s`, changed to `… still working — 4m 10s (last
+output 3m 50s ago)` … My advice: turn layer 3 on by default. It shows only
+on a TTY; a piped run's bytes do not change by one byte." and the question:
+"Turn layer 3 (the terminal progress line shows 'last output N seconds
+ago') on by default — do you agree?"
+
+The operator's answer, word for word (2026-11-02): "ok，都按推荐来"
+In English: "ok, do all of it as recommended".
+
+So this default change is approved under the POLA exception (AGENTS.md,
+FreeBSD rule 1): in a concurrent round, the drive ticker's
+`still working` line ends with `(last output <time> ago)` for one running
+agent, or `(<n> agents running, longest without output <time>)` for more.
+A serial hop, a tick before the first write, and a piped run keep the old
+bytes. The code is `scripts/children/drive-ticker.mjs` (`quietNote`),
+`scripts/children/batch-delegate-child.mjs` (`CW_BATCH_ALIVE_FILE`) and
+`src/shell/drive.ts` (`withDriveTicker`); `docs/agent-delegation-drive.7.md`
+("How long the agents have been quiet") says the new default. The version
+raise comes in the 0.3.4 bump PR.
