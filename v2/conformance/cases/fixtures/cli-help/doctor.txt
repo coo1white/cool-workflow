@@ -5,6 +5,7 @@ cw doctor
 
     Flags
       --onramp            Run the extra onramp checks (3-step quick start).
+      --conformance       Run the agent once on a tiny task and check the cw-agent/1 contract (one short model call).
       --fix               Print fix commands instead of the full report.
       --changed-from REF  Check the onramp only for the change since REF.
       --json              Print the report as JSON.

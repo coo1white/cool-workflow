@@ -2,7 +2,7 @@
 // `brew doctor`.
 //
 // Checks: node/agent/agent-binary/agent-runs/git/home-registry/repo-state, plus
-// the `--onramp` section (buildDoctorOnramp) when asked.
+// agent-conformance (`--conformance`) and the `--onramp` section when asked.
 //
 // Discipline:
 //  - READ-ONLY. Never creates .cw/ or $CW_HOME as a side effect.
@@ -17,6 +17,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { agentProbeTarget, resolveAgentConfig } from "./agent-config.js";
 import { buildAgentChildEnv } from "./execution-backend/agent.js";
 import { splitAgentCommandLine } from "../core/util/cli-args.js";
@@ -159,14 +160,13 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
     const probe = agentProbeTarget(cfg.command, cfg.args);
     if (probe)
         checks.push(probeAgent(probe, env, cwd));
-    // 3. Sandbox enforcement boundary — a fixed architectural fact (see
-    // docs/sandbox-profiles.7.md), not a host-specific problem to fix, so this
-    // is "ok" (informational), never "warn": CW validates sandbox policy and
-    // gates worker-output acceptance, but OS-level read/write/execute/network/
-    // env isolation is the execution host's responsibility, which this doctor
-    // run cannot itself verify. An "ok" check carries no `fix` line by
-    // convention (see the node/git checks above), so the pointer to the docs
-    // lives in `detail` instead.
+    if (optionEnabled(args.conformance)) {
+        const conformance = createRequire(import.meta.url)("./doctor-conformance.js");
+        checks.push(conformance.probeAgentConformance(args, env));
+    }
+    // 3. Sandbox enforcement boundary — a fixed fact, not a host problem, so "ok" (informational):
+    // CW gates policy and accepts; OS-level isolation is the host's job (docs/sandbox-profiles.7.md).
+    // An "ok" check carries no `fix` line, so the docs pointer lives in `detail`.
     checks.push({
         name: "sandbox-enforceability",
         status: "ok",
@@ -284,9 +284,7 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
         ok,
         checks,
         summary,
-        // `--onramp` attaches the change-contract onramp block. `--changed-from
-        // REF` threads the base ref through to resolveChangedFiles +
-        // evaluateOnrampContract.
+        // `--onramp` attaches the onramp block; `--changed-from REF` threads the base ref through.
         ...(optionEnabled(args.onramp)
             ? {
                 onramp: buildDoctorOnramp({

@@ -156,12 +156,13 @@ addCliOnlyCapability(
     // the `runDoctor(args.options, ...)` call it makes (shell/doctor.ts).
     flags: [
       { name: "--onramp", summary: "Run the extra onramp checks (3-step quick start)." },
+      { name: "--conformance", summary: "Run the agent once on a tiny task and check the cw-agent/1 contract (one short model call)." },
       { name: "--fix", summary: "Print fix commands instead of the full report." },
       { name: "--changed-from REF", summary: "Check the onramp only for the change since REF." },
       { name: "--json", summary: "Print the report as JSON." },
     ],
     // The handler above and runDoctor (shell/doctor.ts) read exactly
-    // onramp/fix/changed-from/json plus the shared globals (cwd, format)
+    // onramp/conformance/fix/changed-from/json plus the shared globals (cwd, format)
     // — the list above is complete, so the dispatcher may warn about an
     // unknown flag (TTY-only; see cli/global-flags.ts).
     flagsComplete: true,

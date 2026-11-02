@@ -11,6 +11,7 @@ node dist/cli.js doctor
 node dist/cli.js doctor --json
 node dist/cli.js doctor --fix
 node dist/cli.js doctor --onramp
+node dist/cli.js doctor --conformance
 node dist/cli.js doctor --onramp --changed-from origin/main
 ```
 
@@ -114,6 +115,25 @@ In a CW checkout, the checks it names are the `.mjs` test and script paths
 0.3.1 they ended in `.js` (changed in 0.3.2 with the operator's dated yes:
 `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions for
 0.3.2 (2026-10-17)").
+
+`--conformance` (new in 0.3.4)
+: Run the configured agent one time on a small fixed task, and check that it
+keeps the agent contract, `cw-agent/1` (see agent-delegation-drive(7), "The
+agent contract"). It goes the same way a real run goes (`runBackend`), in a
+temp folder that is removed after, so it never writes `.cw/` or `$CW_HOME`.
+It adds one check, `agent-conformance`:
+- `ok` when the agent ends in time, exits 0, writes a `result.md` CW can
+  read, and reports a model:
+  `✓ agent-conformance: cw-agent/1: ran in 8.2s, exit 0, result.md read, model <model>.`
+- `warn` when all of that holds but no model is reported (run records would say
+  `unreported`), or when no agent is configured (nothing is run).
+- `fail` (doctor is then not ready and exits 1) when it fails, times out,
+  writes no `result.md`, or writes one CW cannot read. The detail gives the
+  agent's own last lines of stderr, keys hidden.
+This one runs a custom command too (the `agent-runs` check never does), so
+it uses one short model call, which may cost money. That is why it is only
+run when asked. The time limit is 180 seconds
+(`CW_DOCTOR_CONFORMANCE_TIMEOUT_MS` makes it different).
 
 `--changed-from <ref>`
 : When used with `--onramp`, make the quick-start checks cover only files changed
