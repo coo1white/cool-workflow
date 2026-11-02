@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // agent-idle-timeout-smoke — telling a silent agent apart from a busy one
-// (new in 0.3.4; docs/agent-delegation-drive.7.md, "Idle limit").
+// (new in 0.3.3; docs/agent-delegation-drive.7.md, "Idle limit").
 //
 // In 0.3.2 a stuck agent held each round for its whole 10-minute limit, and
 // nothing said whether it was still writing. Now:

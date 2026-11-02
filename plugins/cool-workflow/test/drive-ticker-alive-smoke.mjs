@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // drive-ticker-alive-smoke — the ticker says how long the agents have been
-// quiet (new in 0.3.4, a changed default on the TTY; operator's yes of
+// quiet (new in 0.3.3, a changed default on the TTY; operator's yes of
 // 2026-11-02 in project/docs/intent/2026-10-16-release-gate-ci.md;
 // docs/agent-delegation-drive.7.md, "Live output").
 //

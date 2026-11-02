@@ -1,4 +1,4 @@
-// shell/doctor-conformance.ts — `cw doctor --conformance` (opt-in, 0.3.4): runs the agent once
+// shell/doctor-conformance.ts — `cw doctor --conformance` (opt-in, 0.3.3): runs the agent once
 // on a fixed task through runBackend and checks cw-agent/1 (docs/agent-delegation-drive.7.md).
 // One short model call, so only when asked; all files in a temp dir removed after.
 

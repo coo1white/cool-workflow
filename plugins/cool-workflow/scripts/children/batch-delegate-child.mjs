@@ -22,7 +22,7 @@
 // also carries `timedOutMs` (new in 0.3.3), and the stop reaches the job's
 // whole process group (see killJob below).
 //
-// New in 0.3.4 (all additive; the parent ignores keys it does not read):
+// New in 0.3.3 (all additive; the parent ignores keys it does not read):
 // every line carries `startedAt`, `endedAt` and `lastOutputAt` (epoch ms;
 // lastOutputAt is the last stdout OR stderr byte, or startedAt when the job
 // wrote nothing), so "it ran 10 minutes" can be told apart from "it went
@@ -31,7 +31,7 @@
 // as at its time limit once it has written nothing for that long, and its
 // line carries `idleTimedOutMs` in place of `timedOutMs`.
 //
-// New in 0.3.4: when CW_BATCH_ALIVE_FILE is set (the drive sets it only
+// New in 0.3.3: when CW_BATCH_ALIVE_FILE is set (the drive sets it only
 // while its TTY ticker runs), this child keeps
 // `{"jobs":[{"i","startedAt","lastOutputAt","done"}]}` there, rewritten
 // atomically at most once a second, so the ticker can say how long each

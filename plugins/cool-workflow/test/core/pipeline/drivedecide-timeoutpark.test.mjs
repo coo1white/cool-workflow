@@ -54,7 +54,7 @@ const reason = "agent hop refused: map:api: refused (delegation-failed) — agen
   assert.equal(hopRetryLine("map:api", "Map", reason, 1, policy, 600000), "✗ map:api (Map) — timed out after 10m; trying again (2/2)");
 }
 
-// Idle limit (opt-in, 0.3.4): an agent stopped for writing nothing parks on
+// Idle limit (opt-in, 0.3.3): an agent stopped for writing nothing parks on
 // its first try too, with its own next step; the time-limit words are unchanged.
 {
   const idleReason = "agent hop refused: map:api: refused (delegation-failed) — agent process produced no output for 120000ms and was killed";

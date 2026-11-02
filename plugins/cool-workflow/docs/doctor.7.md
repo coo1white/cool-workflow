@@ -116,7 +116,7 @@ In a CW checkout, the checks it names are the `.mjs` test and script paths
 `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions for
 0.3.2 (2026-10-17)").
 
-`--conformance` (new in 0.3.4)
+`--conformance` (new in 0.3.3)
 : Run the configured agent one time on a small fixed task, and check that it
 keeps the agent contract, `cw-agent/1` (see agent-delegation-drive(7), "The
 agent contract"). It goes the same way a real run goes (`runBackend`), in a

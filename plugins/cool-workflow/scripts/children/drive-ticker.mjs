@@ -12,7 +12,7 @@
 //   argv[3] = interval in ms
 //   argv[4] = the drive process's pid
 //   argv[5] = a claim file (may be empty; new in 0.3.3)
-//   argv[6] = an alive file (may be empty or missing; new in 0.3.4)
+//   argv[6] = an alive file (may be empty or missing; new in 0.3.3)
 //
 // Every interval it writes one line to stderr:
 //   [drive]   … <Label> still working — 20s

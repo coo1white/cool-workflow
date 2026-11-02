@@ -50,7 +50,7 @@ function vendorPidFilePath() {
 export function driveTtyClaimPath() {
     return path.join(os.tmpdir(), `cw-drive-tty-${process.pid}.claim`);
 }
-/** Where a concurrent round's batch child keeps each agent's last-output time for the drive ticker (0.3.4). */
+/** Where a concurrent round's batch child keeps each agent's last-output time for the drive ticker (0.3.3). */
 export function driveAlivePath() {
     return path.join(os.tmpdir(), `cw-drive-alive-${process.pid}.json`);
 }
@@ -308,7 +308,7 @@ export function agentHandle(request, env = process.env) {
         },
     };
 }
-/** CW_AGENT_IDLE_TIMEOUT_MS in ms when a positive number, else undefined (off). Opt-in, 0.3.4. */
+/** CW_AGENT_IDLE_TIMEOUT_MS in ms when a positive number, else undefined (off). Opt-in, 0.3.3. */
 export function agentIdleTimeoutMs(env = process.env) {
     const raw = Number(String(env.CW_AGENT_IDLE_TIMEOUT_MS ?? "").trim() || NaN);
     return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : undefined;
@@ -515,7 +515,7 @@ export function runAgentProcess(descriptor, policy, request, label, attestation)
             outcome = request.preparedAgentOutcome;
         }
         else if (idleTimeoutMs) {
-            // Opt-in idle limit (0.3.4): spawnSync cannot see output as it comes; the batch child can.
+            // Opt-in idle limit (0.3.3): spawnSync cannot see output as it comes; the batch child can.
             const built = buildAgentChildEnv(policy);
             forwardedEnvVars = built.forwarded;
             outcome = runAgentBatchOutcomes([{

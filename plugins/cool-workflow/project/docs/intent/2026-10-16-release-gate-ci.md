@@ -384,9 +384,9 @@ block) is not in every one of them, and Windows Terminal on WSL showed a
 box. ASCII `>>` was weighed and turned down: `==> Map >> (0/2)` is hard to
 tell from the `==>` mark itself, and `»` keeps the one-column shape.
 
-## Operator decisions for 0.3.4 (2026-11-02)
+## Operator decisions for 0.3.3, second set (2026-11-02)
 
-After 0.3.3, a study of a sibling project (yokoten, record 0029: keep
+While 0.3.3 waited to be cut, a study of a sibling project (yokoten, record 0029: keep
 "is it alive" apart from "how did it end") gave three ideas for CW. The
 first, an opt-in idle limit (`CW_AGENT_IDLE_TIMEOUT_MS`, PR #827), changes
 no default. The second, `cw doctor --conformance` (PR #828), is a new
@@ -417,5 +417,13 @@ A serial hop, a tick before the first write, and a piped run keep the old
 bytes. The code is `scripts/children/drive-ticker.mjs` (`quietNote`),
 `scripts/children/batch-delegate-child.mjs` (`CW_BATCH_ALIVE_FILE`) and
 `src/shell/drive.ts` (`withDriveTicker`); `docs/agent-delegation-drive.7.md`
-("How long the agents have been quiet") says the new default. The version
-raise comes in the 0.3.4 bump PR.
+("How long the agents have been quiet") says the new default.
+
+The version raise. These changes were first labelled 0.3.4, to follow a
+0.3.3 that was not yet cut. The operator then chose, word for word
+(2026-11-02): "我建议放v0.3.3" and "这样才算是一个大版本". In English: "I
+suggest putting it in v0.3.3" and "only that makes it a big release". So
+0.3.3 is cut after this work and the agent sandbox work (an opt-in
+`srt` run of the agent, still to come), and the labels say 0.3.3. The
+version raise is 0.3.2 -> 0.3.3, already on `main` from the bump PR #824;
+0.3.2 is the last version on npm.
