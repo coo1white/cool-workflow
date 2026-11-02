@@ -17,6 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { resolveCwHome } from "./agent-config.js";
+import { fetchChildEnv, FETCH_CHILD_NODE_ARGS } from "../core/util/cli-args.js";
 
 /** Upper bound on a downloaded archive (200 MiB) — a review target should be source, not a
  *  binary blob; a giant download fails closed rather than exhausting disk/memory. */
@@ -320,10 +321,10 @@ function fetchArchiveBytes(rawUrl: string, sanitizedUrl: string, dest: string, o
     "process.stderr.write('too many redirects');process.exit(6);",
     "})().catch(e=>{process.stderr.write(String((e&&e.message)||e));process.exit(4);});"
   ].join("");
-  const result = spawnSync(process.execPath, ["-e", child, rawUrl, dest, String(MAX_ARCHIVE_BYTES)], {
+  const result = spawnSync(process.execPath, [...FETCH_CHILD_NODE_ARGS, "-e", child, rawUrl, dest, String(MAX_ARCHIVE_BYTES)], {
     encoding: "utf8",
     timeout: opts.timeoutMs || 120000,
-    env: opts.env || process.env,
+    env: fetchChildEnv(opts.env || process.env),
     stdio: ["ignore", "ignore", "pipe"]
   });
   if (result.status !== 0) {

@@ -166,3 +166,22 @@ export function agentCommandArgv(command: string, args: string[] | undefined): {
 export function substituteAgentArg(arg: string, subst: Record<string, string>): string {
   return arg.replace(/\{\{(\w+)\}\}/g, (_, key: string) => (key in subst ? subst[key] : `{{${key}}}`));
 }
+
+/** Proxy and CA env a child that uses the network needs; one list for the agent, local and container paths. */
+export const NETWORK_ENV_NAMES: ReadonlySet<string> = new Set(["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR", "NODE_USE_ENV_PROXY"]);
+
+/** Copy NETWORK_ENV_NAMES from baseEnv into env, never over a name env already has or one deny names. */
+export function addNetworkEnv(env: NodeJS.ProcessEnv, baseEnv: NodeJS.ProcessEnv, deny: readonly string[] = []): NodeJS.ProcessEnv {
+  for (const name of NETWORK_ENV_NAMES) if (baseEnv[name] !== undefined && env[name] === undefined && !deny.includes(name)) env[name] = baseEnv[name];
+  return env;
+}
+
+/** Node's own fetch reads HTTP(S)_PROXY only with NODE_USE_ENV_PROXY=1 (Node 22.21+ / 24.5+).
+ *  For a child CW starts to run fetch: turn it on when a proxy is set, never over the user's own value. */
+export function fetchChildEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const proxied = ["HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy"].some((name) => env[name]);
+  return proxied && env.NODE_USE_ENV_PROXY === undefined ? { ...env, NODE_USE_ENV_PROXY: "1" } : env;
+}
+
+/** Node flags for such a child: keep Node's "experimental" proxy note out of its stderr (which CW shows as the reason on a failure). */
+export const FETCH_CHILD_NODE_ARGS: readonly string[] = ["--disable-warning=UNDICI-EHPA"];

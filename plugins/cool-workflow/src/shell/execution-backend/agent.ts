@@ -33,11 +33,11 @@ import {
 import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local.js";
 import { delegatedEnvelope, refusedEnvelope } from "./envelopes.js";
 import { withPerfTraceGroup } from "../perf-trace.js";
-import { agentCommandArgv, splitAgentCommandLine, substituteAgentArg, messageOf } from "../../core/util/cli-args.js";
+import { agentCommandArgv, splitAgentCommandLine, substituteAgentArg, messageOf, NETWORK_ENV_NAMES, fetchChildEnv, FETCH_CHILD_NODE_ARGS } from "../../core/util/cli-args.js";
 
 const AGENT_PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|CLAUDE_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i;
 // Proxy + TLS trust: the vendor CLI reaches its API through these (0.3.3).
-const AGENT_NETWORK_ENV: ReadonlySet<string> = new Set(["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy", "NODE_EXTRA_CA_CERTS", "SSL_CERT_FILE", "SSL_CERT_DIR"]);
+const AGENT_NETWORK_ENV = NETWORK_ENV_NAMES;
 
 /** Build the env for a REAL spawned agent child under a sandbox policy: the
  *  policy's own PATH+HOME+expose/deny base (buildChildEnv), plus provider-key
@@ -515,7 +515,8 @@ export function runEndpointBatchOutcomes(jobs: AgentEndpointJob[]): AgentChildOu
   const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
   let child: { error?: Error | null; status: number | null; stdout?: Buffer | null };
   try {
-    child = spawnSync(process.execPath, [HTTP_BATCH_DELEGATE_CHILD_SCRIPT], {
+    child = spawnSync(process.execPath, [...FETCH_CHILD_NODE_ARGS, HTTP_BATCH_DELEGATE_CHILD_SCRIPT], {
+      env: fetchChildEnv(process.env),
       input: JSON.stringify(jobs),
       maxBuffer: 34 * 1024 * 1024 * jobs.length,
       timeout: maxTimeout + 30000,
@@ -812,9 +813,9 @@ function runAgentEndpoint(
     resultPath: manifest?.resultPath,
     sandboxProfileId: policy.id,
   });
-  const child = spawnSync(process.execPath, [HTTP_DELEGATE_CHILD_SCRIPT], {
+  const child = spawnSync(process.execPath, [...FETCH_CHILD_NODE_ARGS, HTTP_DELEGATE_CHILD_SCRIPT], {
     input: job,
-    env: { ...process.env, CW_DELEGATE_ENDPOINT: endpoint },
+    env: fetchChildEnv({ ...process.env, CW_DELEGATE_ENDPOINT: endpoint }),
     encoding: "utf8",
     timeout: resolved.timeoutMs || 600000,
     maxBuffer: 32 * 1024 * 1024,
