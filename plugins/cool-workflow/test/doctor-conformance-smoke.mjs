@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// doctor-conformance-smoke — `cw doctor --conformance` (new in 0.3.4;
+// doctor-conformance-smoke — `cw doctor --conformance` (new in 0.3.3;
 // docs/agent-delegation-drive.7.md, "The agent contract").
 //
 // It runs the configured agent once on a tiny fixed task, through the same

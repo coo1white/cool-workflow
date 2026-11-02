@@ -76,7 +76,7 @@ endpoint plugs in the same way — the four builtins are just bundled examples.
 ## The agent contract (cw-agent/1)
 
 This is all that CW asks of an agent command. It has the name `cw-agent/1`
-(new in 0.3.4 as a name; the rules are the ones CW has kept since the agent
+(new in 0.3.3 as a name; the rules are the ones CW has kept since the agent
 driver came in), so a wrapper can say which contract it keeps, and a later
 change to the contract gets a new number. `cw doctor --conformance` checks a
 configured agent against it (see doctor(7)).
@@ -204,7 +204,7 @@ still do (each writes its own line the moment it ends). When the whole batch
 child does go past that backstop, the refusal now reads
 `agent delegation failed: batch delegate failed: timed out after <ms>ms (...)`.
 
-**Idle limit (new in 0.3.4, opt-in).** A time limit cannot tell an agent that
+**Idle limit (new in 0.3.3, opt-in).** A time limit cannot tell an agent that
 works for 10 minutes from one that went silent after 20 seconds. Set
 `CW_AGENT_IDLE_TIMEOUT_MS` to a positive number of ms to stop an agent once it
 has written nothing, on stdout or stderr, for that long. The stop is the same
@@ -216,14 +216,21 @@ parks on its first try, like a timeout, with
 writing output; check the agent command, or raise or unset
 CW_AGENT_IDLE_TIMEOUT_MS`. An agent that keeps writing is never stopped by
 it; the overall time limit still holds. Unset, empty, `0` or a value that is
-not a positive number means off, and then nothing changes. Choose a value
-above the longest quiet stretch your agent has: some vendor CLIs write
-nothing until they end, and those need the idle limit off. With the idle
+not a positive number means off, and then nothing changes. CW's bundled
+agent wrappers write nothing on a stderr that is not a terminal, so with the
+idle limit on (and while the ticker's quiet note is on, see "Live output")
+the agent is started with `CW_AGENT_STREAM=1`, which makes them write one
+plain progress line per step; a `CW_AGENT_STREAM` you set yourself is kept.
+An agent that ends by itself is never an idle stop, even when a process it
+left behind keeps its output open for a moment. Choose a value well above
+the longest quiet stretch your agent has: a model may think for minutes
+between two steps, and a CLI of your own that writes nothing until it ends
+needs the idle limit off. With the idle
 limit on, a one-agent (serial) run goes through the batch delegate child too,
 since a blocking spawn cannot see output as it comes; its stderr is then kept
 (the last 8 KB on failure) and not shown live.
 
-**When each agent ran (new in 0.3.4).** Each line the batch delegate child
+**When each agent ran (new in 0.3.3).** Each line the batch delegate child
 writes also carries `startedAt`, `endedAt` and `lastOutputAt`, in epoch ms;
 `lastOutputAt` is the time of the agent's last stdout or stderr byte, or
 `startedAt` when it wrote nothing. A line stopped by the idle limit carries
@@ -519,6 +526,26 @@ never polluted.
   progress is on (a TTY, or `CW_DRIVE_PROGRESS=1`), so a piped run's bytes do
   not change, and `--quiet` turns it off with the other `[drive]` lines.
   `CW_DRIVE_TICK_MS` sets the time between lines; `0` turns them off.
+- **How long the agents have been quiet (new in 0.3.3, a changed default on
+  the TTY).** In a concurrent round the line also says when the running
+  agents last wrote anything (stdout or stderr):
+  `[drive]   … Map still working — 4m 10s (last output 3m 50s ago)` for one
+  agent, and
+  `[drive]   … Map still working — 4m 10s (3 agents running, longest without output 3m 50s)`
+  for more. A quiet agent may be thinking, or may be stuck; the number lets
+  you tell a long quiet from a normal one, and `CW_AGENT_IDLE_TIMEOUT_MS`
+  (see "Idle limit" above) stops one that stays quiet. The batch delegate
+  child keeps the times in a temp file (`cw-drive-alive-<pid>.json` in the
+  temp folder, at most one write a second) only while the ticker runs, and
+  cw removes it when the round ends. A serial hop, and any tick before the
+  first write, prints the line as before. The agents of such a round are
+  started with `CW_AGENT_STREAM=1` (unless you set it), so CW's bundled
+  wrappers write a progress line per step and the number means something. Up to 0.3.2 the line had no such
+  note, so ten minutes of a stuck agent looked the same as ten minutes of
+  work. Only the bytes on a TTY, or with `CW_DRIVE_PROGRESS=1`, change; a
+  piped run prints no ticker and writes no such file. The operator's yes:
+  `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
+  for 0.3.3, second set (2026-11-02)".
 - **One writer at a time on the terminal (new in 0.3.3).** In a serial hop
   (Verify, Verdict) the agent's stderr is the terminal itself, and a shipped
   wrapper's live view redraws its rows in place. Before 0.3.3 the

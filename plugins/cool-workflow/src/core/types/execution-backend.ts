@@ -267,7 +267,7 @@ export interface AgentChildOutcome {
   /** Set when the batch child stopped this job at its time limit: the limit
    *  in ms. agent.ts reports it as a timeout, not as a spawn failure. */
   timedOutMs?: number;
-  /** Set when the batch child stopped this job for no output (CW_AGENT_IDLE_TIMEOUT_MS, 0.3.4): the limit in ms. */
+  /** Set when the batch child stopped this job for no output (CW_AGENT_IDLE_TIMEOUT_MS, 0.3.3): the limit in ms. */
   idleTimedOutMs?: number;
 }
 
@@ -288,7 +288,7 @@ export interface ExecutionResultEnvelope {
   provenance: ExecutionProvenance;
   /** Set only on a refusal because the agent ran past its time limit (0.3.3): the limit in ms. */
   timedOutMs?: number;
-  /** Set only on a refusal because the agent wrote nothing for CW_AGENT_IDLE_TIMEOUT_MS (opt-in, 0.3.4): that limit in ms. */
+  /** Set only on a refusal because the agent wrote nothing for CW_AGENT_IDLE_TIMEOUT_MS (opt-in, 0.3.3): that limit in ms. */
   idleTimedOutMs?: number;
 }
 

@@ -62,7 +62,7 @@ import { recordTrustAuditEvent, verifyTrustAudit, withTrustAuditBatch } from "./
 import { resolveAgentConfig } from "./agent-config.js";
 import { AgentDelegationConfig, AgentChildOutcome } from "./execution-backend/types.js";
 import { runBackend } from "./execution-backend/registry.js";
-import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv, prepareEndpointJob, runEndpointBatchOutcomes, AgentEndpointJob, driveTtyClaimPath } from "./execution-backend/agent.js";
+import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv, prepareEndpointJob, runEndpointBatchOutcomes, AgentEndpointJob, driveTtyClaimPath, driveAlivePath } from "./execution-backend/agent.js";
 import { sha256, stableStringify } from "../core/hash.js";
 import { stableCompare } from "../core/util/collate.js";
 import { plan } from "./pipeline.js";
@@ -178,8 +178,10 @@ function spawningAgentLine(task: { id: string; label?: unknown; phase: string },
 // `[drive]   … <Phase> still working — 20s` to the inherited stderr every
 // CW_DRIVE_TICK_MS (default 10000) and is stopped when the round ends. Only
 // when [drive] progress is on, so a piped run's bytes do not change.
-// CW_DRIVE_TICK_MS=0 turns it off; quiet while driveTtyClaimPath() exists.
+// CW_DRIVE_TICK_MS=0 turns it off; quiet while driveTtyClaimPath() exists; roundAliveFile feeds its quiet note.
 const DRIVE_TICKER_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "scripts", "children", "drive-ticker.mjs");
+
+let roundAliveFile: string | undefined;
 
 function withDriveTicker<T>(label: string, fn: () => T): T {
   const rawInterval = process.env.CW_DRIVE_TICK_MS;
@@ -188,11 +190,13 @@ function withDriveTicker<T>(label: string, fn: () => T): T {
   let ticker: ChildProcess | undefined;
   try {
     try { fs.unlinkSync(driveTtyClaimPath()); } catch { /* none */ }
-    ticker = spawn(process.execPath, [DRIVE_TICKER_SCRIPT, label, String(Math.floor(intervalMs)), String(process.pid), driveTtyClaimPath()], {
+    try { fs.unlinkSync(driveAlivePath()); } catch { /* none */ }
+    ticker = spawn(process.execPath, [DRIVE_TICKER_SCRIPT, label, String(Math.floor(intervalMs)), String(process.pid), driveTtyClaimPath(), driveAlivePath()], {
       stdio: ["ignore", "ignore", "inherit"],
     });
     ticker.on("error", () => {});
     ticker.unref();
+    roundAliveFile = driveAlivePath();
   } catch {
     ticker = undefined;
   }
@@ -200,6 +204,8 @@ function withDriveTicker<T>(label: string, fn: () => T): T {
     return fn();
   } finally {
     try { ticker?.kill("SIGTERM"); } catch { /* already gone */ }
+    if (roundAliveFile) try { fs.unlinkSync(roundAliveFile); } catch { /* none */ }
+    roundAliveFile = undefined;
   }
 }
 
@@ -1018,7 +1024,7 @@ function prepareConcurrentOutcomes(
     saveCheckpoint(loadRun(ctx), DRIVE_SAVE);
   }
   const outcomes = new Map<string, AgentChildOutcome>();
-  const settled = runAgentBatchOutcomes(jobs as Parameters<typeof runAgentBatchOutcomes>[0]);
+  const settled = runAgentBatchOutcomes(jobs as Parameters<typeof runAgentBatchOutcomes>[0], roundAliveFile);
   jobTaskIds.forEach((taskId, index) => outcomes.set(taskId, settled[index]));
   const endpointSettled = runEndpointBatchOutcomes(endpointJobs);
   endpointTaskIds.forEach((taskId, index) => outcomes.set(taskId, endpointSettled[index]));

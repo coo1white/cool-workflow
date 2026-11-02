@@ -22,7 +22,7 @@
 // also carries `timedOutMs` (new in 0.3.3), and the stop reaches the job's
 // whole process group (see killJob below).
 //
-// New in 0.3.4 (all additive; the parent ignores keys it does not read):
+// New in 0.3.3 (all additive; the parent ignores keys it does not read):
 // every line carries `startedAt`, `endedAt` and `lastOutputAt` (epoch ms;
 // lastOutputAt is the last stdout OR stderr byte, or startedAt when the job
 // wrote nothing), so "it ran 10 minutes" can be told apart from "it went
@@ -30,6 +30,12 @@
 // parent sets it only from CW_AGENT_IDLE_TIMEOUT_MS) is stopped the same way
 // as at its time limit once it has written nothing for that long, and its
 // line carries `idleTimedOutMs` in place of `timedOutMs`.
+//
+// New in 0.3.3: when CW_BATCH_ALIVE_FILE is set (the drive sets it only
+// while its TTY ticker runs), this child keeps
+// `{"jobs":[{"i","startedAt","lastOutputAt","done"}]}` there, rewritten
+// atomically at most once a second, so the ticker can say how long each
+// running agent has been quiet. Nothing else reads it.
 //
 // THE RED LINE: this child only `spawn`s the operator-resolved agent binary with
 // shell:false. It imports NO model SDK and reads NO credentials.
@@ -113,7 +119,27 @@ process.on("SIGINT", () => onStopSignal("SIGINT"));
 process.on("SIGTERM", () => onStopSignal("SIGTERM"));
 
 import { spawn } from "node:child_process";
+import fs from "node:fs";
 import { StringDecoder } from "node:string_decoder";
+const ALIVE_FILE = process.env.CW_BATCH_ALIVE_FILE || "";
+const aliveJobs = [];
+let aliveTimer;
+function writeAlive() {
+  aliveTimer = undefined;
+  try {
+    const tmp = `${ALIVE_FILE}.${process.pid}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify({ jobs: aliveJobs.filter(Boolean) }));
+    fs.renameSync(tmp, ALIVE_FILE);
+  } catch {}
+}
+function noteAlive(i, entry) {
+  if (!ALIVE_FILE) return;
+  aliveJobs[i] = { ...aliveJobs[i], i, ...entry };
+  // A job's end is written at once: the timer below is unref'd, so a pending
+  // write would be lost when the last job ends and this process exits.
+  if (entry.done) { clearTimeout(aliveTimer); writeAlive(); return; }
+  if (!aliveTimer) aliveTimer = setTimeout(writeAlive, 1000).unref();
+}
 let raw = "";
 const MAX_STDIN_BYTES = 32 * 1024 * 1024;
 process.stdin.setEncoding("utf8");
@@ -171,9 +197,11 @@ process.stdin.on("end", () => {
     };
     const startedAt = Date.now();
     let lastOutputAt = startedAt;
+    noteAlive(i, { startedAt, lastOutputAt, done: false });
     const settle = (o) => {
       if (settled) return;
       settled = true;
+      noteAlive(i, { done: true });
       let line = JSON.stringify({ i, ...o, startedAt, endedAt: Date.now(), lastOutputAt }) + "\n";
       const lineBytes = Buffer.byteLength(line);
       if (lineBytes > LINE_CAP) {
@@ -193,7 +221,12 @@ process.stdin.on("end", () => {
       // Mirrors the serial path (agent.ts runAgentProcess stdio ["ignore",...]).
       // detached (POSIX only): the job leads its own process group, so the
       // timeout and stop kills below reach every process the job started.
-      child = spawn(job.binary, job.args, { cwd: job.cwd, env: job.env || process.env, shell: false, stdio: ["ignore", "pipe", "pipe"], detached: GROUP_KILL });
+      // The idle limit and the alive file measure output, but CW's bundled
+      // agent wrappers are silent on a non-TTY stderr unless CW_AGENT_STREAM=1
+      // (plain progress lines). Turn that on for them, unless the user set it.
+      const baseEnv = job.env || process.env;
+      const env = (Number(job.idleTimeoutMs) > 0 || ALIVE_FILE) && baseEnv.CW_AGENT_STREAM === undefined ? { ...baseEnv, CW_AGENT_STREAM: "1" } : baseEnv;
+      child = spawn(job.binary, job.args, { cwd: job.cwd, env, shell: false, stdio: ["ignore", "pipe", "pipe"], detached: GROUP_KILL });
     } catch (error) {
       settle({ spawnError: String((error && error.message) || error), exitCode: null, stdout: "" });
       return;
@@ -213,8 +246,9 @@ process.stdin.on("end", () => {
     const idleMs = Number(job.idleTimeoutMs) > 0 ? Number(job.idleTimeoutMs) : 0;
     let idleTerm;
     let idleKill;
+    let exited = false;
     const armIdle = () => {
-      if (!idleMs || timedOut || idleTimedOut) return;
+      if (!idleMs || timedOut || idleTimedOut || exited) return;
       clearTimeout(idleTerm);
       idleTerm = setTimeout(() => {
         if (settled || timedOut) return;
@@ -224,7 +258,7 @@ process.stdin.on("end", () => {
       }, idleMs);
     };
     const clearIdle = () => { clearTimeout(idleTerm); clearTimeout(idleKill); };
-    const sawOutput = () => { lastOutputAt = Date.now(); armIdle(); };
+    const sawOutput = () => { lastOutputAt = Date.now(); noteAlive(i, { lastOutputAt }); armIdle(); };
     armIdle();
     child.stdout.on("data", (d) => {
       sawOutput();
@@ -282,6 +316,9 @@ process.stdin.on("end", () => {
     // "close" settles it; if a process outside its group still holds them,
     // settle after EXIT_GRACE_MS anyway, with the exit code we have.
     child.on("exit", (code) => {
+      // The job ended by itself: a quiet grace window is not an idle stop.
+      exited = true;
+      clearIdle();
       grace = setTimeout(() => {
         if (settled) return;
         if (timedOut || idleTimedOut) killJob(child, "SIGKILL");

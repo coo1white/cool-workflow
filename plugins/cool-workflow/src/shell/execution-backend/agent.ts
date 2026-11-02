@@ -64,6 +64,11 @@ export function driveTtyClaimPath(): string {
   return path.join(os.tmpdir(), `cw-drive-tty-${process.pid}.claim`);
 }
 
+/** Where a concurrent round's batch child keeps each agent's last-output time for the drive ticker (0.3.3). */
+export function driveAlivePath(): string {
+  return path.join(os.tmpdir(), `cw-drive-alive-${process.pid}.json`);
+}
+
 /** Reap the vendor process a shipped wrapper recorded, then remove the sidecar.
  *  A wrapper that exited cleanly already removed the file, so this is a no-op
  *  then; only a wrapper cw SIGKILLed on a timeout leaves a live vendor PID
@@ -353,12 +358,12 @@ export interface AgentSpawnJob {
   args: string[];
   cwd: string;
   timeoutMs: number;
-  /** Opt-in (0.3.4): stop the job once it has written nothing for this long. */
+  /** Opt-in (0.3.3): stop the job once it has written nothing for this long. */
   idleTimeoutMs?: number;
   env?: NodeJS.ProcessEnv;
 }
 
-/** CW_AGENT_IDLE_TIMEOUT_MS in ms when a positive number, else undefined (off). Opt-in, 0.3.4. */
+/** CW_AGENT_IDLE_TIMEOUT_MS in ms when a positive number, else undefined (off). Opt-in, 0.3.3. */
 export function agentIdleTimeoutMs(env: NodeJS.ProcessEnv = process.env): number | undefined {
   const raw = Number(String(env.CW_AGENT_IDLE_TIMEOUT_MS ?? "").trim() || NaN);
   return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : undefined;
@@ -472,7 +477,7 @@ export function reconcileBatchOutcomes(
 /** Run a batch of agent spawns concurrently; outcomes index-align with
  *  jobs. See SPEC/execution-backend.md's rebuild-risk note on maxBuffer
  *  scaling with job count and the no-`encoding` (raw Buffer) requirement. */
-export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[] {
+export function runAgentBatchOutcomes(jobs: AgentSpawnJob[], aliveFile?: string): AgentChildOutcome[] {
   if (!jobs.length) return [];
   return withPerfTraceGroup("agent-wait", () => {
     const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
@@ -482,6 +487,7 @@ export function runAgentBatchOutcomes(jobs: AgentSpawnJob[]): AgentChildOutcome[
         input: JSON.stringify(jobs),
         maxBuffer: 34 * 1024 * 1024 * jobs.length,
         timeout: maxTimeout + 30000,
+        ...(aliveFile ? { env: { ...process.env, CW_BATCH_ALIVE_FILE: aliveFile } } : {}),
       });
     } catch (error) {
       child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
@@ -587,7 +593,7 @@ export function runAgentProcess(
     if (request.preparedAgentOutcome) {
       outcome = request.preparedAgentOutcome;
     } else if (idleTimeoutMs) {
-      // Opt-in idle limit (0.3.4): spawnSync cannot see output as it comes; the batch child can.
+      // Opt-in idle limit (0.3.3): spawnSync cannot see output as it comes; the batch child can.
       const built = buildAgentChildEnv(policy);
       forwardedEnvVars = built.forwarded;
       outcome = runAgentBatchOutcomes([{
