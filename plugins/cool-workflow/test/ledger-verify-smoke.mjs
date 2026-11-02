@@ -189,4 +189,11 @@ assert.equal(list.allOk, false, "symlink inbox allOk:false");
 const linked = list.entries.find((e) => e.file === "linked.json");
 assert.ok(linked && linked.failedChecks.some((c) => c.code === "ledger-entry-not-regular"), "symlink reports ledger-entry-not-regular");
 
+// --- --diff takes the diff TEXT, not a file name: the entry keeps the bytes
+// given, and `cw help ledger` says so (it used to say "one diff file").
+assert.equal(proposal.suggestedDiff, "@@ -1 +1 @@", "--diff value is stored as the patch text");
+r = runCli(["help", "ledger"]);
+assert.match(r.stdout, /--diff PATCH\s+The change itself, as diff text/, "help names --diff as diff text");
+assert.doesNotMatch(r.stdout, /one diff file/, "help no longer calls it a file");
+
 process.stdout.write("ledger-verify-smoke: ok (round-trip, tamper+junk+truncation fail-closed, stdin, git-transport inbox, multi-mirror union, id-binding + spoof-resistant)\n");
