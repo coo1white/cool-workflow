@@ -73,6 +73,38 @@ agent wrappers, not an event-"hook" system**. The seam is generic: any
 `CW_AGENT_COMMAND="node my-agent.js {{input}} {{result}}"` or a configured HTTP
 endpoint plugs in the same way — the four builtins are just bundled examples.
 
+## The agent contract (cw-agent/1)
+
+This is all that CW asks of an agent command. It has the name `cw-agent/1`
+(new in 0.3.4 as a name; the rules are the ones CW has kept since the agent
+driver came in), so a wrapper can say which contract it keeps, and a later
+change to the contract gets a new number. `cw doctor --conformance` checks a
+configured agent against it (see doctor(7)).
+
+- **How it is started.** CW runs the command with no shell, as separate argv
+  words. In each word it puts `{{input}}` (the worker's `input.md`: the task),
+  `{{result}}` (the `result.md` path to write), `{{manifest}}`
+  (`manifest.json`), `{{workerDir}}`, `{{model}}` and `{{prompt}}`. Its stdin
+  is closed. It gets the sandbox profile's env, with what the profile lets
+  through (proxy and CA vars, its own provider keys), never CW's keys.
+- **What it has to do.** Write the answer to `{{result}}` and exit 0. CW reads
+  `result.md` the same way on every accept: a fenced `cw:result` JSON block
+  (`{"summary": ..., "findings": [...], "evidence": [...]}`), or else plain
+  Markdown, whose first line is taken as the summary. A `cw:result` block that
+  is not valid JSON is refused.
+- **What it may say.** One JSON line on stdout with `"model"` (and
+  `"usage"`), which CW records as the reported model; without it, the run
+  records say `unreported`. Its stderr is for people: CW keeps the last part
+  of it, keys hidden, in `<workerDir>/logs/agent-stderr.log` when it fails.
+- **How it ends.** Exit 0 with a `result.md` is done. Any other exit, no exit
+  code, or no `result.md` is a failed hop (tried again, then parked). Past
+  `CW_AGENT_TIMEOUT_MS` (10 minutes by default), or past
+  `CW_AGENT_IDLE_TIMEOUT_MS` with no output when that is set, its whole process
+  group is stopped and the worker parks at once.
+- **An HTTP agent** (`CW_AGENT_ENDPOINT`) gets the same facts as one POST body
+  (`manifest`, `prompt`, `model`, `resultPath`, `sandboxProfileId`) and the
+  same rules for `result.md`.
+
 ## Operator-chosen model is policy; agent-reported model is the attestation
 
 Any model id CW passes **into** the agent invocation (`CW_AGENT_MODEL`
