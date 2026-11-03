@@ -17,7 +17,7 @@ const TAIL_BYTES = 4096;
 const TAIL_LINES = 20;
 const EXCLUDE_CW = ":(exclude).cw";
 
-export function receiptsDir(repo: string): string {
+function receiptsDir(repo: string): string {
   return path.join(path.resolve(repo), ".cw", "receipts");
 }
 

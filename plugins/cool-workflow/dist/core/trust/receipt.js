@@ -12,7 +12,7 @@ export function computeReceiptDigest(body) {
         content[field] = body[field];
     return sha256(ledgerStableStringify(content));
 }
-export function receiptIdFor(digest) {
+function receiptIdFor(digest) {
     return `rc-${digest.replace(/^sha256:/, "").slice(0, 16)}`;
 }
 export function sealReceipt(body) {

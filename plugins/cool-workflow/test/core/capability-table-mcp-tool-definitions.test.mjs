@@ -20,7 +20,7 @@ import { COMMON_PROPERTY_TYPES } from "../../dist/core/capability-data.js";
 // inputSchema:{type:"object", properties, additionalProperties:true}.
 {
   const defs = mcpToolDefinitions();
-  assert.equal(defs.length, 123, "mcpToolDefinitions() must return exactly 123 entries");
+  assert.equal(defs.length, 125, "mcpToolDefinitions() must return exactly 125 entries");
   for (const def of defs) {
     assert.equal(typeof def.name, "string", `${def.name}: name must be a string`);
     assert.equal(typeof def.description, "string", `${def.name}: description must be a string`);

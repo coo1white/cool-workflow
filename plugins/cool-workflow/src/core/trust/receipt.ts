@@ -61,7 +61,7 @@ export function computeReceiptDigest(body: ReceiptBody): string {
   return sha256(ledgerStableStringify(content));
 }
 
-export function receiptIdFor(digest: string): string {
+function receiptIdFor(digest: string): string {
   return `rc-${digest.replace(/^sha256:/, "").slice(0, 16)}`;
 }
 

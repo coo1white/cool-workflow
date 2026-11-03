@@ -109,6 +109,18 @@ const verify = cw(["report", "verify-bundle", path.join(work, "good.cwrun.json")
 assert.equal(verify.status, 0, verify.stdout);
 const archive = JSON.parse(fs.readFileSync(path.join(work, "good.cwrun.json"), "utf8"));
 assert.ok(archive.files.some((f) => f.relativePath === `receipts/${passed.id}.json`), "receipt travels in the bundle");
+// A pinned receipt changed in the run folder: the bundle no longer verifies.
+{
+  const pinned = path.join(runDir, "receipts", `${passed.id}.json`);
+  const kept = fs.readFileSync(pinned, "utf8");
+  fs.writeFileSync(pinned, kept.replace('"bytes": 0', '"bytes": 1'));
+  const bad = cw(["report", "bundle", goodOut.runId, "--output", path.join(work, "bad.cwrun.json")], { cwd: repo, env });
+  assert.equal(bad.status, 1, "report bundle refuses a run whose receipt was changed");
+  const badVerify = cw(["report", "verify-bundle", path.join(work, "bad.cwrun.json"), "--json"], { cwd: work, env });
+  assert.equal(badVerify.status, 1);
+  assert.ok(JSON.parse(badVerify.stdout).failedChecks.some((c) => c.code === `receipt-tampered:${passed.id}`), badVerify.stdout);
+  fs.writeFileSync(pinned, kept);
+}
 
 // 6. Refusals: failed, missing, stale, tampered — each with a plain reason and one next step.
 function refused(evidence, reason, next) {

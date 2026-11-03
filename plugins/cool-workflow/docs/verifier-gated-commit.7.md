@@ -158,7 +158,10 @@ it: the Answer's evidence line reads `receipt:<id> — verified by receipt
 <id> (exit 0 at <sha>): <command>`, and a `## Check Receipts` part lists
 each one (this part is not there for a run with no receipt). Making the
 report again only reads these files: it never runs the command again
-and never asks git.
+and never asks git. `cw report bundle` and `cw report verify-bundle`
+check each pinned receipt again (its digest and id, and exit 0) and
+fail with `receipt-tampered:<id>` or `receipt-failed:<id>` in
+`failedChecks`; a bundle with no receipt gives the same output as before.
 
 ## FILES
 
