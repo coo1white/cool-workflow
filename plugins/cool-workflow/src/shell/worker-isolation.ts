@@ -13,6 +13,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { createRequire } from "node:module";
 import { safeFileName, writeJson } from "./fs-atomic.js";
 import { RunTask, StateEvidence, StateNodeError, WorkflowRun } from "../core/state/types.js";
 import { appendRunNode } from "./node-store.js";
@@ -20,7 +21,7 @@ import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/
 import { validateWorkerScope as validateWorkerScopeShape } from "../core/state/validation.js";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract.js";
 import { normalizeResultEnvelope, isEmptyCapture, ResultEnvelope } from "../core/pipeline/result-normalize.js";
-import { isGroundedEvidence, evidenceFilePath, isVerdictTaskId, requireResolvableEvidence } from "../core/trust/evidence-grounding.js";
+import { isGroundedEvidence, evidenceFilePath, isVerdictTaskId, receiptIdsIn, requireResolvableEvidence } from "../core/trust/evidence-grounding.js";
 import { normalizeEvidence, recordSandboxPathDecision, recordTrustAuditEvent } from "./trust-audit.js";
 import { unresolvedRunFileEvidence } from "./commit.js";
 import {
@@ -653,6 +654,16 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
     const message = `Task ${task.id} requires grounded cw:result evidence (a path-like locator, URL, or namespace:value token — not free text)`;
     recordWorkerFailure(run, workerId, message, { code: "missing-required-evidence", retryable: false });
     throw new Error(message);
+  }
+  const receiptIds = receiptIdsIn(parsedResult.evidence);
+  if (receiptIds.length) {
+    const receiptIo = createRequire(import.meta.url)("./receipt-io.js") as typeof import("./receipt-io.js");
+    const refused = receiptIo.checkCitedReceipts(run, receiptIds, { taskId: task.id, workerId });
+    if (refused.length) {
+      const message = `Task ${task.id} cites a receipt CW cannot accept: ${refused[0].reason}. Next: ${refused[0].next}`;
+      recordWorkerFailure(run, workerId, message, { code: refused[0].code, retryable: true });
+      throw new Error(message);
+    }
   }
   // Off-target guard — opt-in per task via `reviewsRepo` (the repo-review apps
   // set it; a workflow whose subject IS run/release state, e.g. a release

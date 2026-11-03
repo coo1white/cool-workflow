@@ -8,6 +8,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { writeJson } from "./fs-atomic.js";
 import { formatCommitId, gateFailureSeq, resolveCommitGate } from "../core/pipeline/commit-gate.js";
 import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract.js";
@@ -128,6 +129,7 @@ export function commitState(run, input, behavior = {}) {
         backingResult,
         taskRequiresEvidence: requiresEvidence,
         unresolvedFileEvidence: requireResolvableEvidence() ? (evidence) => unresolvedRunFileEvidence(run, evidence) : undefined,
+        refusedReceipts: (ids) => createRequire(import.meta.url)("./receipt-io.js").checkCitedReceipts(run, ids),
     });
     if (gate.errors.length) {
         if (behavior.reuseOpenGateFailure) {

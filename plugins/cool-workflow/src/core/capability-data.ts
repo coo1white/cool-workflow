@@ -431,6 +431,8 @@ export const MCP_TOOL_ANNOTATIONS: Record<string, McpToolAnnotations> = {
   cw_telemetry_verify: { readOnlyHint: true },
   cw_history: { readOnlyHint: true },
   cw_audit_head: { readOnlyHint: true },
+  cw_check_list: { readOnlyHint: true },
+  cw_check_show: { readOnlyHint: true },
   // delete sweeps (each handler checked by hand: all delete stored data)
   cw_schedule_delete: { readOnlyHint: false, destructiveHint: true },
   cw_routine_delete: { readOnlyHint: false, destructiveHint: true },
@@ -599,4 +601,6 @@ export const MCP_TOOL_DATA: McpToolRow[] = [
   // --- later additions (appended; see the header note above) ---
   { tool: "cw_audit_head", capability: "audit.head", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the trust-audit chain head anchor (event count + head hash) for a later truncation-proof audit.verify." },
   { tool: "cw_run_link", capability: "run.link", requiredArgs: ["runId", "url"], properties: ["runId", "cwd", "scope", "url", "kind", "note", "actor"], description: "Add an append-only link (PR/issue/ticket url) to a run record; no network call. A repeat of the same url is an idempotent no-op." },
+  { tool: "cw_check_list", capability: "check.list", requiredArgs: [], properties: ["cwd"], description: "List the done receipts that `cw check -- <command>` saved under .cw/receipts, each judged against the code now (usable, failed, stale, tampered). Read-only." },
+  { tool: "cw_check_show", capability: "check.show", requiredArgs: ["id"], properties: ["cwd", "id"], description: "Show one done receipt and whether a result may cite it as receipt:<id> now (it must be intact, exit 0, and made at the current code). Read-only." },
 ];

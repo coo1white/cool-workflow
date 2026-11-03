@@ -150,7 +150,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 157 capabilities, 123 MCP tools.
+machine-complete by design: 160 capabilities, 125 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -279,6 +279,8 @@ machine-complete by design: 157 capabilities, 123 MCP tools.
 | `history` | `cw history` | `cw_history` | `history` | both | identical |
 | `audit.head` | `cw audit head` | `cw_audit_head` | `audit.head` | both | identical |
 | `run.link` | `cw run link` | `cw_run_link` | `run.link` | both | identical |
+| `check.list` | `cw check list` | `cw_check_list` | `check.list` | both | identical |
+| `check.show` | `cw check show` | `cw_check_show` | `check.show` | both | identical |
 | `version` | `cw version` | `—` | `version` | cli-only | cli-only |
 | `completion` | `cw completion` | `—` | `completion` | cli-only | cli-only |
 | `search` | `cw search` | `—` | `search` | cli-only | cli-only |
@@ -287,6 +289,7 @@ machine-complete by design: 157 capabilities, 123 MCP tools.
 | `quickstart` | `cw quickstart` | `—` | `quickstart` | cli-only | cli-only |
 | `demo.tamper` | `cw demo tamper` | `—` | `demo.tamper` | cli-only | cli-only |
 | `demo.bundle` | `cw demo bundle` | `—` | `demo.bundle` | cli-only | cli-only |
+| `check.run` | `cw check` | `—` | `check.run` | cli-only | cli-only |
 | `loop` | `cw loop` | `—` | `loop` | cli-only | cli-only |
 | `schedule` | `cw schedule` | `—` | `schedule` | cli-only | cli-only |
 | `routine` | `cw routine` | `—` | `routine` | cli-only | cli-only |
@@ -328,7 +331,7 @@ A capability may be on one surface only, but never without word of it — it mus
 carry a recorded reason in the registry.
 
 <!-- gen:parity:cliOnly -->
-34 capabilities are CLI-only:
+35 capabilities are CLI-only:
 
 - `version` — version is a local, no-run-state print; the old build never gave it an MCP peer.
 - `completion` — shell-completion output is a script for the user's OWN shell to source, not data an MCP client could use — CLI-only, same reasoning as doctor/fix.
@@ -338,6 +341,7 @@ carry a recorded reason in the registry.
 - `quickstart` — quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer). `audit-run` is a CLI-only alias of the same wrapper.
 - `demo tamper` — Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo.
 - `demo bundle` — Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface report.verify-bundle. No agent or MCP client needs to invoke a demo.
+- `check` — Runs a local process for the person at the terminal; an MCP host already runs commands with its own tool and cites the receipt. Reading receipts is both-surface (check.list, check.show).
 - `loop` — loop is CLI-only sugar over schedule.create; the old build never gave it an MCP tool of its own (SPEC/scheduling-registry.md section I).
 - `schedule` — cw schedule is the desktop wall-clock scheduler; SPEC/mcp.md declares its MCP peers per verb (cw_schedule_*), each wired below.
 - `routine` — cw routine is the API/GitHub-style trigger bridge; SPEC/mcp.md declares its MCP peers per verb (cw_routine_*), each wired below.

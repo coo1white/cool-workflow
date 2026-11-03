@@ -22,6 +22,7 @@ export const CW_NEVER_FORWARD_ENV = new Set([
     "CW_RELEASE_VERDICT_PRIVKEY", // release verdict signing key — release-flow.mjs only
     "CW_WORKBENCH_TOKEN", // workbench HTTP bearer token — workbench-host.ts only
     "CW_BENCH_TRACE_FILE", // benchmark trace path — parent drive only
+    "CW_CHECK_PRIVKEY", // done-receipt signing key — cw check only; an agent holding it could forge receipts
 ]);
 export function buildChildEnv(policy, baseEnv = process.env) {
     // deny must win regardless of inherit: a custom profile combining

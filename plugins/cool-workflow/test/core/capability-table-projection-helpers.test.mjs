@@ -45,9 +45,9 @@ import { cliCapabilities, declaredMcpTools, REGISTRY } from "../../dist/wiring/c
 // step 2), in the pinned tools/list source order.
 {
   const tools = declaredMcpTools();
-  assert.equal(tools.length, 123, "declaredMcpTools() must report exactly 123 tool names");
+  assert.equal(tools.length, 125, "declaredMcpTools() must report exactly 125 tool names");
   assert.equal(tools[0], "cw_list", "the first declared tool must be cw_list");
-  assert.equal(tools[tools.length - 1], "cw_run_link", "the last declared tool must be cw_run_link");
+  assert.equal(tools[tools.length - 1], "cw_check_show", "the last declared tool must be cw_check_show");
 }
 
 // declaredMcpTools(): every name is unique.

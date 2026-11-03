@@ -3,6 +3,8 @@
 //
 // Evidence: SPEC/reporting-ux.md "report.md (written by writeReport)".
 import * as fs from "node:fs";
+import * as path from "node:path";
+import { createRequire } from "node:module";
 import { updatePhaseStatuses } from "../core/pipeline/dispatch.js";
 import { sandboxGuaranteeLabels } from "./execution-backend/registry.js";
 import { summarizeTrustAudit, listTrustAuditEvents } from "./trust-audit.js";
@@ -47,15 +49,13 @@ function renderSandboxProfiles(run) {
 function renderTrustAudit(run) {
     const summary = summarizeTrustAudit(run);
     const integrity = summary.integrity;
-    // Model-identity tally over the run's workers — only when workers exist,
-    // so an empty run's report stays byte-identical.
+    // Model-identity tally, only when workers exist (an empty run's report stays byte-identical).
     const workers = run.workers || [];
     const selfReported = workers.filter((w) => workerModelProvenance(w) === "agent-self-reported").length;
     const modelLines = workers.length
         ? [`- Model provenance: ${selfReported} agent-self-reported · ${workers.length - selfReported} absent (agent-self-reported, never CW-verified)`]
         : [];
-    // Only when a workflow app actually ran — an empty/app-less run's report
-    // stays byte-identical (matches the modelLines/links gating pattern).
+    // Only when a workflow app ran (an app-less run's report stays byte-identical).
     const appCodeLines = run.appCode
         ? [`- App code execution: ${run.appCode.execution} (trustedRoot=${run.appCode.trustedRoot}, ${run.appCode.path})`]
         : [];
@@ -127,9 +127,7 @@ function renderWorkers(run) {
     if (!workers.length)
         return ["No worker scopes yet."];
     const lines = [`- Total: ${workers.length}`, `- By status: ${formatCounts(countBy(workers, (w) => w.status))}`];
-    // Per-worker guarantee labels — rendered only for a worker that carries
-    // an attestation or a usage record, so a run with neither keeps a
-    // byte-identical report. Labels come ONLY from sandboxGuaranteeLabels.
+    // Guarantee labels (ONLY from sandboxGuaranteeLabels) for a worker with an attestation or usage record.
     for (const w of workers) {
         if (!w.backendAttestation && !w.usage)
             continue;
@@ -150,10 +148,6 @@ function renderPendingTasks(run) {
         return ["No pending tasks."];
     return pending.map((t) => `- ${t.id} (${t.phase}, ${t.status}): ${t.taskPath}`);
 }
-/** "run <-> PR linkage": one line per link annotation. Called only
- *  when `run.links` is non-empty (see writeReport below) — a run with no
- *  links never gains a "## Links" header, so an empty run's report.md
- *  stays byte-identical to before this field existed. */
 /** The answer first: the completed verdict/synthesis task's own summary and
  *  evidence, above the run facts, so a reader does not scroll past them to
  *  find it. Nothing when the run has no completed verdict task or its
@@ -165,9 +159,22 @@ function renderAnswer(run) {
         return [];
     const lines = ["## Answer", "", answer.summary, ""];
     if (answer.evidence.length)
-        lines.push("Evidence:", "", ...answer.evidence.map((ref) => `- ${ref}`), "");
+        lines.push("Evidence:", "", ...answer.evidence.map((ref) => `- ${ref}${receiptNote(run, ref)}`), "");
     lines.push(`Full result: ## Results, ### ${answer.taskId}`, "");
     return lines;
+}
+function loadReceiptIo() {
+    return createRequire(import.meta.url)("./receipt-io.js");
+}
+/** " — verified by receipt rc-… (exit 0 at <sha>): <command>" for a cited receipt; "" otherwise. */
+function receiptNote(run, ref) {
+    return ref.startsWith("receipt:") ? ` — ${loadReceiptIo().pinnedReceiptNote(run.paths.runDir, ref.slice("receipt:".length))}` : "";
+}
+/** `## Check Receipts`: present only when the run pinned one (byte-identical otherwise). */
+function renderReceipts(run) {
+    if (!fs.existsSync(path.join(run.paths.runDir, "receipts")))
+        return [];
+    return ["## Check Receipts", "", ...loadReceiptIo().pinnedReceiptLines(run.paths.runDir), ""];
 }
 /** The report's "## Answer" as data: the completed verdict/synthesis
  *  task's id, summary and evidence, or null when report.md has no Answer
@@ -181,6 +188,7 @@ export function reportAnswer(run) {
         return null;
     return { taskId: verdict.id, summary: envelope.summary.trim(), evidence: envelope.evidence };
 }
+/** "run <-> PR linkage": one line per link; called only when `run.links` is non-empty. */
 function renderLinks(run) {
     const links = run.links || [];
     return links.map((link) => `- [${link.kind}] ${link.url}${link.note ? ` — ${link.note}` : ""} (added ${link.addedAt} by ${link.actor})`);
@@ -205,11 +213,8 @@ function renderResults(run) {
 export function writeReport(run) {
     updatePhaseStatuses(run);
     const workflowApp = run.workflow.app;
-    // A research run reads a local folder of files, not a code repo — label
-    // its source line "Source". Skip the relabel when the run ALSO carries a
-    // remote-provenance "- Source: <url>" line below (run.inputs.sourceUrl
-    // set by a --link/URL), so a report never shows two "- Source:" lines.
-    // Every other app keeps the byte-identical "Repository:" (POLA).
+    // A research run (a folder, not a repo) says "Source", unless a --link already adds a "- Source:" line;
+    // every other app keeps the byte-identical "Repository:" (POLA).
     const sourceLabel = workflowApp?.metadata?.domain === "research" && !run.inputs.sourceUrl ? "Source" : "Repository";
     const lifecycle = runLifecycle(run);
     const report = [
@@ -232,6 +237,7 @@ export function writeReport(run) {
         `- Verdict: ${lifecycle === "completed" ? "PASS" : lifecycle.toUpperCase()}`,
         "",
         ...renderAnswer(run),
+        ...renderReceipts(run),
         "## Phase Status",
         "",
         "| Phase | Status | Completed | Total |",
@@ -270,11 +276,7 @@ export function writeReport(run) {
         "## Results",
         "",
         ...renderResults(run),
-        // "run <-> PR linkage": the ONLY section that is fully absent (no
-        // header at all) when it has nothing to show — every section above
-        // keeps its header plus a "none yet" fallback line, but a "## Links"
-        // header on a run with no links would be new, unwanted noise on
-        // every run's report, so it is skipped outright instead.
+        // Like "## Check Receipts", fully absent (no header) when empty, so a run without links keeps its bytes.
         ...(run.links && run.links.length ? ["", "## Links", "", ...renderLinks(run)] : []),
     ].join("\n");
     fs.writeFileSync(run.paths.report, report, "utf8");
