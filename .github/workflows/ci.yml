@@ -165,6 +165,33 @@ jobs:
             process.stdout.write(text);
           '
 
+  # A fix needs a test that fails before it (AGENTS.md, Iteration Loop). On
+  # a pull request that changes plugins/cool-workflow/src/, this job copies
+  # the changed test files into a git worktree at the merge base and runs
+  # them there against that base's committed dist/; at least one must fail.
+  # A PR with no src change passes at once. Not a required check.
+  fails-before:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: plugins/cool-workflow
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The merge base must be in the clone; the script fails closed
+          # on a shallow one.
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.1
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: node scripts/fails-before-check.mjs --base "${{ github.event.pull_request.base.sha }}"
+
   # Runs the release-reviewer smokes and the eval-replay harness smoke when
   # AGENTS.md or plugins/cool-workflow/agents/** change, since a bad agent
   # prompt is invisible to the other legs. Gated per job, not by a workflow-
