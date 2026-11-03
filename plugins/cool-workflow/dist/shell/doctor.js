@@ -79,14 +79,6 @@ function dirWritable(target) {
     }
 }
 function probeAgent(target, env, cwd) {
-    if ("skip" in target) {
-        return {
-            name: "agent-runs",
-            status: "warn",
-            detail: `not probed: ${target.skip} — doctor runs only a known vendor CLI with --version, never a custom command.`,
-            fix: "Run your agent command once by hand to check that it starts.",
-        };
-    }
     const shown = `${target.cli} --version`;
     const timeoutMs = Number(env.CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS) > 0 ? Number(env.CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS) : 15000;
     const childEnv = buildAgentChildEnv({ env: { inherit: false, expose: [] } }, env).env;
@@ -175,7 +167,7 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
         }
     }
     const probe = agentProbeTarget(cfg.command, cfg.args);
-    if (probe)
+    if (probe && !("skip" in probe))
         checks.push(probeAgent(probe, env, cwd));
     const sandboxAsk = String(env.CW_AGENT_SANDBOX ?? "").trim().toLowerCase();
     if (sandboxAsk && sandboxAsk !== "off")

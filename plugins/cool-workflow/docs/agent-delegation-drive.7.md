@@ -230,12 +230,8 @@ limit on, a one-agent (serial) run goes through the batch delegate child too,
 since a blocking spawn cannot see output as it comes; its stderr is then kept
 (the last 8 KB on failure) and not shown live.
 
-**When each agent ran (new in 0.3.3).** Each line the batch delegate child
-writes also carries `startedAt`, `endedAt` and `lastOutputAt`, in epoch ms;
-`lastOutputAt` is the time of the agent's last stdout or stderr byte, or
-`startedAt` when it wrote nothing. A line stopped by the idle limit carries
-`idleTimedOutMs` in place of `timedOutMs`. These keys are additive: no
-output, state or report changes because of them.
+A job the batch delegate child stopped by the idle limit is reported with
+`idleTimedOutMs` in place of `timedOutMs` (new in 0.3.3, an added key).
 
 ## Overlapping phases (`overlapPrevious`)
 
@@ -540,7 +536,7 @@ never polluted.
   cw removes it when the round ends. A serial hop, and any tick before the
   first write, prints the line as before. The agents of such a round are
   started with `CW_AGENT_STREAM=1` (unless you set it), so CW's bundled
-  wrappers write a progress line per step and the number means something. Up to 0.3.2 the line had no such
+  wrappers write a progress line per step and the number means something; those lines also land in `<workerDir>/logs/agent-stderr.log` when such an agent fails. Up to 0.3.2 the line had no such
   note, so ten minutes of a stuck agent looked the same as ten minutes of
   work. Only the bytes on a TTY, or with `CW_DRIVE_PROGRESS=1`, change; a
   piped run prints no ticker and writes no such file. The operator's yes:

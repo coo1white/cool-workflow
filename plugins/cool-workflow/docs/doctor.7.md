@@ -71,12 +71,10 @@ the exit code and the first lines of its output, and never prints env values.
   fix hint is in view, and a `fix:` line. For example:
   `✗ agent-runs: claude --version exited 1: Error: claude native binary not installed. | ...`
 - A custom command (a wrapper of your own, such as `$HOME/bin/review {{input}}`)
-  is never run, as its arguments are not known and it may start real work. It
-  gets a `warn`: `! agent-runs: not probed: custom command — doctor runs only a
-  known vendor CLI with --version, never a custom command.` A builtin with no
-  CLI (`builtin:deepseek`, HTTP) says `not probed: builtin:deepseek has no
-  vendor CLI`. With no agent, or an HTTP endpoint only, there is no
-  `agent-runs` check.
+  is never run, as its arguments are not known and it may start real work, and
+  it adds no `agent-runs` row: doctor's output is then what 0.3.2 printed. The
+  same holds for a builtin with no CLI (`builtin:deepseek`, HTTP), for no agent,
+  and for an HTTP endpoint only.
 
 Up to 0.3.2 doctor did not run the agent, so an install whose CLI could not
 start (for example, npm stopped its postinstall) still said `ready`. Changed

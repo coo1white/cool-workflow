@@ -14,6 +14,10 @@
 //   5. `cw app list` run in that folder lists ./apps too (also new in 0.3.3),
 //      next to the bundled apps; an id that is also a bundled one fails
 //      closed (exit 1, "Duplicate workflow app id"), never shown twice.
+//   6. Listing reads ./apps/*/app.json alone: it never runs their workflow.js
+//      (phases and taskCount are null there); `cw app show <id>` loads it.
+//      An app.json that is not a CW manifest (as an Expo app has)
+//      is skipped: list, `cw list` and quickstart --check stay ok.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -57,6 +61,26 @@ try {
     assert.ok(ids.includes("architecture-review"), "and still the bundled apps");
     const outside = cw(["app", "list", "--json"], work);
     assert.ok(!JSON.parse(outside.stdout).some((app) => app.id === "init-default-probe"), "only from that folder");
+
+    // 6
+    const marker = path.join(work, "workflow-ran");
+    fs.appendFileSync(path.join(dir, "apps", "init-default-probe", "workflow.js"), `\nrequire("node:fs").writeFileSync(${JSON.stringify(marker)}, "ran");\n`);
+    fs.mkdirSync(path.join(dir, "apps", "mobile"));
+    fs.writeFileSync(path.join(dir, "apps", "mobile", "app.json"), JSON.stringify({ expo: { name: "mobile", slug: "mobile" } }));
+    const listed = cw(["app", "list", "--json"], dir);
+    assert.equal(listed.status, 0, `a non-CW app.json is skipped: ${listed.stderr}`);
+    const probe = JSON.parse(listed.stdout).find((app) => app.id === "init-default-probe");
+    assert.equal(probe.phases, null, "not loaded, so phases are not known");
+    assert.equal(probe.taskCount, null);
+    assert.equal(cw(["list", "--json"], dir).status, 0, "cw list too");
+    assert.equal(fs.existsSync(marker), false, "listing never runs a ./apps workflow.js");
+    const quick = JSON.parse(cw(["quickstart", "--check", "--json"], dir).stdout);
+    assert.equal(quick.checks.find((c) => c.name === "app").status, "ok", "quickstart --check still finds its app");
+    const show = cw(["app", "show", "init-default-probe", "--json"], dir);
+    assert.equal(show.status, 0, show.stderr);
+    assert.ok(JSON.parse(show.stdout).taskCount > 0, "cw app show <id> loads the app");
+    assert.equal(fs.existsSync(marker), true, "asked for by id, its workflow.js runs");
+    fs.rmSync(path.join(dir, "apps", "mobile"), { recursive: true });
 
     fs.cpSync(path.join(pluginRoot, "apps", "release-cut"), path.join(dir, "apps", "release-cut"), { recursive: true });
     const dup = cw(["app", "list", "--json"], dir);

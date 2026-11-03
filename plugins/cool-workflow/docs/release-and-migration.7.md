@@ -227,6 +227,19 @@ The module form itself:
   (`builtin:<name>` and a saved `agent-config.json` point at them), and
   `scripts/children/http-delegate-child.js` (named in backend probe output).
 
+## Installing with npm and npx (0.3.3)
+
+From 0.2.8 to 0.3.2 the package carried a `preinstall` script meant only
+for this source checkout (it uses bun). It ran on every user's install,
+so `npm i cool-workflow` (a local, not global, install) failed with "This
+project must be set up with bun", and `npx cool-workflow ...` exited 1
+with no message. Only `npm i -g` worked. 0.3.3 ships no install-time
+script: both commands now install and run, with exit 0. `npm i -g` is
+unchanged. A contributor who runs `npm install` in the checkout is
+caught by the test gate and CI instead (`package-manager-gate-smoke`).
+The operator's yes: `project/docs/intent/2026-10-16-release-gate-ci.md`,
+"Operator decisions for 0.3.3, third set".
+
 ## Unsupported Cases
 
 CW does not quietly load:

@@ -397,6 +397,31 @@ function realOrSelf(dir) {
         return path.resolve(dir);
     }
 }
+/** Apps from ./apps of the folder CW runs in, read from app.json alone: listing never runs their workflow.js. */
+const MANIFEST_ONLY = new WeakSet();
+/** A ./apps record without running code; undefined for an app.json that is not a CW manifest (Expo and the like). */
+function manifestOnlyRecord(manifestPath) {
+    let manifest;
+    try {
+        manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    }
+    catch {
+        return undefined;
+    }
+    if (!manifest || typeof manifest !== "object" || manifest.schemaVersion !== 1)
+        return undefined;
+    const validation = validateWorkflowApp(manifest, validationContext(), { appPath: manifestPath });
+    if (!validation.valid)
+        throw new WorkflowAppValidationError("Invalid workflow app manifest", validation.issues);
+    const workflow = { id: manifest.id, title: manifest.title, phases: [] };
+    const record = {
+        app: { ...manifest, workflow },
+        source: { kind: "app-directory", path: path.dirname(manifestPath), manifestPath, entrypointPath: path.resolve(path.dirname(manifestPath), manifest.workflow.entrypoint) },
+        legacy: false,
+    };
+    MANIFEST_ONLY.add(record);
+    return record;
+}
 function listWorkflowAppRecords() {
     const appsDir = candidateAppsRoots().find((root) => fs.existsSync(root)) || candidateAppsRoots()[0];
     const workflowsDir = candidateWorkflowsRoots().find((root) => fs.existsSync(root)) || candidateWorkflowsRoots()[0];
@@ -406,7 +431,8 @@ function listWorkflowAppRecords() {
     const extraAppsDirs = fs.existsSync(localApps) && realOrSelf(localApps) !== realOrSelf(appsDir) ? [localApps] : [];
     const records = [
         ...loadWorkflowFiles(workflowsDir).map((file) => loadWorkflowAppFromEntrypoint(file)),
-        ...[appsDir, ...extraAppsDirs].flatMap((dir) => loadAppManifestFiles(dir).map((file) => loadWorkflowAppFromManifest(file))),
+        ...loadAppManifestFiles(appsDir).map((file) => loadWorkflowAppFromManifest(file)),
+        ...extraAppsDirs.flatMap((dir) => loadAppManifestFiles(dir).map(manifestOnlyRecord).filter((r) => Boolean(r))),
     ].sort((left, right) => {
         const byId = stableCompare(left.app.id, right.app.id);
         if (byId)
@@ -427,7 +453,7 @@ export function loadWorkflowAppRecordById(appId) {
     const record = listWorkflowAppRecords().find((candidate) => candidate.app.id === appId);
     if (!record)
         throw new WorkflowAppNotFoundError(appId);
-    return record;
+    return MANIFEST_ONLY.has(record) ? loadWorkflowAppFromManifest(record.source.manifestPath) : record;
 }
 /** Resolves a `cw app validate <path-or-id>` / `cw app show <path-or-id>`
  *  target: an existing directory/`app.json`/other-file path wins over an
@@ -495,7 +521,10 @@ function summarizeWorkflowAppRecord(record) {
  *  callers must build the JSON object with the same conditional-spread
  *  discipline used here. */
 export function listWorkflowApps() {
-    return listWorkflowAppRecords().map((record) => summaryToJson(summarizeWorkflowAppRecord(record)));
+    return listWorkflowAppRecords().map((record) => {
+        const json = summaryToJson(summarizeWorkflowAppRecord(record));
+        return MANIFEST_ONLY.has(record) ? { ...json, phases: null, taskCount: null } : json;
+    });
 }
 function summaryToJson(summary) {
     const { author, ...rest } = summary;

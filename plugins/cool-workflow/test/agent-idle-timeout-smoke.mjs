@@ -112,15 +112,10 @@ try {
     });
     const lines = child.stdout.trim().split("\n").map((l) => JSON.parse(l));
     assert.equal(lines.length, 2);
-    for (const line of lines) {
-      for (const key of ["startedAt", "endedAt", "lastOutputAt"]) assert.equal(typeof line[key], "number", `${key} on ${JSON.stringify(line)}`);
-      assert.ok(line.startedAt <= line.lastOutputAt && line.lastOutputAt <= line.endedAt, `startedAt <= lastOutputAt <= endedAt: ${JSON.stringify(line)}`);
-    }
     const s = lines.find((l) => l.idleTimedOutMs);
     assert.ok(s, "the silent job's line carries idleTimedOutMs");
-    assert.ok(s.endedAt - s.lastOutputAt >= 700, `went quiet before it was stopped: ${JSON.stringify(s)}`);
     const q = lines.find((l) => l.stdout === "late ok");
-    assert.ok(q.lastOutputAt - q.startedAt >= 1000, `the quiet job's last output came late: ${JSON.stringify(q)}`);
+    assert.ok(q && q.exitCode === 0 && !q.idleTimedOutMs, `a job that writes before the limit is never stopped: ${JSON.stringify(q)}`);
   }
 
   // ===== 3. the serial (one-job) path =====
