@@ -49,7 +49,8 @@
 // wait is indistinguishable from a dead release otherwise.
 //
 // Test seam: CW_ONECLICK_GH_CMD / CW_ONECLICK_GIT_CMD override the gh/git
-// binaries (single executable token, spawned shell:false) for smoke stubs.
+// binaries (single executable token, spawned shell:false) for smoke stubs;
+// CW_ONECLICK_REPO_ROOT points the stage-3 verdict copy at a temp folder.
 
 import fs from "node:fs";
 import os from "node:os";
@@ -60,7 +61,7 @@ import { queryRequiredChecks, REQUIRED_CHECKS } from "./release-ci-checks.mjs";
 
 const scriptsDir = import.meta.dirname;
 const pluginRoot = path.resolve(scriptsDir, "..");
-const repoRoot = path.resolve(pluginRoot, "..", "..");
+const repoRoot = process.env.CW_ONECLICK_REPO_ROOT ? path.resolve(process.env.CW_ONECLICK_REPO_ROOT) : path.resolve(pluginRoot, "..", "..");
 
 const argv = process.argv.slice(2);
 const DRY_RUN = argv.includes("--dry-run");
@@ -385,29 +386,41 @@ function runRecordAndWaitStage() {
       say(`WARN: git fetch failed (${fetch.err}) — skipping the main-record PR (informational only).`);
     } else {
       const branch = `release/v${version}-record`;
+      // The branch the operator ran from (main, normally): go back to it when
+      // the record PR is out, so the checkout is not left on a branch that is
+      // deleted once the PR merges ("no such ref" on the next git pull).
+      const startBranch = git(["rev-parse", "--abbrev-ref", "HEAD"], { cwd: repoRoot }).out;
       const co = git(["checkout", "-B", branch, "origin/main"], { cwd: repoRoot });
       if (co.code === 0) {
-        fs.mkdirSync(path.dirname(verdict), { recursive: true });
-        fs.writeFileSync(verdict, verdictBytes.out);
-        const sigBytes = gitRaw(["show", `${tagCommit}:${relSig}`], { cwd: repoRoot });
-        if (sigBytes.code === 0) fs.writeFileSync(sig, sigBytes.out);
-        git(["add", "--", relVerdict], { cwd: repoRoot });
-        if (fs.existsSync(sig)) git(["add", "--", relSig], { cwd: repoRoot });
-        const status = git(["status", "--porcelain"], { cwd: repoRoot });
-        if (status.out) {
-          const commit = git(["commit", "-m", `chore(release): record the v${version} reviewer verdict on main`], { cwd: repoRoot });
-          if (commit.code === 0) {
-            git(["push", "-u", "--force-with-lease", "origin", branch], { cwd: repoRoot });
-            const pr = gh(["pr", "create", "--base", "main", "--head", branch, "--title", `chore(release): record the v${version} reviewer verdict on main`, "--body", `Informational — lands the tagged v${version} verdict + signature onto main for the repo's own audit trail. No gate implications (main's required checks don't include release). Reviewed commit: ${reviewedParent}.`]);
-            if (pr.code === 0) {
-              say(pr.out);
-              gh(["pr", "merge", branch, "--auto", "--squash"]);
-            } else {
-              say(`WARN: could not open the record PR (${pr.err}) — continuing, this is informational only.`);
+        try {
+          fs.mkdirSync(path.dirname(verdict), { recursive: true });
+          fs.writeFileSync(verdict, verdictBytes.out);
+          const sigBytes = gitRaw(["show", `${tagCommit}:${relSig}`], { cwd: repoRoot });
+          if (sigBytes.code === 0) fs.writeFileSync(sig, sigBytes.out);
+          git(["add", "--", relVerdict], { cwd: repoRoot });
+          if (fs.existsSync(sig)) git(["add", "--", relSig], { cwd: repoRoot });
+          const status = git(["status", "--porcelain"], { cwd: repoRoot });
+          if (status.out) {
+            const commit = git(["commit", "-m", `chore(release): record the v${version} reviewer verdict on main`], { cwd: repoRoot });
+            if (commit.code === 0) {
+              git(["push", "-u", "--force-with-lease", "origin", branch], { cwd: repoRoot });
+              const pr = gh(["pr", "create", "--base", "main", "--head", branch, "--title", `chore(release): record the v${version} reviewer verdict on main`, "--body", `Informational — lands the tagged v${version} verdict + signature onto main for the repo's own audit trail. No gate implications (main's required checks don't include release). Reviewed commit: ${reviewedParent}.`]);
+              if (pr.code === 0) {
+                say(pr.out);
+                gh(["pr", "merge", branch, "--auto", "--squash"]);
+              } else {
+                say(`WARN: could not open the record PR (${pr.err}) — continuing, this is informational only.`);
+              }
             }
+          } else {
+            say("main already has this verdict recorded — nothing to do.");
           }
-        } else {
-          say("main already has this verdict recorded — nothing to do.");
+        } finally {
+          if (startBranch && startBranch !== "HEAD" && startBranch !== branch) {
+            const back = git(["checkout", startBranch], { cwd: repoRoot });
+            if (back.code === 0) say(`back on ${startBranch}.`);
+            else say(`WARN: could not switch back to ${startBranch} (${back.err}) — run \`git checkout ${startBranch}\` yourself.`);
+          }
         }
       }
     }

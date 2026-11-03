@@ -69,12 +69,15 @@ if (a[0] === "ls-remote") {
   process.exit(0);
 }
 if (a[0] === "push") { process.exit(0); }
+if (a[0] === "rev-parse" && a[1] === "--abbrev-ref") { process.stdout.write((process.env.GIT_STUB_BRANCH || "main") + "\\n"); process.exit(0); }
 if (a[0] === "rev-parse") { process.stdout.write("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef\\n"); process.exit(0); }
+if (a[0] === "status" && process.env.GIT_STUB_RECORD === "1") { process.stdout.write(" M .cw-release/x\\n"); process.exit(0); }
 if (a[0] === "show") {
   // Answer from on-disk stand-ins for the tag's tree and origin/main's tree;
   // anything else (the stage-3 record's show of <sha>:...) does not exist.
-  const m = /^(v${VERSION}|origin\\/main):(.+)$/.exec(a[1] || "");
-  const root = m && (m[1] === "origin/main" ? process.env.GIT_STUB_MAIN_TREE : process.env.GIT_STUB_TAG_TREE);
+  const m = /^(v${VERSION}|origin\\/main|deadbeef[0-9a-f]{32}):(.+)$/.exec(a[1] || "");
+  // The tag sha answers only when GIT_STUB_RECORD=1, so the stage-3 record runs.
+  const root = m && (m[1] === "origin/main" ? process.env.GIT_STUB_MAIN_TREE : m[1].startsWith("deadbeef") && process.env.GIT_STUB_RECORD !== "1" ? undefined : process.env.GIT_STUB_TAG_TREE);
   const p = root && require("node:path").join(root, m[2]);
   if (p && fs.existsSync(p)) { process.stdout.write(fs.readFileSync(p)); process.exit(0); }
   process.stderr.write("fatal: path does not exist\\n"); process.exit(1);
@@ -225,3 +228,21 @@ for (const [label, trees, why] of [
 }
 
 process.stdout.write("release-oneclick-resume-repush-smoke: ok (local-only tag re-pushed on resume only with a signed APPROVED verdict; on-origin tag left alone; npm-publish cutoff from the gate's completion time)\n");
+
+// ---- The record step goes back to the branch it was run from ---------------
+// After the stage-3 record PR the checkout was left on release/v<ver>-record,
+// a branch deleted once that PR merges, so the operator's next `git pull`
+// said "no such ref" and main stayed old. Now it switches back.
+{
+  const dir = tmp();
+  const root = path.join(dir, "repo-root");
+  fs.mkdirSync(root);
+  const r = run(dir, { GH_STUB_SCENARIO: "gate-fail", GIT_STUB_RECORD: "1", GIT_STUB_BRANCH: "main", CW_ONECLICK_REPO_ROOT: root }, 20000);
+  const lines = r.rec.split("\n");
+  const toRecord = lines.findIndex((l) => l === "checkout -B release/v99.99.99-record origin/main");
+  assert.ok(toRecord >= 0, `the record step ran: ${r.rec}`);
+  assert.ok(lines.slice(toRecord + 1).includes("checkout main"), `and then went back to main: ${r.rec}`);
+  assert.match(r.out, /back on main\./);
+  assert.ok(fs.existsSync(path.join(root, ".cw-release", `review-${SHA}.verdict`)), "the verdict went to the seam root, not the real repo");
+}
+
