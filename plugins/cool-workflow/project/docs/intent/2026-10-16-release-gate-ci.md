@@ -653,3 +653,86 @@ Default output this changes, each said in its man page, version 0.3.3 ->
 
 Left as it is: the bundle's default place (the folder `cw` runs in), which
 a change would move for every script that reads it there.
+
+Two more default outputs change with the done receipt, the 0.4.0
+headline the same answer picked ("修卡点 + 收据 (推荐)"): `cw help` gains
+the row `check -- <command>  Run your tests, keep a receipt` (and `check`
+joins the known command words), and `cw doctor --onramp` gains the
+quick-start line `cw check -- npm test — keep a receipt that your tests
+passed; a result can cite it (no agent needed)`. Both are said in
+`verifier-gated-commit.7.md`; the v2 fixture `cli-help/_root.txt` pins
+the first. A run that cites no receipt keeps its report and bundle bytes.
+
+### Operator decisions for 0.4.0, named (2026-11-03)
+
+The 0.4.0 cut was rejected a second time: the quotes above did not name
+the strings they let change. The operator was then asked about each one
+by name, and answered, word for word (2026-11-03): "5 处全部同意 (推荐)"
+("all 5 agreed"). The question, word for word, listed the five:
+
+> 1) cw doctor / cw quickstart --check / cw -q 在没配 agent 时的修复提示，从「Pass --agent-command "claude -p"…」改成「Install an agent CLI such as Claude Code, then add -claude to your cw command…」；2) worker 失败停下时的提示改成点名 agent-stderr.log 日志文件，终端的 Why: 下多一行「All of it: <日志路径>」；3) cw report bundle 在终端里显示人话（存到哪、怎么换位置、下一步），不再显示 JSON；管道和 --json 不变；4) cw help 首页新增一行「check -- <command>  Run your tests, keep a receipt」；5) cw doctor --onramp 新增一行「cw check -- npm test — keep a receipt that your tests passed」。
+
+Each is said in its man page: 1 in `doctor.7.md` and
+`agent-delegation-drive.7.md`; 2 in `agent-delegation-drive.7.md`; 3 in
+`report-verifiable-bundle.7.md`; 4 and 5 in `verifier-gated-commit.7.md`
+(DONE RECEIPTS, "Where a new user finds it"), 5 also in `doctor.7.md`.
+The version raise is 0.3.3 -> 0.4.0.
+
+The pins these answers cover, for `npm run pola:check` (added after the
+answer; it names files, not new consent):
+
+- 1 (the no-agent fix line, which `cw fix` gives back as the same
+  doctor fix text): `v2/conformance/cases/report-doctor.case.mjs`,
+  `v2/conformance/cases/report-fix.case.mjs`,
+  `v2/conformance/cases/exec-doctor-agent-config.case.mjs`,
+  `v2/conformance/cases/cli-doctor-fix-app-validate.case.mjs`.
+- 4 (the `check` row in `cw help`, and `check` as a known command word):
+  `v2/conformance/cases/fixtures/cli-help/_root.txt`,
+  `v2/conformance/cases/cli-help-topics.case.mjs`.
+
+`cw fix` was not named in that question, so the operator was asked about
+it by name, word for word (2026-11-03): "你上次同意的第 1 处改动（没配
+agent 时的修复提示，从「Pass --agent-command "claude -p", set
+$CW_AGENT_COMMAND, or use --agent-command builtin:claude.」改成「Install
+an agent CLI such as Claude Code, then add -claude to your cw command, for
+one: cw -q "your question" -claude (or set
+CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work
+too.」），是否也包括 cw fix 命令显示的同一句话？" The answer, word for
+word: "包括 cw fix (推荐)" ("cw fix is included"). So `cw fix`, which
+prints the same doctor fix line (`doctor.7.md`), is covered by change 1.
+
+The same review found two faults in `cw check` (new in 0.4.0, so no
+default changes): a piped run echoed the command's output on stderr
+(now only on a terminal, Rule of Silence), and changes that could not be
+read were hashed as a fixed word, so two unreadable trees matched (now
+the code state is unknown and a receipt tied to it is refused,
+`receipt-stale`, fail closed).
+
+### Operator decisions for 0.4.0, third review (2026-11-03)
+
+The cut was rejected a third time. The `check` row on the `cw help`
+front page made six entries where unix-principles(7) allows five, and
+`check` had also gone into the "More commands" list and so into `cw
+completion`, which no yes named. Item 4 of the answer above is therefore
+NOT used: the front page gives the same bytes as 0.3.3.
+
+`check` cannot leave `cw help` altogether: the parity check
+(`cli-mcp-parity-smoke`, `cli-arg-parsing-smoke`) holds that every
+command `cw` knows is listed in it. The operator was asked about the two
+changes that keeps, by name, and answered, word for word (2026-11-03):
+"2 处都同意 (推荐)" ("both agreed"). The question, word for word, named
+the two:
+
+> 1) `cw help` 的 More commands 最后一行，从「  man|version|fix|completion」变成「  man|version|fix|completion|check」；
+> 2) `cw completion`（bash/zsh/fish 的命令补全）的命令词列表多一个词 `check`。
+> 首页还是 0.3.3 的 5 行，不变。
+
+Both are said in `verifier-gated-commit.7.md` (DONE RECEIPTS, "Where a
+new user finds it"); the v2 fixture `cli-help/_root.txt` pins the first.
+The version raise is 0.3.3 -> 0.4.0. A new user finds `cw check` by
+item 5 (`cw doctor --onramp`), the README, the "More commands" list and
+`cw help check`.
+
+The same review found that no test held the `readCodeState` fix
+(unreadable changes give `treeDigest: null`); a unit test with a git
+runner and a file reader passed in now does.

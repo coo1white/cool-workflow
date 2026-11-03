@@ -90,7 +90,18 @@ cw report --open
 
 Want to see one first? A real run's Workbench and report, rebuilt on every push: **[coo1white.github.io/cool-workflow](https://coo1white.github.io/cool-workflow/)** (the report is at [/report.html](https://coo1white.github.io/cool-workflow/report.html)).
 
-These three steps are the core path. Everything else is kept working, not grown.
+### 4 · Keep proof that your tests passed
+
+An agent that says "all tests pass" has only said it. Run the tests through CW and keep a receipt:
+
+```bash
+cw check -- npm test
+# → ✓ passed: npm test (exit 0 at 1a2b3c4) — receipt rc-…. Cite it as receipt:rc-…
+```
+
+CW runs your command (never a model) and saves what happened: the commit, the exit code, a digest of the output. A result that cites `receipt:rc-…` is checked again before it counts: a failed run, a missing receipt, or code that changed since the run is turned down, with the one command to fix it. `cw check list` shows your receipts.
+
+These steps are the core path. Everything else is kept working, not grown.
 
 ## Can You Trust the Report?
 

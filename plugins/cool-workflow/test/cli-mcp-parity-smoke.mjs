@@ -160,7 +160,8 @@ function openMcp() {
     // 73 before the multi-agent family went (slim-and-esm step 2): its 24
     // probe targets (topology/candidate/summary/review/comment/approve/
     // reject/handoff and the candidate/multi-agent summaries) went with it.
-    assert.equal(plan.targets.length, 49, "payload probe plan must include all local scenario target batches");
+    // 50 since check.list joined the global probes (2026-11-03, done receipt).
+    assert.equal(plan.targets.length, 50, "payload probe plan must include all local scenario target batches");
     assert.ok(plan.deferred.length > 0, "complex payload-identical capabilities must be explicitly deferred with reasons");
     for (const deferred of plan.deferred) {
       assert.ok(deferred.reason && deferred.reason.trim(), `${deferred.capability}: deferred payload probe must record a reason`);

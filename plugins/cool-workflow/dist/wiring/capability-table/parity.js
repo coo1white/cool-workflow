@@ -20,6 +20,7 @@ const GLOBAL_PAYLOAD_PROBE_CAPABILITIES = [
     "backend.list",
     "backend.agent.config.show",
     "metrics.summary",
+    "check.list",
 ];
 /** Read-only reads that need only a planned run id. */
 const RUN_PAYLOAD_PROBE_CAPABILITIES = [
@@ -111,6 +112,7 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
             "report.bundle",
             "telemetry.verify",
             "history",
+            "check.show",
         ],
     },
     {

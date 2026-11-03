@@ -40,6 +40,7 @@ const REQUIRED_JOBS = ["check"];
 // ci.yml `check` job: "check (<node-version>)".
 import { REQUIRED_CHECKS } from "../scripts/release-ci-checks.mjs";
 const REHEARSAL_JOB = "release-rehearsal";
+const FAILS_BEFORE_JOB = "fails-before";
 const EXCEPTIONS = ["codeql.yml", "gitleaks.yml", "pages.yml", "npm-publish.yml"];
 // GITHUB_TOKEN too: on Gitea it is empty in schedule and dispatch runs; write github.token.
 const BANNED_TOKENS = ["CT_GITEA_TOKEN", "CI_VENDOR_TOKEN", "AUTOMERGE_TOKEN", "RENOVATE_TOKEN", "GITHUB_TOKEN"];
@@ -165,6 +166,25 @@ function gate(workflowsDir, repoRoot) {
   for (const name of REQUIRED_CHECKS) {
     const m = name.match(/^check \((.+)\)$/);
     if (!m || !nodeMatrix.includes(m[1])) faults.push(`ci.yml: release required check "${name}" is not a leg of the check job`);
+  }
+
+  // 10. ci.yml has the fails-before job: pull requests only, full history
+  //     (the merge base must be there), runs the script against the PR's
+  //     base, and is not a required check.
+  const failsBefore = jobBlock(textByFile.get("ci.yml") || "", FAILS_BEFORE_JOB);
+  if (!failsBefore) {
+    faults.push(`ci.yml: no job id "${FAILS_BEFORE_JOB}"`);
+  } else {
+    if (REQUIRED_JOBS.includes(FAILS_BEFORE_JOB) || /^\s{4}name:\s*["']?check\b/m.test(failsBefore)) {
+      faults.push(`ci.yml: ${FAILS_BEFORE_JOB} must not be a required check`);
+    }
+    if (!/^\s{4}if: github\.event_name == 'pull_request'$/m.test(failsBefore)) {
+      faults.push(`ci.yml: ${FAILS_BEFORE_JOB} must run on pull requests only`);
+    }
+    if (!/fetch-depth: 0/.test(failsBefore)) faults.push(`ci.yml: ${FAILS_BEFORE_JOB} needs fetch-depth: 0`);
+    if (!/- run: node scripts\/fails-before-check\.mjs --base "\$\{\{ github\.event\.pull_request\.base\.sha \}\}"$/m.test(failsBefore)) {
+      faults.push(`ci.yml: ${FAILS_BEFORE_JOB} does not run fails-before-check.mjs against the PR base`);
+    }
   }
 
   // 3. release.yml has no cancel-in-progress: true
@@ -298,5 +318,23 @@ withFault((dir) => {
   const p = path.join(dir, "ci.yml");
   fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace('node-version: ["22", "24"]', 'node-version: ["22"]'));
 }, 'release required check "check (24)" is not a leg');
+
+// 10a. the fails-before job removed
+withFault((dir) => {
+  const p = path.join(dir, "ci.yml");
+  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace("\n  fails-before:\n", "\n  fails-before-gone:\n"));
+}, 'no job id "fails-before"');
+
+// 10b. the fails-before job made to run on main pushes too
+withFault((dir) => {
+  const p = path.join(dir, "ci.yml");
+  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace("  fails-before:\n    if: github.event_name == 'pull_request'\n", "  fails-before:\n"));
+}, "fails-before must run on pull requests only");
+
+// 10c. the fails-before step no longer runs the script against the PR base
+withFault((dir) => {
+  const p = path.join(dir, "ci.yml");
+  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace('node scripts/fails-before-check.mjs --base "${{ github.event.pull_request.base.sha }}"', "true"));
+}, "does not run fails-before-check.mjs against the PR base");
 
 console.log("ci-shape-gate-smoke: ok");

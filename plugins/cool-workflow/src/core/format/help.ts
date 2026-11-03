@@ -52,7 +52,7 @@ export const MORE_COMMANDS_TOKENS: string[] = [
   "metrics", "operator", "sched",
   "gc", "telemetry", "migration", "demo", "workbench",
   "ledger", "graph", "man", "version",
-  "fix", "completion",
+  "fix", "completion", "check",
 ];
 
 const MORE_COMMANDS_WRAP_WIDTH = 76;

@@ -9,6 +9,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 import { StateCommit, StateNode, StateNodeError, WorkflowRun } from "../core/state/types.js";
 import { writeJson } from "./fs-atomic.js";
 import { formatCommitId, gateFailureSeq, resolveCommitGate } from "../core/pipeline/commit-gate.js";
@@ -140,6 +141,7 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
     backingResult,
     taskRequiresEvidence: requiresEvidence,
     unresolvedFileEvidence: requireResolvableEvidence() ? (evidence: string[]) => unresolvedRunFileEvidence(run, evidence) : undefined,
+    refusedReceipts: (ids) => (createRequire(import.meta.url)("./receipt-io.js") as typeof import("./receipt-io.js")).checkCitedReceipts(run, ids),
   });
 
   if (gate.errors.length) {

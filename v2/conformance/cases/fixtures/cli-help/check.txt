@@ -1,0 +1,9 @@
+# exit: 0
+cw check
+
+  cw check       Run your own check command (no shell, no model) and keep a done receipt: git HEAD, exit code, output digests.
+  cw check list  List the done receipts that `cw check -- <command>` saved under .cw/receipts, each judged against the code now (usable, failed, stale, tampered). Read-only.
+  cw check show  Show one done receipt and whether a result may cite it as receipt:<id> now (it must be intact, exit 0, and made at the current code). Read-only.
+
+    Flags
+      -- COMMAND [ARGS...]  The command to run, e.g. cw check -- npm test.
