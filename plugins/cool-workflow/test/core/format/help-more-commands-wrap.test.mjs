@@ -50,7 +50,7 @@ function moreCommandsLines() {
     "contract node feedback worker audit loop schedule routine registry run queue clones " +
     "orphans history quickstart audit-run metrics " +
     "operator sched gc telemetry migration demo workbench ledger graph " +
-    "man version fix completion check"
+    "man version fix completion"
   ).split(" ");
   const rejoined = moreCommandsLines()
     .map((line) => line.trim())
