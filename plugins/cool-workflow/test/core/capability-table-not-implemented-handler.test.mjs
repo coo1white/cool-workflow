@@ -8,7 +8,8 @@
 // ever actually called."
 
 import assert from "node:assert/strict";
-import { REGISTRY, CapabilityNotImplementedError, findCapabilityByMcpTool } from "../../dist/wiring/capability-table/index.js";
+import { REGISTRY, findCapabilityByMcpTool } from "../../dist/wiring/capability-table/index.js";
+import { CapabilityNotImplementedError } from "../../dist/core/capability-data.js";
 
 // CapabilityNotImplementedError is a real Error subclass with the name set.
 {

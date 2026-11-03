@@ -8,7 +8,11 @@
 // src/core/format/help.ts's own header note on the literal-vs-table merge.
 
 import assert from "node:assert/strict";
-import { formatCommandHelp } from "../../../dist/core/format/help.js";
+import { formatCommandHelp as formatWithRows } from "../../../dist/core/format/help.js";
+import { cliCapabilities } from "../../../dist/wiring/capability-table/index.js";
+
+// The CLI rows are a parameter since phase 1c of the whole-tree refactor (core reads no other layer).
+const formatCommandHelp = (verb, suggest) => formatWithRows(verb, suggest, cliCapabilities());
 
 function noSuggestion() {
   return undefined;
