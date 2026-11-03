@@ -1,0 +1,134 @@
+{
+  "Apple-Foundation-Models-Backend-PoC": {
+    "to": "Roadmap",
+    "why": "This was a plan to use Apple's on-device model as an agent for CW; it was never made, and today any agent with an HTTP endpoint can do the work through CW_AGENT_ENDPOINT."
+  },
+  "Boundary-Contracts": {
+    "to": "Architecture-Principles",
+    "why": "The rules at the agent edge (output schema checks, the token budget, and the one-way type wall) are now one part of the Architecture Principles page."
+  },
+  "CLI-MCP-Parity": {
+    "to": "MCP-And-Manifests",
+    "why": "How the CLI and the MCP server are kept in step is now one part of the MCP And Manifests page."
+  },
+  "CLI-and-MCP-Surface": {
+    "to": "Commands-or-API",
+    "why": "This was a second list of the same commands; there is one list now."
+  },
+  "Capability-and-Topology-Registry": {
+    "to": "MCP-And-Manifests",
+    "why": "The topology registry was taken out in 0.3.1 with the multi-agent family, and the capability registry is now one part of the MCP And Manifests page."
+  },
+  "Concurrent-Failure-Semantics": {
+    "to": "Architecture-Principles",
+    "why": "What CW does when agents run side by side and some of them fail or hang is now one part of the Architecture Principles page."
+  },
+  "Contract-Migration-Tooling": {
+    "to": "Operations",
+    "why": "How CW loads run state made by an older CW (cw state check, cw migration) is now one part of the Operations page."
+  },
+  "Control-Plane-Scheduling": {
+    "to": "Run-Registry-Control-Plane",
+    "why": "The run queue rules (cw sched) are now one part of the Run Registry page; the code is still there, but it gets fixes only, no new growth."
+  },
+  "Distribution-Strategy": {
+    "to": "Getting-Started",
+    "why": "The ways to put CW on your machine (npm, npx, and Homebrew) are now in Getting Started."
+  },
+  "Execution-Backends": {
+    "to": "Architecture",
+    "why": "The execution backends (agent, node, bun, shell, container, remote, ci) are now one part of the Architecture page."
+  },
+  "GitHub-Showcase-Architecture": {
+    "to": "Architecture",
+    "why": "This was an early copy of the Architecture page; there is one copy now."
+  },
+  "GitHub-Showcase-Commands-or-API": {
+    "to": "Commands-or-API",
+    "why": "This was an early copy of the Commands or API page; there is one copy now."
+  },
+  "GitHub-Showcase-FAQ": {
+    "to": "FAQ",
+    "why": "This was an early copy of the FAQ page; there is one copy now."
+  },
+  "GitHub-Showcase-Home": {
+    "to": "Home",
+    "why": "This was an early copy of the Home page; there is one copy now."
+  },
+  "GitHub-Showcase-MCP-And-Manifests": {
+    "to": "MCP-And-Manifests",
+    "why": "This was an early copy of the MCP And Manifests page; there is one copy now."
+  },
+  "GitHub-Showcase-Operations": {
+    "to": "Operations",
+    "why": "This was an early copy of the Operations page; there is one copy now."
+  },
+  "GitHub-Showcase-Quickstart": {
+    "to": "Quickstart",
+    "why": "This was an early copy of the Quickstart page; there is one copy now."
+  },
+  "GitHub-Showcase-Recovery-And-Restore": {
+    "to": "Recovery-And-Restore",
+    "why": "This was an early copy of the Recovery And Restore page; there is one copy now."
+  },
+  "GitHub-Showcase-Trust-And-Audit": {
+    "to": "Trust-And-Audit",
+    "why": "This was an early copy of the Trust And Audit page; there is one copy now."
+  },
+  "GitHub-Showcase-Workflow-Apps": {
+    "to": "Workflow-Apps",
+    "why": "This was an early copy of the Workflow Apps page; there is one copy now."
+  },
+  "Manifesto:-Agents-Need-FreeBSD": {
+    "to": "Origin-Story",
+    "why": "The argument of this essay, that agents need a small base system and not one more framework, is now one part of the Origin Story page."
+  },
+  "Multi-Agent-Topologies": {
+    "to": "Workflow-Apps",
+    "why": "Topologies, the blackboard, and the coordinator were taken out in 0.3.1 with the multi-agent family; to get agents working together today, give the work its shape with a workflow app."
+  },
+  "Node-Snapshot-Diff-Replay": {
+    "to": "Recovery-And-Restore",
+    "why": "Taking a snapshot of one step of a run, and comparing and replaying it (cw node), is now one part of the Recovery And Restore page."
+  },
+  "Observability-Cost-Accounting": {
+    "to": "Operations",
+    "why": "Run time, failure rates, and signed token use (cw metrics) are now one part of the Operations page."
+  },
+  "Project-Index": {
+    "to": "Repo-Map",
+    "why": "This was a copy of the project index as it was at 0.2.6; the index is now made from the code in the repo, and the Repo Map page has a link to it."
+  },
+  "Real-Execution-Backends": {
+    "to": "Architecture",
+    "why": "The container, remote, and ci backends are now one part of the Architecture page."
+  },
+  "Release-Tooling": {
+    "to": "Operations",
+    "why": "How a release is checked, reviewed, signed, and cut is now one part of the Operations page."
+  },
+  "Runtime-Contract": {
+    "to": "Architecture",
+    "why": "The way a run goes from plan to report is now one part of the Architecture page."
+  },
+  "Side-Story:-One-Frame,-Five-Lenses": {
+    "to": "Side-Story",
+    "why": "This story has a shorter page name now; the story is the same."
+  },
+  "Team-Collaboration": {
+    "to": "Commands-or-API",
+    "why": "Approvals, comments, and handoffs (cw approve, cw comment, cw handoff) were taken out in 0.3.1 with the multi-agent family; to hand work between agents in two repos, use cw ledger."
+  },
+  "Telemetry-Attestation-and-Tamper-Evidence": {
+    "to": "Trust-And-Audit",
+    "why": "The signed usage ledger and how CW sees any later change to it are now one part of the Trust And Audit page."
+  },
+  "The-Car-Metaphor": {
+    "to": "Mental-Model",
+    "why": "The car story (CW is the car, the model is the engine, tokens are the fuel) is now one part of the Mental Model page."
+  },
+  "Web-Desktop-Workbench": {
+    "to": "Operations",
+    "why": "The Workbench is still there, but it gets fixes only, and its blackboard and candidate panels went in 0.3.1; how to start it is in the Operations page."
+  }
+}

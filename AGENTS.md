@@ -811,9 +811,14 @@ package.json — same convention as the VERIFY step above):
    `npm-publish` and confirms `npm view`. A re-run after any failure
    RESUMES (an already-cut tag goes straight to the CI wait).
 3. **Wiki publish**: after a release, publish the wiki by hand. Clone the
-   wiki repo (`cool-workflow.wiki.git`). Copy the pages from
-   `plugins/cool-workflow/project/docs/wiki/` over their live twins.
-   Commit, naming the release commit the pages match. Push.
+   wiki repo (`cool-workflow.wiki.git`). From `plugins/cool-workflow/`,
+   run `node scripts/wiki-sync.mjs --to <wiki checkout>`: it copies every
+   page of `project/docs/wiki/` and writes a short pointer page for each
+   old page name in `project/docs/wiki/redirects.json`, so old links keep
+   working, and prints each file it changed. It runs no git. Look at
+   `git status` in the wiki checkout, commit, naming the release commit
+   the pages match, and push. A wiki page that is no longer true becomes
+   a redirect entry, not a deleted page.
 
 Hard rules the tooling enforces (do not work around them by hand):
 
