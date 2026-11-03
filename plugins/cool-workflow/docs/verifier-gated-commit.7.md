@@ -181,16 +181,20 @@ check each pinned receipt again (its digest and id, and exit 0) and
 fail with `receipt-tampered:<id>` or `receipt-failed:<id>` in
 `failedChecks`; a bundle with no receipt gives the same output as before.
 
-Where a new user finds it (new in 0.4.0; both change existing default
-output, with the operator's named yes of 2026-11-03 in
+Where a new user finds it (new in 0.4.0): `cw doctor --onramp` has one
+more quick-start line, a change to existing default output made with the
+operator's named yes of 2026-11-03 in
 `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
-for 0.4.0"):
+for 0.4.0":
 
-- `cw help`, the front page, has one more command row:
-  `check -- <command>                        Run your tests, keep a receipt`.
-  The v2 fixture `cli-help/_root.txt` pins it.
-- `cw doctor --onramp` has one more quick-start line:
-  `cw check -- npm test   — keep a receipt that your tests passed; a result can cite it (no agent needed)`.
+```text
+cw check -- npm test   — keep a receipt that your tests passed; a result can cite it (no agent needed)
+```
+
+`cw help check` gives its words. `cw help` (the front page and the "More
+commands" list) and `cw completion` are not changed: their bytes are the
+same as in 0.3.3, so the front page keeps its five entries
+(unix-principles(7)).
 
 ## FILES
 

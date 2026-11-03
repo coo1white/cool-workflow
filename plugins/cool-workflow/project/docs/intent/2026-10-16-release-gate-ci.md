@@ -684,3 +684,17 @@ default changes): a piped run echoed the command's output on stderr
 read were hashed as a fixed word, so two unreadable trees matched (now
 the code state is unknown and a receipt tied to it is refused,
 `receipt-stale`, fail closed).
+
+### Third review of 0.4.0: the help row taken back (2026-11-03)
+
+The cut was rejected a third time. The `check` row on the `cw help`
+front page made six entries where unix-principles(7) allows five, and
+`check` had also gone into the "More commands" list and so into `cw
+completion`, which no yes named. Item 4 of the answer above is therefore
+NOT used: `cw help` and `cw completion` give the same bytes as 0.3.3
+(the v2 fixture `cli-help/_root.txt` is back to its 0.3.3 text). A new
+user finds `cw check` by item 5 (`cw doctor --onramp`), the README, and
+`cw help check`. Taking a change back to the released bytes needs no new
+yes. The same review found that no test held the `readCodeState` fix
+(unreadable changes give `treeDigest: null`); a unit test with a git
+runner and a file reader passed in now does.
