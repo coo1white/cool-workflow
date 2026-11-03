@@ -135,6 +135,24 @@ function gate(workflowsDir, repoRoot) {
     if (!/CW_AGENT_COMMAND:.*test\/fixtures\/release-rehearsal-reviewer\.mjs \{\{input\}\}/.test(rehearsal)) {
       faults.push(`ci.yml: ${REHEARSAL_JOB} reviewer is not the committed stub`);
     }
+    // 8f. The changed-files filter must match the real release tooling: a
+    //     rename (.js to .mjs, 2026-10-17) once left it matching nothing, so
+    //     the rehearsal stopped running on release-tooling changes.
+    const filter = (rehearsal.match(/grep -qE '([^']+)'/) || [])[1];
+    if (!filter) {
+      faults.push(`ci.yml: ${REHEARSAL_JOB} changed-files filter not found`);
+    } else {
+      const re = new RegExp(filter);
+      const plugin = path.join(REPO_ROOT, "plugins", "cool-workflow");
+      const tooling = [
+        ...fs.readdirSync(path.join(plugin, "scripts")).filter((f) => /^(release-|verify-|dogfood-release\.|bump-version\.)/.test(f)).map((f) => `scripts/${f}`),
+        "test/run-all.mjs",
+        "test/fixtures/release-rehearsal-reviewer.mjs",
+      ];
+      for (const rel of tooling) {
+        if (!re.test(`plugins/cool-workflow/${rel}`)) faults.push(`ci.yml: ${REHEARSAL_JOB} filter does not match release tooling ${rel}`);
+      }
+    }
     if (/CW_RELEASE_VERDICT_PRIVKEY|--push|npm publish|secrets\./.test(rehearsal)) {
       faults.push(`ci.yml: ${REHEARSAL_JOB} must hold no signing key and never push or publish`);
     }
@@ -268,6 +286,12 @@ withFault((dir) => {
   const p = path.join(dir, "ci.yml");
   fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace("- run: node scripts/release-flow.mjs --check --local-tests", "- run: node scripts/release-flow.mjs --check"));
 }, "must run release-flow.mjs --check --local-tests");
+
+// 8f. the changed-files filter back on the old .js names
+withFault((dir) => {
+  const p = path.join(dir, "ci.yml");
+  fs.writeFileSync(p, fs.readFileSync(p, "utf8").replace("bump-version)\\.mjs", "bump-version)\\.js"));
+}, "filter does not match release tooling scripts/release-flow.mjs");
 
 // 9. a required release check whose Node leg was dropped from the matrix
 withFault((dir) => {
