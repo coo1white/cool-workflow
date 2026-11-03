@@ -1,0 +1,2 @@
+APPROVED e3ac6022d7431f17b91175cc5bb604e9feb2c858
+A user can run `cw check -- npm test` to keep a done receipt of that command, and CW turns down any result that cites a failed, stale, missing, or tampered receipt.

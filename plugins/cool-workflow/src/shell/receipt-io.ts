@@ -29,9 +29,19 @@ function git(repo: string, args: string[]): string | undefined {
   }
 }
 
+/** What readCodeState reads with; a test passes its own to make a read fail. */
+export interface CodeStateIo {
+  git(repo: string, args: string[]): string | undefined;
+  fileDigest(file: string): string | undefined;
+}
+
+const REAL_IO: CodeStateIo = { git, fileDigest: untrackedBytesDigest };
+
 /** HEAD plus a digest of every uncommitted change under the repo folder
- *  (tracked diff + untracked, not ignored, files), leaving out .cw/. */
-export function readCodeState(repo: string): CodeState & { dirty: boolean } {
+ *  (tracked diff + untracked, not ignored, files), leaving out .cw/.
+ *  A read that fails gives treeDigest null (unknown), never a made-up digest. */
+export function readCodeState(repo: string, io: CodeStateIo = REAL_IO): CodeState & { dirty: boolean } {
+  const git = io.git;
   const head = git(repo, ["rev-parse", "--verify", "-q", "HEAD"])?.trim();
   if (!head) return { gitHead: null, treeDigest: null, dirty: false };
   const status = git(repo, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--", ".", EXCLUDE_CW]);
@@ -39,7 +49,9 @@ export function readCodeState(repo: string): CodeState & { dirty: boolean } {
   const hash = createHash("sha256");
   const parts = status.split("\0").filter(Boolean);
   if (parts.length) {
-    hash.update(git(repo, ["diff", "HEAD", "--binary", "--no-ext-diff", "--no-color", "--", ".", EXCLUDE_CW]) ?? "diff-unreadable");
+    const diff = git(repo, ["diff", "HEAD", "--binary", "--no-ext-diff", "--no-color", "--", ".", EXCLUDE_CW]);
+    if (diff === undefined) return { gitHead: head, treeDigest: null, dirty: true };
+    hash.update(diff);
     const prefix = git(repo, ["rev-parse", "--show-prefix"])?.trim() || "";
     for (let i = 0; i < parts.length; i += 1) {
       const entry = parts[i];
@@ -47,19 +59,21 @@ export function readCodeState(repo: string): CodeState & { dirty: boolean } {
       if (!entry.startsWith("?? ")) continue;
       const rel = entry.slice(3);
       const file = path.join(repo, path.relative(prefix, rel));
-      hash.update(`\0${rel}\0${untrackedBytesDigest(file)}`);
+      const digest = io.fileDigest(file);
+      if (digest === undefined) return { gitHead: head, treeDigest: null, dirty: true };
+      hash.update(`\0${rel}\0${digest}`);
     }
   }
   return { gitHead: head, treeDigest: `sha256:${hash.digest("hex")}`, dirty: parts.length > 0 };
 }
 
-function untrackedBytesDigest(file: string): string {
+function untrackedBytesDigest(file: string): string | undefined {
   try {
     const stat = fs.lstatSync(file);
     const bytes = stat.isSymbolicLink() ? fs.readlinkSync(file) : fs.readFileSync(file);
     return createHash("sha256").update(bytes).digest("hex");
   } catch {
-    return "unreadable";
+    return undefined;
   }
 }
 

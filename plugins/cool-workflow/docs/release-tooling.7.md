@@ -127,6 +127,98 @@ ceiling in `manifest/growth-budget.json` with the freshly measured number
 written into the commit message, not only the new cap. Teeth live in
 `test/growth-budget-check-smoke.mjs`.
 
+## pola:check
+
+```text
+npm run pola:check
+npm run pola:check -- --json
+```
+
+This is the `POLA pins` step in `release:check`, so CI runs it on every PR.
+It holds POLA item 1 (AGENTS.md) to the files that pin output bytes. The base
+is the reviewed commit of the last release: the newest `vX.Y.Z` tag by
+version order, then its first parent (`<tag>^1`), as a tag is a one-hop
+verdict leaf. With no tag, or a shallow clone without that commit, it
+refuses (exit 1); CI checks out with `fetch-depth: 0`.
+
+A pin is a file under `v2/conformance/` (case files and their byte-exact
+fixtures) or under `test/fixtures/runs/` (old run state that must still
+load), changed or deleted since the base. An added file is new surface and
+is free. For every changed pin, two things must hold:
+
+- the version in `package.json` is higher than the base tag's version;
+- a section of an intent file under `project/docs/intent/`, with a heading
+  that has `Operator decisions for <version>`, names the pin (its path, or a
+  path end that names no other pin, such as `cli-help/_root.txt`) and names
+  the `docs/*.7.md` that says the new text.
+
+A changed pin that is captured text (a `fixtures/` file such as
+`cli-help/_root.txt` or `cli-completion/bash.txt`, or run state) is also held
+line by line: every line the change adds or changes (trimmed, blank lines
+left out) must be in the `Operator decisions for <version>` sections, word
+for word. The sections for one version are read as one text. So the
+question put to the operator quotes the new line, and the record keeps
+the question. A case `.mjs` is held by its path only: its changed lines are
+asserts, and the new text is in the man page the record names.
+
+When all hold it says nothing and exits 0. Otherwise it puts one line per
+fault on stderr, saying what to do, and exits 1. `--json` gives the base,
+the version, every changed pin with the record that names it (and, for
+text pins, how many changed lines it read), and the faults, on stdout. The
+check reads names and quoted lines, not meaning: the reviewer still reads
+the operator's answer. Teeth live in `test/pola-check-smoke.mjs`.
+
+Pins that make this bite on output people see: `cli-help/*.txt` holds
+`cw help` and each command's help page, and `cli-completion/<shell>.txt`
+holds `cw completion bash|zsh|fish` byte for byte
+(`v2/conformance/cases/cli-completion-bytes.case.mjs`). The `cw help` front
+page is held by a unit test too: `test/core/format/help-front-page-cap.test.mjs`
+fails when the rows under "Cool Workflow" are more than five
+(unix-principles rule 7).
+
+## fails-before:check
+
+```text
+npm run fails-before:check
+npm run fails-before:check -- --base origin/main --json
+```
+
+A fix needs a test that fails before it. This holds that rule. The base is
+the merge base of `HEAD` and `--base` (default `origin/main`); the diff runs
+from there to the working tree. When no file under `src/` changed, it says
+nothing and exits 0. When `src/` changed:
+
+- the diff must add or change at least one test file (`test/**/*.test.mjs`
+  or `test/*-smoke.mjs`);
+- in a temp `git worktree` at the base, every added or changed file under
+  `test/` is copied in, and each changed test file is run with `node` against
+  the base's committed `dist/` (no build), in its own scratch `HOME`,
+  `CW_HOME` and `TMPDIR`; at least one must fail there.
+
+The temp worktree is taken away after. A base that is not in the clone, or
+no merge base (a shallow clone), is a refusal, exit 1. Faults go to stderr,
+exit 1; `--json` gives the base, the changed `src/` files, each test with
+whether it failed at the base and its first error line, and the faults. Any
+non-zero exit at the base counts as a fail, so the reviewer still reads the
+test. CI runs it on every pull request in the `fails-before` job (not a
+required check). Teeth live in `test/fails-before-check-smoke.mjs`.
+
+## Before you hand a cut to the operator
+
+Run the cut's own gate and review first, with a reviewer set
+(`CW_AGENT_COMMAND`, see the presets below):
+
+```text
+node scripts/release-flow.mjs --check --version X.Y.Z
+```
+
+It runs the gate and the independent review; it makes no commit, no push
+and no tag (the reviewer's verdict file is left in `.cw-release/`, not committed; a
+later cut takes it away before its own review). Put right every finding it gives before you ask the operator to run
+`npm run release -- X.Y.Z`; a fault found there costs a full cut. A
+changed output with no record is found earlier still: `pola:check` runs in
+PR CI, and so does `fails-before:check`.
+
 ## PR CI Merge Notes
 
 When a PR is ready, list open PRs by creation time and merge the oldest ready
@@ -355,7 +447,7 @@ version is by default the one in `plugins/cool-workflow/package.json`.
 | Check | Fails when | Fix it gives |
 |---|---|---|
 | `head-current` | after `git fetch origin main`, HEAD is not the `origin/main` tip (names both shas and the current branch) | `git checkout main && git pull --ff-only origin main` |
-| `cut-branch` | a local `release/vX.Y.Z-cut` branch is not at `origin/main` (old code from an earlier cut) | `git branch -D release/vX.Y.Z-cut` (never deleted for you) |
+| `cut-branch` | a local `release/vX.Y.Z-cut` branch is not at `origin/main` (old code from an earlier cut), and it does not pass the "made by the tool" test below (or `--offline` cannot check origin for the tag); a warning when it does pass, since `npm run release -- X.Y.Z` removes it at the start | `git branch -D release/vX.Y.Z-cut` (the doctor never deletes it) |
 | `clean-tree` | `git status --porcelain -uno` is not empty | commit or stash |
 | `cw-dir` | (warning) a `.cw/` folder is at the repo root | `rm -rf <repo>/.cw` |
 | `reviewer` | the reviewer config `release-flow.mjs` reads (`CW_AGENT_COMMAND` > `agent-config.json` > auto-detect; else `CW_AGENT_ENDPOINT`) is not set, or its first argv token is not an executable file (a full path, or on `PATH`); the reviewer is never run | `export CW_AGENT_COMMAND=...` |
@@ -378,8 +470,56 @@ stops before anything is done when one fails, with only the problem lines on
 stderr. Two differences there: a `vX.Y.Z` tag that is already there is never
 seen by stage 0 (the resume goes straight to stage 3), and an old
 `release/vX.Y.Z-cut` branch is only a warning, because the cut stage makes
-it again from `origin/main` (`git checkout -B`). `--dry-run` keeps stage 0
-offline.
+it again from `origin/main` (`git checkout -B`) — but a failure when it holds
+a commit the tool did not make, since that reset would throw the commit
+away. `--dry-run` keeps stage 0 offline.
+
+### The leftover cut branch is cleaned up
+
+The cut stage of `npm run release -- X.Y.Z` works on a local branch,
+`release/vX.Y.Z-cut`. A cut that stops before its tag is made (the reviewer
+said no, a required CI check went red, the gate failed) used to leave that
+branch behind, and the next `release:doctor` failed on it until the operator
+deleted it by hand. Now the tool removes its own leftover, at two points:
+
+- When the cut stops before its tag is made, it switches back to the branch
+  (or detached commit) the run was started from, then removes the branch.
+- At the start of a fresh cut (before stage 0), it removes one that an
+  earlier cut left (a Ctrl-C, or a run from before this change). `--dry-run`
+  never removes anything.
+
+The branch is removed only when ALL of these hold; anything that cannot be
+proved keeps it (fail closed — work of the operator is never deleted):
+
+- its name is exactly `release/vX.Y.Z-cut`, and it is not checked out;
+- no `vX.Y.Z` tag exists, locally or on origin (a failed `ls-remote` keeps
+  it; a cut whose tag was made keeps its branch, and the re-run resumes it);
+- every commit on it that is not on `origin/main` was made by the cut: none,
+  or the ONE verdict commit (`chore(release): record APPROVED reviewer
+  verdict for vX.Y.Z`, one parent, adding only
+  `.cw-release/review-<parent>.verdict` and its `.sig`);
+- after a stop: its tip is the commit this run branched from, or this run's
+  verdict commit on it, and no tracked file is changed in the working tree.
+
+The delete is `git update-ref -d` pinned to the sha that was checked, plus the
+branch's `branch.<name>` config. It never deletes or moves a tag, never
+touches a remote branch, never touches `main`. One stderr line says what was
+done:
+
+```text
+release-oneclick: removed release/vX.Y.Z-cut (<sha>), made by this run: the cut stopped before tag vX.Y.Z was made, <reason>; back on <branch>.
+release-oneclick: removed leftover branch release/vX.Y.Z-cut (<sha>) from an earlier cut that stopped: <reason>.
+release-oneclick: kept release/vX.Y.Z-cut: <reason> (`npm run release:doctor -- X.Y.Z` says what to do with it).
+```
+
+The same test (`classifyCutBranch` in `scripts/release-preflight.mjs`) decides
+the doctor's `cut-branch` status: a warning for a branch the release run will
+remove, a failure for every other one. The doctor itself changes nothing.
+
+This cleanup, its stderr lines and the doctor's new `cut-branch` texts are
+new in 0.4.1, with the operator's named yes of 2026-11-03:
+`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
+for 0.4.1".
 
 After the review, and before it bumps or stages anything, the cut checks the
 tracked tree again. The preflight made sure it was clean, so a change now came

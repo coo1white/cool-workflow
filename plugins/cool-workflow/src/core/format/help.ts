@@ -224,7 +224,6 @@ export function formatHelp(): string {
     '  -q "question" --link <url>                 Review a remote repo by URL',
     "  version                                   Show version",
     "  doctor                                    Check setup",
-    "  check -- <command>                        Run your tests, keep a receipt",
     "  fix                                       Show fix commands for setup issues",
     "",
     "Flags",

@@ -96,6 +96,16 @@ function body(over = {}) {
   const edited = judgeReceipt(ok.id, ok, { gitHead: HEAD, treeDigest: `sha256:${"d".repeat(64)}` });
   assert.equal(edited.code, "receipt-stale", "uncommitted edits make it stale too");
   assert.match(edited.reason, /files changed since/);
+
+  // Fail closed when the uncommitted changes could not be read, then or now:
+  // two unreadable trees must never count as the same code.
+  const blind = sealReceipt(body({ treeDigest: null }));
+  const thenUnread = judgeReceipt(blind.id, blind, { gitHead: HEAD, treeDigest: null });
+  assert.equal(thenUnread.code, "receipt-stale", "a receipt made with unreadable changes is never current, even against an unreadable now");
+  assert.match(thenUnread.reason, /could not read the uncommitted changes when it was made/);
+  const nowUnread = judgeReceipt(ok.id, ok, { gitHead: HEAD, treeDigest: null });
+  assert.equal(nowUnread.code, "receipt-stale", "unreadable changes now: the receipt cannot be tied to the code");
+  assert.match(nowUnread.reason, /could not read the uncommitted changes now/);
 }
 
 // Signature: signed when a key is given; with a public key set, an unsigned

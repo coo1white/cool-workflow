@@ -12,7 +12,7 @@ import { formatHelp } from "../../../dist/core/format/help.js";
 // Exact full-text golden value, sourced from SPEC/cli-surface.md's own
 // "formatHelp() (stdout)" block (line-for-line, including the wrapped
 // "More commands" block from the SPEC's own token list), plus the rows
-// added after that capture (--json, --quiet, --resume, -opencode, -muse; the check row and token, 2026-11-03).
+// added after that capture (--json, --quiet, --resume, -opencode, -muse; the check token, 2026-11-03).
 {
   const expected = [
     "Cool Workflow",
@@ -21,7 +21,6 @@ import { formatHelp } from "../../../dist/core/format/help.js";
     '  -q "question" --link <url>                 Review a remote repo by URL',
     "  version                                   Show version",
     "  doctor                                    Check setup",
-    "  check -- <command>                        Run your tests, keep a receipt",
     "  fix                                       Show fix commands for setup issues",
     "",
     "Flags",

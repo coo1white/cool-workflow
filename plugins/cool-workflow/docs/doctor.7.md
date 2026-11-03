@@ -122,7 +122,9 @@ In a CW checkout, the checks it names are the `.mjs` test and script paths
 (for example `test/doctor-smoke.mjs` and `scripts/onramp-check.mjs`). Up to
 0.3.1 they ended in `.js` (changed in 0.3.2 with the operator's dated yes:
 `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions for
-0.3.2 (2026-10-17)").
+0.3.2 (2026-10-17)"). Since 0.4.0 the guide also names `cw check -- npm
+test`, the done receipt (see verifier-gated-commit(7), DONE RECEIPTS), with
+the operator's dated yes in the same file, "Operator decisions for 0.4.0".
 
 `--conformance` (new in 0.3.3)
 : Run the configured agent one time on a small fixed task, and check that it

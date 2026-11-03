@@ -13,6 +13,10 @@
 // network steps, and `offline: true` skips them). No check runs the test
 // suite, the reviewer, or a model.
 //
+// One helper here changes something: removeCutBranch() deletes a leftover
+// local release/vX.Y.Z-cut branch that classifyCutBranch() proved the tool
+// made. Only release-oneclick.mjs calls it; the checks never do.
+//
 // A check returns a finding:
 //   { id, status: "ok" | "warn" | "fail" | "info", message, fix?, detail? }
 // `fix` is the exact command (or env line) that clears it; `detail` is extra
@@ -219,9 +223,97 @@ function checkHeadCurrent(ctx) {
 }
 
 // A leftover local release/vX.Y.Z-cut branch from an earlier, failed cut.
-// The cut stage itself always rebuilds it from origin/main (git checkout -B),
-// so for the cut it is only a warning; the doctor reports it as a failure so
-// the operator never mistakes it for current code.
+// classifyCutBranch() is the ONE test of whether the release tool may delete
+// it on its own (release-oneclick.mjs does, at the start of a cut and when a
+// cut stops before its tag is made; the doctor only reports). It is
+// removable only when ALL hold, and anything it cannot prove keeps it
+// (fail closed — operator work is never deleted):
+//   - it is not the checked-out branch (allowCurrent: the caller switches
+//     away first, then deletes with the sha pinned);
+//   - no vX.Y.Z tag exists, locally or on origin (a failed or offline
+//     ls-remote keeps it; with no origin remote there can be no remote tag);
+//   - every commit on it that is not on origin/main was made by the cut:
+//     none at all, or ONE verdict commit (subject "chore(release): record
+//     APPROVED reviewer verdict for vX.Y.Z", one parent, adding only
+//     .cw-release/review-<parent>.verdict and its .sig);
+//   - with expectBase (the sha this run branched from): the tip is that sha,
+//     or the verdict commit right on top of it.
+// Returns { branch, exists, sha?, removable, kind?, reason }. kind "foreign"
+// means it holds commits the tool did not make.
+function cutVerdictSubject(version) {
+  return `chore(release): record APPROVED reviewer verdict for v${version}`;
+}
+
+function isToolVerdictCommit(ctx, sha, version) {
+  const info = ctx.git(["log", "-1", "--format=%P%x1f%s", sha]);
+  if (info.code !== 0) return false;
+  const [parents, subject] = info.out.split("\x1f");
+  const parentList = (parents || "").split(" ").filter(Boolean);
+  if (parentList.length !== 1 || subject !== cutVerdictSubject(version)) return false;
+  const verdict = `.cw-release/review-${parentList[0]}.verdict`;
+  const files = ctx.git(["diff-tree", "--no-commit-id", "--name-status", "-r", sha]);
+  if (files.code !== 0) return false;
+  const lines = files.out.split("\n").filter(Boolean);
+  if (!lines.includes(`A\t${verdict}`)) return false;
+  return lines.every((l) => l === `A\t${verdict}` || l === `A\t${verdict}.sig`);
+}
+
+function classifyCutBranch(ctx, version, { expectBase, allowCurrent = false } = {}) {
+  const branch = `release/v${version}-cut`;
+  const r = ctx.git(["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]);
+  if (r.code !== 0 || !r.out) return { branch, exists: false, removable: false, reason: "no such branch" };
+  const sha = r.out;
+  const keep = (reason, kind) => ({ branch, exists: true, sha, removable: false, reason, ...(kind ? { kind } : {}) });
+  if (!allowCurrent && ctx.git(["branch", "--show-current"]).out === branch) return keep("it is the branch checked out now");
+  if (ctx.git(["tag", "-l", `v${version}`]).out) return keep(`tag v${version} exists locally (a cut may be mid-flight)`);
+  if (hasOrigin(ctx)) {
+    if (ctx.offline) return keep(`offline, so origin was not checked for tag v${version}`);
+    const remote = ctx.git(["ls-remote", "origin", `refs/tags/v${version}`]);
+    if (remote.code !== 0) return keep(`could not check origin for tag v${version} (git ls-remote failed)`);
+    if (remote.out) return keep(`tag v${version} exists on origin`);
+  }
+  const tip = ctx.git(["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"]);
+  if (tip.code !== 0 || !tip.out) return keep("there is no origin/main ref to compare it with");
+  const beyond = ctx.git(["rev-list", `refs/heads/${branch}`, "--not", "refs/remotes/origin/main"]);
+  if (beyond.code !== 0) return keep("git rev-list failed on it");
+  const extra = beyond.out.split("\n").filter(Boolean);
+  const toolMade = extra.length === 0 || (extra.length === 1 && extra[0] === sha && isToolVerdictCommit(ctx, sha, version));
+  if (!toolMade) {
+    return keep(`it holds ${extra.length} commit(s) not on origin/main that the release tool did not make`, "foreign");
+  }
+  if (expectBase) {
+    const parent = ctx.git(["rev-parse", "--verify", "--quiet", `${sha}~1`]).out;
+    if (sha !== expectBase && !(extra.length === 1 && parent === expectBase)) {
+      return keep(`its tip is neither ${expectBase.slice(0, 12)} (where this run made it) nor this run's verdict commit on it`, "foreign");
+    }
+  }
+  return {
+    branch,
+    exists: true,
+    sha,
+    removable: true,
+    reason: extra.length === 0
+      ? `no tag v${version}, and it holds no commit that is not on origin/main`
+      : `no tag v${version}, and its one commit not on origin/main is the cut's own verdict commit`
+  };
+}
+
+// Delete the branch ONLY if it still points at the sha that was classified
+// (update-ref's old-value check), then drop its branch.<name>.* config (the
+// upstream `git checkout -B ... origin/main` set). Never a tag, never a
+// remote ref. Returns { ok, err }.
+function removeCutBranch(ctx, cls) {
+  const del = ctx.git(["update-ref", "-d", `refs/heads/${cls.branch}`, cls.sha]);
+  if (del.code !== 0) return { ok: false, err: del.err || "git update-ref -d failed" };
+  ctx.git(["config", "--remove-section", `branch.${cls.branch}`]);
+  return { ok: true };
+}
+
+// For the cut it is a warning when the tool may remove it (the start of
+// `npm run release` does, before stage 0) and a failure when it holds commits
+// the tool did not make (the cut stage's `git checkout -B` would reset them).
+// The doctor never deletes: it warns for a branch the release run will
+// remove, and fails for every other one.
 function checkCutBranch(ctx, version, { mode = "doctor" } = {}) {
   const branch = `release/v${version}-cut`;
   const r = ctx.git(["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]);
@@ -230,10 +322,21 @@ function checkCutBranch(ctx, version, { mode = "doctor" } = {}) {
   if (tip && r.out === tip) return finding("cut-branch", "ok", `${branch} exists and points at origin/main`);
   const onIt = ctx.git(["branch", "--show-current"]).out === branch;
   const fix = `${onIt ? "git checkout main && " : ""}git branch -D ${branch}`;
+  const cls = classifyCutBranch(ctx, version);
   if (mode === "cut") {
+    if (cls.kind === "foreign") {
+      return finding("cut-branch", "fail", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — ${cls.reason}; the cut stage would reset it from origin/main`, {
+        fix: `git log origin/main..${branch}   (keep what you need elsewhere, then: ${fix})`
+      });
+    }
     return finding("cut-branch", "warn", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — the cut stage rebuilds it from origin/main`, { fix });
   }
-  return finding("cut-branch", "fail", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — it holds old code`, { fix });
+  if (cls.removable) {
+    return finding("cut-branch", "warn", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — made by the release tool (${cls.reason}); \`npm run release -- ${version}\` removes it at the start`, {
+      fix: `${fix}   (or let \`npm run release -- ${version}\` remove it)`
+    });
+  }
+  return finding("cut-branch", "fail", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — it holds old code; not removed for you: ${cls.reason}`, { fix });
 }
 
 // ---- reviewer ----------------------------------------------------------------
@@ -422,6 +525,8 @@ export {
   fetchMain,
   checkHeadCurrent,
   checkCutBranch,
+  classifyCutBranch,
+  removeCutBranch,
   checkReviewer,
   checkGitIdentity,
   checkGh,
