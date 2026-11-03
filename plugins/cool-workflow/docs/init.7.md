@@ -40,6 +40,15 @@ Run from that same folder, `cw plan <app-id>` finds the new app, and
 that is also a bundled app's id is refused by the list ("Duplicate workflow
 app id ..."), never shown twice.
 
+To list the apps in `./apps`, CW reads each `app.json` alone and never runs
+its `workflow.js`, so in `cw app list --json` their `phases` and `taskCount`
+are `null`; `cw app show <app-id>` (or `cw plan <app-id>`) loads the app and
+runs its code. An `app.json` there that is not a CW manifest (no
+`"schemaVersion": 1`, such as an Expo `apps/mobile/app.json`) is skipped; a
+CW manifest that is not valid is still refused. The operator's choice:
+`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions for
+0.3.3, fourth set".
+
 If `app.json` or `workflow.js` is already in that folder, the command
 refuses to overwrite it unless you pass `--force`. A system folder (such as
 `/usr` or `/etc`) is always refused.

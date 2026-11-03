@@ -22,11 +22,7 @@
 // also carries `timedOutMs` (new in 0.3.3), and the stop reaches the job's
 // whole process group (see killJob below).
 //
-// New in 0.3.3 (all additive; the parent ignores keys it does not read):
-// every line carries `startedAt`, `endedAt` and `lastOutputAt` (epoch ms;
-// lastOutputAt is the last stdout OR stderr byte, or startedAt when the job
-// wrote nothing), so "it ran 10 minutes" can be told apart from "it went
-// silent after 20 seconds". A job given `idleTimeoutMs` > 0 (opt-in; the
+// New in 0.3.3: a job given `idleTimeoutMs` > 0 (opt-in; the
 // parent sets it only from CW_AGENT_IDLE_TIMEOUT_MS) is stopped the same way
 // as at its time limit once it has written nothing for that long, and its
 // line carries `idleTimedOutMs` in place of `timedOutMs`.
@@ -202,13 +198,13 @@ process.stdin.on("end", () => {
       if (settled) return;
       settled = true;
       noteAlive(i, { done: true });
-      let line = JSON.stringify({ i, ...o, startedAt, endedAt: Date.now(), lastOutputAt }) + "\n";
+      let line = JSON.stringify({ i, ...o }) + "\n";
       const lineBytes = Buffer.byteLength(line);
       if (lineBytes > LINE_CAP) {
         // Same fail-closed shape as the raw-cap path in the close handler
         // below: capped output is never evidence, so drop it entirely and
         // name the cap — never ship a line the parent's buffer cannot hold.
-        line = JSON.stringify({ i, spawnError: `serialized stdout line exceeded ${LINE_CAP} byte cap (${lineBytes} bytes)`, exitCode: null, stdout: "", startedAt, endedAt: Date.now(), lastOutputAt }) + "\n";
+        line = JSON.stringify({ i, spawnError: `serialized stdout line exceeded ${LINE_CAP} byte cap (${lineBytes} bytes)`, exitCode: null, stdout: "" }) + "\n";
       }
       process.stdout.write(line);
     };

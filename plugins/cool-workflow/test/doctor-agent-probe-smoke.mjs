@@ -6,7 +6,7 @@
 //   (a) a broken install (exit 1, its own fix hint) -> fail, hint shown, not ready
 //   (b) a working CLI -> ok line with its first output line
 //   (c) a CLI that hangs -> fail as a timeout, doctor comes back fast
-//   (d) a custom CW_AGENT_COMMAND -> "not probed", and it is never run
+//   (d) a custom CW_AGENT_COMMAND -> no agent-runs row (as in 0.3.2), and it is never run
 //   (e) the other checks are the same whatever the probe says
 //
 // Included in `npm test`.
@@ -112,12 +112,15 @@ const cProbe = probeOf(JSON.parse(c.stdout));
 assert.equal(cProbe.status, "fail");
 assert.equal(cProbe.detail, "claude --version timed out after 0.5s.");
 
-// (d) custom command: "not probed" (a warn, never a silent pass), never run.
+// (d) custom command or a CLI-less builtin: no agent-runs row, so the output
+//     is what 0.3.2 printed (operator, 2026-11-03), and the command never runs.
 const dText = doctor([], custom, { CW_AGENT_COMMAND: "grok-review {{input}}" });
 assert.equal(dText.code, 0);
-assert.match(dText.stdout, /\n  ! agent-runs: not probed: custom command — doctor runs only a known vendor CLI with --version, never a custom command\.\n/);
+assert.doesNotMatch(dText.stdout, /agent-runs/);
 const dJson = JSON.parse(doctor(["--json"], custom, { CW_AGENT_COMMAND: "grok-review {{input}}" }).stdout);
-assert.equal(probeOf(dJson).status, "warn");
+assert.equal(probeOf(dJson), undefined, "no agent-runs row for a custom command");
+const deepseek = JSON.parse(doctor(["--json"], custom, { CW_AGENT_COMMAND: "builtin:deepseek" }).stdout);
+assert.equal(probeOf(deepseek), undefined, "nor for a builtin with no vendor CLI");
 assert.ok(!fs.existsSync(path.join(marks, "custom-ran")), "doctor must never run a custom agent command");
 
 // (e) the other checks do not move with the probe result; no agent => no probe.
@@ -126,4 +129,4 @@ const none = JSON.parse(doctor(["--json"], working, {}).stdout);
 assert.equal(probeOf(none), undefined, "no agent configured: no agent-runs check");
 
 fs.rmSync(base, { recursive: true, force: true });
-process.stdout.write("doctor-agent-probe-smoke: ok (broken fails closed with its hint; working passes; timeout fails fast; custom not probed nor run; other checks unchanged)\n");
+process.stdout.write("doctor-agent-probe-smoke: ok (broken fails closed with its hint; working passes; timeout fails fast; custom gets no row and is never run; other checks unchanged)\n");

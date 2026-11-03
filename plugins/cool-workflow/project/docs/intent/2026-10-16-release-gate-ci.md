@@ -356,6 +356,30 @@ word:
 and `docs/agent-delegation-drive.7.md` (the quiet-note paragraph) say the
 new defaults; the version raise is 0.3.2 -> 0.3.3.
 
+### Operator decisions for 0.3.3, fourth set (2026-11-03)
+
+After four release-review rejections, an independent review swept the
+whole `v0.3.2..` range against `agents/release-reviewer.md` and found a
+bug and two more changed defaults with no yes that named them. Each was
+put to the operator; the questions and answers, word for word:
+
+- "① cw app list 读 ./apps 的副作用。审核发现两个问题：(1) 只要当前目录 apps/ 里有一个不是 CW 的 app.json（比如 Expo 项目常见的 apps/mobile/app.json），`cw app list`、`cw list`、`cw app show` 就会报错退出（0.3.2 是正常的），`cw quickstart --check` 还会误报 app 不可用。这个是 bug，我会直接修：跳过不是 CW 格式的 app.json，CW 格式但写错的仍然报错。(2) 列出 app 时会执行 ./apps/*/workflow.js 里的代码（0.3.2 只在你明确运行某个 app 时才执行）。第 (2) 点怎么处理？" Answer (2026-11-03): "列出时不执行代码". So (1) is fixed and
+  (2) is taken back: listing `./apps` reads each `app.json` alone (a
+  non-CW one is skipped; `phases` and `taskCount` are `null` in `cw app
+  list --json` for those apps), and only `cw app show <id>` / `cw plan
+  <id>` runs an app's code, as in 0.3.2. `docs/init.7.md` says so.
+- "② cw doctor：设了自定义 CW_AGENT_COMMAND（比如你的 grok-review 脚本）或用 builtin:deepseek 时，0.3.2 的结论是 `ready — all checks passed`；0.3.3 不运行它，却多了一行 `! agent-runs: not probed: custom command …` 加一行 fix:，结论变成 `ready, with 1 warning`（退出码仍是 0）。另外，已知 CLI（claude/codex 等）运行 `--version` 失败时，doctor 退出码从 0 变成 1。怎么处理？" Answer (2026-11-03): "去掉那行警告，退出码变化保留". So a custom
+  command or a CLI-less builtin adds no `agent-runs` row (doctor prints
+  what 0.3.2 printed), and a known CLI that cannot run fails doctor, exit
+  1 (`docs/doctor.7.md`, "agent-runs").
+- "③ NODE_USE_ENV_PROXY：如果你自己设了这个变量，0.3.3 会把它传给 agent 子进程和允许联网的 local/container 任务（0.3.2 不传），名字会进 worker.agent-env 审计事件（不记录值）。之前问你的代理问题里漏了这个变量。怎么处理？" Answer (2026-11-03): "同意传递". So `NODE_USE_ENV_PROXY`, when
+  the user set it, goes with the other proxy vars (`NETWORK_ENV_NAMES`);
+  `docs/sandbox-profiles.7.md` names it.
+
+The same review found `startedAt`, `endedAt` and `lastOutputAt` on each
+batch-child line, which no code read; they were taken out (the drive
+ticker reads its own alive file). The version raise is 0.3.2 -> 0.3.3.
+
 ### `cw doctor` runs the agent one time (agent-runs)
 
 In the operator's 0.3.3 acceptance test, `cw doctor` said all was well

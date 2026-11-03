@@ -230,12 +230,8 @@ limit on, a one-agent (serial) run goes through the batch delegate child too,
 since a blocking spawn cannot see output as it comes; its stderr is then kept
 (the last 8 KB on failure) and not shown live.
 
-**When each agent ran (new in 0.3.3).** Each line the batch delegate child
-writes also carries `startedAt`, `endedAt` and `lastOutputAt`, in epoch ms;
-`lastOutputAt` is the time of the agent's last stdout or stderr byte, or
-`startedAt` when it wrote nothing. A line stopped by the idle limit carries
-`idleTimedOutMs` in place of `timedOutMs`. These keys are additive: no
-output, state or report changes because of them.
+A job the batch delegate child stopped by the idle limit is reported with
+`idleTimedOutMs` in place of `timedOutMs` (new in 0.3.3, an added key).
 
 ## Overlapping phases (`overlapPrevious`)
 
