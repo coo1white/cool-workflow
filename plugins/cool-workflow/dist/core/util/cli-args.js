@@ -49,6 +49,20 @@ export function isRecord(value) {
 export function messageOf(error) {
     return error instanceof Error ? error.message : String(error);
 }
+/** The first `name` (plus each PATHEXT suffix on win32) in the PATH dirs, or
+ *  undefined. The caller hands in the platform and the file test. */
+export function findProgram(name, env, platform, isFile) {
+    const p = platform === "win32" ? path.win32 : path.posix;
+    const exts = platform === "win32" ? (env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
+    for (const dir of (env.PATH || "").split(p.delimiter).filter(Boolean)) {
+        for (const ext of exts) {
+            const candidate = p.join(dir, name + ext);
+            if (isFile(candidate))
+                return candidate;
+        }
+    }
+    return undefined;
+}
 /** Count values by the key each one maps to, in first-seen key order. */
 export function countBy(values, key) {
     const counts = {};

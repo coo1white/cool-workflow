@@ -57,6 +57,20 @@ export function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** The first `name` (plus each PATHEXT suffix on win32) in the PATH dirs, or
+ *  undefined. The caller hands in the platform and the file test. */
+export function findProgram(name: string, env: NodeJS.ProcessEnv, platform: string, isFile: (file: string) => boolean): string | undefined {
+  const p = platform === "win32" ? path.win32 : path.posix;
+  const exts = platform === "win32" ? (env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
+  for (const dir of (env.PATH || "").split(p.delimiter).filter(Boolean)) {
+    for (const ext of exts) {
+      const candidate = p.join(dir, name + ext);
+      if (isFile(candidate)) return candidate;
+    }
+  }
+  return undefined;
+}
+
 /** Count values by the key each one maps to, in first-seen key order. */
 export function countBy<T>(values: T[], key: (value: T) => string): Record<string, number> {
   const counts: Record<string, number> = {};
