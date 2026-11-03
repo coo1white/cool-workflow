@@ -53,7 +53,7 @@ the current code makes this explicit and unconditional.** `recordWorkerOutput`'s
 (`shell/worker-isolation.ts:671`, `:622`); nothing in `worker-isolation.ts`, `dispatch.ts`, or `drive.ts` calls
 the sibling `validateSandboxCommand` (`shell/sandbox-profile.ts:301-323`) or `validateSandboxNetwork`
 (`shell/sandbox-profile.ts:325-347`) — their only callers anywhere in `src/` are inside the manual, opt-in
-`cw audit decision --command|--network` CLI path (`shell/commands/audit-cli.ts:19,288-313`). `attestSandbox`
+`cw audit decision --command|--network` CLI path (`shell/audit-cli.ts:19,288-313`). `attestSandbox`
 (`shell/execution-backend/registry.ts:321-364`) force-downgrades every dimension except `write` to `"attest"`
 whenever called with `mode: "delegate-host"` (shell/execution-backend/registry.ts:335-337) — and `allocateWorkerScope`, which
 `shell/dispatch.ts:88` calls for every worker on the standard path, calls it with exactly that mode
@@ -85,7 +85,7 @@ file.** `saveCheckpoint` and `withRunStateLock` (`shell/run-store.ts:343-348`, `
 (`shell/reclamation-io.ts:793`) — a bare `writeJson(run.paths.state, run, {durable:true})` with **no lock at all**
 (`persistRunDurable` at `shell/reclamation-io.ts:288-291`; `withRunLock` at `:293-295` confirms it locks only the
 reclaim log) — before `freeBulk` (`:836-856`) deletes the freed files unconditionally. `gcRunCli`
-(`shell/commands/registry-cli.ts:260-269`, wired to `cw gc run` and the `gc.run` MCP tool) calls straight through with no
+(`shell/registry-cli.ts:260-269`, wired to `cw gc run` and the `gc.run` MCP tool) calls straight through with no
 lock wrap of its own. Two overlapping writers of `state.json` — a `cw worker output` call and a `cw gc run`
 pass, or two overlapping `gc run` invocations — can land in either order with no error; last writer wins.
 `prepareFree`'s own dangling-reference proof (`shell/reclamation-io.ts:795-816`) checks only the in-memory object it
@@ -251,9 +251,9 @@ second, separate instance of the same drift class in the same module.)*
 
 | Risk | Classification | Evidence | Notes |
 | --- | --- | --- | --- |
-| Command/network/read attested-only on dispatch path | real (P1) | `shell/worker-isolation.ts:622,671,498-504`, `shell/dispatch.ts:88`, `shell/sandbox-profile.ts:293-295,301-323,325-347`, `shell/commands/audit-cli.ts:19,288-313`, `shell/execution-backend/registry.ts:75,87,99,123,135,147,321-364,397-407,461-466`, `shell/execution-backend/local.ts:84-165` | Still open; command-argv enforcement is new since v0.1.42 |
+| Command/network/read attested-only on dispatch path | real (P1) | `shell/worker-isolation.ts:622,671,498-504`, `shell/dispatch.ts:88`, `shell/sandbox-profile.ts:293-295,301-323,325-347`, `shell/audit-cli.ts:19,288-313`, `shell/execution-backend/registry.ts:75,87,99,123,135,147,321-364,397-407,461-466`, `shell/execution-backend/local.ts:84-165` | Still open; command-argv enforcement is new since v0.1.42 |
 | Model provenance self-reported | real (P1) | `shell/execution-backend/agent.ts:203-254,277-303,616-618,673-674`, `shell/worker-isolation.ts:924,933-941` | Unchanged in substance |
-| `state.json` written outside its lock during GC | real (P1) | `shell/reclamation-io.ts:288-291,293-295,734-737,774,793,795-816,924-949,1140-1174,1412-1448`, `shell/commands/registry-cli.ts:260-269`, `shell/run-store.ts:343-348` | Fires on nearly every ordinary `cw gc run` |
+| `state.json` written outside its lock during GC | real (P1) | `shell/reclamation-io.ts:288-291,293-295,734-737,774,793,795-816,924-949,1140-1174,1412-1448`, `shell/registry-cli.ts:260-269`, `shell/run-store.ts:343-348` | Fires on nearly every ordinary `cw gc run` |
 | Eval-replay staleness check is path/id-equality, not content | real (P1) | `shell/eval-io.ts:374-383,385-394,396-406`, `core/multi-agent/eval-replay.ts:380-386` | Untested by existing conformance cases |
 | Review/commit SoD caller-asserted | real (P1-advisory) | `core/multi-agent/collaboration.ts:177,381-386`, `shell/multi-agent-cli.ts:911,919` | Bounded by OS-user trust boundary; surface widened |
 | Corrupted `reclaimed.json` fail-opens on read AND write | real (P2) | `shell/reclamation-io.ts:303-315,705-706,717,734-737,986-992,1051-1052,1234-1241`, `shell/run-registry-io.ts:439-451,760-763` | Corrects an incomplete comparison in the v0.1.80 audit |
