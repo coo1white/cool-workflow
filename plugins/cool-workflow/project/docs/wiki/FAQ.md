@@ -23,6 +23,29 @@ You need an agent for live review workflows such as `architecture-review`.
 CW returns a blocked result. It writes the state and a report you can use to
 work out what is missing, but it does not act as if the work was completed.
 
+## How Do I Know My Agent Will Work With CW?
+
+Run `cw doctor --conformance`. It runs your agent one time on a small fixed
+task, the same way a real run does, and checks that it ends in time, exits 0,
+and writes a `result.md` CW can read. It makes one short model call. Plain
+`cw doctor` makes no model call; it only starts the agent's CLI with
+`--version`.
+
+## My Agent Is Behind A Proxy. What Do I Set?
+
+Set `HTTPS_PROXY` (and `NODE_EXTRA_CA_CERTS` if your company has its own CA)
+as you would for the agent alone. From 0.3.3 CW passes the proxy and CA
+settings on to the agent. See [Operations](Operations.md).
+
+## Where Did The Blackboard And The Multi-Agent Commands Go?
+
+They were taken out in 0.3.1: the blackboard, the coordinator, topologies,
+candidates, eval, and the approve, comment, and handoff commands. The core
+path did not use them. Old runs with those fields still load. To get agents
+working together today, use a [workflow app](Workflow-Apps.md) with
+`parallel()` phases, and `cw ledger` to hand work between agents in two
+repos. See the [Roadmap](Roadmap.md).
+
 ## Where Is My Report?
 
 Reports live under the repo that was reviewed:

@@ -10,6 +10,9 @@ The fast command reference. If a step here is not clear, the
   or `opencode` — or an HTTP agent endpoint via `CW_AGENT_ENDPOINT`.
 
 The tamper-evidence demo needs no agent, no API key, and no cloned repo.
+`npx cool-workflow ...` runs CW with no install; `npm install -g
+cool-workflow` gives you the `cw` command (a local `npm i cool-workflow`
+works too, from 0.3.3).
 
 ## 1. Run The Integrity Demo
 
@@ -73,6 +76,14 @@ cw backend probe agent --json
 When no command or endpoint is configured, the probe reports `ready: false`
 and a reason naming the missing `CW_AGENT_COMMAND` or `CW_AGENT_ENDPOINT`.
 
+Check your whole setup, and run your agent one time on a small fixed task
+to see that it keeps CW's agent contract (one short model call):
+
+```bash
+cw doctor
+cw doctor --conformance
+```
+
 ## 3. Try A Resumable Run
 
 Go one step forward and stop:
@@ -134,6 +145,9 @@ and graph views.
 | --- | --- |
 | `status: blocked` | Configure an agent with `--agent-command`, `CW_AGENT_COMMAND`, or `CW_AGENT_ENDPOINT`. |
 | `claude: command not found` | Install Claude Code or use another agent command. |
+| `agent-conformance` fails | Read the agent's own last lines in the detail; fix the agent, then run `cw doctor --conformance` again. |
+| The agent is turned away behind a proxy | Set `HTTPS_PROXY` (and `NODE_EXTRA_CA_CERTS` for a company CA); CW passes them on to the agent. |
+| A worker parked after one try | The agent went past its time limit; raise `CW_AGENT_TIMEOUT_MS` (or `--agent-timeout-ms`), then resume. |
 | You want to see the next action only | Add `--preview`; it is read-only. |
 | You want one step at a time | Add `--resume`, then go on with the printed `--run <run-id>` command. |
 | You need a shorter review | Try `architecture-review-fast`; see [Workflow Apps](Workflow-Apps.md). |

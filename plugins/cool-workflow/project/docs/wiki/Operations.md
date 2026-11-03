@@ -72,6 +72,54 @@ Which model runs is your choice, not CW's. The model written into the record
 is what the outside agent reports back; CW does not overwrite it with an
 operator hint.
 
+Check that the agent you configured truly runs and keeps CW's agent
+contract (`cw-agent/1`) — this makes one short model call:
+
+```bash
+cw doctor --conformance
+```
+
+### Time limits
+
+| Setting | What it does |
+| --- | --- |
+| `CW_AGENT_TIMEOUT_MS` (or `--agent-timeout-ms`) | Most time one agent run may take; 600000 ms (10 minutes) by default. Past it, the agent and every process it started are stopped, and the worker parks on the first try (from 0.3.3). |
+| `CW_AGENT_IDLE_TIMEOUT_MS` | Opt-in (new in 0.3.3). Stops an agent that has written nothing, on stdout or stderr, for this long; the worker parks on the first try. Unset or `0` means off. Pick a value well above the longest quiet time your agent has — a model may think for minutes between two steps. |
+
+### Proxy and CA settings
+
+From 0.3.3, the agent gets these settings when you set them: `HTTP_PROXY`,
+`HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY` (and the lowercase forms),
+`NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, and every `CLAUDE_*`
+setting. Before, an agent behind a proxy was turned away (`403 Request not
+allowed`). Only the names, never the values, go into the audit record, as a
+proxy URL may have a password in it. `node`, `bun`, `shell`, and `container`
+tasks get them too, but only under a sandbox profile that lets the network
+through. For CW's own HTTP calls (an HTTP agent endpoint, the `remote` and
+`ci` backends), CW sets `NODE_USE_ENV_PROXY=1` when a proxy is set. Full
+rules: `cw man sandbox-profiles`.
+
+### Run the agent in a sandbox
+
+From 0.3.3 CW can run each agent inside Anthropic's sandbox runtime, `srt`
+(bubblewrap on Linux and WSL, Seatbelt on macOS). It is opt-in:
+
+```bash
+npm i -g @anthropic-ai/sandbox-runtime@0.0.81
+sudo apt-get install bubblewrap socat        # Linux and WSL only
+export CW_AGENT_SANDBOX=srt
+cw doctor                                    # shows an agent-sandbox row
+cw doctor --conformance                      # runs your agent through srt one time
+```
+
+Under `srt` the agent may write only to its own worker folder, the temp
+folder, the paths its profile names, and its own CLI's state folder; it may
+not read `~/.ssh`, `~/.aws`, `~/.gnupg`, and other secret folders; and it may
+reach only its vendor's API hosts (add more with `CW_AGENT_SANDBOX_HOSTS`, a
+comma list). If `srt` is missing, is a different version, or cannot start
+its sandbox, the agent is not run at all — never run without the sandbox it
+was asked to have. Full rules: `cw man sandbox-profiles`.
+
 ## Restore And Recovery
 
 Export a run:
@@ -104,9 +152,44 @@ That refuses archives missing the top-level integrity block before any write.
 For the operator flow and failure modes, see
 [Recovery And Restore](Recovery-And-Restore.md).
 
+## Metrics And Cost
+
+```bash
+cw metrics show <run-id>     # one run
+cw metrics summary           # this repo's runs (add --scope home for every repo)
+```
+
+Every number is worked out from the run's own state — times from saved
+times, rates from saved results. There is no metrics database. A rate with
+no samples is `n/a`, never a made-up 0% or 100%. Token use is what the agent
+reported (and signed, where keys are set); if it reported nothing, it is
+`unreported`, never 0. Money cost is worked out only from that reported use
+and a price list you give (`--pricing <path>`); a guessed price is kept apart
+as `estimated`. Full rules: `cw man observability-cost-accounting`.
+
+## Old Run State
+
+A run made by an older CW still loads. Check one before you put weight on
+it:
+
+```bash
+cw state check <run-id>                  # dry run: what migration it needs
+cw migration list                        # every known step from old to new
+cw migration check <run-id>              # can it be moved to this version?
+cw migration prove <run-id>              # move it there and back, and see nothing is lost
+```
+
+Nothing is written unless you say `--write`. State from a newer CW, or state
+CW cannot make sense of, is refused, never quietly loaded. Fields of the
+removed multi-agent family (`multiAgent`, `blackboard`, `candidates`) are kept
+as data. Full rules: `cw man release-and-migration` and
+`cw man contract-migration-tooling`.
+
 ## Workbench
 
-The Workbench is optional, localhost-only, and read-only:
+The Workbench is optional, localhost-only, and read-only. It is a frozen part
+of CW (fixes only). Its run view has the graph, worker, metrics, and audit
+panels:
 
 ```bash
 cw workbench serve --port 8787

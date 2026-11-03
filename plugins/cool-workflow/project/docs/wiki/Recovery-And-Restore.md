@@ -100,6 +100,8 @@ A worker whose agent keeps failing (a wrong agent command, a lost login, a
 prompt too large) parks the run after 3 tries. An agent that runs past its
 time limit parks at once, after 1 try (new in 0.3.3): raise
 `CW_AGENT_TIMEOUT_MS` (or `--agent-timeout-ms`) or check the agent command.
+An agent stopped because it wrote nothing for `CW_AGENT_IDLE_TIMEOUT_MS`
+(an opt-in idle limit, also new in 0.3.3) parks after 1 try too.
 Fix the cause, then resume the same run; the parked worker is run again with
 fresh tries, and the work that was already done is kept:
 
@@ -120,6 +122,31 @@ cw run rerun <run-id> --reason "retry after restoring archive"
 Rerun creates a new run linked to the original by provenance. The original run is
 preserved for audit.
 
+## Replay One Step
+
+Every step of a run is a state node under `.cw/runs/<run-id>/nodes/`. You
+can take a snapshot of one, compare two snapshots, and replay one with no
+live agent:
+
+```bash
+cw node list <run-id>                                   # the steps of the run
+cw node snapshot <run-id> <node-id>                     # prints a snapshotId
+cw node diff <run-id> <snapshot-id-a> <snapshot-id-b>   # what changed, part by part
+cw node replay <run-id> <snapshot-id>                   # prints a replayId
+cw node verify <run-id> <replay-id>                     # replay against the source now
+```
+
+A replay of one snapshot gives the same bytes every time. If the step has
+changed since the snapshot was taken, it is `stale`; if it is gone, it is
+`absent` — and diff and replay are refused, never run on old data. Full
+rules: `cw man node-snapshot-diff-replay`.
+
+## Find A Run Across Repos
+
+`cw run resume <run-id>` finds a run from any folder through the run
+registry. To search, queue, put away, or rerun runs across many repos, see
+[Run Registry Control Plane](Run-Registry-Control-Plane.md).
+
 ## Failure Modes
 
 | Failure | Result |
@@ -134,6 +161,7 @@ preserved for audit.
 
 ## Related Pages
 
+- [Run Registry Control Plane](Run-Registry-Control-Plane.md)
 - [Trust And Audit](Trust-And-Audit.md)
 - [Operations](Operations.md)
 - [Commands or API](Commands-or-API.md)

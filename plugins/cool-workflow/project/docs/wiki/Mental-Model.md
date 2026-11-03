@@ -54,26 +54,41 @@ Handing the work out is the **feature**, not a gap:
 - The value lives in the evidence and the decisions, not in the power to run
   a prompt.
 
+A simple picture keeps the three parts apart:
+
+| Part | What it is |
+| --- | --- |
+| The car | **CW**: the frame, the dashboard, the black-box recorder, the gearbox — and, with `--drive`, the autopilot |
+| The engine | **The model** (Claude, GPT, a local model) — the part that does the work |
+| The fuel | **Tokens** — what you pay for and use up |
+
+In the AI world the engine maker and the fuel seller are mostly the same
+company. CW builds only the car, so any engine and any fuel can go in it:
+Claude today, another model tomorrow. The day CW made its own engine or
+fuel, it would stop being the neutral car and become one more seller. And a
+black-box recorder is only to be trusted if you can open it and read the
+wiring — which is why CW is open source.
+
 ### 2. Evidence-gated decisions — show your work, or no commit
 
-A model saying "done" is not enough. Every result CW takes in keeps its full
-trail: the **basis** (the sources), the **authority** (who decided), the
-**rationale** (the stated reason), and the **counterfactual** (which other
-option lost, and why). When that chain is missing, the result does *not*
-quietly pass, and CW does *not* make up a reason — it comes to rest in a
-clear `unexplained` state.
+A model saying "done" is not enough. Every result CW takes in has to come
+with its **evidence**: the places in the sources (`file.ts:42`) that hold it
+up. A result with no evidence, or with evidence that names a file that is
+not there, is turned down — it does *not* quietly pass, and CW does *not*
+make up a reason for it. The worker is tried again, then **parked**, and the
+run stops in a clear state you can look into and resume.
 
-This is the direct cure for the three quiet ways agent work goes bad: the
-**silent pass**, the **made-up reason**, and the **unexplained adoption**.
-Only checked state becomes committed state.
+This is the direct cure for the quiet ways agent work goes bad: the
+**silent pass**, the **made-up reason**, and the **claim with nothing under
+it**. Only checked state becomes committed state.
 
 ### 3. Deterministic, local replay — all state, no magic
 
 Every step is plain JSON under `.cw/runs/<id>/` — open to read, diff, resume,
 and replay. There is no hidden dashboard database, and the runtime never
-*guesses* success. The snapshot / diff / replay harness lets you re-run a
-recorded session **with no live agents**, put it against a baseline, score
-it, and gate a release on the outcome.
+*guesses* success. `cw node snapshot`, `cw node diff`, and `cw node replay`
+let you take one recorded step, compare it with another, and replay it
+**with no live agents** — and the replay gives the same bytes every time.
 
 Deterministic here means: the same run, replayed, gives the same answer. That
 is a hard requirement, not a nice extra — it is *why* CW keeps phases static.

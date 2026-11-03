@@ -31,8 +31,31 @@ brew install coo1white/cool-workflow/cool-workflow
 ```
 </details>
 
+<details>
+<summary>No global install? Use npx, or a local install</summary>
+
+```bash
+npx cool-workflow version                 # runs CW without installing it
+npm i cool-workflow && npx cw version     # installs it in this folder only
+```
+
+Both work from 0.3.3; before that only `npm install -g` did.
+</details>
+
 If anything looks off, `cw doctor` checks your setup and `cw fix` prints the
-exact commands that put it right.
+exact commands that put it right. `cw doctor` also starts your agent's CLI
+with `--version`, to see that it truly runs. To check that your agent keeps
+CW's agent contract end to end, run it one time on a small task:
+
+```bash
+cw doctor --conformance
+# → ✓ agent-conformance: cw-agent/1: ran in 8.2s, exit 0, result.md read, model <model>.
+```
+
+This one makes one short model call, which may cost a little money, so it
+runs only when you ask for it. Behind a company proxy? CW passes
+`HTTPS_PROXY`, `NODE_EXTRA_CA_CERTS`, and the other proxy and CA settings on
+to your agent, so set them as you would for the agent alone.
 
 ## 2 · See it work — 30 seconds, no agent
 
@@ -166,7 +189,9 @@ cw quickstart research-synthesis --repo /path/to/papers \
   --question "What do these papers conclude?"
 ```
 
-See everything installed with `cw app list`; see [Workflow Apps](Workflow-Apps.md).
+See everything installed with `cw app list`. To make an app of your own,
+`cw init my-app` writes one to `./apps/my-app/`; see
+[Workflow Apps](Workflow-Apps.md).
 
 ## 8 · From your editor (MCP)
 

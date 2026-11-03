@@ -132,6 +132,34 @@ The server also answers `resources/list` and `resources/read` for
 resource. Bad URIs, unsafe run ids and missing reports are refused. Full rules:
 `cw man mcp-app-surface`.
 
+## Why The CLI And MCP Agree (Parity)
+
+CW has two front doors: the CLI for people (short text, clear exit codes)
+and the MCP server for machines (full, fixed JSON). They are two views of
+**one** source, the capability registry (`src/core/capability-data.ts`):
+one row per thing CW can do, naming one shared core entry plus its CLI
+command and its MCP tool. Nothing is kept up by hand in two places.
+
+- **One source, two views.** For a capability marked `payloadIdentical`,
+  `cw <command> --json` and the `cw_<tool>` MCP result are the same JSON
+  (apart from spaces and times). The text view for people is put on top; it
+  never changes the JSON.
+- **A difference is written down, never hidden.** A capability may be on one
+  door only (`doctor`, `quickstart`, and `schedule` are CLI-only), or give a
+  different payload (`commit` gives the raw result on the CLI and a
+  summary over MCP) — but only with a reason recorded in the registry.
+- **Drift fails the release.** `npm run parity:check` (part of
+  `release:check`) fails if a capability is on one door and not the other, if
+  a live command or tool is not in the registry, if a difference has no
+  reason, or if two payloads that should be the same are not.
+  `test/cli-mcp-parity-smoke.mjs` puts each kind of drift in on purpose and
+  sees the check catch it.
+
+To add a capability, add one row to the registry against one core entry;
+the CLI command and the MCP tool come from that row. The full, generated
+list of every capability and its tool is in
+[`docs/cli-mcp-parity.7.md`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/cli-mcp-parity.7.md).
+
 ## Generated Vendor Targets
 
 The manifest source currently targets:

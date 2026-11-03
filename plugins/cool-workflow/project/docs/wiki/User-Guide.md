@@ -125,6 +125,10 @@ directories behind; the second test run left none.
 own project. It talks about release gates and surface guards only when
 you run it inside the Cool Workflow repo itself.
 
+From 0.3.3 (after this test), `cw doctor --conformance` also runs your agent
+one time on a small task and says if it keeps CW's agent contract — a good
+first check before a real question. It makes one short model call.
+
 ## What the test could not show
 
 Be honest about limits. In the second test run no worker failed, so the
