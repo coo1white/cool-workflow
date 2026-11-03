@@ -13,23 +13,21 @@
 //      refused, and no run folder is made outside .cw/runs.
 
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 
-const pluginRoot = path.resolve(import.meta.dirname, "..");
-const cli = path.join(pluginRoot, "dist", "cli.js");
 import { plan } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { RunRegistry } from "../dist/shell/run-registry-io.js";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { cw as runCw } from "./helpers/cw.mjs";
 
 const root = tmpDir("cw-run-paths-trust-");
 const env = { ...process.env, CW_HOME: path.join(root, "cw-home"), CW_AGENT_COMMAND: "", CW_AGENT_ENDPOINT: "", CW_NO_AUTO_AGENT: "1" };
 
 function cw(args, cwd) {
-  return spawnSync(process.execPath, [cli, ...args], { cwd, encoding: "utf8", env });
+  return runCw(args, { cwd, env });
 }
 
 function makeRepo(name) {
