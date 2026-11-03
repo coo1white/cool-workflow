@@ -303,6 +303,27 @@ right has no point."). Which of them change default bytes:
 | A refused envelope for a timeout | no `timedOutMs` key | `timedOutMs: <ms>` added | Additive JSON key, only on a timeout |
 | Env of the delegated agent child (found in the operator's 0.3.3 test run: `claude -p` worked in the shell, but every `cw -q ... -claude` worker got `403 Request not allowed`, as the proxy vars were dropped) | `PATH`, `HOME`, `expose`, provider-key vars, `USER` | also `HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY` (and the lowercase forms), `NODE_EXTRA_CA_CERTS`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, and `CLAUDE_*` | Only the names list of the `worker.agent-env` audit event, and only when such vars are set; values are never kept; a policy `deny` still takes them out |
 
+The rows above that change default bytes were first shipped under that
+broad request alone. The 0.3.3 release review (grok, 2026-11-03) rejected
+the cut for it: a broad request is not a quoted yes to each named
+default. So each was then put to the operator as its own question
+(2026-11-03). The questions and answers, word for word:
+
+- For the last row of the table (the delegated agent child's env): "0.3.3 默认改动③（agent 环境变量）：0.3.2 时，CW 启动 agent（如 claude -p）只传 PATH、HOME、USER 和 CW_/ANTHROPIC_ 等 API key 变量，所以在代理后面的机器上，每个 worker 都报 "403 Request not allowed"（你 10 月 17 日的测试就遇到过）。0.3.3 改成：设置了的话，也把 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY（含小写）、NODE_EXTRA_CA_CERTS/SSL_CERT_FILE/SSL_CERT_DIR、以及所有 CLAUDE_* 变量（如 CLAUDE_CONFIG_DIR，claude 用它找登录信息）传给 agent。值不记录，只在审计事件 worker.agent-env 里记名字；沙箱 deny 列表里的名字仍会被去掉。你同意把这个作为 0.3.3 的新默认吗？"
+  In English: Default change 3 (agent env): the delegated agent child also gets the proxy vars (upper and lower case), NODE_EXTRA_CA_CERTS / SSL_CERT_FILE / SSL_CERT_DIR, and every CLAUDE_* var, when set; only the names go in the worker.agent-env audit event; a policy deny still takes a name out. Agree to this as the 0.3.3 default?
+  The operator's answer, word for word (2026-11-03): "同意，保留新默认".
+- For the `[drive] ✗ ... trying again` row and the `[drive] ==> <Phase>` row: "0.3.3 默认改动④（终端进度行，只在终端或 CW_DRIVE_PROGRESS=1 时出现在 stderr，管道输出一个字节都不变）：(a) 一个 agent 失败、马上要重试时，新加一行 `[drive] ✗ <任务> (<阶段>) — <原因>; trying again (n/max)`，0.3.2 是什么都不显示；(b) 阶段标题行 `[drive] ==> <阶段> ...`，0.3.2 只在每个阶段第一轮后打印一次，0.3.3 在每个并发轮结束后都再打印一次，让你知道还在哪个阶段。你同意这两处终端显示的改动吗？"
+  In English: Default change 4 (terminal progress lines; TTY or CW_DRIVE_PROGRESS=1, stderr only, piped bytes unchanged): (a) a new `[drive] ✗ ... trying again (n/max)` line when a failed hop will be tried again; (b) the `[drive] ==> <Phase>` line is printed again after every concurrent round, not once per phase. Agree to both?
+  The operator's answer, word for word (2026-11-03): "同意两处都改".
+- For the two refusal-text rows: "0.3.3 默认改动⑤（失败原因文字，出现在 --json 输出、state.json 和终端的 Why: 行）：(a) 并发轮里 agent 超时，原因从 "agent process returned no exit code (timed out or killed)" 改成 "agent process timed out after <毫秒>ms and was killed"，写明超时多久；(b) 整个批处理子进程失败时，从 "agent process failed to spawn: batch delegate failed: ..." 改成 "agent delegation failed: batch delegate failed: ..."，因为那种情况不是启动失败，旧文字说错了（超时还会写明上限）。你同意这两处文字的改动吗？"
+  In English: Default change 5 (refusal text in --json, state.json and the TTY Why: line): (a) a timed-out concurrent agent reads "agent process timed out after <ms>ms and was killed"; (b) a failed batch child reads "agent delegation failed: batch delegate failed: ..." (not "failed to spawn"). Agree to both?
+  The operator's answer, word for word (2026-11-03): "同意两处都改".
+
+Rows not asked: the batch child's exit code is internal (read only by
+`runAgentBatchOutcomes`), and `timedOutMs` is an added JSON key, which
+POLA allows. The man pages and the 0.3.2 -> 0.3.3 version raise were
+already in place for every row.
+
 ### `cw doctor` runs the agent one time (agent-runs)
 
 In the operator's 0.3.3 acceptance test, `cw doctor` said all was well
