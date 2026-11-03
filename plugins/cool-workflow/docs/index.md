@@ -76,6 +76,7 @@ a page from this folder (give the page name without `.7.md`).
 | `cw audit` | Reads and records the trust-audit records of a run | [Security / Trust Hardening: CLI](security-trust-hardening.7.md#cli) |
 | `cw audit-run` | The same as `cw quickstart` (another name for it) | — (no page); nearest: [Agent Delegation Drive: CLI](agent-delegation-drive.7.md#cli) |
 | `cw backend` | Lists, shows, and tests execution backends; sets the agent | [Execution Backends: SYNOPSIS](execution-backends.7.md#synopsis), [Agent Delegation Drive: CLI](agent-delegation-drive.7.md#cli) |
+| `cw check` | Runs your test command and keeps a done receipt a result can cite | [Verifier-Gated Commit: DONE RECEIPTS](verifier-gated-commit.7.md#done-receipts) |
 | `cw clones` | Lists and clears the cache of remote-source copies | [Remote Source Review: Cache](remote-source-review.7.md#cache--cw-clones) |
 | `cw commit` | Makes a verifier-gated commit or checkpoint | [Verifier-Gated Commit: SYNOPSIS](verifier-gated-commit.7.md#synopsis) |
 | `cw completion` | Prints a shell-completion script (bash, zsh, fish) | — (no page); nearest: [CLI <-> MCP Parity: Surface-Specific Capabilities](cli-mcp-parity.7.md#surface-specific-capabilities) |
