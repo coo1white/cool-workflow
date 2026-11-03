@@ -32,6 +32,10 @@ import { summarizeTrustAudit, listTrustAuditEvents } from "../dist/shell/trust-a
 import { drive, MAX_SUB_WORKFLOW_DEPTH } from "../dist/shell/drive.js";
 import * as ns from "../dist/core/state/node-snapshot.js";
 import { verifyTrustAudit } from "../dist/shell/trust-audit.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
+import { writeStubAgent } from "./helpers/stub-agent.mjs";
+
+const STUB = { summary: "stub", usage: { input_tokens: 4, output_tokens: 2 } };
 
 // v2 replaces the CoolWorkflowRunner facade + drive(runner,...) with plain
 // functions; a custom apps dir is selected via the CW_APPS_DIR env var read by
@@ -63,21 +67,6 @@ function tmp(prefix) {
   const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   cleanups.push(d);
   return d;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
-}
-function writeStub(file, countFile) {
-  fs.writeFileSync(file, [
-    'const fs = require("fs");',
-    "const fence = String.fromCharCode(96).repeat(3);",
-    "const rp = process.argv[2];",
-    `fs.appendFileSync(${JSON.stringify(countFile)}, "x");`,
-    'const body = "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "stub", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + fence + "\\n";',
-    "fs.writeFileSync(rp, body);",
-    'process.stdout.write(JSON.stringify({ model: "stub", usage: { input_tokens: 4, output_tokens: 2 } }));'
-  ].join("\n"), "utf8");
-  return file;
 }
 function agentConfig(stub) {
   return { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], model: "op", source: "flag" };
@@ -128,7 +117,7 @@ function main() {
     const work = tmp("cw-subwf-work-");
     fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
     const countFile = path.join(work, "spawns.count");
-    const stub = writeStub(path.join(work, "stub.js"), countFile);
+    const stub = writeStubAgent(path.join(work, "stub.js"), { ...STUB, countFile });
 
     writeApp(appsDir, "sub-child", appBody("sub-child", "workflow, phase, agent, input",
       `[ phase("Work", [ agent("work:do", "Do {{question}}", { sandboxProfileId: "readonly" }) ]) ]`));
@@ -182,7 +171,7 @@ function main() {
     const appsDir = tmp("cw-subwf-cyc-");
     const work = tmp("cw-subwf-cycw-");
     fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
-    const stub = writeStub(path.join(work, "stub.js"), path.join(work, "c.count"));
+    const stub = writeStubAgent(path.join(work, "stub.js"), { ...STUB, countFile: path.join(work, "c.count") });
     writeApp(appsDir, "sub-cycle", appBody("sub-cycle", "workflow, phase, subWorkflow, input",
       `[ phase("Loop", [ subWorkflow("loop:self", "sub-cycle", { sandboxProfileId: "readonly" }) ]) ]`));
     process.chdir(work);
@@ -203,7 +192,7 @@ function main() {
     const appsDir = tmp("cw-subwf-depth-");
     const work = tmp("cw-subwf-depthw-");
     fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
-    const stub = writeStub(path.join(work, "stub.js"), path.join(work, "d.count"));
+    const stub = writeStubAgent(path.join(work, "stub.js"), { ...STUB, countFile: path.join(work, "d.count") });
     // chain-0 → chain-1 → … → chain-K, each invoking the next. The (MAX+1)th hop is
     // refused BEFORE planning, so the whole chain parks.
     const N = MAX_SUB_WORKFLOW_DEPTH + 1; // deep enough to trip the cap

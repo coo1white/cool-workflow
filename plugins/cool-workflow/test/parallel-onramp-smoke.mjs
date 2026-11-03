@@ -35,6 +35,7 @@ import { plan as planApp } from "../dist/shell/pipeline.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { runDriveStep } from "../dist/shell/pipeline-cli.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 // v2's plan() takes a FLAT LoadedWorkflowApp ({ id, title, summary, version,
 // workflow, sandboxProfiles, sourcePath }) — the old lifecycle.plan took a nested
@@ -122,7 +123,7 @@ function planParallelApp(work) {
 }
 
 async function main() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
+  clearAgentEnv();
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-onramp-")));
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   const stub = writeStub(path.join(work, "stub.js"));

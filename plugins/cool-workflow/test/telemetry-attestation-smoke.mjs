@@ -41,6 +41,7 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { drive } from "../dist/shell/drive.js";
 import { writeReport } from "../dist/shell/report.js";
 import { listTrustAuditEvents } from "../dist/shell/trust-audit.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 // v2 has no CoolWorkflowRunner facade (a documented anti-goal to dismantle).
 // makeRunner() reconstructs the .plan / .loadRun surface this smoke uses over
@@ -64,9 +65,6 @@ function tmpWorkspace() {
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   cleanups.push(work);
   return work;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_AGENT_ATTEST_PUBKEY"]) delete process.env[v];
 }
 function ed25519() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
@@ -128,7 +126,7 @@ function attestationVerdictsByWorker(run) {
 }
 
 function main() {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY"] });
   const { publicPem, privatePem } = ed25519();
   const other = ed25519();
 

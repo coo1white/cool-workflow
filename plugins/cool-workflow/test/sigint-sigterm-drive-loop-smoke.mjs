@@ -42,6 +42,10 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
 import * as runStore from "../dist/shell/run-store.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
+import { writeStubAgent } from "./helpers/stub-agent.mjs";
+
+const STUB = { summary: "stub", usage: { input_tokens: 4, output_tokens: 2 } };
 
 const FIXED_NOW = "2026-07-08T00:00:00.000Z";
 const cleanups = [];
@@ -66,25 +70,6 @@ function hookCheckpoints(statePath, onCheckpoint) {
     fs.renameSync = rename;
     syncBuiltinESMExports();
   };
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_APPS_DIR"]) delete process.env[v];
-  process.env.CW_NO_AUTO_AGENT = "1";
-}
-function writeStub(file) {
-  fs.writeFileSync(
-    file,
-    [
-      'const fs = require("fs");',
-      "const fence = String.fromCharCode(96).repeat(3);",
-      "const rp = process.argv[2];",
-      'const body = "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "stub", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + fence + "\\n";',
-      "fs.writeFileSync(rp, body);",
-      'process.stdout.write(JSON.stringify({ model: "stub", usage: { input_tokens: 4, output_tokens: 2 } }));'
-    ].join("\n"),
-    "utf8"
-  );
-  return file;
 }
 function agentConfig(stub) {
   return { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], model: "stub", source: "flag" };
@@ -222,12 +207,12 @@ function writeParallelThreeTaskApp(appsDir, id) {
 //    re-driving the SAME run id resumes and finishes the remaining work.
 // ---------------------------------------------------------------------
 function testGracefulSingleSignal(signal) {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_APPS_DIR"], noAutoAgent: true });
   const cwd0 = process.cwd();
   const appsDir = tmp(`cw-sigloop-apps-${signal}-`);
   const work = tmp(`cw-sigloop-work-${signal}-`);
   fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
-  const stub = writeStub(path.join(work, "stub.js"));
+  const stub = writeStubAgent(path.join(work, "stub.js"), STUB);
   writeThreeTaskApp(appsDir, "sigloop-app");
   process.chdir(work);
   try {
@@ -289,13 +274,13 @@ testGracefulSingleSignal("SIGTERM");
 //    the signal on that exact call on a fresh replan of the same app.
 // ---------------------------------------------------------------------
 function testInterruptOnTerminalCommitReportsComplete(signal) {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_APPS_DIR"], noAutoAgent: true });
   const cwd0 = process.cwd();
   try {
     const baselineAppsDir = tmp(`cw-sigloop-terminal-baseline-apps-${signal}-`);
     const baselineWork = tmp(`cw-sigloop-terminal-baseline-work-${signal}-`);
     fs.writeFileSync(path.join(baselineWork, "README.md"), "# t\n", "utf8");
-    const baselineStub = writeStub(path.join(baselineWork, "stub.js"));
+    const baselineStub = writeStubAgent(path.join(baselineWork, "stub.js"), STUB);
     writeOneTaskApp(baselineAppsDir, "sigloop-terminal-baseline");
     process.chdir(baselineWork);
     const baselineRun = planApp(baselineAppsDir, "sigloop-terminal-baseline", { repo: baselineWork, question: "Q?" });
@@ -317,7 +302,7 @@ function testInterruptOnTerminalCommitReportsComplete(signal) {
     const appsDir = tmp(`cw-sigloop-terminal-apps-${signal}-`);
     const work = tmp(`cw-sigloop-terminal-work-${signal}-`);
     fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
-    const stub = writeStub(path.join(work, "stub.js"));
+    const stub = writeStubAgent(path.join(work, "stub.js"), STUB);
     writeOneTaskApp(appsDir, "sigloop-terminal-app");
     process.chdir(work);
     const p = planApp(appsDir, "sigloop-terminal-app", { repo: work, question: "Q?" });
@@ -356,12 +341,12 @@ testInterruptOnTerminalCommitReportsComplete("SIGTERM");
 //    round/commit step, and resuming finishes the run.
 // ---------------------------------------------------------------------
 function testConcurrentRoundInterruptGranularity(signal) {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_APPS_DIR"], noAutoAgent: true });
   const cwd0 = process.cwd();
   const appsDir = tmp(`cw-sigloop-round-apps-${signal}-`);
   const work = tmp(`cw-sigloop-round-work-${signal}-`);
   fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
-  const stub = writeStub(path.join(work, "stub.js"));
+  const stub = writeStubAgent(path.join(work, "stub.js"), STUB);
   writeParallelThreeTaskApp(appsDir, "sigloop-round-app");
   process.chdir(work);
   try {
@@ -411,7 +396,7 @@ function testForcedDoubleSignal(signal, expectedExitCode) {
   const appsDir = tmp(`cw-sigloop-force-apps-${signal}-`);
   const work = tmp(`cw-sigloop-force-work-${signal}-`);
   fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
-  const stub = writeStub(path.join(work, "stub.js"));
+  const stub = writeStubAgent(path.join(work, "stub.js"), STUB);
   writeThreeTaskApp(appsDir, "sigloop-force-app");
 
   const child = `

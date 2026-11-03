@@ -35,6 +35,7 @@ import { drive } from "../dist/shell/drive.js";
 import { writeReport } from "../dist/shell/report.js";
 import * as ledger from "../dist/shell/telemetry-ledger-io.js";
 import * as ta from "../dist/core/trust/telemetry-attestation.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 // makeRunner() reconstructs the old runner.plan / .loadRun surface over v2's
 // free functions. The smoke chdir's into each workspace before it plans/drives,
@@ -76,9 +77,6 @@ function tmpWorkspace() {
   cleanups.push(work);
   return work;
 }
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"]) delete process.env[v];
-}
 // A minimal UNSIGNED inner agent: writes result.md and prints {model, usage}.
 // It knows NOTHING about signing — the wrapper adds the signature.
 function writeInnerStub(file) {
@@ -113,7 +111,7 @@ function driveThroughWrapper(work, innerStub, manifestPlaceholder, attestPublicK
 }
 
 function main() {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"] });
   const cwd0 = process.cwd();
 
   // ---- 1. keygen writes a usable keypair ----------------------------------

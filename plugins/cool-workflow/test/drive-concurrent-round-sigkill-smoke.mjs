@@ -40,6 +40,7 @@ const drivePath = path.join(pluginRoot, "dist/shell/drive.js");
 
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 const FIXED_NOW = "2026-07-09T00:00:00.000Z";
 const STEP_MS = 4000; // generous margin: this test's full suite run sits
@@ -57,10 +58,6 @@ function tmp(prefix) {
   const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   cleanups.push(d);
   return d;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_APPS_DIR"]) delete process.env[v];
-  process.env.CW_NO_AUTO_AGENT = "1";
 }
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -158,7 +155,7 @@ function driverScript(runId, cwd, stub) {
 }
 
 async function main() {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_APPS_DIR"], noAutoAgent: true });
   const cwd0 = process.cwd();
   const appsDir = tmp("cw-sigkill-round-apps-");
   const work = tmp("cw-sigkill-round-work-");

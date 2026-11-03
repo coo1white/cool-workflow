@@ -35,6 +35,10 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { drive } from "../dist/shell/drive.js";
 import * as ns from "../dist/core/state/node-snapshot.js";
 import { registerLoopPredicate, maxLoopExpansion } from "../dist/core/pipeline/loop-expansion.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
+import { writeStubAgent } from "./helpers/stub-agent.mjs";
+
+const STUB = { summary: "stub", usage: { input_tokens: 4, output_tokens: 2 } };
 
 const FIXED_NOW = "2026-06-20T00:00:00.000Z";
 const cleanups = [];
@@ -47,21 +51,6 @@ function tmp(prefix) {
   const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   cleanups.push(d);
   return d;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
-}
-function writeStub(file, countFile) {
-  fs.writeFileSync(file, [
-    'const fs = require("fs");',
-    "const fence = String.fromCharCode(96).repeat(3);",
-    "const rp = process.argv[2];",
-    `fs.appendFileSync(${JSON.stringify(countFile)}, "x");`,
-    'const body = "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "stub", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + fence + "\\n";',
-    "fs.writeFileSync(rp, body);",
-    'process.stdout.write(JSON.stringify({ model: "stub", usage: { input_tokens: 4, output_tokens: 2 } }));'
-  ].join("\n"), "utf8");
-  return file;
 }
 function agentConfig(stub) {
   return { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], model: "op", source: "flag" };
@@ -111,7 +100,7 @@ function main() {
     const work = tmp("cw-loop-work-");
     fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
     const countFile = path.join(work, "spawns.count");
-    const stub = writeStub(path.join(work, "stub.js"), countFile);
+    const stub = writeStubAgent(path.join(work, "stub.js"), { ...STUB, countFile });
     writeLoopApp(appsDir, "loop-stop3", 5, "test:stop-at-3");
 
     process.chdir(work);
@@ -154,7 +143,7 @@ function main() {
     const work = tmp("cw-loopcap-work-");
     fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
     const countFile = path.join(work, "spawns.count");
-    const stub = writeStub(path.join(work, "stub.js"), countFile);
+    const stub = writeStubAgent(path.join(work, "stub.js"), { ...STUB, countFile });
     writeLoopApp(appsDir, "loop-cap", 2, "test:never");
     process.chdir(work);
     try {

@@ -28,17 +28,8 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { RunRegistry } from "../dist/shell/run-registry-io.js";
 import { runResumeCli } from "../dist/shell/registry-cli.js";
 import childProcessModule from "node:child_process";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
-  // v2's resolveAgentConfig auto-detects claude/codex/gemini/opencode on PATH
-  // (agent-config.ts detectAgentFromPath). All four are commonly installed on a
-  // dev box, which would silently CONFIGURE an agent and defeat the fail-closed
-  // "no agent -> blocked" assertions below. CW_NO_AUTO_AGENT=1 is the documented
-  // lever that skips PATH auto-detect, preserving the original "unconfigured
-  // agent" intent regardless of what CLIs happen to be installed.
-  process.env.CW_NO_AUTO_AGENT = "1";
-}
 function tmpRepo() {
   const w = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-drive-")));
   fs.writeFileSync(path.join(w, "README.md"), "# target\n", "utf8");
@@ -91,7 +82,7 @@ const cwd0 = process.cwd();
 
 // (1)+(2): drive ONE step, then `resume --drive` continues the SAME run to completion.
 {
-  clearAgentEnv();
+  clearAgentEnv({ noAutoAgent: true });
   const repo = tmpRepo();
   const stub = writeStub(path.join(repo, "stub.js"), "resume-drive-model");
   const agentCommand = `${process.execPath} ${stub} {{result}}`;
@@ -113,7 +104,7 @@ const cwd0 = process.cwd();
 
 // (3): FAIL CLOSED — resume --drive on an unconfigured agent blocks, never fabricates.
 {
-  clearAgentEnv();
+  clearAgentEnv({ noAutoAgent: true });
   const repo = tmpRepo();
   process.chdir(repo);
   try {
@@ -129,7 +120,7 @@ const cwd0 = process.cwd();
 
 // (4): POLA — bare `resume` (no --drive) is read-only and byte-identical.
 {
-  clearAgentEnv();
+  clearAgentEnv({ noAutoAgent: true });
   const repo = tmpRepo();
   process.chdir(repo);
   try {
@@ -153,7 +144,7 @@ const cwd0 = process.cwd();
 {
   const { spawnSync } = childProcessModule;
   const cli = path.join(pluginRoot, "dist", "cli.js");
-  clearAgentEnv();
+  clearAgentEnv({ noAutoAgent: true });
   // Propagate the no-auto-agent lever to the spawned CLI so its own
   // resolveAgentConfig also fails closed (matching the in-process sections).
   const childEnv = { ...process.env, CW_NO_AUTO_AGENT: "1" };
@@ -193,7 +184,7 @@ const cwd0 = process.cwd();
 {
   const { spawnSync } = childProcessModule;
   const cli = path.join(pluginRoot, "dist", "cli.js");
-  clearAgentEnv();
+  clearAgentEnv({ noAutoAgent: true });
   const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-drive-home-"));
   const childEnv = { ...process.env, CW_NO_AUTO_AGENT: "1", CW_HOME: homeDir };
   const repo = tmpRepo();

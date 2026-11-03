@@ -31,6 +31,7 @@ import { plan as pipelinePlan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 const FIXED_NOW = "2026-07-13T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -71,7 +72,7 @@ function planApp(work, def) {
 }
 
 function main() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_APPS_DIR"]) delete process.env[v];
+  clearAgentEnv({ also: ["CW_APPS_DIR"] });
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-subwf-nospawn-")));
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   const counterPath = path.join(work, "spawn-counter.log");

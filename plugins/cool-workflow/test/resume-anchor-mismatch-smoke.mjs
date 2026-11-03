@@ -21,9 +21,9 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
-for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
-process.env.CW_NO_AUTO_AGENT = "1";
+clearAgentEnv({ noAutoAgent: true });
 
 const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-anchor-")));
 const home = path.join(root, "home");

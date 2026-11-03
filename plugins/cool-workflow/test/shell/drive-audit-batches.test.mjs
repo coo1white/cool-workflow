@@ -21,21 +21,10 @@ import { plan } from "../../dist/shell/pipeline.js";
 import { createRun, saveCheckpoint } from "../../dist/shell/run-store.js";
 import { recordTrustAuditEvent, verifyTrustAudit, withTrustAuditBatch } from "../../dist/shell/trust-audit.js";
 import * as api from "../../dist/core/workflow-apps/app-schema.js";
+import { writeStubAgent } from "../helpers/stub-agent.mjs";
 
 const WORKERS = 4;
 
-function writeStub(file) {
-  const fence = String.fromCharCode(96).repeat(3);
-  fs.writeFileSync(
-    file,
-    [
-      'const fs = require("fs");',
-      `fs.writeFileSync(process.argv[2], "# R\\n\\n" + ${JSON.stringify(fence)} + "cw:result\\n" + JSON.stringify({ summary: "s", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + ${JSON.stringify(fence)} + "\\n");`,
-      'process.stdout.write(JSON.stringify({ model: "stub", usage: { input_tokens: 1, output_tokens: 1 } }));',
-    ].join("\n")
-  );
-  return file;
-}
 
 // Counts fsyncs on one file by remembering which path each fd was opened on
 // (and forgetting it on close, since fd numbers are reused).
@@ -87,7 +76,7 @@ const cwd0 = process.cwd();
       phases: [api.phase("Map", Array.from({ length: WORKERS }, (_, i) => api.agent(`t${i}`, `probe ${i}`)))],
     });
     const p = plan({ id: def.id, title: def.title, summary: "", version: "0.0.1", workflow: def, sandboxProfiles: [], sourcePath: path.join(work, `${def.id}.app.json`) }, { repo: work });
-    const agentConfig = { schemaVersion: 1, command: process.execPath, args: [writeStub(path.join(work, "stub.js")), "{{result}}"], source: "flag" };
+    const agentConfig = { schemaVersion: 1, command: process.execPath, args: [writeStubAgent(path.join(work, "stub.js")), "{{result}}"], source: "flag" };
     const log = path.join(p.paths.runDir, "audit", "events.jsonl");
 
     let result;
