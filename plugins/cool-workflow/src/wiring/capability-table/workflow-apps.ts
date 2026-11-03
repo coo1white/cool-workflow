@@ -11,11 +11,11 @@ const require = createRequire(import.meta.url);
 // command (see wiring/capability-table/index.ts) — loading `next`'s and
 // `app.run`'s shell modules lazily, inside the handler that actually
 // calls them, keeps other commands from paying their load cost.
-function loadStateCli(): typeof import("../../shell/state-cli.js") {
-  return require("../../shell/state-cli.js") as typeof import("../../shell/state-cli.js");
+function loadStateCli(): typeof import("../../shell/commands/state-cli.js") {
+  return require("../../shell/commands/state-cli.js") as typeof import("../../shell/commands/state-cli.js");
 }
-function loadAppRunCli(): typeof import("../../shell/app-run-cli.js") {
-  return require("../../shell/app-run-cli.js") as typeof import("../../shell/app-run-cli.js");
+function loadAppRunCli(): typeof import("../../shell/commands/app-run-cli.js") {
+  return require("../../shell/commands/app-run-cli.js") as typeof import("../../shell/commands/app-run-cli.js");
 }
 
 // Workflow apps. Handler BODIES live in
@@ -34,8 +34,8 @@ function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader
 }
 import { formatInfo } from "../../core/format/help.js";
 // Loaded lazily so only the `man` handler below pays its load cost.
-function loadManCli(): typeof import("../../shell/man-cli.js") {
-  return require("../../shell/man-cli.js") as typeof import("../../shell/man-cli.js");
+function loadManCli(): typeof import("../../shell/commands/man-cli.js") {
+  return require("../../shell/commands/man-cli.js") as typeof import("../../shell/commands/man-cli.js");
 }
 
 attachCliBinding("app.list", {
@@ -374,7 +374,7 @@ addCliOnlyCapability(
 // ---- PARITY WIRING -------------------------------------------------------
 //
 // `next` is a real, dual-bound capability (CLI + MCP), both surfaces
-// routed through shell/state-cli.ts's nextCli.
+// routed through shell/commands/state-cli.ts's nextCli.
 attachCliBinding("next", {
   path: ["next"],
   jsonMode: "default",

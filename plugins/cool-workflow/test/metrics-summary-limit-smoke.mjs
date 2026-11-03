@@ -19,7 +19,7 @@ import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
-import { metricsSummaryCli } from "../dist/shell/metrics-cli.js";
+import { metricsSummaryCli } from "../dist/shell/commands/metrics-cli.js";
 
 function makeRun(tmp, id) {
   const paths = createRunPaths(path.join(tmp, ".cw", "runs", id));

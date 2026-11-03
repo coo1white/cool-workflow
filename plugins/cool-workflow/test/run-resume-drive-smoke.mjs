@@ -26,7 +26,7 @@ import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { RunRegistry } from "../dist/shell/run-registry-io.js";
-import { runResumeCli } from "../dist/shell/registry-cli.js";
+import { runResumeCli } from "../dist/shell/commands/registry-cli.js";
 import childProcessModule from "node:child_process";
 import { clearAgentEnv } from "./helpers/env.mjs";
 import { tmpWorkspace } from "./helpers/workspace.mjs";

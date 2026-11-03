@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // orphan-runs-gc-smoke — manage run directories a killed/interrupted process left
 // behind BEFORE it ever wrote a state.json (`cw orphans list` / `cw orphans gc`).
-// This is orthogonal to `cw gc plan/run` (now in src/shell/registry-cli.ts): those
+// This is orthogonal to `cw gc plan/run` (now in src/shell/commands/registry-cli.ts): those
 // tier runs that HAVE durable state; a directory with no state.json is invisible
 // to that system entirely (same file). Hermetic: seeds a throwaway
 // repo directly on disk (no agent, no network), then asserts list/gc find and

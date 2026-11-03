@@ -15,7 +15,7 @@
 // walk-up resolution, `CW_WORKFLOWS_DIR` override.
 //
 // The minimal loader `loadWorkflowApp` (`shell/drive.ts` and
-// `shell/pipeline-cli.ts` call it directly), plus:
+// `shell/commands/pipeline-cli.ts` call it directly), plus:
 //   - `listWorkflowApps()` / `listWorkflows()` — full discovery over BOTH
 //     `apps/*/app.json` and legacy `workflows/*.workflow.js`, sorted by
 //     id then source path, fail-closed on a duplicate app id.

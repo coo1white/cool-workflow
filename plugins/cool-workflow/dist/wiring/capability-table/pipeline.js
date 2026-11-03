@@ -8,7 +8,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 // CLI bindings:
 // plan, quickstart, run --drive, run drive (preview), dispatch, result,
-// commit. Handler BODIES live in shell/pipeline-cli.ts (impure — they
+// commit. Handler BODIES live in shell/commands/pipeline-cli.ts (impure — they
 // plan/drive/dispatch/commit real run state on disk); this table only
 // wires argv shape -> handler call, per cli/dispatch.ts's generic
 // executor contract.
@@ -17,7 +17,7 @@ const require = createRequire(import.meta.url);
 // a top-level import of pipeline-cli/commit-summary would cost every
 // invocation, not just plan/run/dispatch/result/commit/commit.summary ones.
 function loadPipelineCli() {
-    return require("../../shell/pipeline-cli.js");
+    return require("../../shell/commands/pipeline-cli.js");
 }
 function loadCommitSummary() {
     return require("../../shell/commit-summary.js");
@@ -74,7 +74,7 @@ attachCliBinding("run.drive.step", {
             }
             return { json: loadPipelineCli().runDrivePreview({ ...args.options, runId: required(id, "run id") }) };
         }
-        // The archive family. Handler bodies live in shell/run-export-cli.ts;
+        // The archive family. Handler bodies live in shell/commands/run-export-cli.ts;
         // this arm only wires argv shape -> handler call.
         if (subcommand === "export") {
             const result = loadRunExportCli().runExportCli(required(id, "run id"), args.options);
@@ -181,7 +181,7 @@ REGISTRY_BY_CAPABILITY.get("commit").reason =
 // mcp.handler. Same lazy-load reasoning as loadPipelineCli/loadCommitSummary
 // above.
 function loadRunExportCli() {
-    return require("../../shell/run-export-cli.js");
+    return require("../../shell/commands/run-export-cli.js");
 }
 REGISTRY_BY_CAPABILITY.get("run.export").mcp.handler = (args) => loadRunExportCli().runExportCli(required(optionalArg(args.runId), "run id"), args);
 REGISTRY_BY_CAPABILITY.get("run.import").mcp.handler = (args) => loadRunExportCli().runImportCli(required(optionalArg(args.archive || args.path || args.file), "archive path"), args);
@@ -250,11 +250,11 @@ addCliOnlyCapability("quickstart", "ONE-COMMAND quickstart: --check preflights w
         return { json: result, exitCode };
     },
     // A real terminal outside --json gets the short summary + auto-open of
-    // shell/pipeline-cli.ts's formatQuickstartHuman (piped/--json output is
+    // shell/commands/pipeline-cli.ts's formatQuickstartHuman (piped/--json output is
     // untouched; see cli/dispatch.ts's shouldRenderHuman).
     humanRender: (json) => loadPipelineCli().formatQuickstartHuman(json),
     // The flags `cw help quickstart` lists, checked against
-    // shell/pipeline-cli.ts's quickstartRun.
+    // shell/commands/pipeline-cli.ts's quickstartRun.
     flags: [
         { name: "--check", summary: "Check setup only; do not plan, run, or write anything." },
         { name: "--preview", summary: "Show the next step, but do not run it." },

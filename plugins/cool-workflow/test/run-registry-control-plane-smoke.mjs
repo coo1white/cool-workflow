@@ -249,7 +249,7 @@ function openMcp() {
   assert.equal(goneShow.found, false, "run show of a deleted run => not found");
   assert.equal(goneShow.freshness, "missing", "run show of a deleted run => missing (never a live status)");
 
-  // registry/queue are dispatched into their own handler (src/shell/registry-cli.ts)
+  // registry/queue are dispatched into their own handler (src/shell/commands/registry-cli.ts)
   // — a bare verb fails closed with the carved handler's usage string (dispatcher->handler routing).
   for (const [verb, re] of [["registry", /registry refresh\|show/], ["queue", /queue add\|list\|drain\|show/]]) {
     try {
@@ -283,7 +283,7 @@ function openMcp() {
     const mcpResume = await mcp.tool("cw_run_resume", { cwd: repoA, scope: "home", runId: b1.id });
     assert.equal(mcpResume.repo, repoB, "MCP resume resolves cross-repo by id");
     // cw_run_rerun through the CLI/MCP surface plans the new linked run via
-    // a real run planner (src/shell/registry-cli.ts cliRunPlanner, injected
+    // a real run planner (src/shell/commands/registry-cli.ts cliRunPlanner, injected
     // into RunRegistry).
     const mcpRerun = await mcp.tool("cw_run_rerun", { cwd: repoA, scope: "home", runId: b1.id, reason: "mcp rerun" });
     assert.equal(mcpRerun.provenance.rerunOf, b1.id, "MCP rerun records provenance to the original");

@@ -71,7 +71,7 @@ try {
   assert.equal(check.appId, "architecture-review", "the README app id is checked");
   assert.equal(fs.existsSync(path.join(repo, ".cw")), false, "quickstart --check writes no repo .cw state");
   // quickstartCheck's `nextCommand` string (quickstartNextCommand(),
-  // src/shell/pipeline-cli.ts) weaves `--bundle` (+ --with-trust-key /
+  // src/shell/commands/pipeline-cli.ts) weaves `--bundle` (+ --with-trust-key /
   // --strict-signatures) into the suggested resume line.
   assert.match(check.nextCommand, /--bundle/, "the check next command keeps bundle intent");
 

@@ -16,7 +16,7 @@ import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cwBin = path.join(pluginRoot, "scripts", "cw.js");
-import { formatQuickstartHuman } from "../dist/shell/pipeline-cli.js";
+import { formatQuickstartHuman } from "../dist/shell/commands/pipeline-cli.js";
 import { tmpDir } from "./helpers/workspace.mjs";
 const work = tmpDir("cw-quickstart-fast-");
 

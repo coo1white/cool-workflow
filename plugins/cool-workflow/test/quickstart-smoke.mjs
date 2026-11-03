@@ -22,10 +22,10 @@
 //      structurally by agent-delegation-drive-smoke; here we assert the wrapper
 //      routes through the drive() core, not a private executor).
 //
-// quickstartRun(args) (src/shell/pipeline-cli.ts) takes a plain `args`
+// quickstartRun(args) (src/shell/commands/pipeline-cli.ts) takes a plain `args`
 // object and composes plan -> drive -> report and `--check`/`--preview`:
 //   * SECTION 2  — a `hint` on a fail-closed block (QuickstartResult.hint,
-//                  src/shell/pipeline-cli.ts).
+//                  src/shell/commands/pipeline-cli.ts).
 //   * SECTION 1b — `--resume` single-step advance + copy-paste continue
 //                  `hint` + `resumedFrom` echo.
 //   * SECTION 3  — `--preview` returns the drivePreview() shape
@@ -40,7 +40,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-import { quickstartRun } from "../dist/shell/pipeline-cli.js";
+import { quickstartRun } from "../dist/shell/commands/pipeline-cli.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import * as capabilityTableModule from "../dist/wiring/capability-table/index.js";
 import streamModule from "node:stream";
@@ -271,7 +271,7 @@ async function main() {
 
   // ---- 6. RED LINE: the wrapper has NO private executor (delegates only) -----
   // The quickstart core must route through the existing drive() core (v2:
-  // driveAsync(run.id, run.cwd, …) in src/shell/pipeline-cli.ts — the old
+  // driveAsync(run.id, run.cwd, …) in src/shell/commands/pipeline-cli.ts — the old
   // build's runDrive(runner, …)), not spawn a child or import a model SDK.
   // driveAsync (not the plain synchronous drive()) is what a live multi-round
   // quickstart run actually calls, so it responds to Ctrl-C/SIGTERM instead of
@@ -280,7 +280,7 @@ async function main() {
   // implementation. Structurally: the only spawn path is the agent backend,
   // and there is no model-SDK import in the quickstart core.
   {
-    const coreSrc = fs.readFileSync(path.join(pluginRoot, "src/shell/pipeline-cli.ts"), "utf8");
+    const coreSrc = fs.readFileSync(path.join(pluginRoot, "src/shell/commands/pipeline-cli.ts"), "utf8");
     assert.ok(/driveAsync\(run\.id, run\.cwd/.test(coreSrc), "quickstart composes the existing drive() core (via driveAsync)");
     const SDK_PKGS = ["@anthropic-ai", "openai", "@google/generative-ai", "ollama", "cohere", "mistralai"];
     for (const sdk of SDK_PKGS) assert.ok(!coreSrc.includes(sdk), `quickstart core must not import a model SDK: ${sdk}`);
@@ -325,7 +325,7 @@ async function main() {
   // tested here in-process instead, by swapping process.stdin for a fake
   // Readable with isTTY:true — quickstartRun() only checks
   // process.stdin.isTTY, so this exercises the REAL prompt/readline code
-  // path (shell/pipeline-cli.ts's promptForQuestion), not a stand-in.
+  // path (shell/commands/pipeline-cli.ts's promptForQuestion), not a stand-in.
   {
     const { Readable } = streamModule;
     const originalStdinDescriptor = Object.getOwnPropertyDescriptor(process, "stdin");

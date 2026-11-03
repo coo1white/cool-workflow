@@ -4,7 +4,7 @@ import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "
 // Execution backend, agent spawn, sandbox CLI bindings:
 // sandbox.list|show|validate, backend.list|show|probe,
 // backend.agent.config.show|set, doctor, fix. Handler BODIES live in
-// shell/exec-backend-cli.ts / shell/doctor.ts (impure — env/fs reads);
+// shell/commands/exec-backend-cli.ts / shell/doctor.ts (impure — env/fs reads);
 // this table only wires argv shape -> handler call, per cli/dispatch.ts's
 // generic executor contract. `sandbox.list`/`backend.list` are declared
 // rows in MCP_TOOL_DATA — this section layers a `cli` binding onto them
@@ -21,10 +21,10 @@ function loadDoctor() {
     return require("../../shell/doctor.js");
 }
 function loadAppRunCli() {
-    return require("../../shell/app-run-cli.js");
+    return require("../../shell/commands/app-run-cli.js");
 }
 function loadExecBackendCli() {
-    return require("../../shell/exec-backend-cli.js");
+    return require("../../shell/commands/exec-backend-cli.js");
 }
 attachCliBinding("sandbox.list", {
     path: ["sandbox", "list"],

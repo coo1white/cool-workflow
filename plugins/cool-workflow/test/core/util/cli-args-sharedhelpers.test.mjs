@@ -144,7 +144,7 @@ assert.deepEqual(definedIn("optionalStringArg"), []);
 // registry-core.ts and orchestrator.ts are capability surface files.
 // scheduler-io.ts's stringOption (`true` is unset, other values String())
 // has its only twin in orchestrator.ts.
-assert.deepEqual(definedIn("optionalString"), ["shell/audit-cli.ts", "wiring/capability-table/registry-core.ts"]);
+assert.deepEqual(definedIn("optionalString"), ["shell/commands/audit-cli.ts", "wiring/capability-table/registry-core.ts"]);
 assert.deepEqual(definedIn("stringOption"), ["shell/orchestrator.ts", "shell/scheduler-io.ts"]);
 
 console.log("cli-args-sharedhelpers: ok");

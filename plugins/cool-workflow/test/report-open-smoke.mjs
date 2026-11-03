@@ -11,8 +11,8 @@ import { spawnSync } from "node:child_process";
 const root = path.resolve(import.meta.dirname, "..");
 const cli = path.join(root, "dist/cli.js");
 import { reportToHtml } from "../dist/core/format/report-html.js";
-import { resolveReportRunId, ensureAndOpenReportHtml } from "../dist/shell/report-view-cli.js";
-import { quickstartRun, formatQuickstartHuman } from "../dist/shell/pipeline-cli.js";
+import { resolveReportRunId, ensureAndOpenReportHtml } from "../dist/shell/commands/report-view-cli.js";
+import { quickstartRun, formatQuickstartHuman } from "../dist/shell/commands/pipeline-cli.js";
 import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const openerStub = (dir, logFile) => {

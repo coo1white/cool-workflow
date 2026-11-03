@@ -20,7 +20,7 @@ import { getWorkerScope, writeWorkerManifest, recordWorkerOutput as recordWorker
 import { saveCheckpoint, withRunStateLock } from "./run-store.js";
 import { summarizeTrustAudit } from "./trust-audit.js";
 import { evidenceProvenance } from "./audit-provenance.js";
-import { auditAttestCli, auditDecisionCli } from "./audit-cli.js";
+import { auditAttestCli, auditDecisionCli } from "./commands/audit-cli.js";
 import { commitState } from "./commit.js";
 import { writeReport } from "./report.js";
 export class CoolWorkflowRunner {

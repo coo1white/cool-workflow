@@ -165,7 +165,7 @@ function main() {
   checkIncludes("plugins/cool-workflow/scripts/parity-check.mjs", "buildParityReport", checks);
   checkIncludes("plugins/cool-workflow/test/cli-mcp-parity-smoke.mjs", "cli-mcp-parity-smoke", checks);
   checkIncludes("plugins/cool-workflow/src/wiring/capability-table/registry-core.ts", "export const REGISTRY", checks);
-  checkIncludes("plugins/cool-workflow/src/shell/pipeline-cli.ts", "planSummary", checks);
+  checkIncludes("plugins/cool-workflow/src/shell/commands/pipeline-cli.ts", "planSummary", checks);
   checkIncludes("plugins/cool-workflow/dist/wiring/capability-table/registry-core.js", "REGISTRY", checks);
   checkIncludes("plugins/cool-workflow/docs/dogfood-one-real-repo.7.md", "Dogfood One Real Repo", checks);
   checkIncludes("plugins/cool-workflow/docs/getting-started.md", "npm run release:check", checks);

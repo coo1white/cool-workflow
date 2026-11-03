@@ -23,8 +23,8 @@ function loadRunStore(): typeof import("../../shell/run-store.js") {
 // handler call, per cli/dispatch.ts's generic executor contract.
 // ---------------------------------------------------------------------
 
-function loadReportViewCli(): typeof import("../../shell/report-view-cli.js") {
-  return require("../../shell/report-view-cli.js") as typeof import("../../shell/report-view-cli.js");
+function loadReportViewCli(): typeof import("../../shell/commands/report-view-cli.js") {
+  return require("../../shell/commands/report-view-cli.js") as typeof import("../../shell/commands/report-view-cli.js");
 }
 function loadOperatorUxText(): typeof import("../../shell/operator-ux-text.js") {
   return require("../../shell/operator-ux-text.js") as typeof import("../../shell/operator-ux-text.js");
@@ -118,8 +118,8 @@ REGISTRY_BY_CAPABILITY.get("operator.report")!.mcp!.handler = (args) => loadRepo
 
 // ---- metrics.show / metrics.summary -----------------------------------
 
-function loadMetricsCli(): typeof import("../../shell/metrics-cli.js") {
-  return require("../../shell/metrics-cli.js") as typeof import("../../shell/metrics-cli.js");
+function loadMetricsCli(): typeof import("../../shell/commands/metrics-cli.js") {
+  return require("../../shell/commands/metrics-cli.js") as typeof import("../../shell/commands/metrics-cli.js");
 }
 function loadObservability(): typeof import("../../shell/observability.js") {
   return require("../../shell/observability.js") as typeof import("../../shell/observability.js");
@@ -183,8 +183,8 @@ REGISTRY_BY_CAPABILITY.get("worker.summary")!.mcp!.handler = (args) => workerSum
 // Each worker lifecycle verb over a run. positionals: [runId, workerId,
 // resultFile].
 
-function loadWorkerCli(): typeof import("../../shell/worker-cli.js") {
-  return require("../../shell/worker-cli.js") as typeof import("../../shell/worker-cli.js");
+function loadWorkerCli(): typeof import("../../shell/commands/worker-cli.js") {
+  return require("../../shell/commands/worker-cli.js") as typeof import("../../shell/commands/worker-cli.js");
 }
 
 attachCliBinding("worker.list", {
@@ -235,8 +235,8 @@ REGISTRY_BY_CAPABILITY.get("worker.validate")!.mcp!.handler = (args) => loadWork
 // ---- feedback list|show|summary|collect|task|resolve (CLI + MCP) ---------
 // The operator feedback lifecycle. positionals: [runId, feedbackId].
 
-function loadFeedbackCli(): typeof import("../../shell/feedback-cli.js") {
-  return require("../../shell/feedback-cli.js") as typeof import("../../shell/feedback-cli.js");
+function loadFeedbackCli(): typeof import("../../shell/commands/feedback-cli.js") {
+  return require("../../shell/commands/feedback-cli.js") as typeof import("../../shell/commands/feedback-cli.js");
 }
 
 // jsonMode "flag": human `Feedback` panel by default, canonical JSON under
@@ -355,8 +355,8 @@ REGISTRY_BY_CAPABILITY.get("workbench.serve")!.reason =
 
 // ---- audit.summary ----------------------------------------------------
 
-function loadAuditCli(): typeof import("../../shell/audit-cli.js") {
-  return require("../../shell/audit-cli.js") as typeof import("../../shell/audit-cli.js");
+function loadAuditCli(): typeof import("../../shell/commands/audit-cli.js") {
+  return require("../../shell/commands/audit-cli.js") as typeof import("../../shell/commands/audit-cli.js");
 }
 
 attachCliBinding("audit.summary", {

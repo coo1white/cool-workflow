@@ -4,7 +4,7 @@
 // the resolvable-file-evidence gate refuses unresolved evidence but accepts
 // resolvable evidence.
 //
-// Drives the pipeline spine in dist/shell/pipeline-cli.js (planRun,
+// Drives the pipeline spine in dist/shell/commands/pipeline-cli.js (planRun,
 // dispatchRun, recordResultRun, commitRun) end-to-end. The system-dir
 // blacklist on the result path is the worker sandbox-boundary guard:
 // recordResultRun writes only inside the dispatched worker's sandbox, so a
@@ -32,11 +32,11 @@ import {
   dispatchRun,
   recordResultRun,
   commitRun,
-} from "../dist/shell/pipeline-cli.js";
+} from "../dist/shell/commands/pipeline-cli.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { showWorkerManifest } from "../dist/shell/worker-isolation.js";
 import * as fsAtomicModule from "../dist/shell/fs-atomic.js";
-import * as stateCliModule from "../dist/shell/state-cli.js";
+import * as stateCliModule from "../dist/shell/commands/state-cli.js";
 import { tmpDir } from "./helpers/workspace.mjs";
 
 const fence = "`".repeat(3);
@@ -132,8 +132,8 @@ function main() {
 
   // ---- 6. runtime imports still valid -----------------------------------------
   // v2 module renames of the old flat/orchestrator paths:
-  //   dist/orchestrator/migration-operations.js -> dist/shell/state-cli.js (migration surface)
-  //   dist/orchestrator/lifecycle-operations.js (recordResult) -> dist/shell/pipeline-cli.js (recordResultRun)
+  //   dist/orchestrator/migration-operations.js -> dist/shell/commands/state-cli.js (migration surface)
+  //   dist/orchestrator/lifecycle-operations.js (recordResult) -> dist/shell/commands/pipeline-cli.js (recordResultRun)
   // (dist/core/multi-agent/candidate-scoring.js went with the multi-agent
   // family, slim-and-esm step 2.)
   {

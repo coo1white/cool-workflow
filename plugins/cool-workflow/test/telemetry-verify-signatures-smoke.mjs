@@ -66,7 +66,7 @@ function recordHop(run, { taskId, promptDigest, usage, signature }) {
   });
 }
 // v2 replaced capability-core.telemetryVerify's dependency-injected
-// ({ loadRun }) shape with shell/telemetry-cli.telemetryVerifyCli(runId, args),
+// ({ loadRun }) shape with shell/commands/telemetry-cli.telemetryVerifyCli(runId, args),
 // which loads the run from cwd. This smoke drives in-memory runs, so we compose
 // the SAME v2 primitives telemetryVerifyCli composes (verifyTelemetryLedger +
 // verifyTelemetrySignatures + resolveTrustPublicKey) and build the identical

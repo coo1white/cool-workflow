@@ -14,7 +14,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import * as pipelineCliModule from "../dist/shell/pipeline-cli.js";
+import * as pipelineCliModule from "../dist/shell/commands/pipeline-cli.js";
 import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");

@@ -67,7 +67,7 @@
       "include": [
         "plugins/cool-workflow/apps/**",
         "plugins/cool-workflow/src/shell/workflow-app-loader.ts",
-        "plugins/cool-workflow/src/shell/app-run-cli.ts",
+        "plugins/cool-workflow/src/shell/commands/app-run-cli.ts",
         "plugins/cool-workflow/src/core/workflow-apps/**",
         "plugins/cool-workflow/scripts/canonical-apps.mjs",
         "plugins/cool-workflow/package.json",

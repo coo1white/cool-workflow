@@ -19,7 +19,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 import { plan as planApp } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { loadRunFromCwd, saveCheckpoint } from "../dist/shell/run-store.js";
-import { dispatchRun } from "../dist/shell/pipeline-cli.js";
+import { dispatchRun } from "../dist/shell/commands/pipeline-cli.js";
 import { recordWorkerFailure } from "../dist/shell/worker-isolation.js";
 import { tmpDir } from "./helpers/workspace.mjs";
 

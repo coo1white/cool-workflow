@@ -30,7 +30,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // dispatch, worker output) are byte-identical in v2 and stay as-is.
 import { plan } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
-import { dispatchRun, recordResultRun } from "../dist/shell/pipeline-cli.js";
+import { dispatchRun, recordResultRun } from "../dist/shell/commands/pipeline-cli.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { tmpDir } from "./helpers/workspace.mjs";
 

@@ -334,13 +334,13 @@ between "I will try this again" and "I will not".
   `src/cli/parseargv.ts` takes the first token as the command, and
   `src/cli/entry.ts` special-cases only `-q` / `--question` into
   `quickstart`. The flag works only as `cw quickstart <app> --resume
-  --run <id>` (`src/shell/pipeline-cli.ts`).
+  --run <id>` (`src/shell/commands/pipeline-cli.ts`).
 - `cw run resume <id> --drive --repo <path>` says `Cannot resume: run
   ... not found in source state`: `resolveCwd` in
-  `src/shell/registry-cli.ts` reads `options.cwd` only, so `--repo` is
+  `src/shell/commands/registry-cli.ts` reads `options.cwd` only, so `--repo` is
   dropped and the lookup falls to `process.cwd()` and the home registry.
 - `cw -q "..."` with no `--repo` in a folder that is not a git work
-  tree: `src/shell/pipeline-cli.ts` sets `args.repo` from the invocation
+  tree: `src/shell/commands/pipeline-cli.ts` sets `args.repo` from the invocation
   cwd and plans; there is no git check anywhere on that path. Progress
   lines go to stderr only on a TTY (`emitProgress` in
   `src/shell/drive.ts`, the Rule of Silence), so a piped run is silent
@@ -444,7 +444,7 @@ Budget: src net <= +20, smoke net <= +50.
 
 ## Resume works as the help says (code PR)
 
-Files: `src/cli/entry.ts`, `src/shell/registry-cli.ts`,
+Files: `src/cli/entry.ts`, `src/shell/commands/registry-cli.ts`,
 `test/cli-arg-parsing-smoke.js` (or the smoke that covers the `-q`
 redirect), `README.md`.
 
@@ -465,7 +465,7 @@ Budget: src net <= +12, smoke net <= +30, README net 0.
 
 ## cw refuses to review a folder that is not a project (code PR)
 
-Files: `src/shell/pipeline-cli.ts`, one existing smoke
+Files: `src/shell/commands/pipeline-cli.ts`, one existing smoke
 (`test/quickstart-readme-path-smoke.js` or `test/headline-commands-smoke.js`),
 `README.md`.
 
@@ -1367,7 +1367,7 @@ the operator's written yes in an intent first.
   lines in 73 files; `src/core/` 12,950 lines. Inside core:
   `multi-agent/` 4,251, `state/` 4,151, `pipeline/` 1,857, `trust/`
   929, `workflow-apps/` 856, `format/` 774.
-- The `cw -q` path, by imports: `cli/entry.ts` → `shell/pipeline-cli.ts`
+- The `cw -q` path, by imports: `cli/entry.ts` → `shell/commands/pipeline-cli.ts`
   → `pipeline.ts`, `dispatch.ts`, `drive.ts`, `worker-isolation.ts`,
   `run-store.ts`, `report.ts`, `commit.ts`, `node-store.ts`,
   `trust-audit.ts`, `observability.ts`, `onramp.ts`, `agent-config.ts`,
@@ -1459,7 +1459,7 @@ Files: `AGENTS.md`, root `README.md` (then `npm run sync:readme`),
    sentence under "What CW does".
 3. Plan step, measured before code: confirm each frozen file in the
    list exists on `origin/main` and is not imported by `cli/entry.ts`
-   or `shell/pipeline-cli.ts` directly; list any that is, with the
+   or `shell/commands/pipeline-cli.ts` directly; list any that is, with the
    import line, and leave it out of the frozen list with a note.
 
 Budget: `AGENTS.md` net <= +18, README net <= +2, `Home.md` net <= +2.
@@ -1755,9 +1755,9 @@ about 250 lines); `Repo-Map.md` <= 30 lines; no other new file.
 
 ## Open the report in one step (code PR, may run beside the first)
 
-Files: `src/core/format/report-html.ts` (new, pure), `src/shell/report-view-cli.ts`,
+Files: `src/core/format/report-html.ts` (new, pure), `src/shell/commands/report-view-cli.ts`,
 `src/wiring/capability-table/reporting.ts`, `src/shell/reporter.ts`,
-`src/shell/pipeline-cli.ts` (the end-of-run hook), `src/core/format/help.ts`
+`src/shell/commands/pipeline-cli.ts` (the end-of-run hook), `src/core/format/help.ts`
 (one help line), one new smoke `test/report-open-smoke.js`.
 
 1. Plan step, measured before code: list every caller of the `report`
@@ -1892,7 +1892,7 @@ report in one step) or its doc moves made false.
 - `project/docs/wiki/User-Guide.md` said a run ends with "a short
   findings table" and told the reader to run `cat
   .cw/runs/<run-id>/report.md`. Checked against
-  `src/shell/pipeline-cli.ts`'s `formatQuickstartSummary` (the function
+  `src/shell/commands/pipeline-cli.ts`'s `formatQuickstartSummary` (the function
   this program wired in): it prints the report path, status, and the
   open/show hints — no findings table, and the report is already open
   by then. Fixed in this PR: the page now shows the true printed lines.
@@ -2417,7 +2417,7 @@ Found by the 6b worker in `test/remote-link-git-smoke.js`: a header
 says v2 "DROPPED the entire runtime", that every remote-source symbol
 "is ABSENT", and "leave it RED until Phase B re-lands the feature".
 Measured on main 08ba5400: `src/shell/remote-source.ts` exports all
-of them, `src/shell/pipeline-cli.ts` wires `--link` and the `-dir
+of them, `src/shell/commands/pipeline-cli.ts` wires `--link` and the `-dir
 <url>` auto-detect, and the smoke passes 6/6 sections. The feature
 came back in the same cut-over commit (#334) that kept the old
 header. The assertions were right the whole time; only the words
@@ -2426,9 +2426,9 @@ were wrong.
 The class is wider than one file. Markers `REAL-GAP`, `CUTOVER
 AUDIT`, `CUTOVER STATUS`, `CUTOVER NOTE`, `Phase B`, `left failing`,
 `leave it RED`, `do NOT weaken`, `not ported` sit on 120 lines in 60
-files (58 smokes, `src/shell/audit-cli.ts`, `src/wiring/
+files (58 smokes, `src/shell/commands/audit-cli.ts`, `src/wiring/
 capability-table/parity.ts`), plus one site the grep misses because
-the marker breaks across two lines (`src/shell/pipeline-cli.ts`,
+the marker breaks across two lines (`src/shell/commands/pipeline-cli.ts`,
 `quickstartCheck` note) — and `test:gate` is 265/265 green. So every "this test is RED on purpose"
 claim is false today. A reader who trusts them stops looking for the
 feature that is there. Also in scope: rule 4 of PR 6 was written for
@@ -2447,7 +2447,7 @@ Scope (one PR, comments plus the dead scaffolding around them):
    When a "Phase B:" line is provenance for real code (the two src
    sites), keep the meaning and drop the label ("the audit verbs the
    old build had, ported as thin wrappers").
-3. In `src/shell/pipeline-cli.ts`: the `quickstartCheck` note "the
+3. In `src/shell/commands/pipeline-cli.ts`: the `quickstartCheck` note "the
    --link/remote preflight variant is not ported" goes; the function
    handles a remote candidate a few lines down.
 4. No assertion becomes weaker. No assertion is added. A smoke whose
@@ -4457,7 +4457,7 @@ On `main` at `7a3951e`, Linux, Node 22, built `dist/`, the perf fan app
   the stringify would have shrunk too; it is gone from the save now.
 - Readers of the copies: `formatDispatchTask`
   (`src/core/pipeline/dispatch.ts`) reads `task.sandboxPolicy`;
-  `src/shell/audit-cli.ts` reads `worker.sandboxPolicy`;
+  `src/shell/commands/audit-cli.ts` reads `worker.sandboxPolicy`;
   `docs/worker-isolation.7.md` says worker records hold
   `sandboxPolicy`. The dispatch manifest's copy, which the man pages
   and the v2 conformance case `exec-sandbox-readonly-boundary` read,
@@ -4583,7 +4583,7 @@ can be PASS. The park stays on the record.
 tasks), `src/shell/worker-isolation.ts` (the reopen, and resolving the
 park at accept), `src/shell/error-feedback-io.ts`, `src/shell/drive.ts`
 (a `reopenParked` drive option, run under the drive lock),
-`src/shell/pipeline-cli.ts` and `src/shell/registry-cli.ts` (the two
+`src/shell/commands/pipeline-cli.ts` and `src/shell/commands/registry-cli.ts` (the two
 resume entry points), `dist/`, the man page, two tests.
 
 **North Star.** Track A (a first run that stops can be finished, not
@@ -4881,7 +4881,7 @@ minutes.
 the full review, byte-for-byte.
 
 **Who it touches.** `cw -q`/`cw quickstart` (`--fast`), its help text,
-its terminal summary. Code: `src/shell/pipeline-cli.ts`,
+its terminal summary. Code: `src/shell/commands/pipeline-cli.ts`,
 `src/wiring/capability-table/pipeline.ts`, `dist/`; the v2 help fixtures
 for `quickstart` and its alias `audit-run`; the README (root and npm),
 `docs/agent-delegation-drive.7.md`, `docs/canonical-workflow-apps.7.md`;
@@ -5518,7 +5518,7 @@ measured number so the gain cannot leak back.
   the history share near half.
 - Files with the most comment lines: `shell/drive.ts` 319,
   `shell/trust-audit.ts` 234, `shell/fs-atomic.ts` 205,
-  `shell/pipeline-cli.ts` 189, `shell/worker-isolation.ts` 170,
+  `shell/commands/pipeline-cli.ts` 189, `shell/worker-isolation.ts` 170,
   `mcp/server.ts` 165, `shell/execution-backend/agent.ts` 160,
   `core/capability-data.ts` 158.
 - Duplicate helpers, defined as a function of the same name in three or
@@ -5700,7 +5700,7 @@ numbers measured again on `b73733d2`, after the D1 delete):
   multi-agent callers; `app-run-cli.ts` said both tools are MCP-only.
 - "No test edited except where a test asserts on a comment" missed a
   pin outside `test/`: `scripts/version-sync-check.js` asks
-  `src/shell/pipeline-cli.ts` to hold the word `planSummary`, and the
+  `src/shell/commands/pipeline-cli.ts` to hold the word `planSummary`, and the
   only place it was is a history comment. The comment that took its
   place keeps the word and names the pin; `dogfood-release-smoke` found
   it.
@@ -5831,13 +5831,13 @@ frozen set that import each block:
 |---|---|---|---|
 | multi-agent | 6,927 | 11 | `shell/dispatch.ts`, `shell/worker-isolation.ts`, `shell/commit.ts`, `shell/report.ts`, `shell/operator-ux.ts`, `shell/operator-ux-text.ts`, `shell/trust-policy-io.ts`, `core/state/validation.ts`, `wiring/capability-table/multi-agent.ts` |
 | state explosion | 1,852 | 6 | `shell/report.ts`, `core/format/state-explosion-text.ts`, three wiring slices |
-| reclamation | 1,729 | 1 | `shell/registry-cli.ts`, wiring scheduling slice |
+| reclamation | 1,729 | 1 | `shell/commands/registry-cli.ts`, wiring scheduling slice |
 | candidates + eval | 1,121 | 3 | `shell/report.ts`, `shell/operator-ux.ts`, wiring multi-agent slice |
-| scheduling | 1,061 | 2 | `shell/registry-cli.ts`, wiring scheduling slice |
+| scheduling | 1,061 | 2 | `shell/commands/registry-cli.ts`, wiring scheduling slice |
 | coordinator + topology | 1,008 | 2 | `shell/report.ts`, `shell/operator-ux.ts`, wiring multi-agent slice |
 | collaboration + workbench | 890 | 4 | `shell/commit.ts` (review gate), two wiring slices |
 | evidence reasoning | 749 | 1 | only frozen files (`multi-agent-cli.ts` and others) |
-| telemetry demo | 411 | 1 | `shell/demo-cli.ts` (`cw demo tamper`), `shell/telemetry-cli.ts` |
+| telemetry demo | 411 | 1 | `shell/commands/demo-cli.ts` (`cw demo tamper`), `shell/commands/telemetry-cli.ts` |
 | orchestrator | 230 | 1 | only frozen files |
 | observability intake | 83 | 1 | `shell/observability.ts` (re-export) |
 
@@ -6160,7 +6160,7 @@ Found in step 2:
   `candidates`, `candidateSelections`) stay in the schema as data;
   `test/legacy-multi-agent-state-smoke.js` loads such a state, reads it
   through every kept view, and moves it forward to a verifier commit.
-- `contract.show` moved to `shell/state-cli.ts` (`contractShowCli`).
+- `contract.show` moved to `shell/commands/state-cli.ts` (`contractShowCli`).
   `pdca-blackboard-loop` was deleted, not rewritten: its whole point was
   the blackboard, and `workflow-app-framework-demo` already shows a
   small app.

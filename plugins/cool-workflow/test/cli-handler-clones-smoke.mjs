@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // cli-handler-clones-smoke: the `cw clones` group was carved out of the
 // old command-surface god-dispatch into its own clones handler (now
-// src/shell/registry-cli.ts). Guard the dispatcher->handler routing and the verb's shape (robust to cache contents).
+// src/shell/commands/registry-cli.ts). Guard the dispatcher->handler routing and the verb's shape (robust to cache contents).
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";

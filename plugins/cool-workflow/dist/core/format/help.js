@@ -188,7 +188,7 @@ const COMMAND_HELP_ROWS = {
  *  json`, io.ts's wantsJson); a `--quiet` Flags row, a CLI spelling of the
  *  CW_DRIVE_PROGRESS=0 env var (see cli/entry.ts); and a `--resume` Flags
  *  row, for the `--resume --run <id>` continuation flag
- *  (shell/pipeline-cli.ts's quickstartRun). */
+ *  (shell/commands/pipeline-cli.ts's quickstartRun). */
 export function formatHelp() {
     const moreCommandsLines = wrapPipeJoined(MORE_COMMANDS_TOKENS, MORE_COMMANDS_WRAP_WIDTH);
     const lines = [

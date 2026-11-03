@@ -12,7 +12,7 @@
 //     with opts.output to keep the "writes within apps dir" and "refuses system dir"
 //     checks. The system-dir guard message stayed "system directory".
 //   - runExportArchive(runner, planId, {cwd,output}): the CoolWorkflowRunner facade is
-//     gone in v2. Its export path is ../dist/shell/run-export-cli.runExportCli(runId,
+//     gone in v2. Its export path is ../dist/shell/commands/run-export-cli.runExportCli(runId,
 //     {cwd,output}); loadRunFromCwd first, then the SAME system-directory guard
 //     ("Refusing to write archive to a system directory"). We persist a run on disk
 //     with ../dist/shell/run-store (createRunPaths/ensureRunDirs/saveCheckpoint) — the
@@ -29,7 +29,7 @@ import os from "node:os";
 import * as fsAtomicModule from "../dist/shell/fs-atomic.js";
 import * as workflowAppLoaderModule from "../dist/shell/workflow-app-loader.js";
 import * as runStoreModule from "../dist/shell/run-store.js";
-import * as runExportCliModule from "../dist/shell/run-export-cli.js";
+import * as runExportCliModule from "../dist/shell/commands/run-export-cli.js";
 import * as runExportModule from "../dist/shell/run-export.js";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");

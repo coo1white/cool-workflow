@@ -7,8 +7,8 @@ const require = createRequire(import.meta.url);
 // Ledger, telemetry, trust-audit and tamper/bundle demo CLI
 // bindings: ledger propose|review|verify|apply|list, telemetry verify,
 // audit verify, demo tamper|bundle, report bundle|verify-bundle. Handler
-// BODIES live in shell/ledger-cli.ts, shell/telemetry-cli.ts, shell/
-// audit-cli.ts, shell/demo-cli.ts, shell/report-cli.ts (impure — file/
+// BODIES live in shell/commands/ledger-cli.ts, shell/commands/telemetry-cli.ts, shell/
+// audit-cli.ts, shell/commands/demo-cli.ts, shell/commands/report-cli.ts (impure — file/
 // stdin reads, run-state loads, archive IO); this table only wires argv
 // shape -> handler call, per cli/dispatch.ts's generic executor
 // contract. `ledger` is intentionally absent from KNOWN_COMMANDS (see
@@ -20,22 +20,22 @@ const require = createRequire(import.meta.url);
 // load cost out of commands that never touch ledger/telemetry/audit/demo/
 // report.
 function loadLedgerCli() {
-    return require("../../shell/ledger-cli.js");
+    return require("../../shell/commands/ledger-cli.js");
 }
 function loadTelemetryCli() {
-    return require("../../shell/telemetry-cli.js");
+    return require("../../shell/commands/telemetry-cli.js");
 }
 function loadAuditCli() {
-    return require("../../shell/audit-cli.js");
+    return require("../../shell/commands/audit-cli.js");
 }
 function loadDemoCli() {
-    return require("../../shell/demo-cli.js");
+    return require("../../shell/commands/demo-cli.js");
 }
 function loadTelemetryDemo() {
     return require("../../shell/telemetry-demo.js");
 }
 function loadReportCli() {
-    return require("../../shell/report-cli.js");
+    return require("../../shell/commands/report-cli.js");
 }
 attachCliBinding("ledger.propose", {
     path: ["ledger", "propose"],
@@ -52,7 +52,7 @@ attachCliBinding("ledger.propose", {
         { name: "--diff PATCH", summary: "The change itself, as diff text (e.g. \"$(git diff)\")." },
     ],
     // ledgerProposeCli reads exactly from/to/title/rationale/files/diff
-    // (shell/ledger-cli.ts) — the list above is complete, so the dispatcher
+    // (shell/commands/ledger-cli.ts) — the list above is complete, so the dispatcher
     // may warn about an unknown flag (TTY-only; see cli/global-flags.ts).
     flagsComplete: true,
 });
@@ -73,7 +73,7 @@ attachCliBinding("ledger.review", {
         { name: "--findings TEXT", summary: "Notes on what the review found." },
     ],
     // ledgerReviewCli reads exactly from/to/target/verdict/findings
-    // (shell/ledger-cli.ts) — the list above is complete, so the dispatcher
+    // (shell/commands/ledger-cli.ts) — the list above is complete, so the dispatcher
     // may warn about an unknown flag (TTY-only; see cli/global-flags.ts).
     flagsComplete: true,
 });

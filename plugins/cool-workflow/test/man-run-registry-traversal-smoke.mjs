@@ -19,7 +19,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { readManPage, ManPageNotFoundError } from "../dist/shell/man-cli.js";
+import { readManPage, ManPageNotFoundError } from "../dist/shell/commands/man-cli.js";
 import { RunRegistry } from "../dist/shell/run-registry-io.js";
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 
