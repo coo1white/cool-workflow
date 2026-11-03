@@ -23,12 +23,12 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { runAgentBatchOutcomes } from "../dist/shell/execution-backend/agent.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 const DELEGATE_SCRIPT = path.join(pluginRoot, "scripts/children/batch-delegate-child.mjs");
 
 function sleep(ms) {
@@ -50,7 +50,7 @@ function stdinReaderStubBody() {
 }
 
 function stdinEofDoesNotHangAJob() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-exec-term-stdin-")));
+  const work = tmpDir("cw-exec-term-stdin-");
   try {
     const stub = path.join(work, "reads-stdin.js");
     fs.writeFileSync(stub, stdinReaderStubBody(), "utf8");
@@ -94,7 +94,7 @@ function pipeHoldingJobStubBody() {
 }
 
 async function wedgedGrandchildCannotDeadlockTheDelegate() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-exec-term-wedge-")));
+  const work = tmpDir("cw-exec-term-wedge-");
   const gcPidFile = path.join(work, "gc.pid");
   let delegate;
   try {

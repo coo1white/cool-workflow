@@ -22,7 +22,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -47,6 +46,7 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { summarizeTrustAudit, listTrustAuditEvents } from "../dist/shell/trust-audit.js";
 import { getWorkerScope, showWorkerManifest } from "../dist/shell/worker-isolation.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 // makeRunner() reconstructs runner.plan / .loadRun / .auditSummary /
 // .showWorker over the v2 functions. The smoke chdir's into each workspace
@@ -100,12 +100,6 @@ function drivePreviewRun(_runner, runId, args) {
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cleanups = [];
-function tmpWorkspace() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-add-smoke-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  cleanups.push(work);
-  return work;
-}
 
 // A stub agent: argv[2]=resultPath. Options: { fail, invalid, noModel, model }.
 function writeStub(file, opts = {}) {
@@ -186,7 +180,7 @@ function main() {
   delete process.env.CW_AGENT_COMMAND;
 
   // ---- 3. runBackend unconfigured ⇒ delegation-target-missing refusal -------
-  const workEnv = tmpWorkspace();
+  const workEnv = tmpWorkspace("cw-add-smoke-");
   const baseEnv = newBase(workEnv);
   const refused = eb.runBackend({ ...baseEnv, backendId: "agent", delegation: {} });
   assert.equal(refused.status, "refused", "unconfigured agent refuses");
@@ -213,7 +207,7 @@ function main() {
   assert.equal(agentEnv.provenance.handle.kind, "process", "agent handle is kind:process");
 
   // ---- 5. handle/model/digests/args ONLY in provenance, never in evidence --
-  const workA = tmpWorkspace();
+  const workA = tmpWorkspace("cw-add-smoke-");
   const stub = writeStub(path.join(workA, "stub.js"), { model: "reported-opus" });
   const baseA = newBase(workA);
   const manifestA = { workerDir: workA, inputPath: path.join(workA, "input.md"), resultPath: path.join(workA, "result.md"), prompt: "p" };
@@ -241,7 +235,7 @@ function main() {
   // ---- 8/10. drive the REAL architecture-review app (stub agent) -----------
   const cwd0 = process.cwd();
   // HAPPY: full 14-worker drive, zero hand-written result.md.
-  const workH = tmpWorkspace();
+  const workH = tmpWorkspace("cw-add-smoke-");
   const stubH = writeStub(path.join(workH, "stub.js"), { model: "drive-opus" });
   process.chdir(workH);
   // A CW_-prefixed env var, deterministically forwarded to the stub agent
@@ -313,7 +307,7 @@ function main() {
 
   // ---- 7b. NO result.md ⇒ fail closed at the first worker (no fabrication) --
   {
-    const workN = tmpWorkspace();
+    const workN = tmpWorkspace("cw-add-smoke-");
     const stubN = writeStub(path.join(workN, "stub.js"), { noResult: true });
     process.chdir(workN);
     try {
@@ -330,7 +324,7 @@ function main() {
 
   // ---- 7c. INVALID result.md ⇒ the evidence-gated worker rejects it --------
   {
-    const workI = tmpWorkspace();
+    const workI = tmpWorkspace("cw-add-smoke-");
     const stubI = writeStub(path.join(workI, "stub.js"), { invalid: true });
     process.chdir(workI);
     try {
@@ -349,7 +343,7 @@ function main() {
 
   // ---- 9. failing agent hop parks past the retry budget (retryOrPark) ------
   {
-    const workP = tmpWorkspace();
+    const workP = tmpWorkspace("cw-add-smoke-");
     const stubP = writeStub(path.join(workP, "stub.js"), { fail: true });
     process.chdir(workP);
     try {
@@ -369,7 +363,7 @@ function main() {
   // ---- 8. `--drive --once` deterministic under injected now -----------------
   {
     const mkOnce = () => {
-      const w = tmpWorkspace();
+      const w = tmpWorkspace("cw-add-smoke-");
       const s = writeStub(path.join(w, "stub.js"), { model: "once-m" });
       process.chdir(w);
       try {
@@ -391,7 +385,7 @@ function main() {
 
   // ---- 9b. repeated `--once` failures persist attempts and park -------------
   {
-    const workO = tmpWorkspace();
+    const workO = tmpWorkspace("cw-add-smoke-");
     const stubO = writeStub(path.join(workO, "stub.js"), { noResult: true });
     process.chdir(workO);
     try {
@@ -429,7 +423,7 @@ function main() {
 
   // ---- 9c. an unclosed cw:result block gets a second try, then completes ---
   {
-    const workR = tmpWorkspace();
+    const workR = tmpWorkspace("cw-add-smoke-");
     const counterR = path.join(workR, "calls.txt");
     const stubR = writeStub(path.join(workR, "stub.js"), { unclosedOnce: counterR });
     process.chdir(workR);
@@ -453,7 +447,7 @@ function main() {
 
   // ---- read-only preview payloads are deterministic (parity-safe) ----------
   {
-    const w = tmpWorkspace();
+    const w = tmpWorkspace("cw-add-smoke-");
     process.chdir(w);
     try {
       const runner = makeRunner();

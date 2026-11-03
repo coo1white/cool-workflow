@@ -7,7 +7,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -22,6 +21,7 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { loadRunFromCwd, saveCheckpoint } from "../dist/shell/run-store.js";
 import { dispatchRun } from "../dist/shell/pipeline-cli.js";
 import { recordWorkerFailure } from "../dist/shell/worker-isolation.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const CoolWorkflowRunner = function () {
   let lastCwd = process.cwd();
@@ -43,10 +43,10 @@ const CoolWorkflowRunner = function () {
   };
 };
 
-const cwHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-restore-rerun-home-")));
-const sourceRepo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-restore-rerun-source-")));
-const restoredRepo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-restore-rerun-target-")));
-const controlRepo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-restore-rerun-control-")));
+const cwHome = tmpDir("cw-restore-rerun-home-");
+const sourceRepo = tmpDir("cw-restore-rerun-source-");
+const restoredRepo = tmpDir("cw-restore-rerun-target-");
+const controlRepo = tmpDir("cw-restore-rerun-control-");
 const archivePath = path.join(sourceRepo, "failed-run.cwrun.json");
 fs.writeFileSync(path.join(sourceRepo, "README.md"), "# failed source\n", "utf8");
 

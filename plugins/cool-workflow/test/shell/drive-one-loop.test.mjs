@@ -8,7 +8,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..", "..");
@@ -16,6 +15,7 @@ import { drive, driveAsync } from "../../dist/shell/drive.js";
 import { loadWorkflowApp } from "../../dist/shell/workflow-app-loader.js";
 import { plan } from "../../dist/shell/pipeline.js";
 import { writeStubAgent } from "../helpers/stub-agent.mjs";
+import { tmpWorkspace } from "../helpers/workspace.mjs";
 
 
 function listenerCounts() {
@@ -28,8 +28,7 @@ function listenerCounts() {
 // runs can be compared, and the stderr lines the same way.
 async function driveOnce(driver, options = {}, onProgress = () => {}) {
   const cwd0 = process.cwd();
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-one-loop-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-one-loop-");
   const saved = { write: process.stderr.write, env: { ...process.env } };
   const lines = [];
   let runId;

@@ -28,6 +28,7 @@ import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run
 import { allocateWorkerScope, listWorkerScopes, getWorkerScope } from "../dist/shell/worker-isolation.js";
 import { RunRegistry } from "../dist/shell/run-registry-io.js";
 import { Scheduler } from "../dist/shell/scheduler-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 function makeRun(tmp, id) {
   const paths = createRunPaths(path.join(tmp, ".cw", "runs", id));
@@ -88,8 +89,8 @@ function corruptWorkerScope() {
 // ---- B. wrong-shape registry overlay fails closed (not TypeError/silent) ------
 function wrongShapeOverlay() {
   for (const bad of ["null", "[]", "42", "\"x\""]) {
-    const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-rob-home-")));
-    const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-rob-repo-")));
+    const home = tmpDir("cw-rob-home-");
+    const repo = tmpDir("cw-rob-repo-");
     fs.mkdirSync(path.join(repo, ".cw", "runs"), { recursive: true });
     fs.mkdirSync(path.join(repo, ".cw", "registry"), { recursive: true });
     fs.mkdirSync(path.join(home, "registry"), { recursive: true });

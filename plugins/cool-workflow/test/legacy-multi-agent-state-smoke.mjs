@@ -21,14 +21,14 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const node = process.execPath;
-const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-legacy-ma-state-")));
-const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-legacy-ma-home-")));
+const repo = tmpDir("cw-legacy-ma-state-");
+const home = tmpDir("cw-legacy-ma-home-");
 const env = { ...process.env, CW_HOME: path.join(home, ".cw"), XDG_STATE_HOME: path.join(home, ".state"), CW_NO_AUTO_AGENT: "1", NO_COLOR: "1" };
 fs.writeFileSync(path.join(repo, "README.md"), "# legacy state fixture\n", "utf8");
 const evidenceLocator = `${path.join(repo, "README.md")}:1`;

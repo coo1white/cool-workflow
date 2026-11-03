@@ -10,7 +10,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import cp from "node:child_process";
 
@@ -20,6 +19,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // Same exports + same signatures (normalizeSchedulingPolicy/planSchedule/applyLease/
 // reclaimExpired/resetEntry), so a plain repoint preserves every assertion's intent.
 import * as s from "../dist/shell/scheduling-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const NOW = "2020-01-01T00:00:00.000Z";
 const P = s.normalizeSchedulingPolicy({ maxConcurrent: 2, maxAttempts: 3, leaseTtlMs: 1000, backoffBaseMs: 1000, backoffFactor: 2, backoffCapMs: 60000 });
@@ -49,7 +49,7 @@ assert.equal(s.planSchedule([parked], P, NOW).leases.length, 0, "a parked entry 
 assert.equal(s.resetEntry([parked], "y").entries[0].status, "ready", "reset recovers a parked entry");
 
 // 4 + 5. CLI front door over a temp CW_HOME, incl. pre-v0.1.37 queue.json
-const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-sched-home-")));
+const home = tmpDir("cw-sched-home-");
 fs.mkdirSync(path.join(home, "registry"), { recursive: true });
 // legacy entries: NO attempts/leaseId/status-beyond-ready fields (pre-v0.1.37 shape)
 fs.writeFileSync(

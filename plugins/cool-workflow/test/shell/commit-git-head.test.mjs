@@ -6,10 +6,10 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { readGitHead, readHeadFromFiles } from "../../dist/shell/commit.js";
+import { tmpDir } from "../helpers/workspace.mjs";
 
 const env = {
   ...process.env,
@@ -32,7 +32,7 @@ const commit = (repo, text) => {
   git(repo, "-c", "commit.gpgsign=false", "commit", "-q", "-m", text);
 };
 
-const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-git-head-")));
+const tmp = tmpDir("cw-git-head-");
 try {
   // No repository at all: undefined, same as git.
   const bare = path.join(tmp, "not-a-repo");

@@ -8,7 +8,6 @@
 // ship a report whose bundle a client could not verify.
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -24,6 +23,7 @@ import { quickstartRun } from "../dist/shell/pipeline-cli.js";
 import { verifyReportBundle } from "../dist/shell/run-export.js";
 import { drive as driveRun } from "../dist/shell/drive.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 // Facade shims mapping the old runner-based call sites onto v2's free functions.
 function makeRunner() {
@@ -51,12 +51,6 @@ function drive(runner, runId, options) { return driveRun(runId, runner._cwd(), o
 const BUNDLE_APP = "end-to-end-golden-path";
 
 const cleanups = [];
-function tmpWorkspace() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-qs-bundle-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  cleanups.push(work);
-  return work;
-}
 // Unsigned inner agent: writes a valid evidence-gated result.md and reports a model
 // (+ usage). The wrapper adds the signature when a private key is configured.
 function writeStub(file, withUsage) {
@@ -83,9 +77,9 @@ clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"], noA
 // --- 1. happy path: ONE command drives + seals a self-verified, recipient-verifiable
 //        bundle, with the trust key embedded ---
 {
-  const work = tmpWorkspace();
+  const work = tmpWorkspace("cw-qs-bundle-");
   const stub = writeStub(path.join(work, "stub.js"), false);
-  const keyDir = tmpWorkspace();
+  const keyDir = tmpWorkspace("cw-qs-bundle-");
   const gen = spawnSync(process.execPath, [KEYGEN, "--out-dir", keyDir], { encoding: "utf8" });
   assert.equal(gen.status, 0, `keygen exits 0: ${gen.stderr}`);
   const pubPath = path.join(keyDir, "cw-attest.pub");
@@ -117,7 +111,7 @@ clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"], noA
 
 // --- 2. POLA: quickstart WITHOUT --bundle is byte-identical (no `bundle` key) ---
 {
-  const work = tmpWorkspace();
+  const work = tmpWorkspace("cw-qs-bundle-");
   const stub = writeStub(path.join(work, "stub.js"), false);
   process.chdir(work);
   try {
@@ -138,7 +132,7 @@ clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"], noA
 // --- 3. skip on non-complete: --bundle on a run that did NOT complete seals nothing
 //        and says why (no silent no-op, no partial artifact shipped) ---
 {
-  const work = tmpWorkspace();
+  const work = tmpWorkspace("cw-qs-bundle-");
   clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"], noAutoAgent: true }); // no agent configured => drive fails closed (status=blocked)
   process.chdir(work);
   try {
@@ -155,9 +149,9 @@ clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"], noA
 // --- 3b. resume + bundle: the first guided step does not seal; continuing the
 //         same run to completion does seal and self-verify. ---
 {
-  const work = tmpWorkspace();
+  const work = tmpWorkspace("cw-qs-bundle-");
   const stub = writeStub(path.join(work, "stub.js"), false);
-  const keyDir = tmpWorkspace();
+  const keyDir = tmpWorkspace("cw-qs-bundle-");
   const gen = spawnSync(process.execPath, [KEYGEN, "--out-dir", keyDir], { encoding: "utf8" });
   assert.equal(gen.status, 0, `keygen exits 0: ${gen.stderr}`);
   const pubPath = path.join(keyDir, "cw-attest.pub");
@@ -204,8 +198,8 @@ clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"], noA
 //        The attested run is built via the signing wrapper (attestPublicKey lives in
 //        the agent config, NOT the env), so at bundle time no key is resolvable. ---
 {
-  const work = tmpWorkspace();
-  const keyDir = tmpWorkspace();
+  const work = tmpWorkspace("cw-qs-bundle-");
+  const keyDir = tmpWorkspace("cw-qs-bundle-");
   const gen = spawnSync(process.execPath, [KEYGEN, "--out-dir", keyDir], { encoding: "utf8" });
   assert.equal(gen.status, 0, `keygen exits 0: ${gen.stderr}`);
   const keyPath = path.join(keyDir, "cw-attest.key");
@@ -268,13 +262,13 @@ clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"], noA
 //        bundle still resolves the run from the run's OWN repo (no crash), and its
 //        OUTPUT artifacts land in the CALLER's cwd — never polluting the repo. ---
 {
-  const repo = tmpWorkspace();
+  const repo = tmpWorkspace("cw-qs-bundle-");
   const stub = writeStub(path.join(repo, "stub.js"), false);
-  const keyDir = tmpWorkspace();
+  const keyDir = tmpWorkspace("cw-qs-bundle-");
   const gen = spawnSync(process.execPath, [KEYGEN, "--out-dir", keyDir], { encoding: "utf8" });
   assert.equal(gen.status, 0, `keygen exits 0: ${gen.stderr}`);
   const pubPath = path.join(keyDir, "cw-attest.pub");
-  const caller = tmpWorkspace(); // the operator's shell cwd, distinct from the repo
+  const caller = tmpWorkspace("cw-qs-bundle-"); // the operator's shell cwd, distinct from the repo
 
   process.chdir(caller);
   try {

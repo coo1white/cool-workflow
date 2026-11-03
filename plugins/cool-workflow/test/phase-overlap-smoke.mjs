@@ -16,12 +16,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cwBin = path.join(pluginRoot, "scripts", "cw.js");
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-phase-overlap-")));
+const work = tmpDir("cw-phase-overlap-");
 
 const agent = path.join(work, "agent.js");
 fs.writeFileSync(

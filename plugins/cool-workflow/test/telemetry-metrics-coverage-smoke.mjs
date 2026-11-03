@@ -12,12 +12,12 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import * as obs from "../dist/shell/observability.js";
 import * as ledger from "../dist/shell/telemetry-ledger-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const FIXED_NOW = "2026-06-10T12:00:00.000Z";
 const cleanups = [];
@@ -72,7 +72,7 @@ function mkWorker(id, taskId, u) {
 }
 
 function main() {
-  const runDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-metrics-cov-smoke-")));
+  const runDir = tmpDir("cw-metrics-cov-smoke-");
   cleanups.push(runDir);
   const run = fixtureRun(runDir);
 

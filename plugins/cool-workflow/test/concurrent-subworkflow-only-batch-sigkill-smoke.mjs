@@ -27,7 +27,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
@@ -39,6 +38,7 @@ const drivePath = path.join(pluginRoot, "dist/shell/drive.js");
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const FIXED_NOW = "2026-07-13T00:00:00.000Z";
 // Long enough that a loaded CI runner reliably delivers the SIGKILL well
@@ -48,7 +48,7 @@ const STEP_MS = 4000;
 const cleanups = [];
 
 function tmp(prefix) {
-  const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
+  const d = tmpDir(prefix);
   cleanups.push(d);
   return d;
 }

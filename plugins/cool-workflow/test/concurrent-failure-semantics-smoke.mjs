@@ -19,7 +19,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -33,6 +32,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -111,8 +111,7 @@ function buildApp(work) {
 
 function main() {
   clearAgentEnv();
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-t2-accept-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-t2-accept-");
   const stub = writeStub(path.join(work, "stub.js"));
   process.chdir(work);
   try {

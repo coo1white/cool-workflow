@@ -17,7 +17,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -26,17 +25,13 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 clearAgentEnv({ noAutoAgent: true });
 
-function tmpWorkspace() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-concurrent-user-env-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  return work;
-}
 
 function main() {
-  const work = tmpWorkspace();
+  const work = tmpWorkspace("cw-concurrent-user-env-");
   const stub = path.join(work, "stub-agent.js");
   // Reports what the REAL spawned child saw as part of the worker's own
   // result content (not just stdout provenance JSON), so a driven run's

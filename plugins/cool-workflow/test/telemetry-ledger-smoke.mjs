@@ -20,7 +20,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -52,6 +51,7 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 function makeRunner() {
   return {
     plan(appId, inputs) {
@@ -64,12 +64,6 @@ function makeRunner() {
 }
 
 const cleanups = [];
-function tmpWorkspace() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-tel-ledger-smoke-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  cleanups.push(work);
-  return work;
-}
 function ed25519() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
   return {
@@ -102,7 +96,7 @@ function main() {
   clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY"] });
 
   // ---- A. UNIT chain integrity --------------------------------------------
-  const work = tmpWorkspace();
+  const work = tmpWorkspace("cw-tel-ledger-smoke-");
   const run = { id: "run-x", paths: { runDir: path.join(work, "runX") } };
   fs.mkdirSync(run.paths.runDir, { recursive: true });
 
@@ -152,7 +146,7 @@ function main() {
   // ---- B. END-TO-END: signed drive populates a verifiable ledger -----------
   const { publicPem, privatePem } = ed25519();
   const cwd0 = process.cwd();
-  const workE = tmpWorkspace();
+  const workE = tmpWorkspace("cw-tel-ledger-smoke-");
   const privPath = path.join(workE, "priv.pem");
   fs.writeFileSync(privPath, privatePem, "utf8");
   const stub = writeSigningStub(path.join(workE, "stub.js"), privPath);

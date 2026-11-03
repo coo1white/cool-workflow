@@ -10,8 +10,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -48,7 +48,7 @@ function run(args, cwd, extraEnv = {}) {
 
 // ===== 3. a no-agent quickstart fails CLOSED with a copy-pasteable fix hint =====
 {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-recover-")));
+  const work = tmpDir("cw-recover-");
   cleanups.push(work);
   fs.writeFileSync(path.join(work, "README.md"), "# proj\n", "utf8");
   // No agent configured (env zeroed, auto-detect off): the drive must NOT fabricate a run.
@@ -69,7 +69,7 @@ function run(args, cwd, extraEnv = {}) {
 // Parity with §3 for the advanced verb: DriveResult must carry agentConfigured so the CLI
 // can offer the right recovery (`Try: cw doctor`) instead of a generic status hint.
 {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-recover-drv-")));
+  const work = tmpDir("cw-recover-drv-");
   cleanups.push(work);
   for (const a of [["init", "-q"], ["config", "user.email", "t@t"], ["config", "user.name", "t"], ["config", "commit.gpgsign", "false"]]) {
     spawnSync("git", ["-C", work, ...a], { encoding: "utf8" });
@@ -91,7 +91,7 @@ function run(args, cwd, extraEnv = {}) {
 // surfaces "Missing required input --repo" plus the content-based
 // recoveryHint (src/cli/entry.ts) that prints the `-dir` recovery line.
 {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-recover-norepo-")));
+  const work = tmpDir("cw-recover-norepo-");
   cleanups.push(work);
   const r = run(["plan", "architecture-review"], work); // plan does not default repo to cwd
   assert.equal(r.status, 1, "a missing required input exits non-zero");

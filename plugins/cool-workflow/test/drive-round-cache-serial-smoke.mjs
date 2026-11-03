@@ -39,7 +39,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -48,6 +47,7 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
 import { writeStubAgent } from "./helpers/stub-agent.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 function countStateReads(statePath, fn) {
   const originalReadFileSync = fs.readFileSync;
@@ -72,8 +72,7 @@ const cwd0 = process.cwd();
 //    outer-loop round (once:true) dispatches AND accepts it.
 // ---------------------------------------------------------------------
 {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-drive-roundcache-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-drive-roundcache-");
   try {
     process.chdir(work);
     const p = plan(loadWorkflowApp("end-to-end-golden-path"), { repo: work, question: "round cache" });
@@ -107,8 +106,7 @@ const cwd0 = process.cwd();
 //    3 with it in place (4 before the progress line stopped reading).
 // ---------------------------------------------------------------------
 {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-drive-roundcache-conc-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-drive-roundcache-conc-");
   try {
     process.chdir(work);
     const stub = writeStubAgent(path.join(work, "stub.js"));
@@ -145,8 +143,7 @@ const cwd0 = process.cwd();
 //    task, not a stale or leaked-across-rounds cache entry.
 // ---------------------------------------------------------------------
 {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-drive-roundcache-multi-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-drive-roundcache-multi-");
   try {
     process.chdir(work);
     const stub = writeStubAgent(path.join(work, "stub.js"));
@@ -179,8 +176,7 @@ const cwd0 = process.cwd();
 //    written.
 // ---------------------------------------------------------------------
 {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-drive-roundcache-full-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-drive-roundcache-full-");
   try {
     process.chdir(work);
     const p = plan(loadWorkflowApp("end-to-end-golden-path"), { repo: work, question: "round cache full" });

@@ -12,7 +12,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -22,10 +21,11 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 clearAgentEnv({ noAutoAgent: true });
 
-const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-anchor-")));
+const root = tmpDir("cw-resume-anchor-");
 const home = path.join(root, "home");
 fs.mkdirSync(home);
 const env = { ...process.env, HOME: home, USERPROFILE: home, CW_HOME: path.join(home, ".cw") };

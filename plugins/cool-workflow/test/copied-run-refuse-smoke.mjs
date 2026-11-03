@@ -20,7 +20,6 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -29,8 +28,9 @@ import { plan } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { RunRegistry } from "../dist/shell/run-registry-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-copied-run-")));
+const root = tmpDir("cw-copied-run-");
 const openerLog = path.join(root, "opener.log");
 const opener = path.join(root, "opener.js");
 fs.writeFileSync(opener, `#!/usr/bin/env node\nrequire("fs").writeFileSync(${JSON.stringify(openerLog)}, process.argv[2], "utf8");\n`, "utf8");

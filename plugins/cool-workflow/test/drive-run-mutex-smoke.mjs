@@ -25,7 +25,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
@@ -33,6 +32,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { drive } from "../dist/shell/drive.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 // A live child process to stand in for "another drive holding the run". A bare
 // keep-alive timer keeps it running until we kill it. stdio ignored so it
@@ -51,8 +51,7 @@ function writeDriveLock(runDir, pid) {
 }
 
 async function main() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-drive-mutex-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-drive-mutex-");
 
   // Clear ambient agent config so drive() never auto-detects an agent CLI on
   // PATH and spawns a real child on the unfixed (Part A) path — see

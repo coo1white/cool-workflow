@@ -5,7 +5,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -24,7 +23,8 @@ for (const file of srcGuards) {
 }
 
 import { callTool } from "../dist/mcp/dispatch.js";
-const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-explicit-cwd-")));
+import { tmpDir } from "./helpers/workspace.mjs";
+const workspace = tmpDir("cw-explicit-cwd-");
 fs.writeFileSync(path.join(workspace, "README.md"), "# explicit cwd smoke\n", "utf8");
 
 const cwdBefore = process.cwd();

@@ -14,7 +14,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 
@@ -34,6 +33,7 @@ const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 // from the registry as proof of that same registry.
 import * as registry from "../dist/wiring/capability-table/index.js";
 import { cliHelpTokens, cliReachabilityIssues } from "../scripts/parity-check.mjs";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 function liveMcpToolDefinitions() {
   const out = execFileSync(node, [mcpServer], {
@@ -321,7 +321,7 @@ function openMcp() {
   assert.match(commit.reason, /runner\.commit/, "commit reason must cite the shared core entry");
 
   // ---- 2. cw <cmd> --json == cw_<tool> on a real run ----------------------
-  const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-parity-smoke-")));
+  const workspace = tmpDir("cw-parity-smoke-");
   const plan = JSON.parse(
     execFileSync(node, [cli, "plan", "architecture-review", "--repo", workspace, "--question", "v0.1.27 parity smoke"], {
       cwd: workspace,

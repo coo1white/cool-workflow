@@ -9,12 +9,12 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 import { allocateWorkerScope, recordWorkerOutput } from "../dist/shell/worker-isolation.js";
 import { validateSandboxWrite } from "../dist/shell/sandbox-profile.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const RESULT = ["# Result", "", "```cw:result", JSON.stringify({ summary: "done", findings: [], evidence: [] }), "```", ""].join("\n");
 const OUTSIDE = ["OUTSIDE-SECRET", "", "```cw:result", JSON.stringify({ summary: "leaked", findings: [], evidence: [] }), "```", ""].join("\n");
@@ -40,7 +40,7 @@ function setup(root) {
 }
 
 function realTmp(prefix) {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
+  return tmpDir(prefix);
 }
 
 function expectDenied(run, scope, target, why) {

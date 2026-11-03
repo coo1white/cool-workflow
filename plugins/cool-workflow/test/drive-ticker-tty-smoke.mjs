@@ -20,14 +20,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cwBin = path.join(pluginRoot, "scripts", "cw.js");
 const coreUrl = pathToFileURL(path.join(pluginRoot, "scripts", "agents", "agent-adapter-core.mjs")).href;
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-drive-ticker-tty-")));
+const work = tmpDir("cw-drive-ticker-tty-");
 
 const resultBody = [
   "const fence = String.fromCharCode(96).repeat(3);",

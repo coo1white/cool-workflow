@@ -27,7 +27,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -42,6 +41,7 @@ import { drive } from "../dist/shell/drive.js";
 import { writeReport } from "../dist/shell/report.js";
 import { listTrustAuditEvents } from "../dist/shell/trust-audit.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 // v2 has no CoolWorkflowRunner facade (a documented anti-goal to dismantle).
 // makeRunner() reconstructs the .plan / .loadRun surface this smoke uses over
@@ -60,12 +60,6 @@ function makeRunner() {
 
 const FIXED_NOW = "2026-06-10T00:00:00.000Z";
 const cleanups = [];
-function tmpWorkspace() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-telemetry-smoke-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  cleanups.push(work);
-  return work;
-}
 function ed25519() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
   return {
@@ -216,7 +210,7 @@ function main() {
 
   // ---- END-TO-END: signed drive ⇒ attested + report coverage ---------------
   const cwd0 = process.cwd();
-  const workS = tmpWorkspace();
+  const workS = tmpWorkspace("cw-telemetry-smoke-");
   const stubSigned = writeStub(path.join(workS, "stub-signed.js"), { model: "attested-opus" });
   const privPath = path.join(workS, "agent-priv.pem");
   fs.writeFileSync(privPath, privatePem, "utf8");
@@ -269,7 +263,7 @@ function main() {
   }
 
   // ---- END-TO-END: unsigned drive ⇒ unattested + LOUD report ---------------
-  const workU = tmpWorkspace();
+  const workU = tmpWorkspace("cw-telemetry-smoke-");
   const stubUnsigned = writeStub(path.join(workU, "stub-unsigned.js"), { model: "noisy-opus" });
   process.chdir(workU);
   try {

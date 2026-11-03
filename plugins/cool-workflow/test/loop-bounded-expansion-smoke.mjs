@@ -18,7 +18,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -37,6 +36,7 @@ import * as ns from "../dist/core/state/node-snapshot.js";
 import { registerLoopPredicate, maxLoopExpansion } from "../dist/core/pipeline/loop-expansion.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
 import { writeStubAgent } from "./helpers/stub-agent.mjs";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const STUB = { summary: "stub", usage: { input_tokens: 4, output_tokens: 2 } };
 
@@ -48,7 +48,7 @@ registerLoopPredicate("test:stop-at-3", (ctx) => ({ done: ctx.round >= 3, reason
 registerLoopPredicate("test:never", () => ({ done: false, reason: "never: keep going" }));
 
 function tmp(prefix) {
-  const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
+  const d = tmpDir(prefix);
   cleanups.push(d);
   return d;
 }

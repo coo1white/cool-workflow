@@ -10,7 +10,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -18,6 +17,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 import { runDoctor } from "../dist/shell/doctor.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 function run(args, env, cwd) {
   try {
@@ -30,8 +30,8 @@ function run(args, env, cwd) {
 
 // ---- 1. report shape + the in-process API ------------------------------------
 (function shape() {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-home-")));
-  const cwd = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-cwd-")));
+  const home = tmpDir("cw-doctor-home-");
+  const cwd = tmpDir("cw-doctor-cwd-");
   const report = runDoctor({}, { ...process.env, CW_HOME: home, CW_AGENT_COMMAND: "", CW_AGENT_ENDPOINT: "" }, cwd);
   assert.equal(report.schemaVersion, 1);
   assert.ok(Array.isArray(report.checks) && report.checks.length >= 4, "has checks");
@@ -51,7 +51,7 @@ function run(args, env, cwd) {
 
 // ---- 2. READ-ONLY: doctor creates neither $CW_HOME nor <cwd>/.cw --------------
 (function readOnly() {
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-ro-")));
+  const base = tmpDir("cw-doctor-ro-");
   const home = path.join(base, "home-not-yet");
   const cwd = path.join(base, "work");
   fs.mkdirSync(cwd, { recursive: true });
@@ -62,7 +62,7 @@ function run(args, env, cwd) {
 
 // ---- 3. no agent => WARN, exit 0 (demo/preview still work) --------------------
 (function noAgentWarns() {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-noagent-")));
+  const home = tmpDir("cw-doctor-noagent-");
   const env = { ...process.env, CW_HOME: home };
   delete env.CW_AGENT_COMMAND;
   delete env.CW_AGENT_ENDPOINT;
@@ -81,7 +81,7 @@ function run(args, env, cwd) {
 // ---- 4. unwritable home registry => FAIL, exit 1 ------------------------------
 (function unwritableHomeFails() {
   // Point $CW_HOME under a regular FILE so no ancestor dir can be created/written.
-  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-bad-")));
+  const base = tmpDir("cw-doctor-bad-");
   const file = path.join(base, "afile");
   fs.writeFileSync(file, "x");
   const badHome = path.join(file, "registry"); // a path UNDER a file → unwritable
@@ -94,7 +94,7 @@ function run(args, env, cwd) {
 
 // ---- 5. jsonMode "flag": --json is JSON, default human output is NOT JSON ------
 (function jsonModeFlag() {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-mode-")));
+  const home = tmpDir("cw-doctor-mode-");
   const human = run([], { ...process.env, CW_HOME: home }, home).stdout;
   assert.ok(human.startsWith("cw doctor"), "default rendering is human text");
   assert.throws(() => JSON.parse(human), "default rendering is not canonical JSON");
@@ -104,7 +104,7 @@ function run(args, env, cwd) {
 
 // ---- 6. --onramp is opt-in and gives the short, safe path --------------------
 (function onramp() {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-onramp-")));
+  const home = tmpDir("cw-doctor-onramp-");
   const env = { ...process.env, CW_HOME: home };
   delete env.CW_AGENT_COMMAND;
   delete env.CW_AGENT_ENDPOINT;
@@ -150,7 +150,7 @@ function run(args, env, cwd) {
 
   // Outside a cool-workflow checkout, the contributor sections do not show:
   // only a new user's own next steps belong in front of a new user.
-  const outsideRepo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-onramp-outside-")));
+  const outsideRepo = tmpDir("cw-doctor-onramp-outside-");
   const outsideOnramp = JSON.parse(run(["--onramp", "--json"], env, outsideRepo).stdout).onramp;
   const outsideTitles = outsideOnramp.sections.map((s) => s.title);
   for (const title of ["Change Loop", "Surface Guard", "Release Gate"]) {
@@ -178,7 +178,7 @@ function run(args, env, cwd) {
   // When CW_NO_AUTO_AGENT=1 is set (as the test runner sandbox does), the agent
   // check should report "warn" (not auto-detected). This is the expected test
   // behavior — auto-detection is for real user sessions, not smoke tests.
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-noauto-")));
+  const home = tmpDir("cw-doctor-noauto-");
   const env = { ...process.env, CW_HOME: home, CW_NO_AUTO_AGENT: "1" };
   delete env.CW_AGENT_COMMAND;
   delete env.CW_AGENT_ENDPOINT;

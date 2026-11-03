@@ -11,10 +11,10 @@ import assert from "node:assert/strict";
 import { spawnSync, execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import childProcessModule from "node:child_process";
 import httpModule from "node:http";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -23,7 +23,7 @@ const has = (bin) => spawnSync(bin, ["--version"], { encoding: "utf8" }).status 
   spawnSync("sh", ["-c", `command -v ${bin}`], { encoding: "utf8" }).status === 0;
 
 function freshHome() {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-arch-home-")));
+  const home = tmpDir("cw-arch-home-");
   cleanups.push(home);
   return home;
 }
@@ -71,7 +71,7 @@ function makeTar(entries) {
 }
 
 // Build a project tree wrapped in a single top-level dir (GitHub archive style).
-const fix = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-arch-fix-")));
+const fix = tmpDir("cw-arch-fix-");
 cleanups.push(fix);
 const proj = path.join(fix, "proj-main");
 fs.mkdirSync(path.join(proj, "src"), { recursive: true });

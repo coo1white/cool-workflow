@@ -37,6 +37,7 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { showWorkerManifest } from "../dist/shell/worker-isolation.js";
 import * as fsAtomicModule from "../dist/shell/fs-atomic.js";
 import * as stateCliModule from "../dist/shell/state-cli.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const fence = "`".repeat(3);
 
@@ -117,7 +118,7 @@ function main() {
   // /etc/passwd is outside the readonly worker sandbox and is refused there.
   // Same intent (never accept a result written to a system dir), stronger guard.
   {
-    const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-path-guard-")));
+    const tmp = tmpDir("cw-path-guard-");
     try {
       fs.writeFileSync(path.join(tmp, "README.md"), "# target\n", "utf8");
       const { runId, taskId } = dispatchOne(tmp, "path-guard-test");
@@ -152,7 +153,7 @@ function main() {
   {
     const previousRequireResolvable = process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE;
     process.env.CW_REQUIRE_RESOLVABLE_EVIDENCE = "1";
-    const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-direct-result-")));
+    const tmp = tmpDir("cw-direct-result-");
     try {
       fs.writeFileSync(path.join(tmp, "README.md"), "# target\n", "utf8");
 

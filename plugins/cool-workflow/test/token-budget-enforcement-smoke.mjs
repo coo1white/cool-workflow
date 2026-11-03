@@ -16,7 +16,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -31,6 +30,7 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { drive as driveRun } from "../dist/shell/drive.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
 import { writeStubAgent } from "./helpers/stub-agent.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const STUB = { summary: "stub", model: "stub-m", usage: { input_tokens: 4, output_tokens: 2 } };
 
@@ -61,12 +61,6 @@ const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
 const cleanups = [];
 
-function tmpWorkspace() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-budget-smoke-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  cleanups.push(work);
-  return work;
-}
 
 // A stub agent that writes a valid result.md and reports usage: 6 tokens/hop.
 
@@ -89,7 +83,7 @@ function main() {
 
   // ---- 1. budget exhausts mid-run -> blocked before the NEXT spawn ----------
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-budget-smoke-");
     const stub = writeStubAgent(path.join(work, "stub.js"), STUB);
     process.chdir(work);
     try {
@@ -121,7 +115,7 @@ function main() {
 
   // ---- 2. ample budget -> drives to completion (gate never blocks real work) -
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-budget-smoke-");
     const stub = writeStubAgent(path.join(work, "stub.js"), STUB);
     process.chdir(work);
     try {
@@ -139,7 +133,7 @@ function main() {
 
   // ---- 3. no budget declared -> no gate (backward compatible) ---------------
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-budget-smoke-");
     const stub = writeStubAgent(path.join(work, "stub.js"), STUB);
     process.chdir(work);
     try {

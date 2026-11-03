@@ -19,15 +19,15 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 
 const cleanups = [];
 function tmpRepo() {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-enforcement-labels-")));
+  const dir = tmpDir("cw-enforcement-labels-");
   fs.writeFileSync(path.join(dir, "a.txt"), "hello\n", "utf8");
   cleanups.push(dir);
   return dir;

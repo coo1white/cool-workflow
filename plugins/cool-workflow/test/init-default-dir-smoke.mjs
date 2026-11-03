@@ -22,12 +22,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-init-default-")));
+const work = tmpDir("cw-init-default-");
 
 function cw(args, cwd, extraEnv = {}) {
   const env = { ...process.env, HOME: work, CW_HOME: path.join(work, "home"), ...extraEnv };

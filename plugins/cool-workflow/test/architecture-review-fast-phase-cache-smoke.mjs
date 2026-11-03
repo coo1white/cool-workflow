@@ -15,13 +15,13 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const script = path.join(pluginRoot, "scripts", "architecture-review-fast.js");
 const node = process.execPath;
-const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-arch-fast-phasecache-")));
+const tmp = tmpDir("cw-arch-fast-phasecache-");
 
 function main() {
   const repo = path.join(tmp, "repo");

@@ -30,10 +30,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import * as runRegistryIoModule from "../dist/shell/run-registry-io.js";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -42,8 +42,7 @@ function cw(args, cwd) {
   return execFileSync(process.execPath, [cli, ...args], { cwd, encoding: "utf8" });
 }
 
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-registry-no-double-scan-")));
-fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+const work = tmpWorkspace("cw-registry-no-double-scan-");
 const cwd0 = process.cwd();
 try {
   process.chdir(work);

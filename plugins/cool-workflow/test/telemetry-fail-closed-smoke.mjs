@@ -41,7 +41,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -54,15 +53,10 @@ import { listTrustAuditEvents } from "../dist/shell/trust-audit.js";
 import * as ta from "../dist/core/trust/telemetry-attestation.js";
 import { resolveAgentConfig } from "../dist/shell/agent-config.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const FIXED_NOW = "2026-06-11T00:00:00.000Z";
 const cleanups = [];
-function tmpWorkspace() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-failclosed-smoke-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  cleanups.push(work);
-  return work;
-}
 function ed25519() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
   return { publicPem: publicKey.export({ type: "spki", format: "pem" }).toString(), privatePem: privateKey.export({ type: "pkcs8", format: "pem" }).toString() };
@@ -118,7 +112,7 @@ function main() {
 
   // ---- ENFORCEMENT at the recordWorkerOutput seam --------------------------
   // 1. require ON + unsigned (unattested) ⇒ throws, not accepted
-  withCwd(tmpWorkspace(), () => {
+  withCwd(tmpWorkspace("cw-failclosed-smoke-"), () => {
     const work = process.cwd();
     const { run, workerId, wm } = dispatchOne(work);
     fs.writeFileSync(wm.resultPath, validResult(work), "utf8");
@@ -137,7 +131,7 @@ function main() {
   });
 
   // 2. require ON + NO usage (absent) ⇒ throws (parks absent too)
-  withCwd(tmpWorkspace(), () => {
+  withCwd(tmpWorkspace("cw-failclosed-smoke-"), () => {
     const work = process.cwd();
     const { run, workerId, wm } = dispatchOne(work);
     fs.writeFileSync(wm.resultPath, validResult(work), "utf8");
@@ -152,7 +146,7 @@ function main() {
   });
 
   // 3. require ON + correctly-signed (attested) ⇒ accepted
-  withCwd(tmpWorkspace(), () => {
+  withCwd(tmpWorkspace("cw-failclosed-smoke-"), () => {
     const work = process.cwd();
     const { run, workerId, taskId, wm } = dispatchOne(work);
     fs.writeFileSync(wm.resultPath, validResult(work), "utf8");
@@ -165,7 +159,7 @@ function main() {
   });
 
   // 4. require OFF + unsigned ⇒ accepted as unattested (default behavior intact)
-  withCwd(tmpWorkspace(), () => {
+  withCwd(tmpWorkspace("cw-failclosed-smoke-"), () => {
     const work = process.cwd();
     const { run, workerId, taskId, wm } = dispatchOne(work);
     fs.writeFileSync(wm.resultPath, validResult(work), "utf8");
@@ -178,7 +172,7 @@ function main() {
   // 5. require ON + NO agentDelegation at all (the manual-accept shape) ⇒
   // throws, with the distinct code telemetry-missing-blocked — NOT the same
   // code as case 1/2 (a delegation present but not attested).
-  withCwd(tmpWorkspace(), () => {
+  withCwd(tmpWorkspace("cw-failclosed-smoke-"), () => {
     const work = process.cwd();
     const { run, workerId, wm } = dispatchOne(work);
     fs.writeFileSync(wm.resultPath, validResult(work), "utf8");
@@ -196,7 +190,7 @@ function main() {
 
   // 6. same shape + allowUnattested:true ⇒ accepted, with an audited override
   // event — the operator's escape hatch is never silent.
-  withCwd(tmpWorkspace(), () => {
+  withCwd(tmpWorkspace("cw-failclosed-smoke-"), () => {
     const work = process.cwd();
     const { run, workerId, taskId, wm } = dispatchOne(work);
     fs.writeFileSync(wm.resultPath, validResult(work), "utf8");
@@ -211,7 +205,7 @@ function main() {
 
   // ---- END-TO-END: drive with require ON + unsigned agent PARKS ------------
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-failclosed-smoke-");
     const inner = path.join(work, "inner.js");
     fs.writeFileSync(inner, [
       'const fs = require("fs");',

@@ -6,7 +6,6 @@
 //   P2  deterministic worker ids (same inputs -> same id)
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -18,6 +17,7 @@ import {
 } from "../dist/core/trust/evidence-grounding.js";
 import { isContainedPath, realResolve, durableAppendFileSync } from "../dist/shell/fs-atomic.js";
 import { taskRequiresEvidence } from "../dist/shell/verifier.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const node = process.execPath;
 const cli = path.join(import.meta.dirname, "..", "dist", "cli.js");
@@ -66,7 +66,7 @@ console.log("self-audit-hardening: evidence grounding ok");
 // 3. Symlink-hardened containment: a symlink whose textual path is "inside" an
 //    allowed root but whose real target escapes it is NOT contained.
 // ---------------------------------------------------------------------------
-const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-selfaudit-")));
+const tmp = tmpDir("cw-selfaudit-");
 const allowed = path.join(tmp, "sandbox");
 const outside = path.join(tmp, "outside");
 fs.mkdirSync(allowed, { recursive: true });
@@ -96,7 +96,7 @@ console.log("self-audit-hardening: durable append ok");
 //    SAME inputs in two clean workspaces yields identical worker ids.
 // ---------------------------------------------------------------------------
 function firstWorkerId() {
-  const ws = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-detworker-")));
+  const ws = tmpDir("cw-detworker-");
   const plan = JSON.parse(
     execFileSync(node, [cli, "plan", "architecture-review", "--repo", ws, "--question", "determinism"], { cwd: ws, encoding: "utf8" })
   );

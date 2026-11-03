@@ -19,7 +19,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -32,7 +31,8 @@ assert.equal(pkg.engines && pkg.engines.node, FLOOR, "package.json engines.node 
 const [major, minor] = process.version.slice(1).split(".").map(Number);
 assert.ok(major > 22 || (major === 22 && minor >= 13), `the suite runs on Node ${process.version}, below the floor ${FLOOR}`);
 import { runDoctor } from "../dist/shell/doctor.js";
-const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-node-floor-home-")));
+import { tmpDir } from "./helpers/workspace.mjs";
+const home = tmpDir("cw-node-floor-home-");
 const nodeCheck = runDoctor({}, { ...process.env, CW_HOME: home }, home).checks.find((c) => c.name === "node");
 assert.equal(nodeCheck.status, "ok");
 assert.equal(nodeCheck.detail, `Node ${process.version} (>= 22.13).`, "doctor names the same floor as engines");
@@ -67,7 +67,7 @@ delete env.NODE_NO_WARNINGS;
 
 // a CJS caller beside dist/ (a repo checkout: tests, scripts, conformance)
 // and one under node_modules/ (an npm or Homebrew install).
-const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-node-floor-")));
+const base = tmpDir("cw-node-floor-");
 const checkout = path.join(base, "checkout");
 const installed = path.join(base, "app", "node_modules", "cool-workflow");
 for (const root of [checkout, installed]) {

@@ -17,14 +17,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const pkg = JSON.parse(fs.readFileSync(path.join(pluginRoot, "package.json"), "utf8"));
 const INSTALL_SCRIPTS = ["preinstall", "install", "postinstall"];
 
-const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-local-install-")));
+const tmp = tmpDir("cw-local-install-");
 
 // The parent may be `npm run` or `bun run`: drop every npm_* var it set
 // (npm_config_global, npm_execpath, npm_config_user_agent, ...) so the child

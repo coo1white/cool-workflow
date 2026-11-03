@@ -35,7 +35,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -54,6 +53,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // human call; this smoke stays red until the v2 REGISTRY records cli bindings
 // for those verbs (or the probe set is narrowed to CLI-bound verbs).
 import * as registry from "../dist/wiring/capability-table/index.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 // CAPABILITY_REGISTRY (an alias for REGISTRY) is always present now -- the
 // old defensive fallback assignment broke once capability-table.js became a
 // re-export shim (export * makes CAPABILITY_REGISTRY a read-only getter, so
@@ -161,7 +161,7 @@ function assertJsonModeContract(cap, baseArgv, cwd) {
     );
   }
 
-  const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-jsonmode-smoke-")));
+  const workspace = tmpDir("cw-jsonmode-smoke-");
   const plan = JSON.parse(
     run(["plan", "architecture-review", "--repo", workspace, "--question", "cli jsonMode parity smoke"], workspace)
   );

@@ -10,11 +10,11 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 import { allocateWorkerScope, recordWorkerOutput } from "../dist/shell/worker-isolation.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 function makeRun(tmp, paths, taskId, reviewsRepo) {
   return {
@@ -38,7 +38,7 @@ function resultMd(evidence) {
 // Create every cited file under the run cwd so resolve-on-disk sees it; leave a
 // locator out of `create` to simulate a fabricated (non-resolving) path.
 function record(evidence, workerId, { reviewsRepo = true, create = evidence } = {}) {
-  const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-offtarget-")));
+  const tmp = tmpDir("cw-offtarget-");
   const paths = createRunPaths(path.join(tmp, ".cw", "runs", "offtarget-smoke"));
   ensureRunDirs(paths);
   for (const loc of create) {

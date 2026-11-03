@@ -5,7 +5,6 @@
 // TTY-gated, off by default on a pipe (the safety rail).
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -14,12 +13,8 @@ const cli = path.join(root, "dist/cli.js");
 import { reportToHtml } from "../dist/core/format/report-html.js";
 import { resolveReportRunId, ensureAndOpenReportHtml } from "../dist/shell/report-view-cli.js";
 import { quickstartRun, formatQuickstartHuman } from "../dist/shell/pipeline-cli.js";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
-const tmpDir = (label) => {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `cw-report-open-${label}-`)));
-  fs.writeFileSync(path.join(dir, "README.md"), "# target\n", "utf8");
-  return dir;
-};
 const openerStub = (dir, logFile) => {
   const script = path.join(dir, "opener.js");
   fs.writeFileSync(script, `#!/usr/bin/env node\nrequire("fs").writeFileSync(${JSON.stringify(logFile)}, process.argv[2], "utf8");\n`, "utf8");
@@ -51,7 +46,7 @@ async function main() {
   assert.ok(!reportToHtml("# T\n\n- Run: x\n").includes('class="stamp'), "no verdict line, no stamp");
 
   // 2. no id picks the newest of two fixture runs.
-  const runsCwd = tmpDir("runs");
+  const runsCwd = tmpWorkspace("cw-report-open-runs-");
   const runsDir = path.join(runsCwd, ".cw", "runs");
   for (const id of ["review-20200101T000000Z-000001", "review-20260901T000000Z-000002"]) {
     fs.mkdirSync(path.join(runsDir, id), { recursive: true });
@@ -60,11 +55,11 @@ async function main() {
   assert.equal(resolveReportRunId({ cwd: runsCwd }), "review-20260901T000000Z-000002", "newest run id wins");
 
   // 3. no run at all -> the one line, via the real CLI.
-  const r = spawnSync(process.execPath, [cli, "report"], { cwd: tmpDir("bare"), encoding: "utf8" });
+  const r = spawnSync(process.execPath, [cli, "report"], { cwd: tmpWorkspace("cw-report-open-bare-"), encoding: "utf8" });
   assert.equal(r.stdout, 'No run yet. Try: cw -q "<question>"\n', "the one line, exact");
 
   // 4. --open's write+open step: report.html written, opener stub gets the path.
-  const openDir = tmpDir("open");
+  const openDir = tmpWorkspace("cw-report-open-open-");
   const mdPath = path.join(openDir, "report.md");
   fs.writeFileSync(mdPath, "# Report\n\n- a finding\n", "utf8");
   const log = path.join(openDir, "opener.log");
@@ -76,13 +71,13 @@ async function main() {
 
   // 5. quickstart off a TTY (the default here): no reportOpened, no html —
   //    the safety rail (--json/non-TTY output never changes).
-  const quiet = await drive(tmpDir("quiet"));
+  const quiet = await drive(tmpWorkspace("cw-report-open-quiet-"));
   assert.equal(Object.prototype.hasOwnProperty.call(quiet, "reportOpened"), false, "no reportOpened off a TTY");
   assert.equal(fs.existsSync(quiet.reportPath.replace(/\.md$/, ".html")), false, "no report.html off a TTY");
 
   // 6. quickstart on a TTY stand-in: the auto-open runs through the stub,
   //    and the human summary carries the "Report opened" hint.
-  const tty = tmpDir("tty");
+  const tty = tmpWorkspace("cw-report-open-tty-");
   const openLog = path.join(tty, "opener.log");
   process.stdout.isTTY = true;
   process.env.CW_OPENER = openerStub(tty, openLog);
@@ -97,7 +92,7 @@ async function main() {
   assert.equal(fs.readFileSync(openLog, "utf8"), ttyResult.reportPath.replace(/\.md$/, ".html"), "opener stub got the report's html path");
   // 6b. fail closed: an opener that is not there never yields reportOpened,
   //     and `cw report --open` throws with the html path in the message.
-  const gone = tmpDir("gone");
+  const gone = tmpWorkspace("cw-report-open-gone-");
   process.stdout.isTTY = true;
   process.env.CW_OPENER = path.join(gone, "no-such-opener");
   let goneResult;

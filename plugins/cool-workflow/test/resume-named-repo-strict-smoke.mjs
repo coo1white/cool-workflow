@@ -10,15 +10,15 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import * as registryCliModule from "../dist/shell/registry-cli.js";
 import { cw } from "./helpers/cw.mjs";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 clearAgentEnv({ noAutoAgent: true });
 
-const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-strict-")));
+const root = tmpDir("cw-resume-strict-");
 const home = path.join(root, "home");
 fs.mkdirSync(home);
 const env = { ...process.env, HOME: home, USERPROFILE: home, CW_HOME: path.join(home, ".cw") };

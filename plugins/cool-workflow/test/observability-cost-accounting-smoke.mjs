@@ -15,7 +15,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 
@@ -27,6 +26,7 @@ const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 // deriveMetricsReport/deriveMetricsSummary keep their old {now,policy,scope}
 // options shape (shell/ layer, not pure core/), so no signature change.
 import * as obs from "../dist/shell/observability.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const FIXED_NOW = "2026-06-08T12:00:00.000Z";
 
@@ -260,7 +260,7 @@ function main() {
 // and prove CLI --json == MCP for both metrics views.
 // ---------------------------------------------------------------------------
 async function liveParity() {
-  const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-metrics-")));
+  const workspace = tmpDir("cw-metrics-");
   const plan = JSON.parse(
     execFileSync(node, [cli, "plan", "architecture-review", "--repo", workspace, "--question", "metrics smoke"], {
       cwd: workspace,

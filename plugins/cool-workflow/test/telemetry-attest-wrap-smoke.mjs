@@ -13,7 +13,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -36,6 +35,7 @@ import { writeReport } from "../dist/shell/report.js";
 import * as ledger from "../dist/shell/telemetry-ledger-io.js";
 import * as ta from "../dist/core/trust/telemetry-attestation.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 // makeRunner() reconstructs the old runner.plan / .loadRun surface over v2's
 // free functions. The smoke chdir's into each workspace before it plans/drives,
@@ -71,12 +71,6 @@ const WRAP = path.join(pluginRoot, "scripts/agents/cw-attest-wrap.js");
 const KEYGEN = path.join(pluginRoot, "scripts/agents/cw-attest-keygen.js");
 
 const cleanups = [];
-function tmpWorkspace() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-attest-wrap-smoke-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  cleanups.push(work);
-  return work;
-}
 // A minimal UNSIGNED inner agent: writes result.md and prints {model, usage}.
 // It knows NOTHING about signing — the wrapper adds the signature.
 function writeInnerStub(file) {
@@ -115,7 +109,7 @@ function main() {
   const cwd0 = process.cwd();
 
   // ---- 1. keygen writes a usable keypair ----------------------------------
-  const keyDir = tmpWorkspace();
+  const keyDir = tmpWorkspace("cw-attest-wrap-smoke-");
   const gen = spawnSync(process.execPath, [KEYGEN, "--out-dir", keyDir], { encoding: "utf8" });
   assert.equal(gen.status, 0, `keygen exits 0: ${gen.stderr}`);
   const keyPath = path.join(keyDir, "cw-attest.key");
@@ -126,7 +120,7 @@ function main() {
   assert.equal(fs.statSync(keyPath).mode & 0o777, 0o600, "private key is 0600");
 
   // ---- 2. drive an UNSIGNED agent THROUGH the wrapper ⇒ attested ----------
-  const workA = tmpWorkspace();
+  const workA = tmpWorkspace("cw-attest-wrap-smoke-");
   const inner = writeInnerStub(path.join(workA, "inner.js"));
   process.chdir(workA);
   try {
@@ -169,7 +163,7 @@ function main() {
   }
 
   // ---- 3. SAME wrapper, NO private key ⇒ honest unattested ----------------
-  const workB = tmpWorkspace();
+  const workB = tmpWorkspace("cw-attest-wrap-smoke-");
   const innerB = writeInnerStub(path.join(workB, "inner.js"));
   process.chdir(workB);
   try {

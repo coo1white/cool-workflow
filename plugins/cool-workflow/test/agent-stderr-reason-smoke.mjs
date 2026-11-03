@@ -13,13 +13,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import * as pipelineCliModule from "../dist/shell/pipeline-cli.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cwBin = path.join(pluginRoot, "scripts", "cw.js");
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-agent-stderr-")));
+const work = tmpDir("cw-agent-stderr-");
 
 function stub(name, lines) {
   const file = path.join(work, name);

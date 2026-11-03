@@ -15,6 +15,7 @@ import * as helpModule from "../dist/core/format/help.js";
 import childProcessModule from "node:child_process";
 import fsModule from "node:fs";
 import osModule from "node:os";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 // 1. The regression: `--drive` (boolean) must NOT consume the following `-dir` flag.
 {
@@ -101,7 +102,7 @@ console.log("argparse: suggestCommand never points at its own input ok");
   const os = osModule;
   const cli = path.resolve(import.meta.dirname, "..", "dist", "cli.js");
   const env = { ...process.env, CW_NO_AUTO_AGENT: "1" };
-  const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-flag-")));
+  const repo = tmpDir("cw-resume-flag-");
   fs.writeFileSync(path.join(repo, "README.md"), "# t\n", "utf8");
   const planned = spawnSync(process.execPath, [cli, "run", "architecture-review", "--drive", "--once", "--repo", repo, "--question", "q", "--json"], { encoding: "utf8", env });
   const runId = JSON.parse(planned.stdout).runId;

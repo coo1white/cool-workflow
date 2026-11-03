@@ -33,16 +33,15 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { drive } from "../dist/shell/drive.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-drive-exhaust-")));
-fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+const work = tmpWorkspace("cw-drive-exhaust-");
 
 const cwd0 = process.cwd();
 // v2 drive resolves the agent config from options.agentConfig OR the ambient

@@ -8,12 +8,12 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const sc = path.join(pluginRoot, "scripts", "source-context.js");
-const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-glob-")));
+const repo = tmpDir("cw-source-context-glob-");
 
 function git(args) {
   const r = cp.spawnSync("git", args, { cwd: repo, encoding: "utf8" });

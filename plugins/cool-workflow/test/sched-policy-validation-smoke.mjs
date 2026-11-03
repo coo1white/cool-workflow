@@ -17,14 +17,14 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { schedPolicySetCli, schedPolicyShowCli } from "../dist/shell/scheduling-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-schedpol-home-")));
-const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-schedpol-repo-")));
+const home = tmpDir("cw-schedpol-home-");
+const repo = tmpDir("cw-schedpol-repo-");
 fs.mkdirSync(path.join(home, "registry"), { recursive: true });
 // v2 scheduling-io builds RunRegistry(resolveCwd(options)) with process.env, so
 // CW_HOME must live on process.env to isolate the policy store in our temp home.

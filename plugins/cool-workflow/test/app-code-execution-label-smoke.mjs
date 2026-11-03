@@ -12,16 +12,16 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { plan } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { writeReport } from "../dist/shell/report.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 function main() {
-  const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-app-code-label-")));
+  const workspace = tmpDir("cw-app-code-label-");
   const run = plan(loadWorkflowApp("workflow-app-framework-demo"), {
     cwd: workspace,
     question: "prove the app-code honesty label",

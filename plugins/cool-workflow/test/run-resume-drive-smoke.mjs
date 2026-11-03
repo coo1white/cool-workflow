@@ -29,10 +29,10 @@ import { RunRegistry } from "../dist/shell/run-registry-io.js";
 import { runResumeCli } from "../dist/shell/registry-cli.js";
 import childProcessModule from "node:child_process";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 function tmpRepo() {
-  const w = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-drive-")));
-  fs.writeFileSync(path.join(w, "README.md"), "# target\n", "utf8");
+  const w = tmpWorkspace("cw-resume-drive-");
   return w;
 }
 function writeStub(file, model) {

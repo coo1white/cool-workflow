@@ -12,13 +12,13 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import cp from "node:child_process";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 import * as m from "../dist/core/state/contract-migration.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 // 1. registry
 const contracts = m.listMigrationContracts();
@@ -27,7 +27,7 @@ const runState = contracts.find((c) => c.contract === "run-state");
 assert.ok(runState.edges.length >= 1 && runState.edges[0].proof.dropsNothing, "run-state edge carries a dropsNothing proof");
 
 // 2. legacy run-state migrates + prover passes; source byte-immutable
-const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-migration-")));
+const tmp = tmpDir("cw-migration-");
 const stateFile = path.join(tmp, "state.json");
 const legacy = { id: "legacy-run", tasks: [{ id: "t1", status: "completed" }], nested: { keep: true } };
 fs.writeFileSync(stateFile, JSON.stringify(legacy, null, 2));
