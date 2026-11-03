@@ -29,15 +29,21 @@ const cwBin = path.join(pluginRoot, "scripts", "cw.js");
 const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-drive-alive-")));
 const OLD = /^\[drive\] {3}… Map still working — \d+s$/;
 
-function tickerLines(aliveContent, ms = 450) {
+// Waits for `want` ticks (not a fixed time: a slow runner can spend most of a
+// short window just starting node, which once gave fewer ticks on macOS CI),
+// with a 10 s cap so a ticker that never ticks still ends the test.
+function tickerLines(aliveContent, want = 2) {
   const alive = path.join(work, `alive-${Math.random().toString(16).slice(2)}.json`);
   if (aliveContent !== undefined) fs.writeFileSync(alive, typeof aliveContent === "string" ? aliveContent : JSON.stringify(aliveContent));
   return new Promise((resolve) => {
     const child = spawn(process.execPath, [ticker, "Map", "100", String(process.pid), "", alive], { stdio: ["ignore", "ignore", "pipe"] });
     let err = "";
-    child.stderr.on("data", (d) => { err += d; });
-    setTimeout(() => child.kill("SIGTERM"), ms);
-    child.on("close", () => resolve(err.split("\n").filter(Boolean)));
+    const cap = setTimeout(() => child.kill("SIGTERM"), 10000);
+    child.stderr.on("data", (d) => {
+      err += d;
+      if (err.split("\n").filter(Boolean).length >= want) child.kill("SIGTERM");
+    });
+    child.on("close", () => { clearTimeout(cap); resolve(err.split("\n").filter(Boolean)); });
   });
 }
 
@@ -47,7 +53,7 @@ try {
     const now = Date.now();
     const one = await tickerLines({ jobs: [{ i: 0, startedAt: now - 70000, lastOutputAt: now - 65000, done: false }, { i: 1, startedAt: now - 70000, lastOutputAt: now - 1000, done: true }] });
     assert.ok(one.length >= 2, `ticks: ${one}`);
-    for (const line of one) assert.match(line, /^\[drive\] {3}… Map still working — \d+s \(last output 1m 5s ago\)$/, line);
+    for (const line of one) assert.match(line, /^\[drive\] {3}… Map still working — \d+s \(last output 1m [5-9]s ago\)$/, line);
 
     const three = await tickerLines({ jobs: [0, 1, 2].map((i) => ({ i, startedAt: now - 300000, lastOutputAt: now - [200000, 5000, 1000][i], done: false })) });
     for (const line of three) assert.match(line, /^\[drive\] {3}… Map still working — \d+s \(3 agents running, longest without output 3m 2\ds\)$/, line);
