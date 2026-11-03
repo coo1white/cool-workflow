@@ -691,7 +691,7 @@ not, see above):
 Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude (or set CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work too.
 ```
 
-These texts are new in the release after 0.4.0, and they change the bytes
+These texts are new in 0.4.0, and they change the bytes
 of existing output. The owner's yes, 2026-11-03: "修卡点 + 收据 (推荐)"
 (to a question that named these first-run points), and "新手用户也能 流畅易用"
 (a new user must find it smooth and easy). Before, the fix was `Pass

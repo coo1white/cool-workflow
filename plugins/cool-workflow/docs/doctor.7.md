@@ -50,7 +50,7 @@ OpenCode) or take one from `CW_AGENT_COMMAND` / `--agent-command`. Without one,
 real runs report `status: blocked`, but `demo` and `--preview` still work.
 The fix then says to install an agent CLI and add `-claude` (or set
 `CW_AGENT_COMMAND=builtin:claude`); `-codex`, `-gemini` and `-opencode` work
-too. (Up to 0.4.0 it named a bare `--agent-command "claude -p"`, which does
+too. (Before 0.4.0 it named a bare `--agent-command "claude -p"`, which does
 not complete a worker; changed 2026-11-03, see agent-delegation-drive(7).)
 
 **agent-binary**

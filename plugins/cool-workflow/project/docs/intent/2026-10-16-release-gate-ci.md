@@ -622,3 +622,34 @@ description) shows the new `--diff` line. The code is
 `v2/conformance/cases/fixtures/cli-help/ledger.txt` and
 `test/ledger-verify-smoke.mjs` pin it; `docs/cross-agent-ledger.7.md`
 says it; the version raise is 0.3.2 -> 0.3.3.
+
+## Operator decisions for 0.4.0 (2026-11-03)
+
+The 0.4.0 cut was rejected by the release review: the range had no
+user-visible capability. A walk through the first run as a new user found
+three places where CW's own hints lead nowhere. The operator was asked
+which way to go and picked fixing them with the done-receipt feature, word
+for word (2026-11-03): "修卡点 + 收据 (推荐)" ("fix the stuck points, plus
+the receipt"). The question named the three points. Two more words of the
+operator's set the bar for every new text: "一定要用户的UX闭环" ("the
+user's UX loop must be closed") and "新手用户也能 流畅易用" ("a new user
+must find it smooth and easy too").
+
+Default output this changes, each said in its man page, version 0.3.3 ->
+0.4.0:
+
+- The no-agent fix in `cw doctor`, `cw quickstart --check` and the `cw -q`
+  hint: from `Pass --agent-command "claude -p", ...` (a form that does not
+  complete a worker) to `Install an agent CLI such as Claude Code, then add
+  -claude to your cw command, ...` (`doctor.7.md`,
+  `agent-delegation-drive.7.md`).
+- The parked hint, when the stopped worker has an `agent-stderr.log`: it
+  names that file in place of `cw run show` (no JSON key added or taken
+  out); the terminal `Why:` block gains an `All of it: <log>` line
+  (`agent-delegation-drive.7.md`).
+- `cw report bundle` on a terminal prints where the file went, how to put
+  it elsewhere (`--output`) and one next step, in place of the JSON; a pipe
+  or `--json` keeps the JSON bytes (`report-verifiable-bundle.7.md`).
+
+Left as it is: the bundle's default place (the folder `cw` runs in), which
+a change would move for every script that reads it there.
