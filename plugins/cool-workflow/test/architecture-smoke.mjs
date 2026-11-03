@@ -82,6 +82,8 @@ const SECURITY_PATHS = [
   ["scripts/release-ci-checks.mjs", "the required CI checks a cut trusts", "release-tooling.7.md", "release-ci-checks.mjs"],
   ["scripts/verify-release-verdict.mjs", "CI's verdict check on a tag", "release-tooling.7.md", "verify-release-verdict.mjs"],
   ["scripts/verify-verdict-signature.mjs", "CI's ed25519 signature check", "release-tooling.7.md", "verify-verdict-signature.mjs"],
+  ["scripts/verdict-keygen.mjs", "makes the verdict key pair", "release-tooling.7.md", "verdict-keygen.mjs"],
+  ["scripts/block-unapproved-tag.mjs", "local hook refusing an unsigned tag", "release-tooling.7.md", "block-unapproved-tag.mjs"],
   ["src/core/trust/receipt.ts", "done-receipt digest and signature", "verifier-gated-commit.7.md", "CW_CHECK_PRIVKEY"],
   ["src/shell/receipt-io.ts", "runs the checked command, signs the receipt", "verifier-gated-commit.7.md", "CW_CHECK_PRIVKEY"],
   ["src/shell/execution-backend/local.ts", "CW_NEVER_FORWARD_ENV: keys no child gets", "verifier-gated-commit.7.md", "CW never hands that key to an agent"],
@@ -94,12 +96,10 @@ const SECURITY_PATHS = [
   ["src/core/trust/ledger.ts", "digest-sealed cross-agent entries", "cross-agent-ledger.7.md", "src/core/trust/ledger.ts"],
   ["src/shell/fs-atomic.ts", "atomic writes and locks for state", "durable-state-and-locking.7.md", "atomic"],
 ];
-// Sensitive paths no man page names yet; the AGENTS.md release runbook does.
-const SECURITY_UNCITED = {
-  "scripts/verdict-keygen.mjs": "makes the verdict key pair; named only in the AGENTS.md runbook",
-  "scripts/block-unapproved-tag.mjs": "local hook refusing an unsigned tag; named only in AGENTS.md",
-};
-const SECURITY_UNCITED_CEILING = 2;
+// Sensitive paths no man page names yet. Empty since the release runbook
+// moved from AGENTS.md into release-tooling.7.md (2026-11-03).
+const SECURITY_UNCITED = {};
+const SECURITY_UNCITED_CEILING = 0;
 
 const RELEASE_KEY = "CW_RELEASE_VERDICT_PRIVKEY";
 // The only code files (not docs, not tests) that may name the release key.

@@ -96,6 +96,50 @@ merge. Until then the renamed contexts show as "expected, missing" on
 the PR itself, so the packet PR is merged by the owner by hand (or the
 rule is changed first, then the PR auto-merges).
 
+### History of the required checks
+
+(Moved from the `AGENTS.md` HARD RULE section on 2026-11-03, word for
+word; `AGENTS.md` keeps only what is true now.)
+
+(Previously the matrix also ran an `ubuntu-24.04-arm` leg per Node
+version, for four required checks total. It was dropped: the package
+ships zero runtime dependencies and no native modules, so cross-arch
+divergence for pure JS/TS is very unlikely, and ~30 sampled runs
+showed the ARM leg never producing a result that differed from its
+x64 counterpart. Node 18 vs 22 stayed, since `engines: >=18` in
+package.json is a real, documented support range worth testing both
+ends of.)
+
+(2026-08-24: a Node 24 ubuntu leg and one macOS leg were added as
+NON-required checks — the package ships a Homebrew formula and the
+runtime does OS-specific file locking and TMPDIR work. The required
+checks for merge were then still the two ubuntu legs, Node 18 and 22.)
+
+(Slim-and-esm step 4, decision D4, operator's yes 2026-09-28: the Node
+floor went up to `engines: >=22.13.0`, the first Node 22 that loads an ES
+module with `require()` and writes nothing to stderr. The `check` matrix
+is now Node 22 and 24, and both are the required checks, so the
+floor's Node line and the newest one are each tested. The operator changes
+`main`'s branch protection in the same window as that PR's merge, as
+only the operator can: Settings -> Branches -> the `main` rule ->
+required status checks: take out `check (18)`, add `check (24)`, keep
+`check (22)`. The operator made that change and said so on 2026-10-17.
+The macOS leg stays not required.)
+
+(2026-10-16: a `release-rehearsal` job, NOT required, runs
+`release-flow.mjs --check --local-tests` with a stub reviewer and `dogfood-release
+--smoke` on Node 24 with the bundled and the newest npm, on PRs that touch
+release tooling (and main pushes that do); see
+`plugins/cool-workflow/docs/release-tooling.7.md`.)
+
+(2026-11-03: a `cool-workflow-windows` job, NOT required, runs the build,
+`cw help`, conformance, the smoke suite and the unit tests on
+`windows-latest`, Node 22. Native Windows is not yet a supported
+platform, so the test steps may fail without failing the job; the job
+writes the pass/fail counts to its summary. The owner asked for full
+platform support like yokoten; the plan is in the refactor intent, now
+the refactor part of `intent/2026-11-archive.md`.)
+
 ## Pin table for `ops/gitea/docs/actions-pins.md`
 
 All 29 `uses:` lines are in this table. The root session copies the

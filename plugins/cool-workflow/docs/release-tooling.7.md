@@ -219,6 +219,192 @@ later cut takes it away before its own review). Put right every finding it gives
 changed output with no record is found earlier still: `pola:check` runs in
 PR CI, and so does `fails-before:check`.
 
+## Shipping a release
+
+(The runbook moved here from the root `AGENTS.md` on 2026-11-03;
+`AGENTS.md` keeps the two steps and the hard rules.)
+
+A release is two steps. Both `npm run` commands below run with cwd
+`plugins/cool-workflow/` (there is no root package.json):
+
+1. **Agent prep**: land the version bump as its OWN PR
+   (`npm run bump:version -- X.Y.Z --content`, regenerate the project
+   index, a full clean rebuild).
+2. **Operator command**: first run `npm run release:doctor -- X.Y.Z` (a
+   few seconds, no tests; it gives every problem at once with its fix),
+   then the release operator runs `npm run release --
+   X.Y.Z` in their own terminal
+   (`plugins/cool-workflow/scripts/release-oneclick.mjs`). It fail-fasts
+   on every known precondition BEFORE the gate/vendor/
+   reviewer spend anything, waits for the required CI checks on the cut
+   commit, runs the gated cut (its test step is those green checks, not a
+   second local suite run; `--local-tests` when CI cannot be reached),
+   pushes ONLY the tag
+   (`refs/tags/vX.Y.Z` — the verdict commit is a one-hop leaf on the
+   reviewed commit; no branch push, so branch protection never blocks
+   it), creates the GitHub Release, then waits for `release-gate` +
+   `npm-publish` and confirms `npm view`. A re-run after any failure
+   RESUMES (an already-cut tag goes straight to the CI wait).
+
+After a release the operator publishes the wiki by hand (see "Wiki
+publish" below).
+
+Publishing is tag-driven, not merge-driven. Merging a release PR to `main`
+does NOT publish. `npm-publish.yml` fires on `release-gate` success, which
+fires on a `push` of a `v*` tag. No tag ⇒ nothing new in Actions and npm
+stays on the old version.
+
+There is no hand-written changelog file (`RELEASE.md` and `CHANGELOG.md`
+were removed on 2026-08-04). `--generate-notes` (GitHub's auto-generated
+notes from commits) is the release-notes source, the same fallback
+`.github/workflows/release.yml` already used.
+
+### Hard rules the tooling enforces
+
+Do not work around them by hand:
+
+- The verdict must be SIGNED. The ed25519 private key stays with the
+  operator (`CW_RELEASE_VERDICT_PRIVKEY`, normally
+  `~/.cw-keys/verdict-signing.key`) and is NEVER read by an agent or
+  committed. The committed public key makes CI reject unsigned cuts.
+- The tag commit's first parent must be EXACTLY the reviewed sha (one
+  hop). Never retag by hand, never route a fix onto the tag's line with
+  a merge commit — recut instead (`release-oneclick` handles this).
+- Never `git tag` directly; never bypass `release-flow.mjs`.
+- Never write the verdict file yourself; the independent reviewer must
+  run EXECUTE-capable, and a read-only/low-effort verdict is never
+  trusted (`CW_RELEASE_REVIEW=1` raises the wrapper's effort and opens its
+  sandbox to workspace-write).
+
+What the gate does not run: `release-gate.mjs` does NOT run
+`readme:check` or the dogfood release-cut — those live only in the
+broader `release:check`.
+
+### Dry-run gate
+
+Start from a fresh checkout:
+
+```bash
+cd plugins/cool-workflow
+npm install
+npm run release:check
+npm run dogfood:release
+```
+
+`npm run release:check` does no harm. It does not tag, push, publish, or
+rewrite fixture files. It checks docs presence, build, type check, default
+tests, canonical apps, golden path, fixture compatibility, dogfood smoke, and
+version synchronization.
+
+`npm run dogfood:release` also does no harm by default. It runs the
+canonical `release-cut` workflow against the real repository and writes
+`.cw/runs/<run-id>/dogfood-summary.json` with the run id, report path, audit
+paths, the verifier node id the commit is gated on, commit/checkpoint id,
+command logs, and release verdict.
+
+### Required manual review
+
+1. Make sure `plugins/cool-workflow/docs/release-and-migration.7.md` gives
+   an account of migration compatibility and cases that are not supported.
+2. Make sure `node scripts/cw.js state check <run-id>` reports the
+   looked-for migration status for any release-candidate run state worth
+   keeping (the load order and `--write` rule are in
+   release-and-migration(7), "State Policy" and "Dry Run").
+3. Make sure `npm run version:sync` passes after `npm run build`. This also
+   gates `Formula/cool-workflow.rb` (the Homebrew formula):
+   `bump-version.mjs` auto-moves its `tag:`/`version` to the target, so no
+   manual edit or checksum step is needed — it is a git-tag formula with no
+   sha256.
+4. Make sure generated `plugins/cool-workflow/dist/` output is committed.
+5. Make sure `npm run dogfood:release` reports `ready-dry-run` and have a
+   look at the run with `status`, `graph`, `report --show`, `commit
+   summary`, `audit summary`, and `audit provenance`.
+6. Make sure the reviewer verdict is committed:
+   `.cw-release/review-<FULLSHA>.verdict` must exist in the tag's commit
+   history and its first line must be `APPROVED <FULLSHA>`. Run `node
+   scripts/release-flow.mjs --cut --version x.y.z` to auto-create it and
+   commit it, then `git push`. The `release-gate` CI workflow will verify
+   this file is present at the tag commit.
+
+### Version surfaces
+
+The version synchronization check takes in:
+
+- `plugins/cool-workflow/package.json`
+- `plugins/cool-workflow/.codex-plugin/plugin.json`
+- `plugins/cool-workflow/src/core/version.ts`
+- framework and MCP server version use
+- canonical workflow app manifests
+- golden path and MCP smoke expectations
+- dogfood release smoke expectations
+- README and man-page docs
+- generated `dist/` output
+
+Two traps in a version bump:
+
+- If a bump leaves `dist/core/version.js` stale, it is the tsc
+  incremental cache. `rm -f .cache/tsconfig.tsbuildinfo && npm run build`
+  makes it again; otherwise `mcp-app-surface-smoke` fails on a version
+  mismatch.
+- `bump:version` has two modes. Gate-mode stamps structured surfaces but
+  skips docs; `--content` also stamps docs/man-pages. If gate-mode ran
+  first, `--content` reports "already at X" — revert the structured files
+  and run `--content` again from the clean prior version.
+
+### Verdict signing setup
+
+`grep -q '^APPROVED'` alone can't tell a real reviewer verdict from a
+hand-written one. Set up ed25519 signing once to close that gap
+(`scripts/verdict-keygen.mjs` makes the key pair):
+
+```bash
+node scripts/verdict-keygen.mjs --out-dir ~/.cw-keys
+# .cw-release/ lives at the REPO ROOT, not under plugins/cool-workflow (where
+# this checklist's cwd has been since the top) — anchor on the real root so
+# the public key lands where release.yml/npm-publish.yml/
+# block-unapproved-tag.mjs actually look for it, not silently under
+# plugins/cool-workflow/.cw-release/ where no verifier will ever find it.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cp ~/.cw-keys/verdict-signing.pub "$REPO_ROOT/.cw-release/verdict-signing.pub"
+git -C "$REPO_ROOT" add .cw-release/verdict-signing.pub
+git -C "$REPO_ROOT" commit -m "chore: add release-verdict signing public key"
+export CW_RELEASE_VERDICT_PRIVKEY=~/.cw-keys/verdict-signing.key   # keep this OFF the repo
+```
+
+Once `.cw-release/verdict-signing.pub` is committed, `release-flow.mjs`
+signs every verdict it writes (a `.sig` sidecar next to the `.verdict`
+file, included in the cut's verdict commit), and `release.yml`,
+`npm-publish.yml`, and the local `scripts/block-unapproved-tag.mjs` hook
+(it refuses an unsigned tag) all start REQUIRING a valid signature on top
+of the existing `APPROVED` text check. Until that public key is
+committed, every check stays exactly as before (grep-only) — this is
+opt-in, not a breaking change.
+
+### Cutting efficiently (wall-clock)
+
+The full test suite used to run up to five times across one cut. Now the
+cut's own gate takes the green required CI checks on the reviewed commit in
+place of a local run, and the reviewer does not run the gate, so the suite
+runs in the PR's CI, the `main` CI, and the tag's `release-gate` CI (plus a
+local `release:check` if you choose). To keep a cut short:
+
+- **Cut on a quiet machine.** The suite is parallel-friendly but ~3x slower
+  under CPU contention; do not run a cut while a number of
+  workflows/agents are in a fight for cores.
+- **One gate pass.** `release-flow` runs the gate once; the reviewer has
+  orders not to run it again (`agents/release-reviewer.md` step 2) and may
+  confirm the CI checks with `gh` instead — a deterministic gate cannot
+  make a different verdict on a re-run.
+- **You can let the separate local `release:check` go before pushing.**
+  The cut's gate + the tag's
+  `release-gate` CI already take care of it; pushing and letting CI gate is
+  quicker (a tag/branch is cheap to redo if CI reds). Keep the local check
+  only when you cannot get to CI.
+- **Put related changes together into fewer PRs.** Each PR is a full CI
+  cycle; a stack of tiny fix-PRs makes CI time much greater. Group a clear
+  change set into one PR but for when independent review/revert
+  granularity is truly needed.
+
 ## PR CI Merge Notes
 
 When a PR is ready, list open PRs by creation time and merge the oldest ready
