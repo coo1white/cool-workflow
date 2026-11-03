@@ -243,6 +243,37 @@ was run from (main, normally), and says `back on main.`, so the next
 `git pull` works (since 0.4.0; before, the checkout was left on the record
 branch, which is deleted when the PR merges).
 
+### Wiki publish (since 0.4.0)
+
+After a release, the operator puts the wiki copy into a checkout of the
+GitHub wiki:
+
+```bash
+git clone https://github.com/<owner>/<repo>.wiki.git <wiki checkout>
+node plugins/cool-workflow/scripts/wiki-sync.mjs --to <wiki checkout>
+```
+
+`wiki-sync.mjs` does two things and nothing more. It copies every
+`project/docs/wiki/*.md` page into the checkout. For each entry of
+`project/docs/wiki/redirects.json` (`{ "<Old-Page>": { "to": "<Page>",
+"why": "<one sentence>" } }`) it writes a short pointer page, so an old
+wiki URL keeps working and says where its text went.
+
+- stdout: one line per file it changed (`added <file>` or `updated
+  <file>`); a page that is already the same is not named. Exit 0.
+- It never runs git: the operator looks at `git status` in the checkout,
+  commits (naming the release commit the pages match), and pushes.
+- Pages in the checkout that are in neither list (`_Footer.md`, say) are
+  left as they are.
+- With no `--to` value it prints a usage line on stderr and exits 2.
+- It fails closed, writes nothing, says why on stderr and exits 1 when
+  the `--to` folder is not there, when `redirects.json` is not valid,
+  when a redirect points at a page that is not in the copy, or when a
+  redirect has the name of a page in the copy.
+
+A wiki page that is no longer true becomes a redirect entry, not a
+deleted page.
+
 A `--cut` starts with a fail-fast **preflight** (added after the v0.2.3 cut,
 where each of these fired only AFTER the gate/vendor/reviewer had already
 spent real time and tokens): the version flag, the signing key (present AND
