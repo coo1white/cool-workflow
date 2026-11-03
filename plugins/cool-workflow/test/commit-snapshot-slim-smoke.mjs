@@ -11,13 +11,13 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { commitState } from "../dist/shell/commit.js";
 import { createRunPaths, ensureRunDirs } from "../dist/shell/run-store.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-commit-snapshot-slim-"));
+const tmp = tmpDir("cw-commit-snapshot-slim-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "commit-slim-smoke"));
 ensureRunDirs(paths);
 

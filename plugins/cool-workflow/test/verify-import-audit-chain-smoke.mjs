@@ -9,9 +9,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const cli = path.join(import.meta.dirname, "..", "dist", "cli.js");
 
@@ -22,7 +22,7 @@ function cli_(args, cwd) {
 
 // Build a run that HAS a trust-audit chain: plan + dispatch records worker
 // sandbox/backend audit events (the ones that carry undefined metadata fields).
-const src = fs.mkdtempSync(path.join(os.tmpdir(), "cw-vi-src-"));
+const src = tmpDir("cw-vi-src-");
 const planned = cli_(["plan", "architecture-review", "--repo", src, "--question", "verify-import audit chain"], src);
 const runId = planned.json.runId;
 cli_(["dispatch", runId, "--limit", "1"], src);
@@ -31,7 +31,7 @@ const exported = cli_(["run", "export", runId, "--json"], src);
 const archive = exported.json.archivePath || exported.json.path;
 assert.ok(archive, "export returns an archive path");
 
-const dst = fs.mkdtempSync(path.join(os.tmpdir(), "cw-vi-dst-"));
+const dst = tmpDir("cw-vi-dst-");
 cli_(["run", "import", archive, "--json"], dst);
 
 // (1) Clean restore: verify-import now carries a PASSING trust-audit row, ok:true,

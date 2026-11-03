@@ -8,7 +8,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 // v2 module layout: old flat modules split into core/ (pure) + shell/ (io).
@@ -20,6 +19,7 @@ import { commitState } from "../dist/shell/commit.js";
 // went with the multi-agent family, slim-and-esm step 2.)
 import { RoutineTriggerBridge } from "../dist/shell/scheduler-io.js";
 import * as schedulerIoModule from "../dist/shell/scheduler-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const RUN_ID = "det-ids-b";
 
@@ -190,8 +190,8 @@ function mintTriggers(tmp) {
   return ids;
 }
 
-const tmpA = fs.mkdtempSync(path.join(os.tmpdir(), "cw-det-ids-b-a-"));
-const tmpB = fs.mkdtempSync(path.join(os.tmpdir(), "cw-det-ids-b-b-"));
+const tmpA = tmpDir("cw-det-ids-b-a-");
+const tmpB = tmpDir("cw-det-ids-b-b-");
 
 const idsA = mintAll(tmpA);
 const idsB = mintAll(tmpB);
@@ -203,8 +203,8 @@ assert.deepEqual(
   `entity ids must be byte-identical across two fresh runs\nA: ${JSON.stringify(idsA, null, 2)}\nB: ${JSON.stringify(idsB, null, 2)}`
 );
 
-const trigA = mintTriggers(fs.mkdtempSync(path.join(os.tmpdir(), "cw-det-ids-b-trig-a-")));
-const trigB = mintTriggers(fs.mkdtempSync(path.join(os.tmpdir(), "cw-det-ids-b-trig-b-")));
+const trigA = mintTriggers(tmpDir("cw-det-ids-b-trig-a-"));
+const trigB = mintTriggers(tmpDir("cw-det-ids-b-trig-b-"));
 assert.deepEqual(trigB, trigA, `trigger/event ids must be byte-identical across two fresh stores\nA: ${JSON.stringify(trigA)}\nB: ${JSON.stringify(trigB)}`);
 
 // Sanity: the minted ids carry their human-readable prefix (format preserved).
@@ -219,7 +219,7 @@ assert.match(trigA.eventId, /^event-api-\d{4}$/, "event id is a zero-padded sequ
 {
   const { RoutineTriggerBridge } = schedulerIoModule;
   const make = () => {
-    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-det-trig-"));
+    const cwd = tmpDir("cw-det-trig-");
     const b = new RoutineTriggerBridge(cwd);
     const t1 = b.create({ kind: "api", prompt: "p" }).id;
     const t2 = b.create({ kind: "api", prompt: "p" }).id;

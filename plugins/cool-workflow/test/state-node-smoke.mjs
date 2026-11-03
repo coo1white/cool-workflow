@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 import {
   assertNodeSatisfiesContract,
@@ -14,7 +14,7 @@ import {
 } from "../dist/core/state/state-node.js";
 import { createDefaultPipelineContract } from "../dist/core/pipeline/contract.js";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-state-node-"));
+const tmp = tmpDir("cw-state-node-");
 const resultPath = path.join(tmp, "result.md");
 fs.writeFileSync(resultPath, "verified result\n", "utf8");
 

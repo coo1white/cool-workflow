@@ -5,12 +5,12 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { writeJson, readJson, durableAppendFileSync } from "../../dist/shell/fs-atomic.js";
+import { tmpDir } from "../helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-v2-fs-atomic-"));
+const tmp = tmpDir("cw-v2-fs-atomic-");
 
 // --- Exact byte format: 2-space indent, ONE trailing newline, no exceptions.
 {

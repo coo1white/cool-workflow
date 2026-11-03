@@ -26,12 +26,12 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const testDir = import.meta.dirname;
 
-const temp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-duration-schedule-"));
+const temp = tmpDir("cw-duration-schedule-");
 fs.copyFileSync(path.join(testDir, "run-all.mjs"), path.join(temp, "run-all.mjs"));
 
 // 6 trivial, near-instant fake smokes -- their REAL runtime is irrelevant

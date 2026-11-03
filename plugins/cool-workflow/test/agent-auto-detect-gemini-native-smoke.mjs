@@ -11,13 +11,13 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { resolveAgentConfig } from "../dist/shell/agent-config.js";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-gemini-detect-"));
+const tmp = tmpDir("cw-gemini-detect-");
 
 try {
   // A PATH dir with ONLY a fake native gemini binary — no opencode, no claude.

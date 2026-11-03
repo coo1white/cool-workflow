@@ -5,9 +5,9 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import * as agentConfigModule from "../dist/shell/agent-config.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
@@ -27,7 +27,7 @@ codex shim answer
 `;
 
 function shimDir(behavior) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-codex-shim-"));
+  const dir = tmpDir("cw-codex-shim-");
   const shim = path.join(dir, "codex");
   const source = `#!/usr/bin/env node
 const fs = require("node:fs");
@@ -66,7 +66,7 @@ process.stdin.on("end", () => {
 // fallback (real codex emits no model in its JSONL) is exercised deterministically.
 let codexHome;
 function makeCodexHome() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-codex-home-"));
+  const dir = tmpDir("cw-codex-home-");
   fs.writeFileSync(path.join(dir, "config.toml"), 'model = "codex-config-model"\n', "utf8");
   return dir;
 }
@@ -99,7 +99,7 @@ function readInvocation(dir) {
 
 function main() {
   codexHome = makeCodexHome();
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-codex-wrapper-smoke-"));
+  const work = tmpDir("cw-codex-wrapper-smoke-");
   const inputPath = path.join(work, "input.md");
   const resultPath = path.join(work, "result.md");
   const marker = "Check release path marker-codex-42.";

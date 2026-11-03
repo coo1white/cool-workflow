@@ -7,16 +7,16 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { spawn } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const mcp = path.join(pluginRoot, "dist", "mcp-server.js");
 assert.ok(fs.existsSync(mcp), "dist/mcp-server.js must exist (run npm run build)");
 
-const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-mcp-control-"));
+const cwd = tmpDir("cw-mcp-control-");
 const storePath = path.join(cwd, ".cw", "schedules", "tasks.json");
 const lockPath = `${storePath}.lock`;
 fs.mkdirSync(path.dirname(storePath), { recursive: true });

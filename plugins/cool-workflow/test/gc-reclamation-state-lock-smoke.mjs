@@ -19,14 +19,14 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import cp from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { prepareFree } from "../dist/shell/reclamation-io.js";
 
-const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-gc-lock-"));
+const workDir = tmpDir("cw-gc-lock-");
 const runDir = path.join(workDir, "run");
 fs.mkdirSync(runDir, { recursive: true });
 const statePath = path.join(runDir, "state.json");

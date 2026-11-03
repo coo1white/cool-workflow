@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist/cli.js");
@@ -124,7 +125,7 @@ for (const app of canonicalApps) {
   assertUsesSandboxHints(shown);
   assertHasEvidenceGate(shown);
 
-  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), `cw-canonical-smoke-${app.id}-`));
+  const workspace = tmpDir(`cw-canonical-smoke-${app.id}-`);
   const plan = run(["plan", app.id, ...app.args(workspace)]);
   assert.equal(plan.workflowId, app.id);
   // The `cw plan` CLI payload carries a `pendingTasks` count.
@@ -152,7 +153,7 @@ assertUniqueIds(matrix, "post-plan app list");
 // are passed into app-operations as callbacks). Scaffold a fresh app into a tmp
 // dir, assert the returned shape + on-disk manifest, then validate it.
 {
-  const initDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-app-init-smoke-"));
+  const initDir = tmpDir("cw-app-init-smoke-");
   const initId = "smoke-init-app";
   const created = run(["app", "init", initId, "--directory", initDir]);
   assert.equal(created.id, initId, "initApp must echo the slugified id");

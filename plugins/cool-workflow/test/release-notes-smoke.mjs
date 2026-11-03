@@ -11,9 +11,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const SCRIPTS = path.resolve(import.meta.dirname, "..", "scripts");
 const FLOW = path.join(SCRIPTS, "release-flow.mjs");
@@ -95,7 +95,7 @@ function commit(dir, file, msg) {
   run("git", ["commit", "-q", "-m", msg], dir);
 }
 function fixture(withPrevTag) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-relnotes-"));
+  const dir = tmpDir("cw-relnotes-");
   for (const a of [["init", "-q", "-b", "main"], ["config", "user.email", "t@t"], ["config", "user.name", "t"],
     ["config", "commit.gpgsign", "false"], ["remote", "add", "origin", "https://github.com/test-owner/test-repo.git"]]) run("git", a, dir);
   commit(dir, "README.md", "init");

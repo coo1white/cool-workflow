@@ -5,14 +5,14 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const cli = path.join(root, "dist", "cli.js");
 const node = process.execPath;
-const fresh = (name) => fs.mkdtempSync(path.join(os.tmpdir(), `cw-intake-${name}-`));
+const fresh = (name) => tmpDir(`cw-intake-${name}-`);
 const sha256 = (bytes) => crypto.createHash("sha256").update(bytes).digest("hex");
 const manifest = (files) => sha256(Buffer.from(JSON.stringify(files.map((file) => ({ relativePath: file.relativePath, role: file.role, sha256: file.sha256, sizeBytes: file.sizeBytes })).sort((a, b) => a.relativePath.localeCompare(b.relativePath))), "utf8"));
 

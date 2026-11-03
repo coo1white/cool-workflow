@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist/cli.js");
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-workflow-app-framework-"));
+const tmp = tmpDir("cw-workflow-app-framework-");
 
 function execOptions(cwd, env) {
   const options = { cwd, encoding: "utf8" };
@@ -206,7 +206,7 @@ assert.equal(reportPath, appPlan.reportPath);
 
 // --- architecture-review P1 fix: untrusted external app source is fail-closed ---
 
-const externalAppDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-external-app-"));
+const externalAppDir = tmpDir("cw-external-app-");
 const externalMarker = path.join(externalAppDir, "executed.marker");
 fs.writeFileSync(
   path.join(externalAppDir, "app.json"),
@@ -255,7 +255,7 @@ assert.ok(fs.existsSync(externalMarker), "workflow.js must execute once CW_ALLOW
 
 // --- architecture-review P1 fix: findAppDir must not resolve a path-traversal appId ---
 
-const traversalBase = fs.mkdtempSync(path.join(os.tmpdir(), "cw-traversal-"));
+const traversalBase = tmpDir("cw-traversal-");
 const trustedAppsDir = path.join(traversalBase, "trusted-apps");
 fs.mkdirSync(trustedAppsDir, { recursive: true });
 const evilAppDir = path.join(traversalBase, "evil-app");

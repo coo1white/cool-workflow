@@ -25,9 +25,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const REAL_REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
 const SCRIPT_REL = "plugins/cool-workflow/scripts/verify-bump-reproduction.mjs";
@@ -91,7 +91,7 @@ const REAL_REMOTE_URL = git(["config", "--get", "remote.origin.url"], REAL_REPO_
 // NO injected file (via a clone, remote pinned) must still reproduce cleanly
 // — isolates that clone-based testing itself introduces no spurious mismatch.
 {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-bump-repro-control-"));
+  const tmp = tmpDir("cw-bump-repro-control-");
   const clone = path.join(tmp, "control-repo");
   try {
     git(["clone", "-q", REAL_REPO_ROOT, clone]);
@@ -106,7 +106,7 @@ const REAL_REMOTE_URL = git(["config", "--get", "remote.origin.url"], REAL_REPO_
 // ---- 3. THE ACTUAL ATTACK: replay the real verdict onto a backdoored commit
 // in a throwaway CLONE (never mutates the real working tree) --------------
 {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-bump-repro-attack-"));
+  const tmp = tmpDir("cw-bump-repro-attack-");
   const clone = path.join(tmp, "attack-repo");
   try {
     git(["clone", "-q", REAL_REPO_ROOT, clone]);

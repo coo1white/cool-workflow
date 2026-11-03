@@ -5,9 +5,9 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -25,7 +25,7 @@ function digestManifest(files) {
 }
 
 function freshDir(label) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `cw-canonical-${label}-`));
+  return tmpDir(`cw-canonical-${label}-`);
 }
 
 const source = freshDir("source");

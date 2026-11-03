@@ -2,7 +2,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 // v2 split the old flat `dist/state`: run-dir/checkpoint helpers moved to
@@ -10,8 +9,9 @@ import path from "node:path";
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 import { readJson, writeJson } from "../dist/shell/fs-atomic.js";
 import { exportRun, importRun, verifyImportedRun } from "../dist/shell/run-export.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-run-export-"));
+const tmp = tmpDir("cw-run-export-");
 const runId = "export-test";
 const runDir = path.join(tmp, ".cw", "runs", runId);
 const paths = createRunPaths(runDir);

@@ -25,14 +25,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const tscJs = path.join(pluginRoot, "node_modules", "typescript", "lib", "tsc.js");
 assert.ok(fs.existsSync(tscJs), "repo typescript devDependency present");
 
-const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-boundary-fixture-"));
+const fixtureDir = tmpDir("cw-boundary-fixture-");
 // The fixture imports boundary.ts by ABSOLUTE path so it can live in a tmpdir
 // (no repo-tree pollution, no cwd assumption).
 // v2 restored the weld module at src/core/types/boundary.ts (the exact path

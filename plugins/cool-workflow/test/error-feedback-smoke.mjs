@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 // This smoke exercises the whole collect -> task -> resolve flow: the pure
 // decision half (core/pipeline/error-feedback: classifyFeedback /
@@ -33,7 +33,7 @@ import { getRunContract } from "../dist/core/pipeline/runner.js";
 // ErrorFeedback record.
 const createPipelineRunner = () => ({ getRunContract, runPipelineStage });
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-error-feedback-"));
+const tmp = tmpDir("cw-error-feedback-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "feedback-smoke"));
 ensureRunDirs(paths);
 fs.writeFileSync(paths.state, "{}\n", "utf8");

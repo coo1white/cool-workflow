@@ -17,6 +17,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const MCP = path.join(import.meta.dirname, "..", "dist", "mcp-server.js");
 assert.ok(fs.existsSync(MCP), "dist/mcp-server.js must exist (run npm run build)");
@@ -55,7 +56,7 @@ function rpc(messages) {
   // {"runId": 5} used to be dropped by optionalString, so cw_status returned
   // the "no run yet" payload. After coercion it looks up run "5" and honestly
   // reports it not found — never the misleading "create a run first" shape.
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-mcp-coerce-"));
+  const cwd = tmpDir("cw-mcp-coerce-");
   const replies = rpc([{ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "cw_status", arguments: { runId: 5, cwd } } }]);
   const status = replies.find((m) => m.id === 3);
   assert.ok(status, "server must reply to cw_status");

@@ -4,9 +4,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const root = path.resolve(import.meta.dirname, "..");
 const mcp = path.join(root, "dist", "mcp-server.js");
@@ -35,7 +35,7 @@ function rpc(messages, env = {}) {
 // Deny wins after allow. A denied mutating call is a normal MCP isError
 // result and writes no state, proving the handler was not invoked.
 {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-mcp-authority-"));
+  const cwd = tmpDir("cw-mcp-authority-");
   try {
     const result = rpc([
       { jsonrpc: "2.0", id: 3, method: "tools/list" },

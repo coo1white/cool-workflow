@@ -8,11 +8,11 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const testDir = import.meta.dirname;
-const temp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-concurrency-default-"));
+const temp = tmpDir("cw-concurrency-default-");
 const runner = path.join(temp, "run-all.mjs");
 fs.copyFileSync(path.join(testDir, "run-all.mjs"), runner);
 fs.writeFileSync(path.join(temp, "tiny-smoke.mjs"), "process.stdout.write('tiny: ok\\n');\n", "utf8");

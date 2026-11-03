@@ -7,12 +7,12 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { recordTrustAuditEvent, verifyTrustAudit, withTrustAuditBatch } from "../../dist/shell/trust-audit.js";
+import { tmpDir } from "../helpers/workspace.mjs";
 
 function tmpRun(id) {
-  return { id, paths: { runDir: fs.mkdtempSync(path.join(os.tmpdir(), "cw-audit-batch-throw-")) } };
+  return { id, paths: { runDir: tmpDir("cw-audit-batch-throw-") } };
 }
 const logOf = (run) => path.join(run.paths.runDir, "audit", "events.jsonl");
 const eventsOf = (run) => fs.readFileSync(logOf(run), "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line));

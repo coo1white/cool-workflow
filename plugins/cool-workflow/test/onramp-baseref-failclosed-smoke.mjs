@@ -17,9 +17,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const onrampPath = path.join(pluginRoot, "dist", "shell", "onramp.js");
@@ -33,7 +33,7 @@ function git(cwd, args) {
 // uncommitted, so a HEAD..HEAD diff is empty -- the exact state in which the
 // old HEAD fallback produced a vacuous "0 changed files" pass.
 function makeCleanRepo() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "onramp-baseref-"));
+  const dir = tmpDir("onramp-baseref-");
   git(dir, ["init", "-q"]);
   const author = ["-c", "user.email=cw@example.com", "-c", "user.name=cw", "-c", "commit.gpgsign=false"];
   fs.writeFileSync(path.join(dir, "file.txt"), "one\n");
@@ -89,7 +89,7 @@ function makeCleanRepo() {
 // ~= 10s), comfortably under the 18s bound.
 {
   const dir = makeCleanRepo();
-  const fakeBin = fs.mkdtempSync(path.join(os.tmpdir(), "onramp-fakegit-"));
+  const fakeBin = tmpDir("onramp-fakegit-");
   const fakeGit = path.join(fakeBin, "git");
   fs.writeFileSync(fakeGit, "#!/bin/sh\nexec sleep 30\n");
   fs.chmodSync(fakeGit, 0o755);

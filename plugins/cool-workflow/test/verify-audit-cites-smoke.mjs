@@ -6,13 +6,13 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..", "..", "..");
 const script = path.join(repoRoot, "plugins", "cool-workflow", "project", "docs", "scripts", "verify-audit-cites.js");
 
-const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), "cw-verify-audit-cites-"));
+const sandbox = tmpDir("cw-verify-audit-cites-");
 const root = path.join(sandbox, "src");
 fs.mkdirSync(root, { recursive: true });
 fs.writeFileSync(path.join(root, "alpha.ts"), "line1\nline2\nline3\nline4\nline5\n", "utf8");

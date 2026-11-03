@@ -8,7 +8,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -18,6 +17,7 @@ import { execFileSync } from "node:child_process";
 //   ../dist/worker-isolation  -> ../dist/shell/worker-isolation
 //   ../dist/trust-audit       -> ../dist/shell/trust-audit
 import { commitState } from "../dist/shell/commit.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 import {
   createRunPaths,
   ensureRunDirs,
@@ -31,7 +31,7 @@ import { summarizeTrustAudit } from "../dist/shell/trust-audit.js";
 // read/record helpers; audit-provenance.ts wraps them over its primitives).
 import { evidenceProvenance } from "../dist/shell/audit-provenance.js";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-security-trust-"));
+const tmp = tmpDir("cw-security-trust-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "trust-smoke"));
 ensureRunDirs(paths);
 

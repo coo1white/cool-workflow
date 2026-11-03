@@ -14,9 +14,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const bump = path.join(pluginRoot, "scripts", "bump-version.mjs");
@@ -43,7 +43,7 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
 // version but whose trust-audit-anchor.7.md lacks any mention of it. The
 // pre-fix code early-exited 0 here without ever looking at content surfaces.
 {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cw-bump-gate-"));
+  const root = tmpDir("cw-bump-gate-");
   const fixPlugin = path.join(root, "plugins", "cool-workflow");
   fs.mkdirSync(path.join(fixPlugin, "scripts"), { recursive: true });
   fs.mkdirSync(path.join(fixPlugin, "apps"), { recursive: true });

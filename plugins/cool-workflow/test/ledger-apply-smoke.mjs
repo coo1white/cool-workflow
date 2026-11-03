@@ -11,9 +11,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const cli = path.join(import.meta.dirname, "..", "dist", "cli.js");
 
@@ -22,7 +22,7 @@ function runCli(args, opts) {
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-ledger-apply-"));
+const dir = tmpDir("cw-ledger-apply-");
 const repo = path.join(dir, "repo");
 fs.mkdirSync(repo);
 function git(args) {

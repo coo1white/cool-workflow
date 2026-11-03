@@ -11,12 +11,12 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { resolveAgentConfig } from "../../dist/shell/agent-config.js";
+import { tmpDir } from "../helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-agent-config-layers-"));
+const tmp = tmpDir("cw-agent-config-layers-");
 try {
   const cwHome = path.join(tmp, "home");
   fs.mkdirSync(cwHome, { recursive: true });

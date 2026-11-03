@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const releaseCheck = path.join(pluginRoot, "scripts", "release-check.mjs");
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-release-check-skip-"));
+const tmp = tmpDir("cw-release-check-skip-");
 const bin = path.join(tmp, "bin");
 const log = path.join(tmp, "commands.log");
 fs.mkdirSync(bin);

@@ -3,8 +3,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const coreSource = fs.readFileSync(path.join(pluginRoot, "src", "core", "state", "run-paths.ts"), "utf8");
@@ -17,7 +17,7 @@ assert.equal(coreRunPaths.ensureRunDirs, undefined, "core must not export the di
 assert.equal(runStore.createRunPaths, coreRunPaths.createRunPaths, "shell keeps the current createRunPaths export");
 assert.equal(typeof runStore.ensureRunDirs, "function", "shell exports the directory writer");
 
-const root = fs.mkdtempSync(path.join(os.tmpdir(), "cw-run-path-boundary-"));
+const root = tmpDir("cw-run-path-boundary-");
 const runDir = path.join(root, "run");
 const paths = coreRunPaths.createRunPaths(runDir);
 delete paths.auditDir;

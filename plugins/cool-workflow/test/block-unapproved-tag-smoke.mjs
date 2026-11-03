@@ -14,17 +14,17 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const HOOK = path.resolve(import.meta.dirname, "..", "scripts", "block-unapproved-tag.mjs");
 assert.ok(fs.existsSync(HOOK), "block-unapproved-tag.mjs must exist");
 const VERIFY_SCRIPT = path.resolve(import.meta.dirname, "..", "scripts", "verify-verdict-signature.mjs");
 assert.ok(fs.existsSync(VERIFY_SCRIPT), "verify-verdict-signature.mjs must exist");
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-hook-"));
+const dir = tmpDir("cw-hook-");
 function git(args) {
   const r = spawnSync("git", args, { cwd: dir, encoding: "utf8" });
   if (r.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${r.stderr}`);

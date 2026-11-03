@@ -34,9 +34,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { RunRegistry } from "../dist/shell/run-registry-io.js";
@@ -53,8 +53,8 @@ function spawnAllAndWait(procs) {
 
 // ---- A. concurrent sched lease grants do not lose queue entries ----------
 async function concurrentSchedLease() {
-  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "cw-lockrace-repo-"));
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "cw-lockrace-home-"));
+  const repo = tmpDir("cw-lockrace-repo-");
+  const home = tmpDir("cw-lockrace-home-");
   const env = { ...process.env, CW_HOME: home };
   const N = 16;
 
@@ -90,7 +90,7 @@ async function concurrentSchedLease() {
 
 // ---- B. concurrent routine trigger creates do not lose triggers ----------
 async function concurrentRoutineTriggerCreate() {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-lockrace-routine-"));
+  const tmp = tmpDir("cw-lockrace-routine-");
   const N = 16;
   const child = path.join(tmp, "create-trigger.js");
   fs.writeFileSync(child, `
@@ -112,8 +112,8 @@ async function concurrentRoutineTriggerCreate() {
 // never mints a duplicate id, and a subsequent lease grants one lease per
 // entry rather than silently collapsing collided entries into one. ------
 async function concurrentQueueAddNoIdCollision() {
-  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "cw-qidrace-repo-"));
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "cw-qidrace-home-"));
+  const repo = tmpDir("cw-qidrace-repo-");
+  const home = tmpDir("cw-qidrace-home-");
   const env = { ...process.env, CW_HOME: home };
   const N = 8;
 
@@ -175,8 +175,8 @@ async function concurrentQueueAddNoIdCollision() {
 // land: the load-merge-write cycle holds the policy file's lock, so no
 // last-writer-wins can drop another process's field. --------------------
 async function concurrentPolicySetNoLostField() {
-  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "cw-policyrace-repo-"));
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), "cw-policyrace-home-"));
+  const repo = tmpDir("cw-policyrace-repo-");
+  const home = tmpDir("cw-policyrace-home-");
   const env = { ...process.env, CW_HOME: home };
   const fields = {
     maxConcurrent: 11,

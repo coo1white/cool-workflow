@@ -5,8 +5,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const generator = path.join(pluginRoot, "scripts", "gen-manifests.mjs");
@@ -25,7 +25,7 @@ function filesUnder(root) {
 }
 
 function fixture(source) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cw-manifest-registry-"));
+  const root = tmpDir("cw-manifest-registry-");
   const scripts = path.join(root, "plugins", "cool-workflow", "scripts");
   const manifest = path.join(root, "plugins", "cool-workflow", "manifest");
   fs.mkdirSync(scripts, { recursive: true });

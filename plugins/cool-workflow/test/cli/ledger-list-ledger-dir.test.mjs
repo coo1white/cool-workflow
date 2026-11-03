@@ -12,8 +12,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "../helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..", "..");
 const node = process.execPath;
@@ -28,7 +28,7 @@ function run(argv) {
   }
 }
 
-const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-ledger-dir-"));
+const work = tmpDir("cw-ledger-dir-");
 const dir = path.join(work, "ledger");
 fs.mkdirSync(dir);
 fs.writeFileSync(path.join(dir, "a.json"), JSON.stringify({ schemaVersion: 1, kind: "proposal", id: "x" }) + "\n");

@@ -23,16 +23,16 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const GATE = path.resolve(import.meta.dirname, "..", "scripts", "release-gate.mjs");
 assert.ok(fs.existsSync(GATE), "release-gate.mjs must exist");
 
 let caseId = 0;
 function freshRepo() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-gate-dh-${caseId++}-`));
+  const dir = tmpDir(`cw-gate-dh-${caseId++}-`);
   git(dir, ["init", "-q", "-b", "work"]);
   git(dir, ["config", "user.email", "t@t"]);
   git(dir, ["config", "user.name", "t"]);

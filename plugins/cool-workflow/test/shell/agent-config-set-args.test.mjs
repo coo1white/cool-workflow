@@ -14,12 +14,12 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { setAgentConfigFile, loadAgentConfigFile } from "../../dist/shell/agent-config.js";
+import { tmpDir } from "../helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-agent-config-set-args-"));
+const tmp = tmpDir("cw-agent-config-set-args-");
 try {
   const env = { CW_HOME: tmp, CW_NO_AUTO_AGENT: "1", PATH: "" };
   const file = path.join(tmp, "agent-config.json");

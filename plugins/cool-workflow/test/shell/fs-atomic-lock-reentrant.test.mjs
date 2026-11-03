@@ -7,12 +7,12 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { writeJson, withFileLock } from "../../dist/shell/fs-atomic.js";
+import { tmpDir } from "../helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-fs-reent-"));
+const tmp = tmpDir("cw-fs-reent-");
 
 // --- Nested call on the SAME target: runs at once, keeps the lock held,
 // and only the OUTER exit removes the lock file.

@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 // v2 split the old flat `dist/state`: createRunPaths/ensureRunDirs/saveCheckpoint
@@ -16,8 +15,9 @@ import { createStateNode, appendRunNode } from "../dist/core/state/state-node.js
 // writes them). Reported for a human judgement call; this smoke stays red.
 import { recordFeedback } from "../dist/shell/error-feedback-io.js";
 import { resolveFeedback, listFeedback } from "../dist/shell/error-feedback-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-feedback-resolution-"));
+const tmp = tmpDir("cw-feedback-resolution-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "feedback-resolution"));
 ensureRunDirs(paths);
 fs.mkdirSync(paths.feedbackDir, { recursive: true });

@@ -14,10 +14,10 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const FLOW = path.resolve(import.meta.dirname, "..", "scripts", "release-flow.mjs");
 assert.ok(fs.existsSync(FLOW), "release-flow.mjs must exist");
@@ -55,7 +55,7 @@ assert.ok(fs.existsSync(REVIEWER_PROMPT), "release reviewer prompt must exist");
 
 let caseId = 0;
 function fixture() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-flow-${caseId++}-`));
+  const dir = tmpDir(`cw-flow-${caseId++}-`);
   run("git", ["init", "-q", "-b", "work"], dir);
   run("git", ["config", "user.email", "t@t"], dir);
   run("git", ["config", "user.name", "t"], dir);
@@ -447,7 +447,7 @@ process.exit(0);
 // commit tagged v9.9.9 — so the verdict lives at the tag's HEAD~1 (the real cut
 // shape) and prevTagOf/changelogSection/verdictForTag all resolve.
 function releaseFixture() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-rel-${caseId++}-`));
+  const dir = tmpDir(`cw-rel-${caseId++}-`);
   run("git", ["init", "-q", "-b", "work"], dir);
   run("git", ["config", "user.email", "t@t"], dir);
   run("git", ["config", "user.name", "t"], dir);
@@ -481,7 +481,7 @@ function releaseFixture() {
 // naive ancestry walk (`git describe`) skips v9.9.8 and wrongly lands on
 // v9.9.7, one version further back than the correct previous release.
 function releaseFixtureNonAncestorPrevTag() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-rel-na-${caseId++}-`));
+  const dir = tmpDir(`cw-rel-na-${caseId++}-`);
   run("git", ["init", "-q", "-b", "work"], dir);
   run("git", ["config", "user.email", "t@t"], dir);
   run("git", ["config", "user.name", "t"], dir);
@@ -667,7 +667,7 @@ function releaseFixtureNonAncestorPrevTag() {
 // ---- Case 13: a tag with NO committed verdict → notes make no gated claim ----
 // Guards the false-green fix: the notes must not assert a review that isn't there.
 {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-rel-${caseId++}-`));
+  const dir = tmpDir(`cw-rel-${caseId++}-`);
   run("git", ["init", "-q", "-b", "work"], dir);
   run("git", ["config", "user.email", "t@t"], dir);
   run("git", ["config", "user.name", "t"], dir);
@@ -985,7 +985,7 @@ function releaseFixtureNonAncestorPrevTag() {
   {
     const dir = fixture();
     // a bare origin whose `main` is the fixture's current commit
-    const bare = fs.mkdtempSync(path.join(os.tmpdir(), `cw-flow-origin-${caseId++}-`));
+    const bare = tmpDir(`cw-flow-origin-${caseId++}-`);
     run("git", ["init", "-q", "--bare", "-b", "main", bare], dir);
     run("git", ["remote", "add", "origin", bare], dir);
     run("git", ["push", "-q", "origin", "HEAD:main"], dir);

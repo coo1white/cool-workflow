@@ -7,8 +7,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "../helpers/workspace.mjs";
 
 import {
   extractSkeleton,
@@ -29,7 +29,7 @@ import {
 } from "../../dist/shell/reclamation-io.js";
 import { writeJson, readJson } from "../../dist/shell/fs-atomic.js";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-tombstone-"));
+const tmp = tmpDir("cw-tombstone-");
 
 // Same minimal run shape as reclamation-io-log-failclosed.test.mjs: one
 // completed task, a kept result, a worker scratch dir with bytes to free.

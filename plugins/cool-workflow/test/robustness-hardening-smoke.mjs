@@ -2,15 +2,15 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 const node = process.execPath;
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-robustness-"));
+const tmp = tmpDir("cw-robustness-");
 // v2: flat dist/state-migrations moved to core/state/migrations; same signature
 // migrateRunState(input, { statePath?, dryRun? }).
 import { migrateRunState } from "../dist/core/state/migrations.js";

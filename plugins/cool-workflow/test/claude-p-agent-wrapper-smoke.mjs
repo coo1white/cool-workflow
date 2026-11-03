@@ -29,8 +29,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
@@ -41,7 +41,7 @@ import { RESULT_CONTRACT } from "../scripts/agents/agent-adapter-core.mjs";
 import * as agentConfigModule from "../dist/shell/agent-config.js";
 
 function shimDir(behavior) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-claude-shim-"));
+  const dir = tmpDir("cw-claude-shim-");
   const shim = path.join(dir, "claude");
   const lines = ["#!/usr/bin/env node"];
   if (behavior === "crash") {
@@ -102,7 +102,7 @@ function runWrapper(dir, inputPath, resultPath, extraEnv = {}) {
 }
 
 function main() {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-wrapper-smoke-"));
+  const work = tmpDir("cw-wrapper-smoke-");
   const inputPath = path.join(work, "input.md");
   const resultPath = path.join(work, "result.md");
   const INPUT_MARKER = "Map the server boundaries of demo-repo (marker-7c1).";
