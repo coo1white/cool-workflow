@@ -200,7 +200,7 @@ function intentFiles() {
 // longer version such as <version>1): heading line to the next heading of
 // the same or a higher level.
 function decisionSections(version) {
-  const escaped = version.replace(/\./g, "\\.");
+  const escaped = version.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
   const heading = new RegExp(`Operator decisions for ${escaped}(?![0-9.]*[0-9])`);
   const sections = [];
   for (const file of intentFiles()) {
