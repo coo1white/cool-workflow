@@ -1,0 +1,2 @@
+APPROVED ab3f2e0bc5963d5e303b5348aa67942044d57408
+A timed-out agent hop parks on the first try and names the limit, cw doctor exits 1 when the configured agent CLI cannot start, and cw init writes the new app into ./apps where cw app list shows it.
