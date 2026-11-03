@@ -20,7 +20,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -42,6 +41,8 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { drive, driveStep } from "../dist/shell/drive.js";
 import { createWorkflowApi } from "../dist/core/workflow-apps/app-schema.js";
 import { DEFAULT_SCHEDULING_POLICY, normalizeSchedulingPolicy } from "../dist/shell/scheduling-io.js";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 // Runner-shim: the v2 build has no persistent runner object; these are the
 // free-function equivalents of the two methods the smoke used. plan() reads
@@ -59,17 +60,7 @@ function makeRunner() {
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const STUB_USAGE = { input_tokens: 4, output_tokens: 2 };
-const cleanups = [];
 
-function tmpWorkspace() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-cdsl-smoke-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  cleanups.push(work);
-  return work;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
-}
 // A happy-path stub agent that writes a valid cw:result envelope and reports its
 // own model + token usage on stdout (argv[2] = resultPath).
 function writeStub(file, model) {
@@ -155,7 +146,7 @@ function main() {
   // must fulfill several in ONE round, in deterministic phase order; driveStep must
   // fulfill exactly one. That contrast IS the batching proof.
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-cdsl-smoke-");
     const stub = writeStub(path.join(work, "stub.js"), "round-opus");
     process.chdir(work);
     try {
@@ -189,7 +180,7 @@ function main() {
 
   // ---- 3. FULL CONCURRENT DRIVE: same complete outcome + telemetry captured -
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-cdsl-smoke-");
     const stub = writeStub(path.join(work, "stub.js"), "drive-opus");
     process.chdir(work);
     try {
@@ -225,7 +216,6 @@ function main() {
     }
   }
 
-  for (const dir of cleanups) fs.rmSync(dir, { recursive: true, force: true });
   process.stdout.write("concurrent-workflow-dsl-smoke: ok (DSL veneer, concurrent batch driver, deterministic order, telemetry thread-back)\n");
 }
 

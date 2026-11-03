@@ -47,19 +47,7 @@ import { drive } from "../dist/shell/drive.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
-
-function writeStub(file) {
-  const fence = String.fromCharCode(96).repeat(3);
-  const lines = [
-    'const fs = require("fs");',
-    "const rp = process.argv[2];",
-    `const body = "# R\\n\\n" + ${JSON.stringify(fence)} + "cw:result\\n" + JSON.stringify({ summary: "s", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + ${JSON.stringify(fence)} + "\\n";`,
-    "fs.writeFileSync(rp, body);",
-    'process.stdout.write(JSON.stringify({ model: "stub", usage: { input_tokens: 1, output_tokens: 1 } }));',
-  ];
-  fs.writeFileSync(file, lines.join("\n"), "utf8");
-  return file;
-}
+import { writeStubAgent } from "./helpers/stub-agent.mjs";
 
 function countStateReads(statePath, fn) {
   const originalReadFileSync = fs.readFileSync;
@@ -89,7 +77,7 @@ const cwd0 = process.cwd();
   try {
     process.chdir(work);
     const p = plan(loadWorkflowApp("end-to-end-golden-path"), { repo: work, question: "round cache" });
-    const stub = writeStub(path.join(work, "stub.js"));
+    const stub = writeStubAgent(path.join(work, "stub.js"));
     const agentConfig = { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag" };
 
     const { result, count } = countStateReads(p.paths.state, () => drive(p.id, work, { once: true, now: "2026-07-01T00:00:00.000Z", agentConfig }));
@@ -123,7 +111,7 @@ const cwd0 = process.cwd();
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   try {
     process.chdir(work);
-    const stub = writeStub(path.join(work, "stub.js"));
+    const stub = writeStubAgent(path.join(work, "stub.js"));
     const agentConfig = { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag" };
     const def = api.workflow({
       id: "p13-concurrent-roundcache-probe",
@@ -161,7 +149,7 @@ const cwd0 = process.cwd();
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   try {
     process.chdir(work);
-    const stub = writeStub(path.join(work, "stub.js"));
+    const stub = writeStubAgent(path.join(work, "stub.js"));
     const agentConfig = { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag" };
     const def = api.workflow({
       id: "p13-multiround-roundcache-probe",
@@ -196,7 +184,7 @@ const cwd0 = process.cwd();
   try {
     process.chdir(work);
     const p = plan(loadWorkflowApp("end-to-end-golden-path"), { repo: work, question: "round cache full" });
-    const stub = writeStub(path.join(work, "stub.js"));
+    const stub = writeStubAgent(path.join(work, "stub.js"));
     const agentConfig = { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], source: "flag" };
     const result = drive(p.id, work, { now: "2026-07-01T00:00:00.000Z", agentConfig });
 
