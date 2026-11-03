@@ -11,21 +11,16 @@
 // Evidence: SPEC/reporting-ux.md "cw metrics show / summary", invariant 4
 // (metrics are derived and honest), invariant 5 (freshness is fail-
 // closed), invariant 6 (metricsShow never touches state.json).
-import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { readJson, writeJson } from "./fs-atomic.js";
 import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
 import { stableCompare } from "../core/util/collate.js";
+import { fingerprintStrings } from "../core/hash.js";
 export const METRICS_SCHEMA_VERSION = 1;
 const VERIFIER_PASS_STATUSES = new Set(["verified", "completed", "committed"]);
 const VERIFIER_FAIL_STATUSES = new Set(["failed", "rejected", "blocked"]);
 const CANDIDATE_ACCEPTED_STATUSES = new Set(["selected", "verified"]);
-function fingerprintStrings(values) {
-    const hash = createHash("sha256");
-    hash.update(JSON.stringify([...values].sort()));
-    return `sha256:${hash.digest("hex").slice(0, 32)}`;
-}
 function round(value, decimals) {
     const factor = 10 ** decimals;
     return Math.round(value * factor) / factor;

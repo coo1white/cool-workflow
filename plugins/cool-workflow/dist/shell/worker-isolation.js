@@ -10,7 +10,6 @@
 // exechard-evidence-triple-hygiene.case.mjs, exechard-model-attestation-
 // unreported.case.mjs, exec-agent-secret-redaction.case.mjs pin the exact
 // shapes here.
-import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { safeFileName, writeJson } from "./fs-atomic.js";
@@ -29,7 +28,7 @@ import { saveCheckpoint } from "./run-store.js";
 import { taskRequiresEvidence } from "./verifier.js";
 import { runPipelineStage } from "../core/pipeline/runner.js";
 import { sha256 } from "../core/hash.js";
-import { stableCompare } from "../core/util/collate.js";
+import { formatCounts, stableCompare } from "../core/util/collate.js";
 import { normalizeReportedUsage, resolveTrustPublicKey, verifyTelemetryAttestation } from "../core/trust/telemetry-attestation.js";
 import { appendTelemetryAttestation } from "./telemetry-ledger-io.js";
 export const WORKER_ISOLATION_SCHEMA_VERSION = 1;
@@ -811,7 +810,7 @@ export function recordWorkerOutput(run, workerId, resultPath, options = {}) {
         status: verifierResult.status === "advanced" ? "verified" : "completed",
         resultNodeId: resultNode.id,
         output,
-        outputDigest: sha256Local(rawResult),
+        outputDigest: sha256(rawResult),
         outputSizeBytes: Buffer.byteLength(rawResult, "utf8"),
         ...(usageRecord ? { usage: usageRecord } : {}),
     };
@@ -819,9 +818,6 @@ export function recordWorkerOutput(run, workerId, resultPath, options = {}) {
     writeWorkerManifest(run, updatedScope);
     writeWorkerIndex(run);
     return output;
-}
-function sha256Local(value) {
-    return `sha256:${createHash("sha256").update(value, "utf8").digest("hex")}`;
 }
 export function recordWorkerFailure(run, workerId, error, options = {}) {
     const scope = requireWorkerScope(run, workerId);
@@ -960,12 +956,6 @@ function countBucket(values) {
         counts[value] = (counts[value] || 0) + 1;
     return counts;
 }
-function formatCountBucket(counts) {
-    const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
-    if (!entries.length)
-        return "none";
-    return entries.map(([k, v]) => `${k}=${v}`).join(", ");
-}
 /** `cw worker summary <run-id>` human text: a `Workers` rollup with
  *  status/sandbox/backend counts and one line per worker naming its
  *  sandbox profile and manifest path. */
@@ -973,7 +963,7 @@ export function formatWorkerSummaryText(run) {
     const workers = listWorkerScopes(run);
     const lines = [
         "Workers",
-        `  total=${workers.length}; status=${formatCountBucket(countBucket(workers.map((w) => w.status)))}; sandbox=${formatCountBucket(countBucket(workers.map((w) => w.sandboxProfileId || "none")))}; backend=${formatCountBucket(countBucket(workers.map((w) => w.backendId || "none")))}`,
+        `  total=${workers.length}; status=${formatCounts(countBucket(workers.map((w) => w.status)))}; sandbox=${formatCounts(countBucket(workers.map((w) => w.sandboxProfileId || "none")))}; backend=${formatCounts(countBucket(workers.map((w) => w.backendId || "none")))}`,
     ];
     for (const worker of workers.slice(0, 8)) {
         lines.push(`  ${worker.id}: ${worker.status}, task=${worker.taskId}, sandbox=${worker.sandboxProfileId || "none"}, backend=${worker.backendId || "none"}`);

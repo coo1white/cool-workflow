@@ -65,6 +65,7 @@ import { runBackend } from "./execution-backend/registry.js";
 import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv, prepareEndpointJob, runEndpointBatchOutcomes, AgentEndpointJob, driveTtyClaimPath, driveAlivePath } from "./execution-backend/agent.js";
 import { sha256, stableStringify } from "../core/hash.js";
 import { stableCompare } from "../core/util/collate.js";
+import { messageOf } from "../core/util/cli-args.js";
 import { plan } from "./pipeline.js";
 import { reporter } from "./reporter.js";
 import { safeFileName } from "./fs-atomic.js";
@@ -409,10 +410,6 @@ function renderSubInputs(spec: { inputs?: Record<string, string> }, parentInputs
   return out;
 }
 
-function errMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 /** `deferPersist` (concurrent-round callers ONLY) skips the per-task
  *  commitState/saveCheckpoint calls — the round flushes once at the end
  *  instead. `preparedOutcome`, when given (concurrent round only), is
@@ -512,7 +509,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
         saveCheckpoint(run, DRIVE_SAVE);
       }
     } catch (error) {
-      return handleHop(ctx, selected, workerId, `result cache rejected: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
+      return handleHop(ctx, selected, workerId, `result cache rejected: ${messageOf(error)}`, deferPersist, deferPersist ? run : undefined);
     }
     return makeStep("accept", "ok", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, handleKind: "result-cache", reason: "result cache hit" });
   }
@@ -591,7 +588,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
       saveCheckpoint(run, DRIVE_SAVE);
     }
   } catch (error) {
-    return handleHop(ctx, selected, workerId, `result.md rejected: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
+    return handleHop(ctx, selected, workerId, `result.md rejected: ${messageOf(error)}`, deferPersist, deferPersist ? run : undefined);
   }
 
   // Trust visibility (purely additive, no execution-behavior change): when
@@ -663,7 +660,7 @@ function runSubWorkflow(
     const { loadWorkflowApp } = require("./workflow-app-loader.js") as typeof import("./workflow-app-loader.js");
     childRun = plan(loadWorkflowApp(spec.appId), childInputs);
   } catch (error) {
-    return handleHop(ctx, selected, workerId, `sub-workflow plan failed (${spec.appId}): ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
+    return handleHop(ctx, selected, workerId, `sub-workflow plan failed (${spec.appId}): ${messageOf(error)}`, deferPersist, deferPersist ? run : undefined);
   }
   const childResult = drive(childRun.id, childRun.cwd, {
     now: ctx.now,
@@ -736,7 +733,7 @@ function runSubWorkflow(
       saveCheckpoint(run, DRIVE_SAVE);
     }
   } catch (error) {
-    return handleHop(ctx, selected, workerId, `sub-workflow result rejected by parent gate: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
+    return handleHop(ctx, selected, workerId, `sub-workflow result rejected by parent gate: ${messageOf(error)}`, deferPersist, deferPersist ? run : undefined);
   }
   return makeStep("accept", "ok", { runId: run.id, taskId: selected.id, phase: selected.phase, handleKind: "sub-workflow", reason: `sub-workflow ${spec.appId} → ${childRun.id}` });
 }

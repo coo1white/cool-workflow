@@ -8,7 +8,7 @@ import { sandboxGuaranteeLabels } from "./execution-backend/registry.js";
 import { summarizeTrustAudit, listTrustAuditEvents } from "./trust-audit.js";
 import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
 import { runLifecycle } from "./run-registry-io.js";
-import { stableCompare } from "../core/util/collate.js";
+import { formatCounts } from "../core/util/collate.js";
 import { normalizeResultEnvelope } from "../core/pipeline/result-normalize.js";
 import { countBy } from "../core/util/cli-args.js";
 /** One report head line: every control character (newline, CR, ESC and the
@@ -22,12 +22,6 @@ function formatInputList(value) {
     if (Array.isArray(value))
         return value.join("; ");
     return value ? String(value) : "";
-}
-function formatCounts(counts) {
-    const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
-    if (!entries.length)
-        return "none";
-    return entries.map(([k, v]) => `${k}=${v}`).join(", ");
 }
 function renderCommits(run) {
     if (!run.commits.length)
