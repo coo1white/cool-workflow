@@ -273,3 +273,21 @@ export function incrementalDelegationDigest(model, agentType, sandboxProfileId, 
         endpoint,
     }));
 }
+export function agentConfigured(config) {
+    return Boolean(config.command || config.endpoint);
+}
+export function spawningAgentLine(task, dispatched) {
+    return `→ ${task.label || task.id} (${task.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`;
+}
+export function renderSubInputs(spec, parentInputs) {
+    const out = {};
+    for (const [key, template] of Object.entries(spec.inputs || {})) {
+        out[key] = String(template).replace(/\{\{(\w+)\}\}/g, (_, name) => String(parentInputs[name] ?? ""));
+    }
+    return out;
+}
+export function roundPhaseLabel(run) {
+    const phase = firstRunnablePhase(run);
+    const name = phase ? phase.name || phase.id : "";
+    return name ? name.charAt(0).toUpperCase() + name.slice(1) : "";
+}

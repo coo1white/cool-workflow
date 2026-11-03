@@ -17,6 +17,7 @@ import * as path from "node:path";
 import { assertSafeRunId, readJson, withFileLock, writeJson } from "./fs-atomic.js";
 import { assertNotHandCopiedRun, assertNotSuspectedDataLoss, loadRunStateFile, rebindRunPaths } from "./run-store.js";
 import { fingerprintStrings } from "../core/hash.js";
+import { compareBytes } from "../core/util/collate.js";
 import { LoopStage, RunLinkAnnotation, WorkflowRun } from "../core/state/types.js";
 
 // ---------------------------------------------------------------------------
@@ -307,10 +308,7 @@ export interface ReclaimedOverlayLite {
 // Pure helpers
 // ---------------------------------------------------------------------------
 
-/** Simple byte (UTF-16 code-unit) comparator. */
-export function compareBytes(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
+export { compareBytes };
 
 export function compareRecords(a: RunRecord, b: RunRecord): number {
   if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;

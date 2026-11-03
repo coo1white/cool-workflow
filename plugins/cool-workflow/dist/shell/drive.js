@@ -10,9 +10,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
-import { DEFAULT_SCHEDULING_POLICY, countCompleted, countParked, exitCodeFromEvidence, finalDriveStatus, hasTerminalCommit, hopRetryLine, makeStep, maxIterations, priorAttempts, reopenableParkedTaskIds, retryOrPark, roundWidth, selectDriveTask, terminalOrConfigStep, incrementalCacheKey, incrementalDelegationDigest, defaultCacheKey, cacheFileName, MAX_SUB_WORKFLOW_DEPTH, } from "../core/pipeline/drive-decide.js";
+import { DEFAULT_SCHEDULING_POLICY, countCompleted, countParked, exitCodeFromEvidence, finalDriveStatus, hasTerminalCommit, hopRetryLine, makeStep, maxIterations, priorAttempts, reopenableParkedTaskIds, retryOrPark, roundWidth, selectDriveTask, terminalOrConfigStep, incrementalCacheKey, incrementalDelegationDigest, defaultCacheKey, cacheFileName, MAX_SUB_WORKFLOW_DEPTH, agentConfigured, spawningAgentLine, renderSubInputs, roundPhaseLabel, } from "../core/pipeline/drive-decide.js";
 import { maxLoopExpansion, evaluateLoopStop, cloneLoopRoundTasks, loopControlNodeId, } from "../core/pipeline/loop-expansion.js";
-import { firstRunnablePhase, runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch.js";
+import { runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch.js";
 import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir, runStateIsCurrent, RunStateConflictError } from "./run-store.js";
 import { createDispatchManifest } from "./dispatch.js";
 import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope, reopenParkedWorker } from "./worker-isolation.js";
@@ -29,7 +29,7 @@ import { resolveAgentConfig } from "./agent-config.js";
 import { runBackend } from "./execution-backend/registry.js";
 import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv, prepareEndpointJob, runEndpointBatchOutcomes, driveTtyClaimPath, driveAlivePath } from "./execution-backend/agent.js";
 import { sha256, stableStringify } from "../core/hash.js";
-import { stableCompare } from "../core/util/collate.js";
+import { compareBytes, stableCompare } from "../core/util/collate.js";
 import { messageOf } from "../core/util/cli-args.js";
 import { plan } from "./pipeline.js";
 import { reporter } from "./reporter.js";
@@ -76,9 +76,6 @@ function tokenBudgetUsage(run) {
     return { spent: recordedTokenTotal(run), budget };
 }
 export { DRIVE_SCHEMA_VERSION, MAX_SUB_WORKFLOW_DEPTH } from "../core/pipeline/drive-decide.js";
-function agentConfigured(config) {
-    return Boolean(config.command || config.endpoint);
-}
 /** Progress to STDERR (stdout stays clean JSON). On by default when
  *  stderr is a TTY; silent in CI/pipes. CW_DRIVE_PROGRESS=0 forces off,
  *  =1 forces on. This is gate point #2 of the Rule of Silence's three
@@ -94,9 +91,6 @@ function emitProgress(message) {
 }
 /** The `→ <label> (<phase>) — spawning agent` line, one text for the serial
  *  path and the concurrent round (which prints it at round start). */
-function spawningAgentLine(task, dispatched) {
-    return `→ ${task.label || task.id} (${task.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`;
-}
 // A sign of life while a round waits on its agents: every agent wait is a
 // spawnSync, so this process cannot print until the round ends. A small
 // separate process (scripts/children/drive-ticker.mjs) prints
@@ -320,13 +314,6 @@ function handleHop(ctx, task, workerId, reason, deferPersist = false, sharedRun,
     // 0.3.3: say why, and which try comes next (progress lines only).
     emitProgress(hopRetryLine(String(task.label || task.id), task.phase, reason, decided.attempts, ctx.policy, timedOutMs));
     return makeStep("fulfill", "failed", { runId: ctx.runId, taskId: task.id, phase: task.phase, backendId: "agent", attempts: decided.attempts, reason });
-}
-function renderSubInputs(spec, parentInputs) {
-    const out = {};
-    for (const [key, template] of Object.entries(spec.inputs || {})) {
-        out[key] = String(template).replace(/\{\{(\w+)\}\}/g, (_, name) => String(parentInputs[name] ?? ""));
-    }
-    return out;
 }
 /** `deferPersist` (concurrent-round callers ONLY) skips the per-task
  *  commitState/saveCheckpoint calls — the round flushes once at the end
@@ -637,9 +624,6 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
 }
 /** Byte-stable string order for anything that flows into a recorded
  *  loop-control decision (POLA: deterministic across runs/locales). */
-function compareBytes(a, b) {
-    return a < b ? -1 : a > b ? 1 : 0;
-}
 /** Bounded dynamic loop expansion — the shell half of the loop runtime.
  *  After a worker result is recorded (mutating `run` in memory), if the
  *  just-completed phase is the LATEST round of a loop whose origin is not
@@ -1016,11 +1000,6 @@ function buildDriveContext(runId, cwd, options) {
 // Shared by drive() and driveAsync() so the two never drift apart.
 /** The name the ticker line gives the round: the first runnable phase,
  *  written the way the phase progress lines write it. */
-function roundPhaseLabel(run) {
-    const phase = firstRunnablePhase(run);
-    const name = phase ? phase.name || phase.id : "";
-    return name ? name.charAt(0).toUpperCase() + name.slice(1) : "";
-}
 /** `again` (new in 0.3.3): print the active phase's line even when that
  *  phase was already announced — driveOneRound passes it after every
  *  concurrent round, so each round ends with its own `==> <Phase> (k/n)`
