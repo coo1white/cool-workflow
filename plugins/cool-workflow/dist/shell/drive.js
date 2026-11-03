@@ -30,6 +30,7 @@ import { runBackend } from "./execution-backend/registry.js";
 import { stripSecretArgs, prepareAgentSpawn, runAgentBatchOutcomes, buildAgentChildEnv, prepareEndpointJob, runEndpointBatchOutcomes, driveTtyClaimPath, driveAlivePath } from "./execution-backend/agent.js";
 import { sha256, stableStringify } from "../core/hash.js";
 import { stableCompare } from "../core/util/collate.js";
+import { messageOf } from "../core/util/cli-args.js";
 import { plan } from "./pipeline.js";
 import { reporter } from "./reporter.js";
 import { safeFileName } from "./fs-atomic.js";
@@ -327,9 +328,6 @@ function renderSubInputs(spec, parentInputs) {
     }
     return out;
 }
-function errMessage(error) {
-    return error instanceof Error ? error.message : String(error);
-}
 /** `deferPersist` (concurrent-round callers ONLY) skips the per-task
  *  commitState/saveCheckpoint calls — the round flushes once at the end
  *  instead. `preparedOutcome`, when given (concurrent round only), is
@@ -421,7 +419,7 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
             }
         }
         catch (error) {
-            return handleHop(ctx, selected, workerId, `result cache rejected: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
+            return handleHop(ctx, selected, workerId, `result cache rejected: ${messageOf(error)}`, deferPersist, deferPersist ? run : undefined);
         }
         return makeStep("accept", "ok", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, handleKind: "result-cache", reason: "result cache hit" });
     }
@@ -497,7 +495,7 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
         }
     }
     catch (error) {
-        return handleHop(ctx, selected, workerId, `result.md rejected: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
+        return handleHop(ctx, selected, workerId, `result.md rejected: ${messageOf(error)}`, deferPersist, deferPersist ? run : undefined);
     }
     // Trust visibility (purely additive, no execution-behavior change): when
     // the agent backend forwarded provider-namespace env vars (CW_/ANTHROPIC_/
@@ -557,7 +555,7 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
         childRun = plan(loadWorkflowApp(spec.appId), childInputs);
     }
     catch (error) {
-        return handleHop(ctx, selected, workerId, `sub-workflow plan failed (${spec.appId}): ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
+        return handleHop(ctx, selected, workerId, `sub-workflow plan failed (${spec.appId}): ${messageOf(error)}`, deferPersist, deferPersist ? run : undefined);
     }
     const childResult = drive(childRun.id, childRun.cwd, {
         now: ctx.now,
@@ -633,7 +631,7 @@ function runSubWorkflow(ctx, run, selected, workerId, manifest, spec, deferPersi
         }
     }
     catch (error) {
-        return handleHop(ctx, selected, workerId, `sub-workflow result rejected by parent gate: ${errMessage(error)}`, deferPersist, deferPersist ? run : undefined);
+        return handleHop(ctx, selected, workerId, `sub-workflow result rejected by parent gate: ${messageOf(error)}`, deferPersist, deferPersist ? run : undefined);
     }
     return makeStep("accept", "ok", { runId: run.id, taskId: selected.id, phase: selected.phase, handleKind: "sub-workflow", reason: `sub-workflow ${spec.appId} → ${childRun.id}` });
 }

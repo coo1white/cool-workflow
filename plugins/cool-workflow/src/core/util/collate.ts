@@ -18,3 +18,10 @@
 export function stableCompare(a: string, b: string): number {
   return a.localeCompare(b, "en");
 }
+
+/** `a=1, b=2` in stableCompare order of the keys, or `none`; one home for report, operator-ux-text and worker-isolation. */
+export function formatCounts(counts: Record<string, number>): string {
+  const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
+  if (!entries.length) return "none";
+  return entries.map(([k, v]) => `${k}=${v}`).join(", ");
+}

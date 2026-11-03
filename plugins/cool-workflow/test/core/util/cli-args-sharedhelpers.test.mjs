@@ -116,6 +116,28 @@ function definedIn(name) {
 for (const name of ["requireArg", "isRecord", "messageOf", "countBy", "optionalArg"]) {
   assert.deepEqual(definedIn(name), ["core/util/cli-args.ts"], `${name} has one home`);
 }
+// Refactor phase 2 (2026-11-03): byte-identical copies of a helper that had
+// a home already. errMessage (drive.ts) is messageOf; sha256Local
+// (worker-isolation.ts) is core/hash.ts sha256; observability.ts's
+// fingerprintStrings is core/hash.ts's; formatCounts (report.ts,
+// operator-ux-text.ts) and formatCountBucket (worker-isolation.ts) live once
+// in core/util/collate.ts, beside the stableCompare they use.
+assert.deepEqual(definedIn("errMessage"), []);
+assert.deepEqual(definedIn("sha256Local"), []);
+assert.deepEqual(definedIn("formatCountBucket"), []);
+assert.deepEqual(definedIn("fingerprintStrings"), ["core/hash.ts"]);
+assert.deepEqual(definedIn("formatCounts"), ["core/util/collate.ts"]);
+const { formatCounts } = await import("../../../dist/core/util/collate.js");
+assert.equal(formatCounts({}), "none");
+const { stableCompare } = await import("../../../dist/core/util/collate.js");
+const oldFormatCounts = (counts) => {
+  const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
+  return entries.length ? entries.map(([k, v]) => `${k}=${v}`).join(", ") : "none";
+};
+for (const counts of [{}, { b: 2, a: 1, B: 3 }, { ok: 4 }, { "z-1": 0, "z-10": 1, "z-2": 2 }]) {
+  assert.equal(formatCounts(counts), oldFormatCounts(counts), JSON.stringify(counts));
+}
+assert.equal(formatCounts({ b: 2, a: 1 }), "a=1, b=2");
 assert.deepEqual(definedIn("req"), []);
 assert.deepEqual(definedIn("optionalStringArg"), []);
 // Kept on purpose: audit-cli.ts reads an array's first string too, and

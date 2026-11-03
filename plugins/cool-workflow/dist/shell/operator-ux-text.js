@@ -9,13 +9,7 @@
 //
 // Evidence: SPEC/reporting-ux.md "Operator UX human text".
 import { dim } from "./term.js";
-import { stableCompare } from "../core/util/collate.js";
-function formatCounts(counts) {
-    const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
-    if (!entries.length)
-        return "none";
-    return entries.map(([k, v]) => `${k}=${v}`).join(", ");
-}
+import { formatCounts } from "../core/util/collate.js";
 function formatRecommendations(actions) {
     if (!actions.length)
         return ["  none"];
