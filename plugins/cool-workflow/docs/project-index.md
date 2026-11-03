@@ -5,7 +5,7 @@ Generated from the current repository code by `npm run sync:project-index`.
 ## Snapshot
 
 - Package: `cool-workflow`
-- Version: `0.3.3`
+- Version: `0.4.0`
 - Workflow apps: `7`
 - Repository: https://github.com/coo1white/cool-workflow
 
