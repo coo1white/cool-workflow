@@ -62,6 +62,29 @@ cw app list            # see everything installed
 cw doctor              # check your setup    →    cw fix   shows the fix commands
 ```
 
+## Make Your Own App
+
+```bash
+cw init my-app          # writes ./apps/my-app/app.json and ./apps/my-app/workflow.js
+cw app list             # shows my-app next to the bundled apps
+cw plan my-app --question "What should this app answer?"
+```
+
+From 0.3.3, `cw init` writes to `./apps/<app-id>` in the folder you run it
+in (or to `$CW_APPS_DIR/<app-id>`, or to `--output DIR`). Up to 0.3.2 it
+wrote into CW's own install folder, where the next upgrade wiped it. Run
+`cw app list` and `cw plan` from that same folder, and they find the new
+app. An app id that is also a bundled app's id is refused. Edit the two
+files to give the app its own phases and tasks; `cw app validate my-app`
+checks them. Full rules: `cw man init`.
+
+**Get agents working together.** There is no separate multi-agent layer
+(the blackboard, the coordinator, and topologies were taken out in 0.3.1).
+An app gives the work its shape: a `parallel()` phase sends out many
+workers at the same time, each phase reads the checked results of the phase
+before it, and `cw ledger` hands a change or a review between agents in two
+repos.
+
 **Compose flows, when you need them.** A task can run a whole child workflow
 with `subWorkflow`, or a `loop()` phase can go round until a condition or a
 token budget says stop. Re-run fast — `cw run <app>
@@ -118,8 +141,10 @@ bad sandbox references, and malformed phase or task definitions.
 `sandboxProfiles` constrains agent workers CW delegates to while driving the
 app — it does not sandbox the app's own `workflow.js`. That file runs
 in-process, as ordinary Node.js code with full host privileges, the moment
-CW loads the app (list, show, validate, plan, or run) — before any sandbox
-profile applies to anything. Only load an app whose `workflow.js` you trust.
+CW loads the app (show, validate, plan, or run, and list for the bundled
+apps) — before any sandbox profile applies to anything. To list the apps in
+`./apps`, CW reads only each `app.json` and does not run its `workflow.js`
+(so their phases show as `null` in `cw app list --json`). Only load an app whose `workflow.js` you trust.
 `cw app validate <path>` on a path outside CW's known app roots (bundled
 apps, an installed package, `CW_APPS_DIR`, or the current directory's own
 `apps/`) refuses to load it unless `CW_ALLOW_EXTERNAL_APP_CODE=1` is set.

@@ -3,8 +3,8 @@
   "trackedMarkdownFiles": {
     "description": "Ceiling on git-tracked *.md files, repo-wide.",
     "measuredAt": "2026-11-03",
-    "measured": 124,
-    "maxCount": 124
+    "measured": 129,
+    "maxCount": 129
   },
   "srcCommentLines": {
     "description": "Ceiling on comment lines under plugins/cool-workflow/src (git-tracked files; a line counts if its first non-space chars are // or *).",

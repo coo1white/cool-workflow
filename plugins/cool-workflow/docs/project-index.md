@@ -521,6 +521,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [verify-audit-cites-smoke.mjs](../test/verify-audit-cites-smoke.mjs)
 - [verify-bump-reproduction-smoke.mjs](../test/verify-bump-reproduction-smoke.mjs)
 - [verify-import-audit-chain-smoke.mjs](../test/verify-import-audit-chain-smoke.mjs)
+- [wiki-sync-smoke.mjs](../test/wiki-sync-smoke.mjs)
 - [wiring-lazy-shell-imports-smoke.mjs](../test/wiring-lazy-shell-imports-smoke.mjs)
 - [worker-accept-path-architecture-smoke.mjs](../test/worker-accept-path-architecture-smoke.mjs)
 - [worker-isolation-smoke.mjs](../test/worker-isolation-smoke.mjs)

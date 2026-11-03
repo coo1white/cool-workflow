@@ -37,14 +37,16 @@ evidence trail — a structured thing CW can check, not just free text.
 
 ## Evidence & trust
 
-**Evidence Adoption reasoning chain** — The record of *why* a result was
-taken or rejected. It keeps four things: the **basis** (the sources), the
-**authority** (who decided), the **rationale** (the stated reason), and the
-**counterfactual** (which other option lost, and why).
-
-**`unexplained`** — The clear, fail-closed state a result lands in when its
-evidence or reason is missing. CW never makes up a reason or lets a result
+**Evidence** — The places in the sources (such as `file.ts:42`) that hold up
+a result. A result with no evidence, or with evidence that names a file that
+is not there, is turned down. CW never makes up a reason or lets a result
 quietly pass.
+
+**`blocked` / `parked`** — The clear, fail-closed states a run stops in.
+`blocked`: the work cannot go on (for example, no agent is configured).
+`parked`: a worker failed again and again (or went past its time limit) and
+was stopped in place of being made to look done. Fix the cause, then
+`cw --resume --run <run-id>`.
 
 **Verifier gate / verifier-gated commit** — The rule that **only checked
 state becomes committed state.** Unchecked work cannot move forward.
@@ -81,7 +83,7 @@ adapter (Claude, Codex, …). A fail-closed **drift check** in CI stops the
 adapters from forking the logic.
 
 **Execution backend** — The swappable driver that actually runs a worker
-(node, shell, container, remote). The core never learns which one ran a
+(agent, node, bun, shell, container, remote, ci). The core never learns which one ran a
 task — that is what keeps CW free of vendor lock-in.
 
 **Sandbox profile** — A named policy contract for what a worker may read,
@@ -89,9 +91,10 @@ write, run, and reach on the network (e.g. `--sandbox readonly`).
 
 ## Operations
 
-**Replay / eval harness** — Deterministic snapshot → replay → compare →
-score → gate, run **with no live agents**. Used to gate releases on evidence
-that nothing got worse.
+**Snapshot / replay** — `cw node snapshot`, `cw node diff`, and `cw node
+replay` take one step of a run, compare it, and replay it **with no live
+agents**; a replay gives the same bytes every time, and a snapshot whose
+source has changed is refused as `stale`.
 
 **`--drive` / `--incremental`** — The high-level host loop. `--incremental`
 reuses every step whose inputs did not change, so a re-run is fast.

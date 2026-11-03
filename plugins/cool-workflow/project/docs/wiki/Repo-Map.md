@@ -4,6 +4,11 @@ What every top-level folder and file is for, one line each — most are fixed
 by a tool, a test, or the release chain. `test/root-layout-smoke.mjs` holds
 this list: a new root entry is named there with its reason in the same diff.
 
+For the files inside the product — every source module, workflow app, man
+page, and test — see the
+[project index](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/project-index.md),
+which `npm run sync:project-index` makes from the code.
+
 | Place | What it is |
 |---|---|
 | [`plugins/cool-workflow/`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/) | The product itself: TypeScript source (`src/`), committed build (`dist/`), tests, scripts, man-page docs, manifests |

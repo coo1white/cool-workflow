@@ -54,6 +54,45 @@ That boundary is why model keys stay with the agent. It is also why telemetry
 verification proves *who reported the usage* and *that the record was not
 changed later* — it is not a direct measurement of model usage.
 
+## Execution Backends
+
+Who runs a task is a driver you can change, behind one small contract. The
+kernel never learns which driver ran a task, and every driver gives back the
+same result and evidence shape:
+
+| Backend | Runs the task |
+| --- | --- |
+| `agent` | Your agent: a command (`CW_AGENT_COMMAND`, `builtin:claude`, ...) or an HTTP endpoint (`CW_AGENT_ENDPOINT`). This is what `cw -q` and `--drive` use. |
+| `node`, `bun`, `shell` | A local process (the default for plain tasks is `node`). |
+| `container` | `docker run` or `podman run` (image from `--image` or `CW_CONTAINER_IMAGE`). |
+| `remote`, `ci` | A remote runner or a CI job, sent by HTTP and checked until it ends (`CW_REMOTE_ENDPOINT`, `CW_CI_ENDPOINT`). |
+
+```bash
+cw backend list
+cw backend probe agent --json
+```
+
+Each backend says, for each part of the sandbox profile (reads, writes,
+commands, network, env), whether it puts it into force, only records it,
+or cannot do it — and a backend that cannot keep a needed part **fails
+closed** in place of running without it. A backend that is not configured
+is refused, never made to look done. Full rules: `cw man execution-backends`
+and `cw man real-execution-backends`.
+
+## How A Run Goes
+
+```text
+workflow app -> input check -> tasks -> dispatch manifests
+  -> worker (your agent) writes result.md -> result check
+  -> verifier gate -> verifier-gated commit or checkpoint -> report.md
+```
+
+The drive loop (`cw -q`, `cw run <app> --drive`, `cw run resume <id>
+--drive`) goes round this line for you: plan, send out, take in, check,
+commit. When a step fails, it tries again, then parks the worker and stops,
+with the state saved, so `cw --resume --run <run-id>` can go on from there.
+See `cw man agent-delegation-drive`.
+
 ## State Layout
 
 A run is stored as plain files:
@@ -108,6 +147,7 @@ stderr, and only when turned on.
 
 ## Related Pages
 
+- [Architecture Principles](Architecture-Principles.md)
 - [Workflow Apps](Workflow-Apps.md)
 - [Trust And Audit](Trust-And-Audit.md)
 - [Recovery And Restore](Recovery-And-Restore.md)
