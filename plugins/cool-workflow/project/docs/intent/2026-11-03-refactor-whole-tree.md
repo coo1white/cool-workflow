@@ -34,6 +34,13 @@ The operator's answer, word for word (2026-11-03): "都按 Fable 建议"
 - Q7: phases in order 0, 1, 2, 3, 4, 5, 7; phase 3 may run beside 1 and 2,
   not beside 4 and 5.
 
+Release name. The operator, word for word (2026-11-03): "然后重构的第一个版本就叫v0.4.0"
+("Then the first release of the refactor is called v0.4.0"). So the
+first release cut after this program's PRs land is 0.4.0, not a patch
+step, by the operator's choice (the 0.x patch-step rule of 2026-10-17 is
+the default; this names the exception). The program changes no output,
+so 0.4.0 needs no POLA exception of its own.
+
 ## Measured facts (2026-11-03, `main` at `75d11c5b`)
 
 Run in `plugins/cool-workflow/`.
