@@ -50,6 +50,7 @@
     "dist:check": "node scripts/dist-drift-check.mjs",
     "purity:check": "node scripts/purity-gate.mjs",
     "lang:check": "node scripts/lang-policy-check.mjs",
+    "pola:check": "node scripts/pola-check.mjs",
     "golden-path": "node scripts/golden-path.mjs",
     "dogfood:release": "node scripts/dogfood-release.mjs",
     "canonical-apps": "node scripts/canonical-apps.mjs",

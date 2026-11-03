@@ -678,6 +678,18 @@ Each is said in its man page: 1 in `doctor.7.md` and
 (DONE RECEIPTS, "Where a new user finds it"), 5 also in `doctor.7.md`.
 The version raise is 0.3.3 -> 0.4.0.
 
+The pins these answers cover, for `npm run pola:check` (added after the
+answer; it names files, not new consent):
+
+- 1 (the no-agent fix line, which `cw fix` gives back as the same
+  doctor fix text): `v2/conformance/cases/report-doctor.case.mjs`,
+  `v2/conformance/cases/report-fix.case.mjs`,
+  `v2/conformance/cases/exec-doctor-agent-config.case.mjs`,
+  `v2/conformance/cases/cli-doctor-fix-app-validate.case.mjs`.
+- 4 (the `check` row in `cw help`, and `check` as a known command word):
+  `v2/conformance/cases/fixtures/cli-help/_root.txt`,
+  `v2/conformance/cases/cli-help-topics.case.mjs`.
+
 The same review found two faults in `cw check` (new in 0.4.0, so no
 default changes): a piped run echoed the command's output on stderr
 (now only on a terminal, Rule of Silence), and changes that could not be

@@ -51,6 +51,11 @@ const checks = [
   { name: "dist freshness", command: ["npm", "run", "dist:check"] },
   { name: "core/shell purity", command: ["npm", "run", "purity:check"] },
   { name: "language policy (JS/TS only)", command: ["npm", "run", "lang:check"] },
+  // POLA item 1 in PR CI: a changed v2/conformance or run-fixture pin since
+  // the last release tag needs a version raise and an "Operator decisions
+  // for <version>" intent section naming the pin and its man page. Needs
+  // full history and tags (ci.yml checks out with fetch-depth: 0).
+  { name: "POLA pins (version raise + operator record)", command: ["npm", "run", "pola:check"] },
   { name: "type check", command: ["npm", "run", "check"] },
   { name: "onramp contract", command: ["npm", "run", "onramp:check"] },
   { name: "run-state schema consistency", command: ["node", "scripts/validate-run-state-schema.mjs"] },

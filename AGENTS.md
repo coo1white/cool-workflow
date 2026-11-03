@@ -662,7 +662,11 @@ regardless of the capability it ships. The long form lives in
    the same range, and the release raises the version (on 0.x a patch
    raise is enough, 0.3.0 -> 0.3.1, the operator's choice of 2026-10-17;
    from 1.0, the major version). Missing any one, it is a POLA break. The release
-   reviewer (`agents/release-reviewer.md`) checks all three.
+   reviewer (`agents/release-reviewer.md`) checks all three. The question
+   put to the operator quotes each changed string, before and after, and
+   `npm run pola:check` (in CI) holds the record to the pins: each changed
+   `v2/conformance/` or run-fixture file is named, with its man page, under
+   "Operator decisions for <version>".
 2. Mechanism, not policy. The kernel (plugins/cool-workflow/src/) provides
    mechanisms; policy lives in userland — apps, configs, wrappers, env.
    Vendor-specific logic (claude/codex/gemini rendering, prompt formats)

@@ -413,6 +413,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [pii-redaction-smoke.mjs](../test/pii-redaction-smoke.mjs)
 - [pipeline-auto-advance-smoke.mjs](../test/pipeline-auto-advance-smoke.mjs)
 - [pipeline-runner-smoke.mjs](../test/pipeline-runner-smoke.mjs)
+- [pola-check-smoke.mjs](../test/pola-check-smoke.mjs)
 - [project-index-sync-smoke.mjs](../test/project-index-sync-smoke.mjs)
 - [purity-gate-dynamic-import-smoke.mjs](../test/purity-gate-dynamic-import-smoke.mjs)
 - [quickstart-bundle-smoke.mjs](../test/quickstart-bundle-smoke.mjs)
