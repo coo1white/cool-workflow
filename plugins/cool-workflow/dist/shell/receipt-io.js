@@ -24,9 +24,12 @@ function git(repo, args) {
         return undefined;
     }
 }
+const REAL_IO = { git, fileDigest: untrackedBytesDigest };
 /** HEAD plus a digest of every uncommitted change under the repo folder
- *  (tracked diff + untracked, not ignored, files), leaving out .cw/. */
-export function readCodeState(repo) {
+ *  (tracked diff + untracked, not ignored, files), leaving out .cw/.
+ *  A read that fails gives treeDigest null (unknown), never a made-up digest. */
+export function readCodeState(repo, io = REAL_IO) {
+    const git = io.git;
     const head = git(repo, ["rev-parse", "--verify", "-q", "HEAD"])?.trim();
     if (!head)
         return { gitHead: null, treeDigest: null, dirty: false };
@@ -49,7 +52,7 @@ export function readCodeState(repo) {
                 continue;
             const rel = entry.slice(3);
             const file = path.join(repo, path.relative(prefix, rel));
-            const digest = untrackedBytesDigest(file);
+            const digest = io.fileDigest(file);
             if (digest === undefined)
                 return { gitHead: head, treeDigest: null, dirty: true };
             hash.update(`\0${rel}\0${digest}`);
