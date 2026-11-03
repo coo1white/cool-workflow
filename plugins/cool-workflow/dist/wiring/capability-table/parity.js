@@ -244,7 +244,7 @@ export function payloadProbeTargets() {
         ...SCENARIO_PAYLOAD_PROBE_CAPABILITIES.map((capability) => ({ capability, kind: "scenario" })),
     ];
 }
-export function deferredPayloadProbeCapabilities() {
+function deferredPayloadProbeCapabilities() {
     return PAYLOAD_PROBE_DEFERRED_GROUPS.flatMap((group) => group.capabilities.map((capability) => ({ capability, reason: group.reason })));
 }
 export function buildPayloadProbePlan(targets, deferred) {

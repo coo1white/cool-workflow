@@ -71,7 +71,7 @@ export function indent(text, spaces = 2) {
         .join("\n");
 }
 /** A `==> Title` section header (brew-style). */
-export function sectionHeader(title, stream) {
+function sectionHeader(title, stream) {
     return `${bold("==>", stream)} ${title}`;
 }
 /** A phase-progress line: `==> Map ✓ (6/6)` / `==> Assess … (3/6)`. Parallel

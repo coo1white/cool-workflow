@@ -10,7 +10,7 @@ function formatInputList(value) {
         return value.join("; ");
     return value ? String(value) : "";
 }
-export function renderTask(run, task) {
+function renderTask(run, task) {
     return [
         `# ${task.id}`,
         "",

@@ -61,7 +61,7 @@ const HELPER_LIKE = /^[a-z][a-z0-9+.-]*::/i; // ext::, fd::, transport::address
 
 /** Classify a flag value as a git URL, an archive URL, or a local path. Conservative:
  *  a value with NO remote marker is "local", so a real directory is never mis-fetched. */
-export function classifyRemote(value: string): RemoteKind {
+function classifyRemote(value: string): RemoteKind {
   if (!value) return "local";
   const v = value.trim();
   const hasScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(v);
@@ -81,7 +81,7 @@ export function isRemoteUrl(value: string): boolean {
 
 /** Strip credentials (userinfo) from a URL so it is safe to print/persist/record. scp-style
  *  (`git@host:…`) and local paths pass through unchanged (the `git@` user is not a secret). */
-export function sanitizeUrl(value: string): string {
+function sanitizeUrl(value: string): string {
   const v = value.trim();
   if (SCP_LIKE.test(v) && !v.includes("://")) return v;
   try {

@@ -36,7 +36,7 @@ import { compareBytes, DEFAULT_RUN_REGISTRY_POLICY, } from "./run-registry-io.js
 // Content addressing + byte measurement (in-process, no `du`) — carried
 // forward from reclamation hash module.
 // ---------------------------------------------------------------------------
-export function sha256OfString(value) {
+function sha256OfString(value) {
     return sha256(value);
 }
 function sha256OfFile(file) {
@@ -1069,7 +1069,7 @@ export function formatGcVerify(result) {
         lines.push(`  ${check.pass ? "PASS" : "FAIL"} ${check.name}${check.code ? ` [${check.code}]` : ""}${check.detail ? ` (${check.detail})` : ""}`);
     return lines.join("\n");
 }
-export const DEFAULT_ORPHAN_MIN_AGE_MINUTES = 60;
+const DEFAULT_ORPHAN_MIN_AGE_MINUTES = 60;
 function resolveNowMs(now) {
     if (now === undefined)
         return Date.now();

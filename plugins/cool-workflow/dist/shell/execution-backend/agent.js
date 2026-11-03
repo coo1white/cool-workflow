@@ -238,7 +238,7 @@ export function parseAgentReport(stdout) {
             : undefined;
     return { model, usage, usageSignature };
 }
-export function agentSubstitutions(request, model) {
+function agentSubstitutions(request, model) {
     const manifest = request.manifest;
     const workerDir = manifest?.workerDir || request.cwd || "";
     return {
@@ -273,7 +273,7 @@ export function recordedAgentHandle(binary, endpoint, recordedArgs, model, repor
         },
     };
 }
-export function extractEndpointResult(stdout) {
+function extractEndpointResult(stdout) {
     const text = String(stdout || "").trim();
     if (!text)
         return undefined;

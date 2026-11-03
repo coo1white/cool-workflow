@@ -30,7 +30,7 @@ export function resolveCwHome(env: NodeJS.ProcessEnv = process.env): string {
   return path.join(os.homedir(), ".local", "state", "cool-workflow");
 }
 
-export function agentConfigPath(env: NodeJS.ProcessEnv = process.env): string {
+function agentConfigPath(env: NodeJS.ProcessEnv = process.env): string {
   return path.join(resolveCwHome(env), "agent-config.json");
 }
 

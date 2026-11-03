@@ -49,7 +49,7 @@ import {
 // forward from reclamation hash module.
 // ---------------------------------------------------------------------------
 
-export function sha256OfString(value: string): string {
+function sha256OfString(value: string): string {
   return sha256(value);
 }
 
@@ -1368,7 +1368,7 @@ export interface OrphanRunsGcResult {
   all: boolean;
 }
 
-export const DEFAULT_ORPHAN_MIN_AGE_MINUTES = 60;
+const DEFAULT_ORPHAN_MIN_AGE_MINUTES = 60;
 
 function resolveNowMs(now?: string): number {
   if (now === undefined) return Date.now();

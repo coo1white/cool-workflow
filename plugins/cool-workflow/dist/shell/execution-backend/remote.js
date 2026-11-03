@@ -13,7 +13,7 @@ import { buildChildEnv } from "./local.js";
 import { messageOf, fetchChildEnv, FETCH_CHILD_NODE_ARGS } from "../../core/util/cli-args.js";
 /** Resolves scripts/children/http-delegate-child.js next to the compiled
  *  module. Throws the exact broken-installation message when missing. */
-export function delegateChildScript() {
+function delegateChildScript() {
     // import.meta.dirname is dist/shell/execution-backend — three levels up reaches
     // the package root (scripts/ is a sibling of dist/, not two levels up).
     const resolved = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");

@@ -241,7 +241,7 @@ export function validateSandboxProfileFile(
   return { valid: true, profileFile: absolutePath, issues: [], profile: resolveSandboxProfile(profile, context) };
 }
 
-export function validateSandboxProfileDefinition(
+function validateSandboxProfileDefinition(
   profile: SandboxProfileDefinition,
   context: SandboxResolutionContext = defaultSandboxContext()
 ): SandboxProfileValidationIssue[] {

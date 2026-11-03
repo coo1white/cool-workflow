@@ -201,7 +201,7 @@ export function validateSandboxProfileFile(profileFile, context = defaultSandbox
         return { valid: false, profileFile: absolutePath, issues };
     return { valid: true, profileFile: absolutePath, issues: [], profile: resolveSandboxProfile(profile, context) };
 }
-export function validateSandboxProfileDefinition(profile, context = defaultSandboxContext()) {
+function validateSandboxProfileDefinition(profile, context = defaultSandboxContext()) {
     const issues = [];
     if (!profile || typeof profile !== "object") {
         return [issue("sandbox-profile-invalid", "Sandbox profile must be a JSON object")];

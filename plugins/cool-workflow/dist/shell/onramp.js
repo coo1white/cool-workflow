@@ -64,17 +64,17 @@ export function optionEnabled(value) {
         return false;
     return true;
 }
-export function npmCommand(cwd, script) {
+function npmCommand(cwd, script) {
     const source = detectSourceCheckout(cwd);
     const base = `npm run ${script}`;
     return source ? `${source.chdir}${base}` : base;
 }
-export function nodeSmokeCommand(cwd, smoke) {
+function nodeSmokeCommand(cwd, smoke) {
     const source = detectSourceCheckout(cwd);
     const base = `node test/${smoke}`;
     return source ? `${source.chdir}${base}` : base;
 }
-export function detectSourceCheckout(cwd) {
+function detectSourceCheckout(cwd) {
     const resolved = path.resolve(cwd);
     const candidates = [resolved, path.join(resolved, "plugins", "cool-workflow")];
     for (const candidate of candidates) {
@@ -93,7 +93,7 @@ export function detectSourceCheckout(cwd) {
     }
     return undefined;
 }
-export function shellQuote(value) {
+function shellQuote(value) {
     if (/^[A-Za-z0-9_./:-]+$/.test(value))
         return value;
     return `'${value.replace(/'/g, "'\\''")}'`;

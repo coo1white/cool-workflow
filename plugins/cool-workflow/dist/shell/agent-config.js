@@ -26,7 +26,7 @@ export function resolveCwHome(env = process.env) {
     }
     return path.join(os.homedir(), ".local", "state", "cool-workflow");
 }
-export function agentConfigPath(env = process.env) {
+function agentConfigPath(env = process.env) {
     return path.join(resolveCwHome(env), "agent-config.json");
 }
 function trimmed(value) {

@@ -13,7 +13,7 @@ function formatInputList(value: unknown): string {
   return value ? String(value) : "";
 }
 
-export function renderTask(run: WorkflowRun, task: RunTask): string {
+function renderTask(run: WorkflowRun, task: RunTask): string {
   return [
     `# ${task.id}`,
     "",

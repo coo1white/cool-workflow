@@ -8,9 +8,9 @@ import { resolveAgentConfig } from "./agent-config.js";
 import { runBackend } from "./execution-backend/registry.js";
 import { resolveSandboxProfileById, sandboxContextForValidation } from "./sandbox-profile.js";
 import { normalizeResultEnvelope } from "../core/pipeline/result-normalize.js";
-export const AGENT_PROTOCOL = "cw-agent/1";
-export const CONFORMANCE_MARKER = "cw-conformance-ok";
-export const CONFORMANCE_PROMPT = [
+const AGENT_PROTOCOL = "cw-agent/1";
+const CONFORMANCE_MARKER = "cw-conformance-ok";
+const CONFORMANCE_PROMPT = [
     "This is a `cw doctor --conformance` check, not real work.",
     "Do not read, change or run anything. Answer with exactly this block and nothing else:",
     "",

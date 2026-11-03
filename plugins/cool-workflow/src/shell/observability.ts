@@ -328,7 +328,7 @@ function priceUsage(usage: UsageRecord, price: { inputPerMillion: number; output
   return input + output + cacheRead + cacheWrite;
 }
 
-export function deriveCost(rows: MetricsUsageRow[], policy?: CostPolicy): CostMetric {
+function deriveCost(rows: MetricsUsageRow[], policy?: CostPolicy): CostMetric {
   const currency = policy?.currency || "USD";
   if (rows.length === 0) {
     return { state: "unreported", currency, attestedUsd: null, estimatedUsd: null, policyId: policy?.id, unpricedModels: [], pricedCoverage: null, notes: ["No attested usage on this run; cost is unreported, not zero."] };
@@ -391,7 +391,7 @@ export function deriveCost(rows: MetricsUsageRow[], policy?: CostPolicy): CostMe
   };
 }
 
-export function deriveFailureRate(run: WorkflowRun): RateMetric {
+function deriveFailureRate(run: WorkflowRun): RateMetric {
   const workers = (run.workers as unknown as WorkerScope[]) || [];
   const memberships = (run.multiAgent?.memberships as Array<{ status: string }>) || [];
   const feedback = (run.feedback as Array<{ status: string }>) || [];
@@ -416,7 +416,7 @@ export function deriveFailureRate(run: WorkflowRun): RateMetric {
   });
 }
 
-export function deriveVerifierPassRate(run: WorkflowRun): RateMetric {
+function deriveVerifierPassRate(run: WorkflowRun): RateMetric {
   const gates = (run.nodes || []).filter((n) => n.kind === "verifier");
   const buckets: Record<string, number> = {};
   let passed = 0;
@@ -433,7 +433,7 @@ export function deriveVerifierPassRate(run: WorkflowRun): RateMetric {
   return rate("verifier-pass", passed, decided, buckets);
 }
 
-export function deriveCandidateAcceptanceRate(run: WorkflowRun): RateMetric {
+function deriveCandidateAcceptanceRate(run: WorkflowRun): RateMetric {
   const candidates = (run.candidates as Array<{ status: string }>) || [];
   const buckets: Record<string, number> = {};
   let accepted = 0;
@@ -469,7 +469,7 @@ function targetCreatedAt(run: WorkflowRun, target: { kind: string; id: string })
   return undefined;
 }
 
-export function deriveCollaborationMetrics(run: WorkflowRun): MetricsCollaboration {
+function deriveCollaborationMetrics(run: WorkflowRun): MetricsCollaboration {
   const collab = run.collaboration;
   const approvalRecords = ((collab?.approvals as Array<{ decision: string; actor?: { id?: string }; target: { kind: string; id: string }; createdAt: string }>) || []).filter((r) => r.decision === "approve");
   const rejectionRecords = ((collab?.approvals as Array<{ decision: string }>) || []).filter((r) => r.decision === "reject");
@@ -538,7 +538,7 @@ export function deriveMetricsReport(run: WorkflowRun, options: DeriveMetricsOpti
   };
 }
 
-export function metricsDir(run: WorkflowRun): string {
+function metricsDir(run: WorkflowRun): string {
   return path.join(run.paths.runDir, "metrics");
 }
 
