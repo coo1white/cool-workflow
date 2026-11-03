@@ -83,6 +83,14 @@ The macOS leg stays not required.)
 release tooling (and main pushes that do); see
 `plugins/cool-workflow/docs/release-tooling.7.md`.)
 
+(2026-11-03: a `cool-workflow-windows` job, NOT required, runs the build,
+`cw help`, conformance, the smoke suite and the unit tests on
+`windows-latest`, Node 22. Native Windows is not yet a supported
+platform, so the test steps may fail without failing the job; the job
+writes the pass/fail counts to its summary. The owner asked for full
+platform support like yokoten; the plan is in the refactor intent,
+`2026-11-03-refactor-whole-tree.md`.)
+
 # Iteration Loop
 Each cycle MUST follow this sequence. Do not skip steps.
 

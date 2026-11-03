@@ -114,6 +114,53 @@ use, `shell/workbench.ts` (frozen), is the one layer entry left in
 `scripts/purity-baseline.json`. Every verb loads one module fewer
 (`perf-ceilings.json` lowered, e.g. `drive.modules` 92 -> 91).
 
+### Platform scope (owner, 2026-11-03)
+
+The owner, word for word (2026-11-03): "cool-workflow要和yokoten一样做到跨平台全兼容"
+("cool-workflow must be fully cross-platform, like yokoten"). The target
+is yokoten's list: it works with Claude Code, Codex, Copilot,
+Antigravity, Muse Code, OpenCode, Grok and DeepSeek, and it runs on
+Linux, macOS, Windows (WSL) and native Windows (beta).
+
+A read-only review of this program against that target (2026-11-03)
+found the refactor neutral to it. In its favour: `src` has no
+`shell: true`, path checks use `path.sep`, and the PATH lookup knows
+PATHEXT. Against it:
+
+- there is no Windows CI;
+- the vendor wrappers start `claude`, `codex` and the rest by bare
+  name, and on native Windows that is a `.cmd` shim, which Node will not
+  start without a shell;
+- `report --open` calls `start`;
+- about 24 test files would fail on Windows.
+
+Three of the eight vendors (Copilot, Antigravity, Grok) have no preset,
+though `CW_AGENT_COMMAND` covers any of them today.
+
+So, under the standing instruction ("别问我了，都按照你的推荐迭代"),
+v0.4.0 keeps its scope and is not held for Windows. Three things land
+before the tag:
+
+- a not-required Windows CI leg that measures the gap (`ci.yml`,
+  `cool-workflow-windows`);
+- one PATH lookup in `core/util/cli-args.ts` in place of three;
+- a README that names Linux, macOS and WSL as supported and native
+  Windows as not yet tested.
+
+The remaining phases keep two rules: test helpers start children with
+`process.execPath` and join PATH with `path.delimiter`, and nothing
+moved into `core` reads `process.platform`.
+
+Full platform support is its own program after v0.4.0:
+
+1. a known-failures list that can only get shorter;
+2. test fixes;
+3. a kernel seam that starts a `.cmd` shim's JS entry with `node`, never
+   through a shell (security-sensitive, so it needs the owner's yes);
+4. the three missing vendor wrappers (the owner checks each one on a
+   real machine);
+5. a platform row in `cw doctor`.
+
 ## Acceptance
 
 Every PR: smoke, unit and v2 conformance pass counts the same before and
