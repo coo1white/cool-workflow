@@ -191,10 +191,17 @@ for 0.4.0":
 cw check -- npm test   — keep a receipt that your tests passed; a result can cite it (no agent needed)
 ```
 
-`cw help check` gives its words. `cw help` (the front page and the "More
-commands" list) and `cw completion` are not changed: their bytes are the
-same as in 0.3.3, so the front page keeps its five entries
-(unix-principles(7)).
+`cw help check` gives its words. The `cw help` front page is not
+changed: it keeps the five entries of 0.3.3 (unix-principles(7)). Two more
+outputs change, with the operator's named yes of 2026-11-03 in the same
+file, "Third review of 0.4.0":
+
+- `cw help`, the "More commands" list: its last line goes from
+  `  man|version|fix|completion` to `  man|version|fix|completion|check`
+  (every command `cw` knows is listed there; the v2 fixture
+  `cli-help/_root.txt` pins it).
+- `cw completion` (bash, zsh, fish): the list of command words has one
+  more word, `check`.
 
 ## FILES
 

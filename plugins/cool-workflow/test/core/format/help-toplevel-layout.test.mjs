@@ -12,7 +12,7 @@ import { formatHelp } from "../../../dist/core/format/help.js";
 // Exact full-text golden value, sourced from SPEC/cli-surface.md's own
 // "formatHelp() (stdout)" block (line-for-line, including the wrapped
 // "More commands" block from the SPEC's own token list), plus the rows
-// added after that capture (--json, --quiet, --resume, -opencode, -muse).
+// added after that capture (--json, --quiet, --resume, -opencode, -muse; the check token, 2026-11-03).
 {
   const expected = [
     "Cool Workflow",
@@ -44,7 +44,7 @@ import { formatHelp } from "../../../dist/core/format/help.js";
     "  app|sandbox|backend|contract|node|feedback|worker|audit|loop|schedule",
     "  routine|registry|run|queue|clones|orphans|history|quickstart|audit-run",
     "  metrics|operator|sched|gc|telemetry|migration|demo|workbench|ledger|graph",
-    "  man|version|fix|completion",
+    "  man|version|fix|completion|check",
     "",
     "    Run  cw help <command>  for one command's subcommands and descriptions.",
   ].join("\n") + "\n";
