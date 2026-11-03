@@ -663,13 +663,42 @@ this:
   ! Status: parked — 0/6 workers
   Why: agent hop failed: map:runtime-surface: failed (exit 3) (attempt 3/3)
        ENOTFOUND api.example.test
+       All of it: .cw/runs/<run-id>/workers/<worker-id>/logs/agent-stderr.log
   Try: cw report --open
   Next: cw --resume --run <run-id>
 ```
 
-`Why:` gives the stop reason, then the last line of that worker's
-`agent-stderr.log`. A piped or `--json` run keeps its payload, and the
-`hint` field is unchanged.
+`Why:` gives the stop reason, the last line of that worker's
+`agent-stderr.log`, then where the whole log is. A piped or `--json` run
+keeps its payload but for the `hint` text: on a park whose worker has an
+`agent-stderr.log`, the hint names that file:
+
+```text
+a worker failed and stopped after its retries. What the agent said is in .cw/runs/<run-id>/workers/<worker-id>/logs/agent-stderr.log — fix the cause, then run: cw --resume --run <run-id>
+```
+
+The path is relative to where `cw` ran when the log is under it, and whole
+when not. The agent's own words stay in the log only, never in the payload.
+A park with no such log keeps the old hint, `a worker parked past its retry
+budget — inspect: cw run show <run-id>; fix the cause, then: cw --resume
+--run <run-id>`.
+
+With no agent at all, `cw doctor`, `cw quickstart --check` and the `cw -q`
+hint give one fix, a form that completes a worker (a bare `claude -p` does
+not, see above):
+
+```text
+Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude (or set CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work too.
+```
+
+These texts are new in the release after 0.4.0, and they change the bytes
+of existing output. The owner's yes, 2026-11-03: "修卡点 + 收据 (推荐)"
+(to a question that named these first-run points), and "新手用户也能 流畅易用"
+(a new user must find it smooth and easy). Before, the fix was `Pass
+--agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command
+builtin:claude.`, the no-agent hint began `agent backend not configured —
+set CW_AGENT_COMMAND (e.g. "claude -p") or pass --agent-command, then
+re-run.`, and every park gave the old hint above.
 
 The prompt is the worker's input.md plus the result contract, and a later
 phase's input carries every earlier result: a Verdict prompt can pass 128 KB

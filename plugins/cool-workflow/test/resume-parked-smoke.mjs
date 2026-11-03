@@ -101,7 +101,8 @@ try {
     assert.equal(again.status, "parked", "an agent that still fails parks again");
     assert.deepEqual(again.reopenedWorkers, ["golden:path"]);
     assert.deepEqual(attempts(again), ["fulfill@1", "fulfill@2", "park@3"], "a resume gives a fresh budget of 3 tries, then stops");
-    assert.equal(again.hint, `a worker parked past its retry budget — inspect: cw run show ${runId}; fix the cause, then: cw --resume --run ${runId}`);
+    assert.match(again.hint, /^a worker failed and stopped after its retries\. What the agent said is in \.cw[\\/]runs[\\/]\S+[\\/]logs[\\/]agent-stderr\.log — fix the cause, then run: cw --resume --run (\S+)$/, "the hint names the agent's log");
+    assert.ok(again.hint.endsWith(`cw --resume --run ${runId}`));
 
     fs.writeFileSync(fixedFlag, "fixed\n");
     const done = cw(["run", "resume", runId, "--drive"], dir, "golden:path");

@@ -48,7 +48,7 @@ Any other subcommand throws `Usage: cw ledger propose|review|verify|apply|list [
 ### CLI: `cw report verify-bundle` and `cw report bundle` (src/cli/handlers/operator.ts:19-41)
 
 - `cw report verify-bundle <path> [--pubkey <pem-or-path>] [--extract-report <path>] [--strict-signatures] [--require-signatures]` — offline, self-contained verify of a `.cwrun.json` bundle. Always prints the `ReportBundleVerification` JSON. Exit 1 when `ok:false`. The path may come as the positional or `--archive`/`--path`/`--file`/`--bundle` (`src/capability-core.ts:421-433`).
-- `cw report bundle <run-id> [--with-trust-key <pem-or-path>] [--output <p>] [--extract-report <p>] [--strict-signatures] [--require-signatures]` — export sealed, then self-verify at once. Prints `ReportBundleResult` JSON. Exit 1 when `ok:false` (`src/capability-core.ts:396-415`).
+- `cw report bundle <run-id> [--with-trust-key <pem-or-path>] [--output <p>] [--extract-report <p>] [--strict-signatures] [--require-signatures]` — export sealed, then self-verify at once. Prints `ReportBundleResult` JSON (on a terminal with no `--json`: the verify-bundle text, then where the file went and the `--output` way to put it elsewhere). Exit 1 when `ok:false` (`src/capability-core.ts:396-415`).
 
 ### MCP tools (src/mcp/tool-definitions.ts, src/mcp/tool-call.ts)
 

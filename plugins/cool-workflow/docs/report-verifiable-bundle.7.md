@@ -45,6 +45,13 @@ The MECHANISM is three small additions to the existing export/verify path:
    trust key configured under `--strict-signatures`). `--extract-report` also
    writes the human-readable `report.md` next to the bundle so the shippable pair
    is produced in one command. It is pure composition; it spawns nothing.
+   With no `--output`, the bundle is `<run-id>.cwrun.json` in the folder you
+   ran `cw` in, which is often your repo (so it shows up as a new file there).
+   Pass `--output <file>` to put it somewhere else. Piped or with `--json`, it
+   prints the `ReportBundleResult` JSON. On a terminal it prints the
+   verify-bundle check, then where the file went (`Bundle saved to: <path>`),
+   the `--output` way to put it elsewhere, and one next step (new 2026-11-03,
+   the owner's yes "修卡点 + 收据 (推荐)"; before, a terminal got the JSON too).
 
 `cw quickstart <app> --bundle [--with-trust-key K]` folds step 3 into the
 one-command entry: after the drive reaches `status: complete`, it seals the run
@@ -135,7 +142,7 @@ npx cool-workflow demo bundle
 
 # Run the review AND get a shippable, client-verifiable bundle from ONE command:
 cw quickstart architecture-review --repo . --question "How does auth work end-to-end here?" \
-  --agent-command "claude -p" --bundle --with-trust-key ./trust-pub.pem
+  -claude --bundle --with-trust-key ./trust-pub.pem
 #   -> after the drive COMPLETES, the run is sealed into a self-verified bundle and
 #      the verdict is folded into the quickstart JSON (result.bundle). Exits non-zero
 #      if that bundle would not verify. A run that did not complete is never sealed.

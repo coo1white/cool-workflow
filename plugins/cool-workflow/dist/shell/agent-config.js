@@ -172,6 +172,7 @@ function expandBuiltinAgentCommand(command) {
     }
     return template;
 }
+export const AGENT_FIX = 'Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude (or set CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work too.';
 /** Resolve the EFFECTIVE agent config: flags > env > file > auto-detect >
  *  none. The returned `source` names the layer the command/endpoint came
  *  from. */

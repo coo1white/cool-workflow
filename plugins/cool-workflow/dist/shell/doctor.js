@@ -18,7 +18,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
-import { agentProbeTarget, resolveAgentConfig } from "./agent-config.js";
+import { AGENT_FIX, agentProbeTarget, resolveAgentConfig } from "./agent-config.js";
 import { buildAgentChildEnv } from "./execution-backend/agent.js";
 import { findProgram, splitAgentCommandLine } from "../core/util/cli-args.js";
 import { buildDoctorOnramp, optionEnabled } from "./onramp.js";
@@ -135,7 +135,7 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
             name: "agent",
             status: "warn",
             detail: "No agent backend configured — `demo` and `--preview` work, but a real run reports status: blocked.",
-            fix: 'Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.',
+            fix: AGENT_FIX,
         });
     }
     else {

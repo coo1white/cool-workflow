@@ -48,6 +48,10 @@ said `(>= 18)` and `v18` (changed in 0.3.2 with the operator's dated yes:
 : The AI agent backend. CW can auto-detect agents (Claude, Codex, Gemini,
 OpenCode) or take one from `CW_AGENT_COMMAND` / `--agent-command`. Without one,
 real runs report `status: blocked`, but `demo` and `--preview` still work.
+The fix then says to install an agent CLI and add `-claude` (or set
+`CW_AGENT_COMMAND=builtin:claude`); `-codex`, `-gemini` and `-opencode` work
+too. (Up to 0.4.0 it named a bare `--agent-command "claude -p"`, which does
+not complete a worker; changed 2026-11-03, see agent-delegation-drive(7).)
 
 **agent-binary**
 : When the agent is set by a command name (not auto or HTTP), this check sees if

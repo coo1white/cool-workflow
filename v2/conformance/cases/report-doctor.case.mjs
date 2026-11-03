@@ -33,7 +33,7 @@ caseMain(() => {
   );
   assert.match(
     human.stdout,
-    /      fix: Pass --agent-command "claude -p", set \$CW_AGENT_COMMAND, or use --agent-command builtin:claude\.\n/
+    /      fix: Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude \(or set CW_AGENT_COMMAND=builtin:claude\)\. -codex, -gemini and -opencode work too\.\n/
   );
   assert.match(human.stdout, /  ! git: git is not available/);
   assert.match(human.stdout, /  ✓ home-registry: Home registry location is writable \(.*\)\.\n/);

@@ -132,7 +132,7 @@ Human text (src/doctor.ts:167-209):
 cw doctor
   ✓ node: Node v20.11.0 (>= 18).
   ! agent: No agent backend configured — `demo` and `--preview` work, but a real run reports status: blocked.
-      fix: Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.
+      fix: Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude (or set CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work too.
   ✓ git: git version 2.44.0.
   ✓ home-registry: Home registry location is writable (<home>).
   ✓ repo-state: Run state location is writable (<cwd>/.cw).

@@ -146,11 +146,11 @@ It is cut into two halves, just like the release dogfood above:
   >= 1`. This is checked under `npm test` (`test/dogfood-release-smoke.mjs`).
 
 - **Live full-drive (MAINTAINER-RUN, OUT OF CI).** With a REAL set-up agent
-  (`CW_AGENT_COMMAND`, e.g. `claude -p {{input}}` / `codex exec`, or
+  (`CW_AGENT_COMMAND`, e.g. `builtin:claude` / `builtin:codex`, or
   `--agent-command`) against ONE real outside repository:
 
   ```bash
-  CW_AGENT_COMMAND="claude -p {{input}}" \
+  CW_AGENT_COMMAND=builtin:claude \
     node scripts/dogfood-architecture-review.mjs --repo /path/to/real/repo \
     --question "Audit this repo's architecture and rank the real risks."
   ```

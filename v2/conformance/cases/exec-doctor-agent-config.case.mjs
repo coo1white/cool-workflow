@@ -28,13 +28,13 @@ caseMain(() => {
   );
   assert.equal(
     agentCheck.fix,
-    'Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.'
+    'Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude (or set CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work too.'
   );
   assert.equal(report.summary, "ready, with 1 warning");
 
   const fix = run(["fix"], { env: { CW_NO_AUTO_AGENT: "1" } });
   assert.equal(fix.status, 0);
-  assert.match(fix.stdout, /^Fix Commands\n {2}1\. Pass --agent-command "claude -p", set \$CW_AGENT_COMMAND, or use --agent-command builtin:claude\.\n/);
+  assert.match(fix.stdout, /^Fix Commands\n {2}1\. Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude \(or set CW_AGENT_COMMAND=builtin:claude\)\. -codex, -gemini and -opencode work too\.\n/);
 
   // 2) An unknown builtin:<name> fails closed with the exact refusal —
   // doctor never silently falls back to "unconfigured".

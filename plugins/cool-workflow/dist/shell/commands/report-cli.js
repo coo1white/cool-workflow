@@ -82,12 +82,8 @@ export function formatReportVerifyBundle(r) {
         lines.push("");
         lines.push("  Failed checks");
         for (const c of r.failedChecks) {
-            // Most check sites in run-export.ts's verifyReportBundle set `code`
-            // to a short slug (e.g. "digest-mismatch"); the top-level restore
-            // catch-all sets it to the caught error's full message instead
-            // (run-export.ts's "restore" failedChecks.push) — too long/sentence-
-            // shaped to cram into "name [code]" without reading as a run-on.
-            // Give it its own indented line instead.
+            // A short slug code goes in "[code]"; a whole error message (the
+            // restore catch-all) gets its own indented line.
             const isSlug = c.code !== undefined && c.code.length <= 40 && !c.code.includes(" ");
             lines.push(`    - ${c.name}${isSlug ? ` [${c.code}]` : ""}`);
             if (c.code !== undefined && !isSlug)
@@ -97,4 +93,18 @@ export function formatReportVerifyBundle(r) {
     lines.push("");
     lines.push(`${doctorGlyph(r.ok ? "ok" : "fail")} ${r.ok ? "bundle verifies" : "bundle verification FAILED"}`);
     return lines.join("\n");
+}
+/** `cw report bundle` on a TTY: the check, then where the file went and how
+ *  to put it elsewhere. A pipe keeps the JSON (cli/dispatch.ts). */
+export function formatReportBundle(json) {
+    const r = json;
+    const rel = path.relative(process.cwd(), r.archivePath);
+    const shown = rel && !rel.startsWith("..") && !path.isAbsolute(rel) ? rel : r.archivePath;
+    return [
+        formatReportVerifyBundle(r.verification),
+        "",
+        `Bundle saved to: ${shown}`,
+        `  To save it somewhere else: cw report bundle ${r.runId} --output <file>`,
+        r.ok ? `  Next: send the file; anyone can check it with: cw report verify-bundle ${path.basename(r.archivePath)}` : "  Do not send it: it did not pass the checks above.",
+    ].join("\n");
 }
