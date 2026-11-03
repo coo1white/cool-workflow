@@ -42,6 +42,9 @@ const RULES = [
   ["data crossing the executor boundary holds no callable (CW delegates)", "a model client in state makes CW the engine", ["test/one-way-boundary-smoke.mjs"]],
   ["policy and vendor logic live in userland (scripts/agents/), not src/", "vendor parsing in core ties it to one vendor", ["reviewer"]],
   ["POLA: default output bytes, exit codes and flags do not change", "scripts that read cw output break silently", ["test/cli-command-surface-smoke.mjs", "reviewer"]],
+  ["a changed pinned output needs the operator's named yes, each line quoted", "0.4.0 cut rejected three times for unnamed output changes", ["scripts/pola-check.mjs", "test/pola-check-smoke.mjs"]],
+  ["a fix comes with a test that fails before it", "a fix whose test stayed green when reverted (0.4.0 third review)", ["scripts/fails-before-check.mjs", "test/fails-before-check-smoke.mjs"]],
+  ["cw help shows at most five entries before More commands", "a sixth front-page row (0.4.0 third review)", ["test/core/format/help-front-page-cap.test.mjs"]],
   ["zero runtime dependencies", "a dependency is supply-chain risk on every install", ["reviewer"]],
   ["unit tests mirror src/; smokes stay flat in test/", "a smoke in a sub folder never runs", ["test/test-layout-smoke.mjs"]],
   ["test/helpers/ is the one home of shared test set-up", "copied helpers drift apart", ["test/test-layout-smoke.mjs", "test/helpers/helpers.test.mjs"]],
@@ -100,8 +103,11 @@ const SECURITY_UNCITED_CEILING = 2;
 
 const RELEASE_KEY = "CW_RELEASE_VERDICT_PRIVKEY";
 // The only code files (not docs, not tests) that may name the release key.
+// fails-before-check.mjs names it only in STRIP_ENV, to keep it from the
+// tests it runs at the PR base.
 const RELEASE_KEY_CODE = [
   "dist/shell/execution-backend/local.js",
+  "scripts/fails-before-check.mjs",
   "scripts/block-unapproved-tag.mjs",
   "scripts/release-flow.mjs",
   "scripts/release-oneclick.mjs",
