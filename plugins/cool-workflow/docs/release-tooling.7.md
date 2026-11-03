@@ -516,6 +516,11 @@ The same test (`classifyCutBranch` in `scripts/release-preflight.mjs`) decides
 the doctor's `cut-branch` status: a warning for a branch the release run will
 remove, a failure for every other one. The doctor itself changes nothing.
 
+This cleanup, its stderr lines and the doctor's new `cut-branch` texts are
+new in 0.4.1, with the operator's named yes of 2026-11-03:
+`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
+for 0.4.1".
+
 After the review, and before it bumps or stages anything, the cut checks the
 tracked tree again. The preflight made sure it was clean, so a change now came
 from the gate or the reviewer (a vendor CLI that auto-approves its tools can

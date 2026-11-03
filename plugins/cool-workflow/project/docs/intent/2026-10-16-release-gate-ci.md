@@ -736,3 +736,21 @@ item 5 (`cw doctor --onramp`), the README, the "More commands" list and
 The same review found that no test held the `readCodeState` fix
 (unreadable changes give `treeDigest: null`); a unit test with a git
 runner and a file reader passed in now does.
+
+## Operator decisions for 0.4.1 (2026-11-03)
+
+Three rejected 0.4.0 cuts each left a `release/v0.4.0-cut` branch that the
+operator had to delete by hand before `release:doctor` would pass. The
+operator asked "后续可以自动清理吗" ("can it clean up by itself later"). The
+cleanup changes the release tool's output, so the operator was asked about
+each change by name, and answered, word for word (2026-11-03):
+"3 处都同意 (推荐)" ("all 3 agreed"). The question, word for word, named the
+three:
+
+> 1) `npm run release:doctor` 的 cut-branch 检查：如果留下的分支是发版工具自己做的，从 FAIL「leftover branch … — it holds old code」改成 WARN「leftover branch … — made by the release tool (<原因>); `npm run release -- X.Y.Z` removes it at the start」；如果分支上有不是工具做的提交，仍是 FAIL，但文字变成「… — <原因>; the cut stage would reset it from origin/main」，并提示先用 git log 看一下要不要保留；其他情况仍是 FAIL，末尾多一句「; not removed for you: <原因>」。
+> 2) `npm run release` 开始时，如果删掉了上次留下的分支，stderr 多一行「release-oneclick: removed leftover branch release/vX.Y.Z-cut (<sha>) from an earlier cut that stopped: <原因>.」。
+> 3) `npm run release` 中途停下（比如 grok 拒绝）时，stderr 多一行，要么「release-oneclick: removed release/vX.Y.Z-cut (<sha>), made by this run: the cut stopped before tag vX.Y.Z was made, <原因>; back on <你原来的分支>.」，要么「release-oneclick: kept release/vX.Y.Z-cut: <原因> (`npm run release:doctor -- X.Y.Z` says what to do with it).」。
+> 它只删本地分支，绝不删 tag、远程分支或 main；证明不了是工具做的就保留。下次发版是 0.4.1。
+
+All three are said in `release-tooling.7.md` ("The leftover cut branch is
+cleaned up", and the `cut-branch` row). The version raise is 0.4.0 -> 0.4.1.
