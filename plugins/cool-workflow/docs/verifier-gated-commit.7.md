@@ -91,9 +91,10 @@ cw check show <receipt-id>          one receipt, and the next step
 
 `cw check -- npm test` runs `npm test` in the repo folder (`--repo
 PATH`, default the current folder) with no shell: the words after `--`
-are the program and its arguments, as they are. Its output goes to
-stderr as it runs (`--quiet` keeps it back), so stdout stays data. On a
-terminal it then prints one line:
+are the program and its arguments, as they are. On a terminal its output
+is shown on stderr as it runs (`--quiet` keeps it back); piped, it is
+not shown, so a script sees only the data on stdout. On a terminal it
+then prints one line:
 
 ```text
 ✓ passed: npm test (exit 0 at 1a2b3c4) — receipt rc-0123456789abcdef. Cite it as receipt:rc-0123456789abcdef. Next: cw check show rc-0123456789abcdef
@@ -156,7 +157,9 @@ receipt-unsigned   CW_CHECK_PUBKEY is set and the
 receipt-failed     exit code is not 0               Next: cw check -- <command>
 receipt-no-git     made outside git with a commit   Next: git add -A && git commit -m "save work" && cw check -- <command>
 receipt-stale      HEAD or the uncommitted files
-                   are not the same as now          Next: cw check -- <command>
+                   are not the same as now, or CW
+                   could not read the uncommitted
+                   changes then or now              Next: cw check -- <command>
 ```
 
 The message has the plain reason and the one next command, for one:
@@ -177,6 +180,17 @@ and never asks git. `cw report bundle` and `cw report verify-bundle`
 check each pinned receipt again (its digest and id, and exit 0) and
 fail with `receipt-tampered:<id>` or `receipt-failed:<id>` in
 `failedChecks`; a bundle with no receipt gives the same output as before.
+
+Where a new user finds it (new in 0.4.0; both change existing default
+output, with the operator's named yes of 2026-11-03 in
+`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
+for 0.4.0"):
+
+- `cw help`, the front page, has one more command row:
+  `check -- <command>                        Run your tests, keep a receipt`.
+  The v2 fixture `cli-help/_root.txt` pins it.
+- `cw doctor --onramp` has one more quick-start line:
+  `cw check -- npm test   — keep a receipt that your tests passed; a result can cite it (no agent needed)`.
 
 ## FILES
 

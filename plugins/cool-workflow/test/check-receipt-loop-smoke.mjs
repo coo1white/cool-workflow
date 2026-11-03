@@ -48,7 +48,7 @@ assert.match(passed.id, /^rc-[0-9a-f]{16}$/);
 assert.equal(passed.cite, `receipt:${passed.id}`);
 assert.equal(passed.next, `cw check show ${passed.id}`);
 assert.ok(fs.existsSync(path.join(repo, ".cw", "receipts", `${passed.id}.json`)), "receipt saved under .cw/receipts");
-assert.match(pass.stderr, /1 test passed/, "the command's own output goes to stderr, stdout stays data");
+assert.doesNotMatch(pass.stderr, /1 test passed/, "piped, the command's own output is not echoed (Rule of Silence); stdout stays data");
 const head = git("rev-parse", "HEAD").stdout.trim();
 assert.equal(passed.gitHead, head);
 
