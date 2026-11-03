@@ -537,11 +537,15 @@ short, and simple to add to. Do not use it for guesses.)
   and also when it goes down: lock a gain by lowering the ceiling in the same
   diff (`node scripts/bench/perf-counts.mjs --update`, which never raises one).
 - **A pure helper of twenty lines or less that three files need lives once
-  in `src/core/util/`; a copy is a bug.** Today that is `cli-args.ts`, a
-  module every command already loads, so sharing adds no module load (a new
-  module would raise the ratchet above). Copies whose bodies differ in what
-  they do stay apart. `test/core/util/cli-args-sharedhelpers.test.mjs` holds
-  the merged ones to one home.
+  in `src/core/util/`; a copy is a bug.** Today that is `cli-args.ts`
+  (with `findProgram`, the one PATH walk) and `collate.ts` (`compareBytes`,
+  `formatCounts`), modules every command already loads, so sharing adds no
+  module load (a new module would raise the ratchet above). Copies whose
+  bodies differ in what they do stay apart. `test/core/util/cli-args-sharedhelpers.test.mjs`,
+  `cli-args-findprogram.test.mjs` and `test/core/pipeline/drivedecide-moved-from-drive.test.mjs`
+  hold the merged ones to one home. Test set-up has the same rule:
+  scratch folders, agent env, stub agents and the `cw` runner live once in
+  `test/helpers/`.
 - **Two docs trees, different gate scope AND different distribution scope.**
   `plugins/cool-workflow/docs/` is the shipped man-page tree: `sync-project-index.mjs`
   indexes it (non-recursively — one directory level only), and it is in
