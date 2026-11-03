@@ -170,11 +170,44 @@ test at most 59,500, `mkdtempSync` files at most 40, no `core` edge out.
 
 ## Architecture snapshot diff (claims this program makes stale)
 
-(filled by the closing PR)
+- AGENTS.md's core path named `src/shell/pipeline-cli.ts`; it is
+  `src/shell/commands/pipeline-cli.ts` now. Fixed in #854, together with
+  `docs/cli-mcp-parity.7.md`, `docs/project-index.md`, the rebuild SPEC's
+  `cli-surface.md`, `manifest/source-context-profiles.json` and one v2
+  conformance case.
+- AGENTS.md said the shared pure helpers live in `cli-args.ts`. Now
+  `collate.ts` holds `compareBytes` and `formatCounts` too, and
+  `cli-args.ts` holds `findProgram`, the one PATH walk. Fixed in this PR.
+- `core/capability-table.ts` is gone (#844). `rebuild/PLAN.md` and
+  `rebuild/CUTOVER.md` still name it; they are the plan of a closed
+  program, kept as written, like the closed intent archive.
+- The README said nothing about platforms. It now names Linux, macOS and
+  WSL, and says native Windows is not yet supported (#858). The CI
+  history in AGENTS.md has the `cool-workflow-windows` leg (#855).
+- `test/README.md` gained "Shared Helpers" (#847). `test-layout-smoke`
+  allows `test/helpers/`, which mirrors no `src/` folder.
 
 ## What this spec got wrong (recorded at close)
 
-(filled by the closing PR)
+- The size targets were wrong. The plan said src at most 35,500 lines and
+  test at most 59,500. At close, src is 35,885 and test is 61,420. Moving
+  a test onto a helper took out a local copy but added an import, and
+  most local copies were 3 to 6 lines, so the migrations saved few lines.
+  New guard tests added lines. The file-count targets were met:
+  `mkdtempSync` is in 5 test files (target 40), and `core` imports no
+  other layer.
+- "11 pure functions" in `drive.ts` was a grep for fs, process and
+  await. It did not check imports. Six of the 11 call a `shell` module,
+  so only 5 moved (ledger row 5).
+- 3e ("`cw` 17 times") counted every local `cw()`. Most run
+  `scripts/cw.js`, a different entry point, or use `execFileSync`, which
+  throws on a non-zero exit. Only 4 could move without changing what they
+  test.
+- The plan said nothing about other platforms. The owner's
+  cross-platform ask came mid-program ("Platform scope" above). The
+  first Windows run (#855) passed 133/287 smokes, 41/88 conformance
+  cases and 134/147 unit tests, far from the review's guess of about 24
+  failing files. That is the next program's starting number.
 
 ## Status ledger
 
@@ -184,7 +217,7 @@ test at most 59,500, `mkdtempSync` files at most 40, no `core` edge out.
 | 1a Unused exports (29 lost `export`; `compactCheckpoint` and `deferredPayloadProbeCapabilities` kept, see the smoke) | done | #840 |
 | 1c Capability-table shim, layer test | done | #844 |
 | 2 Byte-identical helpers (sha256Local, fingerprintStrings, errMessage, formatCounts x3; frozen files untouched) | done | #845 |
-| 3 Test helpers and migrations | 3a (#847), 3b env and 3d stub-agent (#851), 3c part 1 (#852) and part 2 (#853, 164 -> 5 files with `mkdtempSync`) done; 3e next | |
-| 4 `shell/commands/` (16 files moved; imports, lazy requires, docs, tests and dist follow) | in this PR | |
-| 5 `drive.ts` pure functions: 5 of the 11 moved (`agentConfigured`, `spawningAgentLine`, `renderSubInputs`, `roundPhaseLabel` to `drive-decide.ts`; `compareBytes` to `core/util/collate.ts`, with the `run-registry-io.ts` copy). The other 6 stay: `recordedTokenTotal` and `tokenBudgetUsage` read `shell/observability.ts`, `stillOwnedTask` throws a `shell/run-store.ts` error, `resultCachePath` reads files, `assertResultWritable` calls `shell/sandbox-profile.ts`, and `buildDriveContext` resolves the agent config | in this PR | |
-| 7 Close and archive | | |
+| 3 Test helpers and migrations: 3a helpers, 3b env (30 tests), 3c workspace (271 -> 5 files with `mkdtempSync`), 3d stub-agent (8 tests), 3e cw (4 tests) | done | #847, #851, #852, #853, #858 |
+| 4 `shell/commands/` (16 files moved; imports, lazy requires, docs, tests and dist follow) | done | #854 |
+| 5 `drive.ts` pure functions: 5 of the 11 moved (`agentConfigured`, `spawningAgentLine`, `renderSubInputs`, `roundPhaseLabel` to `drive-decide.ts`; `compareBytes` to `core/util/collate.ts`, with the `run-registry-io.ts` copy). The other 6 stay: `recordedTokenTotal` and `tokenBudgetUsage` read `shell/observability.ts`, `stillOwnedTask` throws a `shell/run-store.ts` error, `resultCachePath` reads files, `assertResultWritable` calls `shell/sandbox-profile.ts`, and `buildDriveContext` resolves the agent config | done | #857 |
+| 7 Close: snapshot diff, what the spec got wrong, receipt (`project/docs/audits/refactor-whole-tree-receipt-2026-11-03.json`); the file joins `2026-11-archive.md` after this PR merges | in this PR | |

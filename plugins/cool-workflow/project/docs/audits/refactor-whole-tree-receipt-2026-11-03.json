@@ -1,0 +1,60 @@
+{
+  "program": "2026-11-03-refactor-whole-tree",
+  "commit": "9452b7a3ca9fb20cf96a5bbca9b96d9690be3581",
+  "baseCommit": "a31cc0d658a47aef7aa17bdda1769f43a9143282",
+  "startedAt": "2026-11-03T02:22:43Z",
+  "finishedAt": "2026-11-03T04:52:00Z",
+  "machine": "Linux cloud sandbox, Node 22, dist/ built from the commit above; CI on the same PRs: ubuntu Node 22 and 24 (required), macOS and Windows (not required)",
+  "checks": [
+    {
+      "id": "core-imports-no-other-layer",
+      "pass": true,
+      "command": "node test/core/layer-direction.test.mjs; node scripts/purity-gate.mjs (cwd plugins/cool-workflow)",
+      "seen": "both exit 0. core/capability-table.ts, the one core-to-wiring edge, is gone (#844); shell/workbench.ts (frozen) is the one layer entry left in scripts/purity-baseline.json.",
+      "note": "Target: no core edge out. Met."
+    },
+    {
+      "id": "temp-folders-one-home",
+      "pass": true,
+      "command": "grep -rl mkdtempSync test --include=*.mjs | grep -v helpers | wc -l, on the base commit and on the commit above",
+      "seen": "before 270, after 5 (run-all.mjs, fetch-child-proxy, agent-sandbox-srt, bench-run, architecture-review-fast; each named with its reason in #853). 267 test files import a test/helpers/ module.",
+      "note": "Target: at most 40. Met."
+    },
+    {
+      "id": "src-lines",
+      "pass": false,
+      "command": "find src -name '*.ts' | xargs cat | wc -l, on both commits",
+      "seen": "before 35,954, after 35,885 (-69). shell/drive.ts 1,484 to 1,459.",
+      "note": "Target: at most 35,500. Missed by 385. Why: 'What this spec got wrong' in the intent."
+    },
+    {
+      "id": "test-lines",
+      "pass": false,
+      "command": "find test -name '*.mjs' | xargs cat | wc -l, on both commits",
+      "seen": "before 61,115, after 61,420 (+305). Unit tests 145 to 149 files (helpers, layer-direction, findprogram, drive-decide moves); smokes 286 to 287 (wiki-sync).",
+      "note": "Target: at most 59,500. Missed by 1,920. Moving a test onto a helper took out 3 to 6 lines and added an import; new guard tests added lines."
+    },
+    {
+      "id": "pass-counts-unchanged",
+      "pass": true,
+      "command": "npm run test:gate; npm run test:unit; node ../../v2/conformance/run.mjs --bin dist/cli.js, before each push",
+      "seen": "every PR: the same pass counts as main in this sandbox (smokes all but verify-bump-reproduction, a shallow-clone failure; conformance 86/88, two sandbox-only report-doctor/report-fix failures), and all required CI legs green on ubuntu Node 22 and 24, plus macOS.",
+      "note": "Acceptance: counts the same before and after. Met."
+    },
+    {
+      "id": "gates-green",
+      "pass": true,
+      "command": "npm run growth:check; node test/perf-ratchet-smoke.mjs; npm run index:check; npm run citation:check",
+      "seen": "growth-budget-check: md=129/129, src-comments=5534/5534 (from 5544 at the start). perf ratchet: ceilings only went down (#844: drive.modules 92 to 91 and one less on each verb).",
+      "note": "Met."
+    },
+    {
+      "id": "windows-measured",
+      "pass": true,
+      "command": "the cool-workflow-windows job's summary on PR #855 (windows-latest, Node 22)",
+      "seen": "smokes 133/287, conformance 41/88, unit 134/147; build and cw help pass.",
+      "note": "Not a target of this program: the owner's cross-platform ask came mid-program. This is the next program's first number."
+    }
+  ],
+  "verdict": "pass with two missed size targets, recorded in the intent"
+}
