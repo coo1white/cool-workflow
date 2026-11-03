@@ -7,8 +7,8 @@
 // per capability in the registry (default, flag, human)").
 
 import assert from "node:assert/strict";
-import { statusPayload, listBundledSandboxProfiles, findCapability } from "../../dist/core/capability-table.js";
-import * as capabilityTableModule from "../../dist/core/capability-table.js";
+import { statusPayload, listBundledSandboxProfiles, findCapability } from "../../dist/wiring/capability-table/index.js";
+import * as capabilityTableModule from "../../dist/wiring/capability-table/index.js";
 
 // statusPayload(undefined): the exact no-run-id shape SPEC/cli-surface.md
 // pins ({runId:null, nextActions}) — no disk access on this branch, safe

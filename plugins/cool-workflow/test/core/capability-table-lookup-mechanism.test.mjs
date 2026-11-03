@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // captable-lookup-mechanism — pins the three lookup functions
-// core/capability-table.ts exports over the REGISTRY data table:
+// wiring/capability-table/ exports over the REGISTRY data table:
 // findCapability, findCapabilityByCliPath, findCapabilityByMcpTool.
 // Per project/docs/rebuild/PLAN.md's Target shape, capability-table.ts is THE one data
 // table; every later milestone adds rows only, never touches these
@@ -14,7 +14,7 @@ import {
   findCapabilityByCliPath,
   findCapabilityByMcpTool,
   REGISTRY,
-} from "../../dist/core/capability-table.js";
+} from "../../dist/wiring/capability-table/index.js";
 
 // findCapability: a real, declared capability id resolves to its row.
 {

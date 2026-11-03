@@ -170,7 +170,7 @@ REGISTRY_BY_CAPABILITY.get("commit").mcp.handler = (args) => {
 // runner.commit (commitRun); the CLI keeps the raw StateCommitResult for
 // scripting while cw_commit lifts an operator-facing envelope on top (see
 // the mcp.handler just above). Marked here, not silently let drift, so
-// the parity payload probe (core/capability-table.ts's
+// the parity payload probe (wiring/capability-table's
 // payloadIdenticalCapabilities) skips it with a paper trail instead of
 // tripping on an undocumented divergence.
 REGISTRY_BY_CAPABILITY.get("commit").payloadIdentical = false;

@@ -28,7 +28,7 @@ import { execFileSync } from "node:child_process";
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
-import { cliCapabilities, findCapabilityByCliPath } from "../dist/core/capability-table.js";
+import { cliCapabilities, findCapabilityByCliPath } from "../dist/wiring/capability-table/index.js";
 
 function run(args) {
   try {

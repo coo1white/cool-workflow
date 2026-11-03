@@ -13,7 +13,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { findCapability } from "../core/capability-table.js";
+import { findCapability } from "../wiring/capability-table/index.js";
 import { loadRunFromCwd } from "./run-store.js";
 
 const WORKBENCH_DEFAULT_PORT = 7717;

@@ -1,7 +1,7 @@
 // shell/metrics-cli.ts — CLI/MCP-facing entry points for `cw metrics
 // show`/`cw metrics summary`.
 //
-// Wires shell/observability.ts into the shapes core/capability-table.ts's
+// Wires shell/observability.ts into the shapes wiring/capability-table's
 // CLI/MCP bindings call.
 //
 // Evidence: SPEC/reporting-ux.md "cw metrics show" / "cw metrics

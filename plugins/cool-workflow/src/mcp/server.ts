@@ -9,7 +9,7 @@
 //     19,263-269); the reply's protocolVersion echoes the client's
 //     requested one when it is in SUPPORTED_PROTOCOL_VERSIONS below, and
 //     falls back to the newest supported entry otherwise;
-//   - `tools/list` -> { tools: [...] } from core/capability-table.ts via
+//   - `tools/list` -> { tools: [...] } from wiring/capability-table/ via
 //     mcp/dispatch.ts, ignoring params (mcp.md:20,271-277); by default
 //     only the CW_MCP_TOOLS `core` profile is listed (see toolProfile);
 //   - `tools/call` -> { content: [{ type: "text", text: <2-space pretty
@@ -63,7 +63,7 @@ import { recoveryHint } from "../core/format/recovery-hint.js";
 import { toolDefinitions } from "./dispatch.js";
 import { ToolProcessExecutor } from "./tool-process.js";
 import { MCP_CORE_TOOLS } from "../core/capability-data.js";
-import type { McpToolDefinition } from "../core/capability-table.js";
+import type { McpToolDefinition } from "../core/capability-data.js";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);

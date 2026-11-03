@@ -68,7 +68,6 @@ workflow app -> runner -> dispatch -> isolated workers
 - [cli/io.ts](../src/cli/io.ts)
 - [cli/parseargv.ts](../src/cli/parseargv.ts)
 - [core/capability-data.ts](../src/core/capability-data.ts)
-- [core/capability-table.ts](../src/core/capability-table.ts)
 - [core/format/completion.ts](../src/core/format/completion.ts)
 - [core/format/help.ts](../src/core/format/help.ts)
 - [core/format/recovery-hint.ts](../src/core/format/recovery-hint.ts)

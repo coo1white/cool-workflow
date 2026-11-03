@@ -1,5 +1,5 @@
 // mcp/dispatch.ts — the generic MCP tool-call reader over
-// core/capability-table.ts.
+// wiring/capability-table/.
 //
 // A data-driven lookup: resolve the row by tool name, check its declared
 // required-arg groups (SPEC/mcp.md's `McpBinding.requiredArgs`), re-base
@@ -11,7 +11,7 @@
 // performed uniformly so any handler can rely on it.
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { findCapabilityByMcpTool, mcpToolDefinitions } from "../core/capability-table.js";
+import { findCapabilityByMcpTool, mcpToolDefinitions } from "../wiring/capability-table/index.js";
 import { coerceMcpScalar } from "../core/util/cli-args.js";
 /** `toolDefinitions()` — the full, ordered `tools/list` array. */
 export function toolDefinitions() {

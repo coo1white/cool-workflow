@@ -8,7 +8,7 @@
 // without affecting dispatch.
 
 import assert from "node:assert/strict";
-import { REGISTRY, findCapabilityByCliPath } from "../../dist/core/capability-table.js";
+import { REGISTRY, findCapabilityByCliPath } from "../../dist/wiring/capability-table/index.js";
 
 // backend.agent.config.show and backend.agent.config.set share the exact
 // same 2-token dispatch path ["backend","agent"], but each carries its

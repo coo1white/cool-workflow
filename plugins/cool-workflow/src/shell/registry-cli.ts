@@ -88,7 +88,7 @@ export function routineFireCli(kind: string, payload: unknown, options: Record<s
 }
 /** Resolves a `routine fire` payload: a `--payload-path`/positional file wins
  *  (parsed as JSON) over the raw CLI/MCP options bag. The file read lives
- *  here, in the shell layer, not in core/capability-table.ts. */
+ *  here, in the shell layer, not in wiring/capability-table/. */
 export function resolveRoutineFirePayload(payloadPath: string | undefined, options: Record<string, unknown>): unknown {
   if (!payloadPath) return options;
   try {

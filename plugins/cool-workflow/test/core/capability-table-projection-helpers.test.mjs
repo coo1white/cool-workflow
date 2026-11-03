@@ -5,7 +5,7 @@
 // "formatHelp/formatCommandHelp become pure projections of the table").
 
 import assert from "node:assert/strict";
-import { cliCapabilities, declaredMcpTools, REGISTRY } from "../../dist/core/capability-table.js";
+import { cliCapabilities, declaredMcpTools, REGISTRY } from "../../dist/wiring/capability-table/index.js";
 
 // cliCapabilities(): every returned row actually carries a .cli binding
 // (the whole point of the CliCapability-narrowed return type).

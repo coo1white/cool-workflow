@@ -33,7 +33,7 @@ import * as ns from "../dist/core/state/node-snapshot.js";
 // anti-goal). The "orchestrator entries reachable" intent is now carried by the
 // capability REGISTRY: each node op is a registered capability with a CLI/MCP
 // binding. findCapability is the v2 equivalent of prototype-method presence.
-import { findCapability } from "../dist/core/capability-table.js";
+import { findCapability } from "../dist/wiring/capability-table/index.js";
 
 const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-node-snapshot-")));
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "ns-smoke"));

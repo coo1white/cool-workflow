@@ -1,4 +1,4 @@
-// cli/dispatch.ts — the generic CLI executor over core/capability-table.ts.
+// cli/dispatch.ts — the generic CLI executor over wiring/capability-table/.
 //
 // `dispatch(args)` first tries the CAPABILITY TABLE: it looks up the row
 // whose `cli.path` matches the parsed command (+ enough leading
@@ -10,7 +10,7 @@
 // capability-table row can fully own (bare help, `help <topic>`, and
 // `ledger`'s unknown-subcommand usage error). It is never extended.
 import { formatCommandHelp } from "../core/format/help.js";
-import { findCapabilityByCliPath, } from "../core/capability-table.js";
+import { cliCapabilities, findCapabilityByCliPath } from "../wiring/capability-table/index.js";
 import { KNOWN_COMMANDS, suggestCommand } from "./parseargv.js";
 import { printJson, styledHelp } from "./io.js";
 import { wantsJson } from "../core/util/cli-args.js";
@@ -106,7 +106,7 @@ function dispatchLegacy(args) {
         case "help": {
             const topic = firstPositional(args);
             if (topic) {
-                process.stdout.write(formatCommandHelp(topic, suggestCommand));
+                process.stdout.write(formatCommandHelp(topic, suggestCommand, cliCapabilities()));
             }
             else {
                 process.stdout.write(styledHelp());

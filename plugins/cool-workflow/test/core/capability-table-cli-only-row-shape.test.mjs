@@ -10,7 +10,7 @@
 // carry a `cli` binding layered on by attachCliBinding.
 
 import assert from "node:assert/strict";
-import { REGISTRY, findCapability } from "../../dist/core/capability-table.js";
+import { REGISTRY, findCapability } from "../../dist/wiring/capability-table/index.js";
 
 // version: a real declared cli-only row (addCliOnlyCapability's exact call
 // site in capability-table.ts) — cli-only, has cli, has NO mcp, has reason.

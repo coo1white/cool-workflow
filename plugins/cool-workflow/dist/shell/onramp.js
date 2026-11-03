@@ -29,7 +29,7 @@ export const CURATED_SMOKE_MAP = [
         smokes: ["cli-mcp-parity-smoke.mjs"]
     },
     {
-        patterns: ["src/core/capability-table.ts", "src/core/capability-data.ts", "src/wiring/capability-table/", "scripts/parity-check.mjs"],
+        patterns: ["src/core/capability-data.ts", "src/wiring/capability-table/", "scripts/parity-check.mjs"],
         smokes: ["cli-mcp-parity-smoke.mjs", "cli-jsonmode-parity-smoke.mjs", "parity-doc-sync-smoke.mjs"]
     },
     {
@@ -565,7 +565,6 @@ function isSurfaceFile(file) {
         pluginPath.startsWith("src/cli/") ||
         pluginPath === "src/mcp-server.ts" ||
         pluginPath.startsWith("src/mcp/") ||
-        pluginPath === "src/core/capability-table.ts" ||
         pluginPath === "src/core/capability-data.ts" ||
         pluginPath.startsWith("src/wiring/capability-table/") ||
         pluginPath === "src/shell/orchestrator.ts" ||

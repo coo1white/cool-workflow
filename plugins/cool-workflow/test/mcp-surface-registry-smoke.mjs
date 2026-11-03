@@ -4,9 +4,9 @@
 //   - src/mcp/server.ts (transport) -> imports { callTool, toolDefinitions }
 //     from ./dispatch, so the transport still does NOT define them itself;
 //   - src/mcp/dispatch.ts (the surface) -> derives every tool from
-//     mcpToolDefinitions() in ../core/capability-table, no hardcoded cw_
+//     mcpToolDefinitions() in ../wiring/capability-table, no hardcoded cw_
 //     tool names;
-//   - src/core/capability-table.ts -> the one data table; findCapabilityByMcpTool
+//   - src/wiring/capability-table/ -> the one data table; findCapabilityByMcpTool
 //     replaces mcpCapabilityForTool, mcpToolDefinitions() (bulk) replaces the
 //     old per-tool mcpToolDefinition() builder.
 // Every assertion below keeps its original INTENT: the live tools/list is
@@ -20,12 +20,12 @@ import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 // v2 layout: entry (mcp-server.ts) -> transport (mcp/server.ts) -> surface
-// (mcp/dispatch.ts) -> capability table (core/capability-table.ts).
+// (mcp/dispatch.ts) -> capability table (wiring/capability-table/).
 const srcEntry = path.join(pluginRoot, "src", "mcp-server.ts");
 const srcTransport = path.join(pluginRoot, "src", "mcp", "server.ts");
 const srcSurface = path.join(pluginRoot, "src", "mcp", "dispatch.ts");
 const distServer = path.join(pluginRoot, "dist", "mcp-server.js");
-import * as registry from "../dist/core/capability-table.js";
+import * as registry from "../dist/wiring/capability-table/index.js";
 import * as surface from "../dist/mcp/dispatch.js";
 
 function liveMcpTools() {

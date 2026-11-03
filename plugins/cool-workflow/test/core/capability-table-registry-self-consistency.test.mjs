@@ -11,7 +11,7 @@
 // future row addition breaks one of these rules.
 
 import assert from "node:assert/strict";
-import { REGISTRY } from "../../dist/core/capability-table.js";
+import { REGISTRY } from "../../dist/wiring/capability-table/index.js";
 
 // No duplicate capability ids anywhere in the table.
 {

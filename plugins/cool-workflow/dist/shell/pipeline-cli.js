@@ -4,7 +4,7 @@
 //
 // Wires shell/pipeline.ts, shell/drive.ts, shell/dispatch.ts,
 // shell/commit.ts, shell/worker-isolation.ts and shell/workflow-app-loader.ts
-// into the shapes core/capability-table.ts's CLI bindings call.
+// into the shapes wiring/capability-table's CLI bindings call.
 //
 // Evidence: SPEC/pipeline-run.md "CLI / MCP surface (capability layer)".
 import * as fs from "node:fs";

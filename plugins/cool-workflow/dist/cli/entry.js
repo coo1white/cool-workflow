@@ -15,7 +15,7 @@ import { parseArgv } from "./parseargv.js";
 import { dispatch } from "./dispatch.js";
 import { formatCommandHelp } from "../core/format/help.js";
 import { suggestCommand } from "./parseargv.js";
-import { findCapability } from "../core/capability-table.js";
+import { cliCapabilities, findCapability } from "../wiring/capability-table/index.js";
 import { bold, dim, red } from "../shell/term.js";
 import { styledHelp } from "./io.js";
 import { recoveryHint } from "../core/format/recovery-hint.js";
@@ -86,7 +86,7 @@ export async function runCli(argv = process.argv.slice(2)) {
         process.env.CW_DRIVE_PROGRESS = "0";
     // `cw <verb> --help` / `-h` -> per-command help.
     if ((args.options.help || args.options.h) && args.command && !args.command.startsWith("-")) {
-        process.stdout.write(formatCommandHelp(args.command, suggestCommand));
+        process.stdout.write(formatCommandHelp(args.command, suggestCommand, cliCapabilities()));
         return;
     }
     // Bare -q / --question -> redirect to quickstart.

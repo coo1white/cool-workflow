@@ -15,7 +15,7 @@ import path from "node:path";
 const pluginRoot = path.resolve(import.meta.dirname, "..", "..");
 import { formatWorkflowList } from "../../dist/core/format/help.js";
 import { shouldRenderHuman } from "../../dist/cli/dispatch.js";
-import { REGISTRY } from "../../dist/core/capability-table.js";
+import { REGISTRY } from "../../dist/wiring/capability-table/index.js";
 
 function fakeStream(isTTY) {
   return { isTTY };

@@ -42,7 +42,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 // v2 renamed the capability registry: dist/capability-registry.js's
-// CAPABILITY_REGISTRY is now dist/core/capability-table.js's REGISTRY (same
+// CAPABILITY_REGISTRY is now dist/wiring/capability-table/index.js's REGISTRY (same
 // per-entry shape: { capability, cli: { path, jsonMode }, ... }).
 //
 // REAL GAP (v2): six probed verbs — next, contract.show, feedback.summary,
@@ -53,12 +53,12 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // capById() rightly fails closed on the missing cli binding. Reported for a
 // human call; this smoke stays red until the v2 REGISTRY records cli bindings
 // for those verbs (or the probe set is narrowed to CLI-bound verbs).
-import * as registry from "../dist/core/capability-table.js";
+import * as registry from "../dist/wiring/capability-table/index.js";
 // CAPABILITY_REGISTRY (an alias for REGISTRY) is always present now -- the
 // old defensive fallback assignment broke once capability-table.js became a
 // re-export shim (export * makes CAPABILITY_REGISTRY a read-only getter, so
 // assigning to it throws instead of silently no-op'ing).
-assert.ok(registry.CAPABILITY_REGISTRY, "dist/core/capability-table.js must export CAPABILITY_REGISTRY");
+assert.ok(registry.CAPABILITY_REGISTRY, "dist/wiring/capability-table/index.js must export CAPABILITY_REGISTRY");
 
 // Read-only capabilities that are safe to invoke on a freshly planned run with
 // just a runId (RUN_PROBES) or with no run context at all (GLOBAL_PROBES). This

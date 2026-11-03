@@ -14,13 +14,13 @@
 //      `cw <cmd> --json` payload must equal the `cw_<tool>` MCP result on a real
 //      bootstrap run (whitespace + generation-moment ISO timestamps aside).
 //
-// The registry (src/core/capability-table.ts -> dist/core/capability-table.js)
+// The registry (src/wiring/capability-table/ -> dist/wiring/capability-table/index.js)
 // is the single source of truth; this script never re-declares capabilities.
 //
 // v2 repoint: the old flat dist/capability-registry.js, dist/orchestrator.js,
 // dist/state.js, dist/state-node.js are gone. Each function this script
 // actually calls now lives in its v2 core/shell home:
-//   - registry (capability + parity planning data) -> core/capability-table.js
+//   - registry (capability + parity planning data) -> wiring/capability-table/index.js
 //   - formatHelp                                    -> core/format/help.js
 //   - loadRunFromCwd, saveCheckpoint                 -> shell/run-store.js
 //   - appendRunNode, createStateNode                 -> core/state/state-node.js
@@ -32,7 +32,7 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { pathToFileURL } from "node:url";
-import * as registry from "../dist/core/capability-table.js";
+import * as registry from "../dist/wiring/capability-table/index.js";
 import { loadRunFromCwd, saveCheckpoint } from "../dist/shell/run-store.js";
 import { appendRunNode, createStateNode } from "../dist/core/state/state-node.js";
 

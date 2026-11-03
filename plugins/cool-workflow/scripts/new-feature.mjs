@@ -99,7 +99,7 @@ main();
   process.stdout.write(`    checkIncludes("plugins/cool-workflow/${docRel}", VERSION, checks);\n`);
   process.stdout.write(`    checkIncludes("plugins/cool-workflow/docs/index.md", "${slug}.7.md", checks);\n`);
   process.stdout.write(`    checkIncludes("plugins/cool-workflow/${testRel}", "${slug}-smoke", checks);\n\n`);
-  process.stdout.write(`  src/wiring/capability-table/*.ts  — add the verb row (src/core/capability-table.ts exports it) so CLI === MCP.\n`);
+  process.stdout.write(`  src/wiring/capability-table/*.ts  — add the verb row (src/wiring/capability-table/index.ts exports it) so CLI === MCP.\n`);
   process.stdout.write(`  sibling docs/*.7.md  — append a "## ${title} (v${version})" forward-reference section\n`);
   process.stdout.write(`    to the docs version:sync checks for VERSION (that's the repo's per-release pattern).\n`);
 }
