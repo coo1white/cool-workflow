@@ -129,6 +129,7 @@ CW does not run the model — it keeps the books. Your agent signs its findings 
 - **[Trust & Audit](https://github.com/coo1white/cool-workflow/wiki/Trust-And-Audit)**
 - **[Repo Map](https://github.com/coo1white/cool-workflow/wiki/Repo-Map)**
 - **[Wiki home](https://github.com/coo1white/cool-workflow/wiki)**
+- **[Contributing](.github/CONTRIBUTING.md)** — to change CW itself: where to start for each job, the rules, and how to report a security problem
 
 CW dogfoods its own release: every cut runs `release-cut` against this repo.
 
