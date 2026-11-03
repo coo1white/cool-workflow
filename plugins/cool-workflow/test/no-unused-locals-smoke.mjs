@@ -10,8 +10,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const tscJs = path.join(pluginRoot, "node_modules", "typescript", "lib", "tsc.js");
@@ -21,7 +21,7 @@ const typesRoot = path.join(pluginRoot, "node_modules", "@types");
 const config = JSON.parse(fs.readFileSync(path.join(pluginRoot, "tsconfig.json"), "utf8")).compilerOptions;
 assert.equal(config.noUnusedLocals, true, "tsconfig.json turns on noUnusedLocals");
 
-const fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-unused-locals-"));
+const fixtureDir = tmpDir("cw-unused-locals-");
 
 // Compile one file with the project's own strictness and unused-locals
 // setting (read from tsconfig.json, not hard-coded here).

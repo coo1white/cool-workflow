@@ -6,8 +6,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "../helpers/workspace.mjs";
 
 import {
   safeFileName,
@@ -18,7 +18,7 @@ import {
   writeTextDurable,
 } from "../../dist/shell/fs-atomic.js";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-fs-safe-"));
+const tmp = tmpDir("cw-fs-safe-");
 
 // --- safeFileName: every run of chars outside [a-zA-Z0-9_.:-] becomes ONE "_".
 {

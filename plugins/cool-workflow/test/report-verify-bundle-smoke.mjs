@@ -10,7 +10,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 
@@ -23,6 +22,7 @@ import { exportRun, verifyReportBundle } from "../dist/shell/run-export.js";
 import { appendTelemetryAttestation, computeRecordHash, reportedUsageDigest } from "../dist/shell/telemetry-ledger-io.js";
 import { signTelemetry } from "../dist/core/trust/telemetry-attestation.js";
 import * as hashModule from "../dist/core/hash.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -45,7 +45,7 @@ const HOPS = [
  *  file digest over the tampered bytes — exactly the archive-digest-clean / chain-or-
  *  signature-broken forgery the inner layers must still catch), then export. */
 function buildBundle(label, opts = {}) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `cw-bundle-${label}-`));
+  const tmp = tmpDir(`cw-bundle-${label}-`);
   const runId = `bundle-${label}`;
   const runDir = path.join(tmp, ".cw", "runs", runId);
   const paths = createRunPaths(runDir);
@@ -246,7 +246,7 @@ function reseal(record) {
   function buildWithResult(label, opts = {}) {
     const written = opts.written !== undefined ? opts.written : REAL;
     const signed = opts.signed !== undefined ? opts.signed : written;
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `cw-xcheck-${label}-`));
+    const tmp = tmpDir(`cw-xcheck-${label}-`);
     const runId = `xcheck-${label}`;
     const runDir = path.join(tmp, ".cw", "runs", runId);
     const paths = createRunPaths(runDir);
@@ -344,7 +344,7 @@ function reseal(record) {
 //        task's heading must not mis-anchor the later task's check (false positive). ---
 {
   const { sha256 } = hashModule; // v2: sha256 moved out of execution-backend into core/hash
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-xcheck-2task-"));
+  const tmp = tmpDir("cw-xcheck-2task-");
   const runId = "xcheck-2task";
   const runDir = path.join(tmp, ".cw", "runs", runId);
   const paths = createRunPaths(runDir);

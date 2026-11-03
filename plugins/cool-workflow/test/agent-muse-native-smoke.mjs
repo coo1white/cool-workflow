@@ -7,9 +7,9 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import * as agentConfigModule from "../dist/shell/agent-config.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const wrapper = path.join(pluginRoot, "scripts", "agents", "muse-agent.js");
@@ -31,7 +31,7 @@ muse shim answer
 const REASON = "your saved API key was rejected — run `muse login` or add a new key";
 
 function shimDir(behavior) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-muse-shim-"));
+  const dir = tmpDir("cw-muse-shim-");
   const shim = path.join(dir, "muse");
   const source = `#!/usr/bin/env node
 const fs = require("node:fs");
@@ -97,7 +97,7 @@ function readInvocation(dir) {
 }
 
 function main() {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-muse-wrapper-smoke-"));
+  const work = tmpDir("cw-muse-wrapper-smoke-");
   const inputPath = path.join(work, "input.md");
   const resultPath = path.join(work, "result.md");
   const marker = "Check release path marker-muse-7.";
@@ -215,7 +215,7 @@ function main() {
     assert.ok(cfg.command && cfg.command.includes("muse-agent.js"), "builtin:muse expands to the packaged wrapper");
     assert.ok(cfg.command.includes("{{input}}") && cfg.command.includes("{{result}}"), "expanded template carries worker substitutions");
 
-    const shim = fs.mkdtempSync(path.join(os.tmpdir(), "cw-muse-detect-"));
+    const shim = tmpDir("cw-muse-detect-");
     try {
       const binDir = path.join(shim, "bin");
       fs.mkdirSync(binDir, { recursive: true });
@@ -232,7 +232,7 @@ function main() {
 
   {
     const cli = path.join(pluginRoot, "dist", "cli.js");
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-muse-flag-"));
+    const tmp = tmpDir("cw-muse-flag-");
     const cwHome = path.join(tmp, "home");
     fs.mkdirSync(cwHome, { recursive: true });
     try {

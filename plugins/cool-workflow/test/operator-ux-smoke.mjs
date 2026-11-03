@@ -6,13 +6,13 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist/cli.js");
 const node = process.execPath;
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-operator-ux-"));
+const tmp = tmpDir("cw-operator-ux-");
 const evidencePath = path.join(tmp, "operator-evidence.md");
 fs.writeFileSync(evidencePath, "operator evidence\n", "utf8");
 const evidenceLocator = `${evidencePath}:1`;

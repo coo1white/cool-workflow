@@ -25,7 +25,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
@@ -35,10 +34,11 @@ import { prepareFree, ReclamationError } from "../dist/shell/reclamation-io.js";
 // path check). This is the impure seam every pipeline caller routes the gate
 // through, so this is where fs.existsSync must be wired.
 import { runPipelineStage } from "../dist/shell/error-feedback-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 let SEQ = 0;
 function freshRepo(tag) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `cw-artifact-gate-${tag}-${SEQ++}-`));
+  return tmpDir(`cw-artifact-gate-${tag}-${SEQ++}-`);
 }
 
 // ---------------------------------------------------------------------------

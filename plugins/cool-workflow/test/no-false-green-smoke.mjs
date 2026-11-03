@@ -25,8 +25,8 @@
 // slim-and-esm step 2.)
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 import {
   createRunPaths,
@@ -40,7 +40,7 @@ import { recordWorkerOutput, allocateWorkerScope, writeWorkerManifest } from "..
 import { commitState, CommitGateError } from "../dist/shell/commit.js";
 import { listTrustAuditEvents } from "../dist/shell/trust-audit.js";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-no-false-green-"));
+const tmp = tmpDir("cw-no-false-green-");
 
 // A stable, on-disk grounded locator for the POSITIVE scenario.
 const evidenceFile = path.join(tmp, "evidence.md");

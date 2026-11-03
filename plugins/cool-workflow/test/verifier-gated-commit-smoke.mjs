@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -10,6 +9,7 @@ import { execFileSync } from "node:child_process";
 // run-path + checkpoint helpers moved to shell/run-store; the pure state-node
 // helpers moved to core/state/state-node. Signatures are unchanged.
 import { commitState } from "../dist/shell/commit.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 import {
   createRunPaths,
   ensureRunDirs,
@@ -18,7 +18,7 @@ import {
 } from "../dist/shell/run-store.js";
 import { appendRunNode, createStateNode } from "../dist/core/state/state-node.js";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-verifier-gated-commit-"));
+const tmp = tmpDir("cw-verifier-gated-commit-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "commit-smoke"));
 ensureRunDirs(paths);
 

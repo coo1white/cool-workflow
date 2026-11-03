@@ -7,10 +7,10 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { migrateRunState } from "../../../dist/core/state/migrations.js";
 import { loadRunStateFile } from "../../../dist/shell/run-store.js";
+import { tmpDir } from "../../helpers/workspace.mjs";
 
 const fixturesDir = path.resolve(import.meta.dirname, "..", "..", "fixtures", "runs");
 const fixtures = fs.readdirSync(fixturesDir).filter((name) => fs.existsSync(path.join(fixturesDir, name, "state.json")));
@@ -51,7 +51,7 @@ assert.ok(sawChanges, "at least one fixture needs a migration or normalization, 
 
 // loadRunStateFile: the same result as migrating a parse of the same bytes.
 {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-migrate-owned-"));
+  const tmp = tmpDir("cw-migrate-owned-");
   try {
     for (const name of fixtures) {
       const file = path.join(tmp, `${name}.json`);

@@ -14,8 +14,8 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..", "..", "..");
 
@@ -93,7 +93,7 @@ assert.deepEqual(checkRootEntries(["README.md", "notes.txt"], { "README.md": "x"
   "LICENSE: in ROOT_ENTRIES but not tracked; drop it from the list",
 ]);
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-root-layout-"));
+const tmp = tmpDir("cw-root-layout-");
 try {
   const write = (name, body) => fs.writeFileSync(path.join(tmp, name), body);
   write("ok.js", "const a = 1;\n");

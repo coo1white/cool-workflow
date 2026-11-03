@@ -22,6 +22,7 @@ import path from "node:path";
 import { readManPage, ManPageNotFoundError } from "../dist/shell/man-cli.js";
 import { RunRegistry } from "../dist/shell/run-registry-io.js";
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 // --- 1. cw man traversal ----------------------------------------------------
 
@@ -52,7 +53,7 @@ fs.rmSync(secretPath, { force: true });
 
 // --- 2. RunRegistry runId traversal ----------------------------------------
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-registry-traversal-"));
+const tmp = tmpDir("cw-registry-traversal-");
 const repo = path.join(tmp, "repo");
 fs.mkdirSync(repo, { recursive: true });
 const env = { ...process.env, CW_HOME: path.join(tmp, "home") };

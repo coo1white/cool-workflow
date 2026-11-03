@@ -6,11 +6,11 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { migrateRunState, reverseRunState } from "../../../dist/core/state/migrations.js";
 import { loadRunFromCwd } from "../../../dist/shell/run-store.js";
+import { tmpDir } from "../../helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..", "..", "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -50,7 +50,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // loadRunFromCwd: a wiped state.json next to real task content on disk is
 // refused, not silently returned as a fresh run.
 {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-data-loss-"));
+  const cwd = tmpDir("cw-data-loss-");
   const runId = "demo-run";
   const runDir = path.join(cwd, ".cw", "runs", runId);
   const tasksDir = path.join(runDir, "tasks");
@@ -72,7 +72,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // crashed before writing anything else looks like, and it is
 // indistinguishable from "nothing happened yet".
 {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-data-loss-"));
+  const cwd = tmpDir("cw-data-loss-");
   const runId = "fresh-run";
   const runDir = path.join(cwd, ".cw", "runs", runId);
   fs.mkdirSync(runDir, { recursive: true });
@@ -93,7 +93,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // exists but is empty" branch, distinct from the ENOENT (missing dir)
 // branch the "fresh-run" case above covers.
 {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-data-loss-"));
+  const cwd = tmpDir("cw-data-loss-");
   const runId = "just-created-run";
   const runDir = path.join(cwd, ".cw", "runs", runId);
   for (const sub of ["tasks", "results", "dispatches", "artifacts", "commits", "nodes", "feedback", "audit", "workers", "candidates", "multi-agent", "blackboard", "topologies"]) {
@@ -110,7 +110,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // loadRunFromCwd: a wiped state.json next to a non-empty audit event log is
 // also refused (commits/tasks dirs both absent this time).
 {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-data-loss-"));
+  const cwd = tmpDir("cw-data-loss-");
   const runId = "demo-run-audit";
   const runDir = path.join(cwd, ".cw", "runs", runId);
   const auditDir = path.join(runDir, "audit");
@@ -131,7 +131,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // absent) is also enough to trigger the refusal — proves the commitsDir
 // signal fires on its own, not just piggy-backing on the tasksDir check.
 {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-data-loss-"));
+  const cwd = tmpDir("cw-data-loss-");
   const runId = "demo-run-commits";
   const runDir = path.join(cwd, ".cw", "runs", runId);
   const commitsDir = path.join(runDir, "commits");
@@ -152,7 +152,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // writes, e.g. a stray .DS_Store) in an otherwise-empty content directory
 // must NOT by itself make a genuinely fresh run look corrupted.
 {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-data-loss-"));
+  const cwd = tmpDir("cw-data-loss-");
   const runId = "demo-run-debris";
   const runDir = path.join(cwd, ".cw", "runs", runId);
   const tasksDir = path.join(runDir, "tasks");
@@ -171,7 +171,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // actually reaches `cw status <run-id>`, the exact surface named in the
 // original repro story.
 {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-data-loss-cli-"));
+  const cwd = tmpDir("cw-data-loss-cli-");
   const runId = "cli-demo-run";
   const runDir = path.join(cwd, ".cw", "runs", runId);
   const tasksDir = path.join(runDir, "tasks");
@@ -197,7 +197,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // exactly like this repo's own run-fixture-compat-smoke.mjs fixtures) must
 // stay loadable across repeated reads.
 {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-data-loss-cache-"));
+  const cwd = tmpDir("cw-data-loss-cache-");
   const runId = "legacy-no-paths-run";
   const runDir = path.join(cwd, ".cw", "runs", runId);
   fs.mkdirSync(runDir, { recursive: true });

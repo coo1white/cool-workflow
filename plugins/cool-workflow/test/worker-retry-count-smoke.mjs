@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 import { allocateWorkerScope, listWorkerScopes } from "../dist/shell/worker-isolation.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-worker-retry-"));
+const tmp = tmpDir("cw-worker-retry-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "worker-retry"));
 ensureRunDirs(paths);
 

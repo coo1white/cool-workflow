@@ -14,10 +14,10 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-cross-machine-"));
+const tmp = tmpDir("cw-cross-machine-");
 const machineAHome = path.join(tmp, "machine-a");
 const machineBHome = path.join(tmp, "machine-b");
 const machineACwd = path.join(tmp, "repo-a");

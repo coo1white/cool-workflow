@@ -16,8 +16,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { runBackend } from "../dist/shell/execution-backend/registry.js";
@@ -30,7 +30,7 @@ const readonly = showBundledSandboxProfile("readonly", ctx);
 clearAgentEnv();
 
 function main() {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-agent-sandbox-deny-"));
+  const work = tmpDir("cw-agent-sandbox-deny-");
   const stub = path.join(work, "stub-agent.js");
   // Booleans only (never real values) -- portable across dev machines and CI.
   fs.writeFileSync(

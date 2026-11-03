@@ -13,16 +13,16 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const GATE = path.resolve(import.meta.dirname, "..", "scripts", "release-gate.mjs");
 assert.ok(fs.existsSync(GATE), "release-gate.mjs must exist");
 
 let caseId = 0;
 function freshRepo() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-gate-${caseId++}-`));
+  const dir = tmpDir(`cw-gate-${caseId++}-`);
   git(dir, ["init", "-q", "-b", "work"]);
   git(dir, ["config", "user.email", "t@t"]);
   git(dir, ["config", "user.name", "t"]);
@@ -238,7 +238,7 @@ function seedReleaseWork(dir) {
   write(srcDir, "README.md", "more\n");
   commitAll(srcDir, "second commit");
 
-  const shallowDir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-gate-${caseId++}-shallow-`));
+  const shallowDir = tmpDir(`cw-gate-${caseId++}-shallow-`);
   const r0 = spawnSync("git", ["clone", "--depth", "1", "-q", `file://${srcDir}`, shallowDir], { encoding: "utf8" });
   assert.equal(r0.status, 0, `git clone --depth 1 must work:\n${r0.stderr}`);
   assert.equal(git(shallowDir, ["rev-parse", "--is-shallow-repository"]), "true",
@@ -264,7 +264,7 @@ function seedReleaseWork(dir) {
   write(srcDir, "README.md", "more\n");
   commitAll(srcDir, "second commit");
 
-  const noTagsDir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-gate-${caseId++}-notags-`));
+  const noTagsDir = tmpDir(`cw-gate-${caseId++}-notags-`);
   const r0 = spawnSync("git", ["clone", "--no-tags", "-q", `file://${srcDir}`, noTagsDir], { encoding: "utf8" });
   assert.equal(r0.status, 0, `git clone --no-tags must work:\n${r0.stderr}`);
   assert.equal(git(noTagsDir, ["rev-parse", "--is-shallow-repository"]), "false",

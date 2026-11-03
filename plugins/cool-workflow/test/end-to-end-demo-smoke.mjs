@@ -7,7 +7,6 @@
 // this test and understand the full CW lifecycle.
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 // v2 layout: the old flat dist modules split across core/ (pure) and shell/
@@ -23,6 +22,7 @@ import * as pipelineRunner from "../dist/core/pipeline/runner.js";
 import { writeRunNode } from "../dist/shell/node-store.js";
 import { createDefaultPipelineContract } from "../dist/core/pipeline/contract.js";
 import { commitState } from "../dist/shell/commit.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const RUNNER_OPTS = { persistNode: writeRunNode, saveCheckpoint, pathExists: (p) => fs.existsSync(p) };
 const runner = {
@@ -30,7 +30,7 @@ const runner = {
   advancePipeline: (run) => pipelineRunner.advancePipeline(run, RUNNER_OPTS)
 };
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-demo-"));
+const tmp = tmpDir("cw-demo-");
 const runId = "demo-run";
 const runDir = path.join(tmp, ".cw", "runs", runId);
 const paths = createRunPaths(runDir);

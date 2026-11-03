@@ -27,9 +27,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const REAL_FLOW = path.resolve(import.meta.dirname, "..", "scripts", "release-flow.mjs");
 assert.ok(fs.existsSync(REAL_FLOW), "release-flow.mjs must exist");
@@ -67,7 +67,7 @@ function resolveRealGit() {
 // A git fixture whose scripts/release-flow.mjs is a COPY of the real one, so its
 // pluginRoot resolves to the fixture (not the real checkout).
 function fixture() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-cut-hard-${caseId++}-`));
+  const dir = tmpDir(`cw-cut-hard-${caseId++}-`);
   run("git", ["init", "-q", "-b", "work"], dir);
   run("git", ["config", "user.email", "t@t"], dir);
   run("git", ["config", "user.name", "t"], dir);

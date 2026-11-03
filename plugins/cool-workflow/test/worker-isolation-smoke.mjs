@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -11,6 +10,7 @@ import { execFileSync } from "node:child_process";
 //   ../dist/trust-audit       -> ../dist/shell/trust-audit
 //   ../dist/worker-isolation  -> ../dist/shell/worker-isolation
 import { createDispatchManifest } from "../dist/shell/dispatch.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 import {
   createRunPaths,
   ensureRunDirs,
@@ -52,7 +52,7 @@ function validateWorkerBoundary(run, workerId, options = {}) {
   return validateSandboxWrite(scope.sandboxPolicy, rawPath, workerId);
 }
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-worker-isolation-"));
+const tmp = tmpDir("cw-worker-isolation-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "worker-smoke"));
 ensureRunDirs(paths);
 

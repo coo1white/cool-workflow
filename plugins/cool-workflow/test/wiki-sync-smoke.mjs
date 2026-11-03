@@ -16,8 +16,8 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 import {
   MIRROR_DIR,
   REDIRECTS_FILE,
@@ -65,7 +65,7 @@ for (const file of pages) {
 }
 
 // 2. The script, for real, into a temp wiki checkout.
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-wiki-sync-"));
+const tmp = tmpDir("cw-wiki-sync-");
 try {
   const wiki = path.join(tmp, "wiki");
   fs.mkdirSync(wiki);

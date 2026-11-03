@@ -17,10 +17,10 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const DOCTOR = path.join(pluginRoot, "scripts", "release-doctor.mjs");
@@ -48,7 +48,7 @@ process.on("exit", () => {
 // operator's clone `work` at the origin/main tip with a GitHub noreply
 // identity. Returns paths and a base env.
 function world() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), `cw-release-doctor-${caseId++}-`));
+  const root = tmpDir(`cw-release-doctor-${caseId++}-`);
   roots.push(root);
   const home = path.join(root, "home");
   const bin = path.join(root, "bin");

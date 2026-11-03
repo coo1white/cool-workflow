@@ -137,7 +137,7 @@ test at most 59,500, `mkdtempSync` files at most 40, no `core` edge out.
 | 1a Unused exports (29 lost `export`; `compactCheckpoint` and `deferredPayloadProbeCapabilities` kept, see the smoke) | done | #840 |
 | 1c Capability-table shim, layer test | done | #844 |
 | 2 Byte-identical helpers (sha256Local, fingerprintStrings, errMessage, formatCounts x3; frozen files untouched) | done | #845 |
-| 3 Test helpers and migrations | 3a (#847), 3b env and 3d stub-agent (#851) done; 3c workspace part 1 (114 tests, realpath'd folders only; 270 -> 164 files with `mkdtempSync`) in this PR | |
+| 3 Test helpers and migrations | 3a (#847), 3b env and 3d stub-agent (#851), 3c part 1 (#852) done; 3c part 2 (the rest of the folders; 164 -> 5 files with `mkdtempSync`) in this PR; 3e next | |
 | 4 `shell/commands/` | | |
 | 5 `drive.ts` pure functions | | |
 | 7 Close and archive | | |

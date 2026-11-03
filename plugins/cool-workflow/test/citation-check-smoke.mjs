@@ -16,8 +16,8 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const script = path.join(pluginRoot, "scripts", "citation-check.mjs");
@@ -42,7 +42,7 @@ function run(env) {
   assert.ok(/all resolve/.test(r.stdout), `pass output must say so, got: ${r.stdout}`);
 }
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-citation-"));
+const tmp = tmpDir("cw-citation-");
 try {
   fs.mkdirSync(path.join(tmp, "src"), { recursive: true });
   fs.writeFileSync(path.join(tmp, "src", "real.ts"), "export {};\n");

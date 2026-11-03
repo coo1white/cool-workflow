@@ -7,15 +7,15 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 
 import { inspectArchive } from "../dist/shell/run-export.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 const cli = path.join(import.meta.dirname, "..", "dist", "cli.js");
 const node = process.execPath;
 
-function freshDir(tag) { return fs.mkdtempSync(path.join(os.tmpdir(), `cw-inspect-${tag}-`)); }
+function freshDir(tag) { return tmpDir(`cw-inspect-${tag}-`); }
 function cliInspect(archivePath, cwd) {
   const r = spawnSync(node, [cli, "run", "inspect-archive", archivePath, "--json"], { cwd, encoding: "utf8" });
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };

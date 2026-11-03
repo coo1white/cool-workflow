@@ -10,8 +10,8 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const script = path.join(pluginRoot, "scripts", "growth-budget-check.mjs");
@@ -37,7 +37,7 @@ function git(args, cwd) {
   assert.ok(/frozen=\d+ paths within ceiling/.test(r.stdout), `pass output must name the frozen count, got: ${r.stdout}`);
 }
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-growth-"));
+const tmp = tmpDir("cw-growth-");
 try {
   git(["init", "-q"], tmp);
   git(["config", "user.email", "test@example.com"], tmp);

@@ -9,10 +9,10 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import os from "node:os";
 import path from "node:path";
 import { serializeRunState, saveCheckpoint, createRun } from "../../dist/shell/run-store.js";
 import { writePartsDurable } from "../../dist/shell/fs-atomic.js";
+import { tmpDir } from "../helpers/workspace.mjs";
 
 function same(run, label) {
   const got = serializeRunState(run);
@@ -92,7 +92,7 @@ same({ a: [[1, [2]], { b: [] }] }, "nested arrays");
 
 // 2. saveCheckpoint's file is exactly JSON.stringify + "\n", save after save.
 {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-state-serializer-"));
+  const work = tmpDir("cw-state-serializer-");
   try {
     const run = createRun(path.join(work, ".cw", "runs", "ser-run"), "ser-run", "ser-probe", work);
     for (let i = 0; i < 4; i++) {
@@ -123,7 +123,7 @@ same({ a: [[1, [2]], { b: [] }] }, "nested arrays");
 
 // 4. A short writev (7 bytes at a time) still writes every byte, in order.
 {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-write-parts-"));
+  const work = tmpDir("cw-write-parts-");
   const writev = fs.writevSync;
   try {
     const parts = ["{\n", "  \"a\": [\n    ", "\"é\"", ",\n    ", "", "12345678901234567890", "\n  ]\n}\n"].map((s) => Buffer.from(s, "utf8"));

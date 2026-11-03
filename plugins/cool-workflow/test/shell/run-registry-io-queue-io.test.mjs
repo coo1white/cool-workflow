@@ -13,8 +13,9 @@ import path from "node:path";
 
 import { RunRegistry, resolveCwHome } from "../../dist/shell/run-registry-io.js";
 import { readJson } from "../../dist/shell/fs-atomic.js";
+import { tmpDir } from "../helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-registry-io-"));
+const tmp = tmpDir("cw-registry-io-");
 
 function freshRegistry(name) {
   const repo = path.join(tmp, name, "repo");

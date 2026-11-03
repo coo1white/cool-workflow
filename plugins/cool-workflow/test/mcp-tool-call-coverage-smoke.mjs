@@ -10,7 +10,6 @@
 // when dispatch handlers are wired for all called tools, as they are today.
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { callTool } from "../dist/mcp/dispatch.js";
@@ -19,8 +18,9 @@ import { callTool } from "../dist/mcp/dispatch.js";
 // pipelinePlan(loadWorkflowApp(appId), opts).
 import { plan as pipelinePlan } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-mcp-tool-call-"));
+const tmp = tmpDir("cw-mcp-tool-call-");
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 
 // ---- Error cases ----

@@ -2,9 +2,9 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const fixtureRoot = path.join(import.meta.dirname, "fixtures", "runs");
@@ -34,7 +34,7 @@ function verifyFixture(fixtureId) {
   const fixtureStatePath = path.join(fixtureRoot, fixtureId, "state.json");
   const beforeHash = hashFile(fixtureStatePath);
   const fixtureState = JSON.parse(fs.readFileSync(fixtureStatePath, "utf8"));
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `cw-fixture-${fixtureId}-`));
+  const tmp = tmpDir(`cw-fixture-${fixtureId}-`);
   const runDir = path.join(tmp, ".cw", "runs", fixtureId);
   fs.mkdirSync(runDir, { recursive: true });
   const tempStatePath = path.join(runDir, "state.json");

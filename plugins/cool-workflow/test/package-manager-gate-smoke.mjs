@@ -21,8 +21,8 @@
 import assert from "node:assert";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const PIN = "bun@1.4.1";
 const SECOND_LOCKS = ["package-lock.json", "pnpm-lock.yaml", "yarn.lock"];
@@ -70,7 +70,7 @@ assert.deepStrictEqual(gate(repoRoot, pluginRoot), [], "the real tree must pass 
 // The gate must still bite: a bad copy in a temp dir goes red on all seven
 // checks (one second-lock filename and one install script are enough — each
 // loop body is the same for every name in its list).
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-package-manager-gate-"));
+const tmp = tmpDir("cw-package-manager-gate-");
 const badPlugin = path.join(tmp, "plugins", "cool-workflow");
 fs.mkdirSync(path.join(tmp, ".github", "workflows"), { recursive: true });
 fs.mkdirSync(badPlugin, { recursive: true });

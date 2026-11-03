@@ -22,8 +22,8 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const script = path.join(pluginRoot, "scripts", "sync-project-index.mjs");
@@ -47,7 +47,7 @@ function runCheck(env) {
   );
 }
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-index-sync-"));
+const tmp = tmpDir("cw-index-sync-");
 try {
   const base = fs.readFileSync(committedDoc, "utf8");
 

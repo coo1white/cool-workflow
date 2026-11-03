@@ -6,13 +6,13 @@
 // cw_commit, operator.status, worker.summary) has a real handler.
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { spawn } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-mcp-app-surface-"));
+const tmp = tmpDir("cw-mcp-app-surface-");
 const server = spawn(process.execPath, [path.join(pluginRoot, "dist/mcp-server.js")], {
   cwd: pluginRoot,
   env: { ...process.env, CW_MCP_TOOLS: "full" },

@@ -23,9 +23,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { runEndpointBatchOutcomes, prepareEndpointJob } from "../dist/shell/execution-backend/agent.js";
@@ -201,7 +201,7 @@ async function main() {
 
   // ---- 4. PREPARED-OUTCOME settle through runAgentEndpoint (no re-spawn) --------
   {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-endpoint-settle-"));
+    const dir = tmpDir("cw-endpoint-settle-");
     try {
       const resultPath = path.join(dir, "result.md");
       // success: the runner stdout carried a `result` body; settle writes it as

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 // v2 layout: old flat dist/state + dist/sandbox-profile were re-homed.
 // createRunPaths/ensureRunDirs/loadRunFromCwd/saveCheckpoint now live in
@@ -21,7 +21,7 @@ import {
   validateSandboxProfileFile,
 } from "../dist/shell/sandbox-profile.js";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-sandbox-profile-"));
+const tmp = tmpDir("cw-sandbox-profile-");
 const cli = path.join(import.meta.dirname, "../dist/cli.js");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "sandbox-smoke"));
 ensureRunDirs(paths);

@@ -14,14 +14,14 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import * as agentConfigModule from "../../dist/shell/agent-config.js";
+import { tmpDir } from "../helpers/workspace.mjs";
 
 const pluginRoot = path.join(import.meta.dirname, "..", "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-opencode-pin-"));
+const tmp = tmpDir("cw-opencode-pin-");
 const cwHome = path.join(tmp, "home");
 fs.mkdirSync(cwHome, { recursive: true });
 

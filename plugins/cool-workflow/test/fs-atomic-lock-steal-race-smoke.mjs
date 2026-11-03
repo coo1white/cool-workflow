@@ -57,9 +57,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const node = process.execPath;
@@ -100,7 +100,7 @@ function spawnAllAndWait(procs) {
 // FILE_LOCK_STALE_MS), barrier-release N real child processes at it
 // together, and return the max concurrent-hold depth seen in the log.
 async function trial() {
-  const base = fs.mkdtempSync(path.join(os.tmpdir(), "cw-lock-steal-race-"));
+  const base = tmpDir("cw-lock-steal-race-");
   const target = path.join(base, "store.json");
   const lock = `${target}.lock`;
   const logFile = path.join(base, "log.txt");

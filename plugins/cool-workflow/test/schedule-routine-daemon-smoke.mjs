@@ -16,13 +16,13 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const node = process.execPath;
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-schedule-routine-"));
+const tmp = tmpDir("cw-schedule-routine-");
 
 // v2: the flat scheduler.ts/triggers.ts/daemon.ts modules were folded into
 // one shell/scheduler-io.ts — all three exports live there now.
@@ -153,7 +153,7 @@ assert.equal(scheduler.delete(jittered.id).deleted, true);
 assert.equal(scheduler.delete(jittered.id).deleted, false);
 
 // Store tolerance: a partial store (no arrays) loads as empty, not a crash.
-const partialDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-schedule-partial-"));
+const partialDir = tmpDir("cw-schedule-partial-");
 const partialStorePath = path.join(partialDir, ".cw", "schedules", "tasks.json");
 fs.mkdirSync(path.dirname(partialStorePath), { recursive: true });
 fs.writeFileSync(partialStorePath, JSON.stringify({ schemaVersion: 1 }), "utf8");
@@ -220,7 +220,7 @@ assert.equal(triggers.fire("api", { anything: true }).find((e) => e.triggerId ==
 // DesktopSchedulerDaemon — tick writes the due inbox.
 // ---------------------------------------------------------------------------
 
-const daemonDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-daemon-"));
+const daemonDir = tmpDir("cw-daemon-");
 const daemonScheduler = new Scheduler(daemonDir);
 const dueSoon = daemonScheduler.create({ prompt: "daemon picks me up", intervalMinutes: 1 });
 // Backdate nextRunAt so the daemon's wall-clock tick sees a due task.
@@ -239,7 +239,7 @@ assert.equal(inbox.due[0].id, dueSoon.id);
 // CLI surface — the same operations through the commands users type.
 // ---------------------------------------------------------------------------
 
-const cliDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-schedule-cli-"));
+const cliDir = tmpDir("cw-schedule-cli-");
 
 function runJson(args) {
   return JSON.parse(
@@ -281,7 +281,7 @@ assert.ok(fs.existsSync(cliDaemonTick.inboxPath));
 // the real forever daemon (no --once): on a corrupt store the first tick
 // throws, safeTick returns false, and run() returns so the process exits.
 {
-  const badDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-daemon-corrupt-"));
+  const badDir = tmpDir("cw-daemon-corrupt-");
   fs.mkdirSync(path.join(badDir, ".cw", "schedules"), { recursive: true });
   fs.writeFileSync(path.join(badDir, ".cw", "schedules", "tasks.json"), "{corrupt", "utf8");
   const daemonRun = spawnSync(node, [cli, "schedule", "daemon"], { cwd: badDir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 15000 });

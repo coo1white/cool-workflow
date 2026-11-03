@@ -8,7 +8,6 @@ import assert from "node:assert/strict";
 import cp from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { tmpDir } from "./helpers/workspace.mjs";
 
@@ -107,7 +106,7 @@ const changed = run([
 assert.deepEqual(changed.map((record) => record.path).sort(), ["a.txt", "new.txt"], "changed export applies include/exclude");
 assert.ok(changed.every((record) => record.changedFrom === baseRef), "changedFrom is recorded");
 
-const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-batch-cache-"));
+const cacheDir = tmpDir("cw-source-context-batch-cache-");
 const first = runRaw(["export", "--profile", "smoke", "--profile-file", profile, "--repo-root", repo, "--ref", "HEAD", "--cache-dir", cacheDir]);
 assert.equal(first.status, 0, `cached export failed\n${first.stderr}`);
 const second = runRaw(["export", "--profile", "smoke", "--profile-file", profile, "--repo-root", repo, "--ref", "HEAD", "--cache-dir", cacheDir]);

@@ -19,8 +19,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const script = path.join(pluginRoot, "scripts", "sync-readme.mjs");
@@ -28,7 +28,7 @@ const npmReadme = path.join(pluginRoot, "README.md");
 
 const cleanups = [];
 function tmpFile(tag) {
-  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), `cw-readme-${tag}-`)), "README.md");
+  const f = path.join(tmpDir(`cw-readme-${tag}-`), "README.md");
   cleanups.push(path.dirname(f));
   return f;
 }

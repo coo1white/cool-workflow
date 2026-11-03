@@ -33,10 +33,10 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const ONECLICK = path.join(pluginRoot, "scripts", "release-oneclick.mjs");
@@ -46,7 +46,7 @@ const VERSION = "99.99.99"; // no such tag/CHANGELOG section in the real repo
 
 let caseId = 0;
 function tmp() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `cw-oneclick-resume-${caseId++}-`));
+  return tmpDir(`cw-oneclick-resume-${caseId++}-`);
 }
 
 // A stub `git`: records every argv line to GIT_STUB_REC and answers just the

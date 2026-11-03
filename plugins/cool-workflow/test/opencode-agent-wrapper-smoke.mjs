@@ -10,9 +10,9 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import * as agentConfigModule from "../dist/shell/agent-config.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const wrapper = path.join(pluginRoot, "scripts", "agents", "opencode-agent.js");
@@ -31,7 +31,7 @@ opencode shim answer
 `;
 
 function shimDir(behavior) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-opencode-shim-"));
+  const dir = tmpDir("cw-opencode-shim-");
   const shim = path.join(dir, "opencode");
   const source = `#!/usr/bin/env node
 const fs = require("node:fs");
@@ -97,7 +97,7 @@ function readInvocation(dir) {
 }
 
 function main() {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-opencode-wrapper-smoke-"));
+  const work = tmpDir("cw-opencode-wrapper-smoke-");
   const inputPath = path.join(work, "input.md");
   const resultPath = path.join(work, "result.md");
   const marker = "Check release path marker-opencode-77.";

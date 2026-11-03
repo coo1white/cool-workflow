@@ -24,16 +24,16 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const CLI = path.join(import.meta.dirname, "..", "dist", "cli.js");
 const MCP = path.join(import.meta.dirname, "..", "dist", "mcp-server.js");
 assert.ok(fs.existsSync(CLI), "dist/cli.js must exist (run npm run build)");
 assert.ok(fs.existsSync(MCP), "dist/mcp-server.js must exist (run npm run build)");
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-mcp-advisory-"));
+const tmp = tmpDir("cw-mcp-advisory-");
 
 function cli(args) {
   const r = spawnSync("node", [CLI, ...args, "--cwd", tmp], { encoding: "utf8" });

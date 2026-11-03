@@ -11,7 +11,6 @@
 // worker write — the test pins worker-path re-binding via $workerDir tokens.
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 // --- v2 cutover: repoint requires to the v2 dist layout ------------------------
@@ -23,6 +22,7 @@ import path from "node:path";
 import { createDispatchManifest } from "../dist/shell/dispatch.js";
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 import { getWorkerScope } from "../dist/shell/worker-isolation.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 import {
   resolveSandboxProfileById,
   SandboxProfileError,
@@ -71,7 +71,7 @@ function sandboxContextForRun(run) {
   };
 }
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-h7-custom-profile-"));
+const tmp = tmpDir("cw-h7-custom-profile-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "h7-smoke"));
 ensureRunDirs(paths);
 

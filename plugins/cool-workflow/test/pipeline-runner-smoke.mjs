@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { createDefaultPipelineContract } from "../dist/core/pipeline/contract.js";
@@ -14,6 +13,7 @@ import * as pipelineRunner from "../dist/core/pipeline/runner.js";
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 import { writeRunNode } from "../dist/shell/node-store.js";
 import { appendRunNode, createStateNode } from "../dist/core/state/state-node.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const RUNNER_OPTS = { persistNode: writeRunNode, saveCheckpoint, pathExists: (p) => fs.existsSync(p) };
 const runner = {
@@ -24,7 +24,7 @@ const runner = {
     pipelineRunner.runPipelineStage(run, stageId, inputNodeId, options, RUNNER_OPTS)
 };
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-pipeline-runner-"));
+const tmp = tmpDir("cw-pipeline-runner-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "runner-smoke"));
 ensureRunDirs(paths);
 const taskPath = path.join(paths.tasksDir, "task.md");

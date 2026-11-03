@@ -10,14 +10,14 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const node = process.execPath;
 // Private state home so nothing reads/writes the host's CW state.
-const home = fs.mkdtempSync(path.join(os.tmpdir(), "cw-node-handler-"));
+const home = tmpDir("cw-node-handler-");
 const env = { ...process.env, CW_HOME: home, XDG_STATE_HOME: home };
 
 function runFail(args) {

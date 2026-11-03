@@ -25,10 +25,10 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..", "..", "..");
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -182,7 +182,7 @@ function sign(verdictPath) {
  *  cut() (verdict commit is the reviewed sha's CHILD; the tag lands on the
  *  child). Returns { dir, R, R2 } (R2 == HEAD == the tag's commit). */
 function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = false, forgedHeadVerdict = false, breakParentInstall = false } = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-wf-sig-"));
+  const dir = tmpDir("cw-wf-sig-");
   git(["init", "-q", "-b", "main"], dir);
   git(["config", "user.email", "t@t"], dir);
   git(["config", "user.name", "t"], dir);
@@ -362,7 +362,7 @@ function runScript(script, cwd, env) {
  *  would: same cwd, a fresh RUNNER_TEMP. A failing copy step stops the job
  *  (the verify step never runs), as in GitHub Actions. */
 function runWorkflow(fetchScript, verifyScript, cwd, env = {}) {
-  const runnerTemp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-wf-runner-temp-"));
+  const runnerTemp = tmpDir("cw-wf-runner-temp-");
   const jobEnv = { RUNNER_TEMP: runnerTemp, ...env };
   const f = runScript(fetchScript, cwd, jobEnv);
   if (f.code !== 0) return { ...f, fetchFailed: true };
@@ -663,7 +663,7 @@ function neuterVerifierAndTag(dir, tag) {
 // falling back to the tag's copy.
 {
   const fixture = buildFixture({ committedPubkey: true, sigFor: "real" });
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-wf-origin-edit-"));
+  const work = tmpDir("cw-wf-origin-edit-");
   git(["clone", "-q", `${fixture.dir}-origin.git`, work], work);
   git(["config", "user.email", "t@t"], work);
   git(["config", "user.name", "t"], work);

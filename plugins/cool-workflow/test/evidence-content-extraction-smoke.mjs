@@ -2,10 +2,10 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { extractEvidenceContent, resolveEvidenceLocator } from "../dist/core/trust/evidence-grounding.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 // v2 made core/trust/evidence-grounding pure: it never imports fs/path itself.
 // resolveEvidenceLocator/unresolvedFileEvidence take injected (exists, isAbsolute,
@@ -29,7 +29,7 @@ const readFile = (p) => {
   }
 };
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-evidence-content-"));
+const tmp = tmpDir("cw-evidence-content-");
 const testFile = path.join(tmp, "test.ts");
 fs.writeFileSync(testFile, "line one\nline two\nline three has evidence\nline four\n", "utf8");
 

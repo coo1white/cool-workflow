@@ -14,8 +14,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
@@ -47,7 +47,7 @@ function makeRun(tmp, id) {
 }
 
 function metricsSummaryLimit() {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-metrics-limit-"));
+  const tmp = tmpDir("cw-metrics-limit-");
   const N = 5;
   for (let i = 0; i < N; i++) makeRun(tmp, `run-${i}`);
 
