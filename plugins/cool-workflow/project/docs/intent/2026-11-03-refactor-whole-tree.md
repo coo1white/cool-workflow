@@ -113,7 +113,7 @@ test at most 59,500, `mkdtempSync` files at most 40, no `core` edge out.
 
 | Phase | State | PR |
 |---|---|---|
-| 0 Facts, smoke-durations | in this PR | |
+| 0 Facts, smoke-durations (286 entries from one full run: +111, -2 dead keys) | in this PR | #839 |
 | 1a Unused exports | | |
 | 1c Capability-table shim, layer test | | |
 | 2 Byte-identical helpers | | |
