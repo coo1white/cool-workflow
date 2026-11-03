@@ -127,6 +127,21 @@ of the digest). When `CW_CHECK_PRIVKEY` names an ed25519 private key (PEM
 text or a file), the receipt also has `signature` (ed25519 over the
 digest text). CW never hands that key to an agent.
 
+What an unsigned receipt does and does not prove. Anyone can work out a
+digest, so an unsigned receipt shows only that the file was not changed
+after it was written; it does not show that CW wrote it. It catches the
+common case (an agent that says "the tests pass" without running them,
+or after a run that failed), but not an agent that writes a whole false
+receipt file into `.cw/receipts/`. To shut that out, keep a key where
+the agent cannot read it: set `CW_CHECK_PRIVKEY` when you run `cw
+check`, and `CW_CHECK_PUBKEY` for the runs that cite receipts, so an
+unsigned or wrongly signed receipt is turned down (`receipt-unsigned`).
+On the agent side, an agent sandbox (`CW_AGENT_SANDBOX=srt`) lets the
+agent write only its worker folder and the sandbox profile's write
+paths; with a profile that does not give write to the repo (`readonly`),
+the agent cannot put a file in `.cw/receipts/`. A profile that writes the
+repo does not keep it out.
+
 A worker result, or a person, cites a receipt as evidence:
 `receipt:<id>`. When a result is taken in (`cw worker output`, the
 drive) and again at the verifier-gated commit, CW checks every cited

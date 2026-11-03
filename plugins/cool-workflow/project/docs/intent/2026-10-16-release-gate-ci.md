@@ -653,3 +653,12 @@ Default output this changes, each said in its man page, version 0.3.3 ->
 
 Left as it is: the bundle's default place (the folder `cw` runs in), which
 a change would move for every script that reads it there.
+
+Two more default outputs change with the done receipt, the 0.4.0
+headline the same answer picked ("修卡点 + 收据 (推荐)"): `cw help` gains
+the row `check -- <command>  Run your tests, keep a receipt` (and `check`
+joins the known command words), and `cw doctor --onramp` gains the
+quick-start line `cw check -- npm test — keep a receipt that your tests
+passed; a result can cite it (no agent needed)`. Both are said in
+`verifier-gated-commit.7.md`; the v2 fixture `cli-help/_root.txt` pins
+the first. A run that cites no receipt keeps its report and bundle bytes.
