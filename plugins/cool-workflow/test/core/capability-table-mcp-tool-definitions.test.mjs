@@ -13,7 +13,7 @@
 //     into this flat, AND-only list).
 
 import assert from "node:assert/strict";
-import { mcpToolDefinitions } from "../../dist/core/capability-table.js";
+import { mcpToolDefinitions } from "../../dist/wiring/capability-table/index.js";
 import { COMMON_PROPERTY_TYPES } from "../../dist/core/capability-data.js";
 
 // Every definition has the exact top-level shape: name, description,

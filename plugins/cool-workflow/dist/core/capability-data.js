@@ -4,7 +4,7 @@
 //
 // The capability table itself (REGISTRY, CLI bindings, real handler
 // bodies, which import from ../shell/) lives under wiring/capability-table/;
-// core/capability-table.ts re-exports it and the types below. This file has
+// entry layers import its types from here. This file has
 // ZERO imports of its own.
 //
 // ONE data table plus two generic front-door readers (`cli/dispatch.ts`,

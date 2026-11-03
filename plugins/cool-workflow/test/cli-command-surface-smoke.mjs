@@ -2,7 +2,7 @@
 // This smoke guards against the CLI regressing into one big command-switch
 // dispatch. src/cli.ts is a thin binary entrypoint that delegates to
 // src/cli/entry.ts (runCli, parseArgv-based parsing); verbs are rows in the
-// capability table (core/capability-table.ts), dispatched by the generic
+// capability table (wiring/capability-table/), dispatched by the generic
 // executor in src/cli/dispatch.ts — not inline arms of a command switch.
 // dispatch.ts keeps only a small `dispatchLegacy` switch of milestone
 // carry-over placeholders, documented as never hand-extended again.
@@ -48,7 +48,7 @@ assert.match(entry, /parseArgv\(/, "cli/entry.ts must preserve parseArgv-based C
 // the compiled REGISTRY is the one place they are all guaranteed to show
 // up, regardless of which slice a verb's row happens to live in.
 const dispatch = fs.readFileSync(srcDispatch, "utf8");
-import { REGISTRY } from "../dist/core/capability-table.js";
+import { REGISTRY } from "../dist/wiring/capability-table/index.js";
 for (const v of ["feedback", "metrics", "migration", "sandbox", "backend", "contract"]) {
   assert.ok(
     REGISTRY.some((row) => row.cli && row.cli.path[0] === v),

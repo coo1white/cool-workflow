@@ -16,14 +16,14 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { CAPABILITY_REGISTRY } from "../dist/core/capability-table.js";
+import { CAPABILITY_REGISTRY } from "../dist/wiring/capability-table/index.js";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const DOC = path.join(pluginRoot, "docs", "cli-mcp-parity.7.md");
 const CHECK = process.argv.includes("--check");
 
 // v2 repoint: the flat dist/capability-registry.js is gone. The single
-// source of truth is now core/capability-table's REGISTRY (same row shape:
+// source of truth is now wiring/capability-table's REGISTRY (same row shape:
 // capability, surface, cli, mcp, payloadIdentical, reason, entry, ...),
 // exported under the old name too (CAPABILITY_REGISTRY = REGISTRY, an
 // alias declared in capability-table.ts for callers written against the

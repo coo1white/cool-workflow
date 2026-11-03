@@ -13,7 +13,7 @@ import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..", "..");
 import { GLOBAL_CLI_FLAGS, unknownFlagKeys, warnUnknownFlags } from "../../dist/cli/global-flags.js";
-import { REGISTRY } from "../../dist/core/capability-table.js";
+import { REGISTRY } from "../../dist/wiring/capability-table/index.js";
 
 function fakeStream(isTTY) {
   const buf = [];

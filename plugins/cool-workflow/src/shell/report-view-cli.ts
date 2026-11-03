@@ -2,7 +2,7 @@
 // <run-id>`, `cw status`, `cw graph`, `cw operator status|report|graph`.
 //
 // Wires shell/operator-ux.ts + shell/report.ts + shell/operator-ux-text.ts
-// into the shapes core/capability-table.ts's CLI/MCP bindings call,
+// into the shapes wiring/capability-table's CLI/MCP bindings call,
 // matching shell/pipeline-cli.ts's pattern.
 //
 // Evidence: SPEC/reporting-ux.md "CLI commands" (`cw report`, `cw

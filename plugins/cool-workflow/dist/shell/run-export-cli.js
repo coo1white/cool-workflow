@@ -1,7 +1,7 @@
 // shell/run-export-cli.ts — CLI/MCP-facing entry points for `cw run
 // export|import|verify-import|inspect-archive|restore`.
 //
-// Wires shell/run-export.ts into the shapes core/capability-table.ts's
+// Wires shell/run-export.ts into the shapes wiring/capability-table's
 // CLI/MCP bindings call, matching shell/report-cli.ts's pattern.
 //
 // Evidence: SPEC/reporting-ux.md "Run export / import / restore".

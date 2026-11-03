@@ -43,7 +43,7 @@ import path from "node:path";
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { quickstartRun } from "../dist/shell/pipeline-cli.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
-import * as capabilityTableModule from "../dist/core/capability-table.js";
+import * as capabilityTableModule from "../dist/wiring/capability-table/index.js";
 import streamModule from "node:stream";
 // v2: QUICKSTART_DEFAULT_APP is a private module const; its value is the
 // contract asserted here.

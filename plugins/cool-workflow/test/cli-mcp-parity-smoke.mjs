@@ -22,7 +22,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
-// v2 replaced the flat capability-registry module with core/capability-table
+// v2 replaced the flat capability-registry module with wiring/capability-table
 // (REGISTRY + declaredMcpTools/findCapabilityByCliPath/cliCapabilities/...).
 // The whole parity-report + payload-probe-plan API this smoke needs
 // (buildParityReport, payloadProbePlan, CAPABILITY_REGISTRY,
@@ -32,7 +32,7 @@ const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 // v2 is table-driven. The live gate proves each declared path through the
 // dispatcher lookup and reads real `cw help`; it does not use a token list made
 // from the registry as proof of that same registry.
-import * as registry from "../dist/core/capability-table.js";
+import * as registry from "../dist/wiring/capability-table/index.js";
 import { cliHelpTokens, cliReachabilityIssues } from "../scripts/parity-check.mjs";
 
 function liveMcpToolDefinitions() {

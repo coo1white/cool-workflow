@@ -108,10 +108,10 @@ function contract(files) {
 // touch today (self-audit-cool-workflow-v0.2.6.md P2).
 {
   const report = contract([
-    "plugins/cool-workflow/src/core/capability-table.ts",
+    "plugins/cool-workflow/src/wiring/capability-table/index.ts",
     "plugins/cool-workflow/test/cli-mcp-parity-smoke.mjs"
   ]);
-  assert.equal(report.ok, false, "core/capability-table.ts");
+  assert.equal(report.ok, false, "wiring/capability-table/index.ts");
   assert.ok(codes(report).includes("surface-docs-required"), codes(report).join(", "));
 }
 {
@@ -159,12 +159,12 @@ function contract(files) {
 {
   const smokes = recommendSmokeTests([
     "plugins/cool-workflow/src/doctor.ts",
-    "plugins/cool-workflow/src/core/capability-table.ts"
+    "plugins/cool-workflow/src/wiring/capability-table/index.ts"
   ], pluginRoot);
   assert.ok(smokes.includes("doctor-smoke.mjs"), "doctor smoke is recommended");
   assert.ok(smokes.includes("cli-mcp-parity-smoke.mjs"), "CLI/MCP parity smoke is recommended");
   const report = contract([
-    "plugins/cool-workflow/src/core/capability-table.ts",
+    "plugins/cool-workflow/src/wiring/capability-table/index.ts",
     "plugins/cool-workflow/test/cli-mcp-parity-smoke.mjs",
     "plugins/cool-workflow/docs/cli-mcp-parity.7.md"
   ]);

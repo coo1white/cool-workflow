@@ -17,7 +17,7 @@ const gen = path.join(pluginRoot, "scripts", "gen-parity-doc.mjs");
 
 // DEFERRED-TOOLING: this smoke spawns scripts/gen-parity-doc.mjs --check, and
 // that SCRIPT (line 25) still require()s the old flat dist/capability-registry.js,
-// which v2 removed (its source of truth is now core/capability-table's REGISTRY).
+// which v2 removed (its source of truth is now wiring/capability-table's REGISTRY).
 // So --check crashes with MODULE_NOT_FOUND and this assertion trips. Repointing the
 // gen-parity-doc.mjs script to the v2 module is the separate tooling-repoint job
 // (gen-parity-doc is on the deferred list); the test file's own import is already
@@ -33,9 +33,9 @@ assert.equal(
 // Sanity: the generated matrix actually reflects the registry size (catches a
 // generator that no-ops against an empty/partial registry).
 // v2 repoint: the flat dist/capability-registry.js is gone. Its single source of
-// truth is now core/capability-table's REGISTRY (same array shape: capability,
+// truth is now wiring/capability-table's REGISTRY (same array shape: capability,
 // surface, cli, mcp, ...). Same intent: the registry is not empty/partial.
-import { REGISTRY as CAPABILITY_REGISTRY } from "../dist/core/capability-table.js";
+import { REGISTRY as CAPABILITY_REGISTRY } from "../dist/wiring/capability-table/index.js";
 // 157 capabilities since the multi-agent family went (slim-and-esm step 2).
 assert.ok(CAPABILITY_REGISTRY.length >= 150, `registry unexpectedly small (${CAPABILITY_REGISTRY.length})`);
 

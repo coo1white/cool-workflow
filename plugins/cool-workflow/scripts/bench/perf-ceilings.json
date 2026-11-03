@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
   "ceilings": {
-    "app-list.modules": 42,
-    "doctor.modules": 42,
+    "app-list.modules": 41,
+    "doctor.modules": 41,
     "drive.fsyncs": 158,
     "drive.gitProcesses": 0,
-    "drive.modules": 92,
+    "drive.modules": 91,
     "drive.renames": 350,
     "drive.stateReads": 3,
     "drive.stateRoundTrips": 3,
-    "help.modules": 27,
-    "mcp-initialize.modules": 24,
-    "status-no-run.modules": 27,
-    "version.modules": 27
+    "help.modules": 26,
+    "mcp-initialize.modules": 23,
+    "status-no-run.modules": 26,
+    "version.modules": 26
   }
 }

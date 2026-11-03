@@ -9,8 +9,8 @@
 // as pure (no IO) and shell/ as the only impure layer, and say this is
 // "enforced by a lint rule". No such lint exists anywhere in scripts/ or
 // package.json — only `tsc --noEmit`, which does not check import
-// direction. The one place the rule is already broken is the hub itself:
-// core/capability-table.ts imports ~30 things from ../shell.
+// direction. (The core/capability-table.ts re-export shim that broke it was
+// removed in the whole-tree refactor, phase 1c, 2026-11-03.)
 //
 // This is a RATCHET, not a clean-slate rule (matching dist-drift-check.mjs's
 // and version-sync-check.mjs's style: node + git only, no new dependency).
@@ -26,10 +26,10 @@
 // Layers (by top-level directory under src/):
 //   core/**   -> may only import core/** (+ node:path, node:crypto)
 //   shell/**  -> may import core/** or shell/**
-//   wiring/** -> may import core/**, shell/**, or wiring/** (not yet used;
-//               reserved for the capability-table split)
-//   cli/**    -> may import core/**, shell/**, or cli/** (never mcp/**)
-//   mcp/**    -> may import core/**, shell/**, or mcp/** (never cli/**)
+//   wiring/** -> may import core/**, shell/**, or wiring/** (the capability
+//               table, which composes shell for the entry layers)
+//   cli/**    -> may import core/**, shell/**, wiring/**, or cli/** (never mcp/**)
+//   mcp/**    -> may import core/**, shell/**, wiring/**, or mcp/** (never cli/**)
 //
 // Approach: a plain-text specifier scan (import/export-from/require), not a
 // real TS parser — this codebase uses only those three forms, verified
@@ -50,8 +50,8 @@ const ALLOWED_TARGET_LAYERS = {
   core: new Set(["core"]),
   shell: new Set(["core", "shell"]),
   wiring: new Set(["core", "shell", "wiring"]),
-  cli: new Set(["core", "shell", "cli"]),
-  mcp: new Set(["core", "shell", "mcp"]),
+  cli: new Set(["core", "shell", "wiring", "cli"]),
+  mcp: new Set(["core", "shell", "wiring", "mcp"]),
   other: new Set(["core", "shell", "wiring", "cli", "mcp", "other"]),
 };
 

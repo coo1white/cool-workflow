@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // This smoke drives the built dist/mcp-server.js over stdio, walking the
 // app -> worker -> commit -> operator MCP surface: tools/list reports the
-// full tool set (src/core/capability-table.ts MCP_TOOL_DATA), and each tool
+// full tool set (src/wiring/capability-table/ MCP_TOOL_DATA), and each tool
 // this smoke calls (cw_sandbox_choose, cw_app_run, cw_worker_manifest,
 // cw_commit, operator.status, worker.summary) has a real handler.
 import assert from "node:assert/strict";

@@ -14,11 +14,10 @@
 // The header/flags/more-commands banner text stays hard-coded (it is not
 // capability-table data — see SPEC/cli-help/_root.txt). The per-verb
 // subcommand-row table (`COMMAND_HELP_ROWS`) is a MIX: a verb whose
-// capability has a per-subcommand `cli` binding in core/capability-table.ts
+// capability has a per-subcommand `cli` binding in wiring/capability-table/
 // is read from the capability table via `cliCommandHelpRows()`; every other
 // verb stays literal here. A CLI `--help` walk and an MCP `tools/list`
 // round-trip read the SAME table rows for any capability wired into both.
-import { cliCapabilities } from "../capability-table.js";
 /** The "More commands" token set, in its pinned order (space-joined in
  *  the source, pipe-joined for display). `update` is not in it: the verb
  *  has no code behind it (`cw update` says "Unknown command"), so the help
@@ -58,7 +57,7 @@ function wrapPipeJoined(tokens, width) {
     return lines;
 }
 /** The per-verb subcommand rows, keyed by the verb (`cli.path[0]`). Verbs
- *  whose capability has a real `cli` binding in core/capability-table.ts
+ *  whose capability has a real `cli` binding in wiring/capability-table/
  *  (`list`, `version`, `status`, ...) are read from `cliCommandHelpRows()`
  *  instead (see `formatCommandHelp` below) and are DELIBERATELY ABSENT from
  *  this literal table — do not re-add them here, that would be exactly the
@@ -72,7 +71,7 @@ const COMMAND_HELP_ROWS = {
     // paths and these verbs each have MANY subcommands handled by one internal
     // switch — so the row's `cli` binding is a dispatch/usage-error mechanism,
     // not a per-subcommand help entry, and is marked `hiddenFromHelp` for
-    // exactly that reason (core/capability-table.ts). The per-subcommand
+    // exactly that reason (wiring/capability-table/). The per-subcommand
     // summaries a human reads via `cw help clones` come from literal rows here.
     clones: [
         {
@@ -229,8 +228,8 @@ export function formatHelp() {
  *  `cw <path.join(" ")>` / `summary`. Merged into `formatCommandHelp` below
  *  so a verb can have BOTH literal rows and table-derived rows without
  *  duplicating data by hand. */
-function cliCommandHelpRows(verb) {
-    return cliCapabilities()
+function cliCommandHelpRows(verb, capabilities) {
+    return capabilities
         .filter((row) => row.cli.path[0] === verb && !row.cli.hiddenFromHelp)
         .map((row) => ({
         command: `cw ${(row.cli.helpPath ?? row.cli.path).join(" ")}`,
@@ -244,8 +243,8 @@ function cliCommandHelpRows(verb) {
  *  alias up the same way the dispatcher does (registry-core.ts's
  *  findCapabilityByCliPath alias branch: a row whose `caseTokens` holds
  *  the token) and returns the verb the alias dispatches to. */
-function aliasTargetVerb(verb) {
-    for (const row of cliCapabilities()) {
+function aliasTargetVerb(verb, capabilities) {
+    for (const row of capabilities) {
         if (row.cli.caseTokens && row.cli.caseTokens.includes(verb) && row.cli.path[0] !== verb) {
             return row.cli.path[0];
         }
@@ -258,12 +257,12 @@ function aliasTargetVerb(verb) {
  *  (a `caseTokens` token like `audit-run`) gets an alias header line plus
  *  its target verb's rows, never the unknown-verb text (whose Did-you-mean
  *  line would suggest the very verb the user just typed). */
-export function formatCommandHelp(verb, suggestCommand) {
-    const rows = [...(COMMAND_HELP_ROWS[verb] ?? []), ...cliCommandHelpRows(verb)];
+export function formatCommandHelp(verb, suggestCommand, capabilities) {
+    const rows = [...(COMMAND_HELP_ROWS[verb] ?? []), ...cliCommandHelpRows(verb, capabilities)];
     if (rows.length === 0) {
-        const target = aliasTargetVerb(verb);
+        const target = aliasTargetVerb(verb, capabilities);
         if (target) {
-            const targetRows = [...(COMMAND_HELP_ROWS[target] ?? []), ...cliCommandHelpRows(target)];
+            const targetRows = [...(COMMAND_HELP_ROWS[target] ?? []), ...cliCommandHelpRows(target, capabilities)];
             if (targetRows.length > 0) {
                 return renderCommandHelpRows(`cw ${verb} — alias of cw ${target}`, targetRows);
             }

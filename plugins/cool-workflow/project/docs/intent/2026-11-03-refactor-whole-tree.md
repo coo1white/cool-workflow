@@ -101,6 +101,19 @@ Run in `plugins/cool-workflow/`.
 7. Close: fill the snapshot diff and what this spec got wrong, write a
    receipt under `project/docs/audits/`, archive this file.
 
+### Phase 1c as built (2026-11-03)
+
+The shim was not only a core-to-wiring edge: purity-gate.mjs let cli, mcp
+and shell import core but not wiring, so the shim was how all three
+reached the table. Done under the operator's standing instruction
+("别问我了，都按照你的推荐迭代"): cli and mcp may import wiring (the gate's
+rule now says entry layers sit above wiring); `core/format/help.ts` takes
+the CLI rows as a parameter from cli/, so core imports only core
+(`test/core/layer-direction.test.mjs`); and the one real shell-to-wiring
+use, `shell/workbench.ts` (frozen), is the one layer entry left in
+`scripts/purity-baseline.json`. Every verb loads one module fewer
+(`perf-ceilings.json` lowered, e.g. `drive.modules` 92 -> 91).
+
 ## Acceptance
 
 Every PR: smoke, unit and v2 conformance pass counts the same before and
@@ -120,9 +133,9 @@ test at most 59,500, `mkdtempSync` files at most 40, no `core` edge out.
 
 | Phase | State | PR |
 |---|---|---|
-| 0 Facts, smoke-durations (286 entries from one full run: +111, -2 dead keys) | in this PR | #839 |
-| 1a Unused exports | | |
-| 1c Capability-table shim, layer test | | |
+| 0 Facts, smoke-durations (286 entries from one full run: +111, -2 dead keys) | done | #839 |
+| 1a Unused exports (29 lost `export`; `compactCheckpoint` and `deferredPayloadProbeCapabilities` kept, see the smoke) | done | #840 |
+| 1c Capability-table shim, layer test | in this PR | |
 | 2 Byte-identical helpers | | |
 | 3 Test helpers and migrations | | |
 | 4 `shell/commands/` | | |

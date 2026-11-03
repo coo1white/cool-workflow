@@ -23,8 +23,10 @@ policy:
 
 ## Mechanism vs Policy
 
-The mechanism is the capability registry at `src/core/capability-table.ts`
-(compiled to `dist/core/capability-table.js`). It is the one true source. Every
+The mechanism is the capability registry at `src/wiring/capability-table/`
+(compiled to `dist/wiring/capability-table/index.js`; the old core re-export
+of it is gone since 0.4.0, as it made core depend on wiring). It is the one
+true source. Every
 capability names one shared core `entry` — the mechanism both surfaces go
 through — plus its CLI command, its MCP tool, the surface it is on, and whether
 its payload is the same across surfaces.
@@ -413,8 +415,8 @@ The CLI dispatch surface is table-driven, not a hand-kept `switch`. The source
 tree is small: `src/cli/entry.ts` (process entry), `src/cli/parseargv.ts`
 (argv reading), `src/cli/dispatch.ts` (the one dispatcher), and `src/cli/io.ts`
 (output helpers: `printJson`, `styledHelp`). `dispatch(args)` looks the parsed
-command up in the capability table (`src/core/capability-table.ts`, put
-together from the slices under `src/wiring/capability-table/`) and runs that
+command up in the capability table (`src/wiring/capability-table/index.ts`,
+put together from the slices beside it) and runs that
 row's `cli.handler` — a new capability is a new table row, never a new `case`.
 The shared arg helpers (`required`, `optionalArg`, `wantsJson`) live in
 `src/core/util/cli-args.ts`, a pure module used by the CLI and MCP sides of
