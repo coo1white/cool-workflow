@@ -69,7 +69,7 @@ for (const [file, body] of text) {
   for (const m of body.matchAll(/^export\s+(?:async\s+)?(?:function|const|let|class)\s+([A-Za-z_$][\w$]*)/gm)) {
     const name = m[1];
     if (KEEP.has(name) || /_SCHEMA_VERSION$/.test(name)) continue;
-    const word = new RegExp(`\\b${name.replace(/\$/g, "\\$")}\\b`);
+    const word = new RegExp(`\\b${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
     const named = [...text].some(([other, otherBody]) => other !== file && word.test(otherBody));
     if (!named) unused.push(`${path.relative(pluginRoot, file)}: ${name}`);
   }
