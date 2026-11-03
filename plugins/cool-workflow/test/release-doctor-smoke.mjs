@@ -87,6 +87,33 @@ function world() {
   // release-oneclick.mjs also requires the required-CI-checks reader (its cut
   // stage waits on those checks).
   fs.copyFileSync(path.join(pluginRoot, "scripts", "release-ci-checks.mjs"), path.join(pkgDir, "scripts", "release-ci-checks.mjs"));
+  // A stand-in release-flow.mjs: --preflight-only passes (unless
+  // STUB_FLOW=preflight-fail); the cut itself always fails, the way
+  // STUB_FLOW says: "reject" (the reviewer said no, nothing committed),
+  // "verdict-commit" (the cut's own verdict commit made, then git tag
+  // failed), "tag" (verdict commit + local tag made, then the push failed),
+  // "operator-commit" (a commit the tool does not make).
+  fs.writeFileSync(path.join(pkgDir, "scripts", "release-flow.mjs"),
+    "import fs from 'node:fs';\n" +
+    "import { spawnSync } from 'node:child_process';\n" +
+    "const mode = process.env.STUB_FLOW || 'reject';\n" +
+    "const version = process.argv[process.argv.indexOf('--version') + 1];\n" +
+    "if (process.argv.includes('--preflight-only')) process.exit(mode === 'preflight-fail' ? 1 : 0);\n" +
+    "const git = (...a) => { const r = spawnSync('git', a, { encoding: 'utf8' }); if (r.status !== 0) throw new Error(r.stderr); return r.stdout.trim(); };\n" +
+    "const top = git('rev-parse', '--show-toplevel');\n" +
+    "const head = git('rev-parse', 'HEAD');\n" +
+    "if (mode === 'verdict-commit' || mode === 'tag') {\n" +
+    "  fs.writeFileSync(`${top}/.cw-release/review-${head}.verdict`, `APPROVED ${head}\\ncap.\\n`);\n" +
+    "  git('-C', top, 'add', `.cw-release/review-${head}.verdict`);\n" +
+    "  git('-C', top, 'commit', '-q', '-m', `chore(release): record APPROVED reviewer verdict for v${version}`);\n" +
+    "  if (mode === 'tag') git('-C', top, 'tag', '-a', `v${version}`, '-m', 'cut');\n" +
+    "}\n" +
+    "if (mode === 'operator-commit') {\n" +
+    "  fs.writeFileSync(`${top}/README.md`, 'operator work\\n');\n" +
+    "  git('-C', top, 'commit', '-q', '-am', 'wip: operator work');\n" +
+    "}\n" +
+    "process.stderr.write(`release-flow stub: ${mode}\\n`);\n" +
+    "process.exit(1);\n");
   fs.writeFileSync(path.join(pkgDir, "dist", "shell", "agent-config.js"),
     "\"use strict\";\n" +
     "function resolveAgentConfig(flags, env) {\n" +
@@ -96,6 +123,11 @@ function world() {
     "  return { source: 'env', command: parts[0], args: parts.slice(1) };\n" +
     "}\n" +
     "module.exports = { resolveAgentConfig };\n");
+  fs.mkdirSync(path.join(pkgDir, "dist", "core", "util"), { recursive: true });
+  fs.writeFileSync(path.join(pkgDir, "dist", "core", "util", "cli-args.js"),
+    "\"use strict\";\n" +
+    "function agentCommandArgv(command, args) { return { binary: command, args: args || [] }; }\n" +
+    "module.exports = { agentCommandArgv };\n");
   sh("git", ["add", "-A"], seed, gitEnv);
   sh("git", ["commit", "-q", "-m", "seed"], seed, gitEnv);
   sh("git", ["push", "-q", "origin", "main"], seed, gitEnv);
@@ -205,13 +237,26 @@ function noSecret(w, r) {
   assert.ok(sh("git", ["branch", "--list", `release/v${VERSION}-cut`], w.work, w.gitEnv), "the doctor must not delete the branch");
   noSecret(w, r);
 
-  // Back on an up-to-date main, the leftover branch alone still fails.
+  // Back on an up-to-date main, the leftover branch holds only old main
+  // commits and no v1.2.3 tag exists: the release tool made it and may remove
+  // it, so the doctor warns (and says so) instead of failing — and still
+  // deletes nothing itself.
   sh("git", ["checkout", "-q", "main"], w.work, w.gitEnv);
   sh("git", ["pull", "-q", "--ff-only", "origin", "main"], w.work, w.gitEnv);
   const r2 = doctor(w, [VERSION, "--json"]);
-  assert.equal(r2.code, 1);
+  assert.equal(r2.code, 0, `a tool-made leftover alone must not fail the doctor:\n${r2.err}`);
   assert.equal(byId(json(r2), "head-current").status, "ok");
-  assert.equal(byId(json(r2), "cut-branch").status, "fail");
+  const left = byId(json(r2), "cut-branch");
+  assert.equal(left.status, "warn");
+  assert.match(left.message, /made by the release tool/);
+  assert.match(left.fix, /git branch -D release\/v1\.2\.3-cut .*npm run release -- 1\.2\.3/);
+  assert.ok(sh("git", ["branch", "--list", `release/v${VERSION}-cut`], w.work, w.gitEnv), "the doctor must not delete the branch");
+  // --offline cannot check origin for the tag, so it cannot prove the branch
+  // is the tool's: the FAIL stays (fail closed).
+  const off = doctor(w, [VERSION, "--json", "--offline"]);
+  assert.equal(off.code, 1);
+  assert.equal(byId(json(off), "cut-branch").status, "fail");
+  assert.match(byId(json(off), "cut-branch").message, /offline/);
 }
 
 // ---- Case: dirty tracked tree fails; .cw/ only warns -------------------------
@@ -330,8 +375,8 @@ function noSecret(w, r) {
 // ---- Case: `npm run release` runs the same checks FIRST ---------------------
 // A copy of release-oneclick.mjs sits in the fixture (its repoRoot is derived
 // from its own path). With a dirty tree and a missing reviewer it must stop in
-// stage 0 and name BOTH problems — before release-flow.mjs (absent from the
-// fixture) or any bump/cut stage is reached.
+// stage 0 and name BOTH problems — before the stand-in release-flow.mjs or
+// any bump/cut stage is reached.
 {
   const w = world();
   fs.writeFileSync(path.join(w.work, "README.md"), "edited\n");
@@ -352,4 +397,141 @@ function noSecret(w, r) {
   assert.ok(!fs.existsSync(w.ranMarker), "the reviewer must never run");
 }
 
-process.stdout.write("release-doctor-smoke: ok (stale branch, dirty tree, reviewer binary, signing key file, identity/gh/tag warnings, all-at-once report, oneclick stage 0)\n");
+// ---- Leftover release/vX.Y.Z-cut: the tool cleans up its own, only its own --
+// `npm run release` against the fixture, run to a FAILED cut through the
+// stand-in release-flow.mjs (--local-tests: no CI wait). Owner's ask after
+// three cuts on 2026-11-03 left the branch and the next doctor FAILed on it.
+const CUT = `release/v${VERSION}-cut`;
+let mainMoves = 0;
+function oneclick(w, flow, args = []) {
+  const r = spawnSync(process.execPath, [path.join(w.work, "plugins", "cool-workflow", "scripts", "release-oneclick.mjs"), VERSION, "--local-tests", ...args], {
+    cwd: w.work,
+    encoding: "utf8",
+    env: { ...w.env, STUB_FLOW: flow },
+    shell: false
+  });
+  return { code: r.status, out: r.stdout || "", err: r.stderr || "" };
+}
+function branchSha(w, name) {
+  const r = spawnSync("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${name}`], { cwd: w.work, encoding: "utf8", env: w.gitEnv });
+  return r.status === 0 ? r.stdout.trim() : "";
+}
+function current(w) {
+  return sh("git", ["branch", "--show-current"], w.work, w.gitEnv);
+}
+function originRefs(w) {
+  return sh("git", ["ls-remote", "origin"], w.work, w.gitEnv);
+}
+// Leave release/v1.2.3-cut at the current commit, then move origin/main on
+// (and the operator's main with it), the shape a stopped cut leaves behind.
+function leaveOldCutBranch(w) {
+  sh("git", ["branch", CUT], w.work, w.gitEnv);
+  fs.writeFileSync(path.join(w.seed, "README.md"), `newer ${++mainMoves}\n`);
+  sh("git", ["commit", "-q", "-am", "newer main"], w.seed, w.gitEnv);
+  sh("git", ["push", "-q", "origin", "main"], w.seed, w.gitEnv);
+  sh("git", ["pull", "-q", "--ff-only", "origin", "main"], w.work, w.gitEnv);
+}
+
+// Case: the reviewer rejects the cut -> the branch this run made is gone and
+// the operator is back on main; origin is untouched.
+{
+  const w = world();
+  const refs = originRefs(w);
+  const r = oneclick(w, "reject");
+  assert.equal(r.code, 1, `a rejected cut fails:\n${r.err}`);
+  assert.match(r.err, /release-flow stub: reject/);
+  assert.match(r.err, /cut failed — see the release-flow\.mjs output above/);
+  assert.match(r.err, /release-oneclick: removed release\/v1\.2\.3-cut \([0-9a-f]{12}\), made by this run: the cut stopped before tag v1\.2\.3 was made, no tag v1\.2\.3, and it holds no commit that is not on origin\/main; back on main\./);
+  assert.equal(branchSha(w, CUT), "", "the rejected cut's branch must be removed");
+  assert.equal(current(w), "main", "the operator is back on the branch the run started on");
+  assert.equal(originRefs(w), refs, "origin's branches and tags are never touched");
+  assert.equal(doctor(w, [VERSION, "--json"]).code, 0, "the next doctor is clean");
+}
+
+// Case: the cut made its own verdict commit, then stopped before any tag ->
+// that commit is the tool's, so the branch is removed too.
+{
+  const w = world();
+  const r = oneclick(w, "verdict-commit");
+  assert.equal(r.code, 1);
+  assert.match(r.err, /removed release\/v1\.2\.3-cut .*its one commit not on origin\/main is the cut's own verdict commit; back on main\./);
+  assert.equal(branchSha(w, CUT), "");
+  assert.equal(current(w), "main");
+}
+
+// Case: a tag was made (the push failed) -> the branch is KEPT: that cut is
+// mid-flight and a re-run resumes it; the tag is never touched.
+{
+  const w = world();
+  const r = oneclick(w, "tag");
+  assert.equal(r.code, 1);
+  assert.match(r.err, /release-oneclick: kept release\/v1\.2\.3-cut: tag v1\.2\.3 exists locally/);
+  assert.doesNotMatch(r.err, /removed/);
+  assert.ok(branchSha(w, CUT), "a cut whose tag was made keeps its branch");
+  assert.ok(sh("git", ["tag", "-l", `v${VERSION}`], w.work, w.gitEnv), "the tag is never deleted");
+}
+
+// Case: the stopped cut left a commit the tool does not make -> KEPT.
+{
+  const w = world();
+  const r = oneclick(w, "operator-commit");
+  assert.equal(r.code, 1);
+  assert.match(r.err, /kept release\/v1\.2\.3-cut: it holds 1 commit\(s\) not on origin\/main that the release tool did not make/);
+  assert.ok(branchSha(w, CUT));
+}
+
+// Case: an old tool-made leftover is removed at the START of the next cut,
+// before stage 0 (here stage 0 then fails, so only the sweep can have removed it).
+{
+  const w = world();
+  leaveOldCutBranch(w);
+  assert.equal(byId(json(doctor(w, [VERSION, "--json"])), "cut-branch").status, "warn");
+  const r = oneclick(w, "preflight-fail");
+  assert.equal(r.code, 1);
+  assert.match(r.err, /release-oneclick: removed leftover branch release\/v1\.2\.3-cut \([0-9a-f]{12}\) from an earlier cut that stopped: no tag v1\.2\.3, and it holds no commit that is not on origin\/main\./);
+  assert.match(r.err, /preflight failed/);
+  assert.doesNotMatch(r.out, /\[2\/4\]/, "the cut stage never ran");
+  assert.equal(branchSha(w, CUT), "", "the leftover must be removed at the start");
+  // --dry-run never deletes.
+  leaveOldCutBranch(w);
+  oneclick(w, "preflight-fail", ["--dry-run"]);
+  assert.ok(branchSha(w, CUT), "--dry-run must not delete the leftover");
+}
+
+// Case: an old leftover with an operator commit on it -> KEPT at the start,
+// stage 0 now FAILs on it (the cut stage's checkout -B would reset it), and
+// the doctor still FAILs.
+{
+  const w = world();
+  leaveOldCutBranch(w);
+  sh("git", ["checkout", "-q", CUT], w.work, w.gitEnv);
+  fs.writeFileSync(path.join(w.work, "NOTES.md"), "mine\n");
+  sh("git", ["add", "NOTES.md"], w.work, w.gitEnv);
+  sh("git", ["commit", "-q", "-m", "operator note"], w.work, w.gitEnv);
+  sh("git", ["checkout", "-q", "main"], w.work, w.gitEnv);
+  const sha = branchSha(w, CUT);
+  const d = doctor(w, [VERSION, "--json"]);
+  assert.equal(d.code, 1, "operator work on the branch keeps the doctor FAIL");
+  const c = byId(json(d), "cut-branch");
+  assert.equal(c.status, "fail");
+  assert.match(c.message, /not removed for you: it holds 1 commit\(s\) not on origin\/main that the release tool did not make/);
+  const r = oneclick(w, "reject");
+  assert.equal(r.code, 1);
+  assert.doesNotMatch(r.err, /removed/);
+  assert.match(r.err, /release-oneclick: FAIL cut-branch: .*the cut stage would reset it from origin\/main/);
+  assert.doesNotMatch(r.out, /\[2\/4\]/, "the cut stage must not reset operator work");
+  assert.equal(branchSha(w, CUT), sha, "operator work is never deleted or moved");
+}
+
+// Case: a v1.2.3 tag on origin -> a leftover is KEPT and the doctor FAILs on it.
+{
+  const w = world();
+  leaveOldCutBranch(w);
+  sh("git", ["tag", "-a", `v${VERSION}`, "-m", "cut"], w.seed, w.gitEnv);
+  sh("git", ["push", "-q", "origin", `refs/tags/v${VERSION}`], w.seed, w.gitEnv);
+  const c = byId(json(doctor(w, [VERSION, "--json"])), "cut-branch");
+  assert.equal(c.status, "fail");
+  assert.match(c.message, /tag v1\.2\.3 exists on origin/);
+}
+
+process.stdout.write("release-doctor-smoke: ok (stale branch, dirty tree, reviewer binary, signing key file, identity/gh/tag warnings, all-at-once report, oneclick stage 0, leftover cut branch cleanup)\n");

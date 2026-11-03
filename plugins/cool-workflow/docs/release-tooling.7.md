@@ -355,7 +355,7 @@ version is by default the one in `plugins/cool-workflow/package.json`.
 | Check | Fails when | Fix it gives |
 |---|---|---|
 | `head-current` | after `git fetch origin main`, HEAD is not the `origin/main` tip (names both shas and the current branch) | `git checkout main && git pull --ff-only origin main` |
-| `cut-branch` | a local `release/vX.Y.Z-cut` branch is not at `origin/main` (old code from an earlier cut) | `git branch -D release/vX.Y.Z-cut` (never deleted for you) |
+| `cut-branch` | a local `release/vX.Y.Z-cut` branch is not at `origin/main` (old code from an earlier cut), and it does not pass the "made by the tool" test below (or `--offline` cannot check origin for the tag); a warning when it does pass, since `npm run release -- X.Y.Z` removes it at the start | `git branch -D release/vX.Y.Z-cut` (the doctor never deletes it) |
 | `clean-tree` | `git status --porcelain -uno` is not empty | commit or stash |
 | `cw-dir` | (warning) a `.cw/` folder is at the repo root | `rm -rf <repo>/.cw` |
 | `reviewer` | the reviewer config `release-flow.mjs` reads (`CW_AGENT_COMMAND` > `agent-config.json` > auto-detect; else `CW_AGENT_ENDPOINT`) is not set, or its first argv token is not an executable file (a full path, or on `PATH`); the reviewer is never run | `export CW_AGENT_COMMAND=...` |
@@ -378,8 +378,51 @@ stops before anything is done when one fails, with only the problem lines on
 stderr. Two differences there: a `vX.Y.Z` tag that is already there is never
 seen by stage 0 (the resume goes straight to stage 3), and an old
 `release/vX.Y.Z-cut` branch is only a warning, because the cut stage makes
-it again from `origin/main` (`git checkout -B`). `--dry-run` keeps stage 0
-offline.
+it again from `origin/main` (`git checkout -B`) — but a failure when it holds
+a commit the tool did not make, since that reset would throw the commit
+away. `--dry-run` keeps stage 0 offline.
+
+### The leftover cut branch is cleaned up
+
+The cut stage of `npm run release -- X.Y.Z` works on a local branch,
+`release/vX.Y.Z-cut`. A cut that stops before its tag is made (the reviewer
+said no, a required CI check went red, the gate failed) used to leave that
+branch behind, and the next `release:doctor` failed on it until the operator
+deleted it by hand. Now the tool removes its own leftover, at two points:
+
+- When the cut stops before its tag is made, it switches back to the branch
+  (or detached commit) the run was started from, then removes the branch.
+- At the start of a fresh cut (before stage 0), it removes one that an
+  earlier cut left (a Ctrl-C, or a run from before this change). `--dry-run`
+  never removes anything.
+
+The branch is removed only when ALL of these hold; anything that cannot be
+proved keeps it (fail closed — work of the operator is never deleted):
+
+- its name is exactly `release/vX.Y.Z-cut`, and it is not checked out;
+- no `vX.Y.Z` tag exists, locally or on origin (a failed `ls-remote` keeps
+  it; a cut whose tag was made keeps its branch, and the re-run resumes it);
+- every commit on it that is not on `origin/main` was made by the cut: none,
+  or the ONE verdict commit (`chore(release): record APPROVED reviewer
+  verdict for vX.Y.Z`, one parent, adding only
+  `.cw-release/review-<parent>.verdict` and its `.sig`);
+- after a stop: its tip is the commit this run branched from, or this run's
+  verdict commit on it, and no tracked file is changed in the working tree.
+
+The delete is `git update-ref -d` pinned to the sha that was checked, plus the
+branch's `branch.<name>` config. It never deletes or moves a tag, never
+touches a remote branch, never touches `main`. One stderr line says what was
+done:
+
+```text
+release-oneclick: removed release/vX.Y.Z-cut (<sha>), made by this run: the cut stopped before tag vX.Y.Z was made, <reason>; back on <branch>.
+release-oneclick: removed leftover branch release/vX.Y.Z-cut (<sha>) from an earlier cut that stopped: <reason>.
+release-oneclick: kept release/vX.Y.Z-cut: <reason> (`npm run release:doctor -- X.Y.Z` says what to do with it).
+```
+
+The same test (`classifyCutBranch` in `scripts/release-preflight.mjs`) decides
+the doctor's `cut-branch` status: a warning for a branch the release run will
+remove, a failure for every other one. The doctor itself changes nothing.
 
 After the review, and before it bumps or stages anything, the cut checks the
 tracked tree again. The preflight made sure it was clean, so a change now came

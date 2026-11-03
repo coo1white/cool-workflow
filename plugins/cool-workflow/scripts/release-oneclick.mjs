@@ -48,6 +48,14 @@
 // a hard deadline and dies loudly after repeated gh/git failures — a hung
 // wait is indistinguishable from a dead release otherwise.
 //
+// Leftover cut branch: a cut that stops before its tag is made (a rejected
+// review, a red check, a failed gate) switches back to the branch the run
+// started on and removes the release/vX.Y.Z-cut branch it made; a fresh cut
+// first removes one an earlier stopped cut left. Both only when
+// classifyCutBranch() (release-preflight.mjs) proves the tool made it and
+// no vX.Y.Z tag exists; one stderr line says what was removed (or kept) and
+// why. A cut whose tag was made keeps its branch.
+//
 // Test seam: CW_ONECLICK_GH_CMD / CW_ONECLICK_GIT_CMD override the gh/git
 // binaries (single executable token, spawned shell:false) for smoke stubs;
 // CW_ONECLICK_REPO_ROOT points the stage-3 verdict copy at a temp folder.
@@ -56,7 +64,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { runChecks, formatFindings } from "./release-preflight.mjs";
+import { runChecks, formatFindings, createContext, classifyCutBranch, removeCutBranch } from "./release-preflight.mjs";
 import { queryRequiredChecks, REQUIRED_CHECKS } from "./release-ci-checks.mjs";
 
 const scriptsDir = import.meta.dirname;
@@ -71,9 +79,20 @@ const version = argv.find((a) => /^\d+\.\d+\.\d+$/.test(a));
 const GIT_BIN = (process.env.CW_ONECLICK_GIT_CMD || "git").trim();
 const GH_BIN = (process.env.CW_ONECLICK_GH_CMD || "gh").trim();
 
+// Set by the cut stage once it has made release/vX.Y.Z-cut, cleared once the
+// cut is done: every die() in between (a red CI check, a wait deadline, a
+// failed or rejected release-flow run) then removes the branch it made, when
+// that is safe (cleanupCutBranchAfterStop).
+let onCutStop = null;
+
 function die(msg, extra) {
   process.stderr.write(`release-oneclick: ${msg}\n`);
   if (extra) process.stderr.write(`${extra}\n`);
+  if (onCutStop) {
+    const cleanup = onCutStop;
+    onCutStop = null;
+    cleanup();
+  }
   process.exit(1);
 }
 function say(msg) {
@@ -341,9 +360,15 @@ function runCutStage() {
     return;
   }
   git(["fetch", "origin", "main", "--quiet"], { cwd: repoRoot });
+  // Where the operator ran from (a branch name, or a sha when detached): a
+  // cut that stops goes back there before it removes the branch it made.
+  const startBranch = git(["branch", "--show-current"], { cwd: repoRoot }).out;
+  const startRef = startBranch || git(["rev-parse", "HEAD"], { cwd: repoRoot }).out;
   const co = git(["checkout", "-B", `release/v${version}-cut`, "origin/main"], { cwd: repoRoot });
   if (co.code !== 0) die("could not branch from origin/main for the cut", co.err);
-  if (!LOCAL_TESTS) waitForRequiredChecks(git(["rev-parse", "HEAD"]).out);
+  const base = git(["rev-parse", "HEAD"]).out;
+  onCutStop = () => cleanupCutBranchAfterStop({ startBranch, startRef, base });
+  if (!LOCAL_TESTS) waitForRequiredChecks(base);
 
   const r = spawnSync("node", flowArgs, {
     cwd: pluginRoot,
@@ -351,7 +376,55 @@ function runCutStage() {
     stdio: "inherit"
   });
   if (r.status !== 0) die("cut failed — see the release-flow.mjs output above.");
+  onCutStop = null;
   say("cut complete: tag pushed, GitHub Release created.");
+}
+
+// ---- leftover cut branch: remove it when the tool made it --------------------
+// The rule is classifyCutBranch() in release-preflight.mjs (shared with
+// release:doctor): no vX.Y.Z tag (local or on origin), not checked out, and
+// no commit on it beyond origin/main but the cut's own verdict commit.
+// Anything it cannot prove keeps the branch (fail closed). Only the local
+// branch ref is ever deleted — never a tag, a remote branch, or main.
+function cutBranchContext() {
+  return createContext({ repoRoot, gitBin: GIT_BIN, ghBin: GH_BIN, offline: DRY_RUN });
+}
+
+// At the start of a fresh cut (before stage 0): an earlier cut that stopped
+// (a Ctrl-C, or a run from before this cleanup existed) may have left the
+// branch. Remove it when it passes the test; else leave it to stage 0's
+// cut-branch check. --dry-run never deletes.
+function sweepLeftoverCutBranch() {
+  if (DRY_RUN) return;
+  const ctx = cutBranchContext();
+  const cls = classifyCutBranch(ctx, version);
+  if (!cls.exists || !cls.removable) return;
+  const rm = removeCutBranch(ctx, cls);
+  if (rm.ok) process.stderr.write(`release-oneclick: removed leftover branch ${cls.branch} (${cls.sha.slice(0, 12)}) from an earlier cut that stopped: ${cls.reason}.\n`);
+}
+
+// A cut that stopped before its tag was made: go back to where the operator
+// started, then remove the branch this run made, if it passes the test with
+// its tip pinned to this run's base (or this run's verdict commit on it).
+// One stderr line either way.
+function cleanupCutBranchAfterStop({ startBranch, startRef, base }) {
+  const ctx = cutBranchContext();
+  const branch = `release/v${version}-cut`;
+  const kept = (why) => process.stderr.write(`release-oneclick: kept ${branch}: ${why} (\`npm run release:doctor -- ${version}\` says what to do with it).\n`);
+  if (startBranch === branch) return kept("the cut was started on that branch");
+  if (!startRef) return kept("could not tell where the cut was started from");
+  const cls = classifyCutBranch(ctx, version, { expectBase: base, allowCurrent: true });
+  if (!cls.exists) return;
+  if (!cls.removable) return kept(cls.reason);
+  if (git(["status", "--porcelain", "-uno"]).out) return kept("tracked files are changed in the working tree");
+  if (git(["branch", "--show-current"]).out === branch) {
+    const back = git(startBranch ? ["checkout", "-q", startBranch] : ["checkout", "-q", "--detach", startRef]);
+    if (back.code !== 0) return kept(`could not switch back to ${startBranch || startRef} (${back.err})`);
+  }
+  if (git(["branch", "--show-current"]).out === branch) return kept("it is still checked out");
+  const rm = removeCutBranch(ctx, cls);
+  if (!rm.ok) return kept(`git could not delete it (${rm.err})`);
+  process.stderr.write(`release-oneclick: removed ${branch} (${cls.sha.slice(0, 12)}), made by this run: the cut stopped before tag v${version} was made, ${cls.reason}; back on ${startBranch || startRef}.\n`);
 }
 
 // ---- stage 3: record on main + wait for CI + confirm npm -------------------
@@ -522,6 +595,7 @@ if (alreadyCut()) {
     runRecordAndWaitStage();
   }
 } else {
+  sweepLeftoverCutBranch();
   runPreflight();
   runBumpStage();
   runCutStage();
