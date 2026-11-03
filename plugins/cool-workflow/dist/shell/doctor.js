@@ -20,7 +20,7 @@ import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { agentProbeTarget, resolveAgentConfig } from "./agent-config.js";
 import { buildAgentChildEnv } from "./execution-backend/agent.js";
-import { splitAgentCommandLine } from "../core/util/cli-args.js";
+import { findProgram, splitAgentCommandLine } from "../core/util/cli-args.js";
 import { buildDoctorOnramp, optionEnabled } from "./onramp.js";
 import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store.js";
 import { verifyTrustAudit } from "./trust-audit.js";
@@ -34,21 +34,12 @@ function whichBinary(bin, env) {
             return undefined;
         }
     }
-    const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
-    const exts = process.platform === "win32" ? (env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
-    for (const dir of dirs) {
-        for (const ext of exts) {
-            const candidate = path.join(dir, bin + ext);
-            try {
-                if (fs.statSync(candidate).isFile())
-                    return candidate;
-            }
-            catch {
-                /* keep looking */
-            }
-        }
+    return findProgram(bin, env, process.platform, (file) => { try {
+        return fs.statSync(file).isFile();
     }
-    return undefined;
+    catch {
+        return false;
+    } });
 }
 /** True when `target` could be created/written: walk up to the nearest
  *  EXISTING ancestor and require it to be a writable DIRECTORY. Does NOT

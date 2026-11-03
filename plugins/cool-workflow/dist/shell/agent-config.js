@@ -12,7 +12,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { boolWord } from "../core/util/cli-args.js";
+import { boolWord, findProgram } from "../core/util/cli-args.js";
 import { writeJson } from "./fs-atomic.js";
 import { agentCommandArgv, splitAgentCommand } from "../core/util/cli-args.js";
 import { stripSecretArgs } from "./execution-backend/agent.js";
@@ -108,25 +108,13 @@ function detectAgentFromPath(env = process.env) {
     if (env.CW_NO_AUTO_AGENT === "1")
         return undefined;
     const known = ["claude", "codex", "gemini", "opencode", "muse"];
-    const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
-    const exts = process.platform === "win32" ? (env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
     const templates = builtinAgentTemplates();
-    for (const name of known) {
-        if (!templates[name])
-            continue;
-        for (const dir of dirs) {
-            for (const ext of exts) {
-                try {
-                    if (fs.statSync(path.join(dir, name + ext)).isFile())
-                        return name;
-                }
-                catch {
-                    /* keep looking */
-                }
-            }
-        }
+    return known.find((name) => templates[name] && findProgram(name, env, process.platform, (file) => { try {
+        return fs.statSync(file).isFile();
     }
-    return undefined;
+    catch {
+        return false;
+    } }));
 }
 const AGENTS_DIR = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
 function builtinManifest() {

@@ -8,6 +8,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { findProgram } from "../../core/util/cli-args.js";
 
 export interface BackendProbeCheck {
   name: string;
@@ -22,16 +23,7 @@ export interface BackendProbeBody {
 }
 
 export function hasExecutable(name: string, env: NodeJS.ProcessEnv = process.env): boolean {
-  const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
-  for (const dir of dirs) {
-    const candidate = path.join(dir, name);
-    try {
-      if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return true;
-    } catch {
-      // ignore unreadable PATH entries
-    }
-  }
-  return false;
+  return findProgram(name, env, process.platform, (file) => { try { return fs.statSync(file).isFile(); } catch { return false; } }) !== undefined;
 }
 
 export function probeNodeBackend(): BackendProbeBody {
