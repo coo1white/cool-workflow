@@ -11,10 +11,10 @@ import { resolveSandboxProfileById, sandboxContextForValidation } from "./sandbo
 import { normalizeResultEnvelope } from "../core/pipeline/result-normalize.js";
 import type { DoctorCheck } from "./doctor.js";
 
-export const AGENT_PROTOCOL = "cw-agent/1";
-export const CONFORMANCE_MARKER = "cw-conformance-ok";
+const AGENT_PROTOCOL = "cw-agent/1";
+const CONFORMANCE_MARKER = "cw-conformance-ok";
 
-export const CONFORMANCE_PROMPT = [
+const CONFORMANCE_PROMPT = [
   "This is a `cw doctor --conformance` check, not real work.",
   "Do not read, change or run anything. Answer with exactly this block and nothing else:",
   "",

@@ -14,8 +14,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { findCapability } from "../core/capability-table.js";
 import { loadRunFromCwd } from "./run-store.js";
-export const WORKBENCH_DEFAULT_PORT = 7717;
-export const WORKBENCH_UI_RELATIVE = "ui/workbench";
+const WORKBENCH_DEFAULT_PORT = 7717;
+const WORKBENCH_UI_RELATIVE = "ui/workbench";
 /** Parse and range-check a workbench `--port` value. Returns `undefined`
  *  when no port was given (the caller then uses WORKBENCH_DEFAULT_PORT),
  *  the validated integer otherwise. Throws a clear Error on a bad value —

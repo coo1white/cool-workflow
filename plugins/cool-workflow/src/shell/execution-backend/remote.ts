@@ -16,7 +16,7 @@ import { messageOf, fetchChildEnv, FETCH_CHILD_NODE_ARGS } from "../../core/util
 
 /** Resolves scripts/children/http-delegate-child.js next to the compiled
  *  module. Throws the exact broken-installation message when missing. */
-export function delegateChildScript(): string {
+function delegateChildScript(): string {
   // import.meta.dirname is dist/shell/execution-backend — three levels up reaches
   // the package root (scripts/ is a sibling of dist/, not two levels up).
   const resolved = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");

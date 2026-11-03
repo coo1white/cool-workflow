@@ -83,7 +83,7 @@ export function indent(text: string, spaces = 2): string {
 }
 
 /** A `==> Title` section header (brew-style). */
-export function sectionHeader(title: string, stream?: NodeJS.WriteStream): string {
+function sectionHeader(title: string, stream?: NodeJS.WriteStream): string {
   return `${bold("==>", stream)} ${title}`;
 }
 

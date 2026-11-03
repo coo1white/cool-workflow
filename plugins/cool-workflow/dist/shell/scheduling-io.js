@@ -37,7 +37,7 @@ export function normalizeSchedulingPolicy(input) {
     };
 }
 /** Deterministic backoff: baseMs * factor^(attempts-1), capped. No jitter. */
-export function backoffMs(policy, attempts) {
+function backoffMs(policy, attempts) {
     const raw = policy.backoffBaseMs * Math.pow(policy.backoffFactor, Math.max(0, attempts - 1));
     return Math.min(Math.round(raw), policy.backoffCapMs);
 }

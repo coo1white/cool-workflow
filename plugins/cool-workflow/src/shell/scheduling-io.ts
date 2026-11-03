@@ -81,7 +81,7 @@ export function normalizeSchedulingPolicy(input: Partial<SchedulingPolicy> | und
 }
 
 /** Deterministic backoff: baseMs * factor^(attempts-1), capped. No jitter. */
-export function backoffMs(policy: SchedulingPolicy, attempts: number): number {
+function backoffMs(policy: SchedulingPolicy, attempts: number): number {
   const raw = policy.backoffBaseMs * Math.pow(policy.backoffFactor, Math.max(0, attempts - 1));
   return Math.min(Math.round(raw), policy.backoffCapMs);
 }

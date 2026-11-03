@@ -179,7 +179,7 @@ function priceUsage(usage, price) {
     const cacheWrite = ((usage.cacheWriteTokens || 0) / 1_000_000) * (price.cacheWritePerMillion || 0);
     return input + output + cacheRead + cacheWrite;
 }
-export function deriveCost(rows, policy) {
+function deriveCost(rows, policy) {
     const currency = policy?.currency || "USD";
     if (rows.length === 0) {
         return { state: "unreported", currency, attestedUsd: null, estimatedUsd: null, policyId: policy?.id, unpricedModels: [], pricedCoverage: null, notes: ["No attested usage on this run; cost is unreported, not zero."] };
@@ -246,7 +246,7 @@ export function deriveCost(rows, policy) {
         notes,
     };
 }
-export function deriveFailureRate(run) {
+function deriveFailureRate(run) {
     const workers = run.workers || [];
     const memberships = run.multiAgent?.memberships || [];
     const feedback = run.feedback || [];
@@ -268,7 +268,7 @@ export function deriveFailureRate(run) {
         feedbackUnresolved,
     });
 }
-export function deriveVerifierPassRate(run) {
+function deriveVerifierPassRate(run) {
     const gates = (run.nodes || []).filter((n) => n.kind === "verifier");
     const buckets = {};
     let passed = 0;
@@ -285,7 +285,7 @@ export function deriveVerifierPassRate(run) {
     }
     return rate("verifier-pass", passed, decided, buckets);
 }
-export function deriveCandidateAcceptanceRate(run) {
+function deriveCandidateAcceptanceRate(run) {
     const candidates = run.candidates || [];
     const buckets = {};
     let accepted = 0;
@@ -315,7 +315,7 @@ function targetCreatedAt(run, target) {
         return (run.candidateSelections || []).find((e) => e.id === target.id)?.selectedAt;
     return undefined;
 }
-export function deriveCollaborationMetrics(run) {
+function deriveCollaborationMetrics(run) {
     const collab = run.collaboration;
     const approvalRecords = (collab?.approvals || []).filter((r) => r.decision === "approve");
     const rejectionRecords = (collab?.approvals || []).filter((r) => r.decision === "reject");
@@ -383,7 +383,7 @@ export function deriveMetricsReport(run, options) {
             : `cw metrics show ${run.id} --json`,
     };
 }
-export function metricsDir(run) {
+function metricsDir(run) {
     return path.join(run.paths.runDir, "metrics");
 }
 function metricsReportPath(run) {

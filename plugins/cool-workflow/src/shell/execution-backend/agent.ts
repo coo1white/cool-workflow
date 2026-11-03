@@ -265,7 +265,7 @@ export function parseAgentReport(
   return { model, usage, usageSignature };
 }
 
-export function agentSubstitutions(request: ExecutionRequest, model?: string): Record<string, string> {
+function agentSubstitutions(request: ExecutionRequest, model?: string): Record<string, string> {
   const manifest = request.manifest;
   const workerDir = manifest?.workerDir || request.cwd || "";
   return {
@@ -313,7 +313,7 @@ export function recordedAgentHandle(
   };
 }
 
-export function extractEndpointResult(stdout: string): string | undefined {
+function extractEndpointResult(stdout: string): string | undefined {
   const text = String(stdout || "").trim();
   if (!text) return undefined;
   try {

@@ -36,7 +36,7 @@ import {
 
 export const EXECUTION_BACKEND_SCHEMA_VERSION = 1;
 export const DEFAULT_BACKEND_ID = "node";
-export const SANDBOX_DIMENSIONS: SandboxDimension[] = ["read", "write", "command", "network", "env"];
+const SANDBOX_DIMENSIONS: SandboxDimension[] = ["read", "write", "command", "network", "env"];
 
 export class BackendError extends Error {
   code: string;
