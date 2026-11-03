@@ -194,7 +194,7 @@ cw check -- npm test   — keep a receipt that your tests passed; a result can c
 `cw help check` gives its words. The `cw help` front page is not
 changed: it keeps the five entries of 0.3.3 (unix-principles(7)). Two more
 outputs change, with the operator's named yes of 2026-11-03 in the same
-file, "Third review of 0.4.0":
+file, "Operator decisions for 0.4.0, third review":
 
 - `cw help`, the "More commands" list: its last line goes from
   `  man|version|fix|completion` to `  man|version|fix|completion|check`

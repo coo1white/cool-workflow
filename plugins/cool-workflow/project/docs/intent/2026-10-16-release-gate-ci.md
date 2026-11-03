@@ -685,7 +685,7 @@ read were hashed as a fixed word, so two unreadable trees matched (now
 the code state is unknown and a receipt tied to it is refused,
 `receipt-stale`, fail closed).
 
-### Third review of 0.4.0: the help row taken back (2026-11-03)
+### Operator decisions for 0.4.0, third review (2026-11-03)
 
 The cut was rejected a third time. The `check` row on the `cw help`
 front page made six entries where unix-principles(7) allows five, and
