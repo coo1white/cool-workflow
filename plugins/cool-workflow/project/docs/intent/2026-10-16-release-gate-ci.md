@@ -662,3 +662,25 @@ quick-start line `cw check -- npm test — keep a receipt that your tests
 passed; a result can cite it (no agent needed)`. Both are said in
 `verifier-gated-commit.7.md`; the v2 fixture `cli-help/_root.txt` pins
 the first. A run that cites no receipt keeps its report and bundle bytes.
+
+### Operator decisions for 0.4.0, named (2026-11-03)
+
+The 0.4.0 cut was rejected a second time: the quotes above did not name
+the strings they let change. The operator was then asked about each one
+by name, and answered, word for word (2026-11-03): "5 处全部同意 (推荐)"
+("all 5 agreed"). The question, word for word, listed the five:
+
+> 1) cw doctor / cw quickstart --check / cw -q 在没配 agent 时的修复提示，从「Pass --agent-command "claude -p"…」改成「Install an agent CLI such as Claude Code, then add -claude to your cw command…」；2) worker 失败停下时的提示改成点名 agent-stderr.log 日志文件，终端的 Why: 下多一行「All of it: <日志路径>」；3) cw report bundle 在终端里显示人话（存到哪、怎么换位置、下一步），不再显示 JSON；管道和 --json 不变；4) cw help 首页新增一行「check -- <command>  Run your tests, keep a receipt」；5) cw doctor --onramp 新增一行「cw check -- npm test — keep a receipt that your tests passed」。
+
+Each is said in its man page: 1 in `doctor.7.md` and
+`agent-delegation-drive.7.md`; 2 in `agent-delegation-drive.7.md`; 3 in
+`report-verifiable-bundle.7.md`; 4 and 5 in `verifier-gated-commit.7.md`
+(DONE RECEIPTS, "Where a new user finds it"), 5 also in `doctor.7.md`.
+The version raise is 0.3.3 -> 0.4.0.
+
+The same review found two faults in `cw check` (new in 0.4.0, so no
+default changes): a piped run echoed the command's output on stderr
+(now only on a terminal, Rule of Silence), and changes that could not be
+read were hashed as a fixed word, so two unreadable trees matched (now
+the code state is unknown and a receipt tied to it is refused,
+`receipt-stale`, fail closed).

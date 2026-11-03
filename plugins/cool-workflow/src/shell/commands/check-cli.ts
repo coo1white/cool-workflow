@@ -30,7 +30,7 @@ const USAGE = "Usage: cw check -- <command> [args...]  (for one: cw check -- npm
 export async function checkRunCli(positionals: string[], options: Record<string, unknown>): Promise<CliHandlerResult> {
   if (!positionals.length) throw new Error(USAGE);
   const repo = cwdArg(options, ["repo", "cwd"]);
-  const receipt = await runCheck(positionals, { repo, echo: !options.quiet });
+  const receipt = await runCheck(positionals, { repo, echo: !options.quiet && Boolean(process.stderr.isTTY) });
   const file = saveReceipt(repo, receipt);
   const verdict = judgeReceipt(receipt.id, receipt, readCodeState(repo), checkPublicKey());
   const passed = receipt.exitCode === 0;

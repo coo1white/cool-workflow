@@ -36,7 +36,10 @@ export function readCodeState(repo) {
     const hash = createHash("sha256");
     const parts = status.split("\0").filter(Boolean);
     if (parts.length) {
-        hash.update(git(repo, ["diff", "HEAD", "--binary", "--no-ext-diff", "--no-color", "--", ".", EXCLUDE_CW]) ?? "diff-unreadable");
+        const diff = git(repo, ["diff", "HEAD", "--binary", "--no-ext-diff", "--no-color", "--", ".", EXCLUDE_CW]);
+        if (diff === undefined)
+            return { gitHead: head, treeDigest: null, dirty: true };
+        hash.update(diff);
         const prefix = git(repo, ["rev-parse", "--show-prefix"])?.trim() || "";
         for (let i = 0; i < parts.length; i += 1) {
             const entry = parts[i];
@@ -46,7 +49,10 @@ export function readCodeState(repo) {
                 continue;
             const rel = entry.slice(3);
             const file = path.join(repo, path.relative(prefix, rel));
-            hash.update(`\0${rel}\0${untrackedBytesDigest(file)}`);
+            const digest = untrackedBytesDigest(file);
+            if (digest === undefined)
+                return { gitHead: head, treeDigest: null, dirty: true };
+            hash.update(`\0${rel}\0${digest}`);
         }
     }
     return { gitHead: head, treeDigest: `sha256:${hash.digest("hex")}`, dirty: parts.length > 0 };
@@ -58,7 +64,7 @@ function untrackedBytesDigest(file) {
         return createHash("sha256").update(bytes).digest("hex");
     }
     catch {
-        return "unreadable";
+        return undefined;
     }
 }
 class StreamTap {

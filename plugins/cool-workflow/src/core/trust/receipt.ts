@@ -128,8 +128,12 @@ export function judgeReceipt(id: string, raw: unknown, code: CodeState, publicKe
     return refuse("receipt-unsigned", `receipt ${id} has no valid signature for the key in CW_CHECK_PUBKEY`, again);
   }
   if (raw.exitCode !== 0) return refuse("receipt-failed", `receipt ${id} shows the check failed (${receiptOutcome(raw)})`, again);
-  if (!raw.gitHead || !raw.treeDigest) {
+  if (!raw.gitHead) {
     return refuse("receipt-no-git", `receipt ${id} was made outside a git repo with a commit, so it cannot be tied to the code`, `git add -A && git commit -m "save work" && ${again}`);
+  }
+  if (!raw.treeDigest || !code.treeDigest) {
+    const when = raw.treeDigest ? "now" : "when it was made";
+    return refuse("receipt-stale", `CW could not read the uncommitted changes ${when}, so receipt ${id} cannot be tied to the code`, again);
   }
   if (raw.gitHead !== code.gitHead || raw.treeDigest !== code.treeDigest) {
     const now = raw.gitHead !== code.gitHead ? `now ${shortSha(code.gitHead)}` : "files changed since";
