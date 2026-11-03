@@ -39,7 +39,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
@@ -52,6 +51,7 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const FIXED_NOW = "2026-07-09T00:00:00.000Z";
 const STEP_MS = 900; // real wall-clock time per round -- comfortably longer
@@ -60,7 +60,7 @@ const STEP_MS = 900; // real wall-clock time per round -- comfortably longer
 const cleanups = [];
 
 function tmp(prefix) {
-  const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
+  const d = tmpDir(prefix);
   cleanups.push(d);
   return d;
 }

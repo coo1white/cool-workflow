@@ -23,7 +23,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -38,6 +37,7 @@ import { drive } from "../dist/shell/drive.js";
 import { verifyTrustAudit } from "../dist/shell/trust-audit.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -121,8 +121,7 @@ function driveNTasksAndCountCheckpoints(work, stub, n) {
 
 function main() {
   clearAgentEnv();
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-checkpoint-batch-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-checkpoint-batch-");
   const stub = writeStub(path.join(work, "stub.js"));
   process.chdir(work);
   try {

@@ -23,7 +23,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -32,6 +31,7 @@ import { drive } from "../dist/shell/drive.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const FIXED_NOW = "2026-07-13T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -73,8 +73,7 @@ function planApp(work, def) {
 
 function main() {
   clearAgentEnv({ also: ["CW_APPS_DIR"] });
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-subwf-nospawn-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-subwf-nospawn-");
   const counterPath = path.join(work, "spawn-counter.log");
   fs.writeFileSync(counterPath, "", "utf8");
   const stub = writeStub(path.join(work, "stub.js"), counterPath);

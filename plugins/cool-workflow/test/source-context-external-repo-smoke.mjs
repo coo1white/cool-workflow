@@ -18,12 +18,12 @@ import assert from "node:assert/strict";
 import cp from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const script = path.join(pluginRoot, "scripts", "source-context.js");
-const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-external-")));
+const repo = tmpDir("cw-source-context-external-");
 
 function git(args) {
   const result = cp.spawnSync("git", args, { cwd: repo, encoding: "utf8" });
@@ -134,7 +134,7 @@ assert.equal(first.stdout, second.stdout, "cache hit is byte-identical to the fr
 // default 1 MiB spawn buffer a mid-size repo would ENOBUFS and die. Build a repo
 // whose ls-tree -z output exceeds 1 MiB and assert the export still succeeds.
 {
-  const big = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-big-")));
+  const big = tmpDir("cw-source-context-big-");
   const gitBig = (args) => assert.equal(cp.spawnSync("git", args, { cwd: big, encoding: "utf8" }).status, 0, `git ${args[0]} failed`);
   const DIRS = 50;
   for (let d = 0; d < DIRS; d++) fs.mkdirSync(path.join(big, "docs", `d${d}`), { recursive: true });

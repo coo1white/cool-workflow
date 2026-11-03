@@ -6,7 +6,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -33,9 +32,10 @@ import { plan } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { dispatchRun, recordResultRun } from "../dist/shell/pipeline-cli.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const sourceRepo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-restore-source-")));
-const restoredRepo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-restore-target-")));
+const sourceRepo = tmpDir("cw-restore-source-");
+const restoredRepo = tmpDir("cw-restore-target-");
 const archivePath = path.join(sourceRepo, "partial-run.cwrun.json");
 fs.writeFileSync(path.join(sourceRepo, "README.md"), "# source\n", "utf8");
 

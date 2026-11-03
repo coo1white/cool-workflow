@@ -37,7 +37,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -46,6 +45,7 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import * as capabilityTableModule from "../dist/wiring/capability-table/index.js";
 import streamModule from "node:stream";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 // v2: QUICKSTART_DEFAULT_APP is a private module const; its value is the
 // contract asserted here.
 const QUICKSTART_DEFAULT_APP = "architecture-review";
@@ -54,12 +54,6 @@ const FAST_APP = "architecture-review-fast";
 const GOLDEN_APP = "end-to-end-golden-path";
 
 const cleanups = [];
-function tmpWorkspace() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-quickstart-smoke-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  cleanups.push(work);
-  return work;
-}
 
 // v2: run state is read directly from the run's repo cwd (no runner facade).
 function loadRunAt(runId, cwd) {
@@ -87,7 +81,7 @@ async function main() {
 
   // ---- 1. happy path: ONE command -> full drive + commit + report on disk ----
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-quickstart-smoke-");
     const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
     process.chdir(work);
     try {
@@ -128,7 +122,7 @@ async function main() {
   // drive) and emits a copy-paste `--resume` continue hint; `resume:true`
   // with --run <id> stamps `resumedFrom` and continues that run.
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-quickstart-smoke-");
     const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
     process.chdir(work);
     try {
@@ -155,7 +149,7 @@ async function main() {
 
   // ---- 1c. POLA: default quickstart output is byte-identical (no resumedFrom) --
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-quickstart-smoke-");
     const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
     process.chdir(work);
     try {
@@ -169,7 +163,7 @@ async function main() {
 
   // ---- 1d. FAIL CLOSED under --resume: unconfigured agent never fabricates ----
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-quickstart-smoke-");
     process.chdir(work);
     try {
       const blocked = await quickstartRun({ appId: FAST_APP, repo: work, question: "risks?", resume: true });
@@ -186,7 +180,7 @@ async function main() {
   // report+state still written, and the result carries a "not configured /
   // delegate" triage hint.
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-quickstart-smoke-");
     process.chdir(work);
     try {
       clearAgentEnv({ noAutoAgent: true });
@@ -209,7 +203,7 @@ async function main() {
   // args.preview returns the drivePreview() shape (nextAction/pendingWorkers
   // projection), read-only and deterministic across two calls.
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-quickstart-smoke-");
     process.chdir(work);
     try {
       clearAgentEnv({ noAutoAgent: true });
@@ -237,7 +231,7 @@ async function main() {
 
   // ---- 4. default app is architecture-review when none is named --------------
   {
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-quickstart-smoke-");
     process.chdir(work);
     try {
       clearAgentEnv({ noAutoAgent: true });
@@ -304,7 +298,7 @@ async function main() {
   // requires the DOCUMENTED fail-closed payload.
   {
     clearAgentEnv({ noAutoAgent: true });
-    const work = tmpWorkspace();
+    const work = tmpWorkspace("cw-quickstart-smoke-");
     const env = { ...process.env };
     for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete env[v];
     const child = spawnSync(
@@ -345,7 +339,7 @@ async function main() {
 
     // (a) a real answer typed at the prompt flows through to run.inputs.question.
     {
-      const work = tmpWorkspace();
+      const work = tmpWorkspace("cw-quickstart-smoke-");
       const stub = writeStub(path.join(work, "stub.js"), "quickstart-opus");
       process.chdir(work);
       const restore = withFakeTty("what are the interactive-prompt risks?");
@@ -368,7 +362,7 @@ async function main() {
     // "Missing required input: question" fail-closed error fires as when
     // --question was never passed at all (piped or TTY).
     {
-      const work = tmpWorkspace();
+      const work = tmpWorkspace("cw-quickstart-smoke-");
       process.chdir(work);
       const restore = withFakeTty("");
       try {
@@ -405,7 +399,7 @@ async function main() {
       return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
     }
     {
-      const work = tmpWorkspace();
+      const work = tmpWorkspace("cw-quickstart-smoke-");
       process.chdir(work);
       const fake = new Readable({ read() {} });
       fake.isTTY = true;

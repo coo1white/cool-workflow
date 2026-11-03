@@ -12,7 +12,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..", "..");
@@ -22,6 +21,7 @@ import { createRun, saveCheckpoint } from "../../dist/shell/run-store.js";
 import { recordTrustAuditEvent, verifyTrustAudit, withTrustAuditBatch } from "../../dist/shell/trust-audit.js";
 import * as api from "../../dist/core/workflow-apps/app-schema.js";
 import { writeStubAgent } from "../helpers/stub-agent.mjs";
+import { tmpDir, tmpWorkspace } from "../helpers/workspace.mjs";
 
 const WORKERS = 4;
 
@@ -64,8 +64,7 @@ const cwd0 = process.cwd();
 
 // 1. A serial drive: 3 audit flushes a worker.
 {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-audit-batches-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-audit-batches-");
   try {
     process.chdir(work);
     const def = api.workflow({
@@ -99,7 +98,7 @@ const cwd0 = process.cwd();
 // 2. Audit first, then state: a save inside an open batch writes the batch's
 //    events before state.json is replaced.
 {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-audit-order-")));
+  const work = tmpDir("cw-audit-order-");
   try {
     const run = createRun(path.join(work, ".cw", "runs", "order-run"), "order-run", "order-probe", work);
     const log = path.join(run.paths.runDir, "audit", "events.jsonl");

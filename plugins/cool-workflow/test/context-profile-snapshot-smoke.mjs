@@ -9,12 +9,12 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const wrapper = path.join(pluginRoot, "scripts", "architecture-review-fast.js");
-const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-ctx-profile-")));
+const repo = tmpDir("cw-ctx-profile-");
 
 function git(args) {
   const r = cp.spawnSync("git", args, { cwd: repo, encoding: "utf8" });
@@ -81,7 +81,7 @@ assert.ok(!("repo" in snapB.profiles), "no stale 'repo' profile lingers after a 
 //     snapshot. The snapshot is written only after the context is successfully
 //     exported, so a fresh repo whose custom profile matches nothing writes none. ---
 {
-  const fresh = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-ctx-orphan-")));
+  const fresh = tmpDir("cw-ctx-orphan-");
   fs.writeFileSync(path.join(fresh, "README.md"), "# x\n", "utf8");
   const g = (a) => assert.equal(cp.spawnSync("git", a, { cwd: fresh, encoding: "utf8" }).status, 0, `git ${a[0]}`);
   g(["init"]); g(["add", "-A"]); g(["-c", "user.name=CW", "-c", "user.email=cw@example.invalid", "commit", "-m", "base"]);

@@ -29,9 +29,10 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-sandbox-srt-")));
+const work = tmpDir("cw-sandbox-srt-");
 const marks = path.join(work, "marks");
 fs.mkdirSync(marks);
 

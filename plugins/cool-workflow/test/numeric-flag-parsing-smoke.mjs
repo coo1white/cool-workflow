@@ -20,9 +20,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -42,7 +42,7 @@ function runFail(args, opts) {
 // bare flag must error (never silently keep the configured default).
 // ---------------------------------------------------------------------
 {
-  const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-dispatch-")));
+  const tmp = tmpDir("cw-numeric-flag-dispatch-");
   const opts = { cwd: tmp };
   const plan = runJson(["plan", "end-to-end-golden-path", "--repo", tmp, "--question", "Prove numeric flag parsing on dispatch."], opts);
   assert.ok(plan.pendingTasks > 0, "fixture plan must have at least one pending task");
@@ -71,7 +71,7 @@ function runFail(args, opts) {
 // shared parser -- it must not change externally-visible behavior).
 // ---------------------------------------------------------------------
 {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-sched-")));
+  const home = tmpDir("cw-numeric-flag-sched-");
   const env = { ...process.env, CW_HOME: home };
   const opts = { cwd: home, env };
 
@@ -104,7 +104,7 @@ function runFail(args, opts) {
 // must also error on a bare flag, not silently drop every result.
 // ---------------------------------------------------------------------
 {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-runlist-")));
+  const home = tmpDir("cw-numeric-flag-runlist-");
   const env = { ...process.env, CW_HOME: home };
   const opts = { cwd: home, env };
 
@@ -131,7 +131,7 @@ function runFail(args, opts) {
 // options object, before any registry lookup happens.
 // ---------------------------------------------------------------------
 {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-registry-limit-")));
+  const home = tmpDir("cw-numeric-flag-registry-limit-");
   const env = { ...process.env, CW_HOME: home };
   const opts = { cwd: home, env };
 
@@ -165,7 +165,7 @@ function runFail(args, opts) {
 // through the same shared parser.
 // ---------------------------------------------------------------------
 {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-registry-friends-")));
+  const home = tmpDir("cw-numeric-flag-registry-friends-");
   const env = { ...process.env, CW_HOME: home };
   const opts = { cwd: home, env };
 
@@ -195,7 +195,7 @@ function runFail(args, opts) {
 // --limit instead of throwing.
 // ---------------------------------------------------------------------
 {
-  const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-next-")));
+  const tmp = tmpDir("cw-numeric-flag-next-");
   const opts = { cwd: tmp };
   const plan = runJson(["plan", "end-to-end-golden-path", "--repo", tmp, "--question", "Prove numeric flag parsing on next."], opts);
 
@@ -215,7 +215,7 @@ function runFail(args, opts) {
 // metrics summary: a bare or garbage --limit must error.
 // ---------------------------------------------------------------------
 {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-numeric-flag-metrics-")));
+  const home = tmpDir("cw-numeric-flag-metrics-");
   const env = { ...process.env, CW_HOME: home };
   const opts = { cwd: home, env };
 

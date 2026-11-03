@@ -33,15 +33,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { runAgentBatchOutcomes, reconcileBatchOutcomes } from "../dist/shell/execution-backend/agent.js";
 import { runBackend } from "../dist/shell/execution-backend/registry.js";
 import { showBundledSandboxProfile, sandboxContextForValidation } from "../dist/shell/sandbox-profile.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cwBin = path.join(pluginRoot, "scripts", "cw.js");
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-job-timeout-")));
+const work = tmpDir("cw-batch-job-timeout-");
 
 // A wrapper that starts a child holding the wrapper's stdout, then waits.
 // argv: <pid file> <detached 0|1>. The child lives 15s at most.

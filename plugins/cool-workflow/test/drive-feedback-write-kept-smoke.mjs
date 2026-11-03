@@ -23,9 +23,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const node = process.execPath;
@@ -83,7 +83,7 @@ async function waitFor(check, what) {
 }
 
 async function runCase({ label, app, width, agents, failWorkerOf }) {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-drive-feedback-kept-")));
+  const work = tmpDir("cw-drive-feedback-kept-");
   try {
     fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
     const barrier = path.join(work, "barrier");

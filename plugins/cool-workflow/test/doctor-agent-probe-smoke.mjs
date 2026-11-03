@@ -13,13 +13,13 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
-const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-probe-")));
+const base = tmpDir("cw-doctor-probe-");
 const home = path.join(base, "home");
 const cwd = path.join(base, "work");
 const marks = path.join(base, "marks");

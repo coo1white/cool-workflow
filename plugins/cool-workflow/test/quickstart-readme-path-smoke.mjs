@@ -6,19 +6,14 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const KEYGEN = path.join(pluginRoot, "scripts/agents/cw-attest-keygen.js");
 
-function tmpWorkspace(label) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `cw-readme-${label}-`)));
-  fs.writeFileSync(path.join(dir, "README.md"), "# target\n", "utf8");
-  return dir;
-}
 
 function writeStub(file) {
   fs.writeFileSync(
@@ -47,9 +42,9 @@ function runJson(args, options = {}) {
   return JSON.parse(result.stdout);
 }
 
-const repo = tmpWorkspace("repo");
-const caller = tmpWorkspace("caller");
-const keyDir = tmpWorkspace("keys");
+const repo = tmpWorkspace("cw-readme-repo-");
+const caller = tmpWorkspace("cw-readme-caller-");
+const keyDir = tmpWorkspace("cw-readme-keys-");
 const stub = writeStub(path.join(repo, "fixture-agent.js"));
 const keygen = spawnSync(process.execPath, [KEYGEN, "--out-dir", keyDir], { encoding: "utf8" });
 assert.equal(keygen.status, 0, `keygen exits 0: ${keygen.stderr}`);
@@ -106,8 +101,8 @@ try {
 // Not a project: `cw -q` with no --repo in a folder that is not a git work
 // tree refuses before it plans; an explicit --repo to a real git dir is
 // never checked and reaches the normal "agent not configured" path.
-const notAProject = tmpWorkspace("not-a-project");
-const gitProject = tmpWorkspace("git-project");
+const notAProject = tmpWorkspace("cw-readme-not-a-project-");
+const gitProject = tmpWorkspace("cw-readme-git-project-");
 try {
   assert.equal(spawnSync("git", ["init", "-q"], { cwd: gitProject }).status, 0, "git init sets up the fixture project");
   const refused = spawnSync(process.execPath, [cli, "-q", "x"], { cwd: notAProject, encoding: "utf8" });

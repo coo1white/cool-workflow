@@ -12,13 +12,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cwBin = path.join(pluginRoot, "scripts", "cw.js");
 import { formatQuickstartHuman } from "../dist/shell/pipeline-cli.js";
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-quickstart-fast-")));
+import { tmpDir } from "./helpers/workspace.mjs";
+const work = tmpDir("cw-quickstart-fast-");
 
 const agent = path.join(work, "agent.js");
 fs.writeFileSync(

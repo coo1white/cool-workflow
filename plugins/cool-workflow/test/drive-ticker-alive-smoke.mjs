@@ -19,14 +19,14 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const ticker = path.join(pluginRoot, "scripts", "children", "drive-ticker.mjs");
 const batchChild = path.join(pluginRoot, "scripts", "children", "batch-delegate-child.mjs");
 const cwBin = path.join(pluginRoot, "scripts", "cw.js");
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-drive-alive-")));
+const work = tmpDir("cw-drive-alive-");
 const OLD = /^\[drive\] {3}… Map still working — \d+s$/;
 
 // Waits for `want` ticks (not a fixed time: a slow runner can spend most of a

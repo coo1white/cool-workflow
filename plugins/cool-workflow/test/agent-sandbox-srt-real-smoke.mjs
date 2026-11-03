@@ -14,8 +14,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const srt = process.env.CW_SRT_BIN || "srt";
@@ -33,7 +33,7 @@ if (why) {
   process.exit(0);
 }
 
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-srt-real-")));
+const work = tmpDir("cw-srt-real-");
 try {
   const home = path.join(work, "home");
   const tmp = path.join(work, "tmp");

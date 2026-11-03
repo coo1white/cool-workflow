@@ -31,6 +31,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 import { withFileLock } from "../dist/shell/fs-atomic.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 function spawnAllAndWait(procs) {
   return Promise.all(procs.map((p) => new Promise((res, rej) => {
@@ -65,7 +66,7 @@ function reentrantLock() {
 
 // ---- B. concurrent `cw result` recordings lose no completion --------------
 async function concurrentRecordResult() {
-  const workspace = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-staterace-")));
+  const workspace = tmpDir("cw-staterace-");
   const plan = JSON.parse(
     execFileSync(node, [cli, "plan", "architecture-review", "--repo", workspace, "--question", "lock race smoke"], {
       cwd: workspace,

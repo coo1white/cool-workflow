@@ -14,7 +14,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -34,8 +33,9 @@ import * as ns from "../dist/core/state/node-snapshot.js";
 // capability REGISTRY: each node op is a registered capability with a CLI/MCP
 // binding. findCapability is the v2 equivalent of prototype-method presence.
 import { findCapability } from "../dist/wiring/capability-table/index.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-node-snapshot-")));
+const tmp = tmpDir("cw-node-snapshot-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "ns-smoke"));
 ensureRunDirs(paths);
 const artifact = path.join(paths.resultsDir, "result.md");

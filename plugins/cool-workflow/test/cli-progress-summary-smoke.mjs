@@ -14,7 +14,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -22,6 +21,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // v2 moved term.ts into src/shell/ → dist/shell/term.js (exports + signatures
 // are byte-identical: phaseProgressLine(name, done, total, mode, stream)). cli.js stays at dist/cli.js.
 import * as term from "../dist/shell/term.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 const cleanups = [];
 
 // A stream stand-in: captures writes; `isTTY` decides whether helpers style/emit at all.
@@ -47,7 +47,7 @@ function fakeStream(isTTY) {
 // `==> <Phase> ✓ (N/N)` phase-boundary lines on stderr at each phase
 // boundary (src/shell/drive.ts calling term.phaseProgressLine).
 {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-progress-")));
+  const work = tmpDir("cw-progress-");
   cleanups.push(work);
   const repo = path.join(work, "repo");
   fs.mkdirSync(repo, { recursive: true });

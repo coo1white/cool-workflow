@@ -32,6 +32,7 @@ import { runDriveStep } from "../dist/shell/pipeline-cli.js";
 import { plan } from "../dist/shell/pipeline.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -128,8 +129,7 @@ async function driveOnce(runId, agentCommand, concurrencyArg, barrier) {
 
 async function main() {
   clearAgentEnv();
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-conc-flag-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-conc-flag-");
   const stub = writeStub(path.join(work, "stub.js"));
   const agentCommand = `${process.execPath} ${stub} {{result}}`;
   process.chdir(work);

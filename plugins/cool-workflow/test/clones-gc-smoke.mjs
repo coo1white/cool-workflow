@@ -7,15 +7,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const cleanups = [];
 
 function freshHome() {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-clones-home-")));
+  const home = tmpDir("cw-clones-home-");
   cleanups.push(home);
   return home;
 }

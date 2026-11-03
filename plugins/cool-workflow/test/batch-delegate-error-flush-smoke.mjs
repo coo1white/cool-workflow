@@ -34,9 +34,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const batchChildScript = path.join(pluginRoot, "scripts", "children", "batch-delegate-child.mjs");
@@ -82,7 +82,7 @@ function runDelegateWithFakeSpawn(work) {
 }
 
 async function main() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-error-flush-")));
+  const work = tmpDir("cw-batch-error-flush-");
   try {
     const { stdoutPromise } = runDelegateWithFakeSpawn(work);
     const raw = await stdoutPromise;

@@ -11,13 +11,13 @@
 import assert from "node:assert/strict";
 import { spawnSync, execFileSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 
 import { redactCredentials } from "../dist/shell/remote-source.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 const cleanups = [];
 
 // ===== 0. defense in depth: git diagnostics are credential-REDACTED before we surface them =====
@@ -47,7 +47,7 @@ function gitOut(cwd, args) {
 
 // A throwaway HOME/CW_HOME so the clone cache + run state never touch the real machine.
 function freshHome() {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-link-home-")));
+  const home = tmpDir("cw-link-home-");
   cleanups.push(home);
   return home;
 }
@@ -69,7 +69,7 @@ function run(args, home, extraEnv = {}) {
 
 // Build a local bare repo to stand in for a remote, plus a deterministic stub agent.
 function fixtures() {
-  const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-link-fix-")));
+  const tmp = tmpDir("cw-link-fix-");
   cleanups.push(tmp);
   const work = path.join(tmp, "work");
   fs.mkdirSync(work, { recursive: true });

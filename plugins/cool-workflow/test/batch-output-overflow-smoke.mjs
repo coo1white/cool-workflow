@@ -46,12 +46,12 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 // v2 moved the execution-backend agent module under dist/shell/.
 import { reconcileBatchOutcomes, runAgentBatchOutcomes } from "../dist/shell/execution-backend/agent.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 function unitLevelReconciliation() {
   const jobs = [{}, {}, {}]; // reconcileBatchOutcomes only reads jobs.length
@@ -122,7 +122,7 @@ function writeStub(file) {
 }
 
 function integrationLevelLargeOutput() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-overflow-")));
+  const work = tmpDir("cw-batch-overflow-");
   try {
     const stub = writeStub(path.join(work, "stub.js"));
     const jobFor = (behavior, timeoutMs) => ({
@@ -165,7 +165,7 @@ function integrationLevelLargeOutput() {
 }
 
 function integrationLevelCapExceeded() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-cap-")));
+  const work = tmpDir("cw-batch-cap-");
   try {
     const stub = writeStub(path.join(work, "stub.js"));
     const jobFor = (behavior, timeoutMs) => ({
@@ -202,7 +202,7 @@ function integrationLevelEscapedLineCap() {
   // "batch delegate failed: ...ENOBUFS". This is a REAL 3-job batch through
   // runAgentBatchOutcomes: 20MB raw of a control char (under the 32MB raw
   // cap) escapes to a ~120MB line against a 3-job 102MB parent budget.
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-escape-")));
+  const work = tmpDir("cw-batch-escape-");
   try {
     const stub = writeStub(path.join(work, "stub.js"));
     const jobFor = (behavior, timeoutMs) => ({
@@ -281,7 +281,7 @@ function writeUtf8SplitStub(file) {
 }
 
 function integrationLevelUtf8ChunkBoundary() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-batch-utf8-")));
+  const work = tmpDir("cw-batch-utf8-");
   try {
     const stub = writeUtf8SplitStub(path.join(work, "utf8-stub.js"));
     const jobs = [{ binary: process.execPath, args: [stub], cwd: work, timeoutMs: 10000 }];

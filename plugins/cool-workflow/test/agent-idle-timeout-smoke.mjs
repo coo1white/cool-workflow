@@ -18,14 +18,14 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { runAgentBatchOutcomes, agentIdleTimeoutMs } from "../dist/shell/execution-backend/agent.js";
 import { runBackend } from "../dist/shell/execution-backend/registry.js";
 import { showBundledSandboxProfile, sandboxContextForValidation } from "../dist/shell/sandbox-profile.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-agent-idle-")));
+const work = tmpDir("cw-agent-idle-");
 
 // Writes once, then is silent for 30s.
 const silent = path.join(work, "silent.js");

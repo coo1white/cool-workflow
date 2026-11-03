@@ -24,7 +24,6 @@ import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 
@@ -42,11 +41,12 @@ import { RunRegistry, deriveLifecycle } from "../dist/shell/run-registry-io.js";
 // that RunRegistry expects for rerun and that this smoke uses to build runs.
 import { plan as pipelinePlan } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 // Isolated home + two repos so nothing touches real user state.
-const cwHome = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-reg-home-")));
-const repoA = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-reg-repoA-")));
-const repoB = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-reg-repoB-")));
+const cwHome = tmpDir("cw-reg-home-");
+const repoA = tmpDir("cw-reg-repoA-");
+const repoB = tmpDir("cw-reg-repoB-");
 process.env.CW_HOME = cwHome;
 
 // Planner shim standing in for the old CoolWorkflowRunner: same .plan(appId, inputs)

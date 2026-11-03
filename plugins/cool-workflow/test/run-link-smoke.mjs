@@ -14,13 +14,13 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 import { callTool } from "../dist/mcp/dispatch.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
 
@@ -39,7 +39,7 @@ function linkLineRegex(link) {
 }
 
 function freshRepo(label) {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), `cw-run-link-${label}-`)));
+  return tmpDir(`cw-run-link-${label}-`);
 }
 
 function plan(repo, question) {

@@ -21,12 +21,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cwBin = path.join(pluginRoot, "scripts", "cw.js");
-const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-verdict-evidence-")));
+const work = tmpDir("cw-verdict-evidence-");
 
 // One stub agent. Every worker cites README.md:1 (on disk). The verdict
 // worker (its result path names "verdict") cites the locator in the file

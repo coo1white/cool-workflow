@@ -17,7 +17,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 
@@ -34,6 +33,7 @@ import {
   DEFAULT_BACKEND_ID,
 } from "../dist/shell/execution-backend/registry.js";
 import { showBundledSandboxProfile, sandboxContextForValidation } from "../dist/shell/sandbox-profile.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 import {
   createRunPaths,
   ensureRunDirs,
@@ -41,7 +41,7 @@ import {
   loadRunFromCwd,
 } from "../dist/shell/run-store.js";
 
-const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-execution-backends-")));
+const tmp = tmpDir("cw-execution-backends-");
 const ctx = sandboxContextForValidation(tmp);
 
 // Keep delegating backends fail-closed by default during the smoke.

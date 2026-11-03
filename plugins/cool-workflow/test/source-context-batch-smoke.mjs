@@ -10,10 +10,11 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const script = path.join(pluginRoot, "scripts", "source-context.js");
-const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-batch-")));
+const repo = tmpDir("cw-source-context-batch-");
 
 function git(args) {
   const result = cp.spawnSync("git", args, { cwd: repo, encoding: "utf8" });

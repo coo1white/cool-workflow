@@ -19,7 +19,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -27,8 +26,9 @@ const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 import { RunRegistry } from "../dist/shell/run-registry-io.js";
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-registry-corrupt-")));
+const repo = tmpDir("cw-registry-corrupt-");
 
 function makeRun(runId) {
   const runDir = path.join(repo, ".cw", "runs", runId);

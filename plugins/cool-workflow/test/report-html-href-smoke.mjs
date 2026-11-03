@@ -7,13 +7,13 @@
 // report.md into report.html. Safe links stay byte-identical (POLA).
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 import { reportToHtml } from "../dist/core/format/report-html.js";
 import { ensureAndOpenReportHtml } from "../dist/shell/report-view-cli.js";
 import { quickstartRun } from "../dist/shell/pipeline-cli.js";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const UNSAFE = [
   "javascript:alert(1)",
@@ -41,8 +41,7 @@ async function main() {
   }
 
   // 3. the real path: agent result file -> report.md -> report.html.
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-report-href-")));
-  fs.writeFileSync(path.join(dir, "README.md"), "# target\n", "utf8");
+  const dir = tmpWorkspace("cw-report-href-");
   const stub = path.join(dir, "s.js");
   fs.writeFileSync(
     stub,

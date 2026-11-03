@@ -47,6 +47,7 @@ import { demoTamperCli } from "../dist/shell/demo-cli.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { appendTelemetryAttestation } from "../dist/shell/telemetry-ledger-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 function main() {
   // ---- 1. the demo proves all three layers ----------------------------------
@@ -86,7 +87,7 @@ function main() {
   console.log("tamper-demo: demoTamper capability ok");
 
   // ---- 4. telemetry verify on a real run, clean then tampered ---------------
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-telverify-smoke-")));
+  const work = tmpDir("cw-telverify-smoke-");
   fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
   const cwd0 = process.cwd();
   process.chdir(work);

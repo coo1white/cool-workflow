@@ -22,7 +22,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -36,6 +35,7 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { runDriveStep } from "../dist/shell/pipeline-cli.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 // v2's plan() takes a FLAT LoadedWorkflowApp ({ id, title, summary, version,
 // workflow, sandboxProfiles, sourcePath }) — the old lifecycle.plan took a nested
@@ -124,8 +124,7 @@ function planParallelApp(work) {
 
 async function main() {
   clearAgentEnv();
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-onramp-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-onramp-");
   const stub = writeStub(path.join(work, "stub.js"));
   const agentCommand = `${process.execPath} ${stub} {{result}} {{model}}`;
   process.chdir(work);

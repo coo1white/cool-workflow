@@ -12,16 +12,15 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const cleanups = [];
 
 function tmpRepo() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-headline-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-headline-");
   spawnSync("git", ["init", "-q"], { cwd: work }); // a real project: the cwd-default repo check needs one
   cleanups.push(work);
   return work;

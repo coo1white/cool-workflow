@@ -34,10 +34,11 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 // live in shell/telemetry-ledger-io.
 import * as ta from "../dist/core/trust/telemetry-attestation.js";
 import * as ledger from "../dist/shell/telemetry-ledger-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const cleanups = [];
 function tmpRun(id) {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-tvs-smoke-")));
+  const work = tmpDir("cw-tvs-smoke-");
   cleanups.push(work);
   const run = { id, paths: { runDir: path.join(work, "run") } };
   fs.mkdirSync(run.paths.runDir, { recursive: true });

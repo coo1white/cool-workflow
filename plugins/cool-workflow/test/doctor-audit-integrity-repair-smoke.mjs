@@ -14,7 +14,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -23,6 +22,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 import { runDoctor } from "../dist/shell/doctor.js";
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 import {
   recordTrustAuditEvent,
   verifyTrustAudit,
@@ -32,7 +32,7 @@ import {
 } from "../dist/shell/trust-audit.js";
 
 function freshCwd() {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-doctor-audit-")));
+  return tmpDir("cw-doctor-audit-");
 }
 
 function makeRun(cwd, runId) {

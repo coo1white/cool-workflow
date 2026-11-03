@@ -19,7 +19,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -31,6 +30,7 @@ import { RunRegistry } from "../dist/shell/run-registry-io.js";
 // at the case's home before calling it. Return shape is { schemaVersion, policy,
 // source } — same .source contract the old schedPolicyShow returned.
 import { schedPolicyShowCli } from "../dist/shell/scheduling-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 function schedPolicyShow(home, repo) {
   const saved = process.env.CW_HOME;
   process.env.CW_HOME = home;
@@ -48,8 +48,8 @@ const CORRUPT = "{ this is not valid json ]";
 // never leak into another. The repo always has an (empty) `.cw/runs` dir so the
 // overlay loaders are actually reached during a scan.
 function freshEnv() {
-  const home = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-corrupt-home-")));
-  const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-corrupt-repo-")));
+  const home = tmpDir("cw-corrupt-home-");
+  const repo = tmpDir("cw-corrupt-repo-");
   fs.mkdirSync(path.join(repo, ".cw", "runs"), { recursive: true });
   fs.mkdirSync(path.join(repo, ".cw", "registry"), { recursive: true });
   fs.mkdirSync(path.join(home, "registry"), { recursive: true });

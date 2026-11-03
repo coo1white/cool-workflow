@@ -11,19 +11,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 
 const cleanups = [];
-function tmpWorkspace(prefix = "cw-quickstart-check-") {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  cleanups.push(work);
-  return work;
-}
 
 function run(args, cwd) {
   return spawnSync(process.execPath, [cli, ...args], {
@@ -45,7 +39,7 @@ function parse(result) {
 
 // --- 1. no agent: fail closed, no `.cw` created -----------------------------
 {
-  const work = tmpWorkspace();
+  const work = tmpWorkspace("cw-quickstart-check-");
   const result = run(["quickstart", "architecture-review", "--check", "--repo", work, "--question", "risks?"], work);
   assert.equal(result.status, 1, "missing agent makes --check exit 1");
   const payload = parse(result);
@@ -59,7 +53,7 @@ function parse(result) {
 
 // --- 2. configured agent: ok, still no spawn/write --------------------------
 {
-  const work = tmpWorkspace();
+  const work = tmpWorkspace("cw-quickstart-check-");
   const result = run([
     "quickstart",
     "architecture-review",
@@ -81,7 +75,7 @@ function parse(result) {
 
 // --- 3. bad app, bad repo, missing question all block -----------------------
 {
-  const work = tmpWorkspace();
+  const work = tmpWorkspace("cw-quickstart-check-");
   const missingRepo = path.join(work, "missing");
   const result = run(["quickstart", "not-an-app", "--check", "--repo", missingRepo], work);
   assert.equal(result.status, 1, "bad inputs make --check exit 1");
@@ -95,7 +89,7 @@ function parse(result) {
 
 // --- 4. bundle trust key: warn by default, blocked under strict signatures ---
 {
-  const work = tmpWorkspace();
+  const work = tmpWorkspace("cw-quickstart-check-");
   const base = [
     "quickstart",
     "architecture-review",

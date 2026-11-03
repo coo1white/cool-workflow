@@ -30,7 +30,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -47,6 +46,7 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 // makeRunner() reconstructs runner.plan / .loadRun over the v2 functions. This
 // smoke chdir's into each workspace before it plans/drives, so process.cwd() is
@@ -73,12 +73,6 @@ function drive(_runner, runId, options) {
 const FIXED_NOW = "2026-06-20T00:00:00.000Z";
 const cleanups = [];
 
-function tmpWorkspace() {
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-incr-smoke-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
-  cleanups.push(work);
-  return work;
-}
 
 // Stub agent: argv[2] = resultPath. Appends one byte to countFile per spawn, then
 // writes a deterministic, valid cw:result envelope (evidence grounds in README).
@@ -116,7 +110,7 @@ function main() {
   const cwd0 = process.cwd();
 
   // ===== 1+2+3+6: REUSE across runs, byte-identity, POLA, determinism ==========
-  const workA = tmpWorkspace();
+  const workA = tmpWorkspace("cw-incr-smoke-");
   const countA = path.join(workA, "spawns.count");
   const stubA = writeCountingStub(path.join(workA, "stub.js"), countA);
   process.chdir(workA);
@@ -163,7 +157,7 @@ function main() {
 
   // ===== 5: DOWNSTREAM INVALIDATION — change a Map result, later phases re-run ==
   {
-    const workC = tmpWorkspace();
+    const workC = tmpWorkspace("cw-incr-smoke-");
     const countC = path.join(workC, "spawns.count");
     const stubC = writeCountingStub(path.join(workC, "stub.js"), countC);
     process.chdir(workC);
@@ -209,7 +203,7 @@ function main() {
   // by the prompt or run.inputs, so it must be folded into the key — else swapping
   // the model would replay the OLD model's output and attest the wrong model.
   {
-    const workD = tmpWorkspace();
+    const workD = tmpWorkspace("cw-incr-smoke-");
     const countD = path.join(workD, "spawns.count");
     const stubD = writeCountingStub(path.join(workD, "stub.js"), countD);
     process.chdir(workD);
@@ -235,7 +229,7 @@ function main() {
 
   // ===== 7: CONCURRENT driver — reuse works through the parallel batch path ======
   {
-    const workE = tmpWorkspace();
+    const workE = tmpWorkspace("cw-incr-smoke-");
     const countE = path.join(workE, "spawns.count");
     const stubE = writeCountingStub(path.join(workE, "stub.js"), countE);
     process.chdir(workE);
@@ -277,7 +271,7 @@ function main() {
   // flags stripped from run.inputs, so they must be in the key — else swapping the
   // agent (model held constant) would serve a different agent's cached output.
   {
-    const workF = tmpWorkspace();
+    const workF = tmpWorkspace("cw-incr-smoke-");
     const countF = path.join(workF, "spawns.count");
     const stub1 = writeCountingStub(path.join(workF, "stub1.js"), countF);
     const stub2 = writeCountingStub(path.join(workF, "stub2.js"), countF); // identical output, different path (≈ a different agent binary)

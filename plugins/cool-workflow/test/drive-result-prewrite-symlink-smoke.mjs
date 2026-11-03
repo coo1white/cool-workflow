@@ -18,7 +18,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -27,13 +26,14 @@ import { plan } from "../dist/shell/pipeline.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { drive } from "../dist/shell/drive.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const NOW = "2026-06-20T00:00:00.000Z";
 const ORIGINAL = "ORIGINAL-OUTSIDE-BYTES\n";
 const cwd0 = process.cwd();
 
 function tmp(prefix) {
-  return fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
+  return tmpDir(prefix);
 }
 // The stub agent. In its cwd: `plant.flag` makes it leave result.md as a
 // symlink to outside.md and fail; `plant-parent.txt` (a run id) makes it plant

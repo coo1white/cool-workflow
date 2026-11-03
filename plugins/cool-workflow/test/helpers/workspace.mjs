@@ -1,7 +1,7 @@
 // test/helpers/workspace.mjs — scratch folders for tests (refactor phase 3,
 // project/docs/intent/2026-11-03-refactor-whole-tree.md).
 //
-// Consumers: test/helpers/helpers.test.mjs, test/concurrent-workflow-dsl-smoke.mjs.
+// Consumers: every test that imports it (grep for helpers/workspace.mjs).
 //
 // tmpDir(prefix): a new folder under os.tmpdir(), realpath'd (macOS /var ->
 // /private/var), and taken away when the process exits, pass or fail.
@@ -17,7 +17,11 @@ const made = [];
 let hooked = false;
 
 function removeAll() {
-  for (const dir of made.splice(0)) fs.rmSync(dir, { recursive: true, force: true });
+  // A test may leave a folder it cannot remove (a chmod case); that must
+  // not turn a pass into a fail at exit.
+  for (const dir of made.splice(0)) {
+    try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+  }
 }
 
 export function tmpDir(prefix = "cw-test-") {

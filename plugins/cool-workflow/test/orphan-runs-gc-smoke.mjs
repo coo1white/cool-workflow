@@ -12,7 +12,6 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -22,10 +21,11 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import * as reclamationIoModule from "../dist/shell/reclamation-io.js";
 import * as runRegistryIoModule from "../dist/shell/run-registry-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const cleanups = [];
 function freshRepo() {
-  const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-orphans-repo-")));
+  const repo = tmpDir("cw-orphans-repo-");
   cleanups.push(repo);
   return repo;
 }

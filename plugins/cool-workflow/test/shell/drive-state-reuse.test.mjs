@@ -14,7 +14,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..", "..");
@@ -23,6 +22,7 @@ import { loadWorkflowApp } from "../../dist/shell/workflow-app-loader.js";
 import { plan } from "../../dist/shell/pipeline.js";
 import { savedRunIfCurrent } from "../../dist/shell/run-store.js";
 import { writeStubAgent } from "../helpers/stub-agent.mjs";
+import { tmpWorkspace } from "../helpers/workspace.mjs";
 
 
 // Plans a golden-path run in a temp dir and drives it to the end with
@@ -31,8 +31,7 @@ import { writeStubAgent } from "../helpers/stub-agent.mjs";
 // many times state.json was read.
 function driveWithHook(betweenRounds, env = {}) {
   const cwd0 = process.cwd();
-  const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-state-reuse-")));
-  fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
+  const work = tmpWorkspace("cw-state-reuse-");
   const saved = { write: process.stderr.write, read: fs.readFileSync, env: { ...process.env } };
   let reads = 0;
   let hooked = false;

@@ -17,7 +17,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
@@ -27,13 +26,9 @@ assert.ok(fs.existsSync(MCP), "dist/mcp-server.js must exist (run npm run build)
 import { plan } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const cleanups = [];
-function tmpDir(prefix) {
-  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
-  cleanups.push(dir);
-  return dir;
-}
 
 const home = tmpDir("cw-mcp-bool-home-");
 const work = tmpDir("cw-mcp-bool-work-");
