@@ -9,7 +9,7 @@
 // "Commit-gate error codes (fixed strings)".
 
 import { StateEvidence, StateNode, StateNodeError, WorkflowRun } from "../state/types.js";
-import { hasGroundedEvidence } from "../trust/evidence-grounding.js";
+import { hasGroundedEvidence, receiptIdsIn } from "../trust/evidence-grounding.js";
 import { isEmptyCapture, ResultEnvelope } from "./result-normalize.js";
 
 export interface CommitStateOptions {
@@ -84,6 +84,8 @@ export interface ResolveCommitGateDeps {
   taskRequiresEvidence?: boolean;
   /** Opt-in strict evidence resolution (CW_REQUIRE_RESOLVABLE_EVIDENCE). */
   unresolvedFileEvidence?: (evidence: string[]) => string[];
+  /** The cited `receipt:<id>`s CW refuses (shell/receipt-io.ts); absent = refuse all. */
+  refusedReceipts?: (ids: string[]) => Array<{ id: string; code?: string; reason: string; next: string }>;
 }
 
 /** commitState's gate resolution. Pure decision function; the caller
@@ -170,6 +172,16 @@ function groundVerifierEvidence(run: WorkflowRun, verifierNode: StateNode, error
         );
       }
     }
+  }
+  const receiptIds = receiptIdsIn(verifierNode.evidence.map(evidenceLocatorString));
+  const refused = !receiptIds.length ? [] : deps.refusedReceipts ? deps.refusedReceipts(receiptIds) : receiptIds.map((id) => ({ id, reason: "no receipt check is wired here", next: "cw check list" }));
+  if (refused.length) {
+    errors.push(
+      error("commit-verifier-receipt-refused", `Verifier node ${verifierNode.id} cites a receipt CW cannot accept: ${refused[0].reason}. Next: ${refused[0].next}`, {
+        nodeId: verifierNode.id,
+        details: { verifierNodeId: verifierNode.id, receipts: refused },
+      }, now)
+    );
   }
 }
 
