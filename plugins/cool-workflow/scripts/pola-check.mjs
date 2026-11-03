@@ -29,6 +29,20 @@
 // Not covered: exact text asserted inside plugins/cool-workflow/test/*.mjs
 // smokes. Those mix pins with new checks line by line; the reviewer reads them.
 //
+// Line level (added after the 0.4.0 cut was turned back for a changed line
+// no yes had quoted): for a MODIFIED pin that is a captured text file (not
+// code), every line the diff adds or changes (a `+` line, trimmed, blank
+// lines skipped) must be in the union of all "Operator decisions for
+// <version>" sections, word for word (trimmed). A missing line is a fault
+// that names the file and the line. Naming the path is not enough for these:
+// the question put to the operator quotes the new text, so the record has it.
+// Decision on code pins: a conformance case `.mjs` (or .js/.cjs) keeps the
+// path-level rule only. Its changed lines are asserts — regex escapes,
+// string joins, loop lists — that no person would quote in a question, and
+// the new text they hold is in the man page the record names. Captured text
+// (fixtures/*.txt, run-state .json) is the output itself, so it is held line
+// by line. A deleted pin has no `+` lines; the path rule covers it.
+//
 // Output: silent, exit 0 when clean (Rule of Silence). Faults on stderr,
 // exit 1. `--json` prints one JSON object on stdout (exit code the same).
 // Test override: CW_POLA_ROOT is the git root to check in place of this repo.
@@ -105,6 +119,24 @@ function changedPins(base) {
     else if (status !== "A") pins.push({ path: file, status: `changed (${status})` });
   }
   return pins.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
+const CODE_PIN = /\.(?:mjs|cjs|js)$/;
+
+// Lines the diff adds or changes in one pin (base against the working tree),
+// trimmed, blank ones left out, in file order, each once.
+function addedLines(base, file) {
+  const out = git(["diff", "-U0", "--no-renames", "--no-color", base, "--", file]);
+  if (out === null) throw new Refusal(`git diff of ${file} against ${base} failed`);
+  const lines = [];
+  let inHunk = false;
+  for (const line of out.split("\n")) {
+    if (line.startsWith("@@")) inHunk = true;
+    if (!inHunk || !line.startsWith("+")) continue;
+    const text = line.slice(1).trim();
+    if (text && !lines.includes(text)) lines.push(text);
+  }
+  return lines;
 }
 
 // Every pin-root file at base or now, to find the shortest path end that
@@ -200,6 +232,7 @@ function check() {
   const pins = changedPins(base.commit);
   const known = pins.length ? knownPinFiles(base.commit) : [];
   const sections = pins.length && raised ? decisionSections(version) : [];
+  const quoted = sections.map((s) => s.text).join("\n");
   const faults = [];
   for (const pin of pins) {
     const end = shortestUniqueEnd(pin.path, known);
@@ -239,6 +272,22 @@ function check() {
           `docs/*.7.md. Say the new text in the matching man page and name it in the section.`
       });
     }
+    if (pin.status !== "modified" || CODE_PIN.test(pin.path)) continue;
+    const lines = addedLines(base.commit, pin.path);
+    pin.lines = lines.length;
+    for (const line of lines) {
+      if (quoted.includes(line)) continue;
+      faults.push({
+        pin: pin.path,
+        status: pin.status,
+        fault: "line-not-quoted",
+        line,
+        message:
+          `${pin.path} has a changed line that no "Operator decisions for ${version}" section quotes word for word: ` +
+          `${JSON.stringify(line)}. Ask the owner with this line quoted, and write the question and the answer ` +
+          `word for word in that section.`
+      });
+    }
   }
   return { ok: faults.length === 0, base, version, raised, pins, faults };
 }
@@ -258,7 +307,7 @@ function main() {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else if (!result.ok) {
     for (const f of result.faults) process.stderr.write(`pola:check: ${f.message}\n`);
-    process.stderr.write(`pola:check: ${result.faults.length} changed pin(s) without a full record (base ${result.base.tag}^1).\n`);
+    process.stderr.write(`pola:check: ${result.faults.length} fault(s) in changed pins without a full record (base ${result.base.tag}^1).\n`);
   }
   if (!result.ok) process.exitCode = 1;
 }

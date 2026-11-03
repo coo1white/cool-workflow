@@ -152,11 +152,56 @@ is free. For every changed pin, two things must hold:
   path end that names no other pin, such as `cli-help/_root.txt`) and names
   the `docs/*.7.md` that says the new text.
 
+A changed pin that is captured text (a `fixtures/` file such as
+`cli-help/_root.txt` or `cli-completion/bash.txt`, or run state) is also held
+line by line: every line the change adds or changes (trimmed, blank lines
+left out) must be in the `Operator decisions for <version>` sections, word
+for word. The sections for one version are read as one text. So the
+question put to the operator quotes the new line, and the record keeps
+the question. A case `.mjs` is held by its path only: its changed lines are
+asserts, and the new text is in the man page the record names.
+
 When all hold it says nothing and exits 0. Otherwise it puts one line per
 fault on stderr, saying what to do, and exits 1. `--json` gives the base,
-the version, every changed pin with the record that names it, and the
-faults, on stdout. The check reads names, not words: the reviewer still
-reads the operator's answer. Teeth live in `test/pola-check-smoke.mjs`.
+the version, every changed pin with the record that names it (and, for
+text pins, how many changed lines it read), and the faults, on stdout. The
+check reads names and quoted lines, not meaning: the reviewer still reads
+the operator's answer. Teeth live in `test/pola-check-smoke.mjs`.
+
+Pins that make this bite on output people see: `cli-help/*.txt` holds
+`cw help` and each command's help page, and `cli-completion/<shell>.txt`
+holds `cw completion bash|zsh|fish` byte for byte
+(`v2/conformance/cases/cli-completion-bytes.case.mjs`). The `cw help` front
+page is held by a unit test too: `test/core/format/help-front-page-cap.test.mjs`
+fails when the rows under "Cool Workflow" are more than five
+(unix-principles rule 7).
+
+## fails-before:check
+
+```text
+npm run fails-before:check
+npm run fails-before:check -- --base origin/main --json
+```
+
+A fix needs a test that fails before it. This holds that rule. The base is
+the merge base of `HEAD` and `--base` (default `origin/main`); the diff runs
+from there to the working tree. When no file under `src/` changed, it says
+nothing and exits 0. When `src/` changed:
+
+- the diff must add or change at least one test file (`test/**/*.test.mjs`
+  or `test/*-smoke.mjs`);
+- in a temp `git worktree` at the base, every added or changed file under
+  `test/` is copied in, and each changed test file is run with `node` against
+  the base's committed `dist/` (no build), in its own scratch `HOME`,
+  `CW_HOME` and `TMPDIR`; at least one must fail there.
+
+The temp worktree is taken away after. A base that is not in the clone, or
+no merge base (a shallow clone), is a refusal, exit 1. Faults go to stderr,
+exit 1; `--json` gives the base, the changed `src/` files, each test with
+whether it failed at the base and its first error line, and the faults. Any
+non-zero exit at the base counts as a fail, so the reviewer still reads the
+test. CI runs it on every pull request in the `fails-before` job (not a
+required check). Teeth live in `test/fails-before-check-smoke.mjs`.
 
 ## Before you hand a cut to the operator
 
@@ -172,7 +217,7 @@ and no tag (the reviewer's verdict file is left in `.cw-release/`, not committed
 later cut takes it away before its own review). Put right every finding it gives before you ask the operator to run
 `npm run release -- X.Y.Z`; a fault found there costs a full cut. A
 changed output with no record is found earlier still: `pola:check` runs in
-PR CI.
+PR CI, and so does `fails-before:check`.
 
 ## PR CI Merge Notes
 

@@ -348,6 +348,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [execution-backend-agent-smoke.mjs](../test/execution-backend-agent-smoke.mjs)
 - [execution-backend-ci-smoke.mjs](../test/execution-backend-ci-smoke.mjs)
 - [execution-backends-smoke.mjs](../test/execution-backends-smoke.mjs)
+- [fails-before-check-smoke.mjs](../test/fails-before-check-smoke.mjs)
 - [feedback-ops-unit-smoke.mjs](../test/feedback-ops-unit-smoke.mjs)
 - [fetch-child-proxy-smoke.mjs](../test/fetch-child-proxy-smoke.mjs)
 - [freebsd-audit-fixes-smoke.mjs](../test/freebsd-audit-fixes-smoke.mjs)

@@ -136,6 +136,14 @@ The stack for every project under `~/Developer` is in
    - npm test (all green; paste the summary into the PR body)
    - gen:manifests up to date
    - No TODO/FIXME introduced without a linked issue
+   - Never push until the full local suite has FINISHED green:
+     `node test/run-all.mjs`, `npm run test:unit`, and the v2
+     conformance suite. A suite still running is not green.
+   - A change to any default output needs the operator's named yes,
+     quoted word for word, in an "Operator decisions for <version>"
+     part of an intent file; `npm run pola:check` holds it in CI.
+   - A fix needs a test that fails before it;
+     `npm run fails-before:check` holds it in PR CI.
 
 4. RELEASE — Versioning rules (hard constraints):
    - Accumulate cycles on a feature branch; tag only when the batch forms
@@ -666,7 +674,8 @@ regardless of the capability it ships. The long form lives in
    put to the operator quotes each changed string, before and after, and
    `npm run pola:check` (in CI) holds the record to the pins: each changed
    `v2/conformance/` or run-fixture file is named, with its man page, under
-   "Operator decisions for <version>".
+   "Operator decisions for <version>", and each changed line of a fixture
+   text file is quoted there word for word.
 2. Mechanism, not policy. The kernel (plugins/cool-workflow/src/) provides
    mechanisms; policy lives in userland — apps, configs, wrappers, env.
    Vendor-specific logic (claude/codex/gemini rendering, prompt formats)

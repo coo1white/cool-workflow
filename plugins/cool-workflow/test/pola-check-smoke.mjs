@@ -203,4 +203,64 @@ git(["checkout", "-q", "main"], root);
   assert.match(r.stderr, /v0\.1\.0\^1\) is not in this clone \(it is a shallow clone\)/);
 }
 
+// 8. Line level: every changed line of a captured text pin must be quoted,
+//    word for word, in an "Operator decisions for <version>" section.
+//    Naming the path and a man page is not enough for these.
+{
+  setVersion(root, "0.1.1");
+  write(root, FIXTURE, "Cool Workflow\n  new row|check\n\n  second new\n");
+  record(root, "Operator decisions for 0.1.1", "Yes. Pin: `_root.txt`. Said in doctor.7.md.");
+  const r = run(root);
+  assert.equal(r.status, 1, "a changed fixture line that no section quotes must fail");
+  assert.match(r.stderr, /cli-help\/_root\.txt has a changed line that no "Operator decisions for 0\.1\.1" section quotes word for word: "new row\|check"/);
+  assert.match(r.stderr, /"second new"/);
+  const j = JSON.parse(run(root, ["--json"]).stdout);
+  assert.deepEqual(
+    j.faults.map((f) => [f.pin, f.fault, f.line]),
+    [[FIXTURE, "line-not-quoted", "new row|check"], [FIXTURE, "line-not-quoted", "second new"]],
+    "one fault per changed line; the blank added line is not counted"
+  );
+  assert.equal(j.pins[0].lines, 2);
+
+  // Quoted with other spaces around it (trimmed) in one section, the other
+  // line in a second section for the same version: the union passes.
+  write(
+    root,
+    `${INTENT}/2026-11-03-x.md`,
+    "# Intent\n\n## Operator decisions for 0.1.1\n\nYes to 「  new row|check」. Pin: `_root.txt`. Said in doctor.7.md.\n\n" +
+      "### Operator decisions for 0.1.1, more\n\nYes to `second new`.\n"
+  );
+  const ok = run(root);
+  assert.equal(ok.status, 0, `every line quoted across the sections must pass: ${ok.stderr}`);
+  assert.equal(ok.stderr, "");
+
+  // The line quoted only OUTSIDE a decisions section does not count.
+  write(
+    root,
+    `${INTENT}/2026-11-03-x.md`,
+    "# Intent\n\n## Operator decisions for 0.1.1\n\nYes to 「new row|check」. Pin: `_root.txt`. Said in doctor.7.md.\n\n" +
+      "## Later part\n\nsecond new\n"
+  );
+  const outside = JSON.parse(run(root, ["--json"]).stdout);
+  assert.deepEqual(outside.faults.map((f) => f.line), ["second new"], "a quote outside the section is no quote");
+  reset(root);
+
+  // A case .mjs keeps the path rule only: its changed assert line need not
+  // be quoted, so naming it with a man page passes.
+  setVersion(root, "0.1.1");
+  write(root, CASE, "assert.equal(out, 'quite new');\n");
+  record(root, "Operator decisions for 0.1.1", "Yes. Pin: `help.case.mjs`. Said in doctor.7.md.");
+  const code = run(root);
+  assert.equal(code.status, 0, `a case .mjs is held by path, not line: ${code.stderr}`);
+  reset(root);
+
+  // A run-state fixture is captured data, so it is held line by line too.
+  setVersion(root, "0.1.1");
+  write(root, RUN_A, "{\"a\":2}\n");
+  record(root, "Operator decisions for 0.1.1", "Yes. Pin: `run-a/state.json`. Said in release-and-migration.7.md.");
+  const state = JSON.parse(run(root, ["--json"]).stdout);
+  assert.deepEqual(state.faults.map((f) => [f.fault, f.line]), [["line-not-quoted", "{\"a\":2}"]]);
+  reset(root);
+}
+
 process.stdout.write("pola-check smoke: ok\n");
