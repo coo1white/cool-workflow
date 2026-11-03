@@ -3,6 +3,8 @@
 Start with the first run. Use the developer loop when you change code. Read the
 advanced pages only when you need those parts.
 
+To find the page for one command, see [Find by command](#find-by-command).
+
 ## First Run
 
 1. [Getting Started](getting-started.md) - clone, install, run `doctor --onramp`, run one workflow, inspect it, and run the right check.
@@ -59,6 +61,80 @@ advanced pages only when you need those parts.
 - [Demo](demo.7.md) - the tamper-evidence demo (`cw demo`).
 - [Fix](fix.7.md) - `cw fix` guided recovery for a blocked run.
 - [Init](init.7.md) - `cw init` repository bootstrap.
+
+## Find by command
+
+One row for each `cw` command that `cw help` names. The right column is the
+man page, and the part of it, that says what the command does and how to
+give it. `cw help <command>` prints its sub-commands; `cw man <page>` prints
+a page from this folder (give the page name without `.7.md`).
+
+| Command | What it does | Where it is documented |
+|---|---|---|
+| `cw -q "<question>"` | Asks one question about a repo and makes a cited report | [Agent Delegation Drive: CLI](agent-delegation-drive.7.md#cli) |
+| `cw app` | Makes, checks, lists, and runs workflow apps | [Workflow App framework: CLI](workflow-app-framework.7.md#cli) |
+| `cw audit` | Reads and records the trust-audit records of a run | [Security / Trust Hardening: CLI](security-trust-hardening.7.md#cli) |
+| `cw audit-run` | The same as `cw quickstart` (another name for it) | — (no page); nearest: [Agent Delegation Drive: CLI](agent-delegation-drive.7.md#cli) |
+| `cw backend` | Lists, shows, and tests execution backends; sets the agent | [Execution Backends: SYNOPSIS](execution-backends.7.md#synopsis), [Agent Delegation Drive: CLI](agent-delegation-drive.7.md#cli) |
+| `cw clones` | Lists and clears the cache of remote-source copies | [Remote Source Review: Cache](remote-source-review.7.md#cache--cw-clones) |
+| `cw commit` | Makes a verifier-gated commit or checkpoint | [Verifier-Gated Commit: SYNOPSIS](verifier-gated-commit.7.md#synopsis) |
+| `cw completion` | Prints a shell-completion script (bash, zsh, fish) | — (no page); nearest: [CLI <-> MCP Parity: Surface-Specific Capabilities](cli-mcp-parity.7.md#surface-specific-capabilities) |
+| `cw contract` | Shows the pipeline contract of a run | [Pipeline Runner: FILES](pipeline-runner.7.md#files) |
+| `cw demo` | Proves the tamper checks with no agent (`tamper`, `bundle`) | [Demo](demo.7.md#synopsis) |
+| `cw dispatch` | Gives ready tasks of a run to an agent | [Pipeline Verbs: DISPATCH](pipeline-verbs.7.md#dispatch) |
+| `cw doctor` | Checks your setup and gives a fix for each problem | [Doctor](doctor.7.md#synopsis) |
+| `cw feedback` | Gets, shows, and clears error feedback of a run | [Error Feedback: EXAMPLES](error-feedback.7.md#examples) |
+| `cw fix` | Prints the fix commands for setup problems | [Fix](fix.7.md#synopsis) |
+| `cw gc` | Plans, runs, and checks the freeing of old run space | [Run Retention: CLI](run-retention-reclamation.7.md#cli) |
+| `cw graph` | Shows the graph of a run | [Operator UX: Graph](operator-ux.7.md#graph) |
+| `cw help` | Prints the help page, or one command's sub-commands | — (no page); nearest: [Unix Principles: D2. The CLI scale](unix-principles.md#d2-the-cli-scale) |
+| `cw history` | One timeline of runs across repos, newest first | [Run Registry: Cross-repo history](run-registry-control-plane.7.md#cross-repo-history) |
+| `cw info` | Shows the contract of a workflow app as a card | — (no page); nearest: [Workflow App framework: App Contract](workflow-app-framework.7.md#app-contract) |
+| `cw init` | Makes a new workflow definition | [Init](init.7.md#synopsis) |
+| `cw ledger` | Hands sealed proposals and reviews between two agents | [Cross-Agent Ledger: Commands](cross-agent-ledger.7.md#commands) |
+| `cw list` | Lists the workflow apps you have | [Workflow App framework: CLI](workflow-app-framework.7.md#cli) |
+| `cw loop` | Short form of `cw schedule create --kind loop` | [Control-Plane Scheduling: Scheduled Tasks In Practice](control-plane-scheduling.7.md#scheduled-tasks-in-practice) |
+| `cw man` | Prints a man page from this folder | — (no page); nearest: this page |
+| `cw metrics` | Times, rates, token use, and cost of a run | [Observability + Cost Accounting: Commands](observability-cost-accounting.7.md#commands) |
+| `cw migration` | Lists, checks, and proves state migrations | [Contract Migration Tooling: Surfaces & Compatibility](contract-migration-tooling.7.md#surfaces--compatibility) |
+| `cw next` | Reads the next tasks to do in a run | — (no page); nearest: [Pipeline Verbs: SEE ALSO](pipeline-verbs.7.md#see-also) |
+| `cw node` | Lists, snapshots, compares, and replays the nodes of a run | [Pipeline Runner: FILES](pipeline-runner.7.md#files), [Node Snapshot / Diff / Replay](node-snapshot-diff-replay.7.md#surfaces--compatibility) |
+| `cw operator` | The full operator view and report of a run | — (no page); nearest: [Operator UX: Inspect A Run](operator-ux.7.md#inspect-a-run) |
+| `cw orphans` | Lists and clears run folders that have no state | [Run Retention: Orphan runs](run-retention-reclamation.7.md#orphan-runs--a-second-pure-scratch-case-outside-this-transaction) |
+| `cw plan` | Makes a run and gives its plan | [Pipeline Verbs: PLAN](pipeline-verbs.7.md#plan) |
+| `cw queue` | Puts runs in order and takes them out | [Run Registry: Queue](run-registry-control-plane.7.md#queue) |
+| `cw quickstart` | Plan, drive, and report in one command | [Agent Delegation Drive: CLI](agent-delegation-drive.7.md#cli), [Verifiable Report Bundle: Usage](report-verifiable-bundle.7.md#usage) |
+| `cw registry` | Builds and shows the index of runs | [Run Registry: CLI](run-registry-control-plane.7.md#cli) |
+| `cw report` | Makes and shows the report of a run; makes and checks a bundle | [Operator UX: Console Report](operator-ux.7.md#console-report), [Verifiable Report Bundle: Usage](report-verifiable-bundle.7.md#usage) |
+| `cw result` | Records an agent's result file for a task | [Pipeline Verbs: RESULT](pipeline-verbs.7.md#result) |
+| `cw routine` | Triggers for API and GitHub events | [Routine Triggers: COMMANDS](routine.7.md#commands) |
+| `cw run` | Search, resume, drive, archive, export, and import runs | [Run Registry: CLI](run-registry-control-plane.7.md#cli) |
+| `cw sandbox` | Lists, shows, checks, and picks sandbox profiles | [Sandbox Profiles: SYNOPSIS](sandbox-profiles.7.md#synopsis) |
+| `cw sched` | Leases on the run queue (take, complete, give back) | [Control-Plane Scheduling: The lease lifecycle](control-plane-scheduling.7.md#the-lease-lifecycle) |
+| `cw schedule` | Cron, loop, and reminder tasks on your desktop | [Control-Plane Scheduling: Scheduled Tasks In Practice](control-plane-scheduling.7.md#scheduled-tasks-in-practice) |
+| `cw search` | Searches the workflow apps by a word | — (no page); nearest: [Workflow App framework: CLI](workflow-app-framework.7.md#cli) |
+| `cw state` | Checks if a run's saved state can be loaded | [Release And Migration: Dry Run](release-and-migration.7.md#dry-run) |
+| `cw status` | The first look at one run: stage, counts, next step | [Operator UX: Inspect A Run](operator-ux.7.md#inspect-a-run) |
+| `cw telemetry` | Checks a run's telemetry ledger again, offline | [Trust Model: How to verify for yourself](trust-model.md#how-to-verify-for-yourself) |
+| `cw version` | Prints the version | — (no page); nearest: [CLI <-> MCP Parity: Surface-Specific Capabilities](cli-mcp-parity.7.md#surface-specific-capabilities) |
+| `cw workbench` | The read-only Workbench on localhost | [Web / Desktop Workbench: Surfaces](web-desktop-workbench.7.md#surfaces) |
+| `cw worker` | Lists, shows, and records the workers of a run | [Worker Isolation: SYNOPSIS](worker-isolation.7.md#synopsis) |
+
+### Commands with no page yet
+
+These commands have a row above but no man page part of their own. The
+row says which page is nearest. The list may only get shorter: a new
+command comes with its page.
+
+- `cw audit-run` (another name for `cw quickstart`)
+- `cw completion`
+- `cw help`
+- `cw info`
+- `cw man`
+- `cw next`
+- `cw operator`
+- `cw search`
+- `cw version`
 
 CW is the base system. Workflow apps are userland. Release and migration rules
 must keep that line clear: stable contracts, clear compatibility checks, and
