@@ -31,8 +31,8 @@ function arg(name, fallback) {
 }
 
 // .cw-release/ lives at the REPO ROOT, not necessarily at process.cwd() —
-// this script is documented to be run from plugins/cool-workflow (AGENTS.md's
-// "Verdict Signing" checklist cwd), where a bare ".cw-release/verdict-signing.pub" would
+// this script is documented to be run from plugins/cool-workflow
+// (docs/release-tooling.7.md, "Verdict signing setup"), where a bare ".cw-release/verdict-signing.pub" would
 // silently resolve under plugins/cool-workflow/.cw-release/ instead, a path no
 // verifier ever looks at. Resolve the real root so the printed command is
 // correct regardless of where this script was invoked from.

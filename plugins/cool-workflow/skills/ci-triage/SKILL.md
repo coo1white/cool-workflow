@@ -23,7 +23,7 @@ that proves the proposed fix.
 3. Inspect only the files needed to explain that first failure.
 4. Propose or implement the smallest fix.
 5. Run the narrow verifier first, then the full gate when the fix is plausible.
-6. Write the lesson back to `AGENTS.md`'s Build Memory section, an eval case,
+6. Write the lesson back to the root `REVIEW.md` (what a reviewer stops), an eval case,
    or the matching workflow skill when the failure pattern is likely to recur.
 
 ## Commands
