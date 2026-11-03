@@ -6,10 +6,10 @@
 //
 // This repo differs from the Gitea repos in the spec in two named ways,
 // both in the gate itself, not swept under the rug: the LABELS set is
-// {ubuntu-latest, macos-latest} (a GitHub-hosted repo, not linux-amd64 /
-// macos-arm64), and check 6 drops the "no ubuntu-/macos-latest" ban for the
-// same reason. The last part copies the real workflow files into a temp
-// dir and checks the gate reports the right fault for one broken copy per
+// {ubuntu-latest, macos-latest, windows-latest} (a GitHub-hosted
+// repo, not linux-amd64 / macos-arm64), and check 6 drops the "no
+// ubuntu-/macos-latest" ban for the same reason. The last part copies
+// the real workflow files into a temp dir and checks the gate reports the right fault for one broken copy per
 // check.
 // @cw-smoke: tags ci,gate
 import assert from "node:assert";
@@ -31,7 +31,7 @@ const PINS = {
   "actions/upload-pages-artifact": "fc324d3547104276b827a68afc52ff2a11cc49c9",
   "actions/deploy-pages": "368f82528645a54fb793d4d04e342629a3f51346",
 };
-const LABELS = ["ubuntu-latest", "macos-latest"];
+const LABELS = ["ubuntu-latest", "macos-latest", "windows-latest"];
 // The ci.yml jobs branch protection requires for merge (AGENTS.md: the
 // `check` legs). The release rehearsal must never join this set.
 const REQUIRED_JOBS = ["check"];

@@ -117,6 +117,54 @@ jobs:
       - run: bun run test:gate
       - run: bun run test:unit
 
+  # Windows leg, a MEASURING leg for now: native Windows is not yet a
+  # supported platform (README says so). Each test step may fail without
+  # failing the job; the last step writes the pass/fail counts and the
+  # failing files to the job summary, so the real gap is a number, not a
+  # guess. The next step (a known-failures list that can only get shorter)
+  # turns this into a gate. Not a required check.
+  cool-workflow-windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: plugins/cool-workflow
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.1
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun run build
+      - run: node dist/cli.js help > /dev/null
+      - run: node ../../v2/conformance/run.mjs --bin dist/cli.js
+        continue-on-error: true
+      - run: node test/run-all.mjs --json-summary windows-smokes.json
+        continue-on-error: true
+      - run: bun run test:unit
+        continue-on-error: true
+      - if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            let text = "### Windows smoke suite\n\n";
+            if (!fs.existsSync("windows-smokes.json")) text += "No summary was written (the runner did not finish).\n";
+            else {
+              const s = JSON.parse(fs.readFileSync("windows-smokes.json", "utf8"));
+              const bad = s.results.filter((r) => !r.ok).map((r) => r.file).sort();
+              text += `${s.results.length - bad.length}/${s.results.length} passed, ${bad.length} failed.\n\n`;
+              for (const f of bad) text += `- ${f}\n`;
+            }
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, text);
+            process.stdout.write(text);
+          '
+
   # Runs the release-reviewer smokes and the eval-replay harness smoke when
   # AGENTS.md or plugins/cool-workflow/agents/** change, since a bad agent
   # prompt is invisible to the other legs. Gated per job, not by a workflow-
