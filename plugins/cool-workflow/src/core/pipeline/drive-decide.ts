@@ -12,6 +12,7 @@
 // cache".
 
 import { RunTask, WorkflowRun } from "../state/types.js";
+import { AgentDelegationConfig } from "../types/execution-backend.js";
 import { firstRunnablePhase, runnableTaskIds } from "./dispatch.js";
 import { stableStringify, sha256 } from "../hash.js";
 import { isVerdictTaskId } from "../trust/evidence-grounding.js";
@@ -387,4 +388,26 @@ export function incrementalDelegationDigest(
       endpoint,
     })
   );
+}
+
+export function agentConfigured(config: AgentDelegationConfig): boolean {
+  return Boolean(config.command || config.endpoint);
+}
+
+export function spawningAgentLine(task: { id: string; label?: unknown; phase: string }, dispatched: boolean): string {
+  return `→ ${task.label || task.id} (${task.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`;
+}
+
+export function renderSubInputs(spec: { inputs?: Record<string, string> }, parentInputs: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, template] of Object.entries(spec.inputs || {})) {
+    out[key] = String(template).replace(/\{\{(\w+)\}\}/g, (_, name) => String(parentInputs[name] ?? ""));
+  }
+  return out;
+}
+
+export function roundPhaseLabel(run: WorkflowRun): string {
+  const phase = firstRunnablePhase(run);
+  const name = phase ? phase.name || phase.id : "";
+  return name ? name.charAt(0).toUpperCase() + name.slice(1) : "";
 }
