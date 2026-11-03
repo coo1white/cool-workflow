@@ -1,5 +1,5 @@
 // test/helpers/workspace.mjs — scratch folders for tests (refactor phase 3,
-// project/docs/intent/2026-11-03-refactor-whole-tree.md).
+// project/docs/intent/2026-11-archive.md, refactor part).
 //
 // Consumers: every test that imports it (grep for helpers/workspace.mjs).
 //

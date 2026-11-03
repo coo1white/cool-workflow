@@ -1,5 +1,5 @@
 // test/helpers/stub-agent.mjs — a stub agent script for drive tests
-// (refactor phase 3, project/docs/intent/2026-11-03-refactor-whole-tree.md).
+// (refactor phase 3, project/docs/intent/2026-11-archive.md, refactor part).
 //
 // Consumers: every test that imports it (grep for helpers/stub-agent.mjs).
 //
