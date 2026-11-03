@@ -20,19 +20,18 @@
 //      is skipped: list, `cw list` and quickstart --check stay ok.
 
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { cw as runCw } from "./helpers/cw.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-const cli = path.join(pluginRoot, "dist", "cli.js");
 const work = tmpDir("cw-init-default-");
 
 function cw(args, cwd, extraEnv = {}) {
   const env = { ...process.env, HOME: work, CW_HOME: path.join(work, "home"), ...extraEnv };
   if (!("CW_APPS_DIR" in extraEnv)) delete env.CW_APPS_DIR;
-  return spawnSync(process.execPath, [cli, ...args], { cwd, env, encoding: "utf8", timeout: 60000 });
+  return runCw(args, { cwd, env, timeout: 60000 });
 }
 
 const packageApp = path.join(pluginRoot, "apps", "init-default-probe");

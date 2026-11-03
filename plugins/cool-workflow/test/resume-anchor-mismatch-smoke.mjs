@@ -13,15 +13,13 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
 
-const pluginRoot = path.resolve(import.meta.dirname, "..");
-const cli = path.join(pluginRoot, "dist", "cli.js");
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { cw as runCw } from "./helpers/cw.mjs";
 
 clearAgentEnv({ noAutoAgent: true });
 
@@ -60,7 +58,7 @@ function stateText(repo, runId) {
   return fs.readFileSync(path.join(repo, ".cw", "runs", runId, "state.json"), "utf8");
 }
 function cw(args) {
-  return spawnSync(process.execPath, [cli, ...args, "--agent-command", agentCommand], { cwd: root, env, encoding: "utf8" });
+  return runCw([...args, "--agent-command", agentCommand], { cwd: root, env });
 }
 
 // (1) `cw --resume --run <id> --repo <copy>`: refused; neither run is touched.

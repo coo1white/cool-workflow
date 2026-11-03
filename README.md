@@ -39,6 +39,8 @@ Upgrade later with `brew update && brew upgrade cool-workflow`.
 
 **You need:** Node.js v22.13 or newer. No agent yet? Step 1 below still works — **CW never runs a model itself.**
 
+**Runs on:** Linux, macOS and Windows through WSL. Native Windows is not yet supported: CI runs it to measure what still fails, and that work is going on.
+
 ## Works with your agent
 
 | Agent | Flag | Status |
