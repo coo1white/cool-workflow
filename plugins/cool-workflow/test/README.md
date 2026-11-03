@@ -60,6 +60,22 @@ Smokes are black-box runs and stay flat at the top of `test/`. The runner reads
 only `test/*-smoke.mjs`, so a smoke in a sub folder would never run.
 `test-layout-smoke.mjs` fails closed on that, on a unit test left at the top of\n`test/`, on a test with the old `.js` name, and on a folder with no matching `src/` folder.
 
+## Shared Helpers
+
+`test/helpers/` holds the shared test set-up, so a test imports it in place of
+a local copy (`import { cw } from "./helpers/cw.mjs"`). No dependency; each
+file names its users in its header.
+
+| File | Gives |
+|------|-------|
+| `workspace.mjs` | `tmpDir(prefix)`, `tmpWorkspace(prefix)` (with `README.md`); realpath'd, taken away at exit |
+| `cw.mjs` | `cw(args, { cwd, env, timeout })`: `node dist/cli.js`, no shell, killed after 120 s |
+| `stub-agent.mjs` | `writeStubAgent(file, { summary, model, usage, countFile })` |
+| `env.mjs` | `clearAgentEnv({ also, noAutoAgent })` |
+
+`helpers/helpers.test.mjs` tests them. The folder mirrors no `src/` folder and
+holds no `*-smoke.mjs`; `test-layout-smoke.mjs` keeps it so.
+
 ## Skipping a Smoke
 
 Add `// CW_SKIP: <reason>` in the first 10 lines. The runner skips it and prints
