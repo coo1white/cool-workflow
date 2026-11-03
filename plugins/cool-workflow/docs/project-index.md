@@ -263,6 +263,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [architecture-review-fast-phase-cache-smoke.mjs](../test/architecture-review-fast-phase-cache-smoke.mjs)
 - [architecture-review-fast-smoke.mjs](../test/architecture-review-fast-smoke.mjs)
 - [architecture-review-question-aware-smoke.mjs](../test/architecture-review-question-aware-smoke.mjs)
+- [architecture-smoke.mjs](../test/architecture-smoke.mjs)
 - [artifact-integrity-smoke.mjs](../test/artifact-integrity-smoke.mjs)
 - [audit-verify-smoke.mjs](../test/audit-verify-smoke.mjs)
 - [backend-registry-smoke.mjs](../test/backend-registry-smoke.mjs)
