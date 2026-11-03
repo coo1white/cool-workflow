@@ -139,5 +139,5 @@ test at most 59,500, `mkdtempSync` files at most 40, no `core` edge out.
 | 2 Byte-identical helpers (sha256Local, fingerprintStrings, errMessage, formatCounts x3; frozen files untouched) | done | #845 |
 | 3 Test helpers and migrations | 3a (#847), 3b env and 3d stub-agent (#851), 3c part 1 (#852) and part 2 (#853, 164 -> 5 files with `mkdtempSync`) done; 3e next | |
 | 4 `shell/commands/` (16 files moved; imports, lazy requires, docs, tests and dist follow) | in this PR | |
-| 5 `drive.ts` pure functions | | |
+| 5 `drive.ts` pure functions: 5 of the 11 moved (`agentConfigured`, `spawningAgentLine`, `renderSubInputs`, `roundPhaseLabel` to `drive-decide.ts`; `compareBytes` to `core/util/collate.ts`, with the `run-registry-io.ts` copy). The other 6 stay: `recordedTokenTotal` and `tokenBudgetUsage` read `shell/observability.ts`, `stillOwnedTask` throws a `shell/run-store.ts` error, `resultCachePath` reads files, `assertResultWritable` calls `shell/sandbox-profile.ts`, and `buildDriveContext` resolves the agent config | in this PR | |
 | 7 Close and archive | | |
