@@ -32,6 +32,9 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { writeStubAgent } from "./helpers/stub-agent.mjs";
+
+const STUB = { summary: "stub", usage: { input_tokens: 4, output_tokens: 2 } };
 
 const FIXED_NOW = "2026-06-20T00:00:00.000Z";
 const cleanups = [];
@@ -40,18 +43,6 @@ function tmp(prefix) {
   const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   cleanups.push(d);
   return d;
-}
-function writeStub(file, countFile) {
-  fs.writeFileSync(file, [
-    'const fs = require("fs");',
-    "const fence = String.fromCharCode(96).repeat(3);",
-    "const rp = process.argv[2];",
-    `fs.appendFileSync(${JSON.stringify(countFile)}, "x");`,
-    'const body = "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "stub", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + fence + "\\n";',
-    "fs.writeFileSync(rp, body);",
-    'process.stdout.write(JSON.stringify({ model: "stub", usage: { input_tokens: 4, output_tokens: 2 } }));' // 6 tokens/hop
-  ].join("\n"), "utf8");
-  return file;
 }
 function agentConfig(stub) {
   return { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], model: "op", source: "flag" };
@@ -100,7 +91,7 @@ function main() {
     const work = tmp("cw-budget-work-");
     fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
     const countFile = path.join(work, "spawns.count");
-    const stub = writeStub(path.join(work, "stub.js"), countFile);
+    const stub = writeStubAgent(path.join(work, "stub.js"), { ...STUB, countFile });
     writeBudgetLoopApp(appsDir, "budget-scale", 18, null);
     process.chdir(work);
     try {
@@ -120,7 +111,7 @@ function main() {
     const work = tmp("cw-budgetcap-work-");
     fs.writeFileSync(path.join(work, "README.md"), "# t\n", "utf8");
     const countFile = path.join(work, "spawns.count");
-    const stub = writeStub(path.join(work, "stub.js"), countFile);
+    const stub = writeStubAgent(path.join(work, "stub.js"), { ...STUB, countFile });
     // target 18 wants 3 rounds, but the cap (tokenBudget 12) fires first.
     writeBudgetLoopApp(appsDir, "budget-capped", 18, 12);
     process.chdir(work);

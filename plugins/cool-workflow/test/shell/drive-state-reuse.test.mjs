@@ -22,19 +22,8 @@ import { drive } from "../../dist/shell/drive.js";
 import { loadWorkflowApp } from "../../dist/shell/workflow-app-loader.js";
 import { plan } from "../../dist/shell/pipeline.js";
 import { savedRunIfCurrent } from "../../dist/shell/run-store.js";
+import { writeStubAgent } from "../helpers/stub-agent.mjs";
 
-function writeStub(file) {
-  const fence = String.fromCharCode(96).repeat(3);
-  const lines = [
-    'const fs = require("fs");',
-    "const rp = process.argv[2];",
-    `const body = "# R\\n\\n" + ${JSON.stringify(fence)} + "cw:result\\n" + JSON.stringify({ summary: "s", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + ${JSON.stringify(fence)} + "\\n";`,
-    "fs.writeFileSync(rp, body);",
-    'process.stdout.write(JSON.stringify({ model: "stub", usage: { input_tokens: 1, output_tokens: 1 } }));',
-  ];
-  fs.writeFileSync(file, lines.join("\n"), "utf8");
-  return file;
-}
 
 // Plans a golden-path run in a temp dir and drives it to the end with
 // `betweenRounds(statePath)` called once, at the first phase progress line.
@@ -50,7 +39,7 @@ function driveWithHook(betweenRounds, env = {}) {
   try {
     process.chdir(work);
     const p = plan(loadWorkflowApp("end-to-end-golden-path"), { repo: work, question: "state reuse" });
-    const agentConfig = { schemaVersion: 1, command: process.execPath, args: [writeStub(path.join(work, "stub.js")), "{{result}}"], source: "flag" };
+    const agentConfig = { schemaVersion: 1, command: process.execPath, args: [writeStubAgent(path.join(work, "stub.js")), "{{result}}"], source: "flag" };
     Object.assign(process.env, { CW_DRIVE_PROGRESS: "1" }, env);
     process.stderr.write = function (chunk, ...rest) {
       if (!hooked && String(chunk).includes("==>")) {

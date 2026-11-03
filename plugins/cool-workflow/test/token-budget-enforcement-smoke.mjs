@@ -30,6 +30,9 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { drive as driveRun } from "../dist/shell/drive.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
+import { writeStubAgent } from "./helpers/stub-agent.mjs";
+
+const STUB = { summary: "stub", model: "stub-m", usage: { input_tokens: 4, output_tokens: 2 } };
 
 // Facade shim: preserves the old runner.plan(workflowId, opts) / runner.loadRun(id)
 // call sites and threads the run's cwd into the new drive(runId, cwd, opts).
@@ -66,18 +69,6 @@ function tmpWorkspace() {
 }
 
 // A stub agent that writes a valid result.md and reports usage: 6 tokens/hop.
-function writeStub(file) {
-  const lines = [
-    'const fs = require("fs");',
-    "const fence = String.fromCharCode(96).repeat(3);",
-    "const rp = process.argv[2];",
-    'const body = "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "stub", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n" + fence + "\\n";',
-    "fs.writeFileSync(rp, body);",
-    'process.stdout.write(JSON.stringify({ model: "stub-m", usage: { input_tokens: 4, output_tokens: 2 } }));'
-  ];
-  fs.writeFileSync(file, lines.join("\n"), "utf8");
-  return file;
-}
 
 function setTokenBudget(run, budget) {
   const state = JSON.parse(fs.readFileSync(run.paths.state, "utf8"));
@@ -99,7 +90,7 @@ function main() {
   // ---- 1. budget exhausts mid-run -> blocked before the NEXT spawn ----------
   {
     const work = tmpWorkspace();
-    const stub = writeStub(path.join(work, "stub.js"));
+    const stub = writeStubAgent(path.join(work, "stub.js"), STUB);
     process.chdir(work);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
@@ -131,7 +122,7 @@ function main() {
   // ---- 2. ample budget -> drives to completion (gate never blocks real work) -
   {
     const work = tmpWorkspace();
-    const stub = writeStub(path.join(work, "stub.js"));
+    const stub = writeStubAgent(path.join(work, "stub.js"), STUB);
     process.chdir(work);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });
@@ -149,7 +140,7 @@ function main() {
   // ---- 3. no budget declared -> no gate (backward compatible) ---------------
   {
     const work = tmpWorkspace();
-    const stub = writeStub(path.join(work, "stub.js"));
+    const stub = writeStubAgent(path.join(work, "stub.js"), STUB);
     process.chdir(work);
     try {
       const runner = new CoolWorkflowRunner({ pluginRoot });

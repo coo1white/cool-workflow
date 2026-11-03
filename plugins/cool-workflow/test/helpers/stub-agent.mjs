@@ -1,7 +1,7 @@
 // test/helpers/stub-agent.mjs — a stub agent script for drive tests
 // (refactor phase 3, project/docs/intent/2026-11-03-refactor-whole-tree.md).
 //
-// Consumers: test/helpers/helpers.test.mjs, test/drive-round-cache-serial-smoke.mjs.
+// Consumers: every test that imports it (grep for helpers/stub-agent.mjs).
 //
 // writeStubAgent(file, opts) writes a CommonJS script that takes the result
 // path as argv[2], writes a valid cw:result envelope there (evidence names
