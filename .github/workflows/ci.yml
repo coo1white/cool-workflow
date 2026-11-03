@@ -196,7 +196,7 @@ jobs:
           if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
             base="$(git rev-list --max-parents=0 HEAD)"
           fi
-          if git diff --name-only "$base" "${{ github.sha }}" | grep -qE '^(plugins/cool-workflow/scripts/(release-[^/]*|verify-[^/]*|dogfood-release|bump-version)\.js|plugins/cool-workflow/test/(run-all|fixtures/release-rehearsal-reviewer)\.js|plugins/cool-workflow/package\.json|plugins/cool-workflow/agents/release-reviewer\.md|\.cw-release/.*|\.github/workflows/(ci|release|npm-publish)\.yml)$'; then
+          if git diff --name-only "$base" "${{ github.sha }}" | grep -qE '^(plugins/cool-workflow/scripts/(release-[^/]*|verify-[^/]*|dogfood-release|bump-version)\.mjs|plugins/cool-workflow/test/(run-all|fixtures/release-rehearsal-reviewer)\.mjs|plugins/cool-workflow/package\.json|plugins/cool-workflow/agents/release-reviewer\.md|\.cw-release/.*|\.github/workflows/(ci|release|npm-publish)\.yml)$'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
