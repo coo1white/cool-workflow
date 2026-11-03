@@ -16,7 +16,7 @@
 //      closed (exit 1, "Duplicate workflow app id"), never shown twice.
 //   6. Listing reads ./apps/*/app.json alone: it never runs their workflow.js
 //      (phases and taskCount are null there); `cw app show <id>` loads it.
-//      An app.json that is not a CW manifest (an Expo apps/mobile/app.json)
+//      An app.json that is not a CW manifest (as an Expo app has)
 //      is skipped: list, `cw list` and quickstart --check stay ok.
 
 import assert from "node:assert/strict";
