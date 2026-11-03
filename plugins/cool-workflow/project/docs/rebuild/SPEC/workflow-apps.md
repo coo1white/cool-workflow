@@ -209,13 +209,16 @@ All CLI JSON goes to stdout via `JSON.stringify(value, null, 2)` plus a newline.
 Quickstart hint strings, byte-exact:
 
 ```text
-agent backend not configured — set CW_AGENT_COMMAND (e.g. "claude -p") or pass --agent-command, then re-run. The one command DELEGATES worker execution to YOUR agent; it never executes a model itself.
+agent backend not configured — Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude (or set CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work too. The one command DELEGATES worker execution to YOUR agent; it never executes a model itself.
+a worker failed and stopped after its retries. What the agent said is in <log> — fix the cause, then run: cw --resume --run <run-id>
 a worker parked past its retry budget — inspect: cw run show <run-id>; fix the cause, then: cw --resume --run <run-id>
 the drive is blocked — inspect: cw run drive <run-id>
 one step advanced — continue: cw --resume --run <run-id>
 one step advanced (--once) — continue: cw quickstart <app-id> --run <run-id> --once
 --bundle skipped: the run did not complete (status=<status>); no bundle was sealed.
 ```
+
+On a park, `<log>` is the stopped worker's `logs/agent-stderr.log` (relative to the cwd when under it); the older parked line is kept for a worker with no such log (2026-11-03).
 
 (src/capability-core.ts:792-809; with `--bundle`, the resume line ends with ` --bundle`)
 
@@ -233,7 +236,7 @@ one step advanced (--once) — continue: cw quickstart <app-id> --run <run-id> -
 }
 ```
 
-Check names and byte-exact detail/fix strings (local mode): `app` ok `Workflow app ${appId} is available.` / blocked `Workflow app ${appId} is not available.` with fix ``Run `cw app list` and choose one of the listed app ids.``; `repo` ok `Repository path is readable (${repo}).` / blocked `Repository path is not readable (${repo}).` fix `Pass --repo PATH for a readable repository directory.`; `repo-state` ok `Run state location is writable.` / blocked `Run state location is not writable.` fix `Use a writable repo, fix directory permissions, or pass --repo to a writable checkout.`; `question` ok `Question is set.` / blocked `Question is missing.` fix `Pass --question TEXT.`; `agent` ok `Agent backend is configured.` / blocked `No agent backend is configured.` fix `Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.`; `bundle-trust-key` ok `Bundle trust public key is configured.` / blocked (with `--strict-signatures`) `Strict signature verification needs a public trust key.` fix `Pass --with-trust-key PATH or set $CW_AGENT_ATTEST_PUBKEY.` / warn `No public trust key is configured; unsigned or unkeyed bundles may verify with reduced signature proof.` fix `Pass --with-trust-key PATH to embed the public key.`. (src/capability-core.ts:841-947)
+Check names and byte-exact detail/fix strings (local mode): `app` ok `Workflow app ${appId} is available.` / blocked `Workflow app ${appId} is not available.` with fix ``Run `cw app list` and choose one of the listed app ids.``; `repo` ok `Repository path is readable (${repo}).` / blocked `Repository path is not readable (${repo}).` fix `Pass --repo PATH for a readable repository directory.`; `repo-state` ok `Run state location is writable.` / blocked `Run state location is not writable.` fix `Use a writable repo, fix directory permissions, or pass --repo to a writable checkout.`; `question` ok `Question is set.` / blocked `Question is missing.` fix `Pass --question TEXT.`; `agent` ok `Agent backend is configured.` / blocked `No agent backend is configured.` fix `Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude (or set CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work too.`; `bundle-trust-key` ok `Bundle trust public key is configured.` / blocked (with `--strict-signatures`) `Strict signature verification needs a public trust key.` fix `Pass --with-trust-key PATH or set $CW_AGENT_ATTEST_PUBKEY.` / warn `No public trust key is configured; unsigned or unkeyed bundles may verify with reduced signature proof.` fix `Pass --with-trust-key PATH to embed the public key.`. (src/capability-core.ts:841-947)
 
 Remote check extra names: `link` ok `Remote source is a valid ${kind} URL (${url}).` / blocked `Remote source is not usable: ${reason}.` fix `Pass a git URL (https/ssh/git/file or git@host:repo).`; `tooling` ok `git is available to clone the remote.` / blocked `git was not found on PATH.` fix `Install git, then re-run.`. Its `nextCommand` is `cw quickstart <app> --link <url>[ --question <q>]`. (src/capability-core.ts:953-1003)
 

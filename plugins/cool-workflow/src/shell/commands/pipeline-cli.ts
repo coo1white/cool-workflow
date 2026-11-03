@@ -28,7 +28,7 @@ import { writeReport } from "../report.js";
 import { ensureAndOpenReportHtml } from "./report-view-cli.js";
 import { formatQuickstartSummary } from "../reporter.js";
 import { WorkflowRun } from "../../core/state/types.js";
-import { agentConfigured, resolveAgentConfig } from "../agent-config.js";
+import { AGENT_FIX, agentConfigured, resolveAgentConfig } from "../agent-config.js";
 import { materializeRemote, isRemoteUrl, validateRemoteUrl, gitAvailable, RemoteSource } from "../remote-source.js";
 import { isGitWorkTree } from "../onramp.js";
 import { recordTrustAuditEvent } from "../trust-audit.js";
@@ -324,7 +324,7 @@ function quickstartCheck(appId: string, args: Record<string, unknown>, remoteCan
       name: "agent",
       status: "blocked",
       detail: "No agent backend is configured.",
-      fix: 'Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.',
+      fix: AGENT_FIX,
     });
   }
 
@@ -380,7 +380,7 @@ function remoteQuickstartCheck(appId: string, args: Record<string, unknown>, can
   if (agentConfigured(args)) {
     checks.push({ name: "agent", status: "ok", detail: "Agent backend is configured." });
   } else {
-    checks.push({ name: "agent", status: "blocked", detail: "No agent backend is configured.", fix: 'Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.' });
+    checks.push({ name: "agent", status: "blocked", detail: "No agent backend is configured.", fix: AGENT_FIX });
   }
 
   const ok = checks.every((check) => check.status !== "blocked");
@@ -570,9 +570,12 @@ export async function quickstartRun(
   let hint: string | undefined;
   if (!result.agentConfigured) {
     hint =
-      "agent backend not configured — set CW_AGENT_COMMAND (e.g. \"claude -p\") or pass --agent-command, then re-run. The one command DELEGATES worker execution to YOUR agent; it never executes a model itself.";
+      `agent backend not configured — ${AGENT_FIX} The one command DELEGATES worker execution to YOUR agent; it never executes a model itself.`;
   } else if (result.status === "parked") {
-    hint = `a worker parked past its retry budget — inspect: cw run show ${result.runId}; fix the cause, then: cw --resume --run ${result.runId}`;
+    const log = stopLog(result as unknown as Record<string, unknown>);
+    hint = log
+      ? `a worker failed and stopped after its retries. What the agent said is in ${log.shown} — fix the cause, then run: cw --resume --run ${result.runId}`
+      : `a worker parked past its retry budget — inspect: cw run show ${result.runId}; fix the cause, then: cw --resume --run ${result.runId}`;
   } else if (result.status === "blocked") {
     hint = `the drive is blocked — inspect: cw run drive ${result.runId}`;
   } else if (result.status === "in-progress") {
@@ -625,30 +628,42 @@ export async function quickstartRun(
   };
 }
 
-/** Why a parked or blocked run stopped, for the TTY summary: the last
- *  stop step's reason, then the last line of that worker's
- *  logs/agent-stderr.log when there is one (the agent's own words). Reads
- *  only; any missing piece is left out. */
-function stopWhy(r: Record<string, unknown>): string[] | undefined {
+function stopStep(r: Record<string, unknown>): Record<string, unknown> | undefined {
   if (r.status !== "parked" && r.status !== "blocked") return undefined;
   const steps = Array.isArray(r.steps) ? (r.steps as Array<Record<string, unknown>>) : [];
-  const stop = [...steps].reverse().find((step) => step && (step.status === "parked" || step.status === "blocked"));
+  return [...steps].reverse().find((step) => step && (step.status === "parked" || step.status === "blocked"));
+}
+
+/** The stopped worker's logs/agent-stderr.log (the agent's own words): its
+ *  text, and its path as shown (relative when under the cwd). Reads only. */
+function stopLog(r: Record<string, unknown>): { text: string; shown: string } | undefined {
+  const stop = stopStep(r);
+  if (!stop || typeof stop.taskId !== "string" || typeof r.statePath !== "string") return undefined;
+  try {
+    const workersDir = path.join(path.dirname(r.statePath), "workers");
+    const prefix = `worker-${stop.taskId}-`;
+    const workerId = typeof stop.workerId === "string" ? stop.workerId : fs.readdirSync(workersDir).filter((name) => name.startsWith(prefix)).sort().pop();
+    if (!workerId) return undefined;
+    const file = path.join(workersDir, workerId, "logs", "agent-stderr.log");
+    const rel = path.relative(process.cwd(), file);
+    const text = fs.readFileSync(file, "utf8");
+    return text.trim() ? { text, shown: rel && !rel.startsWith("..") && !path.isAbsolute(rel) ? rel : file } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Why a parked or blocked run stopped, for the TTY summary: the stop
+ *  reason, the log's last line, then where the whole log is. */
+function stopWhy(r: Record<string, unknown>): string[] | undefined {
+  const stop = stopStep(r);
   if (!stop) return undefined;
   const why: string[] = [];
   if (typeof stop.reason === "string" && stop.reason.trim()) why.push(stop.reason.trim());
-  if (typeof stop.taskId === "string" && typeof r.statePath === "string") {
-    try {
-      const workersDir = path.join(path.dirname(r.statePath), "workers");
-      const prefix = `worker-${stop.taskId}-`;
-      const workerId = typeof stop.workerId === "string" ? stop.workerId : fs.readdirSync(workersDir).filter((name) => name.startsWith(prefix)).sort().pop();
-      if (!workerId) throw new Error("no worker");
-      const log = fs.readFileSync(path.join(workersDir, workerId, "logs", "agent-stderr.log"), "utf8");
-      const last = log.split("\n").map((line) => line.trim()).filter(Boolean).pop();
-      if (last) why.push(last.length > 200 ? `${last.slice(0, 199)}…` : last);
-    } catch {
-      /* no log for this worker */
-    }
-  }
+  const log = stopLog(r);
+  const last = log?.text.split("\n").map((line) => line.trim()).filter(Boolean).pop();
+  if (last) why.push(last.length > 200 ? `${last.slice(0, 199)}…` : last);
+  if (log) why.push(`All of it: ${log.shown}`);
   return why.length ? why : undefined;
 }
 

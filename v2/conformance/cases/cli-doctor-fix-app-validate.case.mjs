@@ -34,12 +34,12 @@ caseMain(() => {
   assert.equal(doctorHuman.status, 0);
   assert.match(doctorHuman.stdout, /^cw doctor\n/);
   assert.match(doctorHuman.stdout, /! agent: No agent backend configured/);
-  assert.match(doctorHuman.stdout, /fix: Pass --agent-command "claude -p"/);
+  assert.match(doctorHuman.stdout, /fix: Install an agent CLI such as Claude Code, then add -claude to your cw command/);
 
   const fix = run(["fix"], { env: NARROW_PATH });
   assert.equal(fix.status, 0, "warn-only issues are still exit 0 for fix, matching doctor's !report.ok gate");
   assert.match(fix.stdout, /^Fix Commands\n/);
-  assert.match(fix.stdout, /Pass --agent-command "claude -p"/);
+  assert.match(fix.stdout, /Install an agent CLI such as Claude Code, then add -claude to your cw command/);
 
   // app validate on an id that resolves to nothing: always JSON, exit 1.
   // Pin BOTH calls to the same cwd so the appPath in the payload is

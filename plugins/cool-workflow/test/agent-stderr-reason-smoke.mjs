@@ -6,8 +6,9 @@
 // at <workerDir>/logs/agent-stderr.log, on the concurrent (batch) path and
 // the serial path alike, with secrets redacted, and never over a log the
 // wrapper wrote itself. The recorded `reason` and the --json payload keep
-// their bytes: the stderr text is in the log only. On a terminal, the
-// parked summary shows `Why:` (the reason, then the log's last line) and
+// their bytes: the stderr text is in the log only, and the --json `hint`
+// names the log's path (2026-11-03). On a terminal, the parked summary
+// shows `Why:` (the reason, the log's last line, the log's path) and
 // ends with `Next: cw --resume --run <id>`.
 
 import assert from "node:assert/strict";
@@ -72,6 +73,11 @@ try {
     const park = result.steps.filter((step) => step.status === "parked").pop();
     assert.match(park.reason, /^agent hop failed: map:[a-z-]+: failed \(exit 3\) \(attempt 3\/3\)$/, "the recorded reason keeps its bytes");
     assert.ok(!child.stdout.includes("marker-5c1"), "the --json payload does not carry the stderr text");
+    const shown = result.hint.match(/^a worker failed and stopped after its retries\. What the agent said is in (\S+) — fix the cause, then run: cw --resume --run (\S+)$/);
+    assert.ok(shown, `the hint names the log: ${result.hint}`);
+    assert.equal(shown[2], result.runId);
+    assert.match(shown[1], /^\.cw[\\/]runs[\\/][^\\/]+[\\/]workers[\\/][^\\/]+[\\/]logs[\\/]agent-stderr\.log$/, "a path relative to where cw ran");
+    assert.ok(fs.readFileSync(path.join(work, "batch", shown[1]), "utf8").includes("marker-5c1"), "the named file holds the agent's words");
     const found = logs(result);
     assert.ok(found.length > 0, "a failed worker has logs/agent-stderr.log");
     assert.ok(found.every((text) => text.includes("ENOTFOUND api.example.test marker-5c1")), "the log keeps the agent's own words");
@@ -102,7 +108,7 @@ try {
     const { result } = run(repo("summary"), failing);
     const text = formatQuickstartHuman(result).replace(/\x1b\[[0-9;]*m/g, "");
     const lines = text.split("\n");
-    assert.match(text, /\n {2}Why: agent hop failed: map:[a-z-]+: failed \(exit 3\) \(attempt 3\/3\)\n {7}ENOTFOUND api\.example\.test marker-5c1 toke\*\*\*\[REDACTED\]\n/, "Why: names the reason, then the agent's last line");
+    assert.match(text, /\n {2}Why: agent hop failed: map:[a-z-]+: failed \(exit 3\) \(attempt 3\/3\)\n {7}ENOTFOUND api\.example\.test marker-5c1 toke\*\*\*\[REDACTED\]\n {7}All of it: \S+agent-stderr\.log\n/, "Why: names the reason, the agent's last line, then the log");
     assert.equal(lines[lines.length - 1], `  Next: cw --resume --run ${result.runId}`, "the last line is the one resume command");
     assert.equal(lines[1], "  ! Status: parked — 0/6 workers", "the run-wide count says it counts workers, not a phase");
     assert.ok(!text.includes("Try: cw report --show"), "one Next, not a second Try");

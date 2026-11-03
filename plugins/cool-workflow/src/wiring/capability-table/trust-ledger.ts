@@ -206,6 +206,7 @@ attachCliBinding("report.bundle", {
     const result = loadReportCli().reportBundleCli(runId, args.options);
     return { json: result, exitCode: result.ok ? undefined : 1 };
   },
+  humanRender: (json) => loadReportCli().formatReportBundle(json),
 });
 REGISTRY_BY_CAPABILITY.get("report.bundle")!.mcp!.handler = (args) =>
   loadReportCli().reportBundleCli(required(optionalArg(args.runId), "run id"), args);

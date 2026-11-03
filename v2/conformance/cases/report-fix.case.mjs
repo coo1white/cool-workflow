@@ -23,7 +23,7 @@ caseMain(() => {
   assert.equal(
     fixed.stdout,
     "Fix Commands\n" +
-      '  1. Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.\n' +
+      '  1. Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude (or set CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work too.\n' +
       "  2. Install git (e.g. `brew install git`) if you want commit provenance.\n" +
       "\n"
   );
@@ -64,7 +64,7 @@ caseMain(() => {
   assert.equal(
     failing.stdout,
     "Fix Commands\n" +
-      '  1. Pass --agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command builtin:claude.\n' +
+      '  1. Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude (or set CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work too.\n' +
       "  2. Install git (e.g. `brew install git`) if you want commit provenance.\n" +
       "  3. Set $CW_HOME to a writable directory, or fix the permissions.\n" +
       "\n"
