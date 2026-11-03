@@ -32,6 +32,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 // sandboxProfiles,sourcePath}, so buildApp() (below) builds the flat shape.
 import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -109,7 +110,7 @@ function buildApp(work) {
 }
 
 function main() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
+  clearAgentEnv();
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-t2-accept-")));
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   const stub = writeStub(path.join(work, "stub.js"));

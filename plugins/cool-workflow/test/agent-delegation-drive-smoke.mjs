@@ -46,6 +46,7 @@ import { plan } from "../dist/shell/pipeline.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { summarizeTrustAudit, listTrustAuditEvents } from "../dist/shell/trust-audit.js";
 import { getWorkerScope, showWorkerManifest } from "../dist/shell/worker-isolation.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 // makeRunner() reconstructs runner.plan / .loadRun / .auditSummary /
 // .showWorker over the v2 functions. The smoke chdir's into each workspace
@@ -105,16 +106,6 @@ function tmpWorkspace() {
   cleanups.push(work);
   return work;
 }
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
-  // v2 auto-detects an agent from PATH (claude/codex/gemini/opencode) when no
-  // command/endpoint is configured, so "env cleared" is NOT "unconfigured" on a
-  // machine that has one of those on PATH. CW_NO_AUTO_AGENT=1 is v2's own knob
-  // to suppress that auto-detect (agent-config.ts detectAgentFromPath), keeping
-  // the "no agent configured" assertions hermetic — the flag-driven drives below
-  // always pass an explicit agentConfig, so they are unaffected.
-  process.env.CW_NO_AUTO_AGENT = "1";
-}
 
 // A stub agent: argv[2]=resultPath. Options: { fail, invalid, noModel, model }.
 function writeStub(file, opts = {}) {
@@ -157,7 +148,7 @@ function newBase(cwd) {
 }
 
 function main() {
-  clearAgentEnv();
+  clearAgentEnv({ noAutoAgent: true });
 
   // ---- 1. driver registry: sorted 7-row set + 6 descriptors unchanged ------
   assert.deepEqual(eb.backendIds(), ["agent", "bun", "ci", "container", "node", "remote", "shell"], "sorted 7-row set");
@@ -312,7 +303,7 @@ function main() {
     // NO RE-SPAWN: remove the agent binary + clear config; replay still reproduces
     // byte-identically (it reads the snapshot, never re-invokes the agent).
     fs.rmSync(stubH, { force: true });
-    clearAgentEnv();
+    clearAgentEnv({ noAutoAgent: true });
     const r3 = ns.replayNodeSnapshot(final, snap, { now: "2031-02-03T00:00:00.000Z", persist: false });
     assert.equal(r3.outputFingerprint, r1.outputFingerprint, "replay reproduces WITHOUT re-spawning the agent (binary unavailable)");
   } finally {
@@ -467,7 +458,7 @@ function main() {
     try {
       const runner = makeRunner();
       const run = runner.plan("end-to-end-golden-path", { question: "q" });
-      clearAgentEnv();
+      clearAgentEnv({ noAutoAgent: true });
       const p1 = drivePreviewRun(runner, run.id, {});
       const p2 = drivePreviewRun(runner, run.id, {});
       assert.equal(JSON.stringify(p1), JSON.stringify(p2), "drive preview is deterministic (no now-derived numeric field)");

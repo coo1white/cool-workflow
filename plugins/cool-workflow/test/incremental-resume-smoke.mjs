@@ -46,6 +46,7 @@ import { safeFileName } from "../dist/shell/fs-atomic.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 // makeRunner() reconstructs runner.plan / .loadRun over the v2 functions. This
 // smoke chdir's into each workspace before it plans/drives, so process.cwd() is
@@ -77,9 +78,6 @@ function tmpWorkspace() {
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   cleanups.push(work);
   return work;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
 }
 
 // Stub agent: argv[2] = resultPath. Appends one byte to countFile per spawn, then

@@ -29,6 +29,7 @@ import { plan as planRun } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { drive as driveRun } from "../dist/shell/drive.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 // Facade shim: preserves the old runner.plan(workflowId, opts) / runner.loadRun(id)
 // call sites and threads the run's cwd into the new drive(runId, cwd, opts).
@@ -93,7 +94,7 @@ function agentConfig(stub) {
 }
 
 function main() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
+  clearAgentEnv();
 
   // ---- 1. budget exhausts mid-run -> blocked before the NEXT spawn ----------
   {

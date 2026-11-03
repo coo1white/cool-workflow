@@ -31,10 +31,11 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { runEndpointBatchOutcomes, prepareEndpointJob } from "../dist/shell/execution-backend/agent.js";
 import { runBackend } from "../dist/shell/execution-backend/registry.js";
 import { showBundledSandboxProfile, sandboxContextForValidation } from "../dist/shell/sandbox-profile.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 const ctx = sandboxContextForValidation(pluginRoot);
 const ro = showBundledSandboxProfile("readonly", ctx);
-for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
+clearAgentEnv();
 
 // Start one of the fake runners below (its source is a self-contained string run
 // via `node -e`). Resolves to the listening port. Returns { port, kill }.

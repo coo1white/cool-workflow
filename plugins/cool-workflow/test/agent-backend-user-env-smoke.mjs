@@ -24,10 +24,11 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { runBackend } from "../dist/shell/execution-backend/registry.js";
 import { sha256 } from "../dist/core/hash.js";
 import { showBundledSandboxProfile, sandboxContextForValidation } from "../dist/shell/sandbox-profile.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 const ctx = sandboxContextForValidation(pluginRoot);
 const ro = showBundledSandboxProfile("readonly", ctx);
-for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
+clearAgentEnv();
 
 function main() {
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-agent-user-env-"));

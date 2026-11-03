@@ -23,6 +23,7 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { quickstartRun } from "../dist/shell/pipeline-cli.js";
 import { verifyReportBundle } from "../dist/shell/run-export.js";
 import { drive as driveRun } from "../dist/shell/drive.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 // Facade shims mapping the old runner-based call sites onto v2's free functions.
 function makeRunner() {
@@ -56,15 +57,6 @@ function tmpWorkspace() {
   cleanups.push(work);
   return work;
 }
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"]) delete process.env[v];
-  // Pre-existing environment-dependent flake (unrelated to driveAsync): this
-  // clear left CW_NO_AUTO_AGENT unset, so resolveAgentConfig's PATH auto-
-  // detect could silently pick up a REAL claude/codex/gemini/opencode CLI
-  // when one happens to be installed, inverting section 3's "unconfigured
-  // agent" premise. Matches the fix already applied to doctor-smoke.mjs.
-  process.env.CW_NO_AUTO_AGENT = "1";
-}
 // Unsigned inner agent: writes a valid evidence-gated result.md and reports a model
 // (+ usage). The wrapper adds the signature when a private key is configured.
 function writeStub(file, withUsage) {
@@ -86,7 +78,7 @@ function writeStub(file, withUsage) {
 // whole body below (previously top-level) is wrapped in an async main().
 async function main() {
 const cwd0 = process.cwd();
-clearAgentEnv();
+clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"], noAutoAgent: true });
 
 // --- 1. happy path: ONE command drives + seals a self-verified, recipient-verifiable
 //        bundle, with the trust key embedded ---
@@ -147,7 +139,7 @@ clearAgentEnv();
 //        and says why (no silent no-op, no partial artifact shipped) ---
 {
   const work = tmpWorkspace();
-  clearAgentEnv(); // no agent configured => drive fails closed (status=blocked)
+  clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"], noAutoAgent: true }); // no agent configured => drive fails closed (status=blocked)
   process.chdir(work);
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });
@@ -246,7 +238,7 @@ clearAgentEnv();
 
   // Now bundle the already-complete attested run under --strict-signatures with NO key
   // available (env unset, no --with-trust-key). It must refuse: ok=false, exit 1.
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_AGENT_ATTEST_PRIVKEY"], noAutoAgent: true });
   process.chdir(work);
   try {
     const runner = new CoolWorkflowRunner({ pluginRoot });

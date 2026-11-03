@@ -53,6 +53,7 @@ import { allocateWorkerScope, recordWorkerOutput, showWorkerManifest } from "../
 import { listTrustAuditEvents } from "../dist/shell/trust-audit.js";
 import * as ta from "../dist/core/trust/telemetry-attestation.js";
 import { resolveAgentConfig } from "../dist/shell/agent-config.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 const FIXED_NOW = "2026-06-11T00:00:00.000Z";
 const cleanups = [];
@@ -61,13 +62,6 @@ function tmpWorkspace() {
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   cleanups.push(work);
   return work;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_AGENT_ATTEST_PUBKEY", "CW_REQUIRE_ATTESTED_TELEMETRY"]) delete process.env[v];
-  // v2 auto-detects an agent from PATH when no command/endpoint is configured;
-  // CW_NO_AUTO_AGENT=1 suppresses that so the hermetic seam calls below (which
-  // pass an explicit delegation/agentConfig) are unaffected by the host PATH.
-  process.env.CW_NO_AUTO_AGENT = "1";
 }
 function ed25519() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
@@ -112,7 +106,7 @@ function baseDelegation(wm, extra) {
 }
 
 function main() {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY", "CW_REQUIRE_ATTESTED_TELEMETRY"], noAutoAgent: true });
   const cwd0 = process.cwd();
   const { publicPem, privatePem } = ed25519();
   const usage = { input_tokens: 4, output_tokens: 2 };

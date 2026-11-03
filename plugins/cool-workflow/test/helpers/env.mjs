@@ -1,7 +1,7 @@
 // test/helpers/env.mjs — keep a real agent out of a test (refactor phase 3,
 // project/docs/intent/2026-11-03-refactor-whole-tree.md).
 //
-// Consumers: test/helpers/helpers.test.mjs, test/concurrent-workflow-dsl-smoke.mjs.
+// Consumers: every test that imports it (grep for helpers/env.mjs).
 //
 // clearAgentEnv(opts) deletes the agent-picking vars from process.env, so
 // the operator's own CW_AGENT_COMMAND and the like never reach the code

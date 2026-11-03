@@ -35,6 +35,7 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import { drive } from "../dist/shell/drive.js";
 import * as ns from "../dist/core/state/node-snapshot.js";
 import { registerLoopPredicate, maxLoopExpansion } from "../dist/core/pipeline/loop-expansion.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 const FIXED_NOW = "2026-06-20T00:00:00.000Z";
 const cleanups = [];
@@ -47,9 +48,6 @@ function tmp(prefix) {
   const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   cleanups.push(d);
   return d;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
 }
 function writeStub(file, countFile) {
   fs.writeFileSync(file, [

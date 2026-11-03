@@ -37,6 +37,7 @@ import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
 import { verifyTrustAudit } from "../dist/shell/trust-audit.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -119,7 +120,7 @@ function driveNTasksAndCountCheckpoints(work, stub, n) {
 }
 
 function main() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
+  clearAgentEnv();
   const work = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "cw-checkpoint-batch-")));
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   const stub = writeStub(path.join(work, "stub.js"));

@@ -51,6 +51,7 @@ import { listTrustAuditEvents } from "../dist/shell/trust-audit.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 function makeRunner() {
   return {
     plan(appId, inputs) {
@@ -68,9 +69,6 @@ function tmpWorkspace() {
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   cleanups.push(work);
   return work;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_AGENT_ATTEST_PUBKEY"]) delete process.env[v];
 }
 function ed25519() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
@@ -101,7 +99,7 @@ function writeSigningStub(file, privPath) {
 }
 
 function main() {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_AGENT_ATTEST_PUBKEY"] });
 
   // ---- A. UNIT chain integrity --------------------------------------------
   const work = tmpWorkspace();

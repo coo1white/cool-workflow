@@ -31,6 +31,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 const FIXED_NOW = "2026-06-20T00:00:00.000Z";
 const cleanups = [];
@@ -39,9 +40,6 @@ function tmp(prefix) {
   const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   cleanups.push(d);
   return d;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_APPS_DIR"]) delete process.env[v];
 }
 function writeStub(file, countFile) {
   fs.writeFileSync(file, [
@@ -93,7 +91,7 @@ function spawnCount(f) {
 }
 
 function main() {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_APPS_DIR"] });
   const cwd0 = process.cwd();
 
   // ===== 1: scale to the budget target (3 rounds for target 18, 6 tokens/hop) =======

@@ -32,6 +32,7 @@ import { summarizeTrustAudit, listTrustAuditEvents } from "../dist/shell/trust-a
 import { drive, MAX_SUB_WORKFLOW_DEPTH } from "../dist/shell/drive.js";
 import * as ns from "../dist/core/state/node-snapshot.js";
 import { verifyTrustAudit } from "../dist/shell/trust-audit.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 // v2 replaces the CoolWorkflowRunner facade + drive(runner,...) with plain
 // functions; a custom apps dir is selected via the CW_APPS_DIR env var read by
@@ -63,9 +64,6 @@ function tmp(prefix) {
   const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), prefix)));
   cleanups.push(d);
   return d;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
 }
 function writeStub(file, countFile) {
   fs.writeFileSync(file, [

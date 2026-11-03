@@ -45,6 +45,7 @@ import { quickstartRun } from "../dist/shell/pipeline-cli.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
 import * as capabilityTableModule from "../dist/wiring/capability-table/index.js";
 import streamModule from "node:stream";
+import { clearAgentEnv } from "./helpers/env.mjs";
 // v2: QUICKSTART_DEFAULT_APP is a private module const; its value is the
 // contract asserted here.
 const QUICKSTART_DEFAULT_APP = "architecture-review";
@@ -58,10 +59,6 @@ function tmpWorkspace() {
   fs.writeFileSync(path.join(work, "README.md"), "# target\n", "utf8");
   cleanups.push(work);
   return work;
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete process.env[v];
-  process.env.CW_NO_AUTO_AGENT = "1";
 }
 
 // v2: run state is read directly from the run's repo cwd (no runner facade).
@@ -85,7 +82,7 @@ function writeStub(file, model) {
 }
 
 async function main() {
-  clearAgentEnv();
+  clearAgentEnv({ noAutoAgent: true });
   const cwd0 = process.cwd();
 
   // ---- 1. happy path: ONE command -> full drive + commit + report on disk ----
@@ -192,7 +189,7 @@ async function main() {
     const work = tmpWorkspace();
     process.chdir(work);
     try {
-      clearAgentEnv();
+      clearAgentEnv({ noAutoAgent: true });
       const result = await quickstartRun({ appId: "architecture-review", repo: work, question: "risks?" });
       assert.equal(result.status, "blocked", "unconfigured agent BLOCKS (fail closed)");
       assert.equal(result.agentConfigured, false, "agentConfigured=false reported");
@@ -215,7 +212,7 @@ async function main() {
     const work = tmpWorkspace();
     process.chdir(work);
     try {
-      clearAgentEnv();
+      clearAgentEnv({ noAutoAgent: true });
       // Preview a FRESH app -> plans one run, projects its next step.
       const p1 = await quickstartRun({ appId: "architecture-review", repo: work, question: "risks?", preview: true });
       assert.equal(p1.nextAction, "blocked", "unconfigured -> next action is blocked");
@@ -243,7 +240,7 @@ async function main() {
     const work = tmpWorkspace();
     process.chdir(work);
     try {
-      clearAgentEnv();
+      clearAgentEnv({ noAutoAgent: true });
       const result = await quickstartRun({ repo: work, question: "risks?" });
       assert.equal(result.appId, QUICKSTART_DEFAULT_APP, "defaults to architecture-review");
       assert.equal(result.appId, "architecture-review");
@@ -306,7 +303,7 @@ async function main() {
   // documents, from the plugin dir, with a clean env (no agent configured), and
   // requires the DOCUMENTED fail-closed payload.
   {
-    clearAgentEnv();
+    clearAgentEnv({ noAutoAgent: true });
     const work = tmpWorkspace();
     const env = { ...process.env };
     for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete env[v];

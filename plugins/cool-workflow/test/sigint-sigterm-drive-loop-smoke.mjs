@@ -42,6 +42,7 @@ import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { drive } from "../dist/shell/drive.js";
 import * as runStore from "../dist/shell/run-store.js";
+import { clearAgentEnv } from "./helpers/env.mjs";
 
 const FIXED_NOW = "2026-07-08T00:00:00.000Z";
 const cleanups = [];
@@ -66,10 +67,6 @@ function hookCheckpoints(statePath, onCheckpoint) {
     fs.renameSync = rename;
     syncBuiltinESMExports();
   };
-}
-function clearAgentEnv() {
-  for (const v of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND", "CW_APPS_DIR"]) delete process.env[v];
-  process.env.CW_NO_AUTO_AGENT = "1";
 }
 function writeStub(file) {
   fs.writeFileSync(
@@ -222,7 +219,7 @@ function writeParallelThreeTaskApp(appsDir, id) {
 //    re-driving the SAME run id resumes and finishes the remaining work.
 // ---------------------------------------------------------------------
 function testGracefulSingleSignal(signal) {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_APPS_DIR"], noAutoAgent: true });
   const cwd0 = process.cwd();
   const appsDir = tmp(`cw-sigloop-apps-${signal}-`);
   const work = tmp(`cw-sigloop-work-${signal}-`);
@@ -289,7 +286,7 @@ testGracefulSingleSignal("SIGTERM");
 //    the signal on that exact call on a fresh replan of the same app.
 // ---------------------------------------------------------------------
 function testInterruptOnTerminalCommitReportsComplete(signal) {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_APPS_DIR"], noAutoAgent: true });
   const cwd0 = process.cwd();
   try {
     const baselineAppsDir = tmp(`cw-sigloop-terminal-baseline-apps-${signal}-`);
@@ -356,7 +353,7 @@ testInterruptOnTerminalCommitReportsComplete("SIGTERM");
 //    round/commit step, and resuming finishes the run.
 // ---------------------------------------------------------------------
 function testConcurrentRoundInterruptGranularity(signal) {
-  clearAgentEnv();
+  clearAgentEnv({ also: ["CW_APPS_DIR"], noAutoAgent: true });
   const cwd0 = process.cwd();
   const appsDir = tmp(`cw-sigloop-round-apps-${signal}-`);
   const work = tmp(`cw-sigloop-round-work-${signal}-`);
