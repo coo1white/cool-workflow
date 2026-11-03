@@ -324,6 +324,38 @@ Rows not asked: the batch child's exit code is internal (read only by
 POLA allows. The man pages and the 0.3.2 -> 0.3.3 version raise were
 already in place for every row.
 
+### Operator decisions for 0.3.3, third set (2026-11-03)
+
+The fourth 0.3.3 release review (grok, 2026-11-03) found one more changed
+default with no quoted yes: the `preinstall` guard taken out of the
+package (commit a4f8b70c). A sweep of every non-docs commit in
+`v0.3.2..main` found one more: the batch child starts the agents of a
+TTY concurrent round with `CW_AGENT_STREAM=1` (commit f6526a8a), which
+adds progress lines to a failed agent's `agent-stderr.log`. Each was put
+to the operator as its own question. The questions and answers, word for
+word:
+
+- "0.3.3 默认改动⑥（npm 安装）：0.2.8 到 0.3.2 的 package.json 里有一个 preinstall 脚本，本意是挡住贡献者在源码里用 npm（项目用 bun），但它也随包发给了用户，结果普通用户的 `npm i cool-workflow`（非全局安装）和 `npx cool-workflow` 都会失败（退出码 1，npx 甚至没有提示）。0.3.3 去掉了这个脚本，这两个命令现在能正常装、正常跑（退出码 0）；`npm i -g` 不受影响。贡献者误用 npm 改由测试门禁和 CI 拦下。你同意把这个作为 0.3.3 的新默认吗？"
+  In English: "Default change 6 (npm install): up to 0.3.2 a `preinstall`
+  script meant for the source checkout shipped to users, so a local
+  `npm i cool-workflow` and `npx cool-workflow` failed (exit 1). 0.3.3
+  removes it; both now install and run (exit 0); `npm i -g` is
+  unchanged; a contributor's npm use is caught by the test gate and CI.
+  Agree to this as the 0.3.3 default?"
+  The operator's answer, word for word (2026-11-03): "同意，保留新默认".
+- "0.3.3 默认改动⑦（agent 失败日志）：为了让「最后输出在 N 秒前」这条提示（你 11-02 已同意默认开启）对内置的 claude/codex/gemini 包装器也有效，并发轮在终端里运行时，CW 会给 agent 子进程设 CW_AGENT_STREAM=1（你自己设了值就用你的）。副作用：agent 失败时保存的 <worker>/logs/agent-stderr.log 里会多出每一步一行的进度文字；终端屏幕上的输出和管道输出都不变。你同意这个改动吗？"
+  In English: "Default change 7 (agent failure log): so the 'last output
+  N ago' note (on by default, agreed 11-02) is true for the bundled
+  claude/codex/gemini wrappers, a TTY concurrent round starts the agent
+  with CW_AGENT_STREAM=1 (a value you set is kept). Side effect: a failed
+  agent's `<worker>/logs/agent-stderr.log` holds a progress line per
+  step; the screen and piped output do not change. Agree?"
+  The operator's answer, word for word (2026-11-03): "同意".
+
+`docs/release-and-migration.7.md` ("Installing with npm and npx (0.3.3)")
+and `docs/agent-delegation-drive.7.md` (the quiet-note paragraph) say the
+new defaults; the version raise is 0.3.2 -> 0.3.3.
+
 ### `cw doctor` runs the agent one time (agent-runs)
 
 In the operator's 0.3.3 acceptance test, `cw doctor` said all was well
