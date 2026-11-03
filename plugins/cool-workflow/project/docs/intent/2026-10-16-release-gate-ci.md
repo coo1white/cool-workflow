@@ -690,6 +690,17 @@ answer; it names files, not new consent):
   `v2/conformance/cases/fixtures/cli-help/_root.txt`,
   `v2/conformance/cases/cli-help-topics.case.mjs`.
 
+`cw fix` was not named in that question, so the operator was asked about
+it by name, word for word (2026-11-03): "你上次同意的第 1 处改动（没配
+agent 时的修复提示，从「Pass --agent-command "claude -p", set
+$CW_AGENT_COMMAND, or use --agent-command builtin:claude.」改成「Install
+an agent CLI such as Claude Code, then add -claude to your cw command, for
+one: cw -q "your question" -claude (or set
+CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work
+too.」），是否也包括 cw fix 命令显示的同一句话？" The answer, word for
+word: "包括 cw fix (推荐)" ("cw fix is included"). So `cw fix`, which
+prints the same doctor fix line (`doctor.7.md`), is covered by change 1.
+
 The same review found two faults in `cw check` (new in 0.4.0, so no
 default changes): a piped run echoed the command's output on stderr
 (now only on a terminal, Rule of Silence), and changes that could not be
