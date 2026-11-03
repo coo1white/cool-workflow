@@ -51,7 +51,10 @@ for (const { mod, dead, live } of cases) {
 // *_SCHEMA_VERSION constants, and compactCheckpoint (named in the rebuild
 // SPEC, project/docs/rebuild/SPEC/state-core.md).
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-const KEEP = new Set(["compactCheckpoint"]);
+// deferredPayloadProbeCapabilities sits in a capability-table file, where
+// the onramp contract asks for a public doc change with any edit; it goes
+// with the phase that next edits that table and its docs.
+const KEEP = new Set(["compactCheckpoint", "deferredPayloadProbeCapabilities"]);
 const walk = (dir, out = []) => {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     if (["node_modules", "dist", "out", ".cache"].includes(e.name)) continue;

@@ -301,7 +301,7 @@ export function payloadProbeTargets(): PayloadProbeTarget[] {
   ];
 }
 
-function deferredPayloadProbeCapabilities(): PayloadProbeDeferred[] {
+export function deferredPayloadProbeCapabilities(): PayloadProbeDeferred[] {
   return PAYLOAD_PROBE_DEFERRED_GROUPS.flatMap((group) =>
     group.capabilities.map((capability) => ({ capability, reason: group.reason }))
   );
