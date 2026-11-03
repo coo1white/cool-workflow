@@ -16,13 +16,13 @@ import {
 
 // ---- the old copies ----
 const old = {
-  // shell/pipeline-cli.ts truthyFlag
+  // shell/commands/pipeline-cli.ts truthyFlag
   truthyFlag(value) {
     if (value === true) return true;
     if (typeof value === "string") return /^(1|true|yes|on)$/i.test(value.trim());
     return false;
   },
-  // shell/report-view-cli.ts mcpFlag
+  // shell/commands/report-view-cli.ts mcpFlag
   mcpFlag: (value) => value === true || value === "true",
   // shell/scheduling-io.ts isTrue
   schedIsTrue: (value) => value === true || value === "true" || value === "1",
@@ -51,7 +51,7 @@ const old = {
   // telemetry, commit-summary, feedback, audit, run-export, metrics, worker,
   // wiring reporting, workflow-app-loader packageWorkflowApp)
   invocationCwd: (args) => (typeof args.cwd === "string" && args.cwd.trim() ? path.resolve(args.cwd) : process.cwd()),
-  // shell/pipeline-cli.ts existingRunCwd
+  // shell/commands/pipeline-cli.ts existingRunCwd
   existingRunCwd(args) {
     if (typeof args.cwd === "string" && args.cwd.trim()) return path.resolve(args.cwd);
     if (typeof args.repo === "string" && args.repo.trim()) return path.resolve(args.repo);

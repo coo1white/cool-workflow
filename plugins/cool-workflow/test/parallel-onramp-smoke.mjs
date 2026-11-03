@@ -28,11 +28,11 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 // v2 relocations: the workflow-authoring DSL (agent/workflow/parallel/phase) moved
 // from workflow-api to core/workflow-apps/app-schema; lifecycle.plan is now the free
 // plan() in shell/pipeline; the old runDrive(runner, args) is runDriveStep(args) in
-// shell/pipeline-cli (no runner arg); loadRun -> loadRunFromCwd. The
+// shell/commands/pipeline-cli (no runner arg); loadRun -> loadRunFromCwd. The
 // CoolWorkflowRunner facade is gone, shimmed to those free functions below.
 import { plan as planApp } from "../dist/shell/pipeline.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
-import { runDriveStep } from "../dist/shell/pipeline-cli.js";
+import { runDriveStep } from "../dist/shell/commands/pipeline-cli.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
 import { tmpWorkspace } from "./helpers/workspace.mjs";

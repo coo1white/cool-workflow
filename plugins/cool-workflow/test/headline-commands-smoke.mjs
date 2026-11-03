@@ -80,7 +80,7 @@ for (const vendor of ["-claude", "-codex", "-gemini", "-deepseek"]) {
   assert.equal(p.appId, "architecture-review", `${vendor} keeps the default app`);
   assert.equal(p.checks.find((c) => c.name === "agent").status, "ok", `${vendor} configures an agent interface`);
   // The `--check` JSON carries a `nextCommand` field echoing the resolved
-  // `--agent-command builtin:<vendor>` (src/shell/pipeline-cli.ts quickstartCheck).
+  // `--agent-command builtin:<vendor>` (src/shell/commands/pipeline-cli.ts quickstartCheck).
   assert.match(p.nextCommand, new RegExp(`--agent-command builtin:${vendor.slice(1)}\\b`), `${vendor} chooses builtin:${vendor.slice(1)}`);
 }
 console.log("headline: vendor flags -claude/-codex/-gemini/-deepseek route ok");

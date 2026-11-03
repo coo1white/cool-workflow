@@ -32,7 +32,7 @@ through — plus its CLI command, its MCP tool, the surface it is on, and whethe
 its payload is the same across surfaces.
 
 No business logic is left on its own in `cli.ts` or `mcp-server.ts`. Composite
-capabilities are in `src/shell/pipeline-cli.ts` and `src/shell/app-run-cli.ts` (`planSummary`, `appRun`,
+capabilities are in `src/shell/commands/pipeline-cli.ts` and `src/shell/commands/app-run-cli.ts` (`planSummary`, `appRun`,
 `sandboxChoose`, `commitEnvelope`), so both surfaces call the same core entry
 and are different only in how they render its result. The CLI renders for a
 human; the MCP tool renders for a machine; neither one owns the logic.

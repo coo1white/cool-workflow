@@ -11,8 +11,8 @@ import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 import { reportToHtml } from "../dist/core/format/report-html.js";
-import { ensureAndOpenReportHtml } from "../dist/shell/report-view-cli.js";
-import { quickstartRun } from "../dist/shell/pipeline-cli.js";
+import { ensureAndOpenReportHtml } from "../dist/shell/commands/report-view-cli.js";
+import { quickstartRun } from "../dist/shell/commands/pipeline-cli.js";
 import { tmpWorkspace } from "./helpers/workspace.mjs";
 
 const UNSAFE = [

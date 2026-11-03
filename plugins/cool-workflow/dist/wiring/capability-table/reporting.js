@@ -19,7 +19,7 @@ function loadRunStore() {
 // handler call, per cli/dispatch.ts's generic executor contract.
 // ---------------------------------------------------------------------
 function loadReportViewCli() {
-    return require("../../shell/report-view-cli.js");
+    return require("../../shell/commands/report-view-cli.js");
 }
 function loadOperatorUxText() {
     return require("../../shell/operator-ux-text.js");
@@ -107,7 +107,7 @@ attachCliBinding("operator.report", {
 REGISTRY_BY_CAPABILITY.get("operator.report").mcp.handler = (args) => loadReportViewCli().operatorReportCli(required(optionalArg(args.runId), "run id"), args);
 // ---- metrics.show / metrics.summary -----------------------------------
 function loadMetricsCli() {
-    return require("../../shell/metrics-cli.js");
+    return require("../../shell/commands/metrics-cli.js");
 }
 function loadObservability() {
     return require("../../shell/observability.js");
@@ -164,7 +164,7 @@ REGISTRY_BY_CAPABILITY.get("worker.summary").mcp.handler = (args) => workerSumma
 // Each worker lifecycle verb over a run. positionals: [runId, workerId,
 // resultFile].
 function loadWorkerCli() {
-    return require("../../shell/worker-cli.js");
+    return require("../../shell/commands/worker-cli.js");
 }
 attachCliBinding("worker.list", {
     path: ["worker", "list"],
@@ -208,7 +208,7 @@ REGISTRY_BY_CAPABILITY.get("worker.validate").mcp.handler = (args) => loadWorker
 // ---- feedback list|show|summary|collect|task|resolve (CLI + MCP) ---------
 // The operator feedback lifecycle. positionals: [runId, feedbackId].
 function loadFeedbackCli() {
-    return require("../../shell/feedback-cli.js");
+    return require("../../shell/commands/feedback-cli.js");
 }
 // jsonMode "flag": human `Feedback` panel by default, canonical JSON under
 // --json.
@@ -316,7 +316,7 @@ REGISTRY_BY_CAPABILITY.get("workbench.serve").reason =
     "Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host, which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.";
 // ---- audit.summary ----------------------------------------------------
 function loadAuditCli() {
-    return require("../../shell/audit-cli.js");
+    return require("../../shell/commands/audit-cli.js");
 }
 attachCliBinding("audit.summary", {
     path: ["audit", "summary"],

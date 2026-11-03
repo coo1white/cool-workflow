@@ -1,7 +1,7 @@
 // core/format/report-html.ts — pure markdown -> HTML for report.md.
 //
 // `cw report --open` and the quickstart auto-open (shell/report-view-
-// cli.ts, shell/pipeline-cli.ts) turn report.md into one small HTML page,
+// cli.ts, shell/commands/pipeline-cli.ts) turn report.md into one small HTML page,
 // readable in any browser with no path and no id typed. Pure, no disk,
 // no network, no dependency. Handles ONLY the forms report.ts's writer
 // emits — headings, bullet lists (with a two-space continuation line),

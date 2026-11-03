@@ -15,7 +15,7 @@
 // v2 cutover: the old flat surface (dist/orchestrator.js's
 // CoolWorkflowRunner facade + dist/capability-core.js's runDrive(runner,
 // args)) is gone by design. v2's `cw run --drive` entry point is
-// `runDriveStep(args)` in dist/shell/pipeline-cli.js — it takes no runner
+// `runDriveStep(args)` in dist/shell/commands/pipeline-cli.js — it takes no runner
 // facade, reads args.run to continue an already-planned run, and (the point
 // of this smoke) forwards args.concurrency into drive()'s options
 // (pipeline-cli.js:129). Planning is now plan(app, {repo, cwd}) from
@@ -27,7 +27,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-import { runDriveStep } from "../dist/shell/pipeline-cli.js";
+import { runDriveStep } from "../dist/shell/commands/pipeline-cli.js";
 import { plan } from "../dist/shell/pipeline.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
 import { clearAgentEnv } from "./helpers/env.mjs";

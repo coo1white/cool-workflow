@@ -19,7 +19,7 @@ const KEYGEN = path.join(pluginRoot, "scripts/agents/cw-attest-keygen.js");
 import { plan as planApp } from "../dist/shell/pipeline.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { loadRunFromCwd } from "../dist/shell/run-store.js";
-import { quickstartRun } from "../dist/shell/pipeline-cli.js";
+import { quickstartRun } from "../dist/shell/commands/pipeline-cli.js";
 import { verifyReportBundle } from "../dist/shell/run-export.js";
 import { drive as driveRun } from "../dist/shell/drive.js";
 import { clearAgentEnv } from "./helpers/env.mjs";

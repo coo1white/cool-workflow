@@ -9,7 +9,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { adviseNoRun } from "../../../dist/core/format/recovery-hint.js";
 import * as operatorUx from "../../../dist/shell/operator-ux.js";
-import { statusCli } from "../../../dist/shell/report-view-cli.js";
+import { statusCli } from "../../../dist/shell/commands/report-view-cli.js";
 import { statusPayload } from "../../../dist/wiring/capability-table/registry-core.js";
 import nodeModule from "node:module";
 

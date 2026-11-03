@@ -9,10 +9,10 @@ const require = createRequire(import.meta.url);
 // `app.run`'s shell modules lazily, inside the handler that actually
 // calls them, keeps other commands from paying their load cost.
 function loadStateCli() {
-    return require("../../shell/state-cli.js");
+    return require("../../shell/commands/state-cli.js");
 }
 function loadAppRunCli() {
-    return require("../../shell/app-run-cli.js");
+    return require("../../shell/commands/app-run-cli.js");
 }
 // Workflow apps. Handler BODIES live in
 // shell/workflow-app-loader.ts (impure — they scan apps/*/app.json +
@@ -30,7 +30,7 @@ function loadWorkflowAppLoader() {
 import { formatInfo } from "../../core/format/help.js";
 // Loaded lazily so only the `man` handler below pays its load cost.
 function loadManCli() {
-    return require("../../shell/man-cli.js");
+    return require("../../shell/commands/man-cli.js");
 }
 attachCliBinding("app.list", {
     path: ["app", "list"],
@@ -257,7 +257,7 @@ addCliOnlyCapability("info", "Show a workflow app's contract as a human card (or
 // ---- PARITY WIRING -------------------------------------------------------
 //
 // `next` is a real, dual-bound capability (CLI + MCP), both surfaces
-// routed through shell/state-cli.ts's nextCli.
+// routed through shell/commands/state-cli.ts's nextCli.
 attachCliBinding("next", {
     path: ["next"],
     jsonMode: "default",

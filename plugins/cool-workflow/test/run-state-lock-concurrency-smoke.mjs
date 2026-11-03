@@ -95,7 +95,7 @@ async function concurrentRecordResult() {
     child,
     `
     const fs = require("node:fs");
-    const { recordResultRun } = require(${JSON.stringify(path.join(pluginRoot, "dist", "shell", "pipeline-cli.js"))});
+    const { recordResultRun } = require(${JSON.stringify(path.join(pluginRoot, "dist", "shell", "commands", "pipeline-cli.js"))});
     const [taskId, resultPath, readyFile, goFile] = process.argv.slice(2);
     fs.writeFileSync(readyFile, "ready", "utf8");
     while (!fs.existsSync(goFile)) {

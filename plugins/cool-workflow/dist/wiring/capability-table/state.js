@@ -8,14 +8,14 @@ const require = createRequire(import.meta.url);
 // This slice is required unconditionally at startup for every command;
 // load these shell modules only when a handler that actually needs them runs.
 function loadReportViewCli() {
-    return require("../../shell/report-view-cli.js");
+    return require("../../shell/commands/report-view-cli.js");
 }
 function loadStateCli() {
-    return require("../../shell/state-cli.js");
+    return require("../../shell/commands/state-cli.js");
 }
 // State-kernel CLI bindings: state.check, migration.list|
 // check|prove, node.list|show|graph|snapshot|diff|replay|replay.verify.
-// Handler BODIES live in shell/state-cli.ts (impure — they read/write
+// Handler BODIES live in shell/commands/state-cli.ts (impure — they read/write
 // run state on disk); this table only wires argv shape -> handler call
 // and the row's own exit-code rule, per cli/dispatch.ts's generic
 // executor contract. `required`/`optionalArg` are core/util/cli-args.ts's
@@ -130,7 +130,7 @@ REGISTRY_BY_CAPABILITY.get("node.diff").mcp.handler = (args) => loadStateCli().n
 REGISTRY_BY_CAPABILITY.get("node.replay").mcp.handler = (args) => loadStateCli().nodeReplayCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.snapshotId), "snapshot id"), args);
 REGISTRY_BY_CAPABILITY.get("node.replay.verify").mcp.handler = (args) => loadStateCli().nodeReplayVerifyCli(required(optionalArg(args.runId), "run id"), required(optionalArg(args.replayId), "replay id"), args);
 // `cw contract show <run> [contract-id]` / `cw_contract_show` — the run's
-// own pipeline contract, in shell/state-cli.ts.
+// own pipeline contract, in shell/commands/state-cli.ts.
 attachCliBinding("contract.show", {
     path: ["contract", "show"],
     jsonMode: "default",

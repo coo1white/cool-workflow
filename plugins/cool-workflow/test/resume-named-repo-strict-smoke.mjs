@@ -11,7 +11,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import * as registryCliModule from "../dist/shell/registry-cli.js";
+import * as registryCliModule from "../dist/shell/commands/registry-cli.js";
 import { cw } from "./helpers/cw.mjs";
 import { clearAgentEnv } from "./helpers/env.mjs";
 import { tmpDir } from "./helpers/workspace.mjs";

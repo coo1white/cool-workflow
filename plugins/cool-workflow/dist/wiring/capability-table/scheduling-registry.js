@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 // Scheduling, registry, gc/reclamation, orphans and clones
 // CLI bindings: schedule *, cw loop, routine *, sched *, registry *,
 // queue *, gc *, orphans *, clones *, run search|list|show|resume|
-// archive|rerun, history. Handler BODIES live in shell/registry-cli.ts,
+// archive|rerun, history. Handler BODIES live in shell/commands/registry-cli.ts,
 // shell/scheduler-io.ts, shell/scheduling-io.ts, shell/reclamation-io.ts,
 // shell/run-registry-io.ts (impure — disk-scanning IO); this table only
 // wires argv shape -> handler call, per cli/dispatch.ts's generic
@@ -19,7 +19,7 @@ const require = createRequire(import.meta.url);
 // invocation that never touches schedule/routine/sched/registry/queue/
 // gc/orphans/clones/run/history.
 function loadRegistryCli() {
-    return require("../../shell/registry-cli.js");
+    return require("../../shell/commands/registry-cli.js");
 }
 function loadReclamationIo() {
     return require("../../shell/reclamation-io.js");

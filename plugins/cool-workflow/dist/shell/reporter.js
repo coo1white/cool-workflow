@@ -25,7 +25,7 @@ export function createReporter(stream) {
 /** The default reporter writes the orchestration view to stderr. */
 export const reporter = createReporter(process.stderr);
 /** The `cw -q`/`cw quickstart` end-of-run summary: wired in by
- *  shell/pipeline-cli.ts's formatQuickstartHuman, called ONLY on a real
+ *  shell/commands/pipeline-cli.ts's formatQuickstartHuman, called ONLY on a real
  *  terminal, never for --json or a piped run (the CLI dispatcher's own
  *  TTY gate — cli/dispatch.ts's shouldRenderHuman). Styled against
  *  stdout, since that is the stream this text lands on (unlike the

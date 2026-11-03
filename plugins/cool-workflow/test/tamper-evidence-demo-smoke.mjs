@@ -42,8 +42,8 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 // which writes <cwd>/.cw/runs/<id> and returns the full WorkflowRun (with
 // run.id + run.paths.runDir) — exactly what runner.plan(...) gave us.
 import { runTamperDemo } from "../dist/shell/telemetry-demo.js";
-import { telemetryVerifyCli } from "../dist/shell/telemetry-cli.js";
-import { demoTamperCli } from "../dist/shell/demo-cli.js";
+import { telemetryVerifyCli } from "../dist/shell/commands/telemetry-cli.js";
+import { demoTamperCli } from "../dist/shell/commands/demo-cli.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
 import { plan } from "../dist/shell/pipeline.js";
 import { appendTelemetryAttestation } from "../dist/shell/telemetry-ledger-io.js";

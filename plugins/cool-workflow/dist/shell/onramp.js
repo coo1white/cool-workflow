@@ -37,11 +37,11 @@ export const CURATED_SMOKE_MAP = [
         smokes: ["mcp-surface-registry-smoke.mjs", "mcp-app-surface-smoke.mjs", "cli-mcp-parity-smoke.mjs"]
     },
     {
-        patterns: ["src/shell/run-export.ts", "src/shell/run-export-cli.ts", "src/core/state/types.ts"],
+        patterns: ["src/shell/run-export.ts", "src/shell/commands/run-export-cli.ts", "src/core/state/types.ts"],
         smokes: ["run-export-import-smoke.mjs", "run-export-restore-resume-smoke.mjs", "run-inspect-archive-smoke.mjs"]
     },
     {
-        patterns: ["src/shell/pipeline-cli.ts", "src/shell/drive.ts", "src/shell/agent-config.ts"],
+        patterns: ["src/shell/commands/pipeline-cli.ts", "src/shell/drive.ts", "src/shell/agent-config.ts"],
         smokes: ["quickstart-smoke.mjs", "quickstart-check-smoke.mjs", "agent-delegation-drive-smoke.mjs"]
     },
     {

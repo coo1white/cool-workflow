@@ -10,8 +10,8 @@ const require = createRequire(import.meta.url);
 // Ledger, telemetry, trust-audit and tamper/bundle demo CLI
 // bindings: ledger propose|review|verify|apply|list, telemetry verify,
 // audit verify, demo tamper|bundle, report bundle|verify-bundle. Handler
-// BODIES live in shell/ledger-cli.ts, shell/telemetry-cli.ts, shell/
-// audit-cli.ts, shell/demo-cli.ts, shell/report-cli.ts (impure — file/
+// BODIES live in shell/commands/ledger-cli.ts, shell/commands/telemetry-cli.ts, shell/
+// audit-cli.ts, shell/commands/demo-cli.ts, shell/commands/report-cli.ts (impure — file/
 // stdin reads, run-state loads, archive IO); this table only wires argv
 // shape -> handler call, per cli/dispatch.ts's generic executor
 // contract. `ledger` is intentionally absent from KNOWN_COMMANDS (see
@@ -23,23 +23,23 @@ const require = createRequire(import.meta.url);
 // modules only when their handler runs, not at import time, keeps that
 // load cost out of commands that never touch ledger/telemetry/audit/demo/
 // report.
-function loadLedgerCli(): typeof import("../../shell/ledger-cli.js") {
-  return require("../../shell/ledger-cli.js") as typeof import("../../shell/ledger-cli.js");
+function loadLedgerCli(): typeof import("../../shell/commands/ledger-cli.js") {
+  return require("../../shell/commands/ledger-cli.js") as typeof import("../../shell/commands/ledger-cli.js");
 }
-function loadTelemetryCli(): typeof import("../../shell/telemetry-cli.js") {
-  return require("../../shell/telemetry-cli.js") as typeof import("../../shell/telemetry-cli.js");
+function loadTelemetryCli(): typeof import("../../shell/commands/telemetry-cli.js") {
+  return require("../../shell/commands/telemetry-cli.js") as typeof import("../../shell/commands/telemetry-cli.js");
 }
-function loadAuditCli(): typeof import("../../shell/audit-cli.js") {
-  return require("../../shell/audit-cli.js") as typeof import("../../shell/audit-cli.js");
+function loadAuditCli(): typeof import("../../shell/commands/audit-cli.js") {
+  return require("../../shell/commands/audit-cli.js") as typeof import("../../shell/commands/audit-cli.js");
 }
-function loadDemoCli(): typeof import("../../shell/demo-cli.js") {
-  return require("../../shell/demo-cli.js") as typeof import("../../shell/demo-cli.js");
+function loadDemoCli(): typeof import("../../shell/commands/demo-cli.js") {
+  return require("../../shell/commands/demo-cli.js") as typeof import("../../shell/commands/demo-cli.js");
 }
 function loadTelemetryDemo(): typeof import("../../shell/telemetry-demo.js") {
   return require("../../shell/telemetry-demo.js") as typeof import("../../shell/telemetry-demo.js");
 }
-function loadReportCli(): typeof import("../../shell/report-cli.js") {
-  return require("../../shell/report-cli.js") as typeof import("../../shell/report-cli.js");
+function loadReportCli(): typeof import("../../shell/commands/report-cli.js") {
+  return require("../../shell/commands/report-cli.js") as typeof import("../../shell/commands/report-cli.js");
 }
 
 attachCliBinding("ledger.propose", {
@@ -57,7 +57,7 @@ attachCliBinding("ledger.propose", {
     { name: "--diff PATCH", summary: "The change itself, as diff text (e.g. \"$(git diff)\")." },
   ],
   // ledgerProposeCli reads exactly from/to/title/rationale/files/diff
-  // (shell/ledger-cli.ts) — the list above is complete, so the dispatcher
+  // (shell/commands/ledger-cli.ts) — the list above is complete, so the dispatcher
   // may warn about an unknown flag (TTY-only; see cli/global-flags.ts).
   flagsComplete: true,
 });
@@ -79,7 +79,7 @@ attachCliBinding("ledger.review", {
     { name: "--findings TEXT", summary: "Notes on what the review found." },
   ],
   // ledgerReviewCli reads exactly from/to/target/verdict/findings
-  // (shell/ledger-cli.ts) — the list above is complete, so the dispatcher
+  // (shell/commands/ledger-cli.ts) — the list above is complete, so the dispatcher
   // may warn about an unknown flag (TTY-only; see cli/global-flags.ts).
   flagsComplete: true,
 });
