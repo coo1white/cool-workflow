@@ -9,12 +9,12 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { acquireOwnerLock, readLockOwnerPid, withFileLock } from "../../dist/shell/fs-atomic.js";
+import { tmpDir } from "../helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-fs-owner-"));
+const tmp = tmpDir("cw-fs-owner-");
 const BODY = new RegExp(`^${process.pid}@\\d{4}-\\d{2}-\\d{2}T[^\\n]+Z\\n$`);
 const refuse = (ownerPid) => new Error(`refused pid=${ownerPid}`);
 

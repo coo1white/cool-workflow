@@ -20,16 +20,16 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import * as trustAuditModule from "../dist/shell/trust-audit.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const trustAuditJs = path.join(pluginRoot, "dist", "shell", "trust-audit.js");
 const node = process.execPath;
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-audit-trunc-"));
+const dir = tmpDir("cw-audit-trunc-");
 const runDir = path.join(dir, "run");
 fs.mkdirSync(runDir, { recursive: true });
 const runId = "create-truncate-race-run";

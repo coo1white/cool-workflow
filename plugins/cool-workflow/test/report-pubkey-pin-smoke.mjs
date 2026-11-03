@@ -16,13 +16,13 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 import { exportRun, importRun, verifyReportBundle } from "../dist/shell/run-export.js";
 import { appendTelemetryAttestation } from "../dist/shell/telemetry-ledger-io.js";
 import { signTelemetry } from "../dist/core/trust/telemetry-attestation.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 // Two DISTINCT ed25519 keypairs: one the operator trusts, one an attacker uses to
 // re-sign a bundle and embed as if it were the real key.
@@ -40,7 +40,7 @@ assert.notEqual(operator.publicKeyPem, attacker.publicKeyPem, "the two keys must
 // Build a valid, self-contained bundle whose telemetry is signed by `signer.private`
 // and which embeds `embedPublicKeyPem` as its trust key.
 function buildBundle(label, signerPrivateKeyPem, embedPublicKeyPem) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `cw-pin-${label}-`));
+  const tmp = tmpDir(`cw-pin-${label}-`);
   const runId = `pin-${label}`;
   const runDir = path.join(tmp, ".cw", "runs", runId);
   const paths = createRunPaths(runDir);
@@ -123,7 +123,7 @@ function buildBundle(label, signerPrivateKeyPem, embedPublicKeyPem) {
 // --- #16: importRun fails CLOSED on a malformed archive whose run.paths is absent
 //          or whose runDir/cwd are not strings — before writing any file. ---
 function writeArchive(runObject) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-import-shape-"));
+  const tmp = tmpDir("cw-import-shape-");
   const archivePath = path.join(tmp, "malformed.cwrun.json");
   const archive = { schemaVersion: 1, exportedAt: "2026-06-17T00:00:00.000Z", sourceVersion: "test", run: runObject, files: [] };
   fs.writeFileSync(archivePath, JSON.stringify(archive), "utf8");
@@ -134,7 +134,7 @@ function writeArchive(runObject) {
 //     TypeError. Fixed code fails closed as "Invalid run export".
 {
   const { tmp, archivePath } = writeArchive({ id: "restore-nopaths", cwd: "/tmp/whatever", tasks: [], commits: [] });
-  const target = fs.mkdtempSync(path.join(os.tmpdir(), "cw-import-target-"));
+  const target = tmpDir("cw-import-target-");
   assert.throws(() => importRun(archivePath, target), /Invalid run export/, "a missing run.paths fails closed as an invalid archive");
   assert.equal(fs.existsSync(path.join(target, ".cw", "runs", "restore-nopaths")), false, "no half-restored run dir is left behind");
   fs.rmSync(tmp, { recursive: true, force: true });
@@ -146,7 +146,7 @@ function writeArchive(runObject) {
 //     fails closed BEFORE touching disk.
 {
   const { tmp, archivePath } = writeArchive({ id: "restore-badrundir", cwd: "/tmp/whatever", paths: { runDir: 123 }, tasks: [], commits: [] });
-  const target = fs.mkdtempSync(path.join(os.tmpdir(), "cw-import-target-"));
+  const target = tmpDir("cw-import-target-");
   assert.throws(() => importRun(archivePath, target), /Invalid run export/, "a non-string runDir fails closed as an invalid archive");
   assert.equal(fs.existsSync(path.join(target, ".cw", "runs", "restore-badrundir")), false, "no half-restored run dir is written before the shape check");
   fs.rmSync(tmp, { recursive: true, force: true });
@@ -156,7 +156,7 @@ function writeArchive(runObject) {
 // (c) run.cwd is not a string — same fail-closed contract.
 {
   const { tmp, archivePath } = writeArchive({ id: "restore-badcwd", cwd: 5, paths: { runDir: "/tmp/x" }, tasks: [], commits: [] });
-  const target = fs.mkdtempSync(path.join(os.tmpdir(), "cw-import-target-"));
+  const target = tmpDir("cw-import-target-");
   assert.throws(() => importRun(archivePath, target), /Invalid run export/, "a non-string cwd fails closed as an invalid archive");
   fs.rmSync(tmp, { recursive: true, force: true });
   fs.rmSync(target, { recursive: true, force: true });

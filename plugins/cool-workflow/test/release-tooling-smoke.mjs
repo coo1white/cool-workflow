@@ -9,8 +9,8 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 
@@ -28,7 +28,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 
 // --- 2. forward-ref-docs is append-only + idempotent --------------------------
 {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-fwdref-"));
+  const tmp = tmpDir("cw-fwdref-");
   try {
     const doc = path.join(tmp, "x.7.md");
     const heading = "## Release Tooling (v0.1.33)";

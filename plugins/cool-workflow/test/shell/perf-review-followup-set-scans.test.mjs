@@ -18,8 +18,8 @@
 import assert from "node:assert/strict";
 import { summarizeTrustAudit } from "../../dist/shell/trust-audit.js";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "../helpers/workspace.mjs";
 
 // ---------------------------------------------------------------------
 // summarizeTrustAudit's worker/candidate/commit rows at scale. Measured
@@ -42,7 +42,7 @@ import path from "node:path";
     candidateSelections.push({ id: `selection-${i}`, candidateId: `candidate-${i}` });
     commits.push({ id: `state-${i}`, verifierGated: false, evidence: [] });
   }
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-perf-followup-trust-"));
+  const dir = tmpDir("cw-perf-followup-trust-");
   const runDir = path.join(dir, "run");
   fs.mkdirSync(runDir, { recursive: true });
   const run = {

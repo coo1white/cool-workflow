@@ -11,7 +11,6 @@
 // unchanged.
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 // v2 layout: the old flat `state-node` split into a PURE core module
@@ -24,8 +23,9 @@ import path from "node:path";
 import { appendRunNode } from "../dist/shell/node-store.js";
 import { createStateNode } from "../dist/core/state/state-node.js";
 import { createRunPaths, ensureRunDirs } from "../dist/shell/run-store.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-append-node-"));
+const tmp = tmpDir("cw-append-node-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "rn"));
 ensureRunDirs(paths);
 const run = { id: "rn", paths, nodes: [] };

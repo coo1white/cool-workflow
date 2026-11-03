@@ -20,16 +20,16 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import * as telemetryLedgerIoModule from "../dist/shell/telemetry-ledger-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const node = process.execPath;
 const ledgerIoPath = path.join(pluginRoot, "dist", "shell", "telemetry-ledger-io.js");
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-tel-ledger-lock-"));
+const dir = tmpDir("cw-tel-ledger-lock-");
 const runId = "concurrent-telemetry-run";
 const runDir = path.join(dir, "run");
 fs.mkdirSync(runDir, { recursive: true });

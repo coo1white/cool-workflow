@@ -24,10 +24,10 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import nodeModule from "node:module";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 if (typeof nodeModule.registerHooks !== "function") {
   process.stdout.write(`wiring-lazy-shell-imports-smoke: skipped (module.registerHooks needs Node 22.15 or later; this is ${process.versions.node})\n`);
@@ -37,7 +37,7 @@ if (typeof nodeModule.registerHooks !== "function") {
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cliPath = path.join(pluginRoot, "dist/cli.js");
 
-const hookDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-lazy-hook-"));
+const hookDir = tmpDir("cw-lazy-hook-");
 const hookPath = path.join(hookDir, "hook.js");
 fs.writeFileSync(
   hookPath,
@@ -67,7 +67,7 @@ fs.writeFileSync(
  *  a nonexistent run id) and still prove the shell module it needed got
  *  loaded on the way to that failure. */
 function loadedModulesFor(args, cwd) {
-  const outFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cw-lazy-probe-")), "modules.json");
+  const outFile = path.join(tmpDir("cw-lazy-probe-"), "modules.json");
   spawnSync(process.execPath, ["--require", hookPath, cliPath, ...args], {
     cwd: cwd || pluginRoot,
     encoding: "utf8",

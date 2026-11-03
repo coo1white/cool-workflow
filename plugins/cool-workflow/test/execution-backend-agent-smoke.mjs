@@ -12,8 +12,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 // v2 split the old flat dist/execution-backend.js: the backend registry API
@@ -165,7 +165,7 @@ function main() {
   // spawn `error` was classified as "agent process failed to spawn", so the
   // "timed out or killed" branch was dead code for real timeouts.
   {
-    const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-agent-timeout-"));
+    const work = tmpDir("cw-agent-timeout-");
     try {
       const stub = path.join(work, "stubborn-agent.js");
       fs.writeFileSync(

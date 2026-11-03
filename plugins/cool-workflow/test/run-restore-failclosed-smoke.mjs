@@ -25,7 +25,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 
@@ -33,6 +32,7 @@ import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run
 import { exportRun } from "../dist/shell/run-export.js";
 import { appendTelemetryAttestation } from "../dist/shell/telemetry-ledger-io.js";
 import { recordTrustAuditEvent } from "../dist/shell/trust-audit.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const cli = path.join(import.meta.dirname, "..", "dist", "cli.js");
 const node = process.execPath;
@@ -41,7 +41,7 @@ function sha256Hex(buf) {
   return crypto.createHash("sha256").update(buf).digest("hex");
 }
 function freshDir(tag) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), `cw-restore-${tag}-`));
+  return tmpDir(`cw-restore-${tag}-`);
 }
 // Each CLI spawn gets its OWN isolated CW_HOME + tmp so the test never touches the
 // real home registry and runs leave no global trace (POLA: hermetic test).

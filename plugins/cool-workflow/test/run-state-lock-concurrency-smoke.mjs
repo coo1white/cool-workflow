@@ -23,7 +23,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawn } from "node:child_process";
 
@@ -42,7 +41,7 @@ function spawnAllAndWait(procs) {
 
 // ---- A. withFileLock is re-entrant inside one process ---------------------
 function reentrantLock() {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-relock-"));
+  const tmp = tmpDir("cw-relock-");
   const target = path.join(tmp, "state.json");
   const events = [];
   const result = withFileLock(target, () => {

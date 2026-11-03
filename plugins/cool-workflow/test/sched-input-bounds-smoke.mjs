@@ -20,13 +20,13 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { Scheduler, RoutineTriggerBridge } from "../dist/shell/scheduler-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 function freshDir(tag) {
-  return fs.mkdtempSync(path.join(os.tmpdir(), tag));
+  return tmpDir(tag);
 }
 
 // ---------------------------------------------------------------------------

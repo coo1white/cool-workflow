@@ -30,9 +30,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const MCP_ENTRY = path.join(pluginRoot, "dist", "mcp-server.js");
@@ -52,7 +52,7 @@ assert.ok(fs.existsSync(MCP_LOOP), "dist/mcp/server.js must exist (run npm run b
 // first line is broken JSON (its parse-error reply is the write that throws);
 // the second line is a valid `initialize` with id 2 that MUST still be
 // answered.
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-mcp-queue-"));
+const tmp = tmpDir("cw-mcp-queue-");
 const poisonChild = path.join(tmp, "poison-child.js");
 fs.writeFileSync(
   poisonChild,

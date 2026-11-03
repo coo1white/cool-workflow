@@ -13,8 +13,8 @@
 // containment checks").
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 // v2 split the old flat ../dist/state module: run-store owns run dirs +
 // checkpoint + load; fs-atomic owns the json helpers + the run-id guard.
@@ -27,7 +27,7 @@ import {
 import { readJson, writeJson, assertSafeRunId } from "../dist/shell/fs-atomic.js";
 import { exportRun, importRun, verifyReportBundle } from "../dist/shell/run-export.js";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-import-traversal-"));
+const tmp = tmpDir("cw-import-traversal-");
 
 // --- Build a real, valid bundle for a benign run -------------------------
 const runId = "traversal-src";

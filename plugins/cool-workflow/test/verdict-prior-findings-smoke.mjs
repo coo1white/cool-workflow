@@ -13,11 +13,11 @@
 //     result path escapes this run's own tree.
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 import { allocateWorkerScope } from "../dist/shell/worker-isolation.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const PRIOR_MARKER = "## Prior Findings";
 const VERDICT_PROMPT = "Synthesize the verdict.";
@@ -93,7 +93,7 @@ function verdictTask(withInjection) {
 }
 
 function allocateVerdictInput(withInjection, mutateVerify) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-verdict-"));
+  const tmp = tmpDir("cw-verdict-");
   const paths = createRunPaths(path.join(tmp, ".cw", "runs", "verdict-smoke"));
   ensureRunDirs(paths);
   const run = baseRun(tmp, paths);

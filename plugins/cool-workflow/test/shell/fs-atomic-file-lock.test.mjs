@@ -6,13 +6,13 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { writeJson, readJson, withFileLock } from "../../dist/shell/fs-atomic.js";
 import childProcessModule from "node:child_process";
+import { tmpDir } from "../helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-v2-fs-lock-"));
+const tmp = tmpDir("cw-v2-fs-lock-");
 
 // --- Lock file body format: "<pid>@<ISO>\n" -- observed DURING the critical
 // section (the lock is removed after fn() returns on the normal path).

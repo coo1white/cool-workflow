@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { createDefaultPipelineContract } from "../dist/core/pipeline/contract.js";
@@ -12,8 +11,9 @@ import { createDefaultPipelineContract } from "../dist/core/pipeline/contract.js
 import { runPipelineStage, advancePipeline } from "../dist/core/pipeline/runner.js";
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 import { appendRunNode, createStateNode, upsertRunContract } from "../dist/core/state/state-node.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-auto-advance-"));
+const tmp = tmpDir("cw-auto-advance-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "auto-advance"));
 ensureRunDirs(paths);
 

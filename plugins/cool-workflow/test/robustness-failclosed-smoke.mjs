@@ -16,7 +16,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 
@@ -69,7 +68,7 @@ function addTask(run, taskId) {
 // with a stderr diagnostic, while getWorkerScope wraps JSON.parse in
 // try/catch and throws "Corrupt worker scope <file>: ...".
 function corruptWorkerScope() {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-rob-worker-"));
+  const tmp = tmpDir("cw-rob-worker-");
   const run = makeRun(tmp, "rob-workers");
   const scopeA = allocateWorkerScope(run, addTask(run, "task-a"), { workerId: "worker-task-a-0001" });
   const scopeB = allocateWorkerScope(run, addTask(run, "task-b"), { workerId: "worker-task-b-0001" });
@@ -102,7 +101,7 @@ function wrongShapeOverlay() {
 
 // ---- C. concurrent scheduler writers do not lose tasks ------------------------
 async function concurrentSchedulerWrites() {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-rob-sched-"));
+  const tmp = tmpDir("cw-rob-sched-");
   const N = 16;
   const child = path.join(tmp, "create-one.js");
   fs.writeFileSync(child, `
@@ -124,7 +123,7 @@ async function concurrentSchedulerWrites() {
 
 // ---- D. scheduler core ops still work under the lock --------------------------
 function schedulerStillWorks() {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-rob-sched2-"));
+  const tmp = tmpDir("cw-rob-sched2-");
   const s = new Scheduler(tmp);
   const t = s.create({ prompt: "p", intervalMinutes: 1 });
   assert.equal(s.list().length, 1, "create persists");

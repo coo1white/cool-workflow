@@ -8,9 +8,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 import {
   verifyTelemetryLedger,
@@ -25,7 +25,7 @@ import * as sandbox from "../dist/shell/sandbox-profile.js";
 const cli = path.join(import.meta.dirname, "..", "dist", "cli.js");
 
 function tmpRun(prefix) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const dir = tmpDir(prefix);
   return { id: "audit-fixes-run", paths: { runDir: dir } };
 }
 
@@ -163,7 +163,7 @@ function tmpRun(prefix) {
 
 // ---- H7: a custom sandbox profile FILE must be enforceable, not just validated -
 (function h7CustomSandboxEnforced() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "h7-"));
+  const dir = tmpDir("h7-");
   const ctx = sandbox.sandboxContextForValidation(dir);
   const base = sandbox.showBundledSandboxProfile(sandbox.bundledSandboxProfileIds()[0], ctx);
   const custom = {

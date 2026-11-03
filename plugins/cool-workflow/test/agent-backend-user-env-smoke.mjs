@@ -17,8 +17,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { runBackend } from "../dist/shell/execution-backend/registry.js";
@@ -31,7 +31,7 @@ const ro = showBundledSandboxProfile("readonly", ctx);
 clearAgentEnv();
 
 function main() {
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-agent-user-env-"));
+  const work = tmpDir("cw-agent-user-env-");
   const stub = path.join(work, "stub-agent.js");
   // Prints ONLY booleans (never the real value) so the test asserts presence,
   // not a specific username -- portable across dev machines and CI.

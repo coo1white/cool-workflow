@@ -17,7 +17,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -29,7 +28,7 @@ import { RunRegistry } from "../dist/shell/run-registry-io.js";
 import { runResumeCli } from "../dist/shell/commands/registry-cli.js";
 import childProcessModule from "node:child_process";
 import { clearAgentEnv } from "./helpers/env.mjs";
-import { tmpWorkspace } from "./helpers/workspace.mjs";
+import { tmpDir, tmpWorkspace } from "./helpers/workspace.mjs";
 
 function tmpRepo() {
   const w = tmpWorkspace("cw-resume-drive-");
@@ -185,10 +184,10 @@ const cwd0 = process.cwd();
   const { spawnSync } = childProcessModule;
   const cli = path.join(pluginRoot, "dist", "cli.js");
   clearAgentEnv({ noAutoAgent: true });
-  const homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-drive-home-"));
+  const homeDir = tmpDir("cw-resume-drive-home-");
   const childEnv = { ...process.env, CW_NO_AUTO_AGENT: "1", CW_HOME: homeDir };
   const repo = tmpRepo();
-  const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), "cw-resume-drive-elsewhere-"));
+  const elsewhere = tmpDir("cw-resume-drive-elsewhere-");
   process.chdir(repo);
   try {
     process.env.CW_HOME = homeDir;

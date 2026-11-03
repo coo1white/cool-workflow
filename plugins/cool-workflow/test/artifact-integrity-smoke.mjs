@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 // hashArtifactFile(artifact) reads the file at artifact.path and stamps
 // sha256 (full `sha256:`+64 hex) and sizeBytes onto the StateArtifact, and
 // skips a missing file without throwing.
 import { hashArtifactFile } from "../dist/shell/run-store.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-artifact-hash-"));
+const tmp = tmpDir("cw-artifact-hash-");
 const testFile = path.join(tmp, "test-artifact.txt");
 fs.writeFileSync(testFile, "hello world\n", "utf8");
 

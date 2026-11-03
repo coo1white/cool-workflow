@@ -25,12 +25,12 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs";
-import os from "node:os";
 import * as fsAtomicModule from "../dist/shell/fs-atomic.js";
 import * as workflowAppLoaderModule from "../dist/shell/workflow-app-loader.js";
 import * as runStoreModule from "../dist/shell/run-store.js";
 import * as runExportCliModule from "../dist/shell/commands/run-export-cli.js";
 import * as runExportModule from "../dist/shell/run-export.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 
@@ -48,7 +48,7 @@ function main() {
   // ---- 2. initApp refuses directory outside appsDir ---------------------------
   {
     const { initWorkflowApp } = workflowAppLoaderModule;
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-"));
+    const tmp = tmpDir("cw-smoke-");
     const appsDir = path.join(tmp, "apps");
     fs.mkdirSync(appsDir, { recursive: true });
 
@@ -70,7 +70,7 @@ function main() {
     const { runExportCli } = runExportCliModule;
     const { verifyReportBundle } = runExportModule;
 
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-"));
+    const tmp = tmpDir("cw-smoke-");
     const runId = "guarded-export";
 
     // Persist a minimal completed run on disk so runExportCli's loadRunFromCwd finds

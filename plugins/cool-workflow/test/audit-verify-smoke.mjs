@@ -10,11 +10,11 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
 import { recordTrustAuditEvent, verifyTrustAudit } from "../dist/shell/trust-audit.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 const cli = path.join(import.meta.dirname, "..", "dist", "cli.js");
 
 function runCli(cwd, args) {
@@ -23,7 +23,7 @@ function runCli(cwd, args) {
 }
 
 // Lay a run out the way the CLI resolves it: <cwd>/.cw/runs/<id>/.
-const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-audit-verify-"));
+const cwd = tmpDir("cw-audit-verify-");
 const runId = "audit-verify-run";
 const runDir = path.join(cwd, ".cw", "runs", runId);
 fs.mkdirSync(runDir, { recursive: true });
@@ -96,7 +96,7 @@ assert.equal(r.status, 1, "all-corrupt log STILL exits 1 (not conflated with abs
 // event false-failed as trust-audit-digest-mismatch — breaking `audit verify` on
 // honest runs.
 {
-  const undefDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-audit-undef-"));
+  const undefDir = tmpDir("cw-audit-undef-");
   const r2 = { id: "undef-run", paths: { runDir: undefDir } };
   recordTrustAuditEvent(r2, { kind: "sandbox.path", decision: "allowed", source: "cw-validated", workerId: "w1", metadata: { absent: undefined, present: "x" } });
   recordTrustAuditEvent(r2, { kind: "commit.gate", decision: "recorded", source: "cw-validated", metadata: { also: undefined } });

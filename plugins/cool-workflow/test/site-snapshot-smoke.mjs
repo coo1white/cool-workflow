@@ -8,9 +8,9 @@
 // root, its assets under ui/, and the two JSON routes as files.
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 
@@ -20,7 +20,7 @@ if (build.status !== 0 || !fs.existsSync(path.join(pluginRoot, "ui", "workbench"
   process.exit(0);
 }
 
-const site = fs.mkdtempSync(path.join(os.tmpdir(), "cw-site-snapshot-"));
+const site = tmpDir("cw-site-snapshot-");
 const run = spawnSync(process.execPath, [path.join(pluginRoot, "scripts", "site-snapshot.mjs"), site], { cwd: pluginRoot, encoding: "utf8" });
 assert.equal(run.status, 0, `site-snapshot.mjs exited 0: ${run.stderr}`);
 

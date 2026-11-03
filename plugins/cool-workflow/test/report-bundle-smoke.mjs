@@ -8,7 +8,6 @@
 import assert from "node:assert/strict";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 
@@ -17,6 +16,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 import { appendTelemetryAttestation, computeRecordHash } from "../dist/shell/telemetry-ledger-io.js";
 import { signTelemetry } from "../dist/core/trust/telemetry-attestation.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -34,7 +34,7 @@ const HOPS = [
  *  CLI resolves it at <cwd>/.cw/runs/<id>/; returns the cwd. opts.noReport skips the
  *  report.md; opts.tamperLedger(records) edits the on-disk ledger BEFORE bundling. */
 function persistRun(label, opts = {}) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `cw-rb-${label}-`));
+  const tmp = tmpDir(`cw-rb-${label}-`);
   const runId = `rb-${label}`;
   const runDir = path.join(tmp, ".cw", "runs", runId);
   const paths = createRunPaths(runDir);

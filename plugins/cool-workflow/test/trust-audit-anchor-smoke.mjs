@@ -12,9 +12,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 import {
   recordTrustAuditEvent,
   verifyTrustAudit,
@@ -28,7 +28,7 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 
 function tmpRun(prefix) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const dir = tmpDir(prefix);
   return { id: "anchor-run", paths: { runDir: dir } };
 }
 
@@ -100,7 +100,7 @@ function readLines(p) {
 // ---- 4. CLI <-> MCP parity ------------------------------------------------
 (function cliMcpParity() {
   // lay a run out the way the CLI resolves it: <cwd>/.cw/runs/<id>/state.json
-  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "anchor-parity-"));
+  const workDir = tmpDir("anchor-parity-");
   const runId = "anchor-parity-run";
   const runDir = path.join(workDir, ".cw", "runs", runId);
   fs.mkdirSync(runDir, { recursive: true });

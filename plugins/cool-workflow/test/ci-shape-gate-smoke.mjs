@@ -14,8 +14,8 @@
 // @cw-smoke: tags ci,gate
 import assert from "node:assert";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 // Repo root is two levels above this plugin dir (plugins/cool-workflow/test -> repo root).
 const REPO_ROOT = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -180,7 +180,7 @@ assert.deepStrictEqual(liveFaults, [], `the live .github/workflows/ must pass th
 
 // ---- bite proof: one planted fault per check, each must go red ----------
 function tmpWorkflowsCopy() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "cw-ci-shape-gate-"));
+  const root = tmpDir("cw-ci-shape-gate-");
   const dir = path.join(root, ".github", "workflows");
   fs.mkdirSync(dir, { recursive: true });
   for (const f of fs.readdirSync(WORKFLOWS)) {

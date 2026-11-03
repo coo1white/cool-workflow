@@ -7,10 +7,10 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const temp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-run-all-timeout-"));
+const temp = tmpDir("cw-run-all-timeout-");
 try {
   const runner = path.join(temp, "run-all.mjs");
   fs.copyFileSync(path.join(import.meta.dirname, "run-all.mjs"), runner);

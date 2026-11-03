@@ -7,12 +7,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { packDryRunCommand } from "../scripts/dogfood-release.mjs";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-npm-pack-shape-"));
+const tmp = tmpDir("cw-npm-pack-shape-");
 const entry = (files) => ({ name: "cool-workflow", filename: "cool-workflow-0.0.0.tgz", entryCount: files.length, files: files.map((p) => ({ path: p, size: 1, mode: 420 })) });
 
 function runWith(stdoutJson) {

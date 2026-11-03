@@ -10,11 +10,11 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-dist-drift-"));
+const tmp = tmpDir("cw-dist-drift-");
 try {
   for (const rel of ["package.json", "tsconfig.json", "src", "dist"]) {
     fs.cpSync(path.join(pluginRoot, rel), path.join(tmp, rel), { recursive: true });

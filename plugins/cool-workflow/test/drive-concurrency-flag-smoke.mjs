@@ -24,7 +24,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -32,7 +31,7 @@ import { runDriveStep } from "../dist/shell/commands/pipeline-cli.js";
 import { plan } from "../dist/shell/pipeline.js";
 import * as api from "../dist/core/workflow-apps/app-schema.js";
 import { clearAgentEnv } from "./helpers/env.mjs";
-import { tmpWorkspace } from "./helpers/workspace.mjs";
+import { tmpDir, tmpWorkspace } from "./helpers/workspace.mjs";
 
 const FIXED_NOW = "2026-06-09T00:00:00.000Z";
 const cwd0 = process.cwd();
@@ -112,7 +111,7 @@ function maxOverlap(events) {
 // live drive loop interruptible by a real SIGINT/SIGTERM), so this helper
 // awaits it; the rest of the smoke's timing/overlap assertions are unchanged.
 async function driveOnce(runId, agentCommand, concurrencyArg, barrier) {
-  const timingLog = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "cw-conc-flag-log-")), "timing.jsonl");
+  const timingLog = path.join(tmpDir("cw-conc-flag-log-"), "timing.jsonl");
   process.env.CW_TIMING_LOG = timingLog;
   process.env.CW_BARRIER = String(barrier);
   // v2 runDriveStep(args): args.run continues an already-planned run; the run

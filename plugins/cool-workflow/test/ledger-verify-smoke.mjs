@@ -8,9 +8,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const cli = path.join(import.meta.dirname, "..", "dist", "cli.js");
 
@@ -19,7 +19,7 @@ function runCli(args, opts) {
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-ledger-"));
+const dir = tmpDir("cw-ledger-");
 
 // --- 1. propose -> a digest-sealed proposal entry that verifies -------------
 let r = runCli(["ledger", "propose", "--from", "cool-workflow", "--to", "chime",

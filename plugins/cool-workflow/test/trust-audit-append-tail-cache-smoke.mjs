@@ -18,14 +18,14 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { recordTrustAuditEvent, repairTrustAuditTornTail } from "../dist/shell/trust-audit.js";
 
 function freshRun() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-audit-tailcache-"));
+  const dir = tmpDir("cw-audit-tailcache-");
   const runDir = path.join(dir, "run");
   fs.mkdirSync(runDir, { recursive: true });
   return { dir, run: { id: "tailcache-run", paths: { runDir } }, runDir };

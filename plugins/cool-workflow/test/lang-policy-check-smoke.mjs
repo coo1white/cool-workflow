@@ -4,9 +4,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..", "..", "..");
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -24,7 +24,7 @@ function write(dir, rel, content) {
   fs.writeFileSync(abs, content);
 }
 function freshRepo() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-lang-policy-"));
+  const dir = tmpDir("cw-lang-policy-");
   git(dir, ["init", "-q", "-b", "work"]);
   git(dir, ["config", "user.email", "t@t"]);
   git(dir, ["config", "user.name", "t"]);

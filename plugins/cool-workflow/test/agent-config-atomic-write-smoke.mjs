@@ -5,12 +5,12 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { setAgentConfigFile, loadAgentConfigFile } from "../dist/shell/agent-config.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const home = fs.mkdtempSync(path.join(os.tmpdir(), "cw-acfg-"));
+const home = tmpDir("cw-acfg-");
 const env = { ...process.env, CW_HOME: home, XDG_STATE_HOME: home, HOME: home };
 
 // ---------------------------------------------------------------------------

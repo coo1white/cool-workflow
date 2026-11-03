@@ -9,8 +9,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "../helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..", "..");
 import { RunRegistry } from "../../dist/shell/run-registry-io.js";
@@ -22,7 +22,7 @@ function freshRegistry(work) {
   return { registry, queuePath: path.join(home, "registry", "queue.json") };
 }
 
-const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-queue-shape-"));
+const work = tmpDir("cw-queue-shape-");
 try {
   // Absent file still reads as an empty queue (absent is not corrupt).
   {

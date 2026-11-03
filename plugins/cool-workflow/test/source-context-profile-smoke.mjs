@@ -4,8 +4,8 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const repoRoot = path.resolve(import.meta.dirname, "..", "..", "..");
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -122,7 +122,7 @@ for (const [profile, expectation] of Object.entries(subprofileExpectations)) {
   for (const excluded of expectation.excludes) assert.ok(!paths.has(excluded), `${profile} excludes ${excluded}`);
 }
 
-const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-cache-"));
+const cacheDir = tmpDir("cw-source-context-cache-");
 const cachedFirst = runRaw(["export", "--profile", "core", "--ref", "HEAD", "--cache-dir", cacheDir]);
 assert.equal(cachedFirst.status, 0, `cached export failed\nSTDERR:\n${cachedFirst.stderr}`);
 assert.equal(cachedFirst.stderr, "", "cached export must keep diagnostics off stderr on success");
@@ -147,7 +147,7 @@ const corruptHit = runRaw(["export", "--profile", "core", "--ref", "HEAD", "--ca
 assert.notEqual(corruptHit.status, 0, "corrupt cache must fail closed");
 assert.match(corruptHit.stderr, /invalid source context cache/, "corrupt cache names the refusal");
 
-const diffRepo = fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-diff-"));
+const diffRepo = tmpDir("cw-source-context-diff-");
 fs.writeFileSync(path.join(diffRepo, "a.txt"), "one\n", "utf8");
 fs.writeFileSync(path.join(diffRepo, "b.txt"), "remove me\n", "utf8");
 fs.mkdirSync(path.join(diffRepo, "docs"), { recursive: true });
@@ -202,7 +202,7 @@ const diffExport = run([
 assert.deepEqual(diffExport.map((record) => record.path).sort(), ["a.txt", "d.txt"], "changed export includes only changed included files");
 assert.ok(diffExport.every((record) => record.changedFrom === baseRef), "changed export records the resolved base ref");
 
-const diffCache = fs.mkdtempSync(path.join(os.tmpdir(), "cw-source-context-diff-cache-"));
+const diffCache = tmpDir("cw-source-context-diff-cache-");
 const fullCached = runRaw([
   "export",
   "--profile", "smoke",

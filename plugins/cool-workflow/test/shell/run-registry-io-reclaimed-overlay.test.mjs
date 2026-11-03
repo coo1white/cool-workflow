@@ -8,12 +8,12 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { loadReclaimedFromDir } from "../../dist/shell/run-registry-io.js";
+import { tmpDir } from "../helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-reclaimed-lite-"));
+const tmp = tmpDir("cw-reclaimed-lite-");
 
 function dirWith(name, contents) {
   const dir = path.join(tmp, name);

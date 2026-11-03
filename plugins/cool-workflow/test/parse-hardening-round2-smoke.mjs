@@ -20,7 +20,6 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs";
-import os from "node:os";
 import { spawnSync } from "node:child_process";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -104,7 +103,7 @@ function main() {
   // "Invalid JSON in <file>: ..." message is byte-preserved.
   {
     const { readJson } = fsAtomicModule;
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-"));
+    const tmp = tmpDir("cw-smoke-");
     const badFile = path.join(tmp, "bad.json");
     fs.writeFileSync(badFile, "{not valid", "utf8");
     assert.throws(() => readJson(badFile), /Invalid JSON/, "readJson throws clear error on bad JSON");

@@ -14,9 +14,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const cli = path.join(import.meta.dirname, "..", "dist", "cli.js");
 
@@ -42,7 +42,7 @@ function writeEntry(dir, entry) {
   fs.writeFileSync(path.join(dir, `${entry.id}.json`), JSON.stringify(entry));
 }
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-ledger-res-"));
+const dir = tmpDir("cw-ledger-res-");
 const inbox = path.join(dir, "inbox");
 fs.mkdirSync(inbox);
 

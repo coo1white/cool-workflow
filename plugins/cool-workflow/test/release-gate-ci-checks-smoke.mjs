@@ -17,9 +17,9 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const GATE = path.join(pluginRoot, "scripts", "release-gate.mjs");
@@ -44,7 +44,7 @@ function write(dir, rel, content) {
 // A fixture repo with a previous tag and one good release commit after it,
 // an origin on github.com (never contacted: gh is stubbed), and a stub gh.
 function fixture({ origin = "https://github.com/acme/widget.git" } = {}) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cw-gate-ci-${caseId++}-`));
+  const dir = tmpDir(`cw-gate-ci-${caseId++}-`);
   git(dir, ["init", "-q", "-b", "work"]);
   git(dir, ["config", "user.email", "t@t"]);
   git(dir, ["config", "user.name", "t"]);

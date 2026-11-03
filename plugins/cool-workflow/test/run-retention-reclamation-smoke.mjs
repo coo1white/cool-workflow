@@ -11,7 +11,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
@@ -30,6 +29,7 @@ import { loadNodeSnapshot } from "../dist/core/state/node-snapshot.js";
 import { createStateNode } from "../dist/core/state/state-node.js";
 import { RunRegistry } from "../dist/shell/run-registry-io.js";
 import { listTrustAuditEvents } from "../dist/shell/trust-audit.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 import {
   runReclamation,
   planReclamation,
@@ -68,7 +68,7 @@ const RESULT_BODY = (summary, ev) =>
 
 let SEQ = 0;
 function makeRepo() {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-retention-"));
+  const tmp = tmpDir("cw-retention-");
   // Isolate the home registry so we never touch the real $CW_HOME.
   process.env.CW_HOME = path.join(tmp, "home");
   return tmp;

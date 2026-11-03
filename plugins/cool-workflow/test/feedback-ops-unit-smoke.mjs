@@ -9,7 +9,6 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 // v2 cutover repoint:
@@ -21,6 +20,7 @@ import path from "node:path";
 import { createRunPaths, ensureRunDirs } from "../dist/shell/run-store.js";
 import { saveCheckpoint } from "../dist/shell/run-store.js";
 import { recordFeedback } from "../dist/shell/error-feedback-io.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 // The operator-facing feedback lifecycle (collect/show/create-task/resolve,
 // report+checkpoint wrappers) lives in shell/feedback-operations, over the
 // record-building primitives in core/pipeline/error-feedback.
@@ -31,7 +31,7 @@ import {
   resolveFeedback,
 } from "../dist/shell/feedback-operations.js";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-feedback-ops-"));
+const tmp = tmpDir("cw-feedback-ops-");
 const paths = createRunPaths(path.join(tmp, ".cw", "runs", "feedback-ops-smoke"));
 ensureRunDirs(paths);
 

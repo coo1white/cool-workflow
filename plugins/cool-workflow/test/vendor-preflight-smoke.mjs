@@ -7,8 +7,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const preflight = path.join(pluginRoot, "scripts", "vendor-preflight.mjs");
@@ -16,7 +16,7 @@ const BT = String.fromCharCode(96).repeat(3); // ``` without breaking this templ
 
 // specs: { vendorName: "ok" | "fail" | "empty" }
 function makeAgentsDir(specs) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-preflight-agents-"));
+  const dir = tmpDir("cw-preflight-agents-");
   const templates = {};
   for (const [name, behavior] of Object.entries(specs)) {
     const script = `${name}-shim.js`;

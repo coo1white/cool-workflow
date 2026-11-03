@@ -7,7 +7,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { spawnSync } from "node:child_process";
-import os from "node:os";
 import path from "node:path";
 
 // v2: the atomic/durable JSON IO + advisory file lock moved out of the old
@@ -15,8 +14,9 @@ import path from "node:path";
 // are byte-identical (writeJson takes { durable }, withFileLock steals a lock
 // older than 30_000ms). Repointed require only; no assertion change.
 import { writeJson, readJson, withFileLock } from "../dist/shell/fs-atomic.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-durable-"));
+const tmp = tmpDir("cw-durable-");
 
 // ---------------------------------------------------------------------------
 // 1) writeJson is atomic: only the target + (transiently) a temp file appear,

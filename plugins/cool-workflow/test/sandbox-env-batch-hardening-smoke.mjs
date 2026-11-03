@@ -9,8 +9,8 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs";
-import os from "node:os";
 import { spawn, spawnSync } from "node:child_process";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 
@@ -130,7 +130,7 @@ async function main() {
 
   // ---- 5. persistStderr redacts API key patterns -------------------------------
   {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-"));
+    const tmp = tmpDir("cw-smoke-");
     const resultPath = path.join(tmp, "result.md");
     adapterCore.persistStderr(resultPath, "error: sk-ant-api03-abcd1234abcd1234abcd1234 is invalid");
     const logPath = path.join(tmp, "logs", "agent-stderr.log");
@@ -143,7 +143,7 @@ async function main() {
 
   // ---- 6. persistStderr caps at 4KB --------------------------------------------
   {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-"));
+    const tmp = tmpDir("cw-smoke-");
     const resultPath = path.join(tmp, "result.md");
     const big = "x".repeat(10000);
     adapterCore.persistStderr(resultPath, big);
@@ -156,7 +156,7 @@ async function main() {
 
   // ---- 7. persistStderr handles empty stderr -----------------------------------
   {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-"));
+    const tmp = tmpDir("cw-smoke-");
     const resultPath = path.join(tmp, "result.md");
     adapterCore.persistStderr(resultPath, "");
     const logPath = path.join(tmp, "logs", "agent-stderr.log");
@@ -213,7 +213,7 @@ async function main() {
   // ---- 12. batch-delegate-child forwards a stop signal to its own spawned
   //          children instead of orphaning them (P2-6 review fix) --------------
   {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-batch-sig-"));
+    const tmp = tmpDir("cw-smoke-batch-sig-");
     const marker = path.join(tmp, "alive.marker");
     const jobScript = path.join(tmp, "job.js");
     fs.writeFileSync(

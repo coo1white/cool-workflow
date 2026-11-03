@@ -8,15 +8,15 @@
 import assert from "node:assert/strict";
 import cp from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const testDir = import.meta.dirname;
 
 // Stand up an isolated copy of the runner + a pool of trivial smokes, exactly as
 // the other runner meta-smokes do (the runner is a self-contained, copy-able
 // script — no sibling files to bring along).
-const temp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-sample-determinism-"));
+const temp = tmpDir("cw-sample-determinism-");
 fs.copyFileSync(path.join(testDir, "run-all.mjs"), path.join(temp, "run-all.mjs"));
 const pool = [
   "zulu", "alpha", "mike", "bravo", "yankee", "charlie",

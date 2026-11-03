@@ -8,8 +8,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "../helpers/workspace.mjs";
 
 import {
   loadReclamationLog,
@@ -28,7 +28,7 @@ import {
 import { DEFAULT_RUN_REGISTRY_POLICY } from "../../dist/shell/run-registry-io.js";
 import { writeJson } from "../../dist/shell/fs-atomic.js";
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-reclaim-fc-"));
+const tmp = tmpDir("cw-reclaim-fc-");
 
 // A minimal run on disk: one completed task whose result is kept in the
 // run dir, one worker scratch dir with bytes to free, one node pointing at

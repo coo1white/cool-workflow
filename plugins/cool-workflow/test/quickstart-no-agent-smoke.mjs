@@ -20,12 +20,12 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
-const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "cw-no-agent-smoke-"));
+const cwd = tmpDir("cw-no-agent-smoke-");
 const env = { ...process.env, CW_HOME: cwd, XDG_STATE_HOME: cwd, HOME: cwd, TMPDIR: cwd };
 
 function runCw(args, extraEnv = {}) {

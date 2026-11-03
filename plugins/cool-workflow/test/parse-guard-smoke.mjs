@@ -8,11 +8,11 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import fs from "node:fs";
-import os from "node:os";
 import { spawnSync, execFileSync } from "node:child_process";
 import * as schedulerIoModule from "../dist/shell/scheduler-io.js";
 import * as registryModule from "../dist/shell/execution-backend/registry.js";
 import * as sandboxProfileModule from "../dist/shell/sandbox-profile.js";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cw = path.join(pluginRoot, "dist", "cli.js");
@@ -34,7 +34,7 @@ function main() {
   // code path; it does not weaken any of them.
   {
     const { RoutineTriggerBridge } = schedulerIoModule;
-    const tmp1 = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-md-"));
+    const tmp1 = tmpDir("cw-smoke-md-");
     const bridge = new RoutineTriggerBridge(tmp1);
     const withMetadata = (metadata) => bridge.create({ kind: "api", prompt: "guard-smoke", metadata }).metadata;
     assert.throws(() => withMetadata("{bad"), /Invalid JSON/i, "metadata parse rejects invalid JSON");
@@ -46,7 +46,7 @@ function main() {
 
   // ---- 2. routine fire handles bad payload file with clear error --------------
   {
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-smoke-"));
+    const tmp = tmpDir("cw-smoke-");
     const badFile = path.join(tmp, "bad.json");
     fs.writeFileSync(badFile, "{not valid", "utf8");
     const child = spawnSync(process.execPath, [cw, "routine", "fire", "api", badFile], { encoding: "utf8", cwd: tmp, env: { ...process.env, CW_NO_AUTO_AGENT: "1" } });

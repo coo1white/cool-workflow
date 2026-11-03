@@ -14,8 +14,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { runBackend } from "../dist/shell/execution-backend/registry.js";
@@ -44,7 +44,7 @@ function main() {
   checkShellGuard("echo", ["plain", "words", "only"]);
 
   // ---- 2. argv: the child sees the exact white-space-split tokens ------
-  const work = fs.mkdtempSync(path.join(os.tmpdir(), "cw-shell-structural-"));
+  const work = tmpDir("cw-shell-structural-");
   try {
     const probe = path.join(work, "argv-probe.js");
     fs.writeFileSync(probe, "process.stdout.write(JSON.stringify(process.argv.slice(2)));\n", "utf8");

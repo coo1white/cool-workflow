@@ -19,8 +19,8 @@
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 
@@ -77,7 +77,7 @@ const realFindings = checkTestLayout(path.join(pluginRoot, "test"), path.join(pl
 assert.deepEqual(realFindings, [], "the real test/ tree must hold the layout");
 
 // 2. Teeth: one finding per fault, nothing else.
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-test-layout-"));
+const tmp = tmpDir("cw-test-layout-");
 try {
   const testDir = path.join(tmp, "test");
   const srcDir = path.join(tmp, "src");

@@ -15,8 +15,8 @@
 // @cw-smoke: tags css,gate,shell
 import assert from "node:assert";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
+import { tmpDir } from "./helpers/workspace.mjs";
 
 const PINS = { tailwindcss: "4.3.3", daisyui: "5.7.42" };
 // react/react-dom/next only live in the sub-package, but pin exact when present.
@@ -195,7 +195,7 @@ for (const f of ["src/core/format/report-css.ts", "src/core/format/report-html.t
 
 // The gate must still bite: a bad copy in a temp dir goes red on every fault
 // it plants (one representative case per check).
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "cw-css-gate-"));
+const tmp = tmpDir("cw-css-gate-");
 fs.mkdirSync(path.join(tmp, WB, "app"), { recursive: true });
 fs.mkdirSync(path.join(tmp, WB, "src", "next-shell"), { recursive: true });
 fs.writeFileSync(
