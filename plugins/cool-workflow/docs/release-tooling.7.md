@@ -237,6 +237,12 @@ node plugins/cool-workflow/scripts/release-flow.mjs --cut --version 0.1.77 --pus
 node plugins/cool-workflow/scripts/release-flow.mjs --release --version 0.1.77 [--soft]
 ```
 
+The verdict-record PR is opened from a `release/vX.Y.Z-record` branch;
+once it is out, `npm run release` switches the checkout back to the branch it
+was run from (main, normally), and says `back on main.`, so the next
+`git pull` works (since 0.4.0; before, the checkout was left on the record
+branch, which is deleted when the PR merges).
+
 A `--cut` starts with a fail-fast **preflight** (added after the v0.2.3 cut,
 where each of these fired only AFTER the gate/vendor/reviewer had already
 spent real time and tokens): the version flag, the signing key (present AND
