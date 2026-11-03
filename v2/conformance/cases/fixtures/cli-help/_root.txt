@@ -4,6 +4,7 @@ Cool Workflow
   -q "question" --link <url>                 Review a remote repo by URL
   version                                   Show version
   doctor                                    Check setup
+  check -- <command>                        Run your tests, keep a receipt
   fix                                       Show fix commands for setup issues
 
 Flags
@@ -27,6 +28,6 @@ More commands
   app|sandbox|backend|contract|node|feedback|worker|audit|loop|schedule
   routine|registry|run|queue|clones|orphans|history|quickstart|audit-run
   metrics|operator|sched|gc|telemetry|migration|demo|workbench|ledger|graph
-  man|version|fix|completion
+  man|version|fix|completion|check
 
     Run  cw help <command>  for one command's subcommands and descriptions.

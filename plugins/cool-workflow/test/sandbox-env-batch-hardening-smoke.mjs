@@ -86,6 +86,7 @@ async function main() {
       // block here would trip the gitleaks `private-key` rule in the `scan` gate.
       CW_RELEASE_VERDICT_PRIVKEY: "verdict-signing-key-PLACEHOLDER-not-real",
       CW_WORKBENCH_TOKEN: "workbench-token-PLACEHOLDER-not-real",
+      CW_CHECK_PRIVKEY: "receipt-signing-key-PLACEHOLDER-not-real",
       CW_AGENT_ATTEST_PRIVKEY: "attest-signing-key-PLACEHOLDER-not-real",
       CW_AGENT_MODEL: "some-model",
       ANTHROPIC_API_KEY: "sk-ant-not-a-real-key",
@@ -107,6 +108,7 @@ async function main() {
     const { env, forwarded } = buildAgentChildEnv({ env: { inherit: false, expose: [], deny: [] } }, base);
     assert.equal(env.CW_RELEASE_VERDICT_PRIVKEY, undefined, "verdict key never re-added to agent child");
     assert.equal(env.CW_WORKBENCH_TOKEN, undefined, "workbench token never re-added to agent child");
+    assert.equal(env.CW_CHECK_PRIVKEY, undefined, "done-receipt signing key never reaches an agent (it could forge receipts)");
     assert.equal(env.CW_AGENT_ATTEST_PRIVKEY, base.CW_AGENT_ATTEST_PRIVKEY, "attest key STILL forwarded (wrapper signs with it)");
     assert.equal(env.CW_AGENT_MODEL, "some-model", "non-secret CW_ config still forwarded");
     assert.equal(env.ANTHROPIC_API_KEY, base.ANTHROPIC_API_KEY, "provider key still forwarded");

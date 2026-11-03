@@ -7,7 +7,7 @@
 //
 // Evidence: SPEC/pipeline-run.md "Commit gate — commit module",
 // "Commit-gate error codes (fixed strings)".
-import { hasGroundedEvidence } from "../trust/evidence-grounding.js";
+import { hasGroundedEvidence, receiptIdsIn } from "../trust/evidence-grounding.js";
 import { isEmptyCapture } from "./result-normalize.js";
 function error(code, message, options = {}, now) {
     return { code, message, at: now, retryable: false, ...options };
@@ -113,6 +113,14 @@ function groundVerifierEvidence(run, verifierNode, errors, deps, now) {
                 }, now));
             }
         }
+    }
+    const receiptIds = receiptIdsIn(verifierNode.evidence.map(evidenceLocatorString));
+    const refused = !receiptIds.length ? [] : deps.refusedReceipts ? deps.refusedReceipts(receiptIds) : receiptIds.map((id) => ({ id, reason: "no receipt check is wired here", next: "cw check list" }));
+    if (refused.length) {
+        errors.push(error("commit-verifier-receipt-refused", `Verifier node ${verifierNode.id} cites a receipt CW cannot accept: ${refused[0].reason}. Next: ${refused[0].next}`, {
+            nodeId: verifierNode.id,
+            details: { verifierNodeId: verifierNode.id, receipts: refused },
+        }, now));
     }
 }
 /** Deterministic commit id: position in the run's append-only commit log

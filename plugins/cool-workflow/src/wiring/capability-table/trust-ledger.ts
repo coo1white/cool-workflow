@@ -226,4 +226,37 @@ REGISTRY_BY_CAPABILITY.get("report.verify-bundle")!.mcp!.handler = (args) => {
   return result;
 };
 
+function loadCheckCli(): typeof import("../../shell/commands/check-cli.js") {
+  return require("../../shell/commands/check-cli.js") as typeof import("../../shell/commands/check-cli.js");
+}
+
+addCliOnlyCapability(
+  "check.run",
+  "Run your own check command (no shell, no model) and keep a done receipt: git HEAD, exit code, output digests.",
+  {
+    path: ["check"],
+    jsonMode: "default",
+    handler: (args) => loadCheckCli().checkRunCli(args.positionals, args.options),
+    humanRender: (json) => loadCheckCli().formatCheckRun(json),
+    flags: [{ name: "-- COMMAND [ARGS...]", summary: "The command to run, e.g. cw check -- npm test." }],
+  },
+  "Runs a local process for the person at the terminal; an MCP host already runs commands with its own tool and cites the receipt. Reading receipts is both-surface (check.list, check.show)."
+);
+
+attachCliBinding("check.list", {
+  path: ["check", "list"],
+  jsonMode: "default",
+  handler: (args) => ({ json: loadCheckCli().checkListCli(args.options) }),
+  humanRender: (json) => loadCheckCli().formatCheckList(json),
+});
+REGISTRY_BY_CAPABILITY.get("check.list")!.mcp!.handler = (args) => loadCheckCli().checkListMcp(args);
+
+attachCliBinding("check.show", {
+  path: ["check", "show"],
+  jsonMode: "default",
+  handler: (args) => loadCheckCli().checkShowCli(optionalArg(args.positionals[0]) || optionalArg(args.options.id), args.options),
+  humanRender: (json) => loadCheckCli().formatCheckShow(json),
+});
+REGISTRY_BY_CAPABILITY.get("check.show")!.mcp!.handler = (args) => loadCheckCli().checkShowMcp(args);
+
 // ---------------------------------------------------------------------

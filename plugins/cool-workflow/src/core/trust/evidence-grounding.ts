@@ -17,6 +17,7 @@ const PATH_SEP_RE = /[\\/]/;
 const FILE_EXT_RE = /\.[A-Za-z0-9]{1,12}(?::\d+(?:-\d+)?)?$/;
 const NAMESPACE_TOKEN_RE = /^[A-Za-z][A-Za-z0-9_.-]*:\S/;
 const LINE_SUFFIX_RE = /:(\d+(?:-\d+)?)$/;
+const RECEIPT_PREFIX = "receipt:";
 
 /** A single evidence string is "grounded" if it is machine-shaped — a
  *  URL, a path-like locator, or a `namespace:value` token — rather than
@@ -62,7 +63,7 @@ export function requireResolvableEvidence(env: NodeJS.ProcessEnv = process.env):
 }
 
 interface LocatorShape {
-  kind: "url" | "file" | "opaque";
+  kind: "url" | "file" | "receipt" | "opaque";
   pathPart?: string;
 }
 
@@ -70,10 +71,18 @@ function classify(raw: string): LocatorShape {
   const value = raw.trim();
   if (!value) return { kind: "opaque" };
   if (URL_RE.test(value)) return { kind: "url" };
+  if (value.startsWith(RECEIPT_PREFIX)) return { kind: "receipt", pathPart: value.slice(RECEIPT_PREFIX.length) };
   const line = value.match(LINE_SUFFIX_RE);
   const pathPart = line ? value.slice(0, value.length - line[0].length) : value;
   const looksFile = (PATH_SEP_RE.test(pathPart) || FILE_EXT_RE.test(value)) && !/\s/.test(pathPart);
   return looksFile ? { kind: "file", pathPart } : { kind: "opaque" };
+}
+
+/** The receipt ids an evidence list cites as `receipt:<id>`, in order, no repeats. */
+export function receiptIdsIn(evidence: unknown): string[] {
+  if (!Array.isArray(evidence)) return [];
+  const ids = evidence.map((entry) => classify(String(entry ?? ""))).filter((shape) => shape.kind === "receipt").map((shape) => shape.pathPart || "");
+  return [...new Set(ids)];
 }
 
 /** Resolve one locator against base dirs (used only in strict mode).
@@ -83,7 +92,7 @@ function classify(raw: string): LocatorShape {
 export function resolveEvidenceLocator(raw: string, baseDirs: string[], exists: (p: string) => boolean, isAbsolute: (p: string) => boolean, resolvePath: (base: string, rel: string) => string): EvidenceResolution {
   const shape = classify(raw);
   if (shape.kind === "url") return "external";
-  if (shape.kind === "opaque" || !shape.pathPart) return "opaque";
+  if (shape.kind !== "file" || !shape.pathPart) return "opaque";
   const candidates = isAbsolute(shape.pathPart) ? [shape.pathPart] : baseDirs.filter(Boolean).map((base) => resolvePath(base, shape.pathPart as string));
   for (const candidate of candidates) {
     if (exists(candidate)) return "resolved";
@@ -111,8 +120,7 @@ export function computeEvidenceConfidence(raw: unknown, baseDirs: string[] | und
   if (!baseDirs || !baseDirs.length || !ops || !requireResolvableEvidence(env)) return "grounded";
   const value = String(raw).trim();
   const shape = classify(value);
-  if (shape.kind === "url") return "grounded";
-  if (shape.kind === "opaque") return "grounded";
+  if (shape.kind !== "file") return "grounded";
   const resolution = resolveEvidenceLocator(value, baseDirs, ops.exists, ops.isAbsolute, ops.resolve);
   return resolution === "resolved" ? "resolvable" : "grounded";
 }

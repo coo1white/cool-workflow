@@ -34,7 +34,7 @@ export const MORE_COMMANDS_TOKENS = [
     "metrics", "operator", "sched",
     "gc", "telemetry", "migration", "demo", "workbench",
     "ledger", "graph", "man", "version",
-    "fix", "completion",
+    "fix", "completion", "check",
 ];
 const MORE_COMMANDS_WRAP_WIDTH = 76;
 /** Greedily pack pipe-joined tokens into
@@ -198,6 +198,7 @@ export function formatHelp() {
         '  -q "question" --link <url>                 Review a remote repo by URL',
         "  version                                   Show version",
         "  doctor                                    Check setup",
+        "  check -- <command>                        Run your tests, keep a receipt",
         "  fix                                       Show fix commands for setup issues",
         "",
         "Flags",

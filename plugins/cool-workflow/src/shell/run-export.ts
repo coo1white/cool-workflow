@@ -9,6 +9,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { createRequire } from "node:module";
 import { sha256, sha256Bytes } from "../core/hash.js";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version.js";
 import { WorkflowRun } from "../core/state/types.js";
@@ -611,6 +612,10 @@ export function verifyReportBundle(archivePath: string, options: VerifyReportBun
         failBound("report-result-mismatch");
       }
     }
+    for (const failed of pinnedReceiptFailures(imported.run.paths.runDir)) {
+      reportFindingsOk = false;
+      failedChecks.push({ name: "receipt", code: failed });
+    }
     if (options.extractReportTo && reportContent !== undefined) {
       reportExtractedTo = path.resolve(options.extractReportTo);
       if (options.cwd) {
@@ -656,6 +661,24 @@ export function verifyReportBundle(archivePath: string, options: VerifyReportBun
     reportExtractedTo,
     failedChecks,
   };
+}
+
+/** `receipt-tampered:<id>` / `receipt-failed:<id>` for each done receipt the run pinned that is not intact and passed. */
+function pinnedReceiptFailures(runDir: string): string[] {
+  const dir = path.join(runDir, "receipts");
+  if (!fs.existsSync(dir)) return [];
+  const receipt = createRequire(import.meta.url)("../core/trust/receipt.js") as typeof import("../core/trust/receipt.js");
+  return fs.readdirSync(dir).filter((name) => name.endsWith(".json")).sort().flatMap((name) => {
+    const id = name.slice(0, -".json".length);
+    let raw: unknown;
+    try {
+      raw = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8"));
+    } catch {
+      raw = undefined;
+    }
+    if (!receipt.receiptIntact(raw) || raw.id !== id) return [`receipt-tampered:${id}`];
+    return raw.exitCode === 0 ? [] : [`receipt-failed:${id}`];
+  });
 }
 
 function collectArchiveFiles(run: WorkflowRun): ArchiveFileEntry[] {

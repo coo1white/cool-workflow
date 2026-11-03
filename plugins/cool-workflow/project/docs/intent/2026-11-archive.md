@@ -1,3 +1,14 @@
+# Intent archive, 2026-11 (closed programs, text kept as is)
+
+Closed intent files of one month, joined into one file so the .md count
+stays inside the growth budget. Each part below is the whole original
+file, word for word, with its status ledger. New programs start their
+own file; a file joins this archive only after its closing PR merges.
+
+---
+
+## Program: Refactor the whole tree (closed by #859)
+
 # Refactor the whole tree: test helpers, one command folder, no dead doors
 
 Intent and spec in ONE file (the shape of `2026-09-02-backlog-six-rows.md`).

@@ -109,7 +109,7 @@ export const KNOWN_COMMANDS = new Set([
     "metrics", "operator",
     "sched", "gc", "telemetry", "migration", "demo", "workbench",
     "graph", "version", "fix",
-    "completion",
+    "completion", "check",
 ]);
 /** Levenshtein edit distance between two strings. */
 function levenshtein(a, b) {
