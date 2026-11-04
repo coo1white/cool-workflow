@@ -13,8 +13,8 @@
     "antigravity": "antigravity-agent.js",
     "grok": "grok-agent.js"
   },
-  "beta": {
-    "comment": "Beta templates (2026-11-04) resolve only through builtin:<name>. A custom CW_AGENT_COMMAND whose binary has the same name (grok, copilot, agy) is still a custom command, as in 0.4.0: no --version probe, no sandbox hosts. A template leaves this list when it graduates.",
+  "builtinOnly": {
+    "comment": "Templates matched only through builtin:<name> (added 2026-11-04 with the beta three; grok stays after leaving beta in 0.4.2). A custom CW_AGENT_COMMAND whose binary has the same name (grok, copilot, agy) is still a custom command, as in 0.4.0: no --version probe, no sandbox hosts. Taking a name off this list changes cw doctor for such a command, so it needs the operator's named yes.",
     "templates": ["copilot", "antigravity", "grok"]
   },
   "versionProbe": {

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// agent-config-beta-custom — shell/agent-config.ts: a custom CW_AGENT_COMMAND
-// whose binary is named like a beta template's CLI (grok, copilot, agy) stays a
+// agent-config-builtin-only — shell/agent-config.ts: a custom CW_AGENT_COMMAND
+// whose binary is named like a builtinOnly template's CLI (grok, copilot, agy) stays a
 // custom command, as in 0.4.0: no `--version` probe (so `cw doctor` does not
 // change its exit code) and no sandbox hosts. The builtin:<name> path still
 // probes and gets its hosts (project/docs/intent/2026-10-16-release-gate-ci.md,
@@ -17,10 +17,10 @@ for (const bin of ["grok", "copilot", "agy", "/usr/local/bin/grok", "grok.exe"])
   assert.deepEqual(agentSandboxVendor(bin, ["-p"]), { hosts: [], write: [] }, `${bin} gets no sandbox hosts`);
 }
 
-// A non-beta CLI by name is still matched, as before.
+// A CLI not on builtinOnly is still matched by name, as before.
 assert.deepEqual(agentProbeTarget("codex", ["exec"]), { cli: "codex" });
 
-// The builtin wrappers of the beta three still probe their CLI and get hosts.
+// The builtin wrappers of the three still probe their CLI and get hosts.
 for (const [name, file, cli] of [["grok", "grok-agent.js", "grok"], ["copilot", "copilot-agent.js", "copilot"], ["antigravity", "antigravity-agent.js", "agy"]]) {
   const args = [path.join(AGENTS, file), "{{input}}", "{{result}}"];
   assert.deepEqual(agentProbeTarget("node", args), { cli });
@@ -29,4 +29,4 @@ for (const [name, file, cli] of [["grok", "grok-agent.js", "grok"], ["copilot", 
   assert.ok(v.hosts.length > 0, `${name} has sandbox hosts`);
 }
 
-console.log("agent-config-beta-custom: ok");
+console.log("agent-config-builtin-only: ok");
