@@ -33,6 +33,7 @@ import {
 } from "./types.js";
 import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local.js";
 import { delegatedEnvelope, refusedEnvelope } from "./envelopes.js";
+import { writeJson } from "../fs-atomic.js";
 import { withPerfTraceGroup } from "../perf-trace.js";
 import { agentCommandArgv, splitAgentCommandLine, substituteAgentArg, messageOf, NETWORK_ENV_NAMES, fetchChildEnv, FETCH_CHILD_NODE_ARGS } from "../../core/util/cli-args.js";
 
@@ -265,17 +266,27 @@ export function parseAgentReport(
   return { model, usage, usageSignature };
 }
 
-function agentSubstitutions(request: ExecutionRequest, model?: string): Record<string, string> {
+function agentSubstitutions(request: ExecutionRequest, model: string | undefined, rawArgs: string[]): Record<string, string> {
   const manifest = request.manifest;
   const workerDir = manifest?.workerDir || request.cwd || "";
-  return {
+  const subst: Record<string, string> = {
     manifest: manifest?.manifestPath || (workerDir ? path.join(workerDir, "manifest.json") : ""),
     input: manifest?.inputPath || "",
     result: manifest?.resultPath || "",
     workerDir,
     model: model || "",
     prompt: manifest?.prompt || "",
+    phase: manifest?.phase || "",
+    taskId: request.taskId || "",
+    workerId: manifest?.workerDir ? path.basename(manifest.workerDir) : "",
   };
+  // 0.4.2: prior-results.json is written only for a command that names {{priorResults}}.
+  if (manifest?.workerDir && rawArgs.some((arg) => arg.includes("{{priorResults}}"))) {
+    const file = path.join(manifest.workerDir, "prior-results.json");
+    writeJson(file, { schemaVersion: 1, taskId: request.taskId || "", phase: manifest.phase || "", priorResults: manifest.priorResults || [] });
+    subst.priorResults = file;
+  }
+  return subst;
 }
 
 export { substituteAgentArg };
@@ -394,7 +405,7 @@ function agentSandboxWrap(binary: string, rawArgs: string[], realArgs: string[],
 export function prepareAgentSpawn(request: ExecutionRequest): AgentSpawnJob | undefined {
   const resolved = resolveAgentInvocation(request);
   if (!resolved.binary) return undefined;
-  const subst = agentSubstitutions(request, resolved.model);
+  const subst = agentSubstitutions(request, resolved.model, resolved.rawArgs);
   const args = resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst));
   const sandbox = agentSandboxWrap(resolved.binary, resolved.rawArgs, args, request);
   // A refusal is not a job: the hop settles on the serial path, which refuses with the reason.
@@ -614,7 +625,7 @@ export function runAgentProcess(
   attestation: SandboxAttestation
 ): ExecutionResultEnvelope {
   const resolved = resolveAgentInvocation(request);
-  const subst = agentSubstitutions(request, resolved.model);
+  const subst = agentSubstitutions(request, resolved.model, resolved.rawArgs);
 
   if (resolved.binary) {
     const realArgs = resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst));

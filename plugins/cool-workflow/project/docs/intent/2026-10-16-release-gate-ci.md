@@ -900,3 +900,37 @@ and answered "同意 (推荐)". `sparkleFor(platform)` in
 `test/cli-render-smoke.mjs` (`testCalmLiveView`) holds both forms;
 `agent-delegation-drive.7.md` ("Interactive (TTY)") says it. The version
 raise is 0.4.1 -> 0.4.2.
+
+### Four agent placeholders for a downstream project (2026-11-04)
+
+yokoten-doctor, which runs `cw -q ... --fast` with its own text-only agent,
+sent eight asks after testing 0.4.0. Two are mechanism and fit here: the
+agent could not tell its phase (it parsed the result file name), and it
+found earlier results by a regex over its input. Measured: a placeholder
+CW does not know is passed as written (`substituteAgentArg`,
+`core/util/cli-args.ts`); `manifest.json` has the task id but no phase;
+`input.md` holds no result paths. So four placeholders, filled only when a
+command names them. The operator was asked, word for word (2026-11-04):
+
+> 为 yokoten-doctor 的第 1、2 条：CW_AGENT_COMMAND 里支持 4 个新占位符。以前命令里写「{{phase}}」「{{taskId}}」「{{workerId}}」「{{priorResults}}」会原样传给 agent；改后分别换成：阶段名（如 verify）、任务 id（如 verdict:fast-synthesis）、worker id、以及一个 prior-results.json 的路径（列出前面各阶段的结果文件，只有命令用到 {{priorResults}} 时才写这个文件）。不用这些占位符的命令，输出和文件完全不变。在 0.4.2 里发。同意吗？
+
+and answered "同意 (推荐)". `agentSubstitutions` in
+`src/shell/execution-backend/agent.ts` fills them; `listPriorResults` in
+`src/shell/worker-isolation.ts` shares its fail-closed rules with the
+upstream-result injection; `test/agent-placeholders-smoke.mjs` drives the
+fast app and holds all four and the no-placeholder case;
+`agent-delegation-drive.7.md` ("The agent contract") says it. `input.md`
+is not touched, so its digest and the result cache key do not change.
+
+Paths weighed: adding `phase` and the prior-result list to every
+`manifest.json`, or env vars `CW_PHASE`/`CW_WORKER`. Both change what every
+run writes or passes (the batch path also replaces the child env), where a
+placeholder changes nothing for a command that does not name it; both are
+as easy to undo. The other six asks, and why not here: a named secret
+already reaches the agent as any `CW_*` var (`buildAgentChildEnv`); "risks
+only" and a P2 cap for conditional findings are policy for the app or
+downstream; `--verify-passes` is a larger program; `:` in file names goes
+with native Windows support and needs its own named yes. Found on the way:
+`validateResultEnvelope` (`src/shell/verifier.ts`) is never called when a
+result is accepted, and wiring it in would refuse results accepted today,
+so it waits for the operator's own decision.

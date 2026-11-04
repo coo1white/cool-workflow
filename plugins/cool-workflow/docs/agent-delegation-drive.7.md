@@ -84,8 +84,19 @@ configured agent against it (see doctor(7)).
 - **How it is started.** CW runs the command with no shell, as separate argv
   words. In each word it puts `{{input}}` (the worker's `input.md`: the task),
   `{{result}}` (the `result.md` path to write), `{{manifest}}`
-  (`manifest.json`), `{{workerDir}}`, `{{model}}` and `{{prompt}}`. Its stdin
-  is closed. It gets the sandbox profile's env, with what the profile lets
+  (`manifest.json`), `{{workerDir}}`, `{{model}}` and `{{prompt}}`; from
+  0.4.2 also `{{phase}}` (the task's phase, as `Verify`), `{{taskId}}` (as
+  `verdict:fast-synthesis`), `{{workerId}}` (the worker folder's name) and
+  `{{priorResults}}`. `{{priorResults}}` is the path of
+  `<workerDir>/prior-results.json`, `{"schemaVersion": 1, "taskId", "phase",
+  "priorResults": [{"taskId", "phase", "resultPath"}]}`: the accepted result
+  file of every task in an earlier phase, by task id, as absolute paths. It
+  is an empty list in the first phase, and also when any earlier task has no
+  accepted result or a path falls outside the run's own folders (fail
+  closed). The file is written only for a command that names
+  `{{priorResults}}`; a command that names none of the four gets the same
+  argv and files as before (up to 0.4.1 they were passed as written). Its
+  stdin is closed. It gets the sandbox profile's env, with what the profile lets
   through (proxy and CA vars, its own provider keys), never CW's keys.
 - **What it has to do.** Write the answer to `{{result}}` and exit 0. CW reads
   `result.md` the same way on every accept: a fenced `cw:result` JSON block
@@ -491,8 +502,9 @@ one row per driven task with phase, task id, elapsed time, and spawn/cache state
 to the wrapper JSON payload; without it, the wrapper's default output shape stays
 unchanged.
 
-`{{manifest}}`, `{{input}}`, `{{result}}`, `{{workerDir}}`, `{{model}}`, and
-`{{prompt}}` are put into DISCRETE argv elements (never a shell-interpreted
+`{{manifest}}`, `{{input}}`, `{{result}}`, `{{workerDir}}`, `{{model}}`,
+`{{prompt}}`, `{{phase}}`, `{{taskId}}`, `{{workerId}}` and `{{priorResults}}`
+are put into DISCRETE argv elements (never a shell-interpreted
 string). Each verb is declared once in `src/core/capability-data.ts`, so `cw <cmd>
 --json` is byte-identical to the matching `cw_<tool>` MCP tool for the read-only
 preview/config-show verbs.

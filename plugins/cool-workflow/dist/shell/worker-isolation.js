@@ -231,32 +231,8 @@ function collectPreviousPhaseResults(run, task) {
     const policy = task.resultCache;
     if (!policy || policy.includeCompletedResults !== "previous-phases")
         return [];
-    const phases = run.phases || [];
-    const phaseIndex = phases.findIndex((p) => p.name === task.phase || p.id === task.phase);
-    if (phaseIndex <= 0)
-        return [];
-    const previousTaskIds = new Set(phases.slice(0, phaseIndex).flatMap((p) => p.taskIds));
-    const candidates = (run.tasks || [])
-        .filter((t) => previousTaskIds.has(t.id))
-        // stableCompare (not localeCompare): the injected order must not depend on
-        // host locale, so a warm re-run's input.md stays byte-identical everywhere.
-        .sort((a, b) => stableCompare(a.id, b.id));
-    const resultsRoot = run.paths?.resultsDir ? path.resolve(run.paths.resultsDir) : undefined;
-    const workersRoot = run.paths?.workersDir ? path.resolve(run.paths.workersDir) : undefined;
     const results = [];
-    for (const candidate of candidates) {
-        // Fail closed: if ANY earlier-phase task has no accepted result yet, inject
-        // nothing rather than a half-built upstream picture.
-        if (candidate.status !== "completed" || !candidate.resultPath || !fs.existsSync(candidate.resultPath)) {
-            return [];
-        }
-        // Fail closed on containment: a resultPath from run state that resolves
-        // outside this run's own results/workers tree is never read into a
-        // model-facing prompt (defence in depth against tampered state.json).
-        const resolved = path.resolve(candidate.resultPath);
-        const contained = (resultsRoot && isUnder(resolved, resultsRoot)) || (workersRoot && isUnder(resolved, workersRoot));
-        if (!contained)
-            return [];
+    for (const { candidate, resolved } of priorResultFiles(run, task)) {
         let text;
         try {
             text = fs.readFileSync(resolved, "utf8").trim();
@@ -272,6 +248,39 @@ function collectPreviousPhaseResults(run, task) {
         results.push({ id: candidate.id, phase: candidate.phase, text });
     }
     return results;
+}
+/** Every earlier-phase task with its accepted result file, ordered by id.
+ *  Fail closed: [] when ANY earlier-phase task has no accepted result yet (no
+ *  half-built upstream picture), or when a resultPath from run state resolves
+ *  outside this run's own results/workers tree (tampered state.json). */
+function priorResultFiles(run, task) {
+    const phases = run.phases || [];
+    const phaseIndex = phases.findIndex((p) => p.name === task.phase || p.id === task.phase);
+    if (phaseIndex <= 0)
+        return [];
+    const previousTaskIds = new Set(phases.slice(0, phaseIndex).flatMap((p) => p.taskIds));
+    const candidates = (run.tasks || [])
+        .filter((t) => previousTaskIds.has(t.id))
+        // stableCompare (not localeCompare): the injected order must not depend on
+        // host locale, so a warm re-run's input.md stays byte-identical everywhere.
+        .sort((a, b) => stableCompare(a.id, b.id));
+    const resultsRoot = run.paths?.resultsDir ? path.resolve(run.paths.resultsDir) : undefined;
+    const workersRoot = run.paths?.workersDir ? path.resolve(run.paths.workersDir) : undefined;
+    const out = [];
+    for (const candidate of candidates) {
+        if (candidate.status !== "completed" || !candidate.resultPath || !fs.existsSync(candidate.resultPath))
+            return [];
+        const resolved = path.resolve(candidate.resultPath);
+        const contained = (resultsRoot && isUnder(resolved, resultsRoot)) || (workersRoot && isUnder(resolved, workersRoot));
+        if (!contained)
+            return [];
+        out.push({ candidate, resolved });
+    }
+    return out;
+}
+/** The {{priorResults}} list (0.4.2, opt-in): earlier-phase result files, same rules as above. */
+export function listPriorResults(run, task) {
+    return priorResultFiles(run, task).map(({ candidate, resolved }) => ({ taskId: candidate.id, phase: candidate.phase, resultPath: resolved }));
 }
 function isUnder(child, parent) {
     if (child === parent)
