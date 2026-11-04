@@ -754,3 +754,26 @@ three:
 
 All three are said in `release-tooling.7.md` ("The leftover cut branch is
 cleaned up", and the `cut-branch` row). The version raise is 0.4.0 -> 0.4.1.
+
+### Operator decisions for 0.4.1, a calm live view (2026-11-04)
+
+The operator saw the wrappers' live view on a real run and said it moved
+too fast and looked like flicker ("动效想慢一点流畅一点，目前太快，视觉效果是闪动的，看着非常难受，可以学claude github").
+The view is TTY-only (a pipe and CI see none of it), but it is output, so
+the operator was asked about each change by name. The question, word for
+word (2026-11-04):
+
+> 实时动画（只在终端里显示，管道和 CI 里没有）改 4 处：
+> 1) 转动的图标从「✶ ✸ ✹ ✺ ✹ ✸」循环，改成 Claude Code 那样「· ✢ ✳ ✶ ✻ ✽ ✻ ✶ ✳ ✢」由小变大再变小；
+> 2) 速度从每 90 毫秒一帧，慢到每 150 毫秒一帧；
+> 3) 正在进行的那一行，计时从「(14.4s)」改成只显示整秒「(14s)」（做完后的总结行，如「● grok · 1 step · 17.4s」，不变）；
+> 4) 重画方式从「先擦掉再重画」改成「一次写入、原地覆盖」，并加上终端的「同步输出」标记（不支持的终端会忽略它），不再闪。
+> 同意这 4 处吗？
+
+The answer, word for word: "4 处都同意 (推荐)" ("all 4 agreed").
+
+Said in `agent-delegation-drive.7.md` (the "Interactive (TTY)" item, which
+until now still described an older Braille spinner). Held by
+`test/cli-render-smoke.mjs` (`testCalmLiveView`). The version raise is the
+0.4.1 one above.
+

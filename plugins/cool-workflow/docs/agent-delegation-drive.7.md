@@ -507,12 +507,22 @@ stderr — stdout stays the byte-exact data channel** (the `cw:result` fence, th
 wrapper's `{model, usage, result}` JSON, cw's `--json` payload), so a pipe is
 never polluted.
 
-- **Interactive (TTY).** The wrapper renders ONE in-place status line: a Braille
-  spinner + the current action + elapsed (e.g. `⠹ Read app.js 1.2s`). Tool calls
-  fold to a single line each — spinning while running, then resolving to
-  `✓ Read app.js (0.3s)` / `✗ Bash (1.1s)` (dimmed, args width-truncated). The
-  cursor is hidden while the spinner runs and **ALWAYS restored** on exit /
-  Ctrl-C / SIGTERM (Ctrl-C exits non-zero, leaving a clean terminal).
+- **Interactive (TTY).** The wrapper draws a small block in place: the last few
+  finished steps as `● Read(app.js)` rows (with a dim `⎿ 245 lines` result
+  under each), and one live row, a glyph + the current action + whole seconds
+  (e.g. `✳ Reading app.js… (4s)`). At the end the block folds to one summary
+  line, `● claude · 6 steps · 41.2s`. The glyph grows and shrinks
+  (`· ✢ ✳ ✶ ✻ ✽ ✻ ✶ ✳ ✢`), one frame every 150 ms; each frame is one write
+  that goes back up and draws over the old rows, inside the terminal's
+  synchronized-output marks (`ESC[?2026h` … `ESC[?2026l`, which a terminal
+  that does not know them ignores), so the block does not flash. Up to 0.4.0
+  the glyphs were `✶ ✸ ✹ ✺` at 90 ms, the live row showed tenths of a second,
+  and each frame first wiped the block, which looked like flicker. Changed in
+  0.4.1 with the operator's named yes:
+  `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
+  for 0.4.1". The cursor is hidden while the block runs and **ALWAYS
+  restored** on exit / Ctrl-C / SIGTERM (Ctrl-C exits non-zero, leaving a
+  clean terminal).
 - **Non-TTY stays SILENT by default** (the Rule of Silence). `CW_AGENT_STREAM=1`
   opts a CI/piped run into a **plain append-only** trace (`→ …` / `✓ … (Xs)`
   lines, zero ANSI/cursor bytes) for debuggability — mirroring `CW_DRIVE_PROGRESS=1`.

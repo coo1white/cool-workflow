@@ -62,8 +62,15 @@ function trace(line, env = process.env, stderr = process.stderr) {
 // ---- live renderer (zero-dep, hand-rolled — kept self-contained so this wrapper stays a
 //      copyable "config", not a build-coupled dependency) -----------------------------------
 
-// The live "thinking" glyph cycles a sparkle (Claude-Code feel), not a generic braille spinner.
-const SPARKLE = ["✶", "✸", "✹", "✺", "✹", "✸"];
+// The live "thinking" glyph grows and shrinks (Claude-Code feel): small to large and back, one
+// frame every FRAME_MS. 0.4.1 (operator's yes, intent 2026-10-16-release-gate-ci.md, "Operator
+// decisions for 0.4.1"): was ✶✸✹✺ at 90 ms, which jumped and looked like flicker.
+const SPARKLE = ["·", "✢", "✳", "✶", "✻", "✽", "✻", "✶", "✳", "✢"];
+const FRAME_MS = 150;
+// Synchronized output (DEC 2026): the terminal shows a frame only when it is whole. A terminal
+// that does not know the mode ignores it.
+const SYNC_ON = "\x1b[?2026h";
+const SYNC_OFF = "\x1b[?2026l";
 const ANSI = { reset: "\x1b[0m", dim: "\x1b[2m", green: "\x1b[32m", red: "\x1b[31m", cyan: "\x1b[36m", hideCursor: "\x1b[?25l", showCursor: "\x1b[?25h", clearLine: "\r\x1b[2K" };
 const ANSI_RE = /\x1b\[[0-9;]*m/g;
 
@@ -83,6 +90,11 @@ function truncate(text, max) {
   const chars = [...String(text).replace(ANSI_RE, "")];
   if (chars.length <= max) return String(text);
   return max <= 1 ? "…" : `${chars.slice(0, max - 1).join("")}…`;
+}
+// The live row counts whole seconds, so the number does not change ten times a second.
+function fmtLiveElapsed(ms) {
+  const s = Math.floor(ms / 1000);
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m${String(s % 60).padStart(2, "0")}s`;
 }
 function fmtElapsed(ms) {
   const s = ms / 1000;
@@ -163,11 +175,11 @@ function createRenderer(opts = {}) {
     return current.label.replace(/…+$/, "");
   };
   const liveLine = (width) => {
-    const elapsed = `(${fmtElapsed(Date.now() - current.startedAt)})`;
+    const elapsed = `(${fmtLiveElapsed(Date.now() - current.startedAt)})`;
     const el = paint(ANSI.dim, elapsed);
     const sp = paint(ANSI.cyan, SPARKLE[frame % SPARKLE.length]);
     // Reserve EXACT room for the fixed decorations + the VARIABLE elapsed string (which grows from 6
-    // chars `(4.0s)` to 9 `(100m00s)`): indent(2) + sparkle+space(2) + ellipsis+space(2) + elapsed,
+    // chars `(4s)` to 9 `(100m00s)`): indent(2) + sparkle+space(2) + ellipsis+space(2) + elapsed,
     // minus 1 column of margin. A fixed `width - N` budget overflowed past 1 minute and wrapped.
     const budget = width - 6 - elapsed.length - 1;
     return `${INDENT}${sp} ${truncate(livePhrase(), budget)}${paint(ANSI.dim, "…")} ${el}`;
@@ -185,12 +197,14 @@ function createRenderer(opts = {}) {
   // The `⎿ result` tree line under a completed tool (dimmed), e.g. `    ⎿ 245 lines`.
   const resultLine = (result, width) => `${INDENT}  ${paint(ANSI.dim, `⎿ ${truncate(result, width - 6)}`)}`;
 
-  // Redraw the rolling window (recent ● rows + their ⎿ results + the live spinner) in place.
+  // Redraw the rolling window (recent ● rows + their ⎿ results + the live spinner) in place, as ONE
+  // write: go back to the block's first row, write each row over the old one (clearing what is left
+  // of it), then clear below. Nothing is wiped before the new rows are there, so no blank frame
+  // flashes; the sync markers keep a half-written frame off the screen.
   const renderBlock = () => {
     if (!interactive) return;
     claim();
     if (!cursorHidden) { stderr.write(ANSI.hideCursor); cursorHidden = true; }
-    eraseBlock();
     const width = cols();
     const lines = [];
     for (const item of recent.slice(-WINDOW)) {
@@ -198,18 +212,20 @@ function createRenderer(opts = {}) {
       if (item.result) lines.push(resultLine(item.result, width));
     }
     if (current) lines.push(liveLine(width));
-    if (!lines.length) return;
+    if (!lines.length) { eraseBlock(); return; }
     // HARD GUARD: cap EVERY emitted line to the terminal width so none can wrap to a 2nd physical
     // row. A wrapped row would make blockRows (logical count) under-count the real cursor movement,
     // so eraseBlock's cursor-up would land a row short and corrupt/creep the block. This also closes
     // the resize path: each frame caps to the CURRENT width, so a narrowed terminal can't desync.
     const safe = lines.map((l) => truncate(l, width));
-    stderr.write(safe.join("\n"));
+    let back = "";
+    if (blockRows > 0) back = blockRows > 1 ? `\r\x1b[${blockRows - 1}A` : "\r";
+    stderr.write(`${SYNC_ON}${back}${safe.join("\x1b[K\n")}\x1b[K\x1b[0J${SYNC_OFF}`);
     blockRows = safe.length;
   };
 
   const ensureTimer = () => {
-    if (interactive && !timer) timer = setInterval(() => { frame++; renderBlock(); }, 90);
+    if (interactive && !timer) timer = setInterval(() => { frame++; renderBlock(); }, FRAME_MS);
   };
 
   // Commit the current action: record it to the transcript + roll it into the window (interactive)
@@ -567,6 +583,8 @@ export {
   traceEnabled,
   trace,
   createRenderer,
+  SPARKLE, // the live glyph cycle and its frame time: exported so cli-render-smoke can hold them
+  FRAME_MS,
   truncate, // exported only so cli-render-smoke can assert it stays identical to term.ts truncate()
   toolLabel, // `ToolName(compactArg)` — shared by the claude wrapper so the label format can't drift
   summarizeToolResult, // `⎿` result summary — shared so vendors derive it identically
