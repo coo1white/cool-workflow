@@ -107,7 +107,20 @@
     "audit",
     "llm-pipeline",
     "claude",
-    "delegation"
+    "delegation",
+    "ai-agent",
+    "ai-coding-agent",
+    "code-review",
+    "ai-code-review",
+    "cited-report",
+    "evidence",
+    "claude-code",
+    "codex",
+    "gemini",
+    "deepseek",
+    "opencode",
+    "cli",
+    "report"
   ],
   "mcpName": "io.github.coo1white/cool-workflow"
 }
