@@ -201,7 +201,8 @@ function createRenderer(opts = {}) {
   // write: go back to the block's first row, write each row over the old one (clearing what is left
   // of it), then clear below. Nothing is wiped before the new rows are there, so no blank frame
   // flashes; the sync markers keep a half-written frame off the screen.
-  const renderBlock = () => {
+  // `above` (a --verbose narration row) goes in the same write, over the old block's first row.
+  const renderBlock = (above = "") => {
     if (!interactive) return;
     claim();
     if (!cursorHidden) { stderr.write(ANSI.hideCursor); cursorHidden = true; }
@@ -212,7 +213,7 @@ function createRenderer(opts = {}) {
       if (item.result) lines.push(resultLine(item.result, width));
     }
     if (current) lines.push(liveLine(width));
-    if (!lines.length) { eraseBlock(); return; }
+    if (!lines.length && !above) { eraseBlock(); return; }
     // HARD GUARD: cap EVERY emitted line to the terminal width so none can wrap to a 2nd physical
     // row. A wrapped row would make blockRows (logical count) under-count the real cursor movement,
     // so eraseBlock's cursor-up would land a row short and corrupt/creep the block. This also closes
@@ -220,7 +221,9 @@ function createRenderer(opts = {}) {
     const safe = lines.map((l) => truncate(l, width));
     let back = "";
     if (blockRows > 0) back = blockRows > 1 ? `\r\x1b[${blockRows - 1}A` : "\r";
-    stderr.write(`${SYNC_ON}${back}${safe.join("\x1b[K\n")}\x1b[K\x1b[0J${SYNC_OFF}`);
+    const head = above ? `${truncate(above, width)}\x1b[K${safe.length ? "\n" : "\x1b[0J\n"}` : "";
+    const rows = safe.length ? `${safe.join("\x1b[K\n")}\x1b[K\x1b[0J` : "";
+    stderr.write(`${SYNC_ON}${back}${head}${rows}${SYNC_OFF}`);
     blockRows = safe.length;
   };
 
@@ -285,7 +288,7 @@ function createRenderer(opts = {}) {
       if (!t) return;
       transcript.push(t);
       if (!verbose) return;
-      if (interactive) { eraseBlock(); stderr.write(`${INDENT}${paint(ANSI.dim, truncate(t, cols() - 2))}\n`); renderBlock(); }
+      if (interactive) renderBlock(`${INDENT}${paint(ANSI.dim, truncate(t, cols() - 2))}`);
       else if (plain) stderr.write(`${truncate(t, cols())}\n`);
     },
     /** A short status note (e.g. provider summary). Transcript always; inline in --verbose. */
@@ -613,6 +616,7 @@ export {
   createRenderer,
   SPARKLE, // the live glyph cycle and its frame time: exported so cli-render-smoke can hold them
   FRAME_MS,
+  fmtLiveElapsed, // the live row's whole-second clock: exported so cli-render-smoke can hold it
   truncate, // exported only so cli-render-smoke can assert it stays identical to term.ts truncate()
   toolLabel, // `ToolName(compactArg)` — shared by the claude wrapper so the label format can't drift
   summarizeToolResult, // `⎿` result summary — shared so vendors derive it identically

@@ -410,7 +410,8 @@ function sweepLeftoverCutBranch() {
 function cleanupCutBranchAfterStop({ startBranch, startRef, base }) {
   const ctx = cutBranchContext();
   const branch = `release/v${version}-cut`;
-  const kept = (why) => process.stderr.write(`release-oneclick: kept ${branch}: ${why} (\`npm run release:doctor -- ${version}\` says what to do with it).\n`);
+  // One line: git's own stderr, embedded in the reason, may span several.
+  const kept = (why) => process.stderr.write(`release-oneclick: kept ${branch}: ${String(why).replace(/\s*\n\s*/g, "; ").trim()} (\`npm run release:doctor -- ${version}\` says what to do with it).\n`);
   if (startBranch === branch) return kept("the cut was started on that branch");
   if (!startRef) return kept("could not tell where the cut was started from");
   const cls = classifyCutBranch(ctx, version, { expectBase: base, allowCurrent: true });

@@ -109,6 +109,8 @@ function world() {
     "  git('-C', top, 'commit', '-q', '-m', `chore(release): record APPROVED reviewer verdict for v${version}`);\n" +
     "  if (mode === 'tag') git('-C', top, 'tag', '-a', `v${version}`, '-m', 'cut');\n" +
     "}\n" +
+    "if (mode === 'dirty') fs.writeFileSync(`${top}/README.md`, 'half done\\n');\n" +
+    "if (mode === 'move') git('-C', top, 'reset', '-q', '--hard', 'HEAD~1');\n" +
     "if (mode === 'operator-commit') {\n" +
     "  fs.writeFileSync(`${top}/README.md`, 'operator work\\n');\n" +
     "  git('-C', top, 'commit', '-q', '-am', 'wip: operator work');\n" +
@@ -249,8 +251,8 @@ function noSecret(w, r) {
   assert.equal(byId(json(r2), "head-current").status, "ok");
   const left = byId(json(r2), "cut-branch");
   assert.equal(left.status, "warn");
-  assert.match(left.message, /made by the release tool/);
-  assert.match(left.fix, /git branch -D release\/v1\.2\.3-cut .*npm run release -- 1\.2\.3/);
+  assert.match(left.message, /^leftover branch release\/v1\.2\.3-cut points at [0-9a-f]{40}, not origin\/main \([0-9a-f]{40}\) — made by the release tool \(no tag v1\.2\.3, and it holds no commit that is not on origin\/main\); `npm run release -- 1\.2\.3` removes it at the start$/);
+  assert.equal(left.fix, "git branch -D release/v1.2.3-cut");
   assert.ok(sh("git", ["branch", "--list", `release/v${VERSION}-cut`], w.work, w.gitEnv), "the doctor must not delete the branch");
   // --offline cannot check origin for the tag, so it cannot prove the branch
   // is the tool's: the FAIL stays (fail closed).
@@ -258,6 +260,15 @@ function noSecret(w, r) {
   assert.equal(off.code, 1);
   assert.equal(byId(json(off), "cut-branch").status, "fail");
   assert.match(byId(json(off), "cut-branch").message, /offline/);
+  // A commit the tool did not make: --offline still gives the named-yes text.
+  sh("git", ["checkout", "-q", `release/v${VERSION}-cut`], w.work, w.gitEnv);
+  fs.writeFileSync(path.join(w.work, "NOTES.md"), "mine\n");
+  sh("git", ["add", "NOTES.md"], w.work, w.gitEnv);
+  sh("git", ["commit", "-q", "-m", "operator note"], w.work, w.gitEnv);
+  sh("git", ["checkout", "-q", "main"], w.work, w.gitEnv);
+  const offF = byId(json(doctor(w, [VERSION, "--json", "--offline"])), "cut-branch");
+  assert.equal(offF.status, "fail");
+  assert.match(offF.message, / — it holds 1 commit\(s\) not on origin\/main that the release tool did not make; the cut stage would reset it from origin\/main$/);
 }
 
 // ---- Case: dirty tracked tree fails; .cw/ only warns -------------------------
@@ -466,7 +477,7 @@ function leaveOldCutBranch(w) {
   const w = world();
   const r = oneclick(w, "tag");
   assert.equal(r.code, 1);
-  assert.match(r.err, /release-oneclick: kept release\/v1\.2\.3-cut: tag v1\.2\.3 exists locally/);
+  assert.match(r.err, /^release-oneclick: kept release\/v1\.2\.3-cut: tag v1\.2\.3 exists locally \(a cut may be mid-flight\) \(`npm run release:doctor -- 1\.2\.3` says what to do with it\)\.$/m);
   assert.doesNotMatch(r.err, /removed/);
   assert.ok(branchSha(w, CUT), "a cut whose tag was made keeps its branch");
   assert.ok(sh("git", ["tag", "-l", `v${VERSION}`], w.work, w.gitEnv), "the tag is never deleted");
@@ -477,7 +488,7 @@ function leaveOldCutBranch(w) {
   const w = world();
   const r = oneclick(w, "operator-commit");
   assert.equal(r.code, 1);
-  assert.match(r.err, /kept release\/v1\.2\.3-cut: it holds 1 commit\(s\) not on origin\/main that the release tool did not make/);
+  assert.match(r.err, /^release-oneclick: kept release\/v1\.2\.3-cut: it holds 1 commit\(s\) not on origin\/main that the release tool did not make \(`npm run release:doctor -- 1\.2\.3` says what to do with it\)\.$/m);
   assert.ok(branchSha(w, CUT));
 }
 
@@ -521,8 +532,110 @@ function leaveOldCutBranch(w) {
   // Stage 0 of the cut: byte-for-byte the pre-0.4.1 warning, not a failure.
   const s0 = byId(runChecks({ repoRoot: w.work, version: VERSION, env: w.env, mode: "cut" }), "cut-branch");
   assert.equal(s0.status, "warn", "stage 0 keeps the pre-0.4.1 warning");
-  assert.match(s0.message, / — the cut stage rebuilds it from origin\/main$/);
+  const tipNow = sh("git", ["rev-parse", "refs/remotes/origin/main"], w.work, w.gitEnv);
+  assert.equal(s0.message, `leftover branch ${CUT} points at ${sha}, not origin/main (${tipNow}) — the cut stage rebuilds it from origin/main`);
+  assert.equal(s0.fix, `git branch -D ${CUT}`);
   assert.equal(branchSha(w, CUT), sha, "operator work is never deleted or moved");
+}
+
+// Case: the doctor is run while ON the leftover (where a stopped cut that kept
+// it leaves the operator). Commits the tool did not make still give the
+// named-yes text and the git log hint; with none, the branch fails as "checked
+// out now" with "not removed for you".
+{
+  const w = world();
+  leaveOldCutBranch(w);
+  sh("git", ["checkout", "-q", CUT], w.work, w.gitEnv);
+  fs.writeFileSync(path.join(w.work, "NOTES.md"), "mine\n");
+  sh("git", ["add", "NOTES.md"], w.work, w.gitEnv);
+  sh("git", ["commit", "-q", "-m", "operator note"], w.work, w.gitEnv);
+  const c = byId(json(doctor(w, [VERSION, "--json"])), "cut-branch");
+  assert.equal(c.status, "fail");
+  assert.match(c.message, / — it holds 1 commit\(s\) not on origin\/main that the release tool did not make; the cut stage would reset it from origin\/main$/);
+  assert.doesNotMatch(c.message, /holds old code|not removed for you|checked out now/);
+  assert.match(c.fix, /^git log origin\/main\.\.release\/v1\.2\.3-cut   \(keep what you need elsewhere, then: git checkout main && git branch -D release\/v1\.2\.3-cut\)$/);
+}
+{
+  const w = world();
+  leaveOldCutBranch(w);
+  sh("git", ["checkout", "-q", CUT], w.work, w.gitEnv);
+  const c = byId(json(doctor(w, [VERSION, "--json"])), "cut-branch");
+  assert.equal(c.status, "fail");
+  assert.match(c.message, / — it holds old code; not removed for you: it is the branch checked out now$/);
+}
+
+// Case: a tag AND commits the tool did not make -> still the named-yes text.
+{
+  const w = world();
+  leaveOldCutBranch(w);
+  sh("git", ["checkout", "-q", CUT], w.work, w.gitEnv);
+  fs.writeFileSync(path.join(w.work, "NOTES.md"), "mine\n");
+  sh("git", ["add", "NOTES.md"], w.work, w.gitEnv);
+  sh("git", ["commit", "-q", "-m", "operator note"], w.work, w.gitEnv);
+  sh("git", ["checkout", "-q", "main"], w.work, w.gitEnv);
+  sh("git", ["tag", "-a", `v${VERSION}`, "-m", "cut"], w.work, w.gitEnv);
+  const c = byId(json(doctor(w, [VERSION, "--json"])), "cut-branch");
+  assert.equal(c.status, "fail");
+  assert.match(c.message, /; the cut stage would reset it from origin\/main$/);
+}
+
+// Case: the stopped cut left tracked changes -> KEPT, one line.
+{
+  const w = world();
+  const r = oneclick(w, "dirty");
+  assert.equal(r.code, 1);
+  assert.match(r.err, /^release-oneclick: kept release\/v1\.2\.3-cut: tracked files are changed in the working tree \(`npm run release:doctor -- 1\.2\.3` says what to do with it\)\.$/m);
+  assert.ok(branchSha(w, CUT));
+}
+
+// Case: the branch tip moved off the commit this run made it at -> KEPT.
+{
+  const w = world();
+  fs.writeFileSync(path.join(w.seed, "README.md"), "one more\n");
+  sh("git", ["commit", "-q", "-am", "one more main commit"], w.seed, w.gitEnv);
+  sh("git", ["push", "-q", "origin", "main"], w.seed, w.gitEnv);
+  sh("git", ["pull", "-q", "--ff-only", "origin", "main"], w.work, w.gitEnv);
+  const r = oneclick(w, "move");
+  assert.equal(r.code, 1);
+  assert.match(r.err, /^release-oneclick: kept release\/v1\.2\.3-cut: its tip is neither [0-9a-f]{12} \(where this run made it\) nor this run's verdict commit on it \(`npm run release:doctor -- 1\.2\.3` says what to do with it\)\.$/m);
+  assert.ok(branchSha(w, CUT));
+}
+
+// Case: a cut started from a detached HEAD goes back to that commit.
+{
+  const w = world();
+  const head = sh("git", ["rev-parse", "HEAD"], w.work, w.gitEnv);
+  sh("git", ["checkout", "-q", "--detach"], w.work, w.gitEnv);
+  const r = oneclick(w, "reject");
+  assert.equal(r.code, 1);
+  assert.match(r.err, new RegExp(`^release-oneclick: removed release/v1\\.2\\.3-cut \\([0-9a-f]{12}\\), made by this run: .*; back on ${head}\\.$`, "m"));
+  assert.equal(branchSha(w, CUT), "");
+  assert.equal(sh("git", ["rev-parse", "HEAD"], w.work, w.gitEnv), head);
+}
+
+// Case: a cut started ON the cut branch -> KEPT.
+{
+  const w = world();
+  sh("git", ["checkout", "-q", "-b", CUT], w.work, w.gitEnv);
+  const r = oneclick(w, "reject");
+  assert.equal(r.code, 1);
+  assert.match(r.err, /^release-oneclick: kept release\/v1\.2\.3-cut: the cut was started on that branch \(`npm run release:doctor -- 1\.2\.3` says what to do with it\)\.$/m);
+  assert.ok(branchSha(w, CUT));
+}
+
+// Case: the leftover is checked out in another worktree -> never removed
+// (update-ref -d would not see it), and the doctor FAILs on it.
+{
+  const w = world();
+  leaveOldCutBranch(w);
+  const other = path.join(w.work, "..", "other-wt");
+  sh("git", ["worktree", "add", "-q", other, CUT], w.work, w.gitEnv);
+  const c = byId(json(doctor(w, [VERSION, "--json"])), "cut-branch");
+  assert.equal(c.status, "fail");
+  assert.match(c.message, / — it holds old code; not removed for you: it is checked out in another worktree$/);
+  const r = oneclick(w, "preflight-fail");
+  assert.doesNotMatch(r.err, /removed/);
+  assert.ok(branchSha(w, CUT), "a branch open in another worktree is never deleted");
 }
 
 // Case: a v1.2.3 tag on origin -> a leftover is KEPT and the doctor FAILs on it.

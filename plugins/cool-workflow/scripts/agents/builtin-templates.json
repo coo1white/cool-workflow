@@ -13,6 +13,10 @@
     "antigravity": "antigravity-agent.js",
     "grok": "grok-agent.js"
   },
+  "beta": {
+    "comment": "Beta templates (2026-11-04) resolve only through builtin:<name>. A custom CW_AGENT_COMMAND whose binary has the same name (grok, copilot, agy) is still a custom command, as in 0.4.0: no --version probe, no sandbox hosts. A template leaves this list when it graduates.",
+    "templates": ["copilot", "antigravity", "grok"]
+  },
   "versionProbe": {
     "comment": "The vendor CLI each template above runs. `cw doctor` runs `<cli> --version` once to check that it starts. A template with no entry here (deepseek: HTTP, no CLI) is not probed.",
     "clis": {

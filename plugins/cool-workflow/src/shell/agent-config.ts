@@ -119,8 +119,14 @@ function detectAgentFromPath(env: NodeJS.ProcessEnv = process.env): string | und
 const AGENTS_DIR = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
 
 type SandboxVendor = { hosts?: string[]; write?: string[] };
-function builtinManifest(): { templates?: Record<string, string>; versionProbe?: { clis?: Record<string, string> }; sandbox?: { vendors?: Record<string, SandboxVendor> } } {
+function builtinManifest(): { templates?: Record<string, string>; beta?: { templates?: string[] }; versionProbe?: { clis?: Record<string, string> }; sandbox?: { vendors?: Record<string, SandboxVendor> } } {
   return JSON.parse(fs.readFileSync(path.join(AGENTS_DIR, "builtin-templates.json"), "utf8"));
+}
+
+// A custom command is matched by binary name to a non-beta template only.
+function customMatch(manifest: ReturnType<typeof builtinManifest>): [string, string][] {
+  const beta = new Set(manifest.beta?.templates || []);
+  return Object.entries(manifest.versionProbe?.clis || {}).filter(([name]) => !beta.has(name));
 }
 
 export type AgentProbeTarget = { cli: string } | { skip: string };
@@ -135,7 +141,8 @@ export function agentProbeTarget(command: string | undefined, args?: string[]): 
       return clis[name] ? { cli: clis[name] } : { skip: `builtin:${name} has no vendor CLI` };
     }
   }
-  return Object.values(clis).includes(path.basename(bin).replace(/\.(exe|cmd|bat)$/i, "")) ? { cli: bin } : { skip: "custom command" };
+  const cli = path.basename(bin).replace(/\.(exe|cmd|bat)$/i, "");
+  return customMatch(manifest).some(([, value]) => value === cli) ? { cli: bin } : { skip: "custom command" };
 }
 
 /** CW_AGENT_SANDBOX=srt (0.3.3): the hosts and state paths of the bundled agent this command is, from
@@ -151,7 +158,7 @@ export function agentSandboxVendor(command: string | undefined, args?: string[])
   }
   if (!name) {
     const cli = path.basename(bin).replace(/\.(exe|cmd|bat)$/i, "");
-    name = Object.entries(manifest.versionProbe?.clis || {}).find(([, value]) => value === cli)?.[0];
+    name = customMatch(manifest).find(([, value]) => value === cli)?.[0];
   }
   const vendor = (name && vendors[name]) || {};
   return { ...(name ? { name } : {}), hosts: [...(vendor.hosts || [])], write: [...(vendor.write || [])] };

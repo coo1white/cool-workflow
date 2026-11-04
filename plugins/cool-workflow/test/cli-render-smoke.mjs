@@ -21,6 +21,7 @@ import {
   createRenderer,
   SPARKLE,
   FRAME_MS,
+  fmtLiveElapsed,
   truncate as coreTruncate,
   toolLabel,
   summarizeToolResult,
@@ -306,6 +307,31 @@ function testCalmLiveView() {
     render.finishLive();
   }
   assert.match(plain(s.text), /● grok · 3 steps · \d+\.\ds/, "the summary line keeps tenths of a second");
+  // Whole seconds past a minute too: rounded down, never up.
+  assert.equal(fmtLiveElapsed(14_900), "14s");
+  assert.equal(fmtLiveElapsed(65_900), "1m05s");
+  assert.equal(fmtLiveElapsed(119_999), "1m59s");
+  // --verbose narration rows go in the same one-write frame: no bare wipe, no separate row write.
+  const v = fakeStream(true);
+  const vw = [];
+  const vrec = { ...v, isTTY: true, columns: 80, write(x) { vw.push(String(x)); return v.write(x); } };
+  const vr = createRenderer({ env: { CW_VERBOSE: "1" }, stderr: vrec, label: "grok" });
+  try {
+    vr.action("Read(a.ts)");
+    vr.text("thinking about it");
+    vr.text("still thinking");
+    const said = vw.filter((w) => w.includes("thinking"));
+    assert.equal(said.length, 2, "each narration row is written once");
+    for (const w of said) {
+      assert.ok(w.startsWith(FRAME) && w.endsWith("\x1b[?2026l"), "a narration row is inside one sync frame");
+      assert.ok(w.indexOf("\x1b[0J") > w.indexOf("thinking"), "the clear comes after the new rows");
+    }
+    assert.ok(!vw.some((w) => w === "\x1b[0J"), "no bare wipe around narration");
+  } finally {
+    vr.finishLive();
+  }
+  const t1 = v.text.indexOf("thinking about it"), t2 = v.text.indexOf("still thinking");
+  assert.ok(t1 >= 0 && t2 > t1, "narration rows are written in order");
   console.log("cli-render: calm live view (slow glyphs, whole seconds, one-write frames) OK");
 }
 

@@ -227,9 +227,10 @@ function checkHeadCurrent(ctx) {
 // it on its own (release-oneclick.mjs does, at the start of a cut and when a
 // cut stops before its tag is made; the doctor only reports). It is
 // removable only when ALL hold, and anything it cannot prove keeps it
-// (fail closed — operator work is never deleted):
+// (fail closed — operator work is never deleted). The commit test runs first:
 //   - it is not the checked-out branch (allowCurrent: the caller switches
-//     away first, then deletes with the sha pinned);
+//     away first, then deletes with the sha pinned), nor checked out in any
+//     other worktree;
 //   - no vX.Y.Z tag exists, locally or on origin (a failed or offline
 //     ls-remote keeps it; with no origin remote there can be no remote tag);
 //   - every commit on it that is not on origin/main was made by the cut:
@@ -264,14 +265,8 @@ function classifyCutBranch(ctx, version, { expectBase, allowCurrent = false } = 
   if (r.code !== 0 || !r.out) return { branch, exists: false, removable: false, reason: "no such branch" };
   const sha = r.out;
   const keep = (reason, kind) => ({ branch, exists: true, sha, removable: false, reason, ...(kind ? { kind } : {}) });
-  if (!allowCurrent && ctx.git(["branch", "--show-current"]).out === branch) return keep("it is the branch checked out now");
-  if (ctx.git(["tag", "-l", `v${version}`]).out) return keep(`tag v${version} exists locally (a cut may be mid-flight)`);
-  if (hasOrigin(ctx)) {
-    if (ctx.offline) return keep(`offline, so origin was not checked for tag v${version}`);
-    const remote = ctx.git(["ls-remote", "origin", `refs/tags/v${version}`]);
-    if (remote.code !== 0) return keep(`could not check origin for tag v${version} (git ls-remote failed)`);
-    if (remote.out) return keep(`tag v${version} exists on origin`);
-  }
+  // Commits the tool did not make are counted first, so such a branch is
+  // always kind "foreign" (checked out, tagged or offline alike).
   const tip = ctx.git(["rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"]);
   if (tip.code !== 0 || !tip.out) return keep("there is no origin/main ref to compare it with");
   const beyond = ctx.git(["rev-list", `refs/heads/${branch}`, "--not", "refs/remotes/origin/main"]);
@@ -280,6 +275,20 @@ function classifyCutBranch(ctx, version, { expectBase, allowCurrent = false } = 
   const toolMade = extra.length === 0 || (extra.length === 1 && extra[0] === sha && isToolVerdictCommit(ctx, sha, version));
   if (!toolMade) {
     return keep(`it holds ${extra.length} commit(s) not on origin/main that the release tool did not make`, "foreign");
+  }
+  const onIt = ctx.git(["branch", "--show-current"]).out === branch;
+  if (!allowCurrent && onIt) return keep("it is the branch checked out now");
+  // update-ref -d does not look at other worktrees: one on this branch keeps it.
+  const wt = ctx.git(["worktree", "list", "--porcelain"]);
+  if (wt.code !== 0) return keep("git worktree list failed");
+  const holders = wt.out.split("\n").filter((l) => l === `branch refs/heads/${branch}`).length;
+  if (holders > (onIt ? 1 : 0)) return keep("it is checked out in another worktree");
+  if (ctx.git(["tag", "-l", `v${version}`]).out) return keep(`tag v${version} exists locally (a cut may be mid-flight)`);
+  if (hasOrigin(ctx)) {
+    if (ctx.offline) return keep(`offline, so origin was not checked for tag v${version}`);
+    const remote = ctx.git(["ls-remote", "origin", `refs/tags/v${version}`]);
+    if (remote.code !== 0) return keep(`could not check origin for tag v${version} (git ls-remote failed)`);
+    if (remote.out) return keep(`tag v${version} exists on origin`);
   }
   if (expectBase) {
     const parent = ctx.git(["rev-parse", "--verify", "--quiet", `${sha}~1`]).out;
@@ -321,14 +330,12 @@ function checkCutBranch(ctx, version, { mode = "doctor" } = {}) {
   if (tip && r.out === tip) return finding("cut-branch", "ok", `${branch} exists and points at origin/main`);
   const onIt = ctx.git(["branch", "--show-current"]).out === branch;
   const fix = `${onIt ? "git checkout main && " : ""}git branch -D ${branch}`;
-  const cls = classifyCutBranch(ctx, version);
   if (mode === "cut") {
     return finding("cut-branch", "warn", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — the cut stage rebuilds it from origin/main`, { fix });
   }
+  const cls = classifyCutBranch(ctx, version);
   if (cls.removable) {
-    return finding("cut-branch", "warn", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — made by the release tool (${cls.reason}); \`npm run release -- ${version}\` removes it at the start`, {
-      fix: `${fix}   (or let \`npm run release -- ${version}\` remove it)`
-    });
+    return finding("cut-branch", "warn", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — made by the release tool (${cls.reason}); \`npm run release -- ${version}\` removes it at the start`, { fix });
   }
   if (cls.kind === "foreign") {
     return finding("cut-branch", "fail", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — ${cls.reason}; the cut stage would reset it from origin/main`, {
