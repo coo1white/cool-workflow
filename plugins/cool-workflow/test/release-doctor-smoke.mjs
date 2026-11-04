@@ -21,6 +21,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { runChecks } from "../scripts/release-preflight.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const DOCTOR = path.join(pluginRoot, "scripts", "release-doctor.mjs");
@@ -499,8 +500,8 @@ function leaveOldCutBranch(w) {
 }
 
 // Case: an old leftover with an operator commit on it -> KEPT at the start,
-// stage 0 now FAILs on it (the cut stage's checkout -B would reset it), and
-// the doctor still FAILs.
+// the doctor FAILs with the named-yes text (reason; the cut stage would reset
+// it) and a git log hint, and stage 0 keeps its pre-0.4.1 warning.
 {
   const w = world();
   leaveOldCutBranch(w);
@@ -514,12 +515,13 @@ function leaveOldCutBranch(w) {
   assert.equal(d.code, 1, "operator work on the branch keeps the doctor FAIL");
   const c = byId(json(d), "cut-branch");
   assert.equal(c.status, "fail");
-  assert.match(c.message, /not removed for you: it holds 1 commit\(s\) not on origin\/main that the release tool did not make/);
-  const r = oneclick(w, "reject");
-  assert.equal(r.code, 1);
-  assert.doesNotMatch(r.err, /removed/);
-  assert.match(r.err, /release-oneclick: FAIL cut-branch: .*the cut stage would reset it from origin\/main/);
-  assert.doesNotMatch(r.out, /\[2\/4\]/, "the cut stage must not reset operator work");
+  assert.match(c.message, / — it holds 1 commit\(s\) not on origin\/main that the release tool did not make; the cut stage would reset it from origin\/main$/);
+  assert.doesNotMatch(c.message, /holds old code|not removed for you/);
+  assert.match(c.fix, /^git log origin\/main\.\.release\/v1\.2\.3-cut   \(keep what you need elsewhere, then: git branch -D release\/v1\.2\.3-cut\)$/);
+  // Stage 0 of the cut: byte-for-byte the pre-0.4.1 warning, not a failure.
+  const s0 = byId(runChecks({ repoRoot: w.work, version: VERSION, env: w.env, mode: "cut" }), "cut-branch");
+  assert.equal(s0.status, "warn", "stage 0 keeps the pre-0.4.1 warning");
+  assert.match(s0.message, / — the cut stage rebuilds it from origin\/main$/);
   assert.equal(branchSha(w, CUT), sha, "operator work is never deleted or moved");
 }
 

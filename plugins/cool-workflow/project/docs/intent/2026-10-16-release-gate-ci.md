@@ -755,6 +755,15 @@ three:
 All three are said in `release-tooling.7.md` ("The leftover cut branch is
 cleaned up", and the `cut-branch` row). The version raise is 0.4.0 -> 0.4.1.
 
+The first 0.4.1 cut was rejected (2026-11-04): the doctor printed "— it holds
+old code; not removed for you: <reason>" for a branch with a commit the tool
+did not make, not the "— <reason>; the cut stage would reset it from
+origin/main" and git log hint of item 1, and stage 0 of `npm run release`
+turned that branch from its old warning into a failure, which the yes did not
+name. The fix gives the doctor the text of item 1 and puts stage 0 back to
+its pre-0.4.1 warning, byte for byte; `test/release-doctor-smoke.mjs` holds
+both.
+
 ### Operator decisions for 0.4.1, three more agents (2026-11-04)
 
 The owner asked for the same "Works with" list as another tool of theirs
