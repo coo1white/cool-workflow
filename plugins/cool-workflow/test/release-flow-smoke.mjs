@@ -81,6 +81,7 @@ const kind = process.argv[3];
 if (kind === "APPROVED") fs.writeFileSync(resultPath, "APPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
 else if (kind === "MARKDOWN") fs.writeFileSync(resultPath, "review notes\\n\\nAPPROVED " + (process.env.STUB_SHA||"sha") + "\\nstub: capability sentence.\\n");
 else if (kind === "SEMANTIC_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. Stub finding at README.md:1.\\n");
+else if (kind === "DOT_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. An earlier verdict, .cw-release/review-" + (process.env.STUB_SHA||"sha") + ".verdict:1, rejects this line.\\n");
 else if (kind === "FENCED_REJECTED") fs.writeFileSync(resultPath, "\`\`\`\\nREJECTED\\nkind: semantic-review \\n1. Stub finding at README.md:1.\\n\`\`\`\\n");
 else if (kind === "GATE_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\n1. tests failed at scripts/release-gate.mjs:86.\\n");
 else if (kind === "MIXED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. Stub finding at README.md:1.\\nAPPROVED wrongsha\\nshould not pass\\n");
@@ -223,6 +224,17 @@ process.exit(0);
   const verdict = path.join(dir, ".cw-release", `review-${sha}.verdict`);
   assert.ok(fs.existsSync(verdict), "semantic rejection is retained as local evidence");
   assert.ok(!fs.existsSync(`${verdict}.sig`), "a semantic rejection must never be signed");
+}
+
+// ---- Case 2a: a locator under a dot folder (.cw-release/, .github/) is real
+// evidence: before 0.4.2 its leading dot was dropped, and the path not found.
+{
+  const dir = fixture();
+  const stub = writeStub(dir);
+  const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} DOT_REJECTED` });
+  assert.equal(r.code, 1, "a semantic REJECTED verdict must fail the flow");
+  assert.doesNotMatch(r.err, /invalid reviewer output/i, "a .cw-release/ locator is valid evidence");
+  assert.match(r.err, /semantic evidence/i, "it is a verified semantic block");
 }
 
 // ---- Case 2b: a claimed gate failure is invalid reviewer output ------------

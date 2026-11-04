@@ -858,3 +858,26 @@ until now still described an older Braille spinner). Held by
 `test/cli-render-smoke.mjs` (`testCalmLiveView`). The version raise is the
 0.4.1 one above.
 
+### The 0.4.1 cut: grok escalated, the operator chose the reviewer (2026-11-04)
+
+grok rejected the 0.4.1 line twice (`381abd1f`, `25414291`); both were
+fixed (#878, #879), each with a test that fails before it. On the third
+cut, of `cb901d0d`, grok followed its anti-gaming rule ("If you have
+rejected the same HEAD lineage twice, do not review a third time") and
+handed the decision to the operator. The operator was asked, word for word
+(2026-11-04):
+
+> grok 已经两次拒绝 v0.4.1，按项目规则第三次它不再审，把决定交给你。我核对过：它两次提的问题都已修好（文案在 #878，停在分支上的情况在 #879，第0步已恢复 0.4.0 的警告），每处都有修复前会失败的测试，CI 全绿，Claude 按同一标准预审也通过了。grok 的两份拒绝记录会留在 .cw-release 里作为审计记录，不删除。你想怎么做？
+
+and answered "换 Claude 当这次评审 (推荐)" ("use Claude as the reviewer this
+time"). The cut ran with `CW_AGENT_COMMAND="claude -p --permission-mode
+acceptEdits {{input}}"`; Claude APPROVED `cb901d0d`, the operator's key
+signed the verdict, and v0.4.1 was tagged and published (#881 records the
+verdict on main). grok's two rejected verdicts stay in the operator's
+`.cw-release/`.
+
+That third grok output also showed a tool fault: `release-flow.mjs` read
+the locator `.cw-release/review-<sha>.verdict:1` as `cw-release/...` (the
+pattern could not start with a dot), so a valid rejection was called
+invalid reviewer output. Fixed for 0.4.2; `test/release-flow-smoke.mjs`
+(case 2a) holds it. `release-tooling.7.md` says both.
