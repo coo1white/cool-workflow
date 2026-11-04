@@ -1,14 +1,16 @@
 #!/usr/bin/env node
-// schema-validation-smoke (Track 3) — declared output schemas are ENFORCED at
-// result intake (the other half of "auditable": Track 1 proves telemetry is real,
-// this proves the result SHAPE is what was declared). Proves:
+// schema-validation-smoke (Track 3) — the output-schema validator and the
+// validateResultEnvelope gate, tested as functions. NOTE (2026-11-04): no code
+// path calls validateResultEnvelope when a result is accepted, and pipeline.ts
+// drops a task's `schema`; wiring it in waits for the operator (intent
+// 2026-10-16-release-gate-ci.md, "Four agent placeholders"). Proves:
 //   VALIDATOR (dependency-free subset):
 //     type (incl. integer/null/type-arrays), enum, const, required, properties
 //     (nested), additionalProperties:false, items; unknown keywords ignored
 //     (never a false fail); malformed schema never throws;
-//   VERIFIER GATE (validateResultEnvelope — the exact fn the drive calls):
-//     a schema'd task with a conforming result passes; a violating result THROWS
-//     (⇒ the drive parks the hop, fail-closed); a task with NO schema is unaffected.
+//   VERIFIER GATE (validateResultEnvelope, not yet called by the drive):
+//     a schema'd task with a conforming result passes; a violating result THROWS;
+//     a task with NO schema is unaffected.
 
 import assert from "node:assert/strict";
 import path from "node:path";
@@ -115,7 +117,7 @@ function main() {
   // NO schema declared ⇒ unaffected (the same shape passes)
   validateResultEnvelope(task(), { summary: "anything goes", findings: [{ id: "f1" }], evidence: [] });
 
-  console.log("schema-validation-smoke: ok (validator subset; declared schema enforced at intake, violations park, no-schema unaffected)");
+  console.log("schema-validation-smoke: ok (validator subset; validateResultEnvelope gate as a function, no-schema unaffected)");
 }
 
 main();

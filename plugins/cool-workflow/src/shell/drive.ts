@@ -52,7 +52,7 @@ import {
 import { runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch.js";
 import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir, runStateIsCurrent, RunStateConflictError } from "./run-store.js";
 import { createDispatchManifest } from "./dispatch.js";
-import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope, reopenParkedWorker } from "./worker-isolation.js";
+import { showWorkerManifest, recordWorkerOutput, recordWorkerFailure, recordWorkerRetryAttempt, getWorkerScope, reopenParkedWorker, listPriorResults } from "./worker-isolation.js";
 import { validateSandboxWrite } from "./sandbox-profile.js";
 import { createStateNode } from "../core/state/state-node.js";
 import { appendRunNode } from "./node-store.js";
@@ -518,7 +518,7 @@ function processSelectedTask(ctx: DriveContext, selectedId: string, preparedOutc
     backendId: (selected.agentType as string) || "agent",
     cwd: run.cwd,
     sandboxPolicy: manifest.sandboxPolicy!,
-    manifest: { workerDir: manifest.workerDir, manifestPath: manifest.manifestPath, inputPath: manifest.inputPath, resultPath: manifest.resultPath, prompt: manifest.prompt },
+    manifest: { workerDir: manifest.workerDir, manifestPath: manifest.manifestPath, inputPath: manifest.inputPath, resultPath: manifest.resultPath, prompt: manifest.prompt, phase: selected.phase, priorResults: listPriorResults(run, selected) },
     label: selected.id,
     timeoutMs: ctx.config.timeoutMs,
     delegation: { command: ctx.config.command, args: ctx.config.args, endpoint: ctx.config.endpoint, model: (selected.model as string) || ctx.config.model },
@@ -966,7 +966,7 @@ function prepareConcurrentOutcomes(
       backendId: (task.agentType as string) || "agent",
       cwd: freshRun.cwd,
       sandboxPolicy: manifest.sandboxPolicy!,
-      manifest: { workerDir: manifest.workerDir, manifestPath: manifest.manifestPath, inputPath: manifest.inputPath, resultPath: manifest.resultPath, prompt: manifest.prompt },
+      manifest: { workerDir: manifest.workerDir, manifestPath: manifest.manifestPath, inputPath: manifest.inputPath, resultPath: manifest.resultPath, prompt: manifest.prompt, phase: task.phase, priorResults: listPriorResults(freshRun, task) },
       label: task.id,
       timeoutMs: ctx.config.timeoutMs,
       delegation: { command: ctx.config.command, args: ctx.config.args, endpoint: ctx.config.endpoint, model: (task.model as string) || ctx.config.model },
