@@ -656,9 +656,10 @@ stops before anything is done when one fails, with only the problem lines on
 stderr. Two differences there: a `vX.Y.Z` tag that is already there is never
 seen by stage 0 (the resume goes straight to stage 3), and an old
 `release/vX.Y.Z-cut` branch is only a warning, because the cut stage makes
-it again from `origin/main` (`git checkout -B`) — but a failure when it holds
-a commit the tool did not make, since that reset would throw the commit
-away. `--dry-run` keeps stage 0 offline.
+it again from `origin/main` (`git checkout -B`). Run `npm run release:doctor
+-- X.Y.Z` first: it fails on a branch that holds a commit the tool did not
+make, since that reset would throw the commit away. `--dry-run` keeps stage 0
+offline.
 
 ### The leftover cut branch is cleaned up
 
@@ -700,7 +701,12 @@ release-oneclick: kept release/vX.Y.Z-cut: <reason> (`npm run release:doctor -- 
 
 The same test (`classifyCutBranch` in `scripts/release-preflight.mjs`) decides
 the doctor's `cut-branch` status: a warning for a branch the release run will
-remove, a failure for every other one. The doctor itself changes nothing.
+remove, a failure for every other one. A branch with a commit the tool did not
+make fails with `— <reason>; the cut stage would reset it from origin/main`
+and the fix `git log origin/main..release/vX.Y.Z-cut` (keep what you need
+elsewhere, then `git branch -D` it); any other kept branch fails with `— it
+holds old code; not removed for you: <reason>`. The doctor itself changes
+nothing.
 
 This cleanup, its stderr lines and the doctor's new `cut-branch` texts are
 new in 0.4.1, with the operator's named yes of 2026-11-03:

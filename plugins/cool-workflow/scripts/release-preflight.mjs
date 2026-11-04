@@ -309,11 +309,10 @@ function removeCutBranch(ctx, cls) {
   return { ok: true };
 }
 
-// For the cut it is a warning when the tool may remove it (the start of
-// `npm run release` does, before stage 0) and a failure when it holds commits
-// the tool did not make (the cut stage's `git checkout -B` would reset them).
-// The doctor never deletes: it warns for a branch the release run will
-// remove, and fails for every other one.
+// For the cut it stays the warning it was before 0.4.1 (the start of
+// `npm run release` removes a branch the tool made, before stage 0). The
+// doctor never deletes: it warns for a branch the release run will remove,
+// and fails for every other one, with the texts of the 0.4.1 named yes.
 function checkCutBranch(ctx, version, { mode = "doctor" } = {}) {
   const branch = `release/v${version}-cut`;
   const r = ctx.git(["rev-parse", "--verify", "--quiet", `refs/heads/${branch}`]);
@@ -324,16 +323,16 @@ function checkCutBranch(ctx, version, { mode = "doctor" } = {}) {
   const fix = `${onIt ? "git checkout main && " : ""}git branch -D ${branch}`;
   const cls = classifyCutBranch(ctx, version);
   if (mode === "cut") {
-    if (cls.kind === "foreign") {
-      return finding("cut-branch", "fail", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — ${cls.reason}; the cut stage would reset it from origin/main`, {
-        fix: `git log origin/main..${branch}   (keep what you need elsewhere, then: ${fix})`
-      });
-    }
     return finding("cut-branch", "warn", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — the cut stage rebuilds it from origin/main`, { fix });
   }
   if (cls.removable) {
     return finding("cut-branch", "warn", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — made by the release tool (${cls.reason}); \`npm run release -- ${version}\` removes it at the start`, {
       fix: `${fix}   (or let \`npm run release -- ${version}\` remove it)`
+    });
+  }
+  if (cls.kind === "foreign") {
+    return finding("cut-branch", "fail", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — ${cls.reason}; the cut stage would reset it from origin/main`, {
+      fix: `git log origin/main..${branch}   (keep what you need elsewhere, then: ${fix})`
     });
   }
   return finding("cut-branch", "fail", `leftover branch ${branch} points at ${r.out}, not origin/main (${tip || "unknown"}) — it holds old code; not removed for you: ${cls.reason}`, { fix });
