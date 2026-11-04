@@ -515,7 +515,8 @@ never polluted.
   (`· ✢ ✳ ✶ ✻ ✽ ✻ ✶ ✳ ✢`), one frame every 150 ms; each frame is one write
   that goes back up and draws over the old rows, inside the terminal's
   synchronized-output marks (`ESC[?2026h` … `ESC[?2026l`, which a terminal
-  that does not know them ignores), so the block does not flash. Up to 0.4.0
+  that does not know them ignores), so the block does not flash; a
+  `CW_VERBOSE=1` narration row goes in the same write, above the block. Up to 0.4.0
   the glyphs were `✶ ✸ ✹ ✺` at 90 ms, the live row showed tenths of a second,
   and each frame first wiped the block, which looked like flicker. Changed in
   0.4.1 with the operator's named yes:
@@ -666,7 +667,12 @@ the JSON reading below is the change that answers that warning.
   is not that record is a failed hop. A non-zero exit, or an empty answer, is
   a failed hop with no `result.md`, and the CLI's stderr goes to
   `agent-stderr.log`.
-- `cw doctor` runs `copilot --version`, `agy --version` or `grok --version`.
+- `cw doctor` runs `copilot --version`, `agy --version` or `grok --version`
+  for `builtin:copilot`, `builtin:antigravity` or `builtin:grok`. While they
+  are beta (the `beta` list in `scripts/agents/builtin-templates.json`), a
+  custom `CW_AGENT_COMMAND` whose program is named `copilot`, `agy` or
+  `grok` stays a custom command, as in 0.4.0: no `--version` probe and no
+  `CW_AGENT_SANDBOX=srt` hosts.
 - `cw help` lists them under Flags, below `-muse` (new in 0.4.1, with the
   owner's named yes of 2026-11-04 in
   `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions

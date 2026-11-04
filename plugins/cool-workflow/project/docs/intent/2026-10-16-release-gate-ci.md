@@ -764,6 +764,35 @@ name. The fix gives the doctor the text of item 1 and puts stage 0 back to
 its pre-0.4.1 warning, byte for byte; `test/release-doctor-smoke.mjs` holds
 both.
 
+The second 0.4.1 cut was rejected (2026-11-04) on one more path: when the
+operator is on the leftover branch (where a stopped cut that kept it leaves
+them), the "checked out now" test ran before the commit count, so a branch
+with commits the tool did not make still printed "— it holds old code; not
+removed for you: it is the branch checked out now". `classifyCutBranch` now
+counts the commits first, so item 1's text holds whether the branch is checked
+out, tagged, or checked offline; the smoke runs the doctor on the branch.
+
+After that second rejection the whole feature was checked again, line by line
+against the three quoted items, and these were fixed with it: the doctor's
+WARN fix is the plain `git branch -D` again (the added "or let npm run
+release remove it" was not in the yes); a branch checked out in another
+worktree is never removed (`git update-ref -d` does not look at worktrees);
+a "kept" line stays one line when git's own error spans several; stage 0
+no longer classifies a branch it only warns on. The smoke now holds each
+quoted line in full, and each keep reason the man page names.
+
+The same check, run on every other 0.4.1 output change, found one more
+that no yes named: `versionProbe.clis` gained `copilot`, `agy` and `grok`,
+and a custom `CW_AGENT_COMMAND` is matched to a template by its program
+name, so `CW_AGENT_COMMAND="grok -p"` went from "custom command" (doctor
+exit 0) to a `grok --version` probe (exit 1 when grok is missing) and got
+the grok sandbox hosts. A `beta` list in `builtin-templates.json` now keeps
+the beta three out of that name match, so such a command is a custom
+command as in 0.4.0 (`test/shell/agent-config-beta-custom.test.mjs`). Two
+smaller fixes ride along: a `--verbose` narration row is drawn in the same
+one-write frame as the block (the man page said the block does not flash),
+and the live clock's minute form is held by a test.
+
 ### Operator decisions for 0.4.1, three more agents (2026-11-04)
 
 The owner asked for the same "Works with" list as another tool of theirs

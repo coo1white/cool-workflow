@@ -633,7 +633,7 @@ version is by default the one in `plugins/cool-workflow/package.json`.
 | Check | Fails when | Fix it gives |
 |---|---|---|
 | `head-current` | after `git fetch origin main`, HEAD is not the `origin/main` tip (names both shas and the current branch) | `git checkout main && git pull --ff-only origin main` |
-| `cut-branch` | a local `release/vX.Y.Z-cut` branch is not at `origin/main` (old code from an earlier cut), and it does not pass the "made by the tool" test below (or `--offline` cannot check origin for the tag); a warning when it does pass, since `npm run release -- X.Y.Z` removes it at the start | `git branch -D release/vX.Y.Z-cut` (the doctor never deletes it) |
+| `cut-branch` | a local `release/vX.Y.Z-cut` branch is not at `origin/main` (old code from an earlier cut), and it does not pass the "made by the tool" test below (or `--offline` cannot check origin for the tag); a warning when it does pass, since `npm run release -- X.Y.Z` removes it at the start | `git branch -D release/vX.Y.Z-cut` (after `git checkout main` when you are on it); for a branch with a commit the tool did not make, `git log origin/main..release/vX.Y.Z-cut` first, to keep what you need. The doctor never deletes it |
 | `clean-tree` | `git status --porcelain -uno` is not empty | commit or stash |
 | `cw-dir` | (warning) a `.cw/` folder is at the repo root | `rm -rf <repo>/.cw` |
 | `reviewer` | the reviewer config `release-flow.mjs` reads (`CW_AGENT_COMMAND` > `agent-config.json` > auto-detect; else `CW_AGENT_ENDPOINT`) is not set, or its first argv token is not an executable file (a full path, or on `PATH`); the reviewer is never run | `export CW_AGENT_COMMAND=...` |
@@ -678,7 +678,8 @@ deleted it by hand. Now the tool removes its own leftover, at two points:
 The branch is removed only when ALL of these hold; anything that cannot be
 proved keeps it (fail closed — work of the operator is never deleted):
 
-- its name is exactly `release/vX.Y.Z-cut`, and it is not checked out;
+- its name is exactly `release/vX.Y.Z-cut`, and it is not checked out,
+  here or in any other worktree;
 - no `vX.Y.Z` tag exists, locally or on origin (a failed `ls-remote` keeps
   it; a cut whose tag was made keeps its branch, and the re-run resumes it);
 - every commit on it that is not on `origin/main` was made by the cut: none,
@@ -704,8 +705,10 @@ the doctor's `cut-branch` status: a warning for a branch the release run will
 remove, a failure for every other one. A branch with a commit the tool did not
 make fails with `— <reason>; the cut stage would reset it from origin/main`
 and the fix `git log origin/main..release/vX.Y.Z-cut` (keep what you need
-elsewhere, then `git branch -D` it); any other kept branch fails with `— it
-holds old code; not removed for you: <reason>`. The doctor itself changes
+elsewhere, then `git branch -D` it, after `git checkout main` when you are on
+it). The commits are counted first, so this holds when the branch is checked
+out, when a `vX.Y.Z` tag exists, and with `--offline`. Any other kept branch
+fails with `— it holds old code; not removed for you: <reason>`. The doctor itself changes
 nothing.
 
 This cleanup, its stderr lines and the doctor's new `cut-branch` texts are
