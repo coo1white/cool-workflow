@@ -1,0 +1,2 @@
+APPROVED 81b6cad358efd13297d0b1ad0a5685b33905fdcd
+A user's agent command can now use {{phase}}, {{taskId}}, {{workerId}} and {{priorResults}} to learn its phase, task, worker folder and the earlier phases' result files. Grok is no longer beta and runs with -grok, the live view shows no emoji box off macOS, and a release reviewer's .cw-release/ locator now counts as valid evidence.
