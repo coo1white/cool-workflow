@@ -38,7 +38,7 @@ cw -q "How does the done command mark an item finished and where can it go wrong
 ```
 
 `-claude` says which agent does the work (`-codex`, `-gemini`, `-deepseek`
-and `-muse` work too). When it ends, CW opens the report in your browser by
+and `-muse` work too; `-copilot`, `-antigravity` and `-grok` are in beta). When it ends, CW opens the report in your browser by
 itself and prints the path plus one line for later:
 
 ```text

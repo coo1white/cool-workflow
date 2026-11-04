@@ -8,7 +8,10 @@
     "gemini-cli": "gemini-agent.js",
     "opencode": "opencode-agent.js",
     "deepseek": "deepseek-agent.js",
-    "muse": "muse-agent.js"
+    "muse": "muse-agent.js",
+    "copilot": "copilot-agent.js",
+    "antigravity": "antigravity-agent.js",
+    "grok": "grok-agent.js"
   },
   "versionProbe": {
     "comment": "The vendor CLI each template above runs. `cw doctor` runs `<cli> --version` once to check that it starts. A template with no entry here (deepseek: HTTP, no CLI) is not probed.",
@@ -18,11 +21,14 @@
       "gemini": "opencode",
       "gemini-cli": "gemini",
       "opencode": "opencode",
-      "muse": "muse"
+      "muse": "muse",
+      "copilot": "copilot",
+      "antigravity": "agy",
+      "grok": "grok"
     }
   },
   "sandbox": {
-    "comment": "Used only with CW_AGENT_SANDBOX=srt (0.3.3, opt-in): per template, the hosts the vendor CLI must reach and its own state paths it writes. Data, not kernel code (policy in userland). Best effort until checked on a real login with `cw doctor --conformance`; a host missing here shows as a refused connection, and CW_AGENT_SANDBOX_HOSTS adds more. Spec: project/docs/intent/2026-11-02-agent-sandbox-srt.md.",
+    "comment": "Used only with CW_AGENT_SANDBOX=srt (0.3.3, opt-in): per template, the hosts the vendor CLI must reach and its own state paths it writes. Data, not kernel code (policy in userland). Best effort until checked on a real login with `cw doctor --conformance`; a host missing here shows as a refused connection, and CW_AGENT_SANDBOX_HOSTS adds more. Spec: project/docs/intent/2026-11-02-agent-sandbox-srt.md. The copilot, antigravity and grok rows (beta, 2026-11-04) are unverified: hosts read from each vendor CLI docs, not yet seen on a real login; antigravity takes the gemini-cli hosts, as agy is Gemini-based.",
     "vendors": {
       "claude": {
         "hosts": [
@@ -113,6 +119,36 @@
         "hosts": [],
         "write": [
           "~/.muse"
+        ]
+      },
+      "copilot": {
+        "hosts": [
+          "api.githubcopilot.com",
+          "*.githubcopilot.com",
+          "github.com",
+          "api.github.com"
+        ],
+        "write": [
+          "~/.copilot"
+        ]
+      },
+      "antigravity": {
+        "hosts": [
+          "generativelanguage.googleapis.com",
+          "*.googleapis.com",
+          "accounts.google.com"
+        ],
+        "write": [
+          "~/.gemini"
+        ]
+      },
+      "grok": {
+        "hosts": [
+          "api.x.ai",
+          "*.x.ai"
+        ],
+        "write": [
+          "~/.grok"
         ]
       }
     }

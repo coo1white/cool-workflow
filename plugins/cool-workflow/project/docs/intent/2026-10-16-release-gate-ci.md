@@ -754,3 +754,39 @@ three:
 
 All three are said in `release-tooling.7.md` ("The leftover cut branch is
 cleaned up", and the `cut-branch` row). The version raise is 0.4.0 -> 0.4.1.
+
+### Operator decisions for 0.4.1, three more agents (2026-11-04)
+
+The owner asked for the same "Works with" list as another tool of theirs
+(Claude Code, Codex, Copilot, Antigravity, Muse Code, OpenCode, Grok,
+DeepSeek). Three new builtin agents, each a wrapper plus a data line, change
+the `cw help` output, so the owner was asked by name. The question, word for
+word (2026-11-04):
+
+> 新加 GitHub Copilot CLI、Antigravity、Grok 三家 agent（三家都有无界面运行模式 `-p`）。这会改 `cw help` 的 Flags 部分：在「  -muse                  Use Muse Code agent」下面加 3 行：
+> 「  -copilot               Use GitHub Copilot CLI agent」
+> 「  -antigravity           Use Antigravity agent」
+> 「  -grok                  Use Grok agent」
+> 其他输出不变。同意这 3 行吗？
+
+The answer, word for word: "3 行都同意 (推荐)" ("all 3 rows agreed").
+
+A second answer the same day, on auto-detect: "先不加，标 beta" ("do not add
+them yet; mark them beta"). So `detectAgentFromPath` in
+`src/shell/agent-config.ts` keeps its list; the three are used only by
+`-copilot`, `-antigravity`, `-grok` or `CW_AGENT_COMMAND=builtin:<name>`,
+and the docs and README mark them beta until a real login has passed
+`cw doctor --conformance`.
+
+Pins this changes:
+
+- `v2/conformance/cases/fixtures/cli-help/_root.txt`: the three rows above,
+  below `-muse`, and nothing else.
+- `v2/conformance/cases/exec-doctor-agent-config.case.mjs`: the refusal for
+  an unknown `builtin:<name>` lists the templates file in order, so its
+  `available:` list now ends `muse, copilot, antigravity, grok`. The question
+  above did not name this line; it follows from the three new templates.
+  Put it to the owner by name before the 0.4.1 cut.
+
+The new text is said in `agent-delegation-drive.7.md` ("Beta vendors:
+copilot, antigravity, grok"). The version raise is the 0.4.1 one above.

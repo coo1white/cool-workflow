@@ -107,7 +107,11 @@
     "audit",
     "llm-pipeline",
     "claude",
-    "delegation"
+    "delegation",
+    "copilot",
+    "github-copilot",
+    "antigravity",
+    "grok"
   ],
   "mcpName": "io.github.coo1white/cool-workflow"
 }

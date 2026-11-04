@@ -79,13 +79,17 @@ Upgrade later with `brew update && brew upgrade cool-workflow`.
 | OpenCode | `-opencode` | ✅ works | [install](https://opencode.ai/) |
 | Gemini | `-gemini` | ✅ through opencode | [install OpenCode](https://opencode.ai/) |
 | DeepSeek | `-deepseek` | ✅ through opencode or an HTTP endpoint | [install OpenCode](https://opencode.ai/) |
-| GitHub Copilot CLI | — | ⬜ not yet | |
-| Antigravity | — | ⬜ not yet | |
-| Grok | — | ⬜ not yet | |
+| GitHub Copilot CLI | `-copilot` | 🧪 beta | [install](https://github.com/github/copilot-cli) |
+| Antigravity | `-antigravity` | 🧪 beta | [install](https://antigravity.google/) |
+| Grok | `-grok` | 🧪 beta | [install](https://docs.x.ai/build/cli) |
 | Cursor | — | ⬜ not yet | |
 | Aider | — | ⬜ not yet | |
 | Qwen Code | — | ⬜ not yet | |
 | Kimi | — | ⬜ not yet | |
+
+🧪 beta: CW has a wrapper and an offline test for it, but no real login has
+passed `cw doctor --conformance` yet, and `cw` never picks it by itself: add
+its flag.
 
 Log in to your agent once on its own (run it, for one `claude`, and follow
 its steps) before you use it with CW: CW uses your agent as it is set up,

@@ -250,6 +250,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [agent-backend-sandbox-deny-smoke.mjs](../test/agent-backend-sandbox-deny-smoke.mjs)
 - [agent-backend-user-env-smoke.mjs](../test/agent-backend-user-env-smoke.mjs)
 - [agent-config-atomic-write-smoke.mjs](../test/agent-config-atomic-write-smoke.mjs)
+- [agent-copilot-antigravity-grok-smoke.mjs](../test/agent-copilot-antigravity-grok-smoke.mjs)
 - [agent-delegation-drive-smoke.mjs](../test/agent-delegation-drive-smoke.mjs)
 - [agent-idle-timeout-smoke.mjs](../test/agent-idle-timeout-smoke.mjs)
 - [agent-muse-native-smoke.mjs](../test/agent-muse-native-smoke.mjs)

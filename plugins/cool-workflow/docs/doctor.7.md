@@ -46,7 +46,9 @@ said `(>= 18)` and `v18` (changed in 0.3.2 with the operator's dated yes:
 
 **agent**
 : The AI agent backend. CW can auto-detect agents (Claude, Codex, Gemini,
-OpenCode) or take one from `CW_AGENT_COMMAND` / `--agent-command`. Without one,
+OpenCode, Muse) or take one from `CW_AGENT_COMMAND` / `--agent-command`. The
+beta builtins `copilot`, `antigravity` and `grok` are never auto-detected; pick
+them with `-copilot`, `-antigravity` or `-grok` (agent-delegation-drive(7)). Without one,
 real runs report `status: blocked`, but `demo` and `--preview` still work.
 The fix then says to install an agent CLI and add `-claude` (or set
 `CW_AGENT_COMMAND=builtin:claude`); `-codex`, `-gemini` and `-opencode` work

@@ -30,8 +30,8 @@ neutral-audit moat and is the red line.
 ## Architecture — the boundary (core ↔ agent backend ↔ wrappers)
 
 The core gives only an INTERFACE: the `agent` execution backend plus a small
-text/process contract. The five vendors (claude / codex / gemini / deepseek /
-muse) live OUTSIDE the core as out-of-process wrapper scripts in
+text/process contract. The vendors (claude / codex / gemini / deepseek /
+muse, and in beta copilot / antigravity / grok) live OUTSIDE the core as out-of-process wrapper scripts in
 `scripts/agents/` — pure config, never imported by `src/`, behind the same seam.
 
 ```text
@@ -613,6 +613,9 @@ The built-in templates are:
 --agent-command builtin:opencode     # opencode (its configured default model)
 --agent-command builtin:deepseek     # DeepSeek via opencode (deepseek/deepseek-v4-flash)
 --agent-command builtin:muse         # muse exec (native, default model "muse-spark-1.3-contributor")
+--agent-command builtin:copilot      # copilot -p (beta, GitHub Copilot CLI)
+--agent-command builtin:antigravity  # agy -p (beta, Google Antigravity CLI)
+--agent-command builtin:grok         # grok -p (beta, xAI Grok Build CLI)
 ```
 
 claude, codex, and muse run their own CLIs; gemini and deepseek route through
@@ -620,7 +623,53 @@ opencode (where their keys live), each proven by a local, deterministic wrapper
 smoke (override the model with CW_GEMINI_MODEL / CW_DEEPSEEK_MODEL / CW_MUSE_MODEL).
 GLM stays an external agent command or HTTP endpoint. CW still imports no model
 SDK. The same headline shortcuts pick these builtins on the top-level CLI:
-`cw -q "..." -claude` / `-codex` / `-gemini` / `-deepseek` / `-muse`.
+`cw -q "..." -claude` / `-codex` / `-gemini` / `-deepseek` / `-muse`, and the
+beta `-copilot` / `-antigravity` / `-grok`.
+
+### Beta vendors: copilot, antigravity, grok
+
+GitHub Copilot CLI (`copilot`), Google Antigravity CLI (`agy`) and xAI Grok
+Build CLI (`grok`) are beta builtins: each has a wrapper and an offline smoke
+(`test/agent-copilot-antigravity-grok-smoke.mjs`), but no real login has yet
+passed `cw doctor --conformance`. They stay beta until one does.
+
+- They are used only when you ask for them: `-copilot`, `-antigravity`,
+  `-grok`, or `CW_AGENT_COMMAND=builtin:copilot` (`antigravity`, `grok`).
+  Auto-detect does not pick them, even when the CLI is on `PATH` (the
+  owner's choice of 2026-11-04).
+- Each wrapper runs the CLI with only the flags its maker's own docs name:
+  `copilot -p <prompt> --allow-all-tools` (plus `--model <m>` when
+  `CW_COPILOT_MODEL` is set), `agy -p <prompt>`, and `grok -p <prompt>
+  --no-auto-update` (plus `-m <m>` when `CW_GROK_MODEL` is set). With no model
+  set, the CLI's own default model is used and the report names no model.
+  `--allow-all-tools` is there because stdin is closed: an approval prompt
+  would wait for ever.
+- The answer is the CLI's whole plain stdout: it goes to `result.md` and the
+  one stdout report. A non-zero exit, or an empty answer, is a failed hop with
+  no `result.md`, and the CLI's stderr goes to `agent-stderr.log`.
+- `cw doctor` runs `copilot --version`, `agy --version` or `grok --version`.
+- `cw help` lists them under Flags, below `-muse` (new in 0.4.1, with the
+  owner's named yes of 2026-11-04 in
+  `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
+  for 0.4.1"):
+
+  ```text
+    -copilot               Use GitHub Copilot CLI agent
+    -antigravity           Use Antigravity agent
+    -grok                  Use Grok agent
+  ```
+
+  An unknown `builtin:<name>` now ends its `available:` list with
+  `muse, copilot, antigravity, grok` (the list is the templates file, in
+  order).
+- With `CW_AGENT_SANDBOX=srt`, the hosts are a best guess, not yet seen on a
+  real login: copilot `api.githubcopilot.com`, `*.githubcopilot.com`,
+  `github.com`, `api.github.com` (writes `~/.copilot`); grok `api.x.ai`,
+  `*.x.ai` (writes `~/.grok`); antigravity the Google API hosts of
+  `gemini-cli` (writes `~/.gemini`). `CW_AGENT_SANDBOX_HOSTS` adds more.
+- The prompt is given as an argument to `-p`, not on stdin (see below), so a
+  prompt past the system's limit for one argument fails at the spawn with
+  `E2BIG`, written to `agent-stderr.log`: a failed hop, never a cut prompt.
 
 Support tiers. A release is reviewed through whatever agent the operator
 configures (`CW_AGENT_COMMAND` or `CW_AGENT_ENDPOINT`, any vendor), so that one
@@ -704,10 +753,12 @@ The prompt is the worker's input.md plus the result contract, and a later
 phase's input carries every earlier result: a Verdict prompt can pass 128 KB
 on a small repo. Linux takes at most 131072 bytes in one argument (macOS about
 1 MB for all of them), so a prompt passed as an argument can make the spawn
-fail with `E2BIG`. So every bundled wrapper gives the prompt on stdin,
+fail with `E2BIG`. So every bundled wrapper but the beta three gives the prompt on stdin,
 which has no such limit: claude (`claude -p`), gemini (no `-p`), opencode
 and the wrappers built on it (deepseek, gemini through opencode, no
-positional message), and codex; muse reads a prompt file. gemini reads at most
+positional message), and codex; muse reads a prompt file. The beta
+copilot, antigravity and grok wrappers give it after `-p`, the one way their
+docs name, so a prompt too long for one argument fails closed there. gemini reads at most
 8 MiB of stdin and cuts the rest with only a warning, so its wrapper refuses a
 longer prompt before the spawn, with the reason in `agent-stderr.log` and exit
 1: never a silent half prompt. A spawn
