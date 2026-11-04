@@ -1,0 +1,2 @@
+APPROVED cb901d0d6675815704224416a08ea71136067546
+A user can now pick GitHub Copilot CLI, Antigravity or Grok as a beta agent with `-copilot`, `-antigravity` or `-grok`, and `npm run release` now cleans up the leftover `release/vX.Y.Z-cut` branch a stopped cut left behind, but only when it can prove the release tool made it.
