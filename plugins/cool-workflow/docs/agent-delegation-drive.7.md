@@ -31,7 +31,7 @@ neutral-audit moat and is the red line.
 
 The core gives only an INTERFACE: the `agent` execution backend plus a small
 text/process contract. The vendors (claude / codex / gemini / deepseek /
-muse, and in beta copilot / antigravity / grok) live OUTSIDE the core as out-of-process wrapper scripts in
+muse / grok, and in beta copilot / antigravity) live OUTSIDE the core as out-of-process wrapper scripts in
 `scripts/agents/` — pure config, never imported by `src/`, behind the same seam.
 
 ```text
@@ -512,7 +512,9 @@ never polluted.
   under each), and one live row, a glyph + the current action + whole seconds
   (e.g. `✳ Reading app.js… (4s)`). At the end the block folds to one summary
   line, `● claude · 6 steps · 41.2s`. The glyph grows and shrinks
-  (`· ✢ ✳ ✶ ✻ ✽ ✻ ✶ ✳ ✢`), one frame every 150 ms; each frame is one write
+  (`· ✢ ✳ ✶ ✻ ✽ ✻ ✶ ✳ ✢` on macOS; `· ✢ * ✶ ✻ ✽ ✻ ✶ * ✢` on Linux, WSL
+  and Windows, from 0.4.2, since ✳ is an emoji that Windows Terminal draws
+  as a wide box), one frame every 150 ms; each frame is one write
   that goes back up and draws over the old rows, inside the terminal's
   synchronized-output marks (`ESC[?2026h` … `ESC[?2026l`, which a terminal
   that does not know them ignores), so the block does not flash; a
@@ -521,7 +523,8 @@ never polluted.
   and each frame first wiped the block, which looked like flicker. Changed in
   0.4.1 with the operator's named yes:
   `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
-  for 0.4.1". The cursor is hidden while the block runs and **ALWAYS
+  for 0.4.1"; the `*` off macOS in 0.4.2, "Operator decisions for 0.4.2".
+  The cursor is hidden while the block runs and **ALWAYS
   restored** on exit / Ctrl-C / SIGTERM (Ctrl-C exits non-zero, leaving a
   clean terminal).
 - **Non-TTY stays SILENT by default** (the Rule of Silence). `CW_AGENT_STREAM=1`
@@ -626,7 +629,7 @@ The built-in templates are:
 --agent-command builtin:muse         # muse exec (native, default model "muse-spark-1.3-contributor")
 --agent-command builtin:copilot      # copilot -p (beta, GitHub Copilot CLI)
 --agent-command builtin:antigravity  # agy -p (beta, Google Antigravity CLI)
---agent-command builtin:grok         # grok -p (beta, xAI Grok Build CLI)
+--agent-command builtin:grok         # grok -p (xAI Grok Build CLI; out of beta in 0.4.2)
 ```
 
 claude, codex, and muse run their own CLIs; gemini and deepseek route through
@@ -634,20 +637,23 @@ opencode (where their keys live), each proven by a local, deterministic wrapper
 smoke (override the model with CW_GEMINI_MODEL / CW_DEEPSEEK_MODEL / CW_MUSE_MODEL).
 GLM stays an external agent command or HTTP endpoint. CW still imports no model
 SDK. The same headline shortcuts pick these builtins on the top-level CLI:
-`cw -q "..." -claude` / `-codex` / `-gemini` / `-deepseek` / `-muse`, and the
-beta `-copilot` / `-antigravity` / `-grok`.
+`cw -q "..." -claude` / `-codex` / `-gemini` / `-deepseek` / `-muse` / `-grok`,
+and the beta `-copilot` / `-antigravity`.
 
-### Beta vendors: copilot, antigravity, grok
+### Copilot, Antigravity (beta) and Grok
 
 GitHub Copilot CLI (`copilot`), Google Antigravity CLI (`agy`) and xAI Grok
-Build CLI (`grok`) are beta builtins: each has a wrapper and an offline smoke
-(`test/agent-copilot-antigravity-grok-smoke.mjs`). They stay beta until a
-real login passes `cw doctor --conformance` with no warning. Grok has come
-closest: on 2026-11-04 a real login (grok 1.0.70) ran the conformance task
-in 17.5 s, exit 0, `result.md` read, with one warning, no model reported;
-the JSON reading below is the change that answers that warning.
+Build CLI (`grok`) were added in 0.4.1 as beta builtins: each has a wrapper
+and an offline smoke (`test/agent-copilot-antigravity-grok-smoke.mjs`). One
+stays beta until a real login passes `cw doctor --conformance` with no
+warning. Grok has: on 2026-11-04 a real login (grok 1.0.70, cw 0.4.1) gave
+`✓ agent-conformance: cw-agent/1: ran in 30.0s, exit 0, result.md read,
+model grok-4.6-build.`, so it is out of beta from 0.4.2
+(`project/docs/audits/grok-conformance-receipt-2026-11-04.json`). An
+earlier login that day had one warning, no model reported; the JSON reading
+below is the change that answered it. Copilot and Antigravity are still beta.
 
-- They are used only when you ask for them: `-copilot`, `-antigravity`,
+- All three are used only when you ask for them: `-copilot`, `-antigravity`,
   `-grok`, or `CW_AGENT_COMMAND=builtin:copilot` (`antigravity`, `grok`).
   Auto-detect does not pick them, even when the CLI is on `PATH` (the
   owner's choice of 2026-11-04).
@@ -668,11 +674,11 @@ the JSON reading below is the change that answers that warning.
   a failed hop with no `result.md`, and the CLI's stderr goes to
   `agent-stderr.log`.
 - `cw doctor` runs `copilot --version`, `agy --version` or `grok --version`
-  for `builtin:copilot`, `builtin:antigravity` or `builtin:grok`. While they
-  are beta (the `beta` list in `scripts/agents/builtin-templates.json`), a
-  custom `CW_AGENT_COMMAND` whose program is named `copilot`, `agy` or
-  `grok` stays a custom command, as in 0.4.0: no `--version` probe and no
-  `CW_AGENT_SANDBOX=srt` hosts.
+  for `builtin:copilot`, `builtin:antigravity` or `builtin:grok`. These
+  three are on the `builtinOnly` list in `scripts/agents/builtin-templates.json`
+  (Grok too, after beta): a custom `CW_AGENT_COMMAND` whose program is named
+  `copilot`, `agy` or `grok` stays a custom command, as in 0.4.0: no
+  `--version` probe and no `CW_AGENT_SANDBOX=srt` hosts.
 - `cw help` lists them under Flags, below `-muse` (new in 0.4.1, with the
   owner's named yes of 2026-11-04 in
   `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
@@ -778,10 +784,10 @@ The prompt is the worker's input.md plus the result contract, and a later
 phase's input carries every earlier result: a Verdict prompt can pass 128 KB
 on a small repo. Linux takes at most 131072 bytes in one argument (macOS about
 1 MB for all of them), so a prompt passed as an argument can make the spawn
-fail with `E2BIG`. So every bundled wrapper but the beta three gives the prompt on stdin,
+fail with `E2BIG`. So every bundled wrapper but these three gives the prompt on stdin,
 which has no such limit: claude (`claude -p`), gemini (no `-p`), opencode
 and the wrappers built on it (deepseek, gemini through opencode, no
-positional message), and codex; muse reads a prompt file. The beta
+positional message), and codex; muse reads a prompt file. The
 copilot, antigravity and grok wrappers give it after `-p`, the one way their
 docs name, so a prompt too long for one argument fails closed there. gemini reads at most
 8 MiB of stdin and cuts the rest with only a warning, so its wrapper refuses a

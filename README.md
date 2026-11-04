@@ -80,7 +80,7 @@ Upgrade later with `brew update && brew upgrade cool-workflow`.
 | DeepSeek | `-deepseek` | ✅ through opencode or an HTTP endpoint | [install OpenCode](https://opencode.ai/) |
 | GitHub Copilot CLI | `-copilot` | 🧪 beta | [install](https://github.com/github/copilot-cli) |
 | Antigravity | `-antigravity` | 🧪 beta | [install](https://antigravity.google/) |
-| Grok | `-grok` | 🧪 beta | [install](https://docs.x.ai/build/cli) |
+| Grok | `-grok` | ✅ works (add `-grok`) | [install](https://docs.x.ai/build/cli) |
 | Cursor | — | ⬜ not yet | |
 | Aider | — | ⬜ not yet | |
 | Qwen Code | — | ⬜ not yet | |

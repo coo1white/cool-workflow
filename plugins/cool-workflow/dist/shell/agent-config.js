@@ -120,10 +120,10 @@ const AGENTS_DIR = path.join(import.meta.dirname, "..", "..", "scripts", "agents
 function builtinManifest() {
     return JSON.parse(fs.readFileSync(path.join(AGENTS_DIR, "builtin-templates.json"), "utf8"));
 }
-// A custom command is matched by binary name to a non-beta template only.
+// A custom command is matched by binary name to a template not on builtinOnly.
 function customMatch(manifest) {
-    const beta = new Set(manifest.beta?.templates || []);
-    return Object.entries(manifest.versionProbe?.clis || {}).filter(([name]) => !beta.has(name));
+    const only = new Set(manifest.builtinOnly?.templates || []);
+    return Object.entries(manifest.versionProbe?.clis || {}).filter(([name]) => !only.has(name));
 }
 export function agentProbeTarget(command, args) {
     if (!command)

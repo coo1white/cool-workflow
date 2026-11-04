@@ -788,7 +788,7 @@ name, so `CW_AGENT_COMMAND="grok -p"` went from "custom command" (doctor
 exit 0) to a `grok --version` probe (exit 1 when grok is missing) and got
 the grok sandbox hosts. A `beta` list in `builtin-templates.json` now keeps
 the beta three out of that name match, so such a command is a custom
-command as in 0.4.0 (`test/shell/agent-config-beta-custom.test.mjs`). Two
+command as in 0.4.0 (`test/shell/agent-config-builtin-only.test.mjs`). Two
 smaller fixes ride along: a `--verbose` narration row is drawn in the same
 one-write frame as the block (the man page said the block does not flash),
 and the live clock's minute form is held by a test.
@@ -881,3 +881,22 @@ the locator `.cw-release/review-<sha>.verdict:1` as `cw-release/...` (the
 pattern could not start with a dot), so a valid rejection was called
 invalid reviewer output. Fixed for 0.4.2; `test/release-flow-smoke.mjs`
 (case 2a) holds it. `release-tooling.7.md` says both.
+
+## Operator decisions for 0.4.2 (2026-11-04)
+
+### No emoji glyph in the live view off macOS
+
+On the operator's WSL (Windows Terminal), the 0.4.1 live view jumped and
+changed shape: ✳ (U+2733) is an emoji, drawn there as a wide blue box, while
+the other glyphs are plain text (the operator: "动画非常变异，变形了", with
+two screenshots). Claude Code, whose feel the 0.4.1 change took, uses a
+plain `*` for that glyph off macOS. The quoted 0.4.1 glyphs change, so the
+operator was asked, word for word (2026-11-04):
+
+> 动画里的 ✳（U+2733）在 Windows Terminal/WSL 里被当成 emoji，画成蓝色方块、比别的字宽，所以看起来变形。方案：学 Claude Code，在 macOS 以外（Linux、WSL、Windows）把 ✳ 换成普通的 *。动画字符序列从「· ✢ ✳ ✶ ✻ ✽ ✻ ✶ ✳ ✢」改为「· ✢ * ✶ ✻ ✽ ✻ ✶ * ✢」（macOS 不变，仍是原来的）。150ms 一帧、整数秒、一次写完都不变。这会在 0.4.2 里发。同意吗？
+
+and answered "同意 (推荐)". `sparkleFor(platform)` in
+`scripts/agents/agent-adapter-core.mjs` gives the cycle;
+`test/cli-render-smoke.mjs` (`testCalmLiveView`) holds both forms;
+`agent-delegation-drive.7.md` ("Interactive (TTY)") says it. The version
+raise is 0.4.1 -> 0.4.2.
