@@ -61,6 +61,12 @@ export async function runCli(argv = process.argv.slice(2)) {
         args.options["agent-command"] = "builtin:deepseek";
     if (args.options.muse)
         args.options["agent-command"] = "builtin:muse";
+    if (args.options.copilot)
+        args.options["agent-command"] = "builtin:copilot";
+    if (args.options.antigravity)
+        args.options["agent-command"] = "builtin:antigravity";
+    if (args.options.grok)
+        args.options["agent-command"] = "builtin:grok";
     // -dir / --dir / -d is a second name for --repo; an explicit --repo wins.
     if (!args.options.repo && args.options.dir)
         args.options.repo = args.options.dir;

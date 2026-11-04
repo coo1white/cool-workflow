@@ -12,7 +12,8 @@ import { formatHelp } from "../../../dist/core/format/help.js";
 // Exact full-text golden value, sourced from SPEC/cli-surface.md's own
 // "formatHelp() (stdout)" block (line-for-line, including the wrapped
 // "More commands" block from the SPEC's own token list), plus the rows
-// added after that capture (--json, --quiet, --resume, -opencode, -muse; the check token, 2026-11-03).
+// added after that capture (--json, --quiet, --resume, -opencode, -muse; the check token, 2026-11-03;
+// -copilot, -antigravity, -grok, 2026-11-04).
 {
   const expected = [
     "Cool Workflow",
@@ -33,6 +34,9 @@ import { formatHelp } from "../../../dist/core/format/help.js";
     "  -opencode              Use OpenCode agent",
     "  -deepseek              Use DeepSeek (via opencode)",
     "  -muse                  Use Muse Code agent",
+    "  -copilot               Use GitHub Copilot CLI agent",
+    "  -antigravity           Use Antigravity agent",
+    "  -grok                  Use Grok agent",
     "  --verbose              Show full agent narration live (default: compact)",
     "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
     "  --json                 Print JSON for commands that support it",

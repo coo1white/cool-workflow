@@ -120,7 +120,11 @@
     "deepseek",
     "opencode",
     "cli",
-    "report"
+    "report",
+    "copilot",
+    "github-copilot",
+    "antigravity",
+    "grok"
   ],
   "mcpName": "io.github.coo1white/cool-workflow"
 }

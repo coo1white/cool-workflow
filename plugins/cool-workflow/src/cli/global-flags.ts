@@ -23,7 +23,8 @@ import type { CliBinding } from "../core/capability-data.js";
  *  `flagsComplete` row's check never flags them. Built by reading the
  *  actual consumers:
  *   - cli/entry.ts: `version`/`v`, `help`/`h`, the vendor shorthands
- *     `claude`/`codex`/`gemini`/`deepseek`/`muse` (each sets `agent-command`),
+ *     `claude`/`codex`/`gemini`/`deepseek`/`muse`/`copilot`/`antigravity`/
+ *     `grok` (each sets `agent-command`),
  *     `repo`/`dir` (`--dir`/`-d` is a global alias for `--repo`),
  *     `verbose`, `no-color`, `quiet`, `question` (`-q`), and the
  *     `--resume --run <id>` continuation pair;
@@ -36,13 +37,16 @@ import type { CliBinding } from "../core/capability-data.js";
  *  Keys are the POST-parse spellings (what lands in `args.options`). */
 export const GLOBAL_CLI_FLAGS: readonly string[] = [
   "agent-command",
+  "antigravity",
   "claude",
   "codex",
+  "copilot",
   "cwd",
   "deepseek",
   "dir",
   "format",
   "gemini",
+  "grok",
   "h",
   "help",
   "json",

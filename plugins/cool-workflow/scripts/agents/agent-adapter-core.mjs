@@ -575,8 +575,36 @@ function spawnVendor(label, command, args, options, resultPath, cleanup) {
   }
 }
 
+// End of a plain-text vendor run (copilot, antigravity, grok: `<cli> -p`, the
+// answer is the whole stdout). Fails closed: a non-zero exit, or an empty
+// answer, writes no result.md and no report and exits non-zero.
+function finishPlainTextRun({ label, code, stdoutText, childStderr, resultPath, model, usage }) {
+  const resultText = String(stdoutText || "");
+  if (code !== 0) {
+    const detail = buildFailureDetail({ label, code, childStderr: String(childStderr || "").trim(), partialText: resultText });
+    persistStderr(resultPath, detail);
+    process.stderr.write(`${detail}\n`);
+    process.exit(code === null ? 1 : code);
+  }
+  if (!resultText.trim()) {
+    const detail = `${label} produced no result text - refusing to fabricate a result`;
+    persistStderr(resultPath, String(childStderr || "").trim() || detail);
+    process.stderr.write(`${detail}\n`);
+    process.exit(1);
+  }
+  try {
+    writeResult(resultPath, resultText);
+  } catch (error) {
+    persistStderr(resultPath, `${label} produced no final result: ${error.message}`);
+    process.stderr.write(`${label} produced no final result: ${error.message}\n`);
+    process.exit(1);
+  }
+  emitReport(model, usage, resultText);
+}
+
 export {
   RESULT_CONTRACT,
+  finishPlainTextRun, // close a `<cli> -p` run whose answer is its plain stdout (copilot, antigravity, grok)
   recordVendorPid, // write the vendor child's PID to CW_AGENT_VENDOR_PIDFILE so cw can reap it on a timeout
   buildPrompt,
   streamEnabled,
