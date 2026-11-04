@@ -19,12 +19,17 @@ import { createReporter, formatQuickstartSummary } from "../dist/shell/reporter.
 import * as term from "../dist/shell/term.js";
 import {
   createRenderer,
+  SPARKLE,
+  FRAME_MS,
   truncate as coreTruncate,
   toolLabel,
   summarizeToolResult,
 } from "../scripts/agents/agent-adapter-core.mjs";
 
 const HIDE_CURSOR = "\x1b[?25l";
+// Each redraw is one write that starts with the sync marker; the last frame is what follows the last one.
+const FRAME = "\x1b[?2026h";
+const lastFrame = (text) => text.split(FRAME).pop().split("\x1b[?2026l")[0];
 const SHOW_CURSOR = "\x1b[?25h";
 
 const ANSI = /\x1b\[[0-9;]*m/g;
@@ -187,15 +192,15 @@ function testRollingWindowFold() {
   const render = createRenderer({ env: {}, stderr: s, label: "claude" });
   try {
     for (const t of ["Read(a.ts)", "Read(b.ts)", "Read(c.ts)", "Read(d.ts)", "Read(e.ts)", "Read(f.ts)"]) render.action(t);
-    // In-place redraw (NOT append-only): the block is erased (clear-to-end + cursor-up) each frame.
-    assert.ok(s.text.includes("\x1b[0J"), "the live block is erased + redrawn in place (clear-to-end)");
+    // In-place redraw (NOT append-only): each frame goes back up and writes over the old rows.
+    assert.ok(s.text.includes(FRAME), "each live frame is a synchronized redraw");
     assert.ok(/\x1b\[\d+A/.test(s.text), "cursor moves up to redraw the rolling block (not a growing wall)");
     // Claude-tree style: completed rows use ● bullets, the live row a ✶ sparkle — NOT the old ✓.
     assert.ok(s.text.includes("●"), "completed tools use the ● action bullet (Claude-tree)");
-    assert.ok(/[✶✸✹✺]/.test(s.text), "the live row shows a sparkle 'thinking' glyph");
+    assert.ok(SPARKLE.some((g) => s.text.includes(g)), "the live row shows a sparkle 'thinking' glyph");
     assert.ok(!plain(s.text).includes("✓"), "no generic ✓ spinner-list glyph remains");
     // The FINAL rendered block = everything after the last erase. WINDOW=4, so the oldest folded away.
-    const lastBlock = s.text.split("\x1b[0J").pop();
+    const lastBlock = lastFrame(s.text);
     assert.ok(!lastBlock.includes("a.ts"), "the oldest tool has folded OUT of the window");
     for (const t of ["c.ts", "d.ts", "e.ts", "f.ts"]) {
       assert.ok(lastBlock.includes(t), `the rolling window keeps the recent tool ${t}`);
@@ -218,7 +223,7 @@ function testResultTreeLines() {
     render.result("245 lines");
     render.action("Grep(spawnSync)"); // commits the Read -> its ⎿ now renders in the block
     render.result("17 matches");
-    const block = s.text.split("\x1b[0J").pop();
+    const block = lastFrame(s.text);
     assert.ok(block.includes("⎿"), "a ⎿ tree connector renders under a completed tool");
     assert.ok(block.includes("245 lines"), "the result summary renders in the block");
   } finally {
@@ -227,7 +232,8 @@ function testResultTreeLines() {
   console.log("cli-render: ⎿ tool-result tree lines OK");
 }
 
-const stripAllEsc = (x) => x.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "");
+// A frame starts with \r (back to column 0), which moves the cursor and shows nothing.
+const stripAllEsc = (x) => x.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").replace(/\r/g, "");
 
 function testLiveWidthInvariant() {
   // Every emitted row MUST stay within the terminal width — a wrapped row would make blockRows
@@ -241,7 +247,7 @@ function testLiveWidthInvariant() {
     render.action("Read(" + "a".repeat(120) + ".ts)");
     render.result("y".repeat(120));
     render.action("Bash(" + "x".repeat(200) + ")"); // long phrase fills the live-line budget
-    const block = s.text.split("\x1b[0J").pop();
+    const block = lastFrame(s.text);
     for (const line of block.split("\n")) {
       const vis = [...stripAllEsc(line)].length;
       assert.ok(vis <= W, `every live row stays within the ${W}-col terminal (got ${vis}): ${JSON.stringify(stripAllEsc(line))}`);
@@ -262,12 +268,45 @@ function testBatchedResults() {
     render.action("Read(a.ts)", "id-a");
     render.action("Read(b.ts)", "id-b"); // commits A (id-a) into the window BEFORE its result arrives
     render.result("11 lines", false, "id-a"); // must still attach to the now-folded A, not to B
-    const block = s.text.split("\x1b[0J").pop();
+    const block = lastFrame(s.text);
     assert.ok(block.includes("11 lines"), "a batched tool keeps its ⎿ result even after it folded in (keyed by id)");
   } finally {
     render.finishLive();
   }
   console.log("cli-render: batched tool_results keep each tool's ⎿ (keyed by tool_use_id) OK");
+}
+
+function testCalmLiveView() {
+  // 0.4.1 (operator's yes): the live view must not flicker. Glyphs grow and shrink, one frame
+  // every 150 ms (was 90 ms), the live row counts whole seconds, and a redraw never wipes the
+  // block before the new rows are written.
+  assert.deepEqual(SPARKLE, ["·", "✢", "✳", "✶", "✻", "✽", "✻", "✶", "✳", "✢"], "the glyphs grow and shrink, Claude-Code style");
+  assert.equal(FRAME_MS, 150, "one frame every 150 ms");
+  const s = fakeStream(true);
+  s.columns = 80;
+  const writes = [];
+  const rec = { ...s, isTTY: true, columns: 80, write(x) { writes.push(String(x)); return s.write(x); } };
+  const render = createRenderer({ env: {}, stderr: rec, label: "grok" });
+  try {
+    render.action("grok: running…");
+    render.action("Read(a.ts)");
+    render.action("Read(b.ts)");
+    const frames = writes.filter((w) => w.startsWith(FRAME));
+    assert.ok(frames.length >= 2, "redraws happen as whole frames");
+    for (const f of frames) {
+      assert.ok(f.endsWith("\x1b[?2026l"), "a frame is one write, closed by the sync end marker");
+      const wipe = f.indexOf("\x1b[0J");
+      assert.ok(wipe > f.indexOf("a.ts") || !f.includes("a.ts"), "the clear comes after the new rows, never before them");
+    }
+    assert.ok(!writes.some((w) => w === "\x1b[0J"), "no bare wipe is written between frames");
+    const live = plain(lastFrame(s.text));
+    assert.match(live, /\(\d+s\)/, "the live row counts whole seconds");
+    assert.doesNotMatch(live, /\(\d+\.\d+s\)/, "the live row shows no tenths of a second");
+  } finally {
+    render.finishLive();
+  }
+  assert.match(plain(s.text), /● grok · 3 steps · \d+\.\ds/, "the summary line keeps tenths of a second");
+  console.log("cli-render: calm live view (slow glyphs, whole seconds, one-write frames) OK");
 }
 
 function main() {
@@ -281,6 +320,7 @@ function main() {
   testResultTreeLines();
   testLiveWidthInvariant();
   testBatchedResults();
+  testCalmLiveView();
   console.log("cli-render-smoke: ok");
 }
 
