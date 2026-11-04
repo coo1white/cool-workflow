@@ -494,8 +494,17 @@ command's short tail on stderr for the operator, but never puts that tail in a
 saved verdict. The reviewer does not run that gate again. It checks judgment
 questions the gate cannot check. A reviewer rejection has exact `REJECTED`,
 `kind: semantic-review`, and numbered facts with repo-relative `file:line`
-places. Other rejection text is invalid reviewer output: the cut stops, no tag
-is made, and it is not a verified code rejection.
+places (a path may start with a dot, as in `.cw-release/` or `.github/`; from
+0.4.2, before which its dot was dropped and the file not found). Other
+rejection text is invalid reviewer output: the cut stops, no tag is made, and
+it is not a verified code rejection.
+
+A reviewer that has rejected the same line of commits twice does not review
+it a third time (`agents/release-reviewer.md`, "Anti-gaming rules"): it
+rejects with the earlier verdicts as its evidence and hands the decision to
+the operator. The operator reads both rejections and the fixes, and decides;
+one choice is a different reviewer for that cut, through `CW_AGENT_COMMAND`.
+The earlier rejected verdicts stay in `.cw-release/` as the record.
 
 ```bash
 # the operator's one-command release (scripts/release-oneclick.mjs — preflight,
