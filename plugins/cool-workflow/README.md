@@ -20,11 +20,38 @@ Cool Workflow (`cw`) is a small command-line tool that turns your AI coding agen
 > **The model is fuel. CW is the black-box recorder, the dashboard, and the gearbox — never the engine.**
 > It never calls a model API, never holds your keys, and never uploads your code.
 
+## Before you start
+
+You need two things, and one more for real runs:
+
+1. **A terminal.** On macOS: Terminal. On Linux: any. On Windows: install
+   [WSL](https://learn.microsoft.com/windows/wsl/install) (run `wsl --install`
+   in PowerShell, then open "Ubuntu" from the Start menu) and type every
+   command below in that Ubuntu window.
+2. **Node.js v22.13 or newer.** Check with `node -v`. If it is missing or
+   older, get it from [nodejs.org](https://nodejs.org/) (take the LTS one).
+3. **An AI coding agent, for real runs** — for one, Claude Code or Codex (see
+   [Works with your agent](#works-with-your-agent)). Not needed for the demo
+   in step 1 of the Quick Start.
+
 ## Install
 
 ```bash
 npm install -g cool-workflow
+cw version
 ```
+
+`cw version` prints the version number when the install worked.
+
+<details>
+<summary>Install trouble?</summary>
+
+| What you see | What to do |
+|---|---|
+| `EACCES: permission denied` | Do not use `sudo`. Put Node in your home folder with [nvm](https://github.com/nvm-sh/nvm), then run the install again. |
+| `cw: command not found` | Close the terminal and open a new one. If it is still not found, `npm prefix -g` gives the folder; its `bin` folder needs to be on your `PATH`. |
+| `Unsupported engine` or a Node error | Your Node is older than v22.13: update it (`node -v` to check). |
+</details>
 
 <details>
 <summary>Or install with <b>Homebrew</b></summary>
@@ -44,19 +71,25 @@ Upgrade later with `brew update && brew upgrade cool-workflow`.
 
 ## Works with your agent
 
-| Agent | Flag | Status |
-|---|---|---|
-| Claude Code | `-claude` | ✅ works |
-| Codex CLI | `-codex` | ✅ works |
-| Muse Code | `-muse` | ✅ works |
-| OpenCode | `-opencode` | ✅ works |
-| Gemini | `-gemini` | ✅ through opencode |
-| DeepSeek | `-deepseek` | ✅ through opencode or an HTTP endpoint |
-| Cursor | — | ⬜ not yet |
-| GitHub Copilot CLI | — | ⬜ not yet |
-| Aider | — | ⬜ not yet |
-| Qwen Code | — | ⬜ not yet |
-| Kimi | — | ⬜ not yet |
+| Agent | Flag | Status | Get it |
+|---|---|---|---|
+| Claude Code | `-claude` | ✅ works | [install](https://code.claude.com/docs/en/setup) |
+| Codex CLI | `-codex` | ✅ works | [install](https://github.com/openai/codex) |
+| Muse Code | `-muse` | ✅ works | — |
+| OpenCode | `-opencode` | ✅ works | [install](https://opencode.ai/) |
+| Gemini | `-gemini` | ✅ through opencode | [install OpenCode](https://opencode.ai/) |
+| DeepSeek | `-deepseek` | ✅ through opencode or an HTTP endpoint | [install OpenCode](https://opencode.ai/) |
+| GitHub Copilot CLI | — | ⬜ not yet | |
+| Antigravity | — | ⬜ not yet | |
+| Grok | — | ⬜ not yet | |
+| Cursor | — | ⬜ not yet | |
+| Aider | — | ⬜ not yet | |
+| Qwen Code | — | ⬜ not yet | |
+| Kimi | — | ⬜ not yet | |
+
+Log in to your agent once on its own (run it, for one `claude`, and follow
+its steps) before you use it with CW: CW uses your agent as it is set up,
+and never asks for your keys.
 
 Not sure what you have? `cw doctor` checks your setup and `cw fix` prints the commands that put it right.
 
@@ -102,6 +135,17 @@ cw check -- npm test
 CW runs your command (never a model) and saves what happened: the commit, the exit code, a digest of the output. A result that cites `receipt:rc-…` is checked again before it counts: a failed run, a missing receipt, or code that changed since the run is turned down, with the one command to fix it. `cw check list` shows your receipts.
 
 These steps are the core path. Everything else is kept working, not grown.
+
+## Words you will see
+
+| Word | What it means |
+|---|---|
+| **agent** | The AI coding tool on your machine (Claude Code, Codex, …) that does the reading and thinking. CW gives it small tasks. |
+| **run** | One question, from start to report. Each run has an id, and its files are kept in `.cw/runs/<id>/` in your project. |
+| **report** | The answer, with the evidence for each claim (`file.ts:42`). Kept as `report.md`, and opened in your browser. |
+| **evidence** | A pointer to a real line of code. A claim without it is not let through. |
+| **receipt** | A record, from `cw check`, that a command (for one, your tests) truly ran and how it ended. |
+| **resume** | Going on with a run that stopped: `cw --resume --run <id>`. |
 
 ## Can You Trust the Report?
 
