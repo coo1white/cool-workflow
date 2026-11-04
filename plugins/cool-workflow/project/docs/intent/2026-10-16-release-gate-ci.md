@@ -785,8 +785,15 @@ Pins this changes:
 - `v2/conformance/cases/exec-doctor-agent-config.case.mjs`: the refusal for
   an unknown `builtin:<name>` lists the templates file in order, so its
   `available:` list now ends `muse, copilot, antigravity, grok`. The question
-  above did not name this line; it follows from the three new templates.
-  Put it to the owner by name before the 0.4.1 cut.
+  above did not name this line, so the owner was asked about it by name
+  the same day. The question, word for word:
+
+  > 接入 Copilot、Antigravity、Grok 会多改一行输出，上次问你时漏掉了。用户写错 agent 名字时（比如 CW_AGENT_COMMAND=builtin:doesnotexist），报错信息末尾的可用列表会变：
+  > 从「cw: Unknown builtin agent template "doesnotexist" — available: claude, codex, gemini, gemini-cli, opencode, deepseek, muse」
+  > 变成「cw: Unknown builtin agent template "doesnotexist" — available: claude, codex, gemini, gemini-cli, opencode, deepseek, muse, copilot, antigravity, grok」
+  > 同意这一行吗？
+
+  The answer, word for word: "同意 (推荐)" ("agreed").
 
 The new text is said in `agent-delegation-drive.7.md` ("Beta vendors:
 copilot, antigravity, grok"). The version raise is the 0.4.1 one above.
