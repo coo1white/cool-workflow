@@ -630,8 +630,11 @@ beta `-copilot` / `-antigravity` / `-grok`.
 
 GitHub Copilot CLI (`copilot`), Google Antigravity CLI (`agy`) and xAI Grok
 Build CLI (`grok`) are beta builtins: each has a wrapper and an offline smoke
-(`test/agent-copilot-antigravity-grok-smoke.mjs`), but no real login has yet
-passed `cw doctor --conformance`. They stay beta until one does.
+(`test/agent-copilot-antigravity-grok-smoke.mjs`). They stay beta until a
+real login passes `cw doctor --conformance` with no warning. Grok has come
+closest: on 2026-11-04 a real login (grok 1.0.70) ran the conformance task
+in 17.5 s, exit 0, `result.md` read, with one warning, no model reported;
+the JSON reading below is the change that answers that warning.
 
 - They are used only when you ask for them: `-copilot`, `-antigravity`,
   `-grok`, or `CW_AGENT_COMMAND=builtin:copilot` (`antigravity`, `grok`).
@@ -640,13 +643,19 @@ passed `cw doctor --conformance`. They stay beta until one does.
 - Each wrapper runs the CLI with only the flags its maker's own docs name:
   `copilot -p <prompt> --allow-all-tools` (plus `--model <m>` when
   `CW_COPILOT_MODEL` is set), `agy -p <prompt>`, and `grok -p <prompt>
-  --no-auto-update` (plus `-m <m>` when `CW_GROK_MODEL` is set). With no model
-  set, the CLI's own default model is used and the report names no model.
+  --output-format json --no-auto-update` (plus `-m <m>` when `CW_GROK_MODEL`
+  is set). With no model set, the CLI's own default model is used; copilot
+  and antigravity then report no model.
   `--allow-all-tools` is there because stdin is closed: an approval prompt
   would wait for ever.
-- The answer is the CLI's whole plain stdout: it goes to `result.md` and the
-  one stdout report. A non-zero exit, or an empty answer, is a failed hop with
-  no `result.md`, and the CLI's stderr goes to `agent-stderr.log`.
+- For copilot and antigravity the answer is the CLI's whole plain stdout: it
+  goes to `result.md` and the one stdout report. Grok prints one JSON record
+  (`text`, `usage`, `modelUsage`, ...): the answer is `text`, the model is the
+  key of `modelUsage` (the one that ran; more than one are joined with `,`),
+  else `CW_GROK_MODEL`, and `usage` is passed on as grok gave it. Stdout that
+  is not that record is a failed hop. A non-zero exit, or an empty answer, is
+  a failed hop with no `result.md`, and the CLI's stderr goes to
+  `agent-stderr.log`.
 - `cw doctor` runs `copilot --version`, `agy --version` or `grok --version`.
 - `cw help` lists them under Flags, below `-muse` (new in 0.4.1, with the
   owner's named yes of 2026-11-04 in

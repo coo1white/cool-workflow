@@ -26,7 +26,7 @@ const FENCE = "```";
 const VENDORS = [
   { name: "copilot", cli: "copilot", wrapper: "copilot-agent.js", modelEnv: "CW_COPILOT_MODEL", base: ["--allow-all-tools"], modelArgs: (m) => ["--model", m] },
   { name: "antigravity", cli: "agy", wrapper: "antigravity-agent.js", modelEnv: null, base: [], modelArgs: null },
-  { name: "grok", cli: "grok", wrapper: "grok-agent.js", modelEnv: "CW_GROK_MODEL", base: ["--no-auto-update"], modelArgs: (m) => ["-m", m] },
+  { name: "grok", cli: "grok", wrapper: "grok-agent.js", modelEnv: "CW_GROK_MODEL", base: ["--output-format", "json", "--no-auto-update"], modelArgs: (m) => ["-m", m] },
 ];
 
 // A stand-in vendor CLI: records its argv, answers `--version`, and prints a
@@ -41,8 +41,15 @@ if (args[0] === "--version") { fs.writeFileSync(path.join(__dirname, "version-ra
 fs.writeFileSync(path.join(__dirname, "invocation.json"), JSON.stringify({ args, cwd: process.cwd() }));
 const behavior = ${JSON.stringify(behavior)};
 if (behavior === "crash") { process.stderr.write("${cliName} shim: not logged in\\n"); process.exit(3); }
-if (behavior === "empty") process.exit(0);
 const body = "# Answer\\n\\n${FENCE}cw:result\\n" + JSON.stringify({ summary: "${cliName} shim answer", findings: [], evidence: [process.cwd() + "/README.md:1"] }) + "\\n${FENCE}\\n";
+// --output-format json: the record grok 1.0.70 prints on a real login (2026-11-04).
+if (args.includes("--output-format") && behavior !== "plain") {
+  const m = args.indexOf("-m");
+  const model = m >= 0 ? args[m + 1] : "grok-shim-build";
+  process.stdout.write(JSON.stringify({ text: behavior === "empty" ? "" : body, stopReason: "end_turn", usage: { input_tokens: 120, output_tokens: 34, cache_read_input_tokens: 7 }, modelUsage: { [model]: { inputTokens: 120, outputTokens: 34, modelCalls: 1 } } }, null, 2) + "\\n");
+  process.exit(0);
+}
+if (behavior === "empty") process.exit(0);
 process.stdout.write(body);
 `;
   fs.writeFileSync(path.join(dir, cliName), source, { mode: 0o755 });
@@ -92,9 +99,17 @@ for (const vendor of VENDORS) {
   assert.equal(r.stderr, "", `${vendor.name}: a piped success is silent on stderr`);
   const report = JSON.parse(r.stdout);
   assert.equal(report.result, answer, `${vendor.name}: the stdout report carries the result`);
-  assert.equal(report.model, undefined, `${vendor.name}: no model is made up when none was asked for`);
   const parsed = parseAgentReport(r.stdout);
-  assert.ok(parsed.model === undefined && parsed.usage === undefined, `${vendor.name}: parseAgentReport reads it like any vendor (no model, no usage)`);
+  if (vendor.name === "grok") {
+    // grok's JSON record names the model that ran and its usage (seen on a real login, 2026-11-04).
+    assert.equal(report.model, "grok-shim-build", "grok: the model is the key of modelUsage");
+    assert.equal(parsed.model, "grok-shim-build", "grok: parseAgentReport reads the model");
+    assert.equal(parsed.usage && parsed.usage.input_tokens, 120, "grok: usage is passed on as grok gave it");
+    assert.equal(parsed.usage && parsed.usage.output_tokens, 34, "grok: output tokens are passed on");
+  } else {
+    assert.equal(report.model, undefined, `${vendor.name}: no model is made up when none was asked for`);
+    assert.ok(parsed.model === undefined && parsed.usage === undefined, `${vendor.name}: parseAgentReport reads it like any vendor (no model, no usage)`);
+  }
 
   if (vendor.modelEnv) {
     const dirM = shimDir(vendor.cli);
@@ -113,6 +128,12 @@ for (const vendor of VENDORS) {
   const empty = runWrapper(vendor, shimDir(vendor.cli, "empty"), inputPath, resultPath);
   assert.notEqual(empty.status, 0, `${vendor.name}: an empty answer fails closed`);
   assert.ok(!fs.existsSync(resultPath), `${vendor.name}: no result.md on an empty answer`);
+  if (vendor.name === "grok") {
+    const plainOut = runWrapper(vendor, shimDir(vendor.cli, "plain"), inputPath, resultPath);
+    assert.notEqual(plainOut.status, 0, "grok: stdout that is not the JSON record fails closed");
+    assert.ok(!fs.existsSync(resultPath), "grok: no result.md when the record is missing");
+    assert.match(fs.readFileSync(path.join(work, "logs", "agent-stderr.log"), "utf8"), /no JSON record/, "grok: the reason is kept in agent-stderr.log");
+  }
   console.log(`${vendor.name}: argv, result, report, fail closed OK`);
 }
 

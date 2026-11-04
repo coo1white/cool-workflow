@@ -562,7 +562,7 @@ function spawnVendor(label, command, args, options, resultPath, cleanup) {
 // End of a plain-text vendor run (copilot, antigravity, grok: `<cli> -p`, the
 // answer is the whole stdout). Fails closed: a non-zero exit, or an empty
 // answer, writes no result.md and no report and exits non-zero.
-function finishPlainTextRun({ label, code, stdoutText, childStderr, resultPath, model }) {
+function finishPlainTextRun({ label, code, stdoutText, childStderr, resultPath, model, usage }) {
   const resultText = String(stdoutText || "");
   if (code !== 0) {
     const detail = buildFailureDetail({ label, code, childStderr: String(childStderr || "").trim(), partialText: resultText });
@@ -583,7 +583,7 @@ function finishPlainTextRun({ label, code, stdoutText, childStderr, resultPath, 
     process.stderr.write(`${label} produced no final result: ${error.message}\n`);
     process.exit(1);
   }
-  emitReport(model, undefined, resultText);
+  emitReport(model, usage, resultText);
 }
 
 export {
