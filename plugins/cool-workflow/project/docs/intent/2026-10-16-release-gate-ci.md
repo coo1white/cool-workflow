@@ -934,3 +934,56 @@ with native Windows support and needs its own named yes. Found on the way:
 `validateResultEnvelope` (`src/shell/verifier.ts`) is never called when a
 result is accepted, and wiring it in would refuse results accepted today,
 so it waits for the operator's own decision.
+
+## npm provenance from the tag (2026-11-08)
+
+npmjs.com shows a warning on 0.4.2: "Unable to fetch the source commit
+for this package".
+
+### Measured facts
+
+- The provenance of every release names `main`'s head at publish time,
+  not the tag commit that was built (from
+  `registry.npmjs.org/-/npm/v1/attestations/cool-workflow@<v>`, the
+  `resolvedDependencies` digest, against `git rev-parse v<v>^{commit}`):
+
+  | version | provenance names | tag commit |
+  |---|---|---|
+  | 0.3.3 | `a31cc0d6` (main) | `35bc46a7` |
+  | 0.4.0 | `e3ac6022` (main) | `3d576e4e` |
+  | 0.4.1 | `cb901d0d` (main) | `dd7f774d` |
+  | 0.4.2 | `25edbe10` (main) | `da0f1822` |
+
+- In each case the package's own `gitHead` is the tag commit, and the tag
+  commit is on no branch (`git branch -r --contains` is empty).
+- All four provenances record `event_name: workflow_run`. A `workflow_run`
+  run starts on the default branch, and npm takes `GITHUB_SHA` as the
+  source commit.
+
+### Paths weighed
+
+- Taken: run `npm-publish.yml` on the `v*` tag push itself. `GITHUB_SHA`
+  is then the tag commit. The workflow file then comes from the tag, so
+  the line a tag cannot cross moves outside the repo: a GitHub
+  environment `npm` (v* tags only, operator approval per run) and npm's
+  Trusted Publisher setting (this workflow, environment `npm`). The job
+  re-runs the release gate itself, since it no longer runs after
+  `release`. Cost: one approval click per release, and two settings the
+  operator makes once. Undo: revert the workflow; the settings can stay.
+- Turned down: keep `workflow_run` and leave the warning. No work, but
+  the provenance keeps naming a commit that was not built, which is the
+  wrong record for a tool whose point is an audit trail.
+- Turned down: move the publish into `release.yml` as a job after the
+  gate. Same provenance fix, but npm's Trusted Publisher filename
+  changes too, and the CI-shape rule ("three workflow files plus four
+  named ones") would change with it. More to undo.
+
+### Operator decision
+
+Asked 2026-11-08, the operator answered: "下个版本起修好 (推荐)" — fix
+it from the next release: publish from the tag, behind a protected GitHub
+environment that only v* tags can use and that the operator approves.
+0.4.2 and earlier stay as published.
+
+No CLI output, exit code or flag changes; nothing under `v2/conformance/`
+or the run fixtures moves.
