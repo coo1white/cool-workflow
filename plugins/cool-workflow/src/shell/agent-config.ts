@@ -119,14 +119,14 @@ function detectAgentFromPath(env: NodeJS.ProcessEnv = process.env): string | und
 const AGENTS_DIR = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
 
 type SandboxVendor = { hosts?: string[]; write?: string[] };
-function builtinManifest(): { templates?: Record<string, string>; beta?: { templates?: string[] }; versionProbe?: { clis?: Record<string, string> }; sandbox?: { vendors?: Record<string, SandboxVendor> } } {
+function builtinManifest(): { templates?: Record<string, string>; builtinOnly?: { templates?: string[] }; versionProbe?: { clis?: Record<string, string> }; sandbox?: { vendors?: Record<string, SandboxVendor> } } {
   return JSON.parse(fs.readFileSync(path.join(AGENTS_DIR, "builtin-templates.json"), "utf8"));
 }
 
-// A custom command is matched by binary name to a non-beta template only.
+// A custom command is matched by binary name to a template not on builtinOnly.
 function customMatch(manifest: ReturnType<typeof builtinManifest>): [string, string][] {
-  const beta = new Set(manifest.beta?.templates || []);
-  return Object.entries(manifest.versionProbe?.clis || {}).filter(([name]) => !beta.has(name));
+  const only = new Set(manifest.builtinOnly?.templates || []);
+  return Object.entries(manifest.versionProbe?.clis || {}).filter(([name]) => !only.has(name));
 }
 
 export type AgentProbeTarget = { cli: string } | { skip: string };

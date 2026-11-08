@@ -20,6 +20,7 @@ import * as term from "../dist/shell/term.js";
 import {
   createRenderer,
   SPARKLE,
+  sparkleFor,
   FRAME_MS,
   fmtLiveElapsed,
   truncate as coreTruncate,
@@ -281,7 +282,12 @@ function testCalmLiveView() {
   // 0.4.1 (operator's yes): the live view must not flicker. Glyphs grow and shrink, one frame
   // every 150 ms (was 90 ms), the live row counts whole seconds, and a redraw never wipes the
   // block before the new rows are written.
-  assert.deepEqual(SPARKLE, ["·", "✢", "✳", "✶", "✻", "✽", "✻", "✶", "✳", "✢"], "the glyphs grow and shrink, Claude-Code style");
+  assert.deepEqual(sparkleFor("darwin"), ["·", "✢", "✳", "✶", "✻", "✽", "✻", "✶", "✳", "✢"], "macOS: the glyphs grow and shrink, Claude-Code style");
+  // 0.4.2 (operator's yes): off macOS, ✳ (an emoji, drawn as a wide box by Windows Terminal) is *.
+  for (const p of ["linux", "win32"]) {
+    assert.deepEqual(sparkleFor(p), ["·", "✢", "*", "✶", "✻", "✽", "✻", "✶", "*", "✢"], `${p}: no emoji glyph`);
+  }
+  assert.deepEqual(SPARKLE, sparkleFor(process.platform), "the live cycle is the one for this platform");
   assert.equal(FRAME_MS, 150, "one frame every 150 ms");
   const s = fakeStream(true);
   s.columns = 80;

@@ -5,7 +5,7 @@ Generated from the current repository code by `npm run sync:project-index`.
 ## Snapshot
 
 - Package: `cool-workflow`
-- Version: `0.4.1`
+- Version: `0.4.2`
 - Workflow apps: `7`
 - Repository: https://github.com/coo1white/cool-workflow
 
@@ -254,6 +254,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [agent-delegation-drive-smoke.mjs](../test/agent-delegation-drive-smoke.mjs)
 - [agent-idle-timeout-smoke.mjs](../test/agent-idle-timeout-smoke.mjs)
 - [agent-muse-native-smoke.mjs](../test/agent-muse-native-smoke.mjs)
+- [agent-placeholders-smoke.mjs](../test/agent-placeholders-smoke.mjs)
 - [agent-sandbox-srt-real-smoke.mjs](../test/agent-sandbox-srt-real-smoke.mjs)
 - [agent-sandbox-srt-smoke.mjs](../test/agent-sandbox-srt-smoke.mjs)
 - [agent-stderr-reason-smoke.mjs](../test/agent-stderr-reason-smoke.mjs)

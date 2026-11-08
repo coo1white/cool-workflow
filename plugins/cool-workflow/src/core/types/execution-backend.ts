@@ -229,6 +229,9 @@ export interface WorkerManifestForExecution {
   inputPath?: string;
   resultPath?: string;
   prompt?: string;
+  /** 0.4.2: the task's phase ({{phase}}) and its earlier-phase result files ({{priorResults}}). */
+  phase?: string;
+  priorResults?: Array<{ taskId: string; phase: string; resultPath: string }>;
 }
 
 export interface ExecutionRequest {

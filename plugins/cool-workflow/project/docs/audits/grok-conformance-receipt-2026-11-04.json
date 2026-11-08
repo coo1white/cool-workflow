@@ -1,0 +1,22 @@
+{
+  "program": "Grok out of beta (agent-delegation-drive.7.md, \"Copilot, Antigravity (beta) and Grok\")",
+  "version": "0.4.1",
+  "date": "2026-11-04",
+  "machine": "Linux (WSL), Node v24.22.1, cool-workflow 0.4.1 from npm, the real grok CLI 1.0.70 (f50904eaee6c) [stable] with the operator's own login",
+  "command": "CW_AGENT_COMMAND=builtin:grok cw doctor --conformance",
+  "checks": [
+    {
+      "id": "agent-runs",
+      "pass": true,
+      "output": "✓ agent-runs: grok --version → grok 1.0.70 (f50904eaee6c) [stable]"
+    },
+    {
+      "id": "agent-conformance",
+      "pass": true,
+      "output": "✓ agent-conformance: cw-agent/1: ran in 30.0s, exit 0, result.md read, model grok-4.6-build."
+    }
+  ],
+  "summary": "✓ ready — all checks passed",
+  "warnings": 0,
+  "note": "The rule for leaving beta is a real login passing cw doctor --conformance with no warning. An earlier run the same day (cw 0.4.1 before the JSON reading) had one warning, no model reported."
+}
