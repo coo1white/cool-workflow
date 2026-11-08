@@ -518,10 +518,7 @@ function runRecordAndWaitStage() {
       }
       const gateRun = runs.find((r) => r.headBranch === `v${version}`);
       if (gateRun && gateRun.status === "completed") {
-        // Carry the gate's OWN completion time out of the poll — the npm-publish
-        // cutoff below must key off when the gate actually finished, not off the
-        // wall clock now (a resume can start long after the gate completed).
-        if (gateRun.conclusion === "success") return { done: true, value: { id: gateRun.databaseId, completedMs: Date.parse(gateRun.updatedAt) } };
+        if (gateRun.conclusion === "success") return { done: true, value: { id: gateRun.databaseId } };
         die(`release FAILED — inspect: gh run view ${gateRun.databaseId} --log-failed`);
       }
       return {};
@@ -529,24 +526,19 @@ function runRecordAndWaitStage() {
   });
   say(`release: SUCCESS (run ${gate.id})`);
 
-  // npm-publish is created only AFTER release completes (workflow_run
-  // trigger), so the run to wait for may not exist yet — and the newest
-  // completed npm-publish run at this moment is usually the PREVIOUS
-  // release's. Only accept a run created at-or-after the moment the gate
-  // FINISHED (small clock-skew allowance), and keep waiting until that run
-  // exists and completes. The cutoff is the gate run's own completion time,
-  // NOT Date.now(): on a resume minutes/days later, a now-based cutoff sits in
-  // the future relative to an already-completed npm-publish run and would drop
-  // it, hanging the wait for a publish that is already done. Fall back to now
-  // only if the gate run reported no parseable completion time.
+  // npm-publish runs on the tag push itself (its provenance must name the
+  // tag commit), beside release, so its run for THIS tag is the one whose
+  // headBranch is the tag name — no time cutoff, which is right on a resume
+  // too. It waits in the protected `npm` environment until the operator
+  // approves it on GitHub; say so once, with the run's address.
   say("waiting for npm-publish...");
-  const gateDoneMs = Number.isFinite(gate.completedMs) ? gate.completedMs : Date.now();
+  let askedApproval = false;
   poll({
     label: "npm-publish wait",
-    timeoutMs: 30 * 60 * 1000,
+    timeoutMs: 60 * 60 * 1000,
     intervalMs: 20000,
     probe: () => {
-      const list = gh(["run", "list", "--workflow", "npm-publish", "--limit", "5", "--json", "databaseId,status,conclusion,createdAt"]);
+      const list = gh(["run", "list", "--workflow", "npm-publish", "--limit", "10", "--json", "databaseId,headBranch,status,conclusion,createdAt,url"]);
       if (list.code !== 0) return { error: true };
       let runs;
       try {
@@ -555,8 +547,12 @@ function runRecordAndWaitStage() {
         return { error: true };
       }
       const fresh = runs
-        .filter((r) => Date.parse(r.createdAt) >= gateDoneMs - 120000)
+        .filter((r) => r.headBranch === `v${version}`)
         .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+      if (fresh && fresh.status === "waiting" && !askedApproval) {
+        askedApproval = true;
+        say(`npm-publish is waiting for your approval (environment "npm"): ${fresh.url || `gh run view ${fresh.databaseId} --web`}`);
+      }
       if (fresh && fresh.status === "completed") {
         if (fresh.conclusion === "success") return { done: true };
         die(`npm-publish FAILED (conclusion: ${fresh.conclusion}) — inspect: gh run view ${fresh.databaseId} --log-failed`);

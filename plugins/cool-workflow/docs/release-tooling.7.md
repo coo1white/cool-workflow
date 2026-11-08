@@ -242,17 +242,19 @@ A release is two steps. Both `npm run` commands below run with cwd
    pushes ONLY the tag
    (`refs/tags/vX.Y.Z` — the verdict commit is a one-hop leaf on the
    reviewed commit; no branch push, so branch protection never blocks
-   it), creates the GitHub Release, then waits for `release-gate` +
-   `npm-publish` and confirms `npm view`. A re-run after any failure
+   it), creates the GitHub Release, then waits for `release` and
+   `npm-publish` and confirms `npm view`. The `npm-publish` run waits in
+   the protected `npm` environment until the operator approves it on
+   GitHub; the script prints its address. A re-run after any failure
    RESUMES (an already-cut tag goes straight to the CI wait).
 
 After a release the operator publishes the wiki by hand (see "Wiki
 publish" below).
 
 Publishing is tag-driven, not merge-driven. Merging a release PR to `main`
-does NOT publish. `npm-publish.yml` fires on `release-gate` success, which
-fires on a `push` of a `v*` tag. No tag ⇒ nothing new in Actions and npm
-stays on the old version.
+does NOT publish. `release.yml` and `npm-publish.yml` both fire on a
+`push` of a `v*` tag. No tag ⇒ nothing new in Actions and npm stays on the
+old version.
 
 There is no hand-written changelog file (`RELEASE.md` and `CHANGELOG.md`
 were removed on 2026-08-04). `--generate-notes` (GitHub's auto-generated
@@ -856,6 +858,29 @@ workflow, and npm adds provenance for the package. The workflow does not use a
 long-lived `NPM_TOKEN`, so no publish token with two-factor bypass is kept in
 GitHub secrets.
 
+The provenance names the commit that started the run (`GITHUB_SHA`). Up to
+0.4.2, `npm-publish.yml` started by `workflow_run` after `release`, which
+runs on the default branch, so the provenance named `main`'s head at that
+moment, not the tag commit that was built, and npmjs.com showed "Unable to
+fetch the source commit for this package". From the next release it starts on the
+`v*` tag push itself, so the provenance names the tag commit.
+
+On a tag push the workflow file comes from the tag, so a tag could edit it.
+Two settings outside the repo hold the line instead, and both must be set
+before the first release on this trigger:
+
+- GitHub: Settings → Environments → `npm`. Deployment branches and tags:
+  only tags matching `v*`. Required reviewers: the operator. Each publish
+  then waits for the operator's approval.
+- npm: the package's Settings → Trusted Publisher. Workflow filename
+  `npm-publish.yml`, environment `npm`. npm then refuses a publish from a
+  run outside that environment.
+
+The job also refuses any ref that is not a `v*` tag, re-runs
+`scripts/release-gate.mjs`, checks the tag against the committed package
+version, and checks the signed verdict with the verifier taken from
+`origin/main` (below).
+
 ### Where CI takes the verdict verifier from
 
 Both `release.yml` (gate job) and `npm-publish.yml` check the tag's signed
@@ -873,11 +898,13 @@ with the tag checkout as its working directory (the repo being judged). If
 nothing is published (fail closed). The public key, as before, also comes
 from `origin/main`.
 
-On a tag push, `release.yml` itself comes from the tag, so there this is
-defense in depth. `npm-publish.yml` runs by `workflow_run`, which uses the
-default branch's copy of the workflow, so its check is one a tag cannot
-edit. This holds only while `main` stays protected (no force push, changes
-by PR only).
+On a tag push, `release.yml` and `npm-publish.yml` both come from the tag,
+so a tag could drop this step from its own copy. What the tag cannot change
+is the `npm` environment (v* tags only, operator approval per run) and
+npm's Trusted Publisher setting (this workflow in that environment only),
+described under "npm publishing trust" above. The verifier taken from
+`origin/main` holds only while `main` stays protected (no force push,
+changes by PR only).
 
 `release-oneclick.mjs` resume: when the `vX.Y.Z` tag is only local (the cut's
 tag push failed), the resume pushes it only after it checks that the tag

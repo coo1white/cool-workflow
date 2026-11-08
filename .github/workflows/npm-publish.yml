@@ -1,57 +1,51 @@
 name: npm-publish
 
-# Publish cool-workflow to npm when a release tag is pushed (or on manual
-# dispatch for an existing tag). A v* tag can only land after the gated release
-# flow (deterministic gate -> independent reviewer -> verdict -> the
-# block-unapproved-tag hook). This job does NOT trust the workflow_run
-# trigger's "release-gate succeeded" report by itself -- release-gate.yml runs
-# FROM THE PUSHED TAG'S OWN TREE, which for a tag push IS attacker-controlled
-# input; a tag that rewrote release-gate.yml to `exit 0` would make that report
-# say "success" with no real check ever run. So this job independently
-# re-verifies the committed, signed verdict itself, on EVERY trigger (both
-# workflow_run and workflow_dispatch), against .cw-release/verdict-signing.pub
-# as committed on origin/main (a ref the tag being judged cannot rewrite) --
-# see the "Verify the dispatched ref is a real, gated release tag" step below,
-# which despite its name now runs unconditionally and is the true source of
-# truth for this job, not release-gate.yml's reported conclusion. On top of
-# that, the tag must match the committed package version, so a stray tag can
-# never publish a mismatched artifact.
-# Publishes through npm Trusted Publishing with provenance — a
-# cryptographic attestation that this exact version was built from this public
-# repo in CI, on-brand for an auditable control-plane and impossible to forge
-# for a hand-published tarball. No long-lived npm publish token is needed.
+# Publish cool-workflow to npm from the pushed v* release tag itself.
+#
+# Why a tag push and not workflow_run: npm provenance names the commit that
+# STARTED the run (GITHUB_SHA). A workflow_run run starts on the default
+# branch, so 0.3.3-0.4.2 named main's head, not the tag commit that was built,
+# and npmjs.com shows "Unable to fetch the source commit". On a tag push,
+# GITHUB_SHA is the tag commit, so the provenance names what was built.
+#
+# Trust: on a tag push this file comes from the tag, so a tag could edit it.
+# What a tag cannot edit:
+#   1. the `npm` environment (repo Settings -> Environments): only v* tags may
+#      deploy to it, and the operator must approve each run;
+#   2. npm's Trusted Publisher setting for this package, which accepts only
+#      this workflow file running in the `npm` environment. A run without
+#      `environment: npm` gets no publish right from npm at all.
+# On top of that, every run re-checks the signed verdict with the verifier
+# taken from origin/main (a ref the tag cannot rewrite), re-runs the
+# deterministic release gate, and requires the tag to match the committed
+# package version. Publishes through npm Trusted Publishing with provenance;
+# no long-lived npm publish token is used.
 
 on:
-  workflow_run:
-    workflows: ["release"]
-    types: [completed]
+  push:
+    tags:
+      - "v*"
+  # Re-publish an existing tag by hand: choose the TAG (not a branch) under
+  # "Use workflow from". A branch is refused by the job-level `if:` below.
   workflow_dispatch:
-    inputs:
-      ref:
-        description: "Release tag to publish (e.g. v0.1.79)"
-        required: true
 
 permissions:
   contents: read
   id-token: write # required for npm Trusted Publishing / provenance
 
-# Queue, never cancel: keyed on the same ref/sha expression used below to
-# resolve the checkout (workflow_run has no github.ref for this trigger). A
-# duplicate trigger for the same tag must queue behind an in-flight publish,
-# never cancel it mid-`npm publish`.
+# Queue, never cancel: a duplicate trigger for the same tag must queue behind
+# an in-flight publish, never cancel it mid-`npm publish`.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.inputs.ref || github.event.workflow_run.head_sha }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
   publish:
-    # Gate as a job-level condition (NOT a pre-checkout run-step): on workflow_run
-    # only proceed if release-gate succeeded; workflow_dispatch is always allowed.
-    # A run-step here would execute under the job's working-directory before
-    # actions/checkout has created it, so the shell could not even start.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+    # Only a v* tag ref may publish, on both triggers.
+    if: startsWith(github.ref, 'refs/tags/v')
+    # Protected environment: v* tags only, operator approval per run, and the
+    # name npm's Trusted Publisher setting requires.
+    environment: npm
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
@@ -63,10 +57,8 @@ jobs:
       # re-tagging @v5 to a malicious commit must not silently flow in here.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Check out the exact commit the gate ran on (a tag commit); on dispatch,
-          # the operator-supplied tag. fetch-depth 0 + tags so we can resolve the
-          # tag name from the commit below.
-          ref: ${{ github.event.inputs.ref || github.event.workflow_run.head_sha }}
+          # The tag commit itself (GITHUB_SHA on a tag push or a dispatch on
+          # the tag). fetch-depth 0 + tags: the verdict check reads history.
           fetch-depth: 0
           fetch-tags: true
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -80,25 +72,17 @@ jobs:
         # OIDC token, so npm itself is code we do not want to float on a
         # compromised upstream release.
         run: npm install -g npm@11.5.1
-      - name: Resolve the release tag from the commit
+      - name: Resolve the release tag from the ref
         id: tagref
-        # INPUT_REF/HEAD_SHA go through env:, not raw ${{ }} text substitution —
-        # INPUT_REF is an operator-supplied dispatch string and could carry
-        # shell metacharacters ($, `, ;, etc); env: + "$VAR" lets the shell
-        # quote it safely instead of splicing it into the script text.
+        # GITHUB_REF / GITHUB_REF_NAME go through the environment and "$VAR",
+        # never raw ${{ }} text: a tag name may carry shell metacharacters.
         run: |
-          if [ -n "$INPUT_REF" ]; then
-            REF="$INPUT_REF"
-          else
-            # workflow_run: head_branch is the triggering branch (e.g. 'main'), NOT
-            # the tag — derive the tag from the commit the gate actually ran on.
-            REF="$(git describe --tags --exact-match "$HEAD_SHA")"
-          fi
+          case "$GITHUB_REF" in
+            refs/tags/v*) REF="$GITHUB_REF_NAME" ;;
+            *) echo "::error::$GITHUB_REF is not a v* release tag — refusing to publish"; exit 1 ;;
+          esac
           echo "ref=$REF" >> "$GITHUB_OUTPUT"
           echo "resolved release tag: $REF"
-        env:
-          INPUT_REF: ${{ github.event.inputs.ref }}
-          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
       - name: Verify the tag matches the committed package version
         run: |
           PKG="$(node -p "require('./package.json').version")"
@@ -133,17 +117,12 @@ jobs:
           done
           echo "release verifier taken from origin/main $(git rev-parse origin/main)"
       - name: Verify the dispatched ref is a real, gated release tag
-        # This step now runs on EVERY invocation of this job (both the normal
-        # workflow_run path after a tag push, and workflow_dispatch), not just
-        # on dispatch. It is the actual source of truth for "was this release
-        # really gated and reviewed" -- release-gate.yml's reported conclusion
-        # (checked in the job-level `if:` above) is NOT enough by itself,
-        # because release-gate.yml runs from the pushed tag's OWN tree, which
-        # for a tag push is attacker-controlled input; a tag that rewrote that
-        # workflow file to `exit 0` would still report "success" with no real
-        # check ever having run. So this step independently re-derives the tag
-        # ($TAG_REF, already resolved correctly for BOTH trigger types by the
-        # earlier "Resolve the release tag from the commit" step), requires
+        # This step runs on EVERY invocation of this job (tag push and
+        # dispatch on a tag). It is the source of truth for "was this release
+        # really gated and reviewed": release.yml's gate runs from the pushed
+        # tag's OWN tree, and so does this file, so neither one's own logic is
+        # trusted alone. This step takes the tag ($TAG_REF, from the earlier
+        # "Resolve the release tag from the ref" step), requires
         # refs/tags/$TAG_REF to exist as a real tag object, requires the
         # checked-out commit to be exactly that tag's commit (blocks a
         # same-named branch standing in for the tag), and re-runs the full
@@ -188,6 +167,13 @@ jobs:
             exit 1
           fi
           echo "dist/ is fresh — proceeding to publish"
+      - name: Run deterministic release gate
+        # The same gate release.yml runs on this tag. It used to be trusted
+        # here through workflow_run's "release succeeded"; with a tag-push
+        # trigger the two run side by side, so this job runs it itself.
+        # (Its install is the frozen-lockfile one in the step above.)
+        working-directory: ${{ github.workspace }}
+        run: node plugins/cool-workflow/scripts/release-gate.mjs
       - name: Skip if this version is already published (idempotent re-run)
         id: published
         run: |

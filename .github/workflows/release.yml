@@ -6,8 +6,8 @@ name: release
 #
 # The gate job re-checks the release; the release job (needs: gate) makes
 # the GitHub Release. Folded from release-gate.yml + github-release.yml
-# (project/docs/sdlc/unify-ci-cd/plan.md packet C1) so npm-publish.yml's
-# workflow_run chain has one release run to trust, not two.
+# (project/docs/sdlc/unify-ci-cd/plan.md packet C1). npm-publish.yml runs on
+# the same tag push beside this one and re-runs the gate itself.
 on:
   push:
     tags:
@@ -16,8 +16,7 @@ on:
 permissions:
   contents: read
 
-# Queue, never cancel: this gate's result is what npm-publish.yml trusts to
-# decide whether to publish. Cancelling a run mid-check for a later trigger
+# Queue, never cancel: cancelling a gate run mid-check for a later trigger
 # must never happen — queue behind it instead.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -67,8 +66,9 @@ jobs:
         # This step sits AFTER the gate (tag code) on purpose: copied any
         # earlier, release-gate.mjs could rewrite the copies before they run.
         # (On a tag push this whole file comes from the tag too, so here it is
-        # defense in depth; npm-publish.yml, run by workflow_run from the
-        # default branch's own copy, is the check a tag cannot edit.)
+        # defense in depth; what a tag cannot edit is the protected `npm`
+        # environment and npm's Trusted Publisher setting -- see
+        # npm-publish.yml's header.)
         run: |
           git fetch --no-tags --quiet origin +refs/heads/main:refs/remotes/origin/main
           VDIR="$RUNNER_TEMP/cw-release-verifier"

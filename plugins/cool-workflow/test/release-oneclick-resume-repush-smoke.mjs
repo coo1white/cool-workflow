@@ -90,12 +90,12 @@ process.exit(0);
 
 // A stub `gh`. GH_STUB_SCENARIO picks the release reply:
 //   gate-fail  -> the gate run is completed+failure (fast die at the gate wait)
-//   npm-cutoff -> the gate run is completed+success with a PAST completion time,
-//                 and the npm-publish run is completed+failure created just
-//                 after that (also in the past). Under the fix the cutoff is the
-//                 gate's own past completion, so the npm run is in-window and the
-//                 wait dies with "npm-publish FAILED"; under the bug the cutoff
-//                 is resume-time now, so the npm run is dropped and the wait hangs.
+//   npm-cutoff -> the gate run is completed+success, and npm-publish lists two
+//                 runs: THIS tag's (completed+failure, older) and another tag's
+//                 (completed+success, newer). The wait must pick the run whose
+//                 headBranch is this tag and die with "npm-publish FAILED"; a
+//                 wait that takes the newest run by time alone reports the
+//                 other tag's success instead.
 function writeGhStub(dir) {
   const stub = path.join(dir, "gh-stub.js");
   fs.writeFileSync(stub, `#!/usr/bin/env node
@@ -110,7 +110,10 @@ if (a[0] === "run" && a[1] === "list" && wf === "release") {
   process.exit(0);
 }
 if (a[0] === "run" && a[1] === "list" && wf === "npm-publish") {
-  process.stdout.write(JSON.stringify([{ databaseId: 222, status: "completed", conclusion: "failure", createdAt: "2020-01-01T00:00:30Z" }]) + "\\n");
+  process.stdout.write(JSON.stringify([
+    { databaseId: 333, headBranch: "v0.0.0-other", status: "completed", conclusion: "success", createdAt: "2020-01-01T00:05:00Z" },
+    { databaseId: 222, headBranch: "v${VERSION}", status: "completed", conclusion: "failure", createdAt: "2020-01-01T00:00:30Z" }
+  ]) + "\\n");
   process.exit(0);
 }
 process.exit(0);
@@ -212,22 +215,21 @@ for (const [label, trees, why] of [
   assert.match(r.rec, /(^|\n)show origin\/main:\.cw-release\/verdict-signing\.pub(\n|$)/, "the public key must come from origin/main");
 }
 
-// ---- Finding #14: npm-publish cutoff comes from the gate's completion time ---
-// The gate completed in the PAST (updatedAt 2020) and the npm-publish run was
-// created just after it (also 2020). Under the fix the cutoff is that past gate
-// completion, so the already-done npm run is in-window and the wait resolves
-// (here: to a failure, which dies loudly). Under the bug the cutoff is resume-
-// time now, the 2020 run is dropped, and the wait spins on its 20s interval —
-// so the 8s spawn timeout kills it WITHOUT ever printing "npm-publish FAILED".
+// ---- The npm-publish wait takes THIS tag's run, by headBranch ---------------
+// npm-publish runs on the tag push (its provenance names the tag commit), so
+// its run for this release is the one whose headBranch is the tag. Here the
+// newest npm-publish run is another tag's success; this tag's run (older, also
+// in the past, so a resume sees it) failed. The wait must die loudly on it.
+// (Finding #14's resume case holds too: no time cutoff can drop a past run.)
 {
   const dir = tmp();
   const r = run(dir, { GH_STUB_SCENARIO: "npm-cutoff", GIT_STUB_REMOTE_HAS_TAG: "1" }, 8000);
   assert.match(r.out, /release: SUCCESS/, "the gate wait must resolve to success first");
   assert.match(r.err, /npm-publish FAILED/,
-    "the npm-publish wait must SEE the already-completed run (cutoff from the gate's own completion, not resume-time now)");
+    "the npm-publish wait must take THIS tag's run (by headBranch), not the newest run of another tag");
 }
 
-process.stdout.write("release-oneclick-resume-repush-smoke: ok (local-only tag re-pushed on resume only with a signed APPROVED verdict; on-origin tag left alone; npm-publish cutoff from the gate's completion time)\n");
+process.stdout.write("release-oneclick-resume-repush-smoke: ok (local-only tag re-pushed on resume only with a signed APPROVED verdict; on-origin tag left alone; npm-publish wait keyed on this tag's run)\n");
 
 // ---- The record step goes back to the branch it was run from ---------------
 // After the stage-3 record PR the checkout was left on release/v<ver>-record,
