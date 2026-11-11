@@ -16,7 +16,7 @@ import { runPipelineStage } from "../core/pipeline/runner.js";
 import { appendRunNode, writeRunNode } from "./node-store.js";
 import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/state-node.js";
 import { normalizeEvidence, recordTrustAuditEvent } from "./trust-audit.js";
-import { unresolvedFileEvidence as pureUnresolvedFileEvidence, requireResolvableEvidence } from "../core/trust/evidence-grounding.js";
+import { lineCitedPastEnd, unresolvedFileEvidence as pureUnresolvedFileEvidence, requireResolvableEvidence } from "../core/trust/evidence-grounding.js";
 import { recordFeedback } from "./error-feedback-io.js";
 export class CommitGateError extends Error {
     structured;
@@ -112,6 +112,9 @@ function backingResultFor(run, verifierNodeId) {
  *  so the two can not disagree on the same locator. */
 export function unresolvedRunFileEvidence(run, evidence) {
     return pureUnresolvedFileEvidence(evidence, Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir])), { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) });
+}
+export function runLineCitedPastEnd(run, evidence) {
+    return lineCitedPastEnd(evidence, Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir])), { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) }, (p) => (fs.statSync(p).isFile() ? fs.readFileSync(p, "utf8") : undefined));
 }
 /** commitState(run, input) — resolves the gate, writes the failure node +
  *  throws on any error; on success writes the snapshot + commit node and

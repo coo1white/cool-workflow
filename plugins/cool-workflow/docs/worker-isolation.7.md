@@ -156,6 +156,22 @@ failure that can be retried, `verdict-evidence-unresolvable`: the reason is put 
 the top of `input.md` and the result is not taken in. Under `--drive` the hop is
 tried again, then parked (see agent-delegation-drive(7)).
 
+Two more checks are made when any result is accepted (from 2026-11-11, intent
+`2026-11-11-user-facing-fixes.md` batch C). Each turns the result down as a
+worker failure that can be retried, the reason at the top of `input.md`:
+
+- `result-contract-violation`: a P0, P1 or P2 finding has no grounded evidence
+  of its own (a path-like locator, URL, or `namespace:value` token). The reason
+  reads `Task <id> finding <fid> severity <P1> requires grounded evidence (a
+  path-like locator, URL, or namespace:value token)`. A result with no
+  findings, or with P3 findings only, is not touched by this check.
+- `verdict-evidence-past-end`: under the same rule as
+  `verdict-evidence-unresolvable` above, a `path:line` or `path:a-b` locator in
+  the result's evidence or in a finding's evidence names a line past the end of
+  a file that is on disk. The reason reads `Task <id> cites a line past the end
+  of its file: <path>:<line> (<path> has <n> lines)`. A final newline does not
+  count as a line.
+
 Verifier failures stay verifier failures. Worker Isolation keeps the worker
 directory and records feedback so the operator can look at or fix the result.
 

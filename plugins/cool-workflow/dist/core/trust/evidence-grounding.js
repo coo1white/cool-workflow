@@ -104,6 +104,26 @@ export function unresolvedFileEvidence(evidence, baseDirs, ops, env = process.en
         return [];
     return evidence.map((entry) => String(entry)).filter((entry) => resolveEvidenceLocator(entry, baseDirs, ops.exists, ops.isAbsolute, ops.resolve) === "unresolved");
 }
+export function lineCitedPastEnd(evidence, baseDirs, ops, readFile) {
+    if (!Array.isArray(evidence))
+        return null;
+    for (const entry of evidence) {
+        const raw = String(entry ?? "").trim();
+        const shape = classify(raw);
+        const lineMatch = raw.match(/:(\d+)(?:-(\d+))?$/);
+        if (shape.kind !== "file" || !shape.pathPart || !lineMatch)
+            continue;
+        const line = Math.max(Number(lineMatch[1]), lineMatch[2] ? Number(lineMatch[2]) : 0);
+        const candidate = ops.isAbsolute(shape.pathPart) ? shape.pathPart : baseDirs.filter(Boolean).map((base) => ops.resolve(base, shape.pathPart)).find((p) => ops.exists(p));
+        const content = candidate && ops.exists(candidate) ? readFile(candidate) : undefined;
+        if (content === undefined)
+            continue;
+        const lines = content === "" ? 0 : content.split("\n").length - (content.endsWith("\n") ? 1 : 0);
+        if (line > lines)
+            return { path: shape.pathPart, line, lines };
+    }
+    return null;
+}
 /** Compute the confidence tier for a single evidence string. */
 export function computeEvidenceConfidence(raw, baseDirs, ops, env = process.env) {
     if (!isGroundedEvidence(raw))

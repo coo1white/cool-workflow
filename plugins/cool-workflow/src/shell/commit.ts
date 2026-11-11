@@ -21,7 +21,7 @@ import { appendRunNode, writeRunNode } from "./node-store.js";
 import { createStateNode, linkStateNodes, recordNodeError } from "../core/state/state-node.js";
 import { ResultEnvelope } from "../core/pipeline/result-normalize.js";
 import { normalizeEvidence, recordTrustAuditEvent } from "./trust-audit.js";
-import { unresolvedFileEvidence as pureUnresolvedFileEvidence, requireResolvableEvidence } from "../core/trust/evidence-grounding.js";
+import { lineCitedPastEnd, LinePastEnd, unresolvedFileEvidence as pureUnresolvedFileEvidence, requireResolvableEvidence } from "../core/trust/evidence-grounding.js";
 import { recordFeedback } from "./error-feedback-io.js";
 
 export class CommitGateError extends Error {
@@ -121,6 +121,15 @@ export function unresolvedRunFileEvidence(run: WorkflowRun, evidence: string[]):
     evidence,
     Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir])),
     { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) }
+  );
+}
+
+export function runLineCitedPastEnd(run: WorkflowRun, evidence: string[]): LinePastEnd | null {
+  return lineCitedPastEnd(
+    evidence,
+    Array.from(new Set([run.cwd, process.cwd(), run.paths.runDir])),
+    { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) },
+    (p) => (fs.statSync(p).isFile() ? fs.readFileSync(p, "utf8") : undefined)
   );
 }
 

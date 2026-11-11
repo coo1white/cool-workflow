@@ -453,6 +453,7 @@ Smoke tests mirror the public contracts. The high-signal suites are:
 - [report-open-smoke.mjs](../test/report-open-smoke.mjs)
 - [report-pubkey-pin-smoke.mjs](../test/report-pubkey-pin-smoke.mjs)
 - [report-verify-bundle-smoke.mjs](../test/report-verify-bundle-smoke.mjs)
+- [result-intake-contract-smoke.mjs](../test/result-intake-contract-smoke.mjs)
 - [result-normalize-smoke.mjs](../test/result-normalize-smoke.mjs)
 - [resume-anchor-mismatch-smoke.mjs](../test/resume-anchor-mismatch-smoke.mjs)
 - [resume-named-repo-strict-smoke.mjs](../test/resume-named-repo-strict-smoke.mjs)

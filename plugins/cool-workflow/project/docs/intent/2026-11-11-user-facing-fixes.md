@@ -344,6 +344,69 @@ the 0.4.3 cut) and answered, word for word (2026-11-11): "B1 + B2 + B3
 - Turned down: run the model review in PR CI. CW does not run models,
   and CI holds no reviewer key.
 
+## Spec: batch C, the downstream asks
+
+### Measured facts (2026-11-11)
+
+| Fact | Command | Number |
+|---|---|---|
+| `validateResultEnvelope` (`src/shell/verifier.ts`) is called by nothing | `git grep -n validateResultEnvelope -- src` | 1 line, its own definition |
+| Apps that give a task an output `schema` | `git grep -n '"schema"' -- apps` | 0 of 8 |
+| The accept path checks the result's evidence, not each finding's | `src/shell/worker-isolation.ts`, `recordWorkerOutput` | a P1 finding with only free text as evidence is taken in |
+| The verdict accept check asks only that a cited file is on disk | `resolveEvidenceLocator` in `src/core/trust/evidence-grounding.ts` | `README.md:7` on a 1-line file is taken in |
+| Worker folder names keep `:` (`safeFileName` in `src/shell/fs-atomic.ts` keeps it) | `/[^a-zA-Z0-9_.:-]+/g` | every worker folder, such as `worker-golden:path-0001` |
+
+### Plan
+
+- **C1.** Call `validateResultEnvelope` when a result is accepted. Its one
+  check a result can fail today: a P0, P1 or P2 finding with no grounded
+  evidence of its own. The result is turned down
+  (`result-contract-violation`), tried again with the reason at the top of
+  `input.md`, then parked.
+- **C2.** For a verdict/synthesis task that requires evidence (the same rule
+  as `verdict-evidence-unresolvable`), a `path:line` or `path:a-b` locator in
+  the result's or a finding's evidence that names a line past the end of a
+  file on disk is turned down (`verdict-evidence-past-end`), the same way.
+  The pure check is `lineCitedPastEnd` in `core/trust/evidence-grounding.ts`.
+- **C3, later.** Worker folder names without `:` change the run folder
+  layout (a POLA change of its own), and native Windows is not supported
+  (the README says WSL). It goes to its own program.
+
+The owner was asked which to build (C1 and C2 now with C3 later, all
+three, or C1 only) and answered, word for word (2026-11-11): "C1 + C2 now,
+C3 later (Recommended)".
+
+### Paths weighed (batch C)
+
+- Taken: two refusals on the path that already turns down a bad verdict
+  citation; a result is retried, then parked, and a resume opens it again.
+  Hard: low. Upkeep: two failure codes. Undo: revert one PR.
+- Turned down: a warning in `report.md` in place of a refusal. It keeps a
+  finding no one can check in the run, and a warning is not fail closed.
+
+## Operator decisions for 0.4.4
+
+The owner's yes for batch C, word for word (2026-11-11): "C1 + C2 now, C3
+later (Recommended)". The question quoted the two new reasons, each a
+result that was taken in before and is now turned down:
+
+- 「Task <id> finding <fid> severity <P1> requires grounded evidence (a
+  path-like locator, URL, or namespace:value token)」
+- 「Task <id> cites a line past the end of its file: <path>:<line> (<path>
+  has <n> lines)」
+
+No pinned output file changes. The promised lines:
+
+```promise
+Task <id> finding <fid> severity <sev> requires grounded evidence (a path-like locator, URL, or namespace:value token)
+Task <id> cites a line past the end of its file: <path>:<line> (<path> has <n> lines)
+Give each P0, P1 or P2 finding its own evidence: a path-like locator, URL, or namespace:value token.
+Cite only lines that are in the file.
+```
+
+Man pages that say the new text: `docs/worker-isolation.7.md`,
+`docs/agent-delegation-drive.7.md`.
+
 ## Working rules for this program (the answer to "what went wrong before")
 
 | What went wrong | The rule here | What holds it |
@@ -381,7 +444,7 @@ the 0.4.3 cut) and answered, word for word (2026-11-11): "B1 + B2 + B3
 |---|---|
 | A — twelve rows (0.4.3) | built and merged (#891, 2026-11-11); waiting on the operator's release command |
 | B — release flow | the owner chose B1 to B3 (2026-11-11); built: B1 promise lines and B2 the change sheet in `pola:check`, B3 the reviewer output table (7 real rejection shapes were read as invalid output). On its first run B1 held all seven 0.4.3 promise lines, one after a fix to the line: the quote's example phase `Verify` became `<phase>` |
-| C — downstream asks | not started |
+| C — downstream asks | the owner chose C1 and C2, C3 later (2026-11-11); built: C1 the finding evidence check on intake, C2 the line past the end check for verdicts; for 0.4.4, so it merges after the 0.4.3 cut |
 
 ## What this spec got wrong
 

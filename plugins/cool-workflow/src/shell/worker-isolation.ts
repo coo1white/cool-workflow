@@ -23,7 +23,7 @@ import { DEFAULT_PIPELINE_CONTRACT_ID } from "../core/pipeline/contract.js";
 import { normalizeResultEnvelope, isEmptyCapture, ResultEnvelope } from "../core/pipeline/result-normalize.js";
 import { isGroundedEvidence, evidenceFilePath, isVerdictTaskId, receiptIdsIn, requireResolvableEvidence } from "../core/trust/evidence-grounding.js";
 import { normalizeEvidence, recordSandboxPathDecision, recordTrustAuditEvent } from "./trust-audit.js";
-import { unresolvedRunFileEvidence } from "./commit.js";
+import { runLineCitedPastEnd, unresolvedRunFileEvidence } from "./commit.js";
 import {
   DEFAULT_SANDBOX_PROFILE_ID,
   effectiveSandboxWritePaths,
@@ -34,7 +34,7 @@ import { ModelProvenanceLabel, ResolvedSandboxPolicy, SandboxAttestation } from 
 import { attestSandbox, getBackendDescriptor } from "./execution-backend/registry.js";
 import { recordFeedback, resolveParkFeedback } from "./error-feedback-io.js";
 import { saveCheckpoint } from "./run-store.js";
-import { taskRequiresEvidence } from "./verifier.js";
+import { taskRequiresEvidence, validateResultEnvelope } from "./verifier.js";
 import { runPipelineStage } from "../core/pipeline/runner.js";
 import { sha256 } from "../core/hash.js";
 import { formatCounts, stableCompare } from "../core/util/collate.js";
@@ -665,6 +665,13 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
     recordWorkerFailure(run, workerId, message, { code: "missing-required-evidence", retryable: false });
     throw new Error(message);
   }
+  try {
+    validateResultEnvelope(task, parsedResult);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    recordWorkerFailure(run, workerId, message, { code: "result-contract-violation", retryable: true });
+    throw error;
+  }
   const receiptIds = receiptIdsIn(parsedResult.evidence);
   if (receiptIds.length) {
     const receiptIo = createRequire(import.meta.url)("./receipt-io.js") as typeof import("./receipt-io.js");
@@ -705,6 +712,12 @@ export function recordWorkerOutput(run: WorkflowRun, workerId: string, resultPat
     if (unresolved.length) {
       const message = `Task ${task.id} cites file evidence that does not resolve on disk: ${unresolved.join(", ")}`;
       recordWorkerFailure(run, workerId, message, { code: "verdict-evidence-unresolvable", retryable: true });
+      throw new Error(message);
+    }
+    const pastEnd = runLineCitedPastEnd(run, [...parsedResult.evidence, ...parsedResult.findings.flatMap((finding) => finding.evidence || [])].map((entry) => String(entry)));
+    if (pastEnd) {
+      const message = `Task ${task.id} cites a line past the end of its file: ${pastEnd.path}:${pastEnd.line} (${pastEnd.path} has ${pastEnd.lines} lines)`;
+      recordWorkerFailure(run, workerId, message, { code: "verdict-evidence-past-end", retryable: true });
       throw new Error(message);
     }
   }
@@ -979,7 +992,11 @@ export function recordWorkerFailure(run: WorkflowRun, workerId: string, error: u
         ? "Write the final Markdown result to result.md before finishing."
         : structured.code === "verdict-evidence-unresolvable"
           ? "Cite only files that are on disk, by a path relative to the repository."
-          : "The `cw:result` block must be one JSON object, closed with `}`.";
+          : structured.code === "verdict-evidence-past-end"
+            ? "Cite only lines that are in the file."
+            : structured.code === "result-contract-violation"
+              ? "Give each P0, P1 or P2 finding its own evidence: a path-like locator, URL, or namespace:value token."
+              : "The `cw:result` block must be one JSON object, closed with `}`.";
     const notice = `Your last result was rejected: ${message}. ${fix}\n\n`;
     fs.writeFileSync(scope.inputPath, notice + fs.readFileSync(scope.inputPath, "utf8"), "utf8");
   }
