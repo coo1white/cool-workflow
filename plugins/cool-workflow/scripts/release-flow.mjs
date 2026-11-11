@@ -563,17 +563,21 @@ function verifyVerdict(resultPath) {
 
 function validateSemanticRejection(rawLines) {
   const lines = rawLines.map((line) => line.trim());
-  if (lines[0] !== "REJECTED") {
+  // Markdown round a REJECTION (`**REJECTED**`, `**kind:**`, `1)`, `- `) is
+  // taken off, so a real rejection is not called invalid output (batch B3 of
+  // the 2026-11-11 intent). Only the rejection is read this loosely: it stops
+  // the cut either way; an approval stays exact.
+  if (!isRejectedLine(lines[0] || "")) {
     return { ok: false, reason: 'a rejection must start with exact "REJECTED"' };
   }
-  if (lines[1] !== "kind: semantic-review") {
+  if ((lines[1] || "").replace(/[*_`]/g, "").replace(/\s+/g, " ") !== "kind: semantic-review") {
     return { ok: false, reason: 'a rejection must declare exact "kind: semantic-review"' };
   }
-  const findings = lines.slice(2).filter((line) => /^\d+\.\s+/.test(line));
+  const findings = lines.slice(2).filter((line) => /^(?:\d+[.)]|[-*])\s+/.test(line));
   if (!findings.length) return { ok: false, reason: "a semantic rejection needs a numbered finding" };
   for (const finding of findings) {
     // A path may start with a dot (.cw-release/, .github/); `..` is refused below.
-    const match = finding.match(/^\d+\.\s+.*?(?<![A-Za-z0-9_./-])([A-Za-z0-9.][A-Za-z0-9_./-]*):(\d+)\b/);
+    const match = finding.match(/^(?:\d+[.)]|[-*])\s+.*?(?<![A-Za-z0-9_./-])([A-Za-z0-9.][A-Za-z0-9_./-]*):(\d+)\b/);
     if (!match) return { ok: false, reason: "each semantic finding needs a repo-relative file:line locator" };
     const rel = match[1];
     const line = Number(match[2]);
