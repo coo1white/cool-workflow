@@ -334,11 +334,14 @@ export function runDoctor(
   };
 }
 
+// The text view's short form of the sandbox-enforceability detail; --json keeps the long one.
+const SANDBOX_BRIEF = "policy is checked by CW; OS isolation is the host's job (docs/sandbox-profiles.7.md).";
+
 /** Human rendering (TTY/default). `--json` callers use the report object directly. */
 export function formatDoctorReport(report: DoctorReport): string {
   const lines = [bold("cw doctor")];
   for (const check of report.checks) {
-    lines.push(`  ${doctorGlyph(check.status)} ${check.name}: ${check.detail}`);
+    lines.push(`  ${doctorGlyph(check.status)} ${check.name}: ${check.name === "sandbox-enforceability" ? SANDBOX_BRIEF : check.detail}`);
     if (check.fix && check.status !== "ok") lines.push(`      fix: ${check.fix}`);
   }
   lines.push("");
@@ -354,8 +357,8 @@ export function formatDoctorReport(report: DoctorReport): string {
   } else {
     lines.push("");
     lines.push("Quick start (3 steps):");
-    lines.push("  1. cw demo tamper        — prove trust checks work (30s)");
-    lines.push("  2. cw demo bundle         — prove portable bundles (30s)");
+    lines.push("  1. cw demo tamper          — prove trust checks work (30s)");
+    lines.push("  2. cw demo bundle          — prove portable bundles (30s)");
     lines.push('  3. cw -q "what risks?"     — your first real report (needs an agent)');
     lines.push('     cw quickstart research-synthesis --repo <folder> --question "..."  — cited report over a docs/papers folder, not only code');
     lines.push("     cw check -- npm test   — keep a receipt that your tests passed; a result can cite it (no agent needed)");

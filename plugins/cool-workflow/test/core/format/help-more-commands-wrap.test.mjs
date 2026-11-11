@@ -44,13 +44,13 @@ function moreCommandsLines() {
 {
   // candidate review multi-agent topology summary blackboard coordinator
   // approve reject comment handoff eval went with the multi-agent family
-  // (slim-and-esm step 2).
+  // (slim-and-esm step 2). version and fix are on the front page only (0.4.3).
   const SPEC_TOKENS = (
     "list search info init plan status next dispatch result state commit report app sandbox backend " +
     "contract node feedback worker audit loop schedule routine registry run queue clones " +
     "orphans history quickstart audit-run metrics " +
     "operator sched gc telemetry migration demo workbench ledger graph " +
-    "man version fix completion check"
+    "man completion check"
   ).split(" ");
   const rejoined = moreCommandsLines()
     .map((line) => line.trim())

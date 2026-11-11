@@ -25,6 +25,12 @@ cw app init my-app --title "My App"
 cw plan my-app --question "What should happen?"
 ```
 
+`cw app list` on a terminal prints one `<id> — <title>` line for each app,
+a blank line, then `Use cw app show <id> for full details.`, the same view
+as `cw list`. Piped, or with `--json`, it prints the JSON array as before,
+byte for byte. Up to 0.4.2 a terminal got the JSON too (changed in 0.4.3
+with the operator's dated yes: `project/docs/intent/2026-11-11-user-facing-fixes.md`, "Operator decisions for 0.4.3").
+
 ## Description
 
 CW uses the runner as the base system and workflow apps as userland. The

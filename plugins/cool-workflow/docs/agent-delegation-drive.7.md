@@ -585,18 +585,24 @@ never polluted.
   (`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
   for 0.3.3").
 - **» marks a concurrent round (new in 0.3.3).** The concurrent round line
-  and the active parallel phase line use `»` (U+00BB). Before 0.3.3 they
+  and the active phase line use `»` (U+00BB). Before 0.3.3 they
   used `⇉` (U+21C9), which is not in some terminal fonts and came out as a
-  box (Windows Terminal on WSL). The rest of each line is the same.
+  box (Windows Terminal on WSL). The rest of each line is the same. Since
+  0.4.3 every phase not yet done has this one mark, `[drive] ==> Verify » (0/1)`;
+  up to 0.4.2 a phase that runs in order had `…` in its place.
 - **Each worker's start line, in a concurrent round.** A round that runs
   agents side by side prints
-  `[drive] » concurrent round: N agents spawning in parallel, may take minutes…`
+  `[drive] » concurrent round: N agents spawning in parallel`
   and then, at once, one
-  `[drive] → <label> (<phase>) — spawning agent, may take minutes…` line for
+  `[drive] → <label> (<phase>) — spawning agent` line for
   each worker, in task order, while the agents run. Before 0.3.2 these lines
-  came only after the whole round ended. The text of the lines is the same;
-  only the time they print is new (`project/docs/intent/2026-10-16-release-gate-ci.md`,
-  "Operator decisions for 0.3.2"). Like every `[drive]` line they go to
+  came only after the whole round ended (`project/docs/intent/2026-10-16-release-gate-ci.md`,
+  "Operator decisions for 0.3.2"). The note `, may take minutes…` is on the
+  end of a run's first such line only (a round line, or a worker line when
+  workers run one at a time). Up to 0.4.2 it was on every round line and
+  every worker line, and a worker line could say `dispatched, spawning
+  agent`; since 0.4.3 it is `spawning agent` in every case
+  (`project/docs/intent/2026-11-11-user-facing-fixes.md`, "Operator decisions for 0.4.3"). Like every `[drive]` line they go to
   stderr only when progress is on, so a piped run's bytes do not change.
 - **Why a step is tried again (new in 0.3.3).** When an agent hop fails and
   the worker has tries left, one line says why and which try comes next:
@@ -941,3 +947,5 @@ The one-command `cw -q` headline now routes the question and defaults the repo t
 0.4.1
 
 0.4.2
+
+0.4.3

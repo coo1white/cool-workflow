@@ -118,6 +118,47 @@ anything.
 run completed, else the run lifecycle in capitals (for example
 `FAILED`). `report.html` shows the same word as a stamp.
 
+Since 0.4.3 `report.md` puts what a reader came for first. After the
+header and `## Answer` (and `## Check Receipts`, when there are any) the
+parts come in this order: `## Phase Status`, `## Results` (then
+`## Links`, when there are any), `## Pending Tasks`, `## Error Feedback`,
+`## Workers`, `## Sandbox Profiles`, `## Trust Audit`, `## State Commits`.
+The header has no `- Invariants:` line when the run has none, and a state
+commit's snapshot path is given from the run folder
+(`commits/state-0001.json`). Up to 0.4.2 `## State Commits` came right
+after `## Phase Status` with full paths, `## Results` came last, and an
+empty `- Invariants:` line was printed. The text inside each part is the
+same, so `cw report verify-bundle` reads old and new reports alike
+(`project/docs/intent/2026-11-11-user-facing-fixes.md`, "Operator decisions for 0.4.3").
+
+## End-of-run summary and exit code
+
+On a terminal, `cw -q`, `cw quickstart` and `cw --resume --run <id>` end
+with a short summary. Its first line is `✓ Report: <path>` for a run that
+finished, and `! Report: <path>` for a run that stopped (`blocked` or
+`parked`). With no agent set the next lines are `Next: cw doctor` and
+`Try: cw report --show`. A run stopped with an agent set keeps its `Why:`
+lines and ends on `Next: cw --resume --run <id>`.
+
+| Exit | Meaning |
+| --- | --- |
+| 0 | the run finished, or one `--once` step went through |
+| 1 | an error, a failed `--check`, or a `--bundle` that did not verify |
+| 2 | the run stopped: `blocked` or `parked`. The JSON on stdout is the same as before |
+
+Up to 0.4.2 a stopped run had the green `✓ Report:` line and exit 0, and
+the no-agent lines were `Try: cw doctor`, `Next: cw report --open`,
+`Try: cw report --show` (changed in 0.4.3 with the operator's dated yes:
+`project/docs/intent/2026-11-11-user-facing-fixes.md`, "Operator decisions for 0.4.3"). A script that took 0 as "the command ran" now reads `status` in
+the JSON, or takes 2 as "ran, did not finish". The lower verb
+`cw run <app> --drive` keeps exit 0 for a stopped run.
+
+`cw help` since 0.4.3: the two `-q` rows start their text at the same
+column as the other rows; the nine agent flags (`-claude` … `-grok`) are in
+their own `Agents` block after `Flags`; and `version` and `fix`, which are
+on the front page, are not said a second time under `More commands` (shell
+completion still has them). Same yes as above.
+
 The console report gives the same high-value status panels plus active and
 pending tasks, evidence paths and locators, and resource inspection commands.
 

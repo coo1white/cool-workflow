@@ -258,7 +258,9 @@ addCliOnlyCapability(
       // found a blocking gap, OR a --bundle that did not self-verify.
       const bundle = result.bundle as { ok?: boolean } | undefined;
       const bundleFailed = Boolean(bundle && bundle.ok === false);
-      const exitCode = (result.mode === "check" && result.ok === false) || bundleFailed ? 1 : undefined;
+      // A stopped drive (blocked or parked) exits 2; 1 stays the failed check or bundle.
+      const stopped = typeof result.reportPath === "string" && (result.status === "blocked" || result.status === "parked");
+      const exitCode = (result.mode === "check" && result.ok === false) || bundleFailed ? 1 : stopped ? 2 : undefined;
       return { json: result, exitCode };
     },
     // A real terminal outside --json gets the short summary + auto-open of

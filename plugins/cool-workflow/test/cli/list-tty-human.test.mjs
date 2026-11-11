@@ -72,4 +72,18 @@ function fakeStream(isTTY) {
   console.log("cli-list-tty-human: the list row declares formatWorkflowList as its humanRender ok");
 }
 
+// ===== 4. `cw app list` gets the same TTY view (0.4.3, intent 2026-11-11-user-facing-fixes.md row 6) =====
+{
+  const appListRow = REGISTRY.find((row) => row.capability === "app.list");
+  assert.ok(appListRow && appListRow.cli, "the app.list row must exist with a cli binding");
+  assert.equal(appListRow.cli.jsonMode, "default", "piped app list stays JSON");
+  assert.equal(typeof appListRow.cli.humanRender, "function", "the app.list row declares a humanRender");
+  assert.equal(
+    appListRow.cli.humanRender([{ id: "architecture-review", title: "Architecture Review" }, { id: "b", title: "B" }]),
+    "architecture-review — Architecture Review\nb — B\n\nUse cw app show <id> for full details.",
+    "app list on a TTY: one '<id> — <title>' line for each app, then where the details are"
+  );
+  console.log("cli-list-tty-human: the app.list row renders a list on a TTY ok");
+}
+
 console.log("cli-list-tty-human.test: ok");

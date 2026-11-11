@@ -33,10 +33,11 @@ function fakeStream(isTTY) {
 // ===== 1. phaseProgressLine renders the brew-style boundary line =====
 {
   const plain = fakeStream(false); // non-TTY => no ANSI, easy to assert
-  assert.equal(term.phaseProgressLine("Map", 6, 6, "parallel", plain), "==> Map ✓ (6/6)", "finished phase => ✓ + N/N");
-  assert.equal(term.phaseProgressLine("Assess", 3, 6, "parallel", plain), "==> Assess » (3/6)", "active parallel phase => »");
-  assert.ok(!term.phaseProgressLine("Assess", 3, 6, "parallel", plain).includes("⇉"), "0.3.3: no ⇉, which some terminal fonts do not have");
-  assert.equal(term.phaseProgressLine("Verdict", 0, 1, "sequential", plain), "==> Verdict … (0/1)", "active sequential phase => …");
+  assert.equal(term.phaseProgressLine("Map", 6, 6, plain), "==> Map ✓ (6/6)", "finished phase => ✓ + N/N");
+  assert.equal(term.phaseProgressLine("Assess", 3, 6, plain), "==> Assess » (3/6)", "a phase not yet done => »");
+  assert.ok(!term.phaseProgressLine("Assess", 3, 6, plain).includes("⇉"), "0.3.3: no ⇉, which some terminal fonts do not have");
+  // 0.4.3 (intent 2026-11-11-user-facing-fixes.md, row 3): one mark for "not yet done", no … for a phase that runs in order.
+  assert.equal(term.phaseProgressLine("Verdict", 0, 1, plain), "==> Verdict » (0/1)", "every phase not yet done => »");
   console.log("summary: phaseProgressLine renders ==> Phase glyph (done/total) ok");
 }
 

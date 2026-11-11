@@ -89,15 +89,16 @@ Each one from a command, on 2026-11-05 to 2026-11-11, cw 0.4.2.
 
 Each row: the text now, the text after, where it is made, and the man
 page that says it. Piped output and `--json` do not change in any row
-but row 1's exit code. No file under `v2/conformance/` or
-`test/fixtures/runs/` holds any of these strings (grep, 2026-11-11).
+but row 1's exit code. Three pins under the repo root's `v2/conformance/`
+hold some of these strings; they are named under "Operator decisions for
+0.4.3". No file under `test/fixtures/runs/` holds any.
 
 | # | Now | After | Made in | Man page |
 |---|---|---|---|---|
-| 1 | a run that ends `blocked` or `parked`: `✓ Report: <path>`, exit 0 | `! Report: <path>`, exit 2. `complete`: still `✓` and 0. `in-progress` (one `--once` step): still 0. The JSON is the same | `shell/reporter.ts`, `shell/commands/pipeline-cli.ts` | `operator-ux.7.md` |
+| 1 | a run that ends `blocked` or `parked`: `✓ Report: <path>`, exit 0 | `! Report: <path>`, exit 2. `complete`: still `✓` and 0. `in-progress` (one `--once` step): still 0. The JSON is the same | `shell/reporter.ts`, `wiring/capability-table/pipeline.ts` | `operator-ux.7.md` |
 | 2 | no agent set: `Try: cw doctor`, `Next: cw report --open`, `Try: cw report --show` | `Next: cw doctor`, `Try: cw report --show` (the "Report opened" line stays when the report was opened) | `shell/reporter.ts` | `operator-ux.7.md` |
 | 3 | `==> Verify … (0/1)` for a phase that runs in order, `»` for one in parallel | `==> Verify » (0/1)`: one mark for a phase not yet done | `shell/term.ts` | `agent-delegation-drive.7.md` |
-| 4 | `→ <label> (<phase>) — spawning agent, may take minutes…` on every worker line, and on every round line | `→ <label> (<phase>) — spawning agent`; `, may take minutes…` only on the first spawn line or round line of a `cw` process | `core/pipeline/drive-decide.ts`, `shell/drive.ts` | `agent-delegation-drive.7.md` |
+| 4 | `→ <label> (<phase>) — spawning agent, may take minutes…` on every worker line, and on every round line | `→ <label> (<phase>) — spawning agent`; `, may take minutes…` only on the first spawn line or round line of a run | `core/pipeline/drive-decide.ts`, `shell/drive.ts` | `agent-delegation-drive.7.md` |
 | 5 | `— dispatched, spawning agent, may take minutes…` | `— spawning agent` | `core/pipeline/drive-decide.ts` | `agent-delegation-drive.7.md` |
 | 6 | `cw app list` on a TTY: the JSON array | on a TTY: one `<id> — <title>` line for each app, a blank line, `Use cw app show <id> for full details.` Piped or `--json`: the same JSON | `wiring/capability-table/workflow-apps.ts`, `core/format/help.ts` | `workflow-app-framework.7.md` |
 | 7 | the two `-q` rows put their text at column 45 | at column 44, as the other rows | `core/format/help.ts` | `operator-ux.7.md` |
@@ -105,7 +106,7 @@ but row 1's exit code. No file under `v2/conformance/` or
 | 9 | nine `-claude` … `-grok` rows inside `Flags` | a block `Agents` after `Flags`, the nine rows with the same text | `core/format/help.ts` | `operator-ux.7.md` |
 | 10 | `✓ sandbox-enforceability: CW sandbox profiles validate policy and gate worker-output acceptance; …` (about 250 characters) | `✓ sandbox-enforceability: policy is checked by CW; OS isolation is the host's job (docs/sandbox-profiles.7.md).` The `--json` `detail` keeps the long text | `shell/doctor.ts` | `doctor.7.md` |
 | 11 | `1. cw demo tamper        — …`, `2. cw demo bundle         — …` | the two dashes in line with row 3's | `shell/doctor.ts` | `doctor.7.md` |
-| 12 | report.md: `- Invariants:` with nothing after it; order Answer, Phase Status, State Commits (full paths), Error Feedback, Workers, Sandbox Profiles, Trust Audit, Pending Tasks, Results | no `- Invariants:` line when there are none; order Answer, Phase Status, Results, Pending Tasks, Error Feedback, Workers, Sandbox Profiles, Trust Audit, State Commits (paths under the run folder) | `shell/report.ts` | `pipeline-runner.7.md` |
+| 12 | report.md: `- Invariants:` with nothing after it; order Answer, Phase Status, State Commits (full paths), Error Feedback, Workers, Sandbox Profiles, Trust Audit, Pending Tasks, Results | no `- Invariants:` line when there are none; order Answer, Phase Status, Results, Pending Tasks, Error Feedback, Workers, Sandbox Profiles, Trust Audit, State Commits (paths under the run folder) | `shell/report.ts` | `operator-ux.7.md` |
 
 Each row gets a test that fails before the change.
 
@@ -183,10 +184,37 @@ the text before and after. The operator's answers, word for word:
    ## State Commits   (paths under the run folder)
    ```
 
-Man pages that say the new text, in the same PR as each change:
+Man pages that say the new text, in the same PR as the change:
 `operator-ux.7.md`, `agent-delegation-drive.7.md`,
-`workflow-app-framework.7.md`, `doctor.7.md`, `pipeline-runner.7.md`.
+`workflow-app-framework.7.md`, `doctor.7.md`.
 The version goes to 0.4.3 (a patch raise on 0.x).
+
+Pins changed by these answers (all under the repo root):
+
+- `v2/conformance/cases/fixtures/cli-help/_root.txt` — rows 7, 8, 9;
+  man page `operator-ux.7.md`.
+- `v2/conformance/cases/report-md-shape.case.mjs` — row 12 (the new
+  order, no empty `- Invariants:`, the short commit path, a newline at
+  the end); man page `operator-ux.7.md`.
+- `v2/conformance/cases/cli-quickstart-redirect.case.mjs` — row 1 (a
+  `-q` run with no agent ends `blocked`, so its exit is 2); man page
+  `operator-ux.7.md`.
+
+The lines of `_root.txt` that are new or moved, word for word. The
+question put rows 7, 8 and 9 in the short form quoted above; these are
+the full lines that the answer makes:
+
+```
+  -q "question" [-<vendor>]                 Ask a question, get a report
+  -q "question" --link <url>                Review a remote repo by URL
+  --verbose              Show full agent narration live (default: compact)
+  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)
+  --json                 Print JSON for commands that support it
+  --quiet                Suppress [drive] progress lines (not agent output)
+  --resume --run <id>    Continue an interrupted run to completion
+Agents
+  man|completion|check
+```
 
 ## Paths weighed
 

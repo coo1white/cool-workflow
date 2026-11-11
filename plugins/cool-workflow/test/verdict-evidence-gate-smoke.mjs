@@ -63,8 +63,11 @@ function cw(args, cwd, cite) {
   const env = { ...process.env, CW_AGENT_COMMAND: `node ${agent} {{input}} {{result}}`, CW_NO_AUTO_AGENT: "1", CW_NO_OPEN: "1" };
   for (const key of ["CW_AGENT_ENDPOINT", "CW_AGENT_STREAM", "CW_DRIVE_PROGRESS", "CW_REQUIRE_RESOLVABLE_EVIDENCE"]) delete env[key];
   const child = spawnSync(process.execPath, [cwBin, ...args, "--json"], { cwd, env, encoding: "utf8", timeout: 180000 });
-  assert.equal(child.status, 0, `cw ${args.join(" ")} exits 0, the drive does not throw (stderr: ${child.stderr})`);
-  return JSON.parse(child.stdout);
+  const out = JSON.parse(child.stdout);
+  // Since 0.4.3 a `cw -q` or `cw --resume` run that stops (blocked, parked) exits 2.
+  const stopped = (args[0] === "-q" || args[0] === "--resume") && (out.status === "blocked" || out.status === "parked");
+  assert.equal(child.status, stopped ? 2 : 0, `cw ${args.join(" ")} exits ${stopped ? 2 : 0}, the drive does not throw (stderr: ${child.stderr})`);
+  return out;
 }
 
 function state(dir, runId) {

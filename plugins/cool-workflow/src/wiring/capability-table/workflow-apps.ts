@@ -32,7 +32,7 @@ function loadAppRunCli(): typeof import("../../shell/commands/app-run-cli.js") {
 function loadWorkflowAppLoader(): typeof import("../../shell/workflow-app-loader.js") {
   return require("../../shell/workflow-app-loader.js") as typeof import("../../shell/workflow-app-loader.js");
 }
-import { formatInfo } from "../../core/format/help.js";
+import { formatInfo, formatWorkflowList } from "../../core/format/help.js";
 // Loaded lazily so only the `man` handler below pays its load cost.
 function loadManCli(): typeof import("../../shell/commands/man-cli.js") {
   return require("../../shell/commands/man-cli.js") as typeof import("../../shell/commands/man-cli.js");
@@ -42,6 +42,7 @@ attachCliBinding("app.list", {
   path: ["app", "list"],
   jsonMode: "default",
   handler: () => ({ json: loadWorkflowAppLoader().listWorkflowApps() }),
+  humanRender: (json) => formatWorkflowList(json, "cw app show <id>"),
 });
 REGISTRY_BY_CAPABILITY.get("app.list")!.mcp!.handler = () => loadWorkflowAppLoader().listWorkflowApps();
 

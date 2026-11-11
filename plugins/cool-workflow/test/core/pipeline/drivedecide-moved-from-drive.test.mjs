@@ -19,9 +19,10 @@ assert.equal(agentConfigured({ endpoint: "http://127.0.0.1:1" }), true);
 assert.equal(agentConfigured({}), false);
 assert.equal(agentConfigured({ command: "", endpoint: "" }), false);
 
-// spawningAgentLine: the label (or the id) and the phase, with "dispatched, " only when asked.
-assert.equal(spawningAgentLine({ id: "t1", label: "Map", phase: "map" }, false), "→ Map (map) — spawning agent, may take minutes…");
-assert.equal(spawningAgentLine({ id: "t1", phase: "map" }, true), "→ t1 (map) — dispatched, spawning agent, may take minutes…");
+// spawningAgentLine: the label (or the id) and the phase; ", may take minutes…" only when asked
+// (0.4.3, intent 2026-11-11-user-facing-fixes.md rows 4 and 5: no "dispatched, ", the note once).
+assert.equal(spawningAgentLine({ id: "t1", label: "Map", phase: "map" }, false), "→ Map (map) — spawning agent");
+assert.equal(spawningAgentLine({ id: "t1", phase: "map" }, true), "→ t1 (map) — spawning agent, may take minutes…");
 
 // renderSubInputs: {{name}} from the parent's inputs, "" for a missing one, other text kept.
 assert.deepEqual(renderSubInputs({ inputs: { q: "about {{topic}} in {{repo}}", n: "{{missing}}" } }, { topic: "routing", repo: "cw" }), { q: "about routing in cw", n: "" });

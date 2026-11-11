@@ -53,7 +53,8 @@ function run(dir, agent, extra = []) {
   const env = { ...process.env, CW_AGENT_COMMAND: `node ${agent} {{input}} {{result}}`, CW_NO_AUTO_AGENT: "1", CW_NO_OPEN: "1" };
   for (const key of ["CW_AGENT_ENDPOINT", "CW_AGENT_STREAM", "CW_DRIVE_PROGRESS"]) delete env[key];
   const child = spawnSync(process.execPath, [cwBin, "-q", "How does routing work?", "--fast", "--json", ...extra], { cwd: dir, env, encoding: "utf8", timeout: 120000 });
-  assert.equal(child.status, 0, `cw -q exits 0 (stderr: ${child.stderr})`);
+  // Every run here parks: a stopped run exits 2 (0.4.3), with its JSON on stdout.
+  assert.equal(child.status, 2, `cw -q exits 2 on a parked run (stderr: ${child.stderr})`);
   return { child, result: JSON.parse(child.stdout) };
 }
 

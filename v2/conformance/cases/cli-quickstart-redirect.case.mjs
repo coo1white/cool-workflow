@@ -74,7 +74,9 @@ caseMain(() => {
     ["-q", "end-to-end-golden-path", "--drive", "--question", "the real question", "--json"],
     { cwd: repo, env: NARROW_PATH }
   );
-  assert.equal(qWithLaterQuestion.status, 0);
+  // No agent on this narrow PATH: the -q run ends blocked, and a stopped
+  // quickstart run exits 2 since 0.4.3 (its JSON is still on stdout).
+  assert.equal(qWithLaterQuestion.status, 2);
   const qWithLaterPayload = JSON.parse(qWithLaterQuestion.stdout);
   assert.equal(qWithLaterPayload.appId, "end-to-end-golden-path", "the -q positional must become appId when --question is also given");
   assert.equal(qWithLaterPayload.workflowId, "end-to-end-golden-path");

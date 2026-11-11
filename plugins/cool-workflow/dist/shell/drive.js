@@ -10,7 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawn } from "node:child_process";
 import { isDeepStrictEqual } from "node:util";
-import { DEFAULT_SCHEDULING_POLICY, countCompleted, countParked, exitCodeFromEvidence, finalDriveStatus, hasTerminalCommit, hopRetryLine, makeStep, maxIterations, priorAttempts, reopenableParkedTaskIds, retryOrPark, roundWidth, selectDriveTask, terminalOrConfigStep, incrementalCacheKey, incrementalDelegationDigest, defaultCacheKey, cacheFileName, MAX_SUB_WORKFLOW_DEPTH, agentConfigured, spawningAgentLine, renderSubInputs, roundPhaseLabel, } from "../core/pipeline/drive-decide.js";
+import { DEFAULT_SCHEDULING_POLICY, countCompleted, countParked, exitCodeFromEvidence, finalDriveStatus, hasTerminalCommit, hopRetryLine, makeStep, maxIterations, priorAttempts, reopenableParkedTaskIds, retryOrPark, roundWidth, selectDriveTask, terminalOrConfigStep, incrementalCacheKey, incrementalDelegationDigest, defaultCacheKey, cacheFileName, MAX_SUB_WORKFLOW_DEPTH, agentConfigured, spawningAgentLine, WAIT_NOTE, renderSubInputs, roundPhaseLabel, } from "../core/pipeline/drive-decide.js";
 import { maxLoopExpansion, evaluateLoopStop, cloneLoopRoundTasks, loopControlNodeId, } from "../core/pipeline/loop-expansion.js";
 import { runnableTaskIds, updatePhaseStatuses } from "../core/pipeline/dispatch.js";
 import { loadRunFromCwd, saveCheckpoint, savedRunIfCurrent, withDriveLock, withDriveLockAsync, resolveRunDir, runStateIsCurrent, RunStateConflictError } from "./run-store.js";
@@ -89,8 +89,14 @@ function emitProgress(message) {
     if (progressEnabled())
         reporter.progress(`[drive] ${message}`);
 }
-/** The `→ <label> (<phase>) — spawning agent` line, one text for the serial
- *  path and the concurrent round (which prints it at round start). */
+// ", may take minutes…" goes on a run's first spawn or round line only (in one cw process).
+const waitNoteRuns = new Set();
+function takeWaitNote(runId) {
+    if (waitNoteRuns.has(runId))
+        return false;
+    waitNoteRuns.add(runId);
+    return true;
+}
 // A sign of life while a round waits on its agents: every agent wait is a
 // spawnSync, so this process cannot print until the round ends. A small
 // separate process (scripts/children/drive-ticker.mjs) prints
@@ -324,7 +330,6 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     let run = loadRun(ctx);
     let selected = run.tasks.find((t) => t.id === selectedId);
     let workerId = selected.workerId;
-    let dispatched = false;
     if (selected.status === "pending") {
         // One audit lock and one durable write for the dispatch's events, as the
         // concurrent round does; flushed before the dispatch checkpoint below.
@@ -346,7 +351,6 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
             return makeStep("dispatch", "failed", { runId: ctx.runId, taskId: selected.id, phase: selected.phase, reason: "dispatch produced no worker scope" });
         }
         workerId = dispatchedTask.workerId;
-        dispatched = true;
         run = loadRun(ctx);
         selected = run.tasks.find((t) => t.id === selectedId);
     }
@@ -418,7 +422,7 @@ function processSelectedTask(ctx, selectedId, preparedOutcome, deferPersist = fa
     // A concurrent round printed this line at round start, when the agent was
     // spawned (prepareConcurrentOutcomes); here it only settles the outcome.
     if (!preparedOutcome)
-        emitProgress(spawningAgentLine(selected, dispatched));
+        emitProgress(spawningAgentLine(selected, takeWaitNote(ctx.runId)));
     const envelope = runBackend({
         schemaVersion: 1,
         runId: ctx.runId,
@@ -779,9 +783,7 @@ function prepareConcurrentOutcomes(ctx, batch) {
     const endpointTaskIds = [];
     // The worker each spawned or delegated task runs as, to check after the wait.
     const spawnedWorkers = new Map();
-    // Each spawned or delegated task's `spawning agent` line, in batch order,
-    // printed when the round starts (not after its wait, as before 0.3.2).
-    const spawningLines = [];
+    const spawningTasks = [];
     // Set whenever a task's status flips pending -> running (workerId
     // assigned) this round, regardless of whether it later becomes a real
     // spawn job, an endpoint job, a cache hit, or a sub-workflow task. That
@@ -851,7 +853,7 @@ function prepareConcurrentOutcomes(ctx, batch) {
                 jobs.push(job);
                 jobTaskIds.push(taskId);
                 spawnedWorkers.set(taskId, workerId);
-                spawningLines.push(spawningAgentLine(task, false));
+                spawningTasks.push(task);
                 continue;
             }
             // Endpoint-configured agent: no CLI binary to batch-spawn, but its HTTP
@@ -864,15 +866,15 @@ function prepareConcurrentOutcomes(ctx, batch) {
                 endpointJobs.push(endpointJob);
                 endpointTaskIds.push(taskId);
                 spawnedWorkers.set(taskId, workerId);
-                spawningLines.push(spawningAgentLine(task, false));
+                spawningTasks.push(task);
             }
         }
     });
     const totalJobs = jobs.length + endpointJobs.length;
     if (totalJobs) {
-        emitProgress(`» concurrent round: ${totalJobs} agent${totalJobs > 1 ? "s" : ""} spawning in parallel, may take minutes…`);
-        for (const line of spawningLines)
-            emitProgress(line);
+        emitProgress(`» concurrent round: ${totalJobs} agent${totalJobs > 1 ? "s" : ""} spawning in parallel${takeWaitNote(ctx.runId) ? WAIT_NOTE : ""}`);
+        for (const task of spawningTasks)
+            emitProgress(spawningAgentLine(task, false));
     }
     if (totalJobs || dispatchedThisRound) {
         // Every task above that reached "pending" got dispatched (workerId
@@ -1020,13 +1022,13 @@ function createPhaseProgressEmitter() {
             if (done >= total) {
                 if (!announcedPhaseComplete.has(ph.id)) {
                     announcedPhaseComplete.add(ph.id);
-                    emitProgress(phaseProgressLine(label, done, total, ph.mode, process.stderr));
+                    emitProgress(phaseProgressLine(label, done, total, process.stderr));
                 }
                 continue;
             }
             if (ph.id !== activePhaseId || again) {
                 activePhaseId = ph.id;
-                emitProgress(phaseProgressLine(label, done, total, ph.mode, process.stderr));
+                emitProgress(phaseProgressLine(label, done, total, process.stderr));
             }
             return; // only the first not-yet-complete phase is "active"
         }

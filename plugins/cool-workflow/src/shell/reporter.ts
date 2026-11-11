@@ -56,23 +56,31 @@ export function formatQuickstartSummary(f: RunSummaryFields, opened: boolean): s
   // "workers": this is the whole run's count, so it does not read as the
   // same number as a phase line's "(done/total)" (D1 in unix-principles.md).
   const counts = typeof f.completedWorkers === "number" && typeof f.plannedWorkers === "number" ? ` — ${f.completedWorkers}/${f.plannedWorkers} workers` : "";
-  const lines = [`${green("✓", out)} Report: ${f.reportPath}`];
+  // A stopped run (blocked or parked) does not get a finished run's green mark.
+  const stopped = f.status === "parked" || f.status === "blocked";
+  const lines = [`${stopped ? yellow("!", out) : green("✓", out)} Report: ${f.reportPath}`];
+  const openedLine = `  ${green("✓", out)} Report opened. Again later: cw report --open`;
   if (f.status === "complete") {
     lines.push(`  ${green("✓", out)} Status: complete${counts}`);
   } else {
     lines.push(`  ${yellow("!", out)} Status: ${f.status}${counts}`);
-    if (f.agentConfigured === false) lines.push(`  ${tryHint("cw doctor", out)}`);
-    else if (f.status === "parked" || f.status === "blocked") {
+    if (f.agentConfigured === false) {
+      lines.push(`  ${nextHint("cw doctor", out)}`);
+      if (opened) lines.push(openedLine);
+      lines.push(`  ${dim("Try:", out)} cw report --show`);
+      return lines.join("\n");
+    }
+    if (stopped) {
       // A stop with an agent set: say why, and name the one command that
       // goes on from here (D2 in docs/unix-principles.md).
       const why = (f.why || []).filter((line) => line.trim());
       why.forEach((line, index) => lines.push(`  ${index === 0 ? `${dim("Why:", out)} ` : "     "}${line}`));
-      lines.push(opened ? `  ${green("✓", out)} Report opened. Again later: cw report --open` : `  ${tryHint("cw report --open", out)}`);
+      lines.push(opened ? openedLine : `  ${tryHint("cw report --open", out)}`);
       lines.push(`  ${nextHint(`cw --resume --run ${f.runId}`, out)}`);
       return lines.join("\n");
     }
   }
-  lines.push(opened ? `  ${green("✓", out)} Report opened. Again later: cw report --open` : `  ${nextHint("cw report --open", out)}`);
+  lines.push(opened ? openedLine : `  ${nextHint("cw report --open", out)}`);
   lines.push(`  ${dim("Try:", out)} cw report --show`);
   return lines.join("\n");
 }

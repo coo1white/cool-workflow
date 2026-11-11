@@ -13,13 +13,14 @@ import { formatHelp } from "../../../dist/core/format/help.js";
 // "formatHelp() (stdout)" block (line-for-line, including the wrapped
 // "More commands" block from the SPEC's own token list), plus the rows
 // added after that capture (--json, --quiet, --resume, -opencode, -muse; the check token, 2026-11-03;
-// -copilot, -antigravity, -grok, 2026-11-04).
+// -copilot, -antigravity, -grok, 2026-11-04). 0.4.3 (intent 2026-11-11-user-facing-fixes.md, rows 7-9):
+// the -q rows at column 44, the agent flags in their own "Agents" block, no version|fix in More commands.
 {
   const expected = [
     "Cool Workflow",
     "",
-    '  -q "question" [-<vendor>]                  Ask a question, get a report',
-    '  -q "question" --link <url>                 Review a remote repo by URL',
+    '  -q "question" [-<vendor>]                 Ask a question, get a report',
+    '  -q "question" --link <url>                Review a remote repo by URL',
     "  version                                   Show version",
     "  doctor                                    Check setup",
     "  fix                                       Show fix commands for setup issues",
@@ -28,6 +29,13 @@ import { formatHelp } from "../../../dist/core/format/help.js";
     "  -q, --question TEXT    The task or question to answer",
     "  -r, --repo PATH        Target repository path (default: .)",
     "  -d, --dir PATH         Project folder to review (alias for --repo)",
+    "  --verbose              Show full agent narration live (default: compact)",
+    "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
+    "  --json                 Print JSON for commands that support it",
+    "  --quiet                Suppress [drive] progress lines (not agent output)",
+    "  --resume --run <id>    Continue an interrupted run to completion",
+    "",
+    "Agents",
     "  -claude                Use Claude agent",
     "  -codex                 Use Codex agent",
     "  -gemini                Use Gemini (via opencode)",
@@ -37,18 +45,13 @@ import { formatHelp } from "../../../dist/core/format/help.js";
     "  -copilot               Use GitHub Copilot CLI agent",
     "  -antigravity           Use Antigravity agent",
     "  -grok                  Use Grok agent",
-    "  --verbose              Show full agent narration live (default: compact)",
-    "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
-    "  --json                 Print JSON for commands that support it",
-    "  --quiet                Suppress [drive] progress lines (not agent output)",
-    "  --resume --run <id>    Continue an interrupted run to completion",
     "",
     "More commands",
     "  list|search|info|init|plan|status|next|dispatch|result|state|commit|report",
     "  app|sandbox|backend|contract|node|feedback|worker|audit|loop|schedule",
     "  routine|registry|run|queue|clones|orphans|history|quickstart|audit-run",
     "  metrics|operator|sched|gc|telemetry|migration|demo|workbench|ledger|graph",
-    "  man|version|fix|completion|check",
+    "  man|completion|check",
     "",
     "    Run  cw help <command>  for one command's subcommands and descriptions.",
   ].join("\n") + "\n";
