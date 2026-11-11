@@ -88,8 +88,10 @@ Each one from a command, on 2026-11-05 to 2026-11-11, cw 0.4.2.
 ## Spec: batch A, the twelve rows
 
 Each row: the text now, the text after, where it is made, and the man
-page that says it. Piped output and `--json` do not change in any row
-but row 1's exit code. Three pins under the repo root's `v2/conformance/`
+page that says it. `--json` output does not change in any row, nor
+does the JSON that `cw -q` and a piped `cw app list` print; row 1
+changes only the exit code there. Piped text does change: `cw help`
+(rows 7-9), `cw doctor` (rows 10-11) and report.md (row 12). Three pins under the repo root's `v2/conformance/`
 hold some of these strings; they are named under "Operator decisions for
 0.4.3". No file under `test/fixtures/runs/` holds any.
 
@@ -98,7 +100,7 @@ hold some of these strings; they are named under "Operator decisions for
 | 1 | a run that ends `blocked` or `parked`: `✓ Report: <path>`, exit 0 | `! Report: <path>`, exit 2. `complete`: still `✓` and 0. `in-progress` (one `--once` step): still 0. The JSON is the same | `shell/reporter.ts`, `wiring/capability-table/pipeline.ts` | `operator-ux.7.md` |
 | 2 | no agent set: `Try: cw doctor`, `Next: cw report --open`, `Try: cw report --show` | `Next: cw doctor`, `Try: cw report --show` (the "Report opened" line stays when the report was opened) | `shell/reporter.ts` | `operator-ux.7.md` |
 | 3 | `==> Verify … (0/1)` for a phase that runs in order, `»` for one in parallel | `==> Verify » (0/1)`: one mark for a phase not yet done | `shell/term.ts` | `agent-delegation-drive.7.md` |
-| 4 | `→ <label> (<phase>) — spawning agent, may take minutes…` on every worker line, and on every round line | `→ <label> (<phase>) — spawning agent`; `, may take minutes…` only on the first spawn line or round line of a run | `core/pipeline/drive-decide.ts`, `shell/drive.ts` | `agent-delegation-drive.7.md` |
+| 4 | `→ <label> (<phase>) — spawning agent, may take minutes…` on every worker line, and on every round line | `→ <label> (<phase>) — spawning agent`; `, may take minutes…` only on the first spawn line or round line of one cw command (a `--resume` is a new command) | `core/pipeline/drive-decide.ts`, `shell/drive.ts` | `agent-delegation-drive.7.md` |
 | 5 | `— dispatched, spawning agent, may take minutes…` | `— spawning agent` | `core/pipeline/drive-decide.ts` | `agent-delegation-drive.7.md` |
 | 6 | `cw app list` on a TTY: the JSON array | on a TTY: one `<id> — <title>` line for each app, a blank line, `Use cw app show <id> for full details.` Piped or `--json`: the same JSON | `wiring/capability-table/workflow-apps.ts`, `core/format/help.ts` | `workflow-app-framework.7.md` |
 | 7 | the two `-q` rows put their text at column 45 | at column 44, as the other rows | `core/format/help.ts` | `operator-ux.7.md` |

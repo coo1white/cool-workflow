@@ -598,8 +598,9 @@ never polluted.
   each worker, in task order, while the agents run. Before 0.3.2 these lines
   came only after the whole round ended (`project/docs/intent/2026-10-16-release-gate-ci.md`,
   "Operator decisions for 0.3.2"). The note `, may take minutes…` is on the
-  end of a run's first such line only (a round line, or a worker line when
-  workers run one at a time). Up to 0.4.2 it was on every round line and
+  end of the first such line of one cw command only (a round line, or a
+  worker line when workers run one at a time); a later `cw --resume` is a
+  new command and shows it once again. Up to 0.4.2 it was on every round line and
   every worker line, and a worker line could say `dispatched, spawning
   agent`; since 0.4.3 it is `spawning agent` in every case
   (`project/docs/intent/2026-11-11-user-facing-fixes.md`, "Operator decisions for 0.4.3"). Like every `[drive]` line they go to
