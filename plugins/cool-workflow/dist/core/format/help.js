@@ -190,12 +190,13 @@ const COMMAND_HELP_ROWS = {
  *  row, for the `--resume --run <id>` continuation flag
  *  (shell/commands/pipeline-cli.ts's quickstartRun). */
 export function formatHelp() {
-    const moreCommandsLines = wrapPipeJoined(MORE_COMMANDS_TOKENS, MORE_COMMANDS_WRAP_WIDTH);
+    // version and fix are on the front page, so the list does not say them twice (completion keeps them).
+    const moreCommandsLines = wrapPipeJoined(MORE_COMMANDS_TOKENS.filter((token) => token !== "version" && token !== "fix"), MORE_COMMANDS_WRAP_WIDTH);
     const lines = [
         "Cool Workflow",
         "",
-        '  -q "question" [-<vendor>]                  Ask a question, get a report',
-        '  -q "question" --link <url>                 Review a remote repo by URL',
+        '  -q "question" [-<vendor>]                 Ask a question, get a report',
+        '  -q "question" --link <url>                Review a remote repo by URL',
         "  version                                   Show version",
         "  doctor                                    Check setup",
         "  fix                                       Show fix commands for setup issues",
@@ -204,6 +205,13 @@ export function formatHelp() {
         "  -q, --question TEXT    The task or question to answer",
         "  -r, --repo PATH        Target repository path (default: .)",
         "  -d, --dir PATH         Project folder to review (alias for --repo)",
+        "  --verbose              Show full agent narration live (default: compact)",
+        "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
+        "  --json                 Print JSON for commands that support it",
+        "  --quiet                Suppress [drive] progress lines (not agent output)",
+        "  --resume --run <id>    Continue an interrupted run to completion",
+        "",
+        "Agents",
         "  -claude                Use Claude agent",
         "  -codex                 Use Codex agent",
         "  -gemini                Use Gemini (via opencode)",
@@ -213,11 +221,6 @@ export function formatHelp() {
         "  -copilot               Use GitHub Copilot CLI agent",
         "  -antigravity           Use Antigravity agent",
         "  -grok                  Use Grok agent",
-        "  --verbose              Show full agent narration live (default: compact)",
-        "  --no-color             Disable ANSI color (also honors NO_COLOR / FORCE_COLOR)",
-        "  --json                 Print JSON for commands that support it",
-        "  --quiet                Suppress [drive] progress lines (not agent output)",
-        "  --resume --run <id>    Continue an interrupted run to completion",
         "",
         "More commands",
         ...moreCommandsLines,
@@ -375,10 +378,10 @@ export function formatSearchResults(keyword, results) {
  *  next-step footer. NEVER printed to a pipe — the row's canonical JSON
  *  stays the only piped output (SPEC/cli-surface.md's jsonMode contract:
  *  "default" verbs are always JSON on a non-TTY stream). */
-export function formatWorkflowList(workflows) {
+export function formatWorkflowList(workflows, detail = "cw info <id>") {
     const rows = (Array.isArray(workflows) ? workflows : []);
     const lines = rows.map((w) => `${w.id} — ${w.title}`);
     lines.push("");
-    lines.push("Use cw info <id> for full details.");
+    lines.push(`Use ${detail} for full details.`);
     return lines.join("\n");
 }

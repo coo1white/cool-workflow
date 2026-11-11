@@ -62,9 +62,11 @@ function cwEnv(gate, extraEnv) {
 }
 
 const ARGS = [cwBin, "-q", "How does routing work?", "--fast", "--json"];
-const ROUND = /^\[drive\] » concurrent round: (\d+) agents? spawning in parallel, may take minutes…$/m;
-const SPAWN = /^\[drive\] → \S.* \([^)]+\) — spawning agent, may take minutes…$/gm;
-const SPAWN_LINE = /^\[drive\] → \S.* \([^)]+\) — spawning agent, may take minutes…$/;
+// 0.4.3 (intent 2026-11-11-user-facing-fixes.md, row 4): ", may take minutes…" is on the
+// first round line of the process only; a worker's line ends at "spawning agent".
+const ROUND = /^\[drive\] » concurrent round: (\d+) agents? spawning in parallel(?:, may take minutes…)?$/m;
+const SPAWN = /^\[drive\] → \S.* \([^)]+\) — spawning agent$/gm;
+const SPAWN_LINE = /^\[drive\] → \S.* \([^)]+\) — spawning agent$/;
 
 function started(gate) {
   return fs.readdirSync(gate).filter((name) => name.startsWith("started-")).length;
@@ -109,6 +111,8 @@ try {
     }
     assert.equal(await exited, 0, `cw -q exits 0 (stderr: ${stderr})`);
     assert.equal(JSON.parse(stdout).status, "complete", "the run completes");
+    assert.equal((stderr.match(/may take minutes…/g) || []).length, 1, `the wait note is said once in the run (stderr: ${stderr})`);
+    assert.match(stderr, /^\[drive\] » concurrent round: \d+ agents? spawning in parallel, may take minutes…$/m, "the first round line has the note");
     const spawnLines = stderr.match(SPAWN) || [];
     assert.equal(spawnLines.length, new Set(spawnLines).size, "no worker's spawning line prints twice");
     console.log("drive-concurrent-spawn-lines: spawning lines print at round start OK");

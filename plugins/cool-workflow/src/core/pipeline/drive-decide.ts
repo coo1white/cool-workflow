@@ -390,12 +390,15 @@ export function incrementalDelegationDigest(
   );
 }
 
+export const WAIT_NOTE = ", may take minutes…";
+
 export function agentConfigured(config: AgentDelegationConfig): boolean {
   return Boolean(config.command || config.endpoint);
 }
 
-export function spawningAgentLine(task: { id: string; label?: unknown; phase: string }, dispatched: boolean): string {
-  return `→ ${task.label || task.id} (${task.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`;
+/** `waitNote` adds ", may take minutes…"; the caller gives it once for a run. */
+export function spawningAgentLine(task: { id: string; label?: unknown; phase: string }, waitNote: boolean): string {
+  return `→ ${task.label || task.id} (${task.phase}) — spawning agent${waitNote ? WAIT_NOTE : ""}`;
 }
 
 export function renderSubInputs(spec: { inputs?: Record<string, string> }, parentInputs: Record<string, unknown>): Record<string, unknown> {

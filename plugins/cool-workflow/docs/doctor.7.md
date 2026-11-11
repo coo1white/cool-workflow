@@ -95,6 +95,15 @@ shape as the others; the other checks do not change.
 `socat` are on `PATH`; `fail` (doctor is then not ready) with how to install
 what is missing, or for a value other than `srt`/`off`.
 
+**sandbox-enforceability**
+: A fixed fact, always `ok`: CW checks sandbox policy and gates what a worker
+gives back; OS isolation is the work of the host (sandbox-profiles(7)). The
+text view says it in one short line:
+`✓ sandbox-enforceability: policy is checked by CW; OS isolation is the host's job (docs/sandbox-profiles.7.md).`
+`--json` keeps the long `detail` text, byte for byte. Up to 0.4.2 the text
+view printed the long text too, about 250 characters (changed in 0.4.3 with
+the operator's dated yes: `project/docs/intent/2026-11-11-user-facing-fixes.md`, "Operator decisions for 0.4.3").
+
 **git**
 : The `git` command. CW uses it for commit place of origin. A `warn` here means
 commit roots will be recorded as absent; no other part of a run needs git.
@@ -119,7 +128,9 @@ by itself.
 
 `--onramp`
 : Add a quick-start guide to the human output, with recommended checks and a
-three-step path to your first report.
+three-step path to your first report. Since 0.4.3 the three steps put their
+dash at one column (two more spaces in rows 1 and 2; the same yes as the
+sandbox line above).
 In a CW checkout, the checks it names are the `.mjs` test and script paths
 (for example `test/doctor-smoke.mjs` and `scripts/onramp-check.mjs`). Up to
 0.3.1 they ended in `.js` (changed in 0.3.2 with the operator's dated yes:

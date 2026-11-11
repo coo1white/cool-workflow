@@ -306,7 +306,7 @@ async function main() {
       [path.join(pluginRoot, "scripts", "cw.js"), "quickstart", "architecture-review", "--repo", work, "--question", "risks?"],
       { cwd: pluginRoot, env, encoding: "utf8", timeout: 60000 }
     );
-    assert.equal(child.status, 0, `README quickstart shape exits 0 (stderr: ${String(child.stderr || "").slice(0, 200)})`);
+    assert.equal(child.status, 2, `README quickstart shape with no agent stops, exit 2 since 0.4.3 (stderr: ${String(child.stderr || "").slice(0, 200)})`);
     const payload = JSON.parse(String(child.stdout || ""));
     assert.equal(payload.status, "blocked", "unconfigured agent fails closed through the real CLI");
     assert.equal(payload.agentConfigured, false, "payload says agent not configured");

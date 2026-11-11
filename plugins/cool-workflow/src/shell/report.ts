@@ -44,8 +44,14 @@ function renderCommits(run: WorkflowRun): string[] {
   return run.commits.map((commit) => {
     const kind = commit.verifierGated ? "verifier-gated commit" : "checkpoint";
     const gate = commit.verifierGated ? `verifier=${commit.verifierNodeId || "unknown"}, evidence=${commit.evidence?.length || 0}` : "verifierGated=false";
-    return `- ${commit.id}: ${commit.reason} [${commit.loopStage}; ${kind}; ${gate}] (${commit.snapshotPath})`;
+    return `- ${commit.id}: ${commit.reason} [${commit.loopStage}; ${kind}; ${gate}] (${underRunDir(run, String(commit.snapshotPath))})`;
   });
+}
+
+/** A path inside the run folder, shown from that folder; any other path as it is. */
+function underRunDir(run: WorkflowRun, file: string): string {
+  const rel = path.relative(run.paths.runDir, file);
+  return rel && !rel.startsWith("..") && !path.isAbsolute(rel) ? rel.split(path.sep).join("/") : file;
 }
 
 /** `## Sandbox Profiles`. */
@@ -256,7 +262,7 @@ export function writeReport(run: WorkflowRun): string {
       ? [`- Source: ${oneLine(`${String(run.inputs.sourceUrl)}${run.inputs.sourceCommit ? `@${String(run.inputs.sourceCommit)}` : ""}`)}`]
       : []),
     `- Question: ${oneLine(String(run.inputs.question || ""))}`,
-    `- Invariants: ${oneLine(formatInputList(run.inputs.invariant))}`,
+    ...(formatInputList(run.inputs.invariant).trim() ? [`- Invariants: ${oneLine(formatInputList(run.inputs.invariant))}`] : []),
     `- Loop Stage: ${run.loopStage}`,
     `- Verdict: ${lifecycle === "completed" ? "PASS" : lifecycle.toUpperCase()}`,
     "",
@@ -273,9 +279,15 @@ export function writeReport(run: WorkflowRun): string {
       return `| ${phase.name} | ${phase.status} | ${completed} | ${phaseTasks.length} |`;
     }),
     "",
-    "## State Commits",
+    "## Results",
     "",
-    ...renderCommits(run),
+    ...renderResults(run),
+    // Like "## Check Receipts", fully absent (no header) when empty.
+    ...(run.links && run.links.length ? ["", "## Links", "", ...renderLinks(run)] : []),
+    "",
+    "## Pending Tasks",
+    "",
+    ...renderPendingTasks(run),
     "",
     "## Error Feedback",
     "",
@@ -293,15 +305,10 @@ export function writeReport(run: WorkflowRun): string {
     "",
     ...renderTrustAudit(run),
     "",
-    "## Pending Tasks",
+    "## State Commits",
     "",
-    ...renderPendingTasks(run),
+    ...renderCommits(run),
     "",
-    "## Results",
-    "",
-    ...renderResults(run),
-    // Like "## Check Receipts", fully absent (no header) when empty, so a run without links keeps its bytes.
-    ...(run.links && run.links.length ? ["", "## Links", "", ...renderLinks(run)] : []),
   ].join("\n");
   fs.writeFileSync(run.paths.report, report, "utf8");
   return run.paths.report;

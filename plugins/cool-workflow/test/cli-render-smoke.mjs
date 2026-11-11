@@ -161,7 +161,7 @@ function testBlocked() {
     agentConfigured: false
   }, false));
   assert.match(blockedOut, /Status:\s*blocked/, "surfaces the blocked status");
-  assert.match(blockedOut, /Try: cw doctor/, "no-agent blocked run points at the one recovery command");
+  assert.match(blockedOut, /Next: cw doctor/, "no-agent blocked run points at the one recovery command");
   console.log("cli-render: blocked-no-agent recovery OK");
 }
 

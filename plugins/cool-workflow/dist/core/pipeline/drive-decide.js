@@ -273,11 +273,13 @@ export function incrementalDelegationDigest(model, agentType, sandboxProfileId, 
         endpoint,
     }));
 }
+export const WAIT_NOTE = ", may take minutes…";
 export function agentConfigured(config) {
     return Boolean(config.command || config.endpoint);
 }
-export function spawningAgentLine(task, dispatched) {
-    return `→ ${task.label || task.id} (${task.phase}) — ${dispatched ? "dispatched, " : ""}spawning agent, may take minutes…`;
+/** `waitNote` adds ", may take minutes…"; the caller gives it once for a run. */
+export function spawningAgentLine(task, waitNote) {
+    return `→ ${task.label || task.id} (${task.phase}) — spawning agent${waitNote ? WAIT_NOTE : ""}`;
 }
 export function renderSubInputs(spec, parentInputs) {
     const out = {};

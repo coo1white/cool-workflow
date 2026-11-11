@@ -40,16 +40,21 @@ caseMain(() => {
   assert.match(report, /\n- Repository: /);
   assert.match(report, /\n- Question: prove it\n/);
   assert.match(report, /\n- Loop Stage: /);
+  // 0.4.3: no "- Invariants:" line when the run has none, and a state
+  // commit's snapshot path is shown from the run folder.
+  assert.ok(!/\n- Invariants:/.test(report), "no empty Invariants line");
+  assert.match(report, /\n- state-0001: initial-plan \[.*\] \(commits\/state-0001\.json\)\n/);
+  assert.ok(report.endsWith("\n"), "report.md ends with a newline");
 
   const sectionOrder = [
     "## Phase Status",
-    "## State Commits",
+    "## Results",
+    "## Pending Tasks",
     "## Error Feedback",
     "## Workers",
     "## Sandbox Profiles",
     "## Trust Audit",
-    "## Pending Tasks",
-    "## Results",
+    "## State Commits",
   ];
   let cursor = -1;
   for (const heading of sectionOrder) {
