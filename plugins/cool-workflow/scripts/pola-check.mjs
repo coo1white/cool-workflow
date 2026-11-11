@@ -225,6 +225,164 @@ function decisionSections(version) {
   return sections;
 }
 
+// ---- promise lines (batch B1, intent 2026-11-11-user-facing-fixes.md) ----
+// The 0.4.1 cut was turned back twice for a text other than the one the yes
+// quoted: the yes named the line, but no test held it. A ```promise block in
+// an "Operator decisions for <version>" section lists the promised lines, one
+// full output line each, `<name>` standing for any text. Each must match, as
+// plain text, a line of a file under HOLD_ROOTS; a JS string escape
+// (\" \' \` \\ \/) and a regex escape of a sign are read as the sign.
+const HOLD_ROOTS = ["plugins/cool-workflow/test/", "v2/conformance/"];
+const HOLD_EXT = /\.(?:mjs|cjs|js|ts|txt|json|md)$/;
+
+function promiseLines(sections) {
+  const found = [];
+  for (const s of sections) {
+    const lines = s.text.split("\n");
+    for (let i = 0; i < lines.length; i += 1) {
+      if (!/^\s*```promise\s*$/.test(lines[i])) continue;
+      for (i += 1; i < lines.length && !/^\s*```\s*$/.test(lines[i]); i += 1) {
+        const line = lines[i].trim();
+        if (line) found.push({ line, file: s.file, heading: s.heading, heldBy: null });
+      }
+    }
+  }
+  return found;
+}
+
+function unescapeText(line) {
+  return line.replace(/\\([\\"'`/.()[\]{}*+?^$|-])/g, "$1");
+}
+
+// The plain parts of a promise, in order; `<name>` is any text between them.
+function promiseParts(line) {
+  return line.split(/<[^<>\s][^<>]*>/).filter((part) => part !== "");
+}
+
+function holds(text, parts) {
+  let at = 0;
+  for (const part of parts) {
+    const found = text.indexOf(part, at);
+    if (found === -1) return false;
+    at = found + part.length;
+  }
+  return true;
+}
+
+function holdLines() {
+  const out = git(["ls-files", "--cached", "--others", "--exclude-standard", "--", ...HOLD_ROOTS]);
+  if (out === null) throw new Refusal("git ls-files of the test roots failed");
+  const files = [...new Set(out.split("\n").filter((f) => HOLD_EXT.test(f)))].sort();
+  const lines = [];
+  for (const file of files) {
+    let text;
+    try {
+      text = fs.readFileSync(path.join(root, file), "utf8");
+    } catch {
+      continue;
+    }
+    text.split("\n").forEach((line, i) => lines.push({ at: `${file}:${i + 1}`, text: unescapeText(line) }));
+  }
+  return lines;
+}
+
+function checkPromises(version, faults) {
+  const promises = promiseLines(decisionSections(version));
+  if (promises.length === 0) return promises;
+  const lines = holdLines();
+  for (const p of promises) {
+    const parts = promiseParts(p.line);
+    const hit = parts.length ? lines.find((l) => holds(l.text, parts)) : null;
+    p.heldBy = hit ? hit.at : null;
+    if (hit) continue;
+    faults.push({
+      fault: "promise-not-held",
+      line: p.line,
+      message:
+        `promise line ${JSON.stringify(p.line)} in "${p.heading}" (${p.file}) is held by no line under ` +
+        `${HOLD_ROOTS.join(" or ")}. Add a test that asserts this line as plain text, so a different text ` +
+        `fails in PR CI, not at the cut.`
+    });
+  }
+  return promises;
+}
+
+// ---- the change sheet (batch B2): --sheet -------------------------------
+// Each string literal added or taken out under src/ and scripts/ since the
+// base, by hunk, so the named-yes question is written from a list and not
+// from memory. Not a gate: a changed string is not always output. Comment
+// lines and import paths are left out; dist/ is the build of src/.
+const SHEET_ROOTS = ["plugins/cool-workflow/src/", "plugins/cool-workflow/scripts/"];
+const LITERAL = /"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|`(?:[^`\\\n]|\\.)*`/g;
+
+function literalsOf(line) {
+  const t = line.trim();
+  if (t.startsWith("//") || t.startsWith("*") || t.startsWith("/*")) return [];
+  if (/^import\s|^export\s.*\sfrom\s/.test(t)) return [];
+  return (t.match(LITERAL) || []).filter((lit) => lit.length > 2 && !/^["'`](?:\.{1,2}\/|node:)/.test(lit));
+}
+
+function sheet(base) {
+  const out = git(["diff", "-U0", "--no-renames", "--no-color", base, "--", ...SHEET_ROOTS]);
+  if (out === null) throw new Refusal(`git diff of ${SHEET_ROOTS.join(" ")} against ${base} failed`);
+  const entries = [];
+  let file = null;
+  let hunk = null;
+  let header = false;
+  const flush = () => {
+    if (!hunk) return;
+    const removed = hunk.removed.filter((lit) => !hunk.added.includes(lit));
+    const added = hunk.added.filter((lit) => !hunk.removed.includes(lit));
+    if (removed.length || added.length) {
+      entries.push({ path: file, line: hunk.firstAdded || hunk.start, removed, added });
+    }
+    hunk = null;
+  };
+  for (const line of out.split("\n")) {
+    if (line.startsWith("diff --git")) {
+      flush();
+      file = null;
+      header = true;
+    } else if (header && (line.startsWith("--- ") || line.startsWith("+++ "))) {
+      if (!line.endsWith(" /dev/null")) file = line.slice(6);
+    } else if (line.startsWith("@@")) {
+      flush();
+      header = false;
+      const m = /\+(\d+)/.exec(line);
+      hunk = { start: m ? Number(m[1]) : 1, next: m ? Number(m[1]) : 1, firstAdded: 0, removed: [], added: [] };
+    } else if (hunk && line.startsWith("-")) {
+      for (const lit of literalsOf(line.slice(1))) if (!hunk.removed.includes(lit)) hunk.removed.push(lit);
+    } else if (hunk && line.startsWith("+")) {
+      const lits = literalsOf(line.slice(1));
+      if (lits.length && !hunk.firstAdded) hunk.firstAdded = hunk.next;
+      for (const lit of lits) if (!hunk.added.includes(lit)) hunk.added.push(lit);
+      hunk.next += 1;
+    }
+  }
+  flush();
+  return entries.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : a.line - b.line));
+}
+
+function printSheet(base) {
+  const entries = sheet(base.commit);
+  if (json) {
+    process.stdout.write(`${JSON.stringify({ ok: true, base, sheet: entries }, null, 2)}\n`);
+    return;
+  }
+  if (entries.length === 0) {
+    process.stdout.write(`pola:check sheet: no string literal changed since ${base.tag}^1.\n`);
+    return;
+  }
+  const files = new Set(entries.map((e) => e.path)).size;
+  const rows = [`pola:check sheet: string literals changed since ${base.tag}^1 (${files} file(s)).`];
+  for (const e of entries) {
+    rows.push(`${e.path}:${e.line}`);
+    for (const lit of e.removed) rows.push(`  - ${lit}`);
+    for (const lit of e.added) rows.push(`  + ${lit}`);
+  }
+  process.stdout.write(`${rows.join("\n")}\n`);
+}
+
 function check() {
   const base = resolveBase();
   const version = readVersion();
@@ -289,12 +447,17 @@ function check() {
       });
     }
   }
-  return { ok: faults.length === 0, base, version, raised, pins, faults };
+  const promises = checkPromises(version, faults);
+  return { ok: faults.length === 0, base, version, raised, pins, promises, faults };
 }
 
 function main() {
   let result;
   try {
+    if (process.argv.includes("--sheet")) {
+      printSheet(resolveBase());
+      return;
+    }
     result = check();
   } catch (error) {
     if (!(error instanceof Refusal)) throw error;
@@ -307,7 +470,7 @@ function main() {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else if (!result.ok) {
     for (const f of result.faults) process.stderr.write(`pola:check: ${f.message}\n`);
-    process.stderr.write(`pola:check: ${result.faults.length} fault(s) in changed pins without a full record (base ${result.base.tag}^1).\n`);
+    process.stderr.write(`pola:check: ${result.faults.length} fault(s) in changed pins or promise lines without a full record (base ${result.base.tag}^1).\n`);
   }
   if (!result.ok) process.exitCode = 1;
 }

@@ -314,6 +314,43 @@ process.exit(0);
   }
 }
 
+// ---- Case 2e: the reviewer's input carries the change sheet (batch B2) ----
+// Each string literal changed since the last tag (pola-check.mjs --sheet), so
+// the reviewer reads a list of changed text. With no tag the sheet cannot be
+// made: the input says why, and the review still runs.
+{
+  const dir = fixture();
+  const stub = path.join(dir, "input-stub.js");
+  fs.writeFileSync(stub, `
+const fs = require("node:fs");
+fs.copyFileSync(process.argv[2], process.env.INPUT_COPY);
+fs.writeFileSync(process.argv[3], "APPROVED " + process.env.STUB_SHA + "\\nstub: capability sentence.\\n");
+`);
+  const copy = path.join(dir, "input-copy.md");
+  const noTag = runFlow(dir, { agentCmd: `node ${stub} {{input}} {{result}}`, extraEnv: { INPUT_COPY: copy } });
+  assert.equal(noTag.code, 0, `the review runs without a sheet:\n${noTag.err}`);
+  const before = fs.readFileSync(copy, "utf8");
+  assert.match(before, /## Change sheet \(string literals changed since the last tag\)/);
+  assert.match(before, /\(unavailable: pola:check: refused: no vX\.Y\.Z release tag found/);
+
+  // A tag whose reviewed commit has the old text, then a change: the sheet
+  // in the input names the file, the line and both texts.
+  const src = "plugins/cool-workflow/src/shell/a.ts";
+  fs.mkdirSync(path.join(dir, path.dirname(src)), { recursive: true });
+  fs.writeFileSync(path.join(dir, src), 'export const a = "old text";\n');
+  run("git", ["add", src], dir);
+  run("git", ["commit", "-q", "-m", "reviewed"], dir);
+  run("git", ["commit", "-q", "--allow-empty", "-m", "verdict leaf"], dir);
+  run("git", ["tag", "v0.0.1"], dir);
+  fs.writeFileSync(path.join(dir, src), 'export const a = "new text";\n');
+  run("git", ["add", src], dir);
+  run("git", ["commit", "-q", "-m", "change"], dir);
+  const withTag = runFlow(dir, { agentCmd: `node ${stub} {{input}} {{result}}`, extraEnv: { INPUT_COPY: copy } });
+  assert.equal(withTag.code, 0, `the review runs with a sheet:\n${withTag.err}`);
+  const after = fs.readFileSync(copy, "utf8");
+  assert.match(after, /```text\npola:check sheet: string literals changed since v0\.0\.1\^1 \(1 file\(s\)\)\.\nplugins\/cool-workflow\/src\/shell\/a\.ts:1\n {2}- "old text"\n {2}\+ "new text"\n```/);
+}
+
 // ---- Case 3: stub writes nothing → fail closed (missing verdict) ----
 {
   const dir = fixture();

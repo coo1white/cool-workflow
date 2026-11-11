@@ -161,12 +161,51 @@ question put to the operator quotes the new line, and the record keeps
 the question. A case `.mjs` is held by its path only: its changed lines are
 asserts, and the new text is in the man page the record names.
 
+Promise lines. A text that only a smoke under `test/*.mjs` asserts is not a
+pin, and both 0.4.1 rejections were such a text: the yes quoted one line,
+the code printed another. So an `Operator decisions for <version>` section
+(for the version in `package.json`) may hold a fenced block whose info
+string is `promise`, one full new output line on each line, with `<name>`
+standing for any text:
+
+````text
+```promise
+release:doctor: leftover branch <branch> — <reason>; the cut stage would reset it from origin/main
+```
+````
+
+Each promise line must be held, as plain text, by a line of a file under
+`plugins/cool-workflow/test/` or `v2/conformance/` (a JS string escape such
+as `\"` reads as the sign). A promise no line holds is a fault
+(`promise-not-held`). So the agent writes the test from the quoted line,
+and code that prints a different text fails that test in PR CI, not at
+the cut.
+
 When all hold it says nothing and exits 0. Otherwise it puts one line per
 fault on stderr, saying what to do, and exits 1. `--json` gives the base,
 the version, every changed pin with the record that names it (and, for
-text pins, how many changed lines it read), and the faults, on stdout. The
-check reads names and quoted lines, not meaning: the reviewer still reads
-the operator's answer. Teeth live in `test/pola-check-smoke.mjs`.
+text pins, how many changed lines it read), each promise line with the
+`path:line` that holds it (`heldBy`, or null), and the faults, on stdout.
+The check reads names and quoted lines, not meaning: the reviewer still
+reads the operator's answer. Teeth live in `test/pola-check-smoke.mjs`.
+
+### The change sheet
+
+```text
+npm run pola:check -- --sheet
+npm run pola:check -- --sheet --json
+```
+
+Every string literal added or taken out under `src/` and `scripts/` since
+the same base, by change, as `path:line` and then `  - <old>` and
+`  + <new>` lines, on stdout, exit 0. Comment lines and import paths are
+left out, and so is `dist/` (the build of `src/`). It is a list to read, not
+a gate: not every changed string is output. Before the named-yes question
+for a version, the agent reads the sheet and puts each changed string a
+user sees into the question, so none is left to the review to find.
+`release-flow.mjs` puts the same sheet (up to 400 lines) in the reviewer's
+input, under "Change sheet"; when it cannot be made (no tag), the input
+says why and the review goes on.
 
 Pins that make this bite on output people see: `cli-help/*.txt` holds
 `cw help` and each command's help page, and `cli-completion/<shell>.txt`

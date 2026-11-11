@@ -281,6 +281,29 @@ function reviewerPromptBody() {
   return body;
 }
 
+// The change sheet (pola-check.mjs --sheet, batch B2 of the 2026-11-11
+// intent): every string literal changed since the last tag, so the reviewer
+// reads a list, not only the diff. A list to read, not a gate: when the sheet
+// cannot be made, the input says so and the review goes on.
+const SHEET_MAX_LINES = 400;
+function changeSheetLines() {
+  const head = ["## Change sheet (string literals changed since the last tag)",
+    "A changed string that a user sees needs the operator's named yes in an",
+    "\"Operator decisions for <version>\" part; one that is not output needs none."];
+  const script = path.join(scriptsDir, "pola-check.mjs");
+  const r = fs.existsSync(script)
+    ? spawnSync(process.execPath, [script, "--sheet"], { cwd: repoRoot, encoding: "utf8", env: { ...process.env, CW_POLA_ROOT: repoRoot } })
+    : { status: 1, stderr: "pola-check.mjs is not here" };
+  if (r.status !== 0) {
+    const why = String(r.stderr || r.error || "no output").trim().split("\n")[0];
+    return [...head, `(unavailable: ${why})`, ""];
+  }
+  const lines = String(r.stdout).trimEnd().split("\n");
+  const shown = lines.slice(0, SHEET_MAX_LINES);
+  if (lines.length > shown.length) shown.push(`… ${lines.length - shown.length} more line(s): node plugins/cool-workflow/scripts/pola-check.mjs --sheet`);
+  return [...head, "```text", ...shown, "```", ""];
+}
+
 function buildReviewerInput(resultPath, gateTests) {
   const action = MODE_CUT ? `tag v${cutVersion || "<next>"}` : "check (no tag)";
   const resultDisplay = path.relative(repoRoot, resultPath);
@@ -296,6 +319,7 @@ function buildReviewerInput(resultPath, gateTests) {
     ...gateTestsLines(gateTests).map((l, i) => (i === 0 ? `- ${l}` : l)),
     "- Repo root (run git here): .",
     "",
+    ...changeSheetLines(),
     "## Required output — your final message IS the verdict",
     "Do not write any file: your final message is saved as the verdict file",
     `(${resultDisplay}) for you, so a file you write yourself is never read.`,

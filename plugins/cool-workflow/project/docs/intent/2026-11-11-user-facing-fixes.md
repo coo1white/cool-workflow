@@ -186,6 +186,19 @@ the text before and after. The operator's answers, word for word:
    ## State Commits   (paths under the run folder)
    ```
 
+The new lines quoted above, as promise lines for `pola:check` (added with
+batch B1 on 2026-11-11; each is held by a test):
+
+```promise
+! Report: <path>
+Next: cw doctor
+Try: cw report --show
+<task> (<phase>) — spawning agent
+==> <phase> » (0/1)
+Use cw app show <id> for full details.
+✓ sandbox-enforceability: policy is checked by CW; OS isolation is the host's job (docs/sandbox-profiles.7.md).
+```
+
 Man pages that say the new text, in the same PR as the change:
 `operator-ux.7.md`, `agent-delegation-drive.7.md`,
 `workflow-app-framework.7.md`, `doctor.7.md`.
@@ -367,7 +380,7 @@ the 0.4.3 cut) and answered, word for word (2026-11-11): "B1 + B2 + B3
 | Batch | State |
 |---|---|
 | A — twelve rows (0.4.3) | built and merged (#891, 2026-11-11); waiting on the operator's release command |
-| B — release flow | measured facts, causes and plan written; the owner chose B1 to B3 (2026-11-11); build next |
+| B — release flow | the owner chose B1 to B3 (2026-11-11); built: B1 promise lines and B2 the change sheet in `pola:check`, B3 the reviewer output table (7 real rejection shapes were read as invalid output). On its first run B1 held all seven 0.4.3 promise lines, one after a fix to the line: the quote's example phase `Verify` became `<phase>` |
 | C — downstream asks | not started |
 
 ## What this spec got wrong

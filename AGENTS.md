@@ -144,6 +144,8 @@ Each cycle MUST follow this sequence. Do not skip steps.
    - A change to any default output needs the operator's named yes,
      quoted word for word, in an "Operator decisions for <version>"
      part of an intent file; `npm run pola:check` holds it in CI.
+     Write the question from `npm run pola:check -- --sheet`, and put
+     each promised new line in a ```promise block there, held by a test.
    - A fix needs a test that fails before it;
      `npm run fails-before:check` holds it in PR CI.
 
