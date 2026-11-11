@@ -85,6 +85,7 @@ else if (kind === "DOT_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\nkind:
 else if (kind === "FENCED_REJECTED") fs.writeFileSync(resultPath, "\`\`\`\\nREJECTED\\nkind: semantic-review \\n1. Stub finding at README.md:1.\\n\`\`\`\\n");
 else if (kind === "GATE_REJECTED") fs.writeFileSync(resultPath, "REJECTED\\n1. tests failed at scripts/release-gate.mjs:86.\\n");
 else if (kind === "MIXED") fs.writeFileSync(resultPath, "REJECTED\\nkind: semantic-review\\n1. Stub finding at README.md:1.\\nAPPROVED wrongsha\\nshould not pass\\n");
+else if (kind === "TEXT") fs.writeFileSync(resultPath, String(process.env.STUB_TEXT).split("{{SHA}}").join(process.env.STUB_SHA||"sha"));
 // NONE: write nothing (simulate an agent that produced no verdict)
 process.exit(0);
 `);
@@ -258,6 +259,96 @@ process.exit(0);
   const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} MIXED` });
   assert.equal(r.code, 1, "APPROVED must not overrule a semantic rejection");
   assert.match(r.err, /semantic evidence/i, "should keep the semantic rejection");
+}
+
+// ---- Case 2d: reviewer output shapes, as one table -----------------------
+// Two cuts stopped on a real verdict read wrong (0.3.0: REJECTED at the end of
+// prose; 0.4.1: a locator with a leading dot), each fixed for one shape. This
+// table holds the class (intent 2026-11-11-user-facing-fixes.md, batch B3).
+// The rule: decoration a model puts round a REJECTION is taken off, so a real
+// rejection is read as one; an APPROVAL stays strict, and every shape that is
+// not a real verdict stays fail closed. No row is ever signed or tagged.
+{
+  const finding = "1. Stub finding at README.md:1.";
+  const rows = [
+    // [name, text, expected: "semantic" | "invalid" | "refused"]
+    ["plain", `REJECTED\nkind: semantic-review\n${finding}\n`, "semantic"],
+    ["bold verdict line", `**REJECTED**\nkind: semantic-review\n${finding}\n`, "semantic"],
+    ["heading verdict line", `### REJECTED\nkind: semantic-review\n${finding}\n`, "semantic"],
+    ["verdict line with a colon", `REJECTED:\nkind: semantic-review\n${finding}\n`, "semantic"],
+    ["CRLF line ends", `REJECTED\r\nkind: semantic-review\r\n${finding}\r\n`, "semantic"],
+    ["prose before the verdict", `Here is my verdict.\n\nREJECTED\nkind: semantic-review\n${finding}\n`, "semantic"],
+    ["bold kind label", `REJECTED\n**kind:** semantic-review\n${finding}\n`, "semantic"],
+    ["backticked kind", "REJECTED\nkind: `semantic-review`\n" + `${finding}\n`, "semantic"],
+    ["finding numbered 1)", "REJECTED\nkind: semantic-review\n1) Stub finding at README.md:1.\n", "semantic"],
+    ["finding as a bullet", "REJECTED\nkind: semantic-review\n- Stub finding at README.md:1.\n", "semantic"],
+    ["backticked locator", "REJECTED\nkind: semantic-review\n1. Stub finding at `README.md:1`.\n", "semantic"],
+    ["./ locator", "REJECTED\nkind: semantic-review\n1. Stub finding at ./README.md:1.\n", "semantic"],
+    ["no kind line", `REJECTED\n${finding}\n`, "invalid"],
+    ["another kind", `REJECTED\nkind: gate\n${finding}\n`, "invalid"],
+    ["no finding", "REJECTED\nkind: semantic-review\nIt is not ready.\n", "invalid"],
+    ["finding with no locator", "REJECTED\nkind: semantic-review\n1. The help text is wrong.\n", "invalid"],
+    ["locator out of the repo", "REJECTED\nkind: semantic-review\n1. See ../README.md:1.\n", "invalid"],
+    ["locator that does not exist", "REJECTED\nkind: semantic-review\n1. See nothere.md:1.\n", "invalid"],
+    ["bold approval", "**APPROVED {{SHA}}**\nstub: capability sentence.\n", "refused"],
+    ["approval of another sha", "APPROVED 0000000000000000000000000000000000000000\nstub: capability sentence.\n", "refused"],
+    ["lower-case approval", "approved {{SHA}}\nstub: capability sentence.\n", "refused"]
+  ];
+  for (const [name, text, expected] of rows) {
+    const dir = fixture();
+    const stub = writeStub(dir);
+    const r = runFlow(dir, { agentCmd: `node ${stub} {{result}} TEXT`, extraEnv: { STUB_TEXT: text } });
+    assert.equal(r.code, 1, `${name}: the flow must stop (exit 1):\n${r.err}\n${r.out}`);
+    if (expected === "semantic") {
+      assert.doesNotMatch(r.err, /invalid reviewer output/i, `${name}: a real rejection is not invalid output:\n${r.err}`);
+      assert.match(r.err, /rejected the release with semantic evidence/i, `${name}: it is read as a semantic rejection:\n${r.err}`);
+    } else if (expected === "invalid") {
+      assert.match(r.err, /invalid reviewer output/i, `${name}: stays invalid reviewer output:\n${r.err}`);
+    } else {
+      assert.doesNotMatch(r.err, /semantic evidence/i, `${name}: not a rejection:\n${r.err}`);
+      assert.doesNotMatch(r.out, /"verdict": "APPROVED"/, `${name}: never an approval:\n${r.out}`);
+    }
+    const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
+    assert.ok(!fs.existsSync(path.join(dir, ".cw-release", `review-${sha}.verdict.sig`)), `${name}: never signed`);
+    assert.equal(run("git", ["tag"], dir).out.trim(), "", `${name}: never tagged`);
+  }
+}
+
+// ---- Case 2e: the reviewer's input carries the change sheet (batch B2) ----
+// Each string literal changed since the last tag (pola-check.mjs --sheet), so
+// the reviewer reads a list of changed text. With no tag the sheet cannot be
+// made: the input says why, and the review still runs.
+{
+  const dir = fixture();
+  const stub = path.join(dir, "input-stub.js");
+  fs.writeFileSync(stub, `
+const fs = require("node:fs");
+fs.copyFileSync(process.argv[2], process.env.INPUT_COPY);
+fs.writeFileSync(process.argv[3], "APPROVED " + process.env.STUB_SHA + "\\nstub: capability sentence.\\n");
+`);
+  const copy = path.join(dir, "input-copy.md");
+  const noTag = runFlow(dir, { agentCmd: `node ${stub} {{input}} {{result}}`, extraEnv: { INPUT_COPY: copy } });
+  assert.equal(noTag.code, 0, `the review runs without a sheet:\n${noTag.err}`);
+  const before = fs.readFileSync(copy, "utf8");
+  assert.match(before, /## Change sheet \(string literals changed since the last tag\)/);
+  assert.match(before, /\(unavailable: pola:check: refused: no vX\.Y\.Z release tag found/);
+
+  // A tag whose reviewed commit has the old text, then a change: the sheet
+  // in the input names the file, the line and both texts.
+  const src = "plugins/cool-workflow/src/shell/a.ts";
+  fs.mkdirSync(path.join(dir, path.dirname(src)), { recursive: true });
+  fs.writeFileSync(path.join(dir, src), 'export const a = "old text";\n');
+  run("git", ["add", src], dir);
+  run("git", ["commit", "-q", "-m", "reviewed"], dir);
+  run("git", ["commit", "-q", "--allow-empty", "-m", "verdict leaf"], dir);
+  run("git", ["tag", "v0.0.1"], dir);
+  fs.writeFileSync(path.join(dir, src), 'export const a = "new text";\n');
+  run("git", ["add", src], dir);
+  run("git", ["commit", "-q", "-m", "change"], dir);
+  const withTag = runFlow(dir, { agentCmd: `node ${stub} {{input}} {{result}}`, extraEnv: { INPUT_COPY: copy } });
+  assert.equal(withTag.code, 0, `the review runs with a sheet:\n${withTag.err}`);
+  const after = fs.readFileSync(copy, "utf8");
+  assert.match(after, /```text\npola:check sheet: string literals changed since v0\.0\.1\^1 \(1 file\(s\)\)\.\nplugins\/cool-workflow\/src\/shell\/a\.ts:1\n {2}- "old text"\n {2}\+ "new text"\n```/);
 }
 
 // ---- Case 3: stub writes nothing → fail closed (missing verdict) ----

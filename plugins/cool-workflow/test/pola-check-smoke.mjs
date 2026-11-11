@@ -263,4 +263,103 @@ git(["checkout", "-q", "main"], root);
   reset(root);
 }
 
+// 9. Promise lines (batch B1 of the 2026-11-11 intent): each line of a
+//    ```promise block in an "Operator decisions for <version>" section must
+//    be held, as plain text, by a line under plugins/cool-workflow/test/ or
+//    v2/conformance/. <name> stands for any text. The 0.4.1 cut was turned
+//    back twice for a text other than the one the yes quoted; this makes
+//    that a PR CI fault.
+{
+  const TEST = "plugins/cool-workflow/test/doctor-smoke.mjs";
+  const promise = (lines) =>
+    record(root, "Operator decisions for 0.1.1", "Yes, word for word.\n\n```promise\n" + lines.join("\n") + "\n```");
+  setVersion(root, "0.1.1");
+  promise(["leftover branch <name> — <reason>; the cut stage would reset it"]);
+  const none = run(root);
+  assert.equal(none.status, 1, "a promise no test holds must fail");
+  assert.match(
+    none.stderr,
+    /promise line "leftover branch <name> — <reason>; the cut stage would reset it" in "Operator decisions for 0\.1\.1" \(.*2026-11-03-x\.md\) is held by no line under plugins\/cool-workflow\/test\/ or v2\/conformance\//
+  );
+  const j = JSON.parse(run(root, ["--json"]).stdout);
+  assert.deepEqual(j.faults.map((f) => [f.fault, f.line]), [["promise-not-held", "leftover branch <name> — <reason>; the cut stage would reset it"]]);
+  assert.equal(j.promises[0].heldBy, null);
+
+  // A test that asserts another text does not hold it.
+  write(root, TEST, "assert.match(err, 'leftover branch x — it holds old code; not removed for you');\n");
+  assert.equal(run(root).status, 1, "a different text is not the promise");
+
+  // A test that asserts the promised text (placeholders filled) holds it.
+  write(root, TEST, "assert.ok(err.includes(\"leftover branch release/v0.1.1-cut — a commit; the cut stage would reset it\"));\n");
+  const held = run(root);
+  assert.equal(held.status, 0, `a held promise passes: ${held.stderr}`);
+  assert.equal(held.stderr, "");
+  assert.equal(JSON.parse(run(root, ["--json"]).stdout).promises[0].heldBy, `${TEST}:1`);
+
+  // Escaped quotes in a JS string still hold a promise with quotes; a v2
+  // fixture line holds one too.
+  promise(['say "yes" now', "  new row|check"]);
+  write(root, TEST, 'assert.equal(out, "say \\"yes\\" now");\n');
+  write(root, FIXTURE, "Cool Workflow\n  old row\n  new row|check\n");
+  const two = JSON.parse(run(root, ["--json"]).stdout);
+  assert.deepEqual(two.promises.map((p) => p.heldBy), [`${TEST}:1`, `${FIXTURE}:3`]);
+  reset(root);
+
+  // A section for a longer version (0.1.10) is not checked for 0.1.1.
+  setVersion(root, "0.1.1");
+  record(root, "Operator decisions for 0.1.10", "```promise\nnever held\n```");
+  assert.equal(run(root).status, 0, "0.1.10 promises are not 0.1.1 promises");
+  reset(root);
+}
+
+// 10. The change sheet (batch B2): --sheet lists each string literal added
+//     or taken out under src/ and scripts/ since the base, on stdout, exit 0.
+//     It is a list to read, not a gate. Comments and import paths are left
+//     out; dist/ is not listed (it is the build of src/).
+{
+  const SRC = "plugins/cool-workflow/src/shell/doctor.ts";
+  const SCRIPT = "plugins/cool-workflow/scripts/release-doctor.mjs";
+  const DIST = "plugins/cool-workflow/dist/shell/doctor.js";
+  write(root, SRC, 'import { x } from "./x.js";\nexport const a = "same text";\nexport const b = "old line";\n');
+  write(root, SCRIPT, "const c = 'kept';\n");
+  write(root, DIST, 'const b = "old line";\n');
+  git(["add", "-A"], root);
+  git(["commit", "-q", "-m", "sources"], root);
+  // A new base, so the sources above are in it: tag a verdict leaf again.
+  git(["checkout", "-q", "--detach"], root);
+  write(root, ".cw-release/review2.verdict", "APPROVED\n");
+  git(["add", "-A"], root);
+  git(["commit", "-q", "-m", "verdict 2"], root);
+  git(["tag", "v0.1.1"], root);
+  git(["checkout", "-q", "main"], root);
+  setVersion(root, "0.1.1");
+  git(["add", "-A"], root);
+  git(["commit", "-q", "-m", "version"], root);
+
+  write(root, SRC, 'import { x } from "./y.js";\nexport const a = "same text";\n// a "comment" string\nexport const b = "new line";\n');
+  write(root, SCRIPT, "const c = 'kept';\nconst d = `added — ${c}`;\n");
+  write(root, DIST, 'const b = "new line";\n');
+  const r = run(root, ["--sheet"]);
+  assert.equal(r.status, 0, `the sheet is not a gate: ${r.stderr}`);
+  assert.equal(r.stderr, "");
+  assert.equal(
+    r.stdout,
+    "pola:check sheet: string literals changed since v0.1.1^1 (2 file(s)).\n" +
+      `${SCRIPT}:2\n` +
+      "  + `added — ${c}`\n" +
+      `${SRC}:4\n` +
+      '  - "old line"\n' +
+      '  + "new line"\n'
+  );
+  const j = JSON.parse(run(root, ["--sheet", "--json"]).stdout);
+  assert.deepEqual(j.base.tag, "v0.1.1");
+  assert.deepEqual(j.sheet, [
+    { path: SCRIPT, line: 2, removed: [], added: ["`added — ${c}`"] },
+    { path: SRC, line: 4, removed: ['"old line"'], added: ['"new line"'] }
+  ]);
+  // Nothing changed: one line that says so.
+  reset(root);
+  assert.equal(run(root, ["--sheet"]).stdout, "pola:check sheet: no string literal changed since v0.1.1^1.\n");
+}
+
 process.stdout.write("pola-check smoke: ok\n");

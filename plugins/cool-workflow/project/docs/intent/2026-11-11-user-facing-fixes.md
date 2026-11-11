@@ -186,6 +186,19 @@ the text before and after. The operator's answers, word for word:
    ## State Commits   (paths under the run folder)
    ```
 
+The new lines quoted above, as promise lines for `pola:check` (added with
+batch B1 on 2026-11-11; each is held by a test):
+
+```promise
+! Report: <path>
+Next: cw doctor
+Try: cw report --show
+<task> (<phase>) — spawning agent
+==> <phase> » (0/1)
+Use cw app show <id> for full details.
+✓ sandbox-enforceability: policy is checked by CW; OS isolation is the host's job (docs/sandbox-profiles.7.md).
+```
+
 Man pages that say the new text, in the same PR as the change:
 `operator-ux.7.md`, `agent-delegation-drive.7.md`,
 `workflow-app-framework.7.md`, `doctor.7.md`.
@@ -244,6 +257,93 @@ Agents
 
 After each batch: a short note to the owner of what a user can now do.
 
+## Spec: batch B, the release flow
+
+### Measured facts (2026-11-11)
+
+From the "Operator decisions" parts of `2026-10-16-release-gate-ci.md`,
+the commit bodies of `git log v0.3.3..v0.4.2`, and `git log --format=%ad`
+of each tag:
+
+| Cut | Tagged | Stops before the tag | What stopped it |
+|---|---|---|---|
+| 0.4.0 | 2026-11-03 | 3 rejections | 1: no user-visible capability in the range. 2: the quotes did not name the strings they let change; two `cw check` faults (piped noise, unreadable tree hashed as a fixed word). 3: a sixth `cw help` front-page row, `check` in More commands and `cw completion` with no yes, a fix with no test that fails before it |
+| 0.4.1 | 2026-11-05 | 2 rejections, 1 hand-over | 1: `release:doctor` printed a text other than the one the yes quoted; stage 0 turned a warning into a failure no yes named. 2: one more path printed the old text. 3: the reviewer gave the call to the operator (its rule after two rejections), and `release-flow.mjs` read a valid `.cw-release/...:1` locator as invalid |
+| 0.4.2 | 2026-11-05 | 0 | — |
+
+Faults in the release tool itself that only a real cut met, each fixed
+with a test: the checkout left on a deleted record branch (after 0.3.3,
+`9ee8a547`); a leftover `release/vX.Y.Z-cut` branch after each stopped
+cut (0.4.0, `611ff392`); the locator with a leading dot (0.4.1,
+`6aeccd8a`); npm provenance naming main, not the tag, for 0.3.3 to 0.4.2
+(`ba0dbbdd`).
+
+Counts: 5 rejections and 1 hand-over in 0.4.0 to 0.4.2. 4 of the 5
+rejections were an output that the operator's named yes did not cover,
+or that was not the text the yes quoted. 1 was no capability.
+
+The guards added after the 0.4.0 rejections (`043b3524`: `pola:check`
+line level, the `cw completion` pin, the five-row cap,
+`fails-before:check`) hold `v2/conformance/` and `test/fixtures/runs/`.
+`scripts/pola-check.mjs` says what they do not hold: "exact text asserted
+inside plugins/cool-workflow/test/*.mjs smokes". Both 0.4.1 rejections
+were there: the `release:doctor` text is held by
+`test/release-doctor-smoke.mjs`, not by a pin. Since those guards came
+in, every rejection has been in that gap.
+
+### The causes seen more than once
+
+1. **A promised text that the code does not print** (0.4.1 rejections 1
+   and 2). The yes quotes the new line; nothing checks that a test holds
+   that line, so a different line passes CI.
+2. **An output change that no yes names** (0.4.0 rejection 3, 0.4.1
+   rejection 1, and 0.3.3 before them). The agent writes the question from
+   memory of the diff; a changed string it did not think of is not in the
+   question, and only the model reviewer finds it, at the cut.
+3. **The reviewer's own output read wrong** (0.3.0: `REJECTED` at the end
+   of prose; 0.4.1: the leading-dot locator). Each fix covered one shape.
+
+### Plan
+
+- **B1, promise lines.** An "Operator decisions for <version>" part may
+  hold a fenced block whose info string is `promise`: each line is a full
+  new output line, word for word, `<name>` standing for any text. For the
+  version in `package.json`, `pola:check` fails when a promise line
+  matches no line of any file under `plugins/cool-workflow/test/` or
+  `v2/conformance/`. So the promised text has a test, and a different
+  text fails that test in PR CI. Catches cause 1.
+- **B2, the change sheet.** `npm run pola:check -- --sheet` prints every
+  string literal added or changed under `src/` and `scripts/` since the
+  last tag, as `path:line` with the text before and after, on stdout. The
+  agent writes the named-yes question from the sheet, not from memory, and
+  `release-flow.mjs` puts the sheet in the reviewer's input. It is a list
+  to read, not a gate: a changed string is not always output. Catches
+  cause 2 before the question, not at the cut.
+- **B3, reviewer output shapes.** One table test of the shapes reviewers
+  have given or are likely to give (a fence, a heading, bold, a CRLF, a
+  `./` or `.` path, a backticked locator, a bullet in place of a number)
+  through `extractVerdictFromStdout` and `validateSemanticRejection`. A
+  shape that is a real verdict is read as one; a shape that is not stays
+  fail closed. Catches cause 3 as a class.
+
+None of B1 to B3 changes a `cw` output, exit code or flag; they are
+release tooling only.
+
+The owner was asked which to build (B1 to B3, B1 and B2, or wait for
+the 0.4.3 cut) and answered, word for word (2026-11-11): "B1 + B2 + B3
+(Recommended)".
+
+### Paths weighed (batch B)
+
+- Taken: B1 to B3, each a small check where the record or the test is
+  already made. Hard: low. Upkeep: one more block in a decisions part.
+  Undo: revert one PR.
+- Turned down: add `test/*.mjs` to the `pola:check` pin roots. The smokes
+  mix pins with new checks line by line (the script's own header), so
+  every new test line would need a yes.
+- Turned down: run the model review in PR CI. CW does not run models,
+  and CI holds no reviewer key.
+
 ## Working rules for this program (the answer to "what went wrong before")
 
 | What went wrong | The rule here | What holds it |
@@ -279,8 +379,8 @@ After each batch: a short note to the owner of what a user can now do.
 
 | Batch | State |
 |---|---|
-| A — twelve rows (0.4.3) | intent accepted, the named yes recorded; built, all twelve rows in one PR with the version at 0.4.3; merge, then the operator's release command |
-| B — release flow | not started |
+| A — twelve rows (0.4.3) | built and merged (#891, 2026-11-11); waiting on the operator's release command |
+| B — release flow | the owner chose B1 to B3 (2026-11-11); built: B1 promise lines and B2 the change sheet in `pola:check`, B3 the reviewer output table (7 real rejection shapes were read as invalid output). On its first run B1 held all seven 0.4.3 promise lines, one after a fix to the line: the quote's example phase `Verify` became `<phase>` |
 | C — downstream asks | not started |
 
 ## What this spec got wrong
