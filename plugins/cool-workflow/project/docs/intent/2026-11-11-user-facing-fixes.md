@@ -279,7 +279,7 @@ After each batch: a short note to the owner of what a user can now do.
 
 | Batch | State |
 |---|---|
-| A — twelve rows (0.4.3) | intent accepted, the named yes recorded (this PR); build next |
+| A — twelve rows (0.4.3) | intent accepted, the named yes recorded; built, all twelve rows in one PR with the version at 0.4.3; merge, then the operator's release command |
 | B — release flow | not started |
 | C — downstream asks | not started |
 
