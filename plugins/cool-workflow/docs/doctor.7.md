@@ -102,7 +102,7 @@ text view says it in one short line:
 `✓ sandbox-enforceability: policy is checked by CW; OS isolation is the host's job (docs/sandbox-profiles.7.md).`
 `--json` keeps the long `detail` text, byte for byte. Up to 0.4.2 the text
 view printed the long text too, about 250 characters (changed in 0.4.3 with
-the operator's dated yes: `project/docs/intent/2026-11-11-user-facing-fixes.md`, "Operator decisions for 0.4.3").
+the operator's dated yes: `project/docs/intent/2026-11-archive.md`, "Operator decisions for 0.4.3").
 
 **git**
 : The `git` command. CW uses it for commit place of origin. A `warn` here means

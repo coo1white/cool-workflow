@@ -62,7 +62,7 @@ function cwEnv(gate, extraEnv) {
 }
 
 const ARGS = [cwBin, "-q", "How does routing work?", "--fast", "--json"];
-// 0.4.3 (intent 2026-11-11-user-facing-fixes.md, row 4): ", may take minutes…" is on the
+// 0.4.3 (intent 2026-11-archive.md, row 4): ", may take minutes…" is on the
 // first round line of the process only; a worker's line ends at "spawning agent".
 const ROUND = /^\[drive\] » concurrent round: (\d+) agents? spawning in parallel(?:, may take minutes…)?$/m;
 const SPAWN = /^\[drive\] → \S.* \([^)]+\) — spawning agent$/gm;

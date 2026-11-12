@@ -121,9 +121,8 @@ closed ones are in the month's archive, text kept as it was.
 
 | Record | What it decided |
 |---|---|
-| [`intent/2026-11-11-user-facing-fixes.md`](intent/2026-11-11-user-facing-fixes.md) | User-facing fixes first: the twelve CLI polish rows (0.4.3), then the release flow, then the downstream asks |
 | [`intent/2026-11-03-done-receipt.md`](intent/2026-11-03-done-receipt.md) | `cw check`: a done receipt a result cites, checked fail-closed at intake and commit |
-| [`intent/2026-11-archive.md`](intent/2026-11-archive.md) | The closed programs of 2026-11: refactor the whole tree (test helpers, one command folder, no dead doors; output bytes not changed); the operator's yes to the 0.3.0 default changes, and the review rule that reads it |
+| [`intent/2026-11-archive.md`](intent/2026-11-archive.md) | The closed programs of 2026-11: refactor the whole tree (test helpers, one command folder, no dead doors; output bytes not changed); the operator's yes to the 0.3.0 default changes, and the review rule that reads it; user-facing fixes first (the twelve CLI polish rows of 0.4.3, the release flow, the result-intake checks of 0.4.4) |
 | [`intent/2026-11-02-agent-sandbox-srt.md`](intent/2026-11-02-agent-sandbox-srt.md) | Run the agent inside `srt`, opt-in |
 | [`intent/2026-10-16-release-gate-ci.md`](intent/2026-10-16-release-gate-ci.md) | A release cut takes the green CI on the reviewed commit, not a second local test run |
 | [`intent/2026-09-04-first-launch.md`](intent/2026-09-04-first-launch.md) | The first launch: one channel, one proof, one number a week |

@@ -613,7 +613,7 @@ never polluted.
   new command and shows it once again. Up to 0.4.2 it was on every round line and
   every worker line, and a worker line could say `dispatched, spawning
   agent`; since 0.4.3 it is `spawning agent` in every case
-  (`project/docs/intent/2026-11-11-user-facing-fixes.md`, "Operator decisions for 0.4.3"). Like every `[drive]` line they go to
+  (`project/docs/intent/2026-11-archive.md`, "Operator decisions for 0.4.3"). Like every `[drive]` line they go to
   stderr only when progress is on, so a piped run's bytes do not change.
 - **Why a step is tried again (new in 0.3.3).** When an agent hop fails and
   the worker has tries left, one line says why and which try comes next:

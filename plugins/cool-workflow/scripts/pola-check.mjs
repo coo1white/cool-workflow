@@ -226,7 +226,7 @@ function decisionSections(version) {
   return sections;
 }
 
-// ---- promise lines (batch B1, intent 2026-11-11-user-facing-fixes.md) ----
+// ---- promise lines (batch B1, intent 2026-11-archive.md) ----
 // The 0.4.1 cut was turned back twice for a text other than the one the yes
 // quoted: the yes named the line, but no test held it. A ```promise block in
 // an "Operator decisions for <version>" section lists the promised lines, one
