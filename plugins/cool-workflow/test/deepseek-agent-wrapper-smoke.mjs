@@ -12,7 +12,6 @@ import fs from "node:fs";
 import path from "node:path";
 import * as agentConfigModule from "../dist/shell/agent-config.js";
 import { tmpDir } from "./helpers/workspace.mjs";
-import { writeProgram } from "./helpers/program.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const wrapper = path.join(pluginRoot, "scripts", "agents", "deepseek-agent.js");
@@ -32,6 +31,7 @@ deepseek shim answer
 
 function shimDir() {
   const dir = tmpDir("cw-deepseek-shim-");
+  const shim = path.join(dir, "opencode");
   const source = `#!/usr/bin/env node
 const fs = require("node:fs");
 const path = require("node:path");
@@ -48,7 +48,8 @@ emit({ type: "text", part: { type: "text", messageID: "msg_b", text: ${JSON.stri
 emit({ type: "step_finish", part: { type: "step-finish", messageID: "msg_b", tokens: { input: 9, output: 7, total: 16 } } });
 process.exit(0);
 `;
-  writeProgram(dir, "opencode", source);
+  fs.writeFileSync(shim, source, "utf8");
+  fs.chmodSync(shim, 0o755);
   return dir;
 }
 

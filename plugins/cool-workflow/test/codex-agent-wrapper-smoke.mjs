@@ -8,7 +8,6 @@ import fs from "node:fs";
 import path from "node:path";
 import * as agentConfigModule from "../dist/shell/agent-config.js";
 import { tmpDir } from "./helpers/workspace.mjs";
-import { writeProgram } from "./helpers/program.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
@@ -29,6 +28,7 @@ codex shim answer
 
 function shimDir(behavior) {
   const dir = tmpDir("cw-codex-shim-");
+  const shim = path.join(dir, "codex");
   const source = `#!/usr/bin/env node
 const fs = require("node:fs");
 const path = require("node:path");
@@ -57,7 +57,8 @@ process.stdin.on("end", () => {
   process.exit(0);
 });
 `;
-  writeProgram(dir, "codex", source);
+  fs.writeFileSync(shim, source, "utf8");
+  fs.chmodSync(shim, 0o755);
   return dir;
 }
 

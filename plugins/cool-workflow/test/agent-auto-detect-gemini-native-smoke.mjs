@@ -13,7 +13,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpDir } from "./helpers/workspace.mjs";
-import { writeProgram } from "./helpers/program.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 import { resolveAgentConfig } from "../dist/shell/agent-config.js";
@@ -24,7 +23,7 @@ try {
   // A PATH dir with ONLY a fake native gemini binary — no opencode, no claude.
   const shimDir = path.join(tmp, "bin");
   fs.mkdirSync(shimDir, { recursive: true });
-  writeProgram(shimDir, "gemini", "process.exit(0);\n");
+  fs.writeFileSync(path.join(shimDir, "gemini"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
 
   const env = { PATH: shimDir, HOME: tmp };
 

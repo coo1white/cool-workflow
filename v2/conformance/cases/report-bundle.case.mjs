@@ -8,7 +8,7 @@
 import os from "node:os";
 import fs from "node:fs";
 import path from "node:path";
-import { run, gitRepo, freshDir, caseMain, assert, stubAgentEnv, seg } from "../lib.mjs";
+import { run, gitRepo, freshDir, caseMain, assert, stubAgentEnv } from "../lib.mjs";
 
 caseMain(() => {
   const repo = gitRepo({ "a.txt": "hello\n" });
@@ -73,7 +73,7 @@ caseMain(() => {
   // rest of the archive as-is. verify-bundle must catch it via the file
   // digest mismatch (archiveOk:false) — the "public key only" trust proof.
   const archive = JSON.parse(fs.readFileSync(bundleResult.archivePath, "utf8"));
-  const resultFile = archive.files.find((f) => f.relativePath === `results/${seg("verdict:synthesis")}.md`);
+  const resultFile = archive.files.find((f) => f.relativePath === "results/verdict:synthesis.md");
   assert.ok(resultFile, "the verdict result file must be packed in the archive");
   const original = Buffer.from(resultFile.contentBase64, "base64").toString("utf8");
   const tampered = original.replace("P2", "P0");

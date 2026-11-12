@@ -32,14 +32,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
 import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const VERIFIER = path.join(pluginRoot, "scripts", "verify-release-verdict.mjs");
 const AUTO = path.join(pluginRoot, "scripts", "release-auto-patch.mjs");
 const TAGS = path.join(pluginRoot, "scripts", "release-tags.mjs");
-const { checkAutoPatch, ciRunsSayGreen, queryCiSuccess } = await import(pathToFileURL(VERIFIER).href);
+const { checkAutoPatch, ciRunsSayGreen, queryCiSuccess } = await import(VERIFIER);
 
 function git(dir, args) {
   const r = spawnSync("git", args, { cwd: dir, encoding: "utf8" });
@@ -81,7 +80,6 @@ function fixture({ pkgAtP = "1.2.2", subject = "fix(core): a shipped fix", file 
   // next to its own scripts/ folder, so the fixture carries its own copy.
   write(dir, "plugins/cool-workflow/scripts/release-auto-patch.mjs", fs.readFileSync(AUTO, "utf8"));
   write(dir, "plugins/cool-workflow/scripts/release-tags.mjs", fs.readFileSync(TAGS, "utf8"));
-  write(dir, "plugins/cool-workflow/scripts/spawn-argv.mjs", fs.readFileSync(path.join(path.dirname(AUTO), "spawn-argv.mjs"), "utf8"));
   const A = commit(dir, "feat: first");
   write(dir, "plugins/cool-workflow/.cw-release-note", "verdict stand-in\n");
   commit(dir, "chore(release): record the v1.2.2 verdict");

@@ -22,7 +22,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "./spawn-argv.mjs";
+import { spawnSync } from "node:child_process";
 import { runChecks, formatFindings } from "./release-preflight.mjs";
 
 const argv = process.argv.slice(2);

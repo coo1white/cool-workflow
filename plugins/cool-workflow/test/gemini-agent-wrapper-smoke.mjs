@@ -15,7 +15,6 @@ import fs from "node:fs";
 import path from "node:path";
 import * as agentConfigModule from "../dist/shell/agent-config.js";
 import { tmpDir } from "./helpers/workspace.mjs";
-import { writeProgram } from "./helpers/program.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
@@ -36,6 +35,7 @@ gemini shim answer
 
 function shimDir(behavior) {
   const dir = tmpDir("cw-gemini-shim-");
+  const shim = path.join(dir, "gemini");
   const source = `#!/usr/bin/env node
 const fs = require("node:fs");
 const path = require("node:path");
@@ -69,7 +69,8 @@ emit({ type: "turn_completed", usage: { input_tokens: 15, output_tokens: 9 }, st
 emit({ type: "result", subtype: "success", result: ${JSON.stringify(RESULT)} });
 process.exit(0);
 `;
-  writeProgram(dir, "gemini", source);
+  fs.writeFileSync(shim, source, "utf8");
+  fs.chmodSync(shim, 0o755);
   return dir;
 }
 

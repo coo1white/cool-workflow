@@ -18,7 +18,6 @@ import path from "node:path";
 import { resolveAgentConfig } from "../dist/shell/agent-config.js";
 import { parseAgentReport } from "../dist/shell/execution-backend/agent.js";
 import { tmpDir } from "./helpers/workspace.mjs";
-import { writeProgram } from "./helpers/program.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
@@ -53,7 +52,7 @@ if (args.includes("--output-format") && behavior !== "plain") {
 if (behavior === "empty") process.exit(0);
 process.stdout.write(body);
 `;
-  writeProgram(dir, cliName, source);
+  fs.writeFileSync(path.join(dir, cliName), source, { mode: 0o755 });
   return dir;
 }
 
@@ -152,7 +151,7 @@ console.log("flags: -copilot / -antigravity / -grok pick their builtins OK");
 // template name and the CLI name) detects nothing.
 {
   const bin = tmpDir("cw-cag-detect-");
-  for (const name of ["copilot", "agy", "antigravity", "grok"]) writeProgram(bin, name, "process.exit(0);\n");
+  for (const name of ["copilot", "agy", "antigravity", "grok"]) fs.writeFileSync(path.join(bin, name), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
   const detected = resolveAgentConfig({}, { PATH: bin, HOME: bin, CW_HOME: path.join(bin, "home") });
   assert.equal(detected.source, "none", "copilot / agy / grok on PATH are never auto-detected (beta: chosen by flag only)");
   assert.equal(detected.command, undefined, "no command is picked from PATH");

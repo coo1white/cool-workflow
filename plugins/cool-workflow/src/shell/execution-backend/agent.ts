@@ -8,7 +8,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { agentCommandArgv, messageOf, NETWORK_ENV_NAMES, substituteAgentArg } from "../../core/util/cli-args.js";
 import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local.js";
-import { hostSpawnArgv } from "../fs-atomic.js";
 import type { AssertTrue, IsOneWayData } from "../../core/types/boundary.js";
 
 export interface AgentDelegationConfig {
@@ -207,8 +206,7 @@ export function runAgent(config: AgentDelegationConfig, job: AgentJob): Promise<
   return new Promise((resolve) => {
     let child: ReturnType<typeof spawn>;
     try {
-      const start = hostSpawnArgv(binary, args, env);
-      child = spawn(start.binary, start.args, { cwd: job.cwd, env, shell: false, stdio: ["ignore", "pipe", job.streamStderr ? "inherit" : "pipe"], windowsHide: true });
+      child = spawn(binary, args, { cwd: job.cwd, env, shell: false, stdio: ["ignore", "pipe", job.streamStderr ? "inherit" : "pipe"], windowsHide: true });
     } catch (error) {
       resolve(done({ ok: false, reason: `agent process failed to spawn: ${messageOf(error)}` }));
       return;

@@ -60,10 +60,7 @@ function state(result) {
 
 function workerInput(result, taskId) {
   const runDir = path.dirname(result.statePath);
-  // The folder is the task's workerId: worker-map:x-0001, or worker-map_x-0001
-  // on Windows (no `:` in a Windows file name).
-  const { workerId } = state(result).tasks.find((t) => t.id === taskId);
-  const inputPath = path.join(runDir, "workers", workerId, "input.md");
+  const inputPath = path.join(runDir, "workers", `worker-${taskId}-0001`, "input.md");
   return fs.readFileSync(inputPath, "utf8");
 }
 

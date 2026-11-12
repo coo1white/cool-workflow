@@ -18,7 +18,7 @@
 //  - POLICY: --content auto-appends placeholders for convenience; the human
 //    still edits the prose to describe the actual release.
 
-import { spawnSync } from "./spawn-argv.mjs";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { CANONICAL_APP_IDS } from "./canonical-apps-list.mjs";

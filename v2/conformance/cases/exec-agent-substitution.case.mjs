@@ -9,7 +9,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { run, gitRepo, readJson, caseMain, assert, seg } from "../lib.mjs";
+import { run, gitRepo, readJson, caseMain, assert } from "../lib.mjs";
 
 const ECHO_AGENT = path.join(import.meta.dirname, "fixtures", "echo-argv-agent.mjs");
 
@@ -29,7 +29,7 @@ caseMain(() => {
   assert.equal(payload.completedWorkers, payload.plannedWorkers);
 
   const workersDir = path.join(path.dirname(payload.statePath), "workers");
-  const verdictDir = fs.readdirSync(workersDir).find((d) => d.startsWith(`worker-${seg("verdict:")}`));
+  const verdictDir = fs.readdirSync(workersDir).find((d) => d.startsWith("worker-verdict:"));
   assert.ok(verdictDir, "a verdict worker folder must exist");
   const argv = readJson(path.join(workersDir, verdictDir, "argv.json"));
   assert.equal(argv.length, 10, "10 substituted/literal argv elements");

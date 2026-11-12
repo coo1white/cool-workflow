@@ -37,7 +37,6 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { tmpDir } from "./helpers/workspace.mjs";
-import { writeProgram } from "./helpers/program.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const ONECLICK = path.join(pluginRoot, "scripts", "release-oneclick.mjs");
@@ -58,7 +57,8 @@ function tmp() {
 // record's show of the tag sha returns non-zero, so the (informational)
 // main-record PR is skipped and the run goes straight to the CI wait.
 function writeGitStub(dir) {
-  const stub = writeProgram(dir, "git-stub", `#!/usr/bin/env node
+  const stub = path.join(dir, "git-stub.js");
+  fs.writeFileSync(stub, `#!/usr/bin/env node
 "use strict";
 const fs = require("node:fs");
 const a = process.argv.slice(2);
@@ -84,6 +84,7 @@ if (a[0] === "show") {
 }
 process.exit(0);
 `);
+  fs.chmodSync(stub, 0o755);
   return stub;
 }
 
@@ -96,7 +97,8 @@ process.exit(0);
 //                 wait that takes the newest run by time alone reports the
 //                 other tag's success instead.
 function writeGhStub(dir) {
-  const stub = writeProgram(dir, "gh-stub", `#!/usr/bin/env node
+  const stub = path.join(dir, "gh-stub.js");
+  fs.writeFileSync(stub, `#!/usr/bin/env node
 "use strict";
 const a = process.argv.slice(2);
 const wi = a.indexOf("--workflow");
@@ -116,6 +118,7 @@ if (a[0] === "run" && a[1] === "list" && wf === "npm-publish") {
 }
 process.exit(0);
 `);
+  fs.chmodSync(stub, 0o755);
   return stub;
 }
 

@@ -31,7 +31,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { spawnSync } from "./spawn-argv.mjs";
+import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 
 // dist/ is loaded lazily, so a missing build is a finding, not a crash.
@@ -453,7 +453,7 @@ function checkGh(ctx) {
 
 // ---- tool versions (informational) -------------------------------------------
 function toolVersions(ctx) {
-  const npm = ctx.run("npm", ["--version"]);
+  const npm = ctx.run(process.platform === "win32" ? "npm.cmd" : "npm", ["--version"]);
   return finding("tools", "info", `node ${process.version}, npm ${npm.code === 0 && npm.out ? npm.out : "unknown"}`);
 }
 

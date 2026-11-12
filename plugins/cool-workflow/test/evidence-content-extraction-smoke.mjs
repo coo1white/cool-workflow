@@ -100,7 +100,7 @@ const strictProbe = [
   // v2 dist path + pure signature: unresolvedFileEvidence(evidence, baseDirs, ops, env)
   // where ops = { exists, isAbsolute, resolve }. Real callers pass real fs/path
   // (see src/shell/commit.ts); we do the same to keep the on-disk check intact.
-  `const { unresolvedFileEvidence } = require(${JSON.stringify(path.join(import.meta.dirname, "..", "dist", "core", "trust", "evidence-grounding.js"))});`,
+  `const { unresolvedFileEvidence } = require("${path.join(import.meta.dirname, "..", "dist", "core", "trust", "evidence-grounding.js")}");`,
   "const ops = { exists: fs.existsSync, isAbsolute: path.isAbsolute, resolve: (base, rel) => path.resolve(base, rel) };",
   "const file = process.env.CW_EVIDENCE_FILE;",
   "const unresolved = unresolvedFileEvidence([file + ':1', '/no/such/path.ts:42', 'https://example.com', 'exitCode:0'], [process.env.CW_EVIDENCE_DIR], ops);",

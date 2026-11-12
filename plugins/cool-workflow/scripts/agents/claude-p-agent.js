@@ -33,7 +33,7 @@ import { spawnSync } from "node:child_process";
 // wrappers instead of carrying a private copy. A drifted inline copy (ASCII
 // hyphens silently became em-dashes here) meant claude was sent a different
 // instruction text than the other providers for the same contract.
-import { buildPrompt, createRenderer, hostSpawnArgv, persistStderr, spawnVendor, toolLabel, summarizeToolResult, buildFailureDetail, recordVendorPid } from "./agent-adapter-core.mjs";
+import { buildPrompt, createRenderer, persistStderr, spawnVendor, toolLabel, summarizeToolResult, buildFailureDetail, recordVendorPid } from "./agent-adapter-core.mjs";
 
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
@@ -53,8 +53,7 @@ const traceEnabled = streamEnabled && Boolean(process.stderr.isTTY);
 if (!streamEnabled) {
   // Legacy default: --output-format json and verbatim stdout forwarding. This is
   // the public wrapper contract existing users already scripted against.
-  const start = hostSpawnArgv("claude", ["-p", "--output-format", "json", "--allowedTools", "Read,Grep,Glob"], process.env);
-  const child = spawnSync(start.binary, start.args, {
+  const child = spawnSync("claude", ["-p", "--output-format", "json", "--allowedTools", "Read,Grep,Glob"], {
     input: prompt,
     encoding: "utf8",
     maxBuffer: 32 * 1024 * 1024,

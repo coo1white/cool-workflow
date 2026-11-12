@@ -79,7 +79,7 @@ import path from "node:path";
 import https from "node:https";
 import http from "node:http";
 import crypto from "node:crypto";
-import { spawnSync } from "./spawn-argv.mjs";
+import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { REQUIRED_CHECKS } from "./release-ci-checks.mjs";
 import * as pf from "./release-preflight.mjs";

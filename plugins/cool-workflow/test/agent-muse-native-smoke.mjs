@@ -10,7 +10,6 @@ import fs from "node:fs";
 import path from "node:path";
 import * as agentConfigModule from "../dist/shell/agent-config.js";
 import { tmpDir } from "./helpers/workspace.mjs";
-import { writeProgram } from "./helpers/program.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const wrapper = path.join(pluginRoot, "scripts", "agents", "muse-agent.js");
@@ -33,6 +32,7 @@ const REASON = "your saved API key was rejected — run `muse login` or add a ne
 
 function shimDir(behavior) {
   const dir = tmpDir("cw-muse-shim-");
+  const shim = path.join(dir, "muse");
   const source = `#!/usr/bin/env node
 const fs = require("node:fs");
 const path = require("node:path");
@@ -79,7 +79,8 @@ emit({
 });
 process.exit(0);
 `;
-  writeProgram(dir, "muse", source);
+  fs.writeFileSync(shim, source, "utf8");
+  fs.chmodSync(shim, 0o755);
   return dir;
 }
 
@@ -218,7 +219,7 @@ function main() {
     try {
       const binDir = path.join(shim, "bin");
       fs.mkdirSync(binDir, { recursive: true });
-      writeProgram(binDir, "muse", "process.exit(0);\n");
+      fs.writeFileSync(path.join(binDir, "muse"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
       const env = { PATH: binDir, HOME: shim };
       const detected = resolveAgentConfig({}, env);
       assert.equal(detected.source, "auto", "a muse binary on PATH must be auto-detected");

@@ -7,7 +7,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { agentCommandArgv, messageOf, NETWORK_ENV_NAMES, substituteAgentArg } from "../../core/util/cli-args.js";
 import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local.js";
-import { hostSpawnArgv } from "../fs-atomic.js";
 const PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|CLAUDE_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i;
 /** PATH and HOME, provider-key and proxy env, and USER (a vendor CLI reads it
  *  to find its own login in headless mode). Never a CW secret. */
@@ -160,8 +159,7 @@ export function runAgent(config, job) {
     return new Promise((resolve) => {
         let child;
         try {
-            const start = hostSpawnArgv(binary, args, env);
-            child = spawn(start.binary, start.args, { cwd: job.cwd, env, shell: false, stdio: ["ignore", "pipe", job.streamStderr ? "inherit" : "pipe"], windowsHide: true });
+            child = spawn(binary, args, { cwd: job.cwd, env, shell: false, stdio: ["ignore", "pipe", job.streamStderr ? "inherit" : "pipe"], windowsHide: true });
         }
         catch (error) {
             resolve(done({ ok: false, reason: `agent process failed to spawn: ${messageOf(error)}` }));

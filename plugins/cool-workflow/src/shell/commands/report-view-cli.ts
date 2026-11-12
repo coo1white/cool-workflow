@@ -3,7 +3,6 @@
 import * as fs from "node:fs";
 import { spawnSync } from "node:child_process";
 import { cwdArg } from "../../core/util/cli-args.js";
-import { hostSpawnArgv } from "../fs-atomic.js";
 import { reportToHtml } from "../../core/format/report-html.js";
 import { latestRunId, loadRun } from "../run-store.js";
 import { writeReport } from "../report.js";
@@ -18,27 +17,15 @@ export function reportWriteCli(runId: string, args: Record<string, unknown>): { 
   return { path: writeReport(loadRun(runId, cwdArg(args))) };
 }
 
-/** The argv that opens a file in its default app, the file last. CW_OPENER
- *  when set; else open (macOS), xdg-open, or on Windows rundll32's
- *  FileProtocolHandler: `start` is a cmd.exe word, not a program, so it
- *  cannot be spawned with no shell. */
-export function openerArgv(file: string, env: NodeJS.ProcessEnv = process.env, platform: string = process.platform): string[] {
-  if (env.CW_OPENER) return [env.CW_OPENER, file];
-  if (platform === "darwin") return ["open", file];
-  if (platform === "win32") return ["rundll32.exe", "url.dll,FileProtocolHandler", file];
-  return ["xdg-open", file];
-}
-
-/** Writes report.html beside report.md when missing or older, and opens it
- *  with openerArgv, argv-style. Throws when the opener fails, so no caller
- *  records "opened" when nothing ran. */
+/** Writes report.html beside report.md when missing or older, and opens it:
+ *  CW_OPENER when set, else open/xdg-open/start. Spawned argv-style. Throws
+ *  when the opener fails, so no caller records "opened" when nothing ran. */
 export function ensureAndOpenReportHtml(mdPath: string): string {
   const htmlPath = mdPath.replace(/\.md$/, ".html");
   const htmlMtime = fs.existsSync(htmlPath) ? fs.statSync(htmlPath).mtimeMs : -1;
   if (htmlMtime < fs.statSync(mdPath).mtimeMs) fs.writeFileSync(htmlPath, reportToHtml(fs.readFileSync(mdPath, "utf8")), "utf8");
-  const [opener, ...openArgs] = openerArgv(htmlPath);
-  const start = hostSpawnArgv(opener, openArgs, process.env);
-  const r = spawnSync(start.binary, start.args, { stdio: "ignore", shell: false });
+  const opener = process.env.CW_OPENER || (process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open");
+  const r = spawnSync(opener, [htmlPath], { stdio: "ignore", shell: false });
   if (r.error || r.status !== 0) throw new Error(`report.html is at ${htmlPath} but the opener "${opener}" failed: ${r.error ? r.error.message : `exit ${r.status}`}`);
   return htmlPath;
 }

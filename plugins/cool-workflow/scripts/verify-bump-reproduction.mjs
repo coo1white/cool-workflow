@@ -57,14 +57,7 @@ if (!PARENT || !TAGGED || (NO_VERDICT ? VERDICT_REL !== "" : !VERDICT_REL)) {
   process.exit(1);
 }
 
-// This script is copied alone into a verifier folder, so it cannot import
-// spawn-argv.mjs. On Windows Node will not start npm.cmd with no shell, so
-// `npm` runs as node's own npm-cli.js (beside node, where its installer puts it).
-const WIN_NPM_CLI = path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
 function run(cmd, args, opts = {}) {
-  if (process.platform === "win32" && cmd === "npm" && fs.existsSync(WIN_NPM_CLI)) {
-    return spawnSync(process.execPath, [WIN_NPM_CLI, ...args], { encoding: "utf8", ...opts });
-  }
   return spawnSync(cmd, args, { encoding: "utf8", ...opts });
 }
 function gitIn(dir, args, opts = {}) {
