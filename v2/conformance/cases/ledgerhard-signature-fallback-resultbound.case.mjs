@@ -26,7 +26,9 @@ import {
   generateTrustKeypair,
   signUsagePayload,
   replaceTelemetryRecord,
+  resultFileOf,
   resultFileContent,
+  digestManifest,
 } from "./fixtures/telemetry-sign.mjs";
 
 const TASK_ID = "map:server-api";
@@ -80,6 +82,21 @@ caseMain(() => {
     assert.equal(result.signaturesFailed, 0);
     assert.equal(result.reportFindingsVerified, true);
     assert.equal(result.trustLevel, "signed", "a signature that actually covered the result must anchor it as signed");
+
+    // ---- Arm A2: the same signed bundle with the result file under the
+    // OTHER OS's spelling (results/map:server-api.md is
+    // results/map_server-api.md when the run was made on Windows). A bundle
+    // verifies offline on any OS, so either spelling must still anchor. ----
+    const file = resultFileOf(bundle, TASK_ID);
+    file.relativePath = file.relativePath.includes(":") ? file.relativePath.replace(/:/g, "_") : `results/${TASK_ID}.md`;
+    bundle.integrity.manifestSha256 = digestManifest(bundle.files);
+    const otherPath = path.join(path.dirname(archivePath), "signed-5field-other-os.cwrun.json");
+    fs.writeFileSync(otherPath, JSON.stringify(bundle));
+    const other = run(["report", "verify-bundle", otherPath, "--json"], { cwd: repo });
+    assert.equal(other.status, 0, other.stdout);
+    const otherResult = JSON.parse(other.stdout);
+    assert.equal(otherResult.reportFindingsVerified, true, "the other OS's result file name still binds");
+    assert.equal(otherResult.trustLevel, "signed");
   }
 
   // ---- Arm B: a genuine OLD-STYLE 4-field signature (usage only), then an

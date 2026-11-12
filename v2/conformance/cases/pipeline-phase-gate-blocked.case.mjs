@@ -7,16 +7,16 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { run, gitRepo, readJson, caseMain, assert } from "../lib.mjs";
+import { run, gitRepo, readJson, caseMain, assert, seg } from "../lib.mjs";
 
 // A selector agent: fails only for the task whose worker input path
-// contains "map:server-api"; every other task succeeds with a minimal valid
+// contains "map:server-api" (map_server-api on Windows); every other task succeeds with a minimal valid
 // cw:result envelope.
 const SELECTOR_SRC = `
 import fs from "node:fs";
 const inputPath = process.argv[2];
 const resultPath = process.argv[3];
-if (inputPath.includes("map:server-api")) { process.exit(1); }
+if (/map[:_]server-api/.test(inputPath)) { process.exit(1); }
 const body = "Stub finding.\\n\\n\`\`\`cw:result\\n" + JSON.stringify({ summary: "s", findings: [], evidence: ["a.txt:1"] }) + "\\n\`\`\`\\n";
 fs.writeFileSync(resultPath, body, "utf8");
 process.stdout.write(JSON.stringify({ model: "selector-agent" }) + "\\n");
@@ -46,5 +46,5 @@ caseMain(() => {
 
   // On disk: no Verify or Verdict worker was ever made.
   const workerDirs = fs.readdirSync(path.join(path.dirname(payload.statePath), "workers"));
-  assert.ok(workerDirs.every((w) => w.startsWith("worker-map:") || w.startsWith("worker-assess:")), workerDirs.join(","));
+  assert.ok(workerDirs.every((w) => w.startsWith(`worker-${seg("map:")}`) || w.startsWith(`worker-${seg("assess:")}`)), workerDirs.join(","));
 });

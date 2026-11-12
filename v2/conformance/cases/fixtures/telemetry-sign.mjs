@@ -128,8 +128,14 @@ function replaceTelemetryRecord(bundle, taskId, mutate) {
   return original;
 }
 
+// A bundle made on Windows names the file results/map_server-api.md (no `:`
+// in a Windows file name); one made elsewhere keeps the id as is.
+function resultFileOf(bundle, taskId) {
+  return bundle.files.find((f) => f.relativePath === `results/${taskId}.md` || f.relativePath === `results/${taskId.replace(/:/g, "_")}.md`);
+}
+
 function resultFileContent(bundle, taskId) {
-  const resultFile = bundle.files.find((f) => f.relativePath === `results/${taskId}.md`);
+  const resultFile = resultFileOf(bundle, taskId);
   if (!resultFile) throw new Error(`telemetry-sign: no results/${taskId}.md in bundle`);
   return Buffer.from(resultFile.contentBase64, "base64").toString("utf8");
 }
@@ -143,5 +149,6 @@ export {
   signUsagePayload,
   digestManifest,
   replaceTelemetryRecord,
+  resultFileOf,
   resultFileContent,
 };
