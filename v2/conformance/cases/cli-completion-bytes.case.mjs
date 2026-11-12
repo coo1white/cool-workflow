@@ -4,8 +4,8 @@
 // byte, against captures in fixtures/cli-completion/<shell>.txt (raw stdout,
 // no header line). cli-completion.case.mjs checks the shape and the word
 // list; this case pins the whole script, so any later change to it (a new
-// command word, a changed line) is a changed pin that `npm run pola:check`
-// holds to the operator's record. Also: exit 0, nothing on stderr.
+// command word, a changed line) is a changed pin that needs the operator's
+// named yes. Also: exit 0, nothing on stderr.
 
 import fs from "node:fs";
 import path from "node:path";

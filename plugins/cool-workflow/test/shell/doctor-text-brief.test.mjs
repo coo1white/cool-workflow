@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// doctor-text-brief.test — the text view of `cw doctor` (intent
-// 2026-11-archive.md, rows 10 and 11):
+// doctor-text-brief.test — the text view of `cw doctor`:
 //   - the sandbox-enforceability line is one short line; the long detail
 //     stays in the report object, which is what --json prints;
 //   - the three quick start rows put their dash at one column.

@@ -9,7 +9,7 @@
 //
 // Evidence: SPEC/state-core.md "state-node module — StateNode lifecycle and
 // contract gates", "StateNode transition matrix", "Deterministic id
-// fallback", "Contract gates" (project/docs/rebuild/PLAN.md byte-compat item 7 — the double
+// fallback", "Contract gates" (the double
 // commit gate).
 import { stableStringify, sha256 } from "../hash.js";
 export const STATE_NODE_SCHEMA_VERSION = 1;
@@ -101,7 +101,7 @@ export function validatePipelineContract(contract) {
  *  check against; every real caller (shell/) passes `fs.existsSync` so the
  *  `missing-artifact-path` gate checks real paths. Kept as
  *  an explicit parameter (never a top-level `require("node:fs")`) so this
- *  stays a pure core/ module per project/docs/rebuild/PLAN.md's core/shell split. */
+ *  stays a pure core/ module per the core/shell split. */
 export function assertNodeSatisfiesContract(node, contract, stageId, pathExists = () => true) {
     validatePipelineContract(contract);
     const stage = contract.stages.find((candidate) => candidate.id === stageId);

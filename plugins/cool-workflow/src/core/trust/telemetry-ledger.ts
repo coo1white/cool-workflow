@@ -4,8 +4,8 @@
 // (telemetryLedgerPath, loadTelemetryLedger, appendTelemetryAttestation)
 // lives in shell/telemetry-ledger-io.ts.
 //
-// Uses core/hash.ts's `sha256`/`telemetryStableStringify` (see
-// project/docs/rebuild/PLAN.md byte-compat item 2's key-omission-vs-null rule).
+// Uses core/hash.ts's `sha256`/`telemetryStableStringify` (and its
+// key-omission-vs-null rule).
 //
 // Evidence: SPEC/ledger-trust.md "Telemetry ledger record", byte-compat
 // items 2 and 12.
@@ -63,8 +63,7 @@ export function genesisPrevHash(runId: string): string {
 /** The canonical bytes a recordHash binds — every field except
  *  recordHash itself. `reportedUsage`/`resultDigest` are OMITTED (not
  *  `null`) when absent, so a usage-only record's hash is byte-identical
- *  to a pre-result-coverage one (back-compat with old ledgers) — see
- *  project/docs/rebuild/PLAN.md byte-compat item 2. */
+ *  to a pre-result-coverage one (back-compat with old ledgers). */
 function recordHashInput(record: Omit<TelemetryAttestationRecord, "recordHash">): string {
   return telemetryStableStringify({
     schemaVersion: record.schemaVersion,

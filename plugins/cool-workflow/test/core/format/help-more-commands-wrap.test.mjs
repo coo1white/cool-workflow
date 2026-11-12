@@ -6,8 +6,7 @@
 // parity help-token parser reads each wrapped line as command tokens.
 //
 // Evidence: SPEC/cli-surface.md ("split and re-wrapped to lines of at most
-// 76 columns, pipe-joined with a 2-space indent"); project/docs/rebuild/PLAN.md byte-compat
-// item 14.
+// 76 columns, pipe-joined with a 2-space indent").
 
 import assert from "node:assert/strict";
 import { formatHelp } from "../../../dist/core/format/help.js";

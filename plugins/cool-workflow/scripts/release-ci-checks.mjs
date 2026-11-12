@@ -8,14 +8,11 @@
 //                                   reviewer input and the verdict commit)
 //   - scripts/release-oneclick.mjs  (waits for the checks on the cut commit
 //                                   before the cut stage)
-//   - test/ci-shape-gate-smoke.mjs  (pins REQUIRED_CHECKS to the ci.yml
-//                                   `check` matrix)
 //   - test/release-gate-ci-checks-smoke.mjs
 //
 // REQUIRED_CHECKS is the ONE place the release tooling names the required
-// checks. It must stay equal to main's branch protection (AGENTS.md: the
-// ubuntu `check` legs on Node 22 and 24); ci-shape-gate-smoke fails when a
-// name here is not a leg of ci.yml's `check` job.
+// checks. It must stay equal to main's branch protection (the ubuntu
+// `check` legs of ci.yml on Node 22 and 24).
 //
 // Fail closed: only a check run that is `completed` with conclusion
 // `success`, made by the GitHub Actions app, for the exact sha, counts. A

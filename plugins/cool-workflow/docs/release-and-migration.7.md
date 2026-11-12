@@ -136,9 +136,7 @@ multi-agent state under `multiAgent`, while unknown user data stays kept.
 ## Removed Surfaces: The Multi-Agent Family
 
 The multi-agent family was taken out (slim-and-esm program, step 2; the
-operator's yes of 2026-09-28 is in
-`project/docs/intent/2026-09-archive.md`, the slim-and-ESM part, decision
-D1). These are no longer part of CW, on the CLI or over MCP:
+operator's yes of 2026-09-28, decision D1). These are no longer part of CW, on the CLI or over MCP:
 
 - CLI verbs: `cw multi-agent`, `cw topology`, `cw blackboard`,
   `cw coordinator`, `cw candidate`, `cw eval`, `cw summary`, `cw approve`,
@@ -170,8 +168,7 @@ CW keeps any other user data; no command reads them as live state any more.
 
 The release after 0.3.1 needs Node.js 22.13 or newer; 0.3.1 is the last
 release for Node 18 and 20 (slim-and-esm program, step 4; the operator's yes
-of 2026-09-28 is decision D4 in
-`project/docs/intent/2026-09-archive.md`, the slim-and-ESM part).
+of 2026-09-28 is decision D4).
 
 - `package.json` `engines.node` is `>=22.13.0`. npm gives a warning when the
   Node in use is older.
@@ -194,14 +191,13 @@ From the release after 0.3.1, `dist/` is ES modules (`"type": "module"` in
 `package.json`; slim-and-esm program, step 5, decision D5). The commands,
 their exit codes and the MCP tools do not change. Their output does not
 change, with these exceptions, which go out in 0.3.2 with the operator's
-dated yes (`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator
-decisions for 0.3.2 (2026-10-17)"; see doctor(7)):
+dated yes of 2026-10-17 (see doctor(7)):
 
 - `cw doctor`'s node check says `(>= 22.13)` where it said `(>= 18)`, and
   its fail text and fix say `v22.13` and `22.13+` where they said `v18`
   and `18+` (the Node floor above).
 - `cw doctor --onramp`, in a CW checkout, names `.mjs` test and script
-  paths (`test/doctor-smoke.mjs`, `scripts/onramp-check.mjs`) where it
+  paths (`test/doctor-smoke.mjs`, `test/onramp-check-smoke.mjs`) where it
   named `.js` ones.
 
 The module form itself:
@@ -237,8 +233,7 @@ with no message. Only `npm i -g` worked. 0.3.3 ships no install-time
 script: both commands now install and run, with exit 0. `npm i -g` is
 unchanged. A contributor who runs `npm install` in the checkout is
 caught by the test gate and CI instead (`package-manager-gate-smoke`).
-The operator's yes: `project/docs/intent/2026-10-16-release-gate-ci.md`,
-"Operator decisions for 0.3.3, third set".
+The operator said yes to it for 0.3.3.
 
 ## Unsupported Cases
 

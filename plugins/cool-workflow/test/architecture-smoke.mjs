@@ -8,10 +8,11 @@
 // with its own "why" in its header, but from the rule side nothing said
 // which guard holds which rule (structure plan 2026-11-03, plan A item 3).
 // This smoke holds four things:
-//   1. RULES: every rule names its why and its guard; every guard named is
-//      on disk; every `*:check` script's file is in the table, so a new
-//      guard is put on the map in the same diff. A rule no machine holds
-//      says "reviewer" (the owner's answer, 2026-11-03).
+//   1. RULES (the floor table of the root AGENTS.md): every rule names its
+//      why and its guard; every guard named is on disk; every `*:check`
+//      script's file is in the table (or in CHECK_NOT_A_RULE), so a new
+//      guard is put on the map in the same diff. A rule no file holds names
+//      "reviewer", "branch protection" or "tsc".
 //   2. SECURITY_PATHS: signing, release tooling, sandbox, receipts,
 //      redaction, the never-forward env list are on disk and named by a man
 //      page; the release key's env name is in no code but the release
@@ -36,41 +37,30 @@ const repoRoot = path.resolve(pluginRoot, "..", "..");
 const PLUGIN = "plugins/cool-workflow/";
 const ME = "test/architecture-smoke.mjs";
 
-// [rule, why (incident or risk), guards: plugin-relative files or "reviewer"]
+// [rule, why (incident or risk), guards: plugin-relative files or a NON_FILE_GUARDS name]
+// The rows mirror "The floor" table in the root AGENTS.md; change the two together.
 const RULES = [
-  ["core decides, shell does I/O, wiring joins; imports point one way", "I/O hidden in core breaks replay", ["scripts/purity-gate.mjs", "test/purity-gate-dynamic-import-smoke.mjs"]],
-  ["data crossing the executor boundary holds no callable (CW delegates)", "a model client in state makes CW the engine", ["test/one-way-boundary-smoke.mjs"]],
-  ["policy and vendor logic live in userland (scripts/agents/), not src/", "vendor parsing in core ties it to one vendor", ["reviewer"]],
-  ["POLA: default output bytes, exit codes and flags do not change", "scripts that read cw output break silently", ["test/cli-command-surface-smoke.mjs", "reviewer"]],
-  ["a changed pinned output needs the operator's named yes, each line quoted", "0.4.0 cut rejected three times for unnamed output changes", ["scripts/pola-check.mjs", "test/pola-check-smoke.mjs"]],
-  ["a fix comes with a test that fails before it", "a fix whose test stayed green when reverted (0.4.0 third review)", ["scripts/fails-before-check.mjs", "test/fails-before-check-smoke.mjs"]],
-  ["cw help shows at most five entries before More commands", "a sixth front-page row (0.4.0 third review)", ["test/core/format/help-front-page-cap.test.mjs"]],
-  ["zero runtime dependencies", "a dependency is supply-chain risk on every install", ["reviewer"]],
+  ["never push to main; branch, PR, green CI, merge", "a push skips review and CI", ["branch protection"]],
+  ["a fix comes with a test that fails before it", "a fix whose test stayed green when reverted (0.4.0 third review)", ["scripts/fails-before-check.mjs"]],
+  ["zero runtime dependencies in the CLI", "a dependency is supply-chain risk on every install", ["reviewer"]],
+  ["core decides, shell does I/O, wiring joins; imports point one way", "I/O hidden in core breaks replay", ["scripts/purity-gate.mjs"]],
+  ["data crossing the executor boundary holds no callable", "a model client in state makes CW the engine", ["test/one-way-boundary-smoke.mjs"]],
+  ["CLI and MCP are two views of one capability table", "the two doors drift apart", ["scripts/parity-check.mjs"]],
+  ["no shell: true in src/; children are spawned argv-style", "a stray character reaches /bin/sh", [ME]],
+  ["private keys never live in src/ or reach a child process", "an agent holding a key forges verdicts or receipts", [ME]],
+  ["committed dist/ is exactly the build of src/", "users run code no one reviewed", ["scripts/dist-drift-check.mjs"]],
+  ["JS/TS only; another language is a named exception", "a second toolchain to keep and review", ["scripts/lang-policy-check.mjs"]],
+  ["--json output, exit codes and flags do not change shape", "scripts that read cw output break silently", ["test/cli-command-surface-smoke.mjs"]],
+  ["no unused locals; no barrel files in src/", "dead code hides the real surface; a barrel loads modules no caller needs", ["tsc", ME]],
   ["unit tests mirror src/; smokes stay flat in test/", "a smoke in a sub folder never runs", ["test/test-layout-smoke.mjs"]],
-  ["test/helpers/ is the one home of shared test set-up", "copied helpers drift apart", ["test/test-layout-smoke.mjs", "test/helpers/helpers.test.mjs"]],
-  ["every repo root entry is named with a reason; LF, final newline", "root files leak in unseen", ["test/root-layout-smoke.mjs"]],
-  ["project/docs/ map links every entry; intent files are dated", "docs no reader can find", ["test/docs-layout-smoke.mjs"]],
-  ["an intent has Measured facts, Paths weighed, a snapshot diff", "plans on guesses, not numbers", ["reviewer"]],
-  ["frozen surfaces take fixes and deletions only", "growth where the core path does not need it", ["scripts/growth-budget-check.mjs"]],
-  ["growth budget: .md count and src comment lines have ceilings", "docs and comments grow without end", ["scripts/growth-budget-check.mjs", "test/growth-budget-check-smoke.mjs"]],
-  ["perf ratchet: module loads, state reads, fsyncs never go up", "every command gets slower a little at a time", ["test/perf-ratchet-smoke.mjs"]],
-  ["no barrel files in src/", "a barrel loads modules no caller needs", [ME]],
-  ["man pages are the contract: behavior changes update docs/*.7.md", "undocumented behavior is unfinished", ["scripts/onramp-check.mjs", "reviewer"]],
-  ["every cw verb is documented in a man page", "a user cannot find how a command works", [ME]],
-  ["docs name only paths that exist", "a moved file leaves dead pointers", ["scripts/citation-check.mjs", "test/citation-check-smoke.mjs"]],
-  ["the project index and README sections are generated", "hand edits drift from the tree", ["scripts/sync-project-index.mjs", "scripts/sync-readme.mjs", "test/project-index-sync-smoke.mjs"]],
-  ["CLI and MCP are two views of one capability table", "the two doors drift apart", ["scripts/parity-check.mjs", "test/cli-mcp-parity-smoke.mjs"]],
-  ["no shell: true in src/; children are spawned argv-style", "a stray character reaches /bin/sh", [ME, "test/shell-backend-structural-smoke.mjs"]],
-  ["one PATH walk in src/ (findProgram)", "three copies, one missed PATHEXT on Windows", ["test/core/util/cli-args-findprogram.test.mjs"]],
-  ["a small helper three files need lives once in core/util/", "copies of one helper drift apart", ["test/core/util/cli-args-sharedhelpers.test.mjs"]],
-  ["committed dist/ is exactly the build of src/", "users run code no one reviewed", ["scripts/dist-drift-check.mjs", "test/dist-drift-check-smoke.mjs"]],
-  ["JS/TS only; any other language is a named exception", "a second toolchain to keep and review", ["scripts/lang-policy-check.mjs", "test/lang-policy-check-smoke.mjs"]],
-  ["dead code cannot land (noUnusedLocals)", "dead exports hide the real surface", ["test/no-unused-locals-smoke.mjs"]],
-  ["CI is three workflow files plus four named ones", "CI sprawl no one reads", ["test/ci-shape-gate-smoke.mjs"]],
-  ["a release is gated, reviewed and signed; never tag by hand", "an unreviewed tag publishes to npm", ["scripts/release-check.mjs", "scripts/release-gate.mjs", "test/release-gate-smoke.mjs"]],
-  ["security paths are documented; private keys stay out of src/ and children", "an agent holding a key forges verdicts or receipts", [ME]],
-  ["never push to main; merge on green CI", "a push skips review and CI", ["reviewer"]],
 ];
+// Guards that are not a file in this package.
+const NON_FILE_GUARDS = new Set(["reviewer", "branch protection", "tsc"]);
+// `*:check` npm scripts that hold no rule of their own: npm script -> why.
+const CHECK_NOT_A_RULE = {
+  "readme:check": "keeps the generated npm README in step with the root README",
+  "release:check": "runs the gates above (and the tests) before a cut",
+};
 
 // [plugin-relative path, why it is sensitive, man page, text that page must hold]
 const SECURITY_PATHS = [
@@ -175,18 +165,21 @@ const fault = (what, why, fix) => `${what} — why: ${why} — fix: ${fix}`;
 const heads = (findings) => findings.map((f) => f.split(" — ")[0]);
 const mentions = (text, verb) => new RegExp(`(?:\\bcw|cli\\.js) ${verb}(?![\\w-])`).test(text);
 
-function checkRules(rules, scripts, exists) {
+function checkRules(rules, scripts, exists, notARule = {}) {
   const findings = [];
   const named = new Set(rules.flatMap(([, , guards]) => guards));
   for (const [rule, why, guards] of rules) {
     if (!why || guards.length === 0) findings.push(fault(`rule "${rule}" has no why or no guard`, "a rule with no why is not kept, one with no guard is not held", `give it a why and a guard, or "reviewer"`));
     for (const g of guards) {
-      if (g !== "reviewer" && !exists(g)) findings.push(fault(`rule "${rule}": guard ${g} is not on disk`, "a map to a missing guard holds nothing", "fix the name, or name the guard that now holds it"));
+      if (!NON_FILE_GUARDS.has(g) && !exists(g)) findings.push(fault(`rule "${rule}": guard ${g} is not on disk`, "a map to a missing guard holds nothing", "fix the name, or name the guard that now holds it"));
     }
   }
   for (const [name, cmd] of Object.entries(scripts)) {
     const file = /:check$/.test(name) && /^node (\S+)/.exec(cmd)?.[1];
-    if (file && !named.has(file)) findings.push(fault(`npm run ${name} (${file}) is not in RULES`, "every guard is on the rule map", `add a RULES row in ${ME} for the rule it holds`));
+    if (file && !named.has(file) && !Object.hasOwn(notARule, name)) findings.push(fault(`npm run ${name} (${file}) is not in RULES`, "every guard is on the rule map", `add a RULES row in ${ME} for the rule it holds`));
+  }
+  for (const name of Object.keys(notARule)) {
+    if (!scripts[name]) findings.push(fault(`CHECK_NOT_A_RULE names npm run ${name}, which is gone`, "exempt lists only shrink", "drop the row"));
   }
   return findings;
 }
@@ -278,7 +271,7 @@ const keyHits = execFileSync("git", ["-C", repoRoot, "grep", "-l", "-F", RELEASE
 const localTs = fs.readFileSync(path.join(pluginRoot, "src/shell/execution-backend/local.ts"), "utf8");
 const verbs = parseVerbs(readTree(path.join(pluginRoot, "src/wiring/capability-table"), ".ts").map(([, t]) => t));
 const real = [
-  ...checkRules(RULES, scripts, exists),
+  ...checkRules(RULES, scripts, exists, CHECK_NOT_A_RULE),
   ...checkSecurity({ paths: SECURITY_PATHS, uncited: SECURITY_UNCITED, ceiling: SECURITY_UNCITED_CEILING, docs, exists, keyHits, neverForward: parseNeverForward(localTs) }),
   ...checkVerbs(verbs, docs, VERB_EXEMPT, VERB_EXEMPT_CEILING),
   ...checkSource(readTree(path.join(pluginRoot, "src"), ".ts"), BARREL_ALLOW, BARREL_CEILING),
@@ -288,10 +281,11 @@ assert.ok(verbs.length >= 40, `found ${verbs.length} verbs in the capability tab
 
 // 2. Teeth: one planted fault per rule, each named exactly.
 assert.deepEqual(heads(checkRules(
-  [["a", "", ["test/x-smoke.mjs"]], ["b", "why", ["test/gone-smoke.mjs"]], ["c", "why", ["reviewer"]]],
-  { "new:check": "node scripts/new-gate.mjs", "x:check": "node test/x-smoke.mjs", build: "node scripts/build.mjs" },
+  [["a", "", ["test/x-smoke.mjs"]], ["b", "why", ["test/gone-smoke.mjs"]], ["c", "why", ["reviewer", "branch protection", "tsc"]]],
+  { "new:check": "node scripts/new-gate.mjs", "x:check": "node test/x-smoke.mjs", "y:check": "node scripts/y.mjs", build: "node scripts/build.mjs" },
   (p) => p === "test/x-smoke.mjs",
-)), ['rule "a" has no why or no guard', 'rule "b": guard test/gone-smoke.mjs is not on disk', "npm run new:check (scripts/new-gate.mjs) is not in RULES"]);
+  { "y:check": "", "old:check": "" },
+)), ['rule "a" has no why or no guard', 'rule "b": guard test/gone-smoke.mjs is not on disk', "npm run new:check (scripts/new-gate.mjs) is not in RULES", "CHECK_NOT_A_RULE names npm run old:check, which is gone"]);
 
 const plantedLocal = `x = "${RELEASE_KEY}";\nexport const CW_NEVER_FORWARD_ENV = new Set([\n  "${RELEASE_KEY}",\n]);\n`;
 assert.deepEqual(heads(checkSecurity({

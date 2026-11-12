@@ -218,7 +218,7 @@ The run itself is a small case study in the method:
   None of these would have failed the fixer's own tests; only a
   second, skeptical pass found them.
 - **The bookkeeping files serialised the merges.** Two append-only
-  files (`ITERATION_LOG.md`, since removed, and the project index) meant every merge
+  files (`ITERATION_LOG.md` and the project index, both since removed) meant every merge
   re-conflicted the rest, so the PRs landed one at a time with a
   rebase between each — a `merge=union` rule and a regen step made
   that mechanical.

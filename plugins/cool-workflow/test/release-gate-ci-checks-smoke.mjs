@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // release-gate-ci-checks-smoke — the gate's test step taken from GitHub's
-// required CI checks on the exact commit, in place of a local test:gate run
-// (project/docs/intent/2026-10-16-release-gate-ci.md).
+// required CI checks on the exact commit, in place of a local test:gate run.
 //
 // Each case runs the REAL scripts/release-gate.mjs (and, at the end, the real
 // scripts/release-flow.mjs) in a throwaway git fixture whose plugin

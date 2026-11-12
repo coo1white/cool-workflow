@@ -100,8 +100,7 @@ import { stableHash, sha256, stableStringify } from "../../../dist/core/hash.js"
 
 // incrementalDelegationDigest: args ORDER matters (it is an array, not a
 // sorted set — stableStringify only sorts object KEYS, not array
-// elements, per PLAN.md byte-compat item 2/"stableHash over arrays
-// preserves order").
+// elements, per "stableHash over arrays preserves order").
 {
   const a = incrementalDelegationDigest("gpt-5", "agent", "readonly", "cmd", ["--a", "--b"], "");
   const b = incrementalDelegationDigest("gpt-5", "agent", "readonly", "cmd", ["--b", "--a"], "");

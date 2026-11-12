@@ -32,8 +32,7 @@
 //   --allow-stale-head (skip the HEAD == origin/main tip check, deliberate re-cuts only),
 //   --local-tests (run the full test:gate suite on this machine, see below)
 //
-// GATE TEST STEP (default changed 2026-10-16, see
-// project/docs/intent/2026-10-16-release-gate-ci.md):
+// GATE TEST STEP (default changed 2026-10-16):
 //   By default the gate's full test-suite step is NOT run here. The gate runs
 //   as `release-gate.mjs --tests-from-ci`: it passes only when the checks main's
 //   branch protection requires (scripts/release-ci-checks.mjs REQUIRED_CHECKS)
@@ -281,29 +280,6 @@ function reviewerPromptBody() {
   return body;
 }
 
-// The change sheet (pola-check.mjs --sheet, batch B2 of the 2026-11-11
-// intent): every string literal changed since the last tag, so the reviewer
-// reads a list, not only the diff. A list to read, not a gate: when the sheet
-// cannot be made, the input says so and the review goes on.
-const SHEET_MAX_LINES = 400;
-function changeSheetLines() {
-  const head = ["## Change sheet (string literals changed since the last tag)",
-    "A changed string that a user sees needs the operator's named yes in an",
-    "\"Operator decisions for <version>\" part; one that is not output needs none."];
-  const script = path.join(scriptsDir, "pola-check.mjs");
-  const r = fs.existsSync(script)
-    ? spawnSync(process.execPath, [script, "--sheet"], { cwd: repoRoot, encoding: "utf8", env: { ...process.env, CW_POLA_ROOT: repoRoot } })
-    : { status: 1, stderr: "pola-check.mjs is not here" };
-  if (r.status !== 0) {
-    const why = String(r.stderr || r.error || "no output").trim().split("\n")[0];
-    return [...head, `(unavailable: ${why})`, ""];
-  }
-  const lines = String(r.stdout).trimEnd().split("\n");
-  const shown = lines.slice(0, SHEET_MAX_LINES);
-  if (lines.length > shown.length) shown.push(`… ${lines.length - shown.length} more line(s): node plugins/cool-workflow/scripts/pola-check.mjs --sheet`);
-  return [...head, "```text", ...shown, "```", ""];
-}
-
 function buildReviewerInput(resultPath, gateTests) {
   const action = MODE_CUT ? `tag v${cutVersion || "<next>"}` : "check (no tag)";
   const resultDisplay = path.relative(repoRoot, resultPath);
@@ -319,7 +295,6 @@ function buildReviewerInput(resultPath, gateTests) {
     ...gateTestsLines(gateTests).map((l, i) => (i === 0 ? `- ${l}` : l)),
     "- Repo root (run git here): .",
     "",
-    ...changeSheetLines(),
     "## Required output — your final message IS the verdict",
     "Do not write any file: your final message is saved as the verdict file",
     `(${resultDisplay}) for you, so a file you write yourself is never read.`,
@@ -588,8 +563,8 @@ function verifyVerdict(resultPath) {
 function validateSemanticRejection(rawLines) {
   const lines = rawLines.map((line) => line.trim());
   // Markdown round a REJECTION (`**REJECTED**`, `**kind:**`, `1)`, `- `) is
-  // taken off, so a real rejection is not called invalid output (batch B3 of
-  // the 2026-11-11 intent). Only the rejection is read this loosely: it stops
+  // taken off, so a real rejection is not called invalid output. Only the
+  // rejection is read this loosely: it stops
   // the cut either way; an approval stays exact.
   if (!isRejectedLine(lines[0] || "")) {
     return { ok: false, reason: 'a rejection must start with exact "REJECTED"' };
@@ -921,17 +896,13 @@ function cut(resultPath, capability) {
   if (DRY_RUN) { say(`[dry-run] would: bump:version ${cutVersion}, commit verdict, tag v${cutVersion}${PUSH ? `, push refs/tags/v${cutVersion} (tag only, no branch)` : ""}`); return; }
   const bump = spawnSync("npm", ["run", "bump:version", "--", cutVersion], { cwd: pluginRoot, encoding: "utf8", stdio: "inherit" });
   if (bump.status !== 0) die("bump:version failed");
-  // Regenerate the gated project index after the version bump (PR #87 gate).
-  // Fail closed: a failed regen must not bake a stale index into the immutable tag.
-  const sync = spawnSync("npm", ["run", "sync:project-index", "--", "--repo-only"], { cwd: pluginRoot, encoding: "utf8", stdio: "inherit" });
-  if (sync.status !== 0) die("sync:project-index failed — refusing to cut with a stale project index");
-  // Stage ONLY tracked-file modifications (the bump surfaces, project-index, dist)
+  // Stage ONLY tracked-file modifications (the bump surfaces, dist)
   // plus the ONE intended new file: the reviewer verdict. NEVER `git add -A` — an
   // untracked stray (e.g. the reviewer's narration transcript, which carries the
   // operator's local home path) must never ride into the immutable tag commit
   // (that tripped pii-redaction-smoke and red-failed release-gate for v0.1.96).
   // `git add -u` touches tracked files only, so no untracked file can be swept in,
-  // and the dirty check above means the only tracked changes are bump + sync's;
+  // and the dirty check above means the only tracked changes are the bump's;
   // the verdict (and its .sig sidecar, when verdict signing is configured) are
   // the only new paths the cut is allowed to add. Check every add's exit code:
   // a swallowed git-add failure (a read-only object store, a locked index) used

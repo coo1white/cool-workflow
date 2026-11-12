@@ -5,7 +5,7 @@
 // (node:fs/child_process/net/http, process.env, process.cwd(), Date.now(),
 // new Date(), Math.random()), beyond a committed, itemized baseline.
 //
-// Why this exists: the rebuild plan doc (project/docs/rebuild/PLAN, in this package) and AGENTS.md both describe core/
+// Why this exists: the rebuild plan and AGENTS.md both describe core/
 // as pure (no IO) and shell/ as the only impure layer, and say this is
 // "enforced by a lint rule". No such lint exists anywhere in scripts/ or
 // package.json — only `tsc --noEmit`, which does not check import

@@ -1,7 +1,7 @@
 # Release Tooling
 
 CW v0.1.33 adds Release Tooling: the mechanical, do-it-again part of cutting a tag
-becomes three deterministic scripts plus a de-duplicated release gate. Before
+becomes a deterministic script plus a de-duplicated release gate. Before
 v0.1.33 a release meant changing the version by hand across ~17 surfaces and making
 the same doc/test/CHANGELOG shapes by hand — slow, and the cause of stale-version
 gate failures. This release leaves the kernel runtime untouched and moves the hard
@@ -30,29 +30,6 @@ TARGETED `old -> new` replace, so older references (a past `minVersion`, a
 `version-sync-check.mjs` reads the looked-for version from `package.json`, so the
 checker can never get out of step with the bump source.
 
-## new:feature
-
-```text
-node scripts/new-feature.mjs <slug> "<Title>" ["summary"]
-```
-
-Builds the per-tag boilerplate frame: the `docs/<slug>.7.md` skeleton and a
-runnable `test/<slug>-smoke.mjs` stub, then PRINTS the exact
-gate-file edits (capability registry, `version:sync` assertions, the `docs presence`
-list, the `npm test` chain). Gate files are printed, never changed on their own, so a
-new frame can never quietly break a release gate.
-
-## forward-ref
-
-```text
-node scripts/forward-ref-docs.mjs "<Title>" "<summary>"
-```
-
-Adds a `## <Title> (vX)` forward-reference section at the end of every doc `version:sync`
-needs to carry the current version (the repo's per-release documentation
-pattern). APPEND-ONLY and idempotent: it never rewrites an older version label
-and running it again for the same version does nothing.
-
 ## De-duplicated release:check
 
 `release:check` before this ran `npm test` AND then ran ~15 of those same smoke
@@ -62,8 +39,8 @@ keeps full coverage while cutting the doubled wall time. The steps that stay
 are the ones NOT covered by `npm test`: build, type check, `npm test`,
 canonical-apps, golden-path, parity, vendor-manifest drift, and `version:sync`.
 
-The drift gates `index:check` (`docs/project-index.md`) and `readme:check`
-(`plugins/cool-workflow/README.md`) also run here. The npm package README is
+The drift gate `readme:check` (`plugins/cool-workflow/README.md`) also runs
+here. The npm package README is
 GENERATED from the repo-root `README.md` by `scripts/sync-readme.mjs` — it changes
 only the relative image/link URLs npm cannot render (`docs/assets/*` to
 `raw.githubusercontent.com`, `](LICENSE)`/`](plugins/...)` to `.../blob/main/...`),
@@ -84,136 +61,6 @@ pick one speed cycle at a time; it is diagnostic, not a hard release threshold.
 The dogfood release smoke and the architecture-review dogfood smoke are separate
 test files. The split keeps the same release and agent-drive proof, but lets
 `test:ci` schedule the two long checks in parallel.
-
-## citation:check
-
-```text
-npm run citation:check
-```
-
-This is the `doc citation freshness` step in `release:check`. It makes sure
-every file name that a doc, or a line of code, points at is a real file in
-the tree. It checks three things: a bare name like `<name>.ts` in a doc
-must match some real file's name under `src/`, `scripts/`, `test/`, or
-`apps/`;
-every line of `src/**/*.ts` and `scripts/**/*.js` — code and comments alike
-— must name only files that exist; and the same check runs on
-`test/**/*.js`, but only on `//` comment lines, since a test's fixture
-strings use made-up paths on purpose. A file name with a `:line` number
-fails on its own — line numbers go stale fast, and a file name does not.
-It also refuses a stale cut-over-audit marker phrase (case-insensitive,
-whole-phrase) anywhere in `src/`, `scripts/`, or `test/` — the kind of
-"this test is RED on purpose" comment that outlives the gap it once named.
-
-## growth:check
-
-```text
-npm run growth:check
-```
-
-Fail-closed gate over `manifest/growth-budget.json`: a ceiling on git-tracked
-`.md` file count repo-wide, and a ceiling on comment-line count under
-`plugins/cool-workflow/src`. Both counts come from `git ls-files`, so tracked
-files only — never untracked or ignored ones — and a run is reproducible by
-hand: `git ls-files | grep -c '\.md$'` for the `.md` count, and, for the
-comment count, read every tracked file under `plugins/cool-workflow/src` and
-count lines whose first non-space chars are `//` or `*`.
-
-Ceilings are the measured count at the time they were set, plus about 5%
-headroom. Over budget fails closed (exit 1) with a message that asks for a
-conscious choice: slim something else first (delete a stale `.md`, cut a
-narrating comment) — always a valid way to pay for growth — or raise the
-ceiling in `manifest/growth-budget.json` with the freshly measured number
-written into the commit message, not only the new cap. Teeth live in
-`test/growth-budget-check-smoke.mjs`.
-
-## pola:check
-
-```text
-npm run pola:check
-npm run pola:check -- --json
-```
-
-This is the `POLA pins` step in `release:check`, so CI runs it on every PR.
-It holds POLA item 1 (AGENTS.md) to the files that pin output bytes. The base
-is the reviewed commit of the last release: the newest `vX.Y.Z` tag by
-version order, then its first parent (`<tag>^1`), as a tag is a one-hop
-verdict leaf. With no tag, or a shallow clone without that commit, it
-refuses (exit 1); CI checks out with `fetch-depth: 0`.
-
-A pin is a file under `v2/conformance/` (case files and their byte-exact
-fixtures) or under `test/fixtures/runs/` (old run state that must still
-load), changed or deleted since the base. An added file is new surface and
-is free. For every changed pin, two things must hold:
-
-- the version in `package.json` is higher than the base tag's version;
-- a section of an intent file under `project/docs/intent/`, with a heading
-  that has `Operator decisions for <version>`, names the pin (its path, or a
-  path end that names no other pin, such as `cli-help/_root.txt`) and names
-  the `docs/*.7.md` that says the new text.
-
-A changed pin that is captured text (a `fixtures/` file such as
-`cli-help/_root.txt` or `cli-completion/bash.txt`, or run state) is also held
-line by line: every line the change adds or changes (trimmed, blank lines
-left out) must be in the `Operator decisions for <version>` sections, word
-for word. The sections for one version are read as one text. So the
-question put to the operator quotes the new line, and the record keeps
-the question. A case `.mjs` is held by its path only: its changed lines are
-asserts, and the new text is in the man page the record names.
-
-Promise lines. A text that only a smoke under `test/*.mjs` asserts is not a
-pin, and both 0.4.1 rejections were such a text: the yes quoted one line,
-the code printed another. So an `Operator decisions for <version>` section
-(for the version in `package.json`) may hold a fenced block whose info
-string is `promise`, one full new output line on each line, with `<name>`
-standing for any text:
-
-````text
-```promise
-release:doctor: leftover branch <branch> — <reason>; the cut stage would reset it from origin/main
-```
-````
-
-Each promise line must be held, as plain text, by a line of a file under
-`plugins/cool-workflow/test/` or `v2/conformance/` (a JS string escape such
-as `\"` reads as the sign). A promise no line holds is a fault
-(`promise-not-held`). So the agent writes the test from the quoted line,
-and code that prints a different text fails that test in PR CI, not at
-the cut.
-
-When all hold it says nothing and exits 0. Otherwise it puts one line per
-fault on stderr, saying what to do, and exits 1. `--json` gives the base,
-the version, every changed pin with the record that names it (and, for
-text pins, how many changed lines it read), each promise line with the
-`path:line` that holds it (`heldBy`, or null), and the faults, on stdout.
-The check reads names and quoted lines, not meaning: the reviewer still
-reads the operator's answer. Teeth live in `test/pola-check-smoke.mjs`.
-
-### The change sheet
-
-```text
-npm run pola:check -- --sheet
-npm run pola:check -- --sheet --json
-```
-
-Every string literal added or taken out under `src/` and `scripts/` since
-the same base, by change, as `path:line` and then `  - <old>` and
-`  + <new>` lines, on stdout, exit 0. Comment lines and import paths are
-left out, and so is `dist/` (the build of `src/`). It is a list to read, not
-a gate: not every changed string is output. Before the named-yes question
-for a version, the agent reads the sheet and puts each changed string a
-user sees into the question, so none is left to the review to find.
-`release-flow.mjs` puts the same sheet (up to 400 lines) in the reviewer's
-input, under "Change sheet"; when it cannot be made (no tag), the input
-says why and the review goes on.
-
-Pins that make this bite on output people see: `cli-help/*.txt` holds
-`cw help` and each command's help page, and `cli-completion/<shell>.txt`
-holds `cw completion bash|zsh|fish` byte for byte
-(`v2/conformance/cases/cli-completion-bytes.case.mjs`). The `cw help` front
-page is held by a unit test too: `test/core/format/help-front-page-cap.test.mjs`
-fails when the rows under "Cool Workflow" are more than five
-(unix-principles rule 7).
 
 ## fails-before:check
 
@@ -254,21 +101,20 @@ node scripts/release-flow.mjs --check --version X.Y.Z
 It runs the gate and the independent review; it makes no commit, no push
 and no tag (the reviewer's verdict file is left in `.cw-release/`, not committed; a
 later cut takes it away before its own review). Put right every finding it gives before you ask the operator to run
-`npm run release -- X.Y.Z`; a fault found there costs a full cut. A
-changed output with no record is found earlier still: `pola:check` runs in
-PR CI, and so does `fails-before:check`.
+`npm run release -- X.Y.Z`; a fault found there costs a full cut. A fix
+with no failing test is found earlier still: `fails-before:check` runs in
+PR CI.
 
 ## Shipping a release
 
 (The runbook moved here from the root `AGENTS.md` on 2026-11-03;
-`AGENTS.md` keeps the two steps and the hard rules.)
+`AGENTS.md` keeps the hard rules.)
 
 A release is two steps. Both `npm run` commands below run with cwd
 `plugins/cool-workflow/` (there is no root package.json):
 
 1. **Agent prep**: land the version bump as its OWN PR
-   (`npm run bump:version -- X.Y.Z --content`, regenerate the project
-   index, a full clean rebuild).
+   (`npm run bump:version -- X.Y.Z --content`, a full clean rebuild).
 2. **Operator command**: first run `npm run release:doctor -- X.Y.Z` (a
    few seconds, no tests; it gives every problem at once with its fix),
    then the release operator runs `npm run release --
@@ -623,8 +469,7 @@ stray remote branch is created.
 
 ### The gate's test step: the green CI checks on the reviewed commit
 
-(New default from 0.3.1; the operator's yes is in
-`project/docs/intent/2026-10-16-release-gate-ci.md`.)
+(New default from 0.3.1, with the operator's yes.)
 
 The gate (`scripts/release-gate.mjs`) has five steps: build, tests,
 substance, test evidence, branch naming. By default `release-flow.mjs` (and
@@ -637,8 +482,7 @@ made by GitHub Actions for that sha, `completed`, with conclusion
 `success`. The required checks are the ones `main`'s branch protection
 requires, `check (22)` and `check (24)` (the ubuntu legs of `ci.yml`'s
 `check` job). They are named in one place, `REQUIRED_CHECKS` in
-`scripts/release-ci-checks.mjs`, and `test/ci-shape-gate-smoke.mjs` fails when
-a name there is not a leg of that job. The other four steps still run
+`scripts/release-ci-checks.mjs`. The other four steps still run
 locally; they take seconds.
 
 It fails closed. A check that is missing, queued, in progress, failed,
@@ -768,9 +612,7 @@ fails with `— it holds old code; not removed for you: <reason>`. The doctor it
 nothing.
 
 This cleanup, its stderr lines and the doctor's new `cut-branch` texts are
-new in 0.4.1, with the operator's named yes of 2026-11-03:
-`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
-for 0.4.1".
+new in 0.4.1, with the operator's named yes of 2026-11-03.
 
 After the review, and before it bumps or stages anything, the cut checks the
 tracked tree again. The preflight made sure it was clean, so a change now came
@@ -805,8 +647,8 @@ line is the reason for the stop.
 The reviewer prompt (`agents/release-reviewer.md`) holds POLA strictly, with
 one exception: a default change the operator chose. The reviewer takes it
 only when all three hold, each checked by the reviewer in the diff range:
-an intent file under `project/docs/intent/` has the operator's own words and
-a date for that change; the matching `docs/*.7.md` says the new default in
+a merged PR's text (its commit message in that range) has the
+operator's own words and a date for that change; the matching `docs/*.7.md` says the new default in
 the same range; and the release raises the version (on 0.x a patch raise is
 enough, 0.3.0 to 0.3.1; from 1.0, the major version). If one is missing, the verdict is REJECTED.
 
@@ -892,8 +734,7 @@ publish. It does not run the `--cut` preflight: with
 `.cw-release/verdict-signing.pub` committed, that preflight needs the
 operator's private key, which never goes into CI. It is not a required
 check. It must pass `--local-tests`: it runs beside the `check` jobs on the
-same commit, so it cannot wait for them to be green (`ci-shape-gate-smoke`
-holds this).
+same commit, so it cannot wait for them to be green.
 
 ### npm publishing trust
 

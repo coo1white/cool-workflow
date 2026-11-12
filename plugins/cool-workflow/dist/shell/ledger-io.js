@@ -3,7 +3,7 @@
 // logic they call lives in core/trust/ledger.ts.
 //
 // These two functions are the ONLY impure ones of the ledger, split out
-// per project/docs/rebuild/PLAN.md's core/shell rule.
+// per the core/shell rule.
 //
 // Evidence: SPEC/ledger-trust.md "Handoff ledger entry" (listLedgerEntries/
 // unionLedgerEntries JSON shapes), "Edge cases" (dir-unreadable/entry-not-

@@ -3,8 +3,7 @@
 // worker's `[drive] → <label> (<phase>) — spawning agent, may take minutes…`
 // line is printed when the round starts, while its agent runs, not after
 // the whole round ends (D1 row 4 in docs/unix-principles.md §8; new in
-// 0.3.2, project/docs/intent/2026-10-16-release-gate-ci.md, part
-// "Operator decisions for 0.3.2").
+// 0.3.2, an operator decision).
 //
 // Black box through scripts/cw.js. The stub agent writes a start mark and
 // then waits until the test makes a release file. With [drive] progress on,
@@ -62,7 +61,7 @@ function cwEnv(gate, extraEnv) {
 }
 
 const ARGS = [cwBin, "-q", "How does routing work?", "--fast", "--json"];
-// 0.4.3 (intent 2026-11-archive.md, row 4): ", may take minutes…" is on the
+// 0.4.3: ", may take minutes…" is on the
 // first round line of the process only; a worker's line ends at "spawning agent".
 const ROUND = /^\[drive\] » concurrent round: (\d+) agents? spawning in parallel(?:, may take minutes…)?$/m;
 const SPAWN = /^\[drive\] → \S.* \([^)]+\) — spawning agent$/gm;

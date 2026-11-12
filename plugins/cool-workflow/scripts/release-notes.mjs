@@ -3,8 +3,8 @@
 // test/release-notes-smoke.mjs. Pure: no git, no network, no model call. The
 // caller reads the log; this file only turns it into one short page.
 //
-// The operator's rule (BACKLOG 2026-09-03, yes on 2026-10-17 in
-// project/docs/intent/2026-10-16-release-gate-ci.md): one page, simple. One
+// The operator's rule (BACKLOG 2026-09-03, yes on 2026-10-17): one page,
+// simple. One
 // line that says what the release is, at most six bullets (feat first, then
 // fix) from the pull request titles since the last tag, one link to the User
 // Guide, one link to the full compare. The long grouped list was turned down.

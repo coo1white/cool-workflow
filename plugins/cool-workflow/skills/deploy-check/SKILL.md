@@ -2,7 +2,7 @@
 name: deploy-check
 description: >-
   Verify Cool Workflow release, publish, deploy, or package readiness. Use when
-  Codex must check build/test gates, generated manifests, project index sync,
+  Codex must check build/test gates, generated manifests,
   dist/source contract, changelog/release notes, npm package contents, or
   pre-tag risk before shipping.
 ---
@@ -29,7 +29,6 @@ user receives matches the source, docs, manifests, and stated capability.
 npm run build
 npm test
 npm run gen:manifests -- --check
-npm run index:check
 npm run version:sync
 npm run release:check
 git diff --check
@@ -47,7 +46,7 @@ npm pack --dry-run
 - Do not write reviewer verdict files by hand.
 - Do not silently skip `dist/` drift if the package still ships `dist/`.
 - Do not publish undocumented behavior.
-- Do not call a release ready if generated manifests or project index drift.
+- Do not call a release ready if generated manifests drift.
 
 ## Output Rules
 

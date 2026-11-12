@@ -133,7 +133,7 @@ const COMMAND_HELP_ROWS: Record<string, CommandHelpRow[]> = {
     { command: "cw sched reset", summary: "Reset a parked entry to ready (operator recovery)." },
     // Two rows for one command string, on purpose: `sched policy` is one of
     // the show/set pairs the help printer must keep doubled
-    // (SPEC/cli-probe.md item 5; plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/sched.txt has both).
+    // (SPEC/cli-probe.md item 5).
     { command: "cw sched policy", summary: "Show the scheduling policy (file or default)." },
     { command: "cw sched policy", summary: "Set scheduling policy fields (concurrency/attempts/backoff/TTL)." },
   ],

@@ -63,9 +63,8 @@ function trace(line, env = process.env, stderr = process.stderr) {
 //      copyable "config", not a build-coupled dependency) -----------------------------------
 
 // The live "thinking" glyph grows and shrinks (Claude-Code feel): small to large and back, one
-// frame every FRAME_MS. 0.4.1 (operator's yes, intent 2026-10-16-release-gate-ci.md, "Operator
-// decisions for 0.4.1"): was ✶✸✹✺ at 90 ms, which jumped and looked like flicker.
-// 0.4.2 (operator's yes, same intent, "Operator decisions for 0.4.2"): off macOS, ✳ (U+2733, an
+// frame every FRAME_MS. 0.4.1 (operator's yes): was ✶✸✹✺ at 90 ms, which jumped and looked like flicker.
+// 0.4.2 (operator's yes): off macOS, ✳ (U+2733, an
 // emoji) is drawn as a wide emoji box by Windows Terminal/WSL, so it is a plain * there, as in
 // Claude Code.
 function sparkleFor(platform) {

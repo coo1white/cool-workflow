@@ -816,8 +816,7 @@ export function assertValidWorkflowApp(
 }
 
 /** `isAppCompatible` (WorkflowAppSummary.compatible): re-validate and check
- *  ONLY for a `workflow-app-incompatible` issue — see PLAN.md rebuild risk
- *  #3. */
+ *  ONLY for a `workflow-app-incompatible` issue. */
 export function isWorkflowAppCompatible(app: WorkflowAppDefinition, context: WorkflowAppValidationContext): boolean {
   return !validateWorkflowApp(app, context).issues.some((one) => one.code === "workflow-app-incompatible");
 }

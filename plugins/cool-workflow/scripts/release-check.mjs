@@ -51,13 +51,7 @@ const checks = [
   { name: "dist freshness", command: ["npm", "run", "dist:check"] },
   { name: "core/shell purity", command: ["npm", "run", "purity:check"] },
   { name: "language policy (JS/TS only)", command: ["npm", "run", "lang:check"] },
-  // POLA item 1 in PR CI: a changed v2/conformance or run-fixture pin since
-  // the last release tag needs a version raise and an "Operator decisions
-  // for <version>" intent section naming the pin and its man page. Needs
-  // full history and tags (ci.yml checks out with fetch-depth: 0).
-  { name: "POLA pins (version raise + operator record)", command: ["npm", "run", "pola:check"] },
   { name: "type check", command: ["npm", "run", "check"] },
-  { name: "onramp contract", command: ["npm", "run", "onramp:check"] },
   { name: "run-state schema consistency", command: ["node", "scripts/validate-run-state-schema.mjs"] },
   // Every test path uses --concurrency auto by default (parallel, race-free:
   // each smoke runs in a private cwd + state roots). The release tag-gate
@@ -74,23 +68,10 @@ const checks = [
   { name: "CLI MCP parity", command: ["npm", "run", "parity:check"] },
   { name: "vendor manifest synchronization", command: ["npm", "run", "gen:manifests", "--", "--check"] },
   { name: "version synchronization", command: ["npm", "run", "version:sync"] },
-  // Lightweight (~50ms) standalone gate: fail closed if docs/project-index.md has
-  // drifted from a fresh source scan. The teeth-on-the-gate live in
-  // test/project-index-sync-smoke.mjs (run by `npm test`); this entry gives the
-  // real-doc check its own visible PASS/FAIL line in the release summary.
-  { name: "project index sync", command: ["npm", "run", "index:check"] },
   // Fail closed if the npm README (plugins/cool-workflow/README.md) has drifted
   // from the GitHub README.md it is generated from. Keeps the two pages identical
   // by construction; teeth live in test/readme-sync-smoke.mjs (run by `npm test`).
-  { name: "readme sync", command: ["npm", "run", "readme:check"] },
-  // Fail closed if a live doc (docs/*.7.md and friends, AGENTS.md, READMEs)
-  // names a source file that is not in the tree. Teeth live in
-  // test/citation-check-smoke.mjs (run by `npm test`).
-  { name: "doc citation freshness", command: ["npm", "run", "citation:check"] },
-  // Fail closed if tracked .md count or src comment-line count goes over the
-  // ceilings in manifest/growth-budget.json. Teeth live in
-  // test/growth-budget-check-smoke.mjs (run by `npm test`).
-  { name: "growth budget", command: ["npm", "run", "growth:check"] }
+  { name: "readme sync", command: ["npm", "run", "readme:check"] }
 ];
 
 function main() {

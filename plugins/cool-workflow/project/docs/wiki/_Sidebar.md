@@ -33,5 +33,4 @@
 
 - [Root README](https://github.com/coo1white/cool-workflow/blob/main/README.md)
 - [Trust Model](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/trust-model.md)
-- [Project Index](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/project-index.md)
 - [Man pages](https://github.com/coo1white/cool-workflow/tree/main/plugins/cool-workflow/docs)

@@ -129,7 +129,7 @@ commit's snapshot path is given from the run folder
 after `## Phase Status` with full paths, `## Results` came last, and an
 empty `- Invariants:` line was printed. The text inside each part is the
 same, so `cw report verify-bundle` reads old and new reports alike
-(`project/docs/intent/2026-11-archive.md`, "Operator decisions for 0.4.3").
+(an operator decision for 0.4.3).
 
 ## End-of-run summary and exit code
 
@@ -148,8 +148,8 @@ lines and ends on `Next: cw --resume --run <id>`.
 
 Up to 0.4.2 a stopped run had the green `✓ Report:` line and exit 0, and
 the no-agent lines were `Try: cw doctor`, `Next: cw report --open`,
-`Try: cw report --show` (changed in 0.4.3 with the operator's dated yes:
-`project/docs/intent/2026-11-archive.md`, "Operator decisions for 0.4.3"). A script that took 0 as "the command ran" now reads `status` in
+`Try: cw report --show` (changed in 0.4.3 with the operator's dated yes).
+A script that took 0 as "the command ran" now reads `status` in
 the JSON, or takes 2 as "ran, did not finish". The lower verb
 `cw run <app> --drive` keeps exit 0 for a stopped run.
 

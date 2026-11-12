@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // check-receipt-loop-smoke — the "done receipt" user loop, end to end, as a
-// new user walks it (project/docs/intent/2026-11-03-done-receipt.md):
+// new user walks it:
 //   cw check -- <pass>  -> exit 0, receipt saved, usable
 //   cw check -- <fail>  -> exit 1, receipt says failed, next = run it again
 //   cw check list / show -> see them; a missing id says "cw check list"

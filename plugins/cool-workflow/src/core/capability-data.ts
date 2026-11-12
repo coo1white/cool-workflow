@@ -71,7 +71,7 @@ export interface McpToolDefinition {
 
 /** What a `cli.handler` gives back to cli/dispatch.ts. Handlers stay pure
  *  (core/ never calls `process.stdout.write` or sets `process.exitCode`
- *  directly — see plugins/cool-workflow/project/docs/rebuild/PLAN.md's core/shell split); the generic executor in
+ *  directly — the core/shell split); the generic executor in
  *  cli/dispatch.ts is the one place that turns this into real output.
  *   - `text` — human-readable stdout body (dispatch.ts appends "\n" only
  *     if the string doesn't already end in one).

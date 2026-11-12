@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// drive-state-reuse — state-reads program, PR 2
-// (project/docs/intent/2026-09-archive.md, the state-reads part). A new
+// drive-state-reuse — state-reads program, PR 2. A new
 // drive round starts from the run the last round saved, instead of reading
 // state.json back, but only while the file is still exactly the one that
 // save wrote. Any

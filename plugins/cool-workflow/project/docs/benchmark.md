@@ -174,9 +174,8 @@ git processes. `test/perf-ratchet-smoke.mjs` fails when a count goes
 above its ceiling in `scripts/bench/perf-ceilings.json`, and also when
 it goes below: a gain is locked by lowering the ceiling in the same
 diff (`node scripts/bench/perf-counts.mjs --update`, which never raises
-one). Why counts and not milliseconds, and what each count costs in
-time: `project/docs/intent/2026-09-archive.md`
-(the perf-ratchets part). Since 2026-09-26 a save builds `state.json`
+one). Counts, not milliseconds, so the check holds on any machine.
+Since 2026-09-26 a save builds `state.json`
 from kept parts and makes no whole-state round trip, so that count
 holds the loads only (the state-parts part).
 

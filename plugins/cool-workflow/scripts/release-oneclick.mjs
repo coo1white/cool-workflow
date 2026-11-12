@@ -6,7 +6,7 @@
 //   node scripts/release-oneclick.mjs X.Y.Z [--dry-run] [--local-tests]
 //
 // This is a pure orchestrator over EXISTING tools (release-flow.mjs,
-// bump-version.mjs, sync-project-index.mjs, gh, git) — it adds no new release
+// bump-version.mjs, gh, git) — it adds no new release
 // logic of its own, only sequencing, resumability, and fail-fast checks.
 //
 // The two-step release model this implements:
@@ -255,7 +255,7 @@ function runBumpStage() {
     return;
   }
   if (DRY_RUN) {
-    say(`[dry-run] would: branch off origin/main, bump:version -- ${version} --content, sync:project-index, open + auto-merge a bump PR.`);
+    say(`[dry-run] would: branch off origin/main, bump:version -- ${version} --content, open + auto-merge a bump PR.`);
     return;
   }
 
@@ -267,9 +267,6 @@ function runBumpStage() {
 
   const bump = spawnSync("npm", ["run", "bump:version", "--", version, "--content"], { cwd: pluginRoot, stdio: "inherit" });
   if (bump.status !== 0) die("bump:version --content failed");
-
-  const sync = spawnSync("npm", ["run", "sync:project-index", "--", "--repo-only"], { cwd: pluginRoot, stdio: "inherit" });
-  if (sync.status !== 0) die("sync:project-index failed");
 
   // tsc's incremental cache can ship a stale dist/version.js after a version
   // edit (documented gotcha) — force a clean rebuild before committing.

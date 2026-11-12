@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 // verify-bump-reproduction-smoke — exercises scripts/verify-bump-reproduction.mjs
 // against THIS REPO'S REAL git history (not a toy fixture), which is the only
-// way to prove it actually works with the real bump-version.mjs/
-// sync-project-index.mjs (canonical-apps list, manifest propagation, dist/
-// regeneration, and all). verdict-signing-workflow-smoke.mjs's fixtures use
+// way to prove it actually works with the real bump tooling of a past
+// release (canonical-apps list, manifest propagation, dist/ regeneration,
+// the legacy project-index step, and all). verdict-signing-workflow-smoke.mjs's fixtures use
 // stub npm scripts to test the orchestration cheaply; this test proves the
 // orchestration ALSO works against the genuinely complex real tooling.
 //

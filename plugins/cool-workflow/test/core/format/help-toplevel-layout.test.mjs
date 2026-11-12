@@ -4,7 +4,7 @@
 // wrapped block, and the deliberately 4-space trailing note line.
 //
 // Evidence: SPEC/cli-surface.md "formatHelp() (stdout)" (the literal text
-// block); project/docs/rebuild/PLAN.md byte-compat item 14 (2-space vs 4-space distinction).
+// block); the 2-space vs 4-space distinction.
 
 import assert from "node:assert/strict";
 import { formatHelp } from "../../../dist/core/format/help.js";
@@ -13,7 +13,7 @@ import { formatHelp } from "../../../dist/core/format/help.js";
 // "formatHelp() (stdout)" block (line-for-line, including the wrapped
 // "More commands" block from the SPEC's own token list), plus the rows
 // added after that capture (--json, --quiet, --resume, -opencode, -muse; the check token, 2026-11-03;
-// -copilot, -antigravity, -grok, 2026-11-04). 0.4.3 (intent 2026-11-archive.md, rows 7-9):
+// -copilot, -antigravity, -grok, 2026-11-04). 0.4.3:
 // the -q rows at column 44, the agent flags in their own "Agents" block, no version|fix in More commands.
 {
   const expected = [

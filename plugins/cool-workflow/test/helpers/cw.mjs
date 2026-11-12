@@ -1,5 +1,4 @@
-// test/helpers/cw.mjs — run the built CLI as a child (refactor phase 3,
-// project/docs/intent/2026-11-archive.md, refactor part).
+// test/helpers/cw.mjs — run the built CLI as a child (refactor phase 3).
 //
 // Consumers: every test that imports it (grep for helpers/cw.mjs).
 //

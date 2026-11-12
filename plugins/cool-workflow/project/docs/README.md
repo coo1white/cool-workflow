@@ -4,9 +4,7 @@ The engineering docs of CW: plans, records, audits, and the wiki copy. They
 never ship (they are outside the npm `files` list). The man pages that do
 ship, the contract for users, are in [`../../docs/`](../../docs/).
 
-Every entry in this folder has one line below;
-`test/docs-layout-smoke.mjs` fails when an entry and this list do not
-agree.
+Every entry in this folder has one line below.
 
 New to the code? After the folder list come three parts: "The layer
 stack", "Walk one command: `cw -q`", and "Decision records".
@@ -15,11 +13,8 @@ stack", "Walk one command: `cw -q`", and "Decision records".
 
 | Entry | What it is |
 |---|---|
-| [`intent/`](intent/) | One intent + spec file per program, named `YYYY-MM-DD-<slug>.md`. A program's file joins `YYYY-MM-archive.md` when its closing PR has merged. |
-| [`sdlc/`](sdlc/) | Stage 3 plans (`<program>/plan.md`) for programs from the operator's `~/Developer/sdlc/` pipeline. |
-| [`BACKLOG.md`](BACKLOG.md) | Ideas that serve no North Star track yet; one row each, deleted when it ships or is dropped. |
+| [`BACKLOG.md`](BACKLOG.md) | Ideas that do not yet help a user get, read, or check a receipt; one row each, deleted when it ships or is dropped. |
 | [`ARCHITECTURE_PLAN.md`](ARCHITECTURE_PLAN.md) | The small set of architecture changes still planned. |
-| [`rebuild/`](rebuild/) | The v2 rebuild: `PLAN.md`, `DESIGN_MINIMAL_KERNEL.md`, `CUTOVER.md`, and `SPEC/`, the pinned behavior of each kernel part (byte-exact). |
 
 ## Proof
 
@@ -116,34 +111,10 @@ run. All files named in steps 3 and 4 are in `src/shell/`.
 
 ## Decision records
 
-Why the tree is the way it is. Open programs have their own file;
-closed ones are in the month's archive, text kept as it was.
+Why the tree is the way it is. A plan for a big change is in its PR text
+(see the root `AGENTS.md`); the older intent, sdlc and rebuild files are in
+git history.
 
 | Record | What it decided |
 |---|---|
-| [`intent/2026-11-03-done-receipt.md`](intent/2026-11-03-done-receipt.md) | `cw check`: a done receipt a result cites, checked fail-closed at intake and commit |
-| [`intent/2026-11-archive.md`](intent/2026-11-archive.md) | The closed programs of 2026-11: refactor the whole tree (test helpers, one command folder, no dead doors; output bytes not changed); the operator's yes to the 0.3.0 default changes, and the review rule that reads it; user-facing fixes first (the twelve CLI polish rows of 0.4.3, the release flow, the result-intake checks of 0.4.4) |
-| [`intent/2026-11-02-agent-sandbox-srt.md`](intent/2026-11-02-agent-sandbox-srt.md) | Run the agent inside `srt`, opt-in |
-| [`intent/2026-10-16-release-gate-ci.md`](intent/2026-10-16-release-gate-ci.md) | A release cut takes the green CI on the reviewed commit, not a second local test run |
-| [`intent/2026-09-04-first-launch.md`](intent/2026-09-04-first-launch.md) | The first launch: one channel, one proof, one number a week |
-| [`intent/2026-09-archive.md`](intent/2026-09-archive.md) | The closed programs of 2026-09 (list under this table) |
-| [`sdlc/unify-ci-cd/plan.md`](sdlc/unify-ci-cd/plan.md) | Three CI workflow files and four named exceptions |
-| [`sdlc/unify-js-architecture/plan.md`](sdlc/unify-js-architecture/plan.md) | The Workbench as a Next + React static export; the CLI keeps zero dependencies |
-| [`sdlc/unify-package-manager-bun/plan.md`](sdlc/unify-package-manager-bun/plan.md) | bun is the one developer installer; npm stays the user's |
 | [`ARCHITECTURE_PLAN.md`](ARCHITECTURE_PLAN.md) | The architecture changes still planned |
-
-The programs in the 2026-09 archive, in order: six backlog rows; a new
-user's first ten minutes; the run folder holds only what the run used;
-two parked rows, and the README and wiki say what the tree does; the core
-path is named, the rest is frozen; the README is one page; three gate
-fixes; doors that are not there; the Workbench face; the muse CLI as an
-agent; closing the AI-native SDLC gaps; the Workbench on Next and React;
-the file layout after pixelcrosshair; count ratchets for CW's own time;
-state loads in the drive loop; one durable write per group of audit
-appends; the whole-state write (stopped at measurement, then cut
-safely); one store for each sandbox policy (stopped at measurement); a
-real-agent Track A run; resume takes a parked run to the end; dead code
-out; `cw -q --fast`; the answer first in `report.md`; the default review
-under five minutes; every wrapper gives the prompt on stdin; the first
-five minutes (D1, D2); less code with shared helpers; and a smaller
-tree in one module form (the multi-agent family cut, ESM).

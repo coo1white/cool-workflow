@@ -8,9 +8,8 @@ code (cw's own reviewer agent, or a person):
 2. Security: no secret in the tree, no new network call, no new
    runtime dependency in the CLI, no path built from run text, every
    run string escaped before HTML.
-3. Compliance: the diff matches the program's `spec.md` and `plan.md`
-   (`project/docs/sdlc/` and `project/docs/intent/`); a departure updates the plan
-   in the same commit; the PR pastes the gates the plan names.
+3. Compliance: the diff matches the PR text's plan; a departure updates
+   the plan in the PR text; the PR pastes the gates the plan names.
 
 Merge needs green CI and the reviewer's word. The agent that wrote the
 code never approves it. Release is the operator's own command.
@@ -87,13 +86,6 @@ rule and its reason. When a new lesson is learned, add it here.
 
 ### Gates and repo mechanics
 
-- **A new smoke with no index line.** Tests are auto-discovered from
-  `test/*-smoke.mjs` by `run-all.mjs`, but a new smoke adds a line to the
-  smoke list in `plugins/cool-workflow/docs/project-index.md`, so run
-  `npm run sync:project-index` or `index:check` fails. The index keeps no
-  date and no counts (2026-11-02). Why: a line that every PR rewrites made
-  any two open PRs conflict; the lists are sorted, so two new smokes add
-  two separate lines.
 - **A unit test out of place.** Unit tests sit in folders that mirror
   `src/` (a test of `src/core/state/run-paths.ts` goes in
   `test/core/state/`); smokes stay flat at the top of `test/`.
@@ -116,16 +108,13 @@ rule and its reason. When a new lesson is learned, add it here.
   merged ones to one home. Test set-up has the same rule: scratch folders,
   agent env, stub agents and the `cw` runner live once in `test/helpers/`.
 - **A file moved between the two docs trees without a check.**
-  `plugins/cool-workflow/docs/` is the shipped man-page tree:
-  `sync-project-index.mjs` indexes it (non-recursively — one directory
-  level only), and it is in `package.json`'s npm `files` allowlist, so it
-  ships to every `npm`/`brew` install. `plugins/cool-workflow/project/docs/`
-  (moved from repo-root `docs/` in the root consolidation, 2026-08-04) is
-  repo-internal engineering material — audits, the v2 rebuild SPEC, the
-  wiki mirror, benchmark notes — outside the `files` allowlist (so it
-  never ships) and outside the project-index scan (so it never inflates
-  the doc count). Do not move a file between these trees without checking
-  both consequences.
+  `plugins/cool-workflow/docs/` is the shipped man-page tree: it is in
+  `package.json`'s npm `files` allowlist, so it ships to every
+  `npm`/`brew` install. `plugins/cool-workflow/project/docs/` (moved from
+  repo-root `docs/` in the root consolidation, 2026-08-04) is
+  repo-internal engineering material — audits, the wiki mirror, benchmark
+  notes — outside the `files` allowlist (so it never ships). Do not move
+  a file between these trees without checking that.
 - **Moving `v2/` into the package.** `v2/` stays at the repo root,
   deliberately. Every other movable root directory was folded into
   `plugins/cool-workflow/` in the 2026-08-04 root consolidation, but
@@ -137,12 +126,6 @@ rule and its reason. When a new lesson is learned, add it here.
   arm's-length relationship that is now structural (a directory boundary),
   not just a convention. Do not move it without re-litigating this
   tradeoff.
-- **A root entry with no reason.** Every root entry is named, with its
-  reason, in `ROOT_ENTRIES` in
-  `plugins/cool-workflow/test/root-layout-smoke.mjs`; a new root file is
-  added there in the same diff. The same smoke holds the `.editorconfig`
-  text style (LF, a final newline, no tab indents) outside the byte-exact
-  paths.
 - **A behavior change with no man-page change.** Man-page sync is
   binding: a shipped behavior change must update the matching
   `docs/*.7.md` in the same diff, or the reviewer rejects it.
@@ -170,12 +153,12 @@ rule and its reason. When a new lesson is learned, add it here.
 - **The blackboard coming back.** The blackboard, the multi-agent runtime,
   and the `pdca-blackboard-loop` app were removed on 2026-09-28
   (slim-and-esm step 2, decision D1); do not bring them back as a
-  shared-state layer without a new intent and the operator's yes.
+  shared-state layer without a plan in the PR text and the operator's yes.
 
 ### Git and branches
 
 - **A push to `main`.** `git push` never goes to `main` directly (the
-  HARD RULE in `AGENTS.md`): feature branch → PR → review → merge. A
+  first floor rule in `AGENTS.md`): feature branch → PR → review → merge. A
   release cut pushes only the tag; the verdict record reaches `main`
   through a PR.
 - **Mixed changes in one PR.** Keep distinct changes on distinct branches

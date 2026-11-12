@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // drive-ticker-alive-smoke — the ticker says how long the agents have been
 // quiet (new in 0.3.3, a changed default on the TTY; operator's yes of
-// 2026-11-02 in project/docs/intent/2026-10-16-release-gate-ci.md;
-// docs/agent-delegation-drive.7.md, "Live output").
+// 2026-11-02; docs/agent-delegation-drive.7.md, "Live output").
 //
 // In 0.3.2 a stuck round printed `… still working — 9m 50s` for ten minutes,
 // the same as a busy one. Now, in a concurrent round:

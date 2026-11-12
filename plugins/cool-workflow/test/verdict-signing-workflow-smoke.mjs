@@ -197,14 +197,14 @@ function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = fa
   // count on the fixture's verify-bump-reproduction.mjs being the one used.
   fs.copyFileSync(RELEASE_VERDICT_SCRIPT, path.join(scriptsDir, "verify-release-verdict.mjs"));
   fs.writeFileSync(path.join(dir, "README.md"), "x\n");
-  // verify-bump-reproduction.mjs runs `bun install` + `npm run bump:version` +
-  // `npm run sync:project-index` for real — this fixture is a MINIMAL real
+  // verify-bump-reproduction.mjs runs `bun install` + `npm run bump:version`
+  // for real — this fixture is a MINIMAL real
   // bun project (stub scripts that no-op) so that orchestration is genuinely
   // exercised (worktree creation, bun invocation, tree-hash comparison)
   // without needing the real repo's full canonical-apps/manifest/apps
   // structure. bump-version.mjs's own correctness is verified separately,
   // directly against real repo history (see the header comment above).
-  const pkg = { name: "fixture", version: "1.0.0", scripts: { "bump:version": "true", "sync:project-index": "true" } };
+  const pkg = { name: "fixture", version: "1.0.0", scripts: { "bump:version": "true" } };
   // breakParentInstall: an unresolvable dependency baked into R (the approved
   // parent, checked out fresh into the scratch worktree) so `bun install`
   // itself fails during REPRODUCTION — standing in for a transient registry

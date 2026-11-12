@@ -15,8 +15,8 @@
 // The text content is otherwise identical, so the two pages can never drift.
 //
 // --check : regenerate in memory, compare to the committed npm README, write
-//           nothing, exit non-zero on drift (the release/CI gate). Mirrors
-//           sync-project-index.mjs. Fork-safe: the owner/repo in the absolute URLs
+//           nothing, exit non-zero on drift (the release/CI gate).
+//           Fork-safe: the owner/repo in the absolute URLs
 //           is normalized out of the compare, so a fork clone never false-REDs.
 
 import fs from "node:fs";

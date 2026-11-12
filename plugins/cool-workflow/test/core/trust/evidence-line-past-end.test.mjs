@@ -2,7 +2,7 @@
 // trustcore-evidence-line-past-end — pins lineCitedPastEnd: a `path:line`
 // or `path:a-b` locator whose line is past the end of the file it names is
 // found, with the file's line count; a line in the file, a file not on
-// disk, a URL or an opaque token is not (intent 2026-11-11, batch C2).
+// disk, a URL or an opaque token is not.
 
 import assert from "node:assert/strict";
 import { lineCitedPastEnd } from "../../../dist/core/trust/evidence-grounding.js";

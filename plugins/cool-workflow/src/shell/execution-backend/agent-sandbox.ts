@@ -1,5 +1,5 @@
 // shell/execution-backend/agent-sandbox.ts — CW_AGENT_SANDBOX=srt (0.3.3, opt-in): CW DELEGATES enforcement to
-// the srt program (no dependency); fail closed. Spec: project/docs/intent/2026-11-02-agent-sandbox-srt.md.
+// the srt program (no dependency); fail closed.
 
 import * as fs from "node:fs";
 import * as os from "node:os";

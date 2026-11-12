@@ -2,7 +2,7 @@
 // receipt-judge — core/trust/receipt.ts: the digest/id seal, the signature,
 // and judgeReceipt's fail-closed order (found, intact, signed when a key is
 // set, passed, tied to git, current), each refusal with a plain reason and
-// one next command (project/docs/intent/2026-11-03-done-receipt.md).
+// one next command.
 
 import assert from "node:assert/strict";
 import crypto from "node:crypto";

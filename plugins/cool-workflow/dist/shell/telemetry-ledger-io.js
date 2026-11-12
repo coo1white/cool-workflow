@@ -2,7 +2,7 @@
 // resolution, absent-vs-corrupt load, durable append. The pure verify
 // math lives in core/trust/telemetry-ledger.ts.
 //
-// CRITICAL invariant (project/docs/rebuild/PLAN.md byte-compat item 12):
+// CRITICAL invariant:
 // an ABSENT telemetry.json is an empty, clean-verifying chain
 // (`present:false`); a PRESENT but unparseable one is CORRUPT — reads
 // report `telemetry-ledger-corrupt`, and append THROWS

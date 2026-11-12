@@ -20,7 +20,7 @@ assert.equal(agentConfigured({}), false);
 assert.equal(agentConfigured({ command: "", endpoint: "" }), false);
 
 // spawningAgentLine: the label (or the id) and the phase; ", may take minutes…" only when asked
-// (0.4.3, intent 2026-11-archive.md rows 4 and 5: no "dispatched, ", the note once).
+// (0.4.3: no "dispatched, ", the note once).
 assert.equal(spawningAgentLine({ id: "t1", label: "Map", phase: "map" }, false), "→ Map (map) — spawning agent");
 assert.equal(spawningAgentLine({ id: "t1", phase: "map" }, true), "→ t1 (map) — spawning agent, may take minutes…");
 

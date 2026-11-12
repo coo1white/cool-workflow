@@ -40,9 +40,8 @@ The command runs these checks in order:
 : The Node.js version. CW needs v22.13 or higher. A `fail` here stops everything.
 When it is `ok`, the detail is `Node <version> (>= 22.13).`; when it is
 `fail`, it is `Node <version> is below the required v22.13.` Up to 0.3.1 these
-said `(>= 18)` and `v18` (changed in 0.3.2 with the operator's dated yes:
-`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions for
-0.3.2 (2026-10-17)").
+said `(>= 18)` and `v18` (changed in 0.3.2 with the operator's dated yes of
+2026-10-17).
 
 **agent**
 : The AI agent backend. CW can auto-detect agents (Claude, Codex, Gemini,
@@ -84,9 +83,7 @@ the exit code and the first lines of its output, and never prints env values.
 
 Up to 0.3.2 doctor did not run the agent, so an install whose CLI could not
 start (for example, npm stopped its postinstall) still said `ready`. Changed
-in 0.3.3 with the operator's dated yes:
-`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions for
-0.3.3 (2026-10-17)". In `--json` it is one more entry in `checks`, in the same
+in 0.3.3 with the operator's dated yes of 2026-10-17. In `--json` it is one more entry in `checks`, in the same
 shape as the others; the other checks do not change.
 
 **agent-sandbox** (new in 0.3.3)
@@ -102,7 +99,7 @@ text view says it in one short line:
 `✓ sandbox-enforceability: policy is checked by CW; OS isolation is the host's job (docs/sandbox-profiles.7.md).`
 `--json` keeps the long `detail` text, byte for byte. Up to 0.4.2 the text
 view printed the long text too, about 250 characters (changed in 0.4.3 with
-the operator's dated yes: `project/docs/intent/2026-11-archive.md`, "Operator decisions for 0.4.3").
+the operator's dated yes).
 
 **git**
 : The `git` command. CW uses it for commit place of origin. A `warn` here means
@@ -132,12 +129,11 @@ three-step path to your first report. Since 0.4.3 the three steps put their
 dash at one column (two more spaces in rows 1 and 2; the same yes as the
 sandbox line above).
 In a CW checkout, the checks it names are the `.mjs` test and script paths
-(for example `test/doctor-smoke.mjs` and `scripts/onramp-check.mjs`). Up to
-0.3.1 they ended in `.js` (changed in 0.3.2 with the operator's dated yes:
-`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions for
-0.3.2 (2026-10-17)"). Since 0.4.0 the guide also names `cw check -- npm
+(for example `test/doctor-smoke.mjs` and `test/onramp-check-smoke.mjs`). Up to
+0.3.1 they ended in `.js` (changed in 0.3.2 with the operator's dated yes of
+2026-10-17). Since 0.4.0 the guide also names `cw check -- npm
 test`, the done receipt (see verifier-gated-commit(7), DONE RECEIPTS), with
-the operator's dated yes in the same file, "Operator decisions for 0.4.0".
+the operator's dated yes of 2026-11-03.
 
 `--conformance` (new in 0.3.3)
 : Run the configured agent one time on a small fixed task, and check that it

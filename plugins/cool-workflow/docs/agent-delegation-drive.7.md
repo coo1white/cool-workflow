@@ -294,9 +294,7 @@ Map and 6 Assess workers run at the same time, 12 in one round.
   order), 600000 ms by default. A caller of `drive()` may give
   `policy.maxTimeoutAttempts` to allow more tries for a timeout; it is never
   more than `policy.maxAttempts`, and raising `maxAttempts` alone does not
-  change it. The operator's yes is recorded in
-  `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
-  for 0.3.3".
+  change it. The operator said yes to it for 0.3.3.
 - **Verdict evidence that is not on disk.** The final commit takes the
   verdict only when every file its evidence names is on disk
   (`CW_REQUIRE_RESOLVABLE_EVIDENCE`, on by default). The same check is made
@@ -543,9 +541,8 @@ never polluted.
   `CW_VERBOSE=1` narration row goes in the same write, above the block. Up to 0.4.0
   the glyphs were `✶ ✸ ✹ ✺` at 90 ms, the live row showed tenths of a second,
   and each frame first wiped the block, which looked like flicker. Changed in
-  0.4.1 with the operator's named yes:
-  `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
-  for 0.4.1"; the `*` off macOS in 0.4.2, "Operator decisions for 0.4.2".
+  0.4.1 with the operator's named yes; the `*` off macOS in 0.4.2, with
+  another.
   The cursor is hidden while the block runs and **ALWAYS
   restored** on exit / Ctrl-C / SIGTERM (Ctrl-C exits non-zero, leaving a
   clean terminal).
@@ -575,9 +572,8 @@ never polluted.
   wrappers write a progress line per step and the number means something; those lines also land in `<workerDir>/logs/agent-stderr.log` when such an agent fails. Up to 0.3.2 the line had no such
   note, so ten minutes of a stuck agent looked the same as ten minutes of
   work. Only the bytes on a TTY, or with `CW_DRIVE_PROGRESS=1`, change; a
-  piped run prints no ticker and writes no such file. The operator's yes:
-  `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
-  for 0.3.3, second set (2026-11-02)".
+  piped run prints no ticker and writes no such file. The operator said yes
+  to it on 2026-11-02.
 - **One writer at a time on the terminal (new in 0.3.3).** In a serial hop
   (Verify, Verdict) the agent's stderr is the terminal itself, and a shipped
   wrapper's live view redraws its rows in place. Before 0.3.3 the
@@ -592,8 +588,7 @@ never polluted.
   is not the terminal, and only the ticker writes. cw takes the file away
   after each hop, even after a timeout. Only the bytes on a TTY, or with
   `CW_DRIVE_PROGRESS=1`, are changed; a piped run's bytes are the same
-  (`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
-  for 0.3.3").
+  (an operator decision for 0.3.3).
 - **» marks a concurrent round (new in 0.3.3).** The concurrent round line
   and the active phase line use `»` (U+00BB). Before 0.3.3 they
   used `⇉` (U+21C9), which is not in some terminal fonts and came out as a
@@ -606,14 +601,13 @@ never polluted.
   and then, at once, one
   `[drive] → <label> (<phase>) — spawning agent` line for
   each worker, in task order, while the agents run. Before 0.3.2 these lines
-  came only after the whole round ended (`project/docs/intent/2026-10-16-release-gate-ci.md`,
-  "Operator decisions for 0.3.2"). The note `, may take minutes…` is on the
+  came only after the whole round ended (an operator decision for 0.3.2). The note `, may take minutes…` is on the
   end of the first such line of one cw command only (a round line, or a
   worker line when workers run one at a time); a later `cw --resume` is a
   new command and shows it once again. Up to 0.4.2 it was on every round line and
   every worker line, and a worker line could say `dispatched, spawning
   agent`; since 0.4.3 it is `spawning agent` in every case
-  (`project/docs/intent/2026-11-archive.md`, "Operator decisions for 0.4.3"). Like every `[drive]` line they go to
+  (an operator decision for 0.4.3). Like every `[drive]` line they go to
   stderr only when progress is on, so a piped run's bytes do not change.
 - **Why a step is tried again (new in 0.3.3).** When an agent hop fails and
   the worker has tries left, one line says why and which try comes next:
@@ -709,9 +703,7 @@ below is the change that answered it. Copilot and Antigravity are still beta.
   `copilot`, `agy` or `grok` stays a custom command, as in 0.4.0: no
   `--version` probe and no `CW_AGENT_SANDBOX=srt` hosts.
 - `cw help` lists them under Flags, below `-muse` (new in 0.4.1, with the
-  owner's named yes of 2026-11-04 in
-  `project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
-  for 0.4.1"):
+  owner's named yes of 2026-11-04):
 
   ```text
     -copilot               Use GitHub Copilot CLI agent

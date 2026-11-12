@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // agent-sandbox-srt-real-smoke — CW_AGENT_SANDBOX=srt with the REAL srt
-// (0.3.3; project/docs/intent/2026-11-02-agent-sandbox-srt.md). It runs only
+// (0.3.3). It runs only
 // where srt 0.0.81 (CW_SRT_BIN, or srt on PATH) and, on Linux, bubblewrap and
 // socat are there; elsewhere it says why and passes as skipped.
 //

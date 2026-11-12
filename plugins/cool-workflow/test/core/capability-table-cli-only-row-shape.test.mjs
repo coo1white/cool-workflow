@@ -3,7 +3,7 @@
 // (unexported) addCliOnlyCapability/attachCliBinding helpers, observed
 // through their one visible effect: REGISTRY row shape. Per SPEC/mcp.md
 // "Declared one-surface capabilities (13 cli-only, each with a recorded
-// reason)" and PLAN.md byte-compat item 5, a cli-only row must: carry
+// reason)", a cli-only row must: carry
 // surface:"cli-only", carry a non-empty `reason`, carry a `cli` binding,
 // and carry NO `mcp` binding. A "both" row (built from MCP_TOOL_DATA) is
 // the mirror: it always starts with an `mcp` binding and MAY additionally

@@ -32,7 +32,6 @@ that proves the proposed fix.
 npm run build
 npm test
 npm run gen:manifests -- --check
-npm run index:check
 git diff --check
 ```
 
