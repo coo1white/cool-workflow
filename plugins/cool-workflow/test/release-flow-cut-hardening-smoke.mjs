@@ -30,6 +30,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { writeProgram } from "./helpers/program.mjs";
 
 const REAL_FLOW = path.resolve(import.meta.dirname, "..", "scripts", "release-flow.mjs");
 assert.ok(fs.existsSync(REAL_FLOW), "release-flow.mjs must exist");
@@ -78,6 +79,7 @@ function fixture() {
   fs.copyFileSync(REAL_PREFLIGHT, path.join(dir, "scripts", "release-preflight.mjs"));
   fs.copyFileSync(REAL_CI_CHECKS, path.join(dir, "scripts", "release-ci-checks.mjs"));
   fs.copyFileSync(REAL_NOTES, path.join(dir, "scripts", "release-notes.mjs"));
+  fs.copyFileSync(path.join(path.dirname(REAL_FLOW), "spawn-argv.mjs"), path.join(dir, "scripts", "spawn-argv.mjs"));
   fs.writeFileSync(path.join(dir, "README.md"), "x\n");
   run("git", ["add", "-A"], dir);
   run("git", ["commit", "-q", "-m", "init"], dir);
@@ -181,8 +183,7 @@ function baseEnv(dir, extra = {}) {
   const realGit = resolveRealGit();
   const shimDir = path.join(dir, "shim-bin");
   fs.mkdirSync(shimDir, { recursive: true });
-  const shim = path.join(shimDir, "git");
-  fs.writeFileSync(shim,
+  const shim = writeProgram(shimDir, "git",
     "#!/usr/bin/env node\n" +
     "\"use strict\";\n" +
     "const { spawnSync } = require(\"node:child_process\");\n" +
@@ -194,7 +195,6 @@ function baseEnv(dir, extra = {}) {
     "}\n" +
     "const r = spawnSync(process.env.CW_REAL_GIT, a, { stdio: \"inherit\" });\n" +
     "process.exit(r.status === null ? 1 : r.status);\n");
-  fs.chmodSync(shim, 0o755);
 
   const env = baseEnv(dir, {
     CW_SKIP_VENDOR_PREFLIGHT: "1", // --cut runs the live vendor preflight otherwise

@@ -16,7 +16,7 @@
 // unchanged src/ builds nothing — we clear that one file first so the
 // rebuild is always real. Portable: node + npm only.
 
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "./spawn-argv.mjs";
 import fs from "node:fs";
 import path from "node:path";
 

@@ -18,6 +18,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { writeProgram } from "./helpers/program.mjs";
 
 const FLOW = path.resolve(import.meta.dirname, "..", "scripts", "release-flow.mjs");
 assert.ok(fs.existsSync(FLOW), "release-flow.mjs must exist");
@@ -488,8 +489,7 @@ process.exit(0);
 // argv, simulates "release view" via a sentinel, and captures the --notes-file
 // body. No real gh / network is ever touched.
 function writeGhStub(dir) {
-  const stub = path.join(dir, "gh-stub.js");
-  fs.writeFileSync(stub, `#!/usr/bin/env node
+  const stub = writeProgram(dir, "gh-stub", `#!/usr/bin/env node
 const fs = require("node:fs");
 const a = process.argv.slice(2);
 if (process.env.GH_STUB_REC) fs.appendFileSync(process.env.GH_STUB_REC, a.join(" ") + "\\n");
@@ -505,7 +505,6 @@ if (a[0] === "release" && a[1] === "create") {
 }
 process.exit(0);
 `);
-  fs.chmodSync(stub, 0o755);
   return stub;
 }
 
