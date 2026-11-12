@@ -1,0 +1,2 @@
+APPROVED 3407eb5de269a0cf3e497415aa14a4f253014625
+A stopped `cw -q` run now prints `! Report:` and exits 2 instead of looking finished, progress uses one mark and says “may take minutes” once, `cw app list` on a TTY is a readable list, `cw help` and `cw doctor` are aligned and short, and report.md puts Results before State Commits.
