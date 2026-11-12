@@ -25,7 +25,9 @@
 // Skips (exit 0): CW_AUTO_RELEASE=off (the repo variable, the kill switch);
 // the head commit's subject starts with "chore(release)"; <sha> is already
 // in the newest release tag's history; nothing shipped changed since that
-// tag's parent on main (SHIPPED below).
+// tag's parent on main (SHIPPED below); a commit since then needs more than a
+// patch by Conventional Commits (a "feat", or a breaking change: "type!:" or
+// a "BREAKING CHANGE:" footer). That one names the operator's next cut.
 // Refuses (exit 1): package.json at <sha> is ahead of the next patch (an
 // operator minor or major is pending: cut it with `npm run release -- X.Y.0`).
 //
@@ -150,6 +152,19 @@ function plan() {
   const shipped = diff.out.split("\n").filter(Boolean).filter(isShipped);
   if (shipped.length === 0) skip(`nothing shipped changed since ${last.tag} (tests, docs or tooling only)`);
 
+  // Conventional Commits decide the level (SemVer): a breaking change ("type!:"
+  // or a "BREAKING CHANGE:" footer) is a major, or a minor while on 0.x; a
+  // "feat" is a minor; anything else is a patch. Only a patch ships here.
+  const bumped = releaseLevel(base, sha);
+  if (bumped) {
+    const [M, m] = last.semver;
+    const nextCut = bumped.level === "major" && M > 0 ? `${M + 1}.0.0` : `${M}.${m + 1}.0`;
+    skip(
+      `${bumped.why} since ${last.tag} (${bumped.sha.slice(0, 12)} "${bumped.subject}"): ` +
+        `not a patch. The operator cuts it with \`npm run release -- ${nextCut}\`; patches start again after it.`
+    );
+  }
+
   const next = [last.semver[0], last.semver[1], last.semver[2] + 1];
   const version = next.join(".");
   const pkgVersion = packageVersionAt(sha);
@@ -163,6 +178,21 @@ function plan() {
   }
   output({ release: "true", version, tag: `v${version}` });
   say(`release-auto-patch: v${version} from ${sha.slice(0, 12)} (after ${last.tag}; ${shipped.length} shipped file(s) changed, first: ${shipped[0]})`);
+}
+
+/** The first commit in base..sha that needs more than a patch, or null. */
+function releaseLevel(base, sha) {
+  const log = git(["log", "--format=%H%x1f%s%x1f%b%x1e", `${base}..${sha}`]);
+  if (log.code !== 0) refuse(`git log ${base}..${sha} failed: ${log.err}`);
+  let feat = null;
+  for (const rec of log.out.split("\x1e")) {
+    const [h, subject = "", body = ""] = rec.replace(/^\n+/, "").split("\x1f");
+    if (!h) continue;
+    const c = { sha: h, subject };
+    if (/^[a-z]+(\([^)]*\))?!:/.test(subject) || /^BREAKING[ -]CHANGE:/m.test(body)) return { ...c, level: "major", why: "a breaking change" };
+    if (!feat && /^feat(\([^)]*\))?:/.test(subject)) feat = { ...c, level: "minor", why: "a new feature (feat)" };
+  }
+  return feat;
 }
 
 function bump() {
