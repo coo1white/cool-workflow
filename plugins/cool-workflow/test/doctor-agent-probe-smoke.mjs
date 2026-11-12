@@ -98,7 +98,7 @@ assert.equal(bJson.ok, true);
 assert.deepEqual(probeOf(bJson), { name: "agent-runs", status: "ok", detail: "claude --version → 2.1.295 (Claude Code)" });
 assert.deepEqual(
   bJson.checks.map((c) => c.name).slice(0, 5),
-  ["node", "agent", "agent-binary", "agent-runs", "sandbox-enforceability"],
+  ["node", "agent", "agent-binary", "agent-runs", "git"],
   "agent-runs comes right after the agent checks"
 );
 const plain = JSON.parse(doctor(["--json"], working, { CW_AGENT_COMMAND: "claude -p" }).stdout);

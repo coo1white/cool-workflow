@@ -1,9 +1,9 @@
 // shell/commands/check-cli.ts — `cw check -- <command>`, `check list`, `check show <id>` (docs/verifier-gated-commit.7.md, DONE RECEIPTS).
 
 import * as path from "node:path";
-import type { CliHandlerResult } from "../../core/capability-data.js";
+import type { CommandResult } from "../../core/command.js";
 import { CheckReceipt, judgeReceipt, receiptOutcome } from "../../core/trust/receipt.js";
-import { cwdArg, optionalArg } from "../../core/util/cli-args.js";
+import { cwdArg } from "../../core/util/cli-args.js";
 import { checkPublicKey, judgeStoredReceipt, listReceipts, loadReceipt, readCodeState, ReceiptListEntry, runCheck, saveReceipt } from "../receipt-io.js";
 import { green, red, yellow } from "../term.js";
 
@@ -27,7 +27,7 @@ export interface CheckRunResult {
 
 const USAGE = "Usage: cw check -- <command> [args...]  (for one: cw check -- npm test)";
 
-export async function checkRunCli(positionals: string[], options: Record<string, unknown>): Promise<CliHandlerResult> {
+export async function checkRunCli(positionals: string[], options: Record<string, unknown>): Promise<CommandResult> {
   if (!positionals.length) throw new Error(USAGE);
   const repo = cwdArg(options, ["repo", "cwd"]);
   const receipt = await runCheck(positionals, { repo, echo: !options.quiet && Boolean(process.stderr.isTTY) });
@@ -85,7 +85,7 @@ export interface CheckShowResult {
   receipt: CheckReceipt | null;
 }
 
-export function checkShowCli(id: string | undefined, options: Record<string, unknown>): CliHandlerResult & { json: CheckShowResult } {
+export function checkShowCli(id: string | undefined, options: Record<string, unknown>): CommandResult & { json: CheckShowResult } {
   if (!id) throw new Error("Usage: cw check show <receipt-id>  (see the ids with: cw check list)");
   const clean = id.replace(/^receipt:/, "");
   const repo = cwdArg(options, ["repo", "cwd"]);
@@ -104,13 +104,4 @@ export function formatCheckShow(json: unknown): string {
   }
   lines.push(r.usable ? `  Cite it in a result's evidence as: ${r.cite}` : `  Next: ${r.next}`);
   return lines.join("\n");
-}
-
-/** MCP bodies: the same payloads as `--json`. */
-export function checkListMcp(args: Record<string, unknown>): ReceiptListEntry[] {
-  return checkListCli(args);
-}
-
-export function checkShowMcp(args: Record<string, unknown>): CheckShowResult {
-  return checkShowCli(optionalArg(args.id), args).json;
 }

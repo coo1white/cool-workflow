@@ -24,7 +24,7 @@ caseMain(() => {
   assert.equal(agentCheck.status, "warn");
   assert.equal(
     agentCheck.detail,
-    "No agent backend configured — `demo` and `--preview` work, but a real run reports status: blocked."
+    "No agent backend configured — `cw demo tamper` and `cw check` work, but a real run reports status: blocked."
   );
   assert.equal(
     agentCheck.fix,

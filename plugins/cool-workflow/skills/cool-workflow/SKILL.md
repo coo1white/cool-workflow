@@ -1,146 +1,78 @@
 ---
 name: cool-workflow
 description: >-
-  Use when the user asks for Cool Workflow, CW, agent workflow control-plane,
-  TypeScript workflow orchestration, phased multi-agent work, background
-  workflow tasks, reusable workflow apps, or auditable agent run state.
+  Use when the user asks for Cool Workflow or CW: an evidence-gated review of a
+  repository by an outside agent, a report they can verify offline, or a
+  receipt that a command (such as the tests) truly passed.
 ---
 
 # Cool Workflow
 
-Cool Workflow (CW) is an agent workflow control-plane. Use it to turn broad tasks into a
-TypeScript/Node workflow run with phases, agent task manifests, durable run
-state, verifier-gated commits, and a final report.
+Cool Workflow (CW) keeps the books for AI work. An outside agent CLI does the
+work; CW records each claim with the lines it rests on, accepts only results
+whose evidence resolves to real files and lines, commits the run, and writes a
+report that anyone can check offline.
 
-CW is a control plane: it makes an agent host's work durable, inspectable,
-verifiable, and replayable. **It delegates execution; it never runs models
-itself.** The host still executes agents and enforces OS/process/network/
-environment controls — CW records, validates, and gates.
+**CW never runs a model, never holds a key, and never uploads code.** The
+agent host still enforces OS, process and network limits.
 
 ## When To Use
 
-Use this skill when the user asks for:
+- The user asks for `Cool Workflow` or `CW`.
+- A question about a repository should be answered with evidence a person can
+  check (`cw -q`).
+- The user wants proof that a command passed, not just a claim (`cw check`).
+- The user wants to seal a run into one file and check it later
+  (`cw report bundle`, `cw report verify-bundle`).
 
-- `Cool Workflow` or `CW`
-- agent workflow control-plane
-- TypeScript workflow runner/orchestration
-- multi-agent phased work
-- background task style planning
-- reusable workflow apps/scripts
-- architecture review workflows
-- canonical workflow apps such as `architecture-review`, `pr-review-fix-ci`,
-  `release-cut`, and `research-synthesis`
-
-## Core Model
-
-CW has three layers:
-
-- **Package**: installable shared runtime.
-- **Skill**: trigger and operating instructions for the agent host (this file).
-- **TypeScript Node/Bun runtime**: workflow definitions, state files, task
-  queue, deterministic harness, verifier, commits, and reports.
-
-Treat CW like a platform framework. The runtime owns the contract; developers write
-workflow apps against it using `defineWorkflowApp`, `workflow`, `phase`,
-`agent`, `artifact`, and `input`. First-class apps live under
-`apps/<app-id>/app.json` with a plain JavaScript entrypoint; legacy
-`workflows/*.workflow.js` factories remain valid as wrapped compatibility apps.
-
-The runner does **not** spawn workers. It writes pending agent tasks to
-`.cw/runs/<run-id>/tasks/*.md`. The agent host reads those tasks, spawns workers
-only when the user explicitly asks for agent/parallel/background work, then
-records results back with the runner.
-
-CW records the model loop explicitly as:
+## The One Loop
 
 ```text
-interpret -> act -> observe -> adjust -> checkpoint
+cw -q "<question>" [-claude|-codex|-gemini|-opencode|-deepseek|-muse|-copilot|-antigravity|-grok] [--repo PATH]
 ```
 
-Use this loop to explain workflow progress when reporting status.
+CW plans the `architecture-review` workflow, hands each worker to the agent,
+collects each `result.md`, refuses results without grounded evidence (retry,
+then park after three tries), makes one verifier-gated commit, and writes
+`.cw/runs/<run-id>/report.md` and `report.html`.
 
-## Operating Loop
-
-1. Pick or create a workflow.
-2. `cw plan <workflow-id> ...` from the plugin root (or the
-   absolute plugin script path).
-3. `cw dispatch <run-id> --limit N` to create a dispatch
-   manifest for the current phase. Add `--sandbox <profile-id>` when an explicit
-   worker policy profile is needed.
-4. If — and only if — the user explicitly asked for agents, spawn one subagent
-   per dispatched task with disjoint scopes.
-5. Save each subagent summary to `.cw/runs/<run-id>/results/<task-id>.md`.
-6. `cw result <run-id> <task-id> <result-file>`.
-7. When all required work is complete, `cw report <run-id>`.
-8. Synthesize the final user-facing answer from the report and verified
-   evidence.
-
-Run data is written to `.cw/runs/<run-id>/` under `--cwd`, or under `--repo`
-when `--cwd` is not given. Durable state lives at
-`.cw/runs/<run-id>/state.json`; `state check <run-id>` dry-runs migration and
-normalization, failing closed on newer unsupported schemas while preserving
-unknown user data. The runtime source is TypeScript under `src/`, compiled to
-`dist/`.
-
-## Capabilities
-
-CW layers these on top of the plan → dispatch → record → verify → commit →
-report chain. See `references/commands.md` for the exact invocations.
-
-- **Workflow apps** — discover, validate, plan, package, and scaffold apps;
-  canonical apps are `architecture-review`, `pr-review-fix-ci`, `release-cut`,
-  `research-synthesis`.
-- **Sandbox profiles** — named CW policy contracts (read/write paths, command,
-  network, environment, host enforcement); CW validates, the host enforces.
+Exit codes: `0` done, `2` stopped (`blocked` or parked: the report says why),
+`1` an error. After a stop, fix the cause and run
+`cw --resume --run <run-id>`.
 
 ## Essential Commands
 
 ```bash
-cw list
-cw plan architecture-review --repo /path/to/repo --question "Is this architecture sound?"
-cw dispatch <run-id> --limit 6
-cw result <run-id> <task-id> /path/to/result.md
-cw report <run-id> --show
+cw -q "Is this architecture sound?" -claude --repo <path>
+cw --resume --run <run-id>
+cw report [run-id] --show          # print report.md (--open opens report.html)
+cw report bundle <run-id>          # seal the run into one file
+cw report verify-bundle <bundle>   # check it offline; fails closed
+cw check -- npm test               # keep a receipt; cite it as receipt:<id>
+cw check list
+cw check show <receipt-id>
+cw demo tamper                     # watch a changed record get caught
+cw doctor                          # check setup; cw fix prints the fixes
+cw version
 ```
 
-When working in this repository, the plugin root is `plugins/cool-workflow`.
-When installed from a GitHub package source, the host resolves the package root
-from the source snapshot.
-
-**For the full command catalog and the matching MCP tool surface, read
-`references/commands.md`.** It covers apps, plan/dispatch/result/report,
-sandbox profiles, commit/state/summaries, and release scripts.
-
-## CLI / MCP Parity
-
-When an MCP host is available, the same runtime surface is exposed with
-JSON-first `cw_*` tools (see `references/commands.md`). Operator output is
-human-readable by default; pass `--json` / `--format json` for structured
-output. **Preserve CLI/MCP parity when extending CW** — every CLI capability
-must have a matching MCP tool and vice versa. Status recommendations are
-deterministic hints, not hidden automation.
-
-## Multi-Agent Rule
-
-Only spawn workers when the user explicitly asks for agents, delegation,
-parallel work, or background work. Otherwise run the phases locally in the main
-thread and still use CW state/report files when helpful.
+Pass `--json` for machine output; read exit codes, not words on stdout. See
+`references/commands.md` for each flag.
 
 ## Result Quality
 
-Subagent results should be concise, evidence-based, and ready for synthesis.
-Avoid raw logs unless they are the evidence. Use absolute file paths and line
-numbers when referencing local code. Verification and verdict tasks must include
-a `cw:result` JSON fence with `findings` and `evidence`; CW rejects P0/P1/P2
-findings without evidence.
+When CW hands a task to you as the agent, write `result.md` with a fenced
+`cw:result` JSON block: `summary`, `findings`, `evidence`. Evidence is a
+`path:line` locator, a URL, or a `namespace:value` token such as
+`receipt:<id>`. Every P0, P1 or P2 finding needs its own grounded evidence,
+and every cited file and line must exist. Keep results short; no raw logs
+unless they are the evidence.
 
 ## Release Discipline
 
-Run `npm run release:check` before tagging a release. It is a dry-run gate that
-builds, type-checks, runs tests, validates canonical apps and the golden path,
-checks old run fixtures, runs the CLI-MCP / operator / trust-audit / dogfood
-smoke coverage, and verifies version
-synchronization — without tagging, pushing, publishing, or mutating fixtures.
-Use `npm run dogfood:release` to exercise the canonical `release-cut` app
-against this repo in dry-run mode. See `references/commands.md` for the full
-release/maintenance script list.
+Run `npm run release:check` (in `plugins/cool-workflow`) before handing a cut
+to the operator. It is a dry-run gate: docs presence, build, `dist:check`,
+purity, language policy, type check and the 10,000-line size gate, tests,
+unit tests, vendor-manifest drift, `version:sync` and `readme:check`. It
+never tags, pushes or publishes. Patch releases are tagged by CI; a minor or
+major is the operator's signed cut.

@@ -16,7 +16,7 @@ are secondary. Treat missing tests and POLA drift as real risks.
 
 ## Workflow
 
-1. Read the diff and identify touched contracts: CLI, MCP, `.cw/` state, docs,
+1. Read the diff and identify touched contracts: CLI, `.cw/` state, docs,
    dist, manifests, tests, release flow, or public package files.
 2. Inspect the surrounding code for behavioral expectations.
 3. Check whether tests exercise the changed behavior and fail closed.

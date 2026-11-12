@@ -1,68 +1,39 @@
 #!/usr/bin/env node
 
-// Retry accounting persisted on the worker scope: a failed hop charges one
-// attempt (the max of the in-memory count and the persisted retryCount).
-// After parking at maxAttempts (default 3) the worker manifest carries
-// retryCount:3, a terminal error with code "agent-delegation-parked", and
-// the task's own state node moves to "failed" (never re-dispatched).
-//
-// Also: a RETRYABLE failure (not yet at the budget) reuses the SAME worker
-// scope on the next step — no new dispatch/worker id is minted mid-retry.
+// Retry accounting persisted on the task: each failed hop charges one
+// attempt. A retry reuses the SAME worker folder (worker-<task>-0001) and
+// puts the reason at the top of its next input.md, under "## Previous
+// Attempt". At maxAttempts (3) the task parks: status "failed", attempts
+// 3, two "agent-delegation-retry" errors and one "agent-delegation-parked".
 
 import fs from "node:fs";
 import path from "node:path";
 import { run, gitRepo, readJson, caseMain, assert } from "../lib.mjs";
 
 const FAIL_AGENT = path.join(import.meta.dirname, "fixtures", "stub-agent-fail.mjs");
-function failAgentEnv() {
-  return { CW_AGENT_COMMAND: `node ${FAIL_AGENT} {{input}} {{result}}` };
-}
 
 caseMain(() => {
   const repo = gitRepo({ "a.txt": "hello\n" });
-  const env = failAgentEnv();
-
-  // Step 1: dispatch + first failed hop (retryable, same scope next time).
-  let r = run(
-    ["run", "end-to-end-golden-path", "--drive", "--once", "--question", "prove it", "--repo", repo, "--json"],
-    { env }
-  );
-  let payload = JSON.parse(r.stdout);
-  assert.equal(payload.status, "in-progress");
-  const runDir = path.dirname(payload.statePath);
-  const workerIdAfterStep1 = fs.readdirSync(path.join(runDir, "workers")).find((f) => f.startsWith("worker-"));
-  let manifest = readJson(path.join(runDir, "workers", workerIdAfterStep1, "manifest.json"));
-  assert.equal(manifest.status, "running", "a retryable failure keeps the task/worker running");
-  assert.equal(manifest.metadata.agentDelegationAttempts, 1);
-
-  // Step 2: second failed hop — SAME worker id, retryCount not yet at cap.
-  r = run(["run", "--drive", "--once", "--run", payload.runId, "--json"], { cwd: repo, env });
-  payload = JSON.parse(r.stdout);
-  assert.equal(payload.status, "in-progress");
-  const workerIdAfterStep2 = fs.readdirSync(path.join(runDir, "workers")).find((f) => f.startsWith("worker-"));
-  assert.equal(workerIdAfterStep2, workerIdAfterStep1, "retry reuses the same worker scope, no re-dispatch");
-  manifest = readJson(path.join(runDir, "workers", workerIdAfterStep1, "manifest.json"));
-  assert.equal(manifest.metadata.agentDelegationAttempts, 2);
-
-  // Step 3: third failure hits the retry budget (default maxAttempts 3) and
-  // parks — the worker manifest now records the terminal state.
-  r = run(["run", "--drive", "--once", "--run", payload.runId, "--json"], { cwd: repo, env });
-  payload = JSON.parse(r.stdout);
+  const r = run(["-q", "prove it", "--repo", repo, "--json"], {
+    env: { CW_AGENT_COMMAND: `node ${FAIL_AGENT} {{input}} {{result}}` },
+  });
+  assert.equal(r.status, 2);
+  const payload = JSON.parse(r.stdout);
   assert.equal(payload.status, "parked");
-  manifest = readJson(path.join(runDir, "workers", workerIdAfterStep1, "manifest.json"));
-  assert.equal(manifest.status, "failed");
-  assert.equal(manifest.retryCount, 3);
-  assert.equal(manifest.errors.length, 1);
-  assert.equal(manifest.errors[0].code, "agent-delegation-parked");
-  assert.equal(manifest.errors[0].retryable, false);
-  assert.equal(
-    manifest.errors[0].message,
-    "agent hop failed: golden:path: failed (exit 1) (attempt 3/3)"
-  );
 
-  // Only ONE worker/dispatch was ever created across all three steps.
-  const allWorkers = fs.readdirSync(path.join(runDir, "workers")).filter((f) => f.startsWith("worker-"));
-  assert.equal(allWorkers.length, 1);
-  const allDispatches = fs.readdirSync(path.join(runDir, "dispatches"));
-  assert.equal(allDispatches.length, 1);
+  const task = readJson(payload.statePath).tasks.find((t) => t.id === "map:server-api");
+  assert.equal(task.status, "failed");
+  assert.equal(task.attempts, 3);
+  assert.deepEqual(task.errors.map((e) => e.code), ["agent-delegation-retry", "agent-delegation-retry", "agent-delegation-parked"]);
+  assert.equal(task.errors[2].message, "agent hop failed: map:server-api: failed (exit 1) (attempt 3/3)");
+  assert.equal(task.workerId, "worker-map:server-api-0001");
+
+  // One worker folder per task, across all three tries.
+  const workersDir = path.join(path.dirname(payload.statePath), "workers");
+  const mine = fs.readdirSync(workersDir).filter((w) => w.startsWith("worker-map:server-api-"));
+  assert.deepEqual(mine, ["worker-map:server-api-0001"]);
+  const input = fs.readFileSync(path.join(workersDir, mine[0], "input.md"), "utf8");
+  assert.match(input, /## Previous Attempt\n\nCW refused the last attempt: agent hop failed: map:server-api: failed \(exit 1\)/);
+  // The failing agent's stderr is kept for the person who reads the run.
+  assert.match(fs.readFileSync(path.join(workersDir, mine[0], "logs", "agent-stderr.log"), "utf8"), /stub-agent-fail/);
 });

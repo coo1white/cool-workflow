@@ -6,14 +6,11 @@
 // file starts with a "# exit: N" comment line, then the exact stdout bytes;
 // this case strips that first line and compares the rest byte for byte.
 //
-// Also covers: `cw` bare and `cw --help` are byte-aliases of `cw help`;
-// `cw help <verb>` for both a normal command and the `state`/`node` groups
-// (sorted, padded subcommand rows); the `audit-run` alias page (an alias
-// header line plus the target verb quickstart's own rows — the old
-// self-pointing "Unknown command: audit-run / Did you mean: cw audit-run"
-// quirk was fixed on purpose); `help <cmd>` exit code is always 0 even
-// when <cmd> is not a real command, in contrast to `cw <cmd>` alone which
-// exits 1.
+// Also covers: `cw` bare, `cw --help` and `cw -h` are byte-aliases of `cw
+// help`; `cw <verb> --help` is the same page as `cw help <verb>`; `help
+// <cmd>` exits 0 even when <cmd> is not a real command, in contrast to
+// `cw <cmd>` alone which exits 1. Fixtures re-captured from the batch-5
+// build (2026-11-12), when the removed verbs' pages went away.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -52,7 +49,7 @@ caseMain(() => {
   assert.equal(dashH.stdout, rootFixture);
 
   // Per-command help pages, byte-exact against captures.
-  for (const cmd of ["help", "version", "list", "state", "doctor", "ledger", "node", "backend", "run", "quickstart", "man", "demo", "check"]) {
+  for (const cmd of ["version", "doctor", "fix", "report", "check", "demo"]) {
     const fx = loadFixture(cmd);
     const r = run(["help", cmd]);
     assert.equal(r.status, fx.exit, `cw help ${cmd}: exit code`);
@@ -61,33 +58,10 @@ caseMain(() => {
   }
 
   // `cw <verb> --help` is the same page as `cw help <verb>`.
-  const viaFlag = run(["ledger", "--help"]);
-  const viaHelp = run(["help", "ledger"]);
+  const viaFlag = run(["report", "--help"]);
+  const viaHelp = run(["help", "report"]);
   assert.equal(viaFlag.stdout, viaHelp.stdout);
   assert.equal(viaFlag.status, 0);
-
-  // Alias page: audit-run IS a real top-level command (a caseTokens alias
-  // of quickstart) but has no help row of its own, so `help audit-run`
-  // renders an alias header line plus quickstart's own rows. Before this
-  // fix it fell to the unknown-command page AND the Did-you-mean line
-  // suggested `cw audit-run` itself — a hint pointing at the very word
-  // the user just typed.
-  const auditRunFx = loadFixture("audit-run");
-  const helpAuditRun = run(["help", "audit-run"]);
-  assert.equal(helpAuditRun.status, 0);
-  assert.equal(helpAuditRun.status, auditRunFx.exit);
-  assert.equal(helpAuditRun.stdout, auditRunFx.body);
-  assert.match(helpAuditRun.stdout, /^cw audit-run — alias of cw quickstart\n/);
-  assert.match(helpAuditRun.stdout, /cw quickstart\s+ONE-COMMAND quickstart/);
-  assert.doesNotMatch(helpAuditRun.stdout, /Unknown command/);
-  assert.doesNotMatch(helpAuditRun.stdout, /Did you mean/);
-  // The alias page's body below its own header line is byte-identical to
-  // `cw help quickstart`'s body below its header — one source of rows.
-  const helpQuickstart = run(["help", "quickstart"]);
-  assert.equal(
-    helpAuditRun.stdout.split("\n").slice(1).join("\n"),
-    helpQuickstart.stdout.split("\n").slice(1).join("\n")
-  );
 
   // `help <cmd>` always exits 0, even for total garbage — in contrast to
   // `cw <cmd>` alone (with no `help` prefix) which exits 1.

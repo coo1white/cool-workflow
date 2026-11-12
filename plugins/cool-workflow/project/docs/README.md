@@ -36,24 +36,20 @@ Worked audit examples are in [`../examples/`](../examples/).
 
 ## The layer stack
 
-The code is in [`../../src/`](../../src/), in five layers. A layer may
-import the layers under it, and never one over it. `cli/` and `mcp/` are
-two doors side by side; they do not import each other.
+The code is in [`../../src/`](../../src/), in four layers. A layer may
+import the layers under it, and never one over it.
 
 ```text
-   cw  (scripts/cw.js -> dist/cli.js)         an MCP host  (scripts/mcp-server.js -> dist/mcp-server.js)
-        |                                          |
-   src/cli/      argv -> one command          src/mcp/   JSON-RPC -> one tool
-        |                                          |
-        +--------------------+---------------------+
-                             v
-   src/wiring/   the capability table: every command and every MCP tool,
-                 once, as data, with the shell function that does it
-                             v
+   cw  (scripts/cw.js -> dist/cli.js)
+        |
+   src/cli/      argv -> one command, then print its text or JSON
+        v
+   src/wiring/   the command table (commands.ts): every command, once, as
+                 data, with a lazy load of the shell module that does it
+        v
    src/shell/    the work with the outside: files, the .cw/ run folder,
-                 processes, git, agents, the clock. The body of each
-                 command is in shell/commands/<name>-cli.ts
-                             v
+                 processes, git, agents, the clock
+        v
    src/core/     decisions and data only: pure functions, no files, no
                  processes, no network. It imports only core/ and node: parts
 ```
@@ -61,22 +57,22 @@ two doors side by side; they do not import each other.
 | Layer | What it holds | May import |
 |---|---|---|
 | [`cli/`](../../src/cli/) | Reads argv, finds the command in the table, prints the output | `core`, `shell`, `wiring`, `cli` |
-| [`mcp/`](../../src/mcp/) | The MCP stdio server: finds the tool in the table, gives back JSON | `core`, `shell`, `wiring`, `mcp` |
-| [`wiring/`](../../src/wiring/) | The capability table: one row per command or tool, so CLI and MCP give the same thing | `core`, `shell`, `wiring` |
-| [`shell/`](../../src/shell/) | Everything with a side effect: run store, drive, dispatch, report, trust audit, agent backends | `core`, `shell` |
-| [`core/`](../../src/core/) | Pure rules and data: run state, pipeline steps, hashes, formats, workflow app schema | `core` only |
+| [`wiring/`](../../src/wiring/) | The command table: one row per command | `core`, `shell`, `wiring` |
+| [`shell/`](../../src/shell/) | Everything with a side effect: run store, drive, worker accept, report, bundle, receipts, agent spawn | `core`, `shell` |
+| [`core/`](../../src/core/) | Pure rules and data: run state, plan, drive decisions, commit gate, hashes, formats | `core` only |
 
-Two checks keep the rule true:
+Three checks keep the rule true:
 
 - [`test/core/layer-direction.test.mjs`](../../test/core/layer-direction.test.mjs)
-  (`npm run test:unit`): `core/` imports only `core/` and `node:` parts,
-  with no list of let-through breaks at all.
+  (`npm run test:unit`): `core/` imports only `core/` and `node:` parts.
 - [`scripts/purity-gate.mjs`](../../scripts/purity-gate.mjs)
   (`npm run purity:check`, run by `release:check`, so by CI): checks every
   layer, and checks that `core/` does not get at files, processes,
   `process.env` or the clock. It is a ratchet: the breaks there are today
   are listed in [`scripts/purity-baseline.json`](../../scripts/purity-baseline.json),
   a new break fails, and a fixed break has to come out of the list.
+- [`scripts/size-check.mjs`](../../scripts/size-check.mjs) (`npm run
+  check`): `src/` stays at 10,000 lines or fewer.
 
 ## Walk one command: `cw -q`
 
@@ -86,28 +82,23 @@ What happens on `cw -q "<question>" -claude`, the core path of
 1. [`scripts/cw.js`](../../scripts/cw.js) loads `dist/cli.js`, made from
    [`src/cli.ts`](../../src/cli.ts), which calls `main` in
    [`src/cli/entry.ts`](../../src/cli/entry.ts).
-2. `entry.ts` turns `-q` into the `quickstart` command and finds its row
-   in the capability table,
-   [`src/wiring/capability-table/pipeline.ts`](../../src/wiring/capability-table/pipeline.ts).
-3. The row's handler is `quickstartRun` in
+2. `entry.ts` turns `-claude` into `--agent-command builtin:claude` and
+   finds the ask row in [`src/wiring/commands.ts`](../../src/wiring/commands.ts).
+3. The row's handler is in
    [`src/shell/commands/pipeline-cli.ts`](../../src/shell/commands/pipeline-cli.ts).
-   It plans the run (`pipeline.ts`, `workflow-app-loader.ts`), then drives
-   it (`drive.ts`): each step gives work to the agent (`dispatch.ts`,
-   `worker-isolation.ts`, `agent-config.ts`, `sandbox-profile.ts`), takes
-   the result back, and saves it (`run-store.ts`, `node-store.ts`,
-   `fs-atomic.ts`, `trust-audit.ts`, `observability.ts`).
-4. At the end it makes a verifier-gated commit (`commit.ts`) and writes
-   `.cw/runs/<id>/report.md` (`report.ts`). `onramp.ts` gives the next
-   step when something is missing.
-5. The decisions on the way (what step is next, if a result may be
-   taken, what the report says) are kept as pure functions in
-   `src/core/` (most in `core/pipeline/` and `core/state/`), so they can
-   be tested with no files and no agent.
+   It plans the run (`core/pipeline/plan.ts`, from
+   `apps/architecture-review/`), then drives it (`shell/drive.ts`): each
+   phase spawns the agent (`agent-config.ts`, `execution-backend/agent.ts`),
+   takes each `result.md` back through the accept gates (`worker.ts`), and
+   saves state (`run-store.ts`, `fs-atomic.ts`, `telemetry-ledger-io.ts`).
+4. At the end it makes one verifier-gated commit (`commit.ts`, gated by
+   `core/pipeline/commit-gate.ts`) and writes `.cw/runs/<id>/report.md`
+   and `report.html` (`report.ts`).
+5. The decisions on the way (what is next, retry or park, if a result
+   may be taken) are pure functions in `src/core/`, so they can be tested
+   with no files and no agent.
 
-`cw --resume --run <id>` goes the same way, and adds
-[`registry-cli.ts`](../../src/shell/commands/registry-cli.ts) and
-[`run-registry-io.ts`](../../src/shell/run-registry-io.ts) to find the
-run. All files named in steps 3 and 4 are in `src/shell/`.
+`cw --resume --run <id>` goes the same way from the saved `state.json`.
 
 ## Decision records
 

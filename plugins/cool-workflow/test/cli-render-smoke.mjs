@@ -134,11 +134,11 @@ function testMachineChannelByteExactUnderForceColor() {
   // The CONTRACT that actually matters: FORCE_COLOR may color HUMAN output, but the MACHINE/data
   // surfaces (--json via printJson, and the cw:result fence) must stay byte-exact — never ANSI.
   // printJson uses no term styling today; this guard catches any future regression that styles it.
-  const r = spawnSync(process.execPath, [cli, "list", "--json"], {
+  const r = spawnSync(process.execPath, [cli, "check", "list", "--json"], {
     encoding: "utf8",
     env: { ...process.env, FORCE_COLOR: "1", NO_COLOR: "", CW_NO_COLOR: "" }
   });
-  assert.equal(r.status, 0, `list --json exits 0 under FORCE_COLOR (stderr: ${r.stderr})`);
+  assert.equal(r.status, 0, `check list --json exits 0 under FORCE_COLOR (stderr: ${r.stderr})`);
   assert.ok(!ANSI.test(r.stdout), "the --json machine channel carries ZERO ANSI even when FORCE_COLOR is set");
   JSON.parse(r.stdout); // throws if any chrome leaked into the data channel
   console.log("cli-render: --json machine channel stays byte-exact under FORCE_COLOR OK");

@@ -1,0 +1,21 @@
+# exit: 0
+cw report
+
+  cw report [run-id] [--show|--open]  Write the report for a run (default: the latest) and print its path
+  cw report bundle <run-id>           Seal a run into one file that verifies offline
+  cw report verify-bundle <bundle>    Check a sealed run offline; fails closed
+
+    Flags (cw report [run-id] [--show|--open])
+      --show  Print report.md
+      --open  Open report.html in the browser
+
+    Flags (cw report bundle <run-id>)
+      --output FILE          Where to write the bundle (default: <run-id>.cwrun.json)
+      --with-trust-key PEM   Embed this public key so signatures re-check offline
+      --extract-report FILE  Also write report.md to FILE
+
+    Flags (cw report verify-bundle <bundle>)
+      --pubkey PEM           Trust this public key over the embedded one
+      --strict-signatures    Fail when signatures exist but no key does
+      --require-signatures   Fail when any result is unsigned
+      --extract-report FILE  Write the verified report.md to FILE

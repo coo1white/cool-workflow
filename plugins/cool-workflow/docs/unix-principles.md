@@ -12,27 +12,20 @@ Every workflow event with meaning should be kept as state you can look into.
 
 CW keeps now:
 
-- workflow runs in `.cw/runs/<run-id>/state.json`
-- task prompts in `.cw/runs/<run-id>/tasks/`
-- dispatch manifests in `.cw/runs/<run-id>/dispatches/`
-- result envelopes in `.cw/runs/<run-id>/results/`
-- state snapshots in `.cw/runs/<run-id>/commits/`
-- schedules in `.cw/schedules/tasks.json`
-- routine trigger events in `.cw/routines/`
-- candidate scoring records in `.cw/runs/<run-id>/candidates/`
-- commit gate failures in `.cw/runs/<run-id>/feedback/`
-- sandbox profile selections in worker, dispatch, feedback, and report state
-- workflow app identity and version in `.cw/runs/<run-id>/state.json`
-- canonical app matrix run state in temporary `.cw/runs/<run-id>/` workspaces
-- golden path proof artifacts in temporary `.cw/runs/<run-id>/` workspaces
-- operator summaries made from state without changing run files
-- MCP app-surface smoke runs driven through stdio JSON-RPC
+- the run in `.cw/runs/<run-id>/state.json`
+- each worker's `input.md`, `manifest.json` and `result.md` in
+  `.cw/runs/<run-id>/workers/<worker-id>/`
+- accepted results in `.cw/runs/<run-id>/results/`
+- the signed telemetry ledger in `.cw/runs/<run-id>/telemetry.json`
+- the verifier-gated commit snapshot in `.cw/runs/<run-id>/commits/`
+- the report in `.cw/runs/<run-id>/report.md`
+- `cw check` receipts in `.cw/receipts/`
 
 The working rule is:
 
 ```text
-prompt, task, dispatch, result, error, verifier decision, schedule, trigger
-= state that can be inspected, replayed, snapshotted, or compared
+prompt, task, result, error, verifier decision, commit
+= state that can be inspected, resumed, bundled, or compared
 ```
 
 This keeps the runtime fixed and certain, and keeps agent work open to check.
@@ -40,154 +33,73 @@ This keeps the runtime fixed and certain, and keeps agent work open to check.
 ## 2. Small Kernel, Composable Userland
 
 CW should keep the kernel small. The kernel is the owner of state changes and
-fixed contracts; workflow apps are the owners of their field behavior.
+fixed contracts; the workflow app is the owner of its field behavior.
 
-Core system calls:
+The kernel's calls:
 
 ```text
 plan()
-dispatch()
-recordResult()
-verify()
-commit()
+delegate()
+accept()      # the evidence gate
+commit()      # the verifier-gated commit
 report()
-sandbox()
-schedule()
-trigger()
 ```
 
-The kernel should keep away from hard-coded business logic. New behavior should
-for the most part come in as:
-
-- a workflow app
-- a workflow app manifest under `apps/<app-id>/app.json`
-- a verifier
-- a scheduler policy
-- a routine trigger
-- an external worker
-
-Workflow App framework v0.1.9 makes this split solid and clear. The runner is the
-base system. Apps are userland: versioned, checked definitions you can look into,
-that can be listed, shown, validated, initialized, packaged, planned, and reported
-without leaning on hidden runner internals.
-
-The v0.1.12 Operator UX layer is userland over state. It puts out `status`,
-`graph`, `report --show`, and resource summaries without being the owner of core
-changes.
-
-The v0.1.13 MCP app surface is the same way of work put to agent hosts: a
-small JSON tool bridge over the base runtime, old names kept, read-only
-looking-in kept apart from change, and every change put away into the run.
-
-The v0.1.13 canonical apps are kept-up userland:
-
-```text
-architecture-review
-pr-review-fix-ci
-release-cut
-research-synthesis
-```
-
-They keep field prompts, inputs, evidence gates, and sandbox hints in app
-directories in place of runner internals.
-
-The v0.1.10 `end-to-end-golden-path` app is by design dull userland. It
-has one readonly worker task and is here to give proof that the base system pipes are
-joined up.
+The kernel should keep away from hard-coded business logic. Field behavior
+lives in the workflow app (`apps/architecture-review/`): its phases, prompts
+and evidence rules. Vendor behavior lives in the agent wrappers under
+`scripts/agents/`, never in `src/`. `src/` stays under 10,000 lines
+(`scripts/size-check.mjs`).
 
 ## 3. Pipelines Over Monoliths
 
 CW is for clear data flow in place of hidden control from above.
 
-The normal pipeline is:
+The pipeline is:
 
 ```text
-workflow definition
--> app contract validation
--> validated input
--> task files
--> dispatch manifest
--> worker result
--> result envelope
--> verifier gate
--> verifier-gated commit or explicit checkpoint
+question
+-> plan (the app's phases and tasks)
+-> worker input.md
+-> agent
+-> result.md
+-> evidence gate (accept, retry, or park)
+-> verifier-gated commit
 -> report
 ```
 
-Each stage should have an artifact you can read. If a stage has a fault, its error
-output should become input for the next fix step in place of going away into a
-black box.
-
-Operator views keep to the same rule: console summaries point to plain files,
-while `--json` and `--format json` keep output a script can use.
-
-The release golden path is the regression form of this rule:
-
-```text
-npm run golden-path
-```
-
-It puts the public CLI to work and then looks into state files for app metadata,
-dispatch, worker manifest, result node, verifier node, candidate score, ranking,
-selection, verifier-gated commit, report, and no ErrorFeedback.
-
-The canonical app matrix is the userland regression form:
-
-```text
-npm run canonical-apps
-```
-
-It checks and plans every kept-up app without running full workers for
-each app.
+Each stage has a file you can read. If a stage has a fault, its reason goes
+into the next try's `input.md`, or into the report, in place of going away
+into a black box. `--json` keeps output a script can use.
 
 ## 4. Isolated Workers
 
-Workers should be kept apart by scope, state, and output.
-
-Helpful layers for keeping apart:
-
-- separate task prompts
-- separate result files
-- separate run directories
-- separate workspace or sandbox directories for risky work
-- separate score/evidence records for competing candidates
-- named sandbox profiles for read/write/execute/network/env policy
-
-A worker fault should not damage the workflow kernel. A worker that has failed is a
-state change, not a fault across the whole process.
-
-Sandbox Profiles keep policy clear. CW keeps the profile id and worked-out
-policy in long-lasting state, checks paths, and takes or turns away worker output
-against the write policy. The agent host is still the one responsible for OS-level file
-access, command running, network access, and environment filtering.
+Workers are kept apart by scope, state, and output: one folder, one
+`input.md`, one `result.md` each. A worker fault does not damage the
+workflow kernel: a worker that has failed is a state change (retried, then
+parked), not a fault across the whole process. CW checks that `result.md`
+stays in its worker folder; the agent host is still the one responsible for
+OS-level file access, command running, network access, and environment
+filtering.
 
 ## 5. Verifier-Gated Commits
 
-CW should not put every made answer back into the main workflow state.
-Made work should go through evidence and verifier gates first.
-
-The rule for merging we are for is:
+CW does not put every made answer into the committed state. Made work goes
+through the evidence gate on accept, and the verdict's evidence through the
+commit gate. The rule:
 
 ```text
 only verified state becomes committed state
 ```
 
-For branches against one another, the shape is:
-
-```text
-candidate workers -> score records -> verifier-gated selection
--> verifier-gated commit()
-```
-
-Snapshots with no gate are checkpoints. They are let through as records for check and
-for taking up again, but reports and commit records must not put them forward as
-verifier-gated committed state.
+A run that cannot pass the gate stops `blocked` with the reason; its report
+is still written, and it says the run did not commit.
 
 ## 6. Practical Operating Rule
 
 ```text
 The kernel provides deterministic pipes.
-Workers explore in isolation.
+Workers work in isolation.
 Verifiers decide what may be committed.
 Hosts enforce runtime sandbox policy.
 ```
@@ -221,7 +133,7 @@ never in core. Core may send a vendor's stream on; it never reads one apart.
 non-interactive run says nothing on success. Anything friendly to a person is TTY-gated
 and can be turned off; `--json` output is fixed and with nothing added so it goes together
 in pipes. A broken pipe is not an error: when the reader at the other end
-goes away early (`cw list --json | head -1`), the CLI stops quietly with
+goes away early (`cw check list --json | head -1`), the CLI stops quietly with
 exit 0 — no stack trace, no error text (both `--json` and human output).
 
 **Fail closed, conservative defaults.** Backends not yet configured probe as

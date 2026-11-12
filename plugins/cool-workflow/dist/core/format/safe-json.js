@@ -1,18 +1,13 @@
-// core/format/safe-json.ts — a byte-capped JSON.stringify shared by the CLI's
-// `--json` output (cli/io.ts) and the MCP `tools/call` result (mcp/server.ts).
+// core/format/safe-json.ts — a byte-capped JSON.stringify for the CLI's
+// `--json` output (cli/io.ts).
 //
-// Both surfaces JSON.stringify a caller-selected result with no size limit.
-// An aggregate/dashboard capability (e.g. cw node list --json on
-// a run with thousands of nodes) can grow to hundreds of
-// MB: a useless dump for a calling agent's context window at best, and at
-// worst a RangeError ("Invalid string length") once the string crosses
-// V8's per-string ceiling (~256M UTF-16 code units) — the same failure
-// class as batch stdout reconciliation, here on the output
-// side instead. Both `--json` and MCP callers already catch a thrown error
-// and report it cleanly (cli/entry.ts's top-level catch; mcp/server.ts's
-// tools/call try/catch), so this is not a crash fix so much as a "return
-// something useful instead of a cryptic RangeError, or an unusable giant
-// payload" fix.
+// A result with no size limit can grow to hundreds of MB: a useless dump
+// for a calling agent's context window at best, and at worst a RangeError
+// ("Invalid string length") once the string crosses V8's per-string
+// ceiling (~256M UTF-16 code units). cli/entry.ts's top-level catch already
+// reports a thrown error cleanly, so this is not a crash fix so much as a
+// "return something useful instead of a cryptic RangeError, or an unusable
+// giant payload" fix.
 /** Generous but bounded: comfortably above any real cw result today, far
  *  below V8's ~256M-UTF-16-code-unit ceiling. */
 export const MAX_JSON_OUTPUT_BYTES = 10 * 1024 * 1024;

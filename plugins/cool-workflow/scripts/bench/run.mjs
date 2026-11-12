@@ -7,7 +7,11 @@
 //
 // Usage: node run.mjs --arch <name> --agent <name> --conc <N> [--runs <N>]
 //        [--delay-ms <N>] [--json-report <path>]
-//        [--trace-report <path>]
+//
+// Each run is one `cw -q` (plan and drive are one command since batch 5),
+// so the plan time is recorded as 0 and the drive time is the whole run.
+// --conc is recorded only: the drive's width comes from the app's
+// maxConcurrentAgents.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -25,7 +29,6 @@ let CONC = 4;
 let DOCKER = ""; // docker image tag, e.g. "18" or "22" (recorded only)
 let DELAY_OVERRIDE;
 let JSON_REPORT = "";
-let TRACE_REPORT = "";
 
 const argv = process.argv.slice(2);
 for (let i = 0; i < argv.length; i++) {
@@ -51,10 +54,6 @@ for (let i = 0; i < argv.length; i++) {
     case "--json-report":
       JSON_REPORT = argv[++i] || "";
       if (!JSON_REPORT) fail("--json-report requires a path");
-      break;
-    case "--trace-report":
-      TRACE_REPORT = argv[++i] || "";
-      if (!TRACE_REPORT) fail("--trace-report requires a path");
       break;
     default:
       break; // unknown args are skipped, matching the old runner
@@ -90,21 +89,13 @@ function median(values) {
   return sorted[Math.floor(sorted.length / 2)] || 0;
 }
 
-function percentile95(values) {
-  const sorted = [...values].sort((a, b) => a - b);
-  if (!sorted.length) return 0;
-  return sorted[Math.ceil(sorted.length * 0.95) - 1];
-}
-
-// Combined stdout+stderr capture (the old runner's `$(cmd 2>&1)`), never throws.
+// stdout capture (the --json result; progress goes to stderr), never throws.
 function run(cmd, args, opts = {}) {
   const res = spawnSync(cmd, args, { encoding: "utf8", ...opts });
-  const out = (res.stdout || "") + (res.stderr || "");
-  return { status: res.status, out, error: res.error };
+  return { status: res.status, out: res.stdout || "", error: res.error };
 }
 
-// The old runner piped combined CLI output into `python3 json.load`; a parse
-// failure fell back to a default. Same contract here.
+// A parse failure falls back to a default.
 function jsonField(text, field, fallback) {
   try {
     const value = JSON.parse(text)[field];
@@ -114,82 +105,33 @@ function jsonField(text, field, fallback) {
   }
 }
 
-function readTrace(file) {
-  try {
-    const value = JSON.parse(fs.readFileSync(file, "utf8"));
-    if (value && value.schemaVersion === 1 && value.benchmark === "cw-cold-path" && Array.isArray(value.groups)) return value;
-  } catch {
-    // The drive result remains the source of success. A missing trace is
-    // still made plain in the opt-in trace report below.
-  }
-  return { schemaVersion: 1, benchmark: "cw-cold-path", groups: [] };
-}
-
-function summarizeTrace(runs) {
-  const names = [...new Set(runs.flatMap((run) => run.trace.groups.map((group) => group.name)))].sort();
-  return names.map((name) => {
-    const groups = runs.map((run) => run.trace.groups.find((group) => group.name === name) || {});
-    const metric = (key) => groups.map((group) => Number(group[key] || 0));
-    return {
-      name,
-      medianDurationMs: median(metric("durationMs")),
-      p95DurationMs: percentile95(metric("durationMs")),
-      medianSelfMs: median(metric("selfMs")),
-      p95SelfMs: percentile95(metric("selfMs")),
-      medianDurableWriteCount: median(metric("durableWriteCount")),
-      medianDurableWriteBytes: median(metric("durableWriteBytes")),
-    };
-  });
-}
-
 async function main() {
   log(`=== ${ARCH} / conc=${CONC} / ${AGENT} (delay=${DELAY_MS}ms, runs=${RUNS}) ===`);
 
   fs.rmSync(BENCH_WORK, { recursive: true, force: true });
   fs.mkdirSync(BENCH_WORK, { recursive: true });
   fs.writeFileSync(path.join(BENCH_WORK, "README.md"), "# benchmark target repo\n");
+  spawnSync("git", ["init", "-q"], { cwd: BENCH_WORK }); // cw -q reviews a git project
 
-  // ---- CW plan + drive ----
+  // ---- cw -q (plan + drive) ----
   log(`  cw: ${RUNS} runs...`);
   let totalMs = 0;
-  let totalPlanMs = 0;
   const runMetrics = [];
 
   for (let i = 1; i <= RUNS; i++) {
     fs.rmSync(path.join(BENCH_WORK, ".cw"), { recursive: true, force: true });
 
-    // Step 1: plan
-    const planStart = Date.now();
-    const plan = run(
-      "node",
-      [path.join(PLUGIN_DIR, "dist", "cli.js"), "plan", "architecture-review-fast", "--repo", BENCH_WORK, "--question", `bench${i}`],
-      { cwd: BENCH_WORK },
-    );
-    const planMs = Date.now() - planStart;
-    totalPlanMs += planMs;
-    const runId = jsonField(plan.out, "runId", "");
-
-    // Step 2: drive (must run from the same repo cwd)
+    const planMs = 0;
     const driveStart = Date.now();
-    const traceFile = TRACE_REPORT ? path.join(path.dirname(path.resolve(TRACE_REPORT)), `cw-cold-path-${i}.json`) : "";
-    const drive = run(
-      "node",
-      [
-        path.join(PLUGIN_DIR, "dist", "cli.js"),
-        "run",
-        "--drive",
-        "--run",
-        runId,
-        "--agent-command",
-        `node ${STUB} --agent ${AGENT} --delay-ms ${DELAY_MS} {{result}}`,
-        "--concurrency",
-        String(CONC),
-      ],
-      {
-        cwd: BENCH_WORK,
-        ...(traceFile ? { env: { ...process.env, CW_BENCH_TRACE_FILE: traceFile } } : {}),
+    const drive = run(process.execPath, [path.join(PLUGIN_DIR, "dist", "cli.js"), "-q", `bench${i}`, "--json"], {
+      cwd: BENCH_WORK,
+      env: {
+        ...process.env,
+        CW_AGENT_COMMAND: `node ${STUB} --agent ${AGENT} --delay-ms ${DELAY_MS} {{result}}`,
+        CW_NO_AUTO_AGENT: "1",
+        CW_NO_OPEN: "1",
       },
-    );
+    });
     const driveMs = Date.now() - driveStart;
 
     const elapsed = planMs + driveMs;
@@ -197,25 +139,23 @@ async function main() {
 
     const status = jsonField(drive.out, "status", "?");
     const comp = jsonField(drive.out, "completedWorkers", "?");
-    const trace = traceFile ? readTrace(traceFile) : undefined;
-    runMetrics.push({ index: i, planMs, driveMs, totalMs: elapsed, status, completedWorkers: comp, ...(trace ? { trace } : {}) });
+    runMetrics.push({ index: i, planMs, driveMs, totalMs: elapsed, status, completedWorkers: comp });
     log(`    ${i}: plan=${planMs}ms drive=${driveMs}ms total=${elapsed}ms status=${status} completed=${comp}`);
   }
 
   const meanMs = Math.floor(totalMs / RUNS);
-  const meanPlanMs = Math.floor(totalPlanMs / RUNS);
+  const meanPlanMs = 0;
 
-  // app: Map(2) Assess(2) Verify(1) Verdict(1)
-  // autoWidth = min(maxConcurrentAgents, tasks) = 2 for Map+Assess
-  // rounds = ceil(2/2) + ceil(2/2) + 1 + 1 = 4
-  const ROUNDS = 4;
+  // app: Map(6) + Assess(6) in one round (maxConcurrentAgents 12), then
+  // Verify(1), then Verdict(1): 3 rounds.
+  const ROUNDS = 3;
   const expected = DELAY_MS * ROUNDS;
   const overheadMs = meanMs - meanPlanMs - expected;
 
   if (JSON_REPORT) {
     const report = {
       schemaVersion: 1,
-      benchmark: "architecture-review-fast",
+      benchmark: "architecture-review",
       arch: ARCH,
       node: "22",
       concurrency: CONC,
@@ -228,17 +168,6 @@ async function main() {
     };
     fs.mkdirSync(path.dirname(path.resolve(JSON_REPORT)), { recursive: true });
     fs.writeFileSync(JSON_REPORT, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-  }
-
-  if (TRACE_REPORT) {
-    const traceReport = {
-      schemaVersion: 1,
-      benchmark: "architecture-review-fast",
-      runs: runMetrics.map((run) => ({ index: run.index, driveMs: run.driveMs, trace: run.trace })),
-      groups: summarizeTrace(runMetrics),
-    };
-    fs.mkdirSync(path.dirname(path.resolve(TRACE_REPORT)), { recursive: true });
-    fs.writeFileSync(TRACE_REPORT, `${JSON.stringify(traceReport, null, 2)}\n`, "utf8");
   }
 
   fs.rmSync(BENCH_WORK, { recursive: true, force: true });

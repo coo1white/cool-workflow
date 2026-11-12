@@ -26,17 +26,15 @@ import { pathToFileURL } from "node:url";
 
 const PLUGIN_ROOT = path.resolve(import.meta.dirname, "..", "..");
 const CLI = path.join(PLUGIN_ROOT, "scripts", "cw.js");
-const MCP = path.join(PLUGIN_ROOT, "scripts", "mcp-server.js");
 const HOOK = path.join(import.meta.dirname, "perf-count-hook.mjs");
 const CEILINGS = path.join(import.meta.dirname, "perf-ceilings.json");
-const DRIVE_WORKERS = 16;
 
 const COLD_JOURNEYS = [
   ["version", ["version"]],
   ["help", ["help"]],
-  ["status-no-run", ["status"]],
+  ["report-no-run", ["report"]],
   ["doctor", ["doctor"]],
-  ["app-list", ["app", "list"]],
+  ["check-list", ["check", "list"]],
 ];
 
 function sandboxEnv(root) {
@@ -82,43 +80,6 @@ function makeRepo(root) {
   return repo;
 }
 
-// One app, DRIVE_WORKERS agent tasks in one serial phase: every step is a
-// full load -> dispatch -> accept -> commit -> save of the run state.
-function makeFanApp(root) {
-  const dir = path.join(root, "apps", "perf-fan");
-  fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(
-    path.join(dir, "app.json"),
-    `${JSON.stringify({
-      schemaVersion: 1,
-      id: "perf-fan",
-      title: "Perf Fan",
-      summary: "Fixed fan of agent tasks for the perf ratchet.",
-      version: "0.1.0",
-      author: "bench",
-      inputs: [
-        { name: "question", type: "string", required: true, description: "q" },
-        { name: "repo", type: "path", required: true, description: "r" },
-      ],
-      compatibility: { minVersion: "0.1.9" },
-      workflow: { entrypoint: "workflow.js" },
-    })}\n`
-  );
-  fs.writeFileSync(
-    path.join(dir, "workflow.js"),
-    [
-      "module.exports = ({ workflow, phase, agent, input }) => workflow({",
-      '  id: "perf-fan", title: "Perf Fan", summary: "Fixed fan of agent tasks for the perf ratchet.",',
-      `  limits: { maxAgents: ${DRIVE_WORKERS}, maxConcurrentAgents: 1 },`,
-      '  inputs: [input("question", { type: "string", required: true, description: "q" }), input("repo", { type: "path", required: true, description: "r" })],',
-      `  phases: [phase("Map", Array.from({ length: ${DRIVE_WORKERS} }, (_, i) => agent("map:w" + i, "Inspect {{question}} part " + i)))],`,
-      "});",
-      "",
-    ].join("\n")
-  );
-  return path.dirname(dir);
-}
-
 function makeStubAgent(root) {
   const stub = path.join(root, "stub-agent.js");
   fs.writeFileSync(
@@ -126,7 +87,7 @@ function makeStubAgent(root) {
     [
       'const fs = require("fs");',
       "const fence = String.fromCharCode(96).repeat(3);",
-      'fs.writeFileSync(process.argv[2], "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "stub", findings: [], evidence: [] }) + "\\n" + fence + "\\n");',
+      'fs.writeFileSync(process.argv[2], "# R\\n\\n" + fence + "cw:result\\n" + JSON.stringify({ summary: "stub", findings: [], evidence: ["README.md:1"] }) + "\\n" + fence + "\\n");',
       'process.stdout.write(JSON.stringify({ model: "stub/agent", usage: { input_tokens: 1, output_tokens: 1 } }));',
       "",
     ].join("\n")
@@ -145,17 +106,16 @@ function measure() {
     for (const [name, args] of COLD_JOURNEYS) {
       out[`${name}.modules`] = counted(root, name, [CLI, ...args], { cwd, env }).modules;
     }
-    const initialize = `${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "perf-counts", version: "0" } } })}\n`;
-    out["mcp-initialize.modules"] = counted(root, "mcp-initialize", [MCP], { cwd, env, input: initialize }).modules;
 
     const repo = makeRepo(root);
-    const appsDir = makeFanApp(root);
     const stub = makeStubAgent(root);
+    // The whole `cw -q` path: plan, 14 architecture-review workers, the
+    // evidence gate, one commit, the report.
     const drive = counted(
       root,
       "drive",
-      [CLI, "run", "perf-fan", "--drive", "--repo", repo, "--question", "q", "--agent-command", `${process.execPath} ${stub} {{result}}`, "--json"],
-      { cwd, env: { ...env, CW_APPS_DIR: appsDir } }
+      [CLI, "-q", "q", "--repo", repo, "--json"],
+      { cwd, env: { ...env, CW_AGENT_COMMAND: `${process.execPath} ${stub} {{result}}` } }
     );
     for (const key of Object.keys(drive)) out[`drive.${key}`] = drive[key];
     return out;

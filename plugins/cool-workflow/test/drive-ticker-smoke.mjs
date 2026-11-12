@@ -48,7 +48,7 @@ function cw(dir, extraEnv) {
   for (const key of ["CW_AGENT_ENDPOINT", "CW_AGENT_STREAM", "CW_DRIVE_PROGRESS", "CW_DRIVE_TICK_MS"]) {
     if (!(key in extraEnv)) delete env[key];
   }
-  const child = spawnSync(process.execPath, [cwBin, "-q", "How does routing work?", "--fast", "--json"], { cwd: dir, env, encoding: "utf8", timeout: 120000 });
+  const child = spawnSync(process.execPath, [cwBin, "-q", "How does routing work?", "--json"], { cwd: dir, env, encoding: "utf8", timeout: 120000 });
   assert.equal(child.status, 0, `cw -q exits 0 (stderr: ${child.stderr})`);
   const result = JSON.parse(child.stdout);
   assert.equal(result.status, "complete", "the run completes");
@@ -61,7 +61,7 @@ try {
   {
     const child = cw(repo("progress-on"), { CW_DRIVE_PROGRESS: "1", CW_DRIVE_TICK_MS: "300" });
     assert.match(child.stderr, TICK, "a slow round prints the ticker line when progress is on");
-    assert.match(child.stderr, /^\[drive\] {3}… Map still working — \d+s$/m, "the line names the phase in hand");
+    assert.match(child.stderr, /^\[drive\] {3}… Map still working — \d+s(?: \([^)]*\))?$/m, "the line names the phase in hand");
     assert.ok(!/\x1b\[/.test(child.stderr.split("\n").filter((line) => line.includes("still working")).join("\n")), "the ticker line has no escape bytes");
     console.log("drive-ticker: progress on prints the still-working line OK");
   }

@@ -1,7 +1,4 @@
-// cli/parseargv.ts — parseArgv, KNOWN_COMMANDS, suggestCommand.
-//
-// Pure. See SPEC/cli-surface.md "Argument
-// parsing (parseArgv)" / SPEC/orchestrator.md "Module-level exports".
+// cli/parseargv.ts — parseArgv, KNOWN_COMMANDS, suggestCommand. Pure.
 //
 // Rules (do not "clean up" — every one of these is pinned by a conformance
 // case):
@@ -28,7 +25,6 @@ const SHORT_FLAG_TABLE: Record<string, string> = {
   q: "question",
   r: "repo",
   d: "dir",
-  l: "link",
   a: "agent-command",
   h: "help",
   v: "version",
@@ -110,23 +106,8 @@ export function parseArgv(argv: string[]): ParsedArgv {
   return { command, positionals, options };
 }
 
-/** Every top-level command name, used for "did you mean". NOTE: this
- *  deliberately does NOT include "ledger" even though the dispatcher
- *  handles it and formatHelp lists it — a known, intentionally-preserved
- *  wart, kept byte-for-byte.
- *  "update" is not here: no code is behind the verb, so having it here
- *  would make `cw update` say "Did you mean: update?". */
-export const KNOWN_COMMANDS: Set<string> = new Set([
-  "help", "list", "doctor", "info", "search", "man", "init", "quickstart",
-  "plan", "status", "next", "dispatch", "result", "state", "commit", "report",
-  "app", "sandbox", "backend", "contract", "node", "feedback", "worker",
-  "audit", "registry",
-  "run", "queue", "history", "audit-run",
-  "metrics", "operator",
-  "telemetry", "migration", "demo",
-  "graph", "version", "fix",
-  "completion", "check",
-]);
+/** Every top-level command name, for "did you mean". */
+export const KNOWN_COMMANDS: Set<string> = new Set(["help", "doctor", "fix", "report", "check", "demo", "version"]);
 
 /** Levenshtein edit distance between two strings. */
 function levenshtein(a: string, b: string): number {
@@ -151,10 +132,7 @@ function levenshtein(a: string, b: string): number {
 /** Nearest known command by edit distance.
  *  Gives `undefined` when the input is under 2 chars, or when the best
  *  distance is over 3 or over half the input length. Never gives back the
- *  input itself: a caller only asks for a suggestion when the input did
- *  NOT resolve, so a distance-0 self-match (an alias token like
- *  `audit-run` that IS in KNOWN_COMMANDS but has no help rows of its own)
- *  would be a hint that points at the very thing the user just typed. */
+ *  input itself. */
 export function suggestCommand(input: string): string | undefined {
   if (!input || input.length < 2) return undefined;
   let best: string | undefined;

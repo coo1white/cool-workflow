@@ -10,7 +10,7 @@
 //
 // MECHANISM (this file): spawn test/run-all.mjs with NODE_V8_COVERAGE set —
 // Node's built-in inspector coverage, inherited by every child process the
-// smokes spawn (CLI invocations, MCP server, workers), so the numbers reflect
+// smokes spawn (CLI invocations, agents), so the numbers reflect
 // the real end-to-end surface. Merge the per-process reports byte-wise
 // (covered-by-any-process wins), project onto executable lines of dist/**/*.js,
 // print the worst files, and compare the overall percentage to the floor.

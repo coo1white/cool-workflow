@@ -2,17 +2,15 @@
 
 // Single source of truth for the CANONICAL app id list.
 //
-// Audit finding M5: this list was hand-copied into three scripts
-// (bump-version.mjs, version-sync-check.mjs, canonical-apps.mjs) with no gate
+// Audit finding M5: this list was hand-copied into several scripts
+// (bump-version.mjs, version-sync-check.mjs) with no gate
 // enforcing agreement, so drift between the copies was silent. This module
-// DERIVES the list from the `apps/` directory on disk so the three callers can
+// DERIVES the list from the `apps/` directory on disk so the callers can
 // never disagree — there is nothing left to copy.
 //
 // What counts as canonical: every app directory under `apps/` whose `app.json`
-// is NOT a demo. The real demo marker is `metadata.example === true` (that, NOT
-// `versionPinned`, is how the only non-canonical app — workflow-app-framework-demo,
-// pinned at 0.1.0 — is flagged). Example apps are excluded because they are
-// version-pinned and must not be bumped or version-asserted with the runtime.
+// is NOT a demo (`metadata.example === true`). Example apps are excluded
+// because they are version-pinned and must not be bumped with the runtime.
 //
 // Portability: node fs/path only, no external tools (CI portability rule).
 
@@ -21,12 +19,6 @@ import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const appsDir = path.join(pluginRoot, "apps");
-
-// The end-to-end golden path is canonical (and version-tracked) but is exercised
-// by its own dedicated harness (scripts/golden-path.mjs), not by the per-app CLI
-// smoke in canonical-apps.mjs. Expose its id so that script can express
-// "canonical minus golden-path" without re-introducing a hand-copied list.
-const GOLDEN_PATH_APP_ID = "end-to-end-golden-path";
 
 function isExampleApp(appJsonPath) {
   // An app is excluded from the canonical list iff its app.json declares
@@ -58,6 +50,5 @@ const CANONICAL_APP_IDS = listCanonicalAppIds();
 
 export {
   CANONICAL_APP_IDS,
-  listCanonicalAppIds,
-  GOLDEN_PATH_APP_ID
+  listCanonicalAppIds
 };

@@ -17,7 +17,7 @@
 //      redaction, the never-forward env list are on disk and named by a man
 //      page; the release key's env name is in no code but the release
 //      scripts that read it (and the list that strips it from children).
-//   3. Commands -> docs: every cw verb in the capability table has its own
+//   3. Commands -> docs: every cw verb in the command table has its own
 //      docs/<verb>.7.md, or a VERB_EXEMPT row naming the page that has it.
 //   4. No barrel files (a file that only re-exports) in src/.
 // The exempt lists can only get shorter: a ceiling stops growth, and a row
@@ -45,7 +45,6 @@ const RULES = [
   ["zero runtime dependencies in the CLI", "a dependency is supply-chain risk on every install", ["reviewer"]],
   ["core decides, shell does I/O, wiring joins; imports point one way", "I/O hidden in core breaks replay", ["scripts/purity-gate.mjs"]],
   ["data crossing the executor boundary holds no callable", "a model client in state makes CW the engine", ["test/one-way-boundary-smoke.mjs"]],
-  ["CLI and MCP are two views of one capability table", "the two doors drift apart", ["scripts/parity-check.mjs"]],
   ["no shell: true in src/; children are spawned argv-style", "a stray character reaches /bin/sh", [ME]],
   ["private keys never live in src/ or reach a child process", "an agent holding a key forges verdicts or receipts", [ME]],
   ["committed dist/ is exactly the build of src/", "users run code no one reviewed", ["scripts/dist-drift-check.mjs"]],
@@ -53,6 +52,7 @@ const RULES = [
   ["--json output, exit codes and flags do not change shape", "scripts that read cw output break silently", ["test/cli-command-surface-smoke.mjs"]],
   ["no unused locals; no barrel files in src/", "dead code hides the real surface; a barrel loads modules no caller needs", ["tsc", ME]],
   ["unit tests mirror src/; smokes stay flat in test/", "a smoke in a sub folder never runs", ["test/test-layout-smoke.mjs"]],
+  ["src/ stays at 10,000 lines or fewer", "src/ grew to 31,802 lines around a small core path (cut in batch 5)", ["scripts/size-check.mjs"]],
 ];
 // Guards that are not a file in this package.
 const NON_FILE_GUARDS = new Set(["reviewer", "branch protection", "tsc"]);
@@ -78,13 +78,9 @@ const SECURITY_PATHS = [
   ["src/core/trust/receipt.ts", "done-receipt digest and signature", "verifier-gated-commit.7.md", "CW_CHECK_PRIVKEY"],
   ["src/shell/receipt-io.ts", "runs the checked command, signs the receipt", "verifier-gated-commit.7.md", "CW_CHECK_PRIVKEY"],
   ["src/shell/execution-backend/local.ts", "CW_NEVER_FORWARD_ENV: keys no child gets", "verifier-gated-commit.7.md", "CW never hands that key to an agent"],
-  ["src/shell/sandbox-profile.ts", "what a worker may read, write, reach", "sandbox-profiles.7.md", "sandbox validate"],
-  ["src/core/trust/srt-settings.ts", "the agent sandbox settings", "sandbox-profiles.7.md", "CW_AGENT_SANDBOX=srt"],
-  ["src/shell/execution-backend/agent-sandbox.ts", "the agent sandbox probe", "doctor.7.md", "agent-sandbox.ts"],
-  ["src/shell/remote-source.ts", "strips and redacts URL credentials", "remote-source-review.7.md", "credential-redacted"],
-  ["src/shell/trust-audit.ts", "the hash-chained audit log", "trust-audit-anchor.7.md", "audit/events.jsonl"],
   ["src/core/trust/telemetry-attestation.ts", "signed agent usage records", "report-verifiable-bundle.7.md", "CW_AGENT_ATTEST_PUBKEY"],
-  ["src/core/trust/ledger.ts", "digest-sealed cross-agent entries", "cross-agent-ledger.7.md", "src/core/trust/ledger.ts"],
+  ["src/shell/telemetry-ledger-io.ts", "the one hash chain: the telemetry ledger", "report-verifiable-bundle.7.md", "telemetry.json"],
+  ["src/shell/run-export.ts", "seals and verifies a run bundle offline", "report-verifiable-bundle.7.md", "verify-bundle"],
   ["src/shell/fs-atomic.ts", "atomic writes and locks for state", "durable-state-and-locking.7.md", "atomic"],
 ];
 // Sensitive paths no man page names yet. Empty since the release runbook
@@ -110,50 +106,15 @@ const NEVER_FORWARD_MUST_HOLD = [RELEASE_KEY, "CW_CHECK_PRIVKEY"];
 
 // verb -> [the page that documents it, why it has no page of its own]
 const VERB_EXEMPT = {
-  app: ["workflow-app-framework.7.md", "apps are the framework's subject"],
-  audit: ["security-trust-hardening.7.md", "part of the trust story"],
-  backend: ["execution-backends.7.md", "the backends page owns it"],
   check: ["verifier-gated-commit.7.md", "receipts feed the commit gate"],
-  commit: ["verifier-gated-commit.7.md", "the commit gate page owns it"],
-  completion: ["cli-mcp-parity.7.md", "GAP: only a row of the generated parity table"],
-  contract: ["pipeline-runner.7.md", "one usage line in the runner page"],
-  dispatch: ["pipeline-verbs.7.md", "one of the pipeline verbs"],
-  feedback: ["error-feedback.7.md", "the feedback page owns it"],
-  graph: ["operator-ux.7.md", "an operator view"],
-  history: ["run-registry-control-plane.7.md", "a registry read"],
-  info: ["init.7.md", "named in the first-steps list"],
-  ledger: ["cross-agent-ledger.7.md", "the ledger page owns it"],
-  list: ["init.7.md", "named in the first-steps list"],
-  man: ["capability-topology-registry.7.md", "GAP: only an example line"],
-  metrics: ["observability-cost-accounting.7.md", "the cost page owns it"],
-  migration: ["contract-migration-tooling.7.md", "the migration page owns it"],
-  next: ["pipeline-verbs.7.md", "one of the pipeline verbs"],
-  node: ["pipeline-runner.7.md", "node state of a run"],
-  operator: ["release-and-migration.7.md", "GAP: named only in passing"],
-  plan: ["pipeline-verbs.7.md", "one of the pipeline verbs"],
-  queue: ["run-registry-control-plane.7.md", "the registry page owns it"],
-  quickstart: ["agent-delegation-drive.7.md", "the drive page owns it"],
-  registry: ["run-registry-control-plane.7.md", "the registry page owns it"],
   report: ["report-verifiable-bundle.7.md", "the bundle page owns it"],
-  result: ["pipeline-verbs.7.md", "one of the pipeline verbs"],
-  run: ["run-registry-control-plane.7.md", "the registry page owns it"],
-  sandbox: ["sandbox-profiles.7.md", "the profiles page owns it"],
-  search: ["run-registry-control-plane.7.md", "GAP: named only in a history list"],
-  state: ["durable-state-and-locking.7.md", "the state page owns it"],
-  status: ["operator-ux.7.md", "an operator view"],
-  telemetry: ["agent-delegation-drive.7.md", "GAP: one line on telemetry verify"],
-  version: ["operator-ux.7.md", "GAP: named only in passing"],
-  worker: ["worker-isolation.7.md", "the isolation page owns it"],
+  version: ["release-and-migration.7.md", "one line: the version a release carries"],
 };
-const VERB_EXEMPT_CEILING = 34;
+const VERB_EXEMPT_CEILING = 3;
 
 // src-relative barrel -> why it stays
-const BARREL_ALLOW = {
-  "core/types.ts": "fronts core/types/, like cli.ts fronts cli/",
-  "shell/execution-backend/ci.ts": "one module per driver id in the registry table",
-  "shell/execution-backend/types.ts": "old import sites; the types moved to core/types/",
-};
-const BARREL_CEILING = 3;
+const BARREL_ALLOW = {};
+const BARREL_CEILING = 0;
 
 const fault = (what, why, fix) => `${what} — why: ${why} — fix: ${fix}`;
 const heads = (findings) => findings.map((f) => f.split(" — ")[0]);
@@ -263,7 +224,7 @@ const scripts = JSON.parse(fs.readFileSync(path.join(pluginRoot, "package.json")
 const keyHits = execFileSync("git", ["-C", repoRoot, "grep", "-l", "-F", RELEASE_KEY], { encoding: "utf8" }).split("\n").filter(Boolean)
   .map((f) => [f.startsWith(PLUGIN) ? f.slice(PLUGIN.length) : `../../${f}`, fs.readFileSync(path.join(repoRoot, f), "utf8")]);
 const localTs = fs.readFileSync(path.join(pluginRoot, "src/shell/execution-backend/local.ts"), "utf8");
-const verbs = parseVerbs(readTree(path.join(pluginRoot, "src/wiring/capability-table"), ".ts").map(([, t]) => t));
+const verbs = parseVerbs(readTree(path.join(pluginRoot, "src/wiring"), ".ts").map(([, t]) => t));
 const real = [
   ...checkRules(RULES, scripts, exists, CHECK_NOT_A_RULE),
   ...checkSecurity({ paths: SECURITY_PATHS, uncited: SECURITY_UNCITED, ceiling: SECURITY_UNCITED_CEILING, docs, exists, keyHits, neverForward: parseNeverForward(localTs) }),
@@ -271,7 +232,7 @@ const real = [
   ...checkSource(readTree(path.join(pluginRoot, "src"), ".ts"), BARREL_ALLOW, BARREL_CEILING),
 ];
 assert.equal(real.length, 0, `the real tree breaks ${real.length} architecture rule(s):\n  ${real.join("\n  ")}`);
-assert.ok(verbs.length >= 35, `found ${verbs.length} verbs in the capability table; the path: [...] parse is broken`);
+assert.deepEqual(verbs, ["check", "demo", "doctor", "fix", "report", "version"], "the path: [...] parse finds the command table's verbs");
 
 // 2. Teeth: one planted fault per rule, each named exactly.
 assert.deepEqual(heads(checkRules(

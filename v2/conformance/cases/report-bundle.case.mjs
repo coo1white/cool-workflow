@@ -12,10 +12,8 @@ import { run, gitRepo, freshDir, caseMain, assert, stubAgentEnv } from "../lib.m
 
 caseMain(() => {
   const repo = gitRepo({ "a.txt": "hello\n" });
-  const drive = run(
-    ["run", "end-to-end-golden-path", "--drive", "--question", "prove it", "--repo", repo, "--json"],
-    { env: stubAgentEnv("a.txt:1") }
-  );
+  const drive = run(["-q", "prove it", "--repo", repo, "--json"], { env: stubAgentEnv("a.txt:1") });
+  assert.equal(drive.status, 0);
   const payload = JSON.parse(drive.stdout);
   const runId = payload.runId;
 
@@ -34,7 +32,7 @@ caseMain(() => {
   assert.equal(v.ok, true);
   assert.equal(v.archiveOk, true);
   assert.equal(v.telemetryVerified, true);
-  assert.equal(v.trustAuditVerified, true);
+  assert.equal("trustAuditVerified" in v, false, "the trust-audit chain went in batch 5");
   assert.equal(v.trustKeySource, "none", "no --with-trust-key was used");
   assert.equal(v.trustLevel, "unsigned", "no signature-covered result was ever produced");
   assert.equal(v.reportFindingsVerified, true);
@@ -60,7 +58,7 @@ caseMain(() => {
   const withExtractResult = JSON.parse(withExtract.stdout);
   assert.equal(withExtractResult.reportExtractedTo, extractPath);
   assert.ok(fs.existsSync(extractPath));
-  assert.match(fs.readFileSync(extractPath, "utf8"), /^# End-to-End Golden Path\n/);
+  assert.match(fs.readFileSync(extractPath, "utf8"), /^# Architecture Review\n/);
 
   // --- --require-signatures refuses this unsigned bundle ---
   const requireSig = run(["report", "verify-bundle", bundleResult.archivePath, "--require-signatures", "--json"], {
@@ -75,8 +73,8 @@ caseMain(() => {
   // rest of the archive as-is. verify-bundle must catch it via the file
   // digest mismatch (archiveOk:false) — the "public key only" trust proof.
   const archive = JSON.parse(fs.readFileSync(bundleResult.archivePath, "utf8"));
-  const resultFile = archive.files.find((f) => f.relativePath === "results/golden:path.md");
-  assert.ok(resultFile, "the golden:path result file must be packed in the archive");
+  const resultFile = archive.files.find((f) => f.relativePath === "results/verdict:synthesis.md");
+  assert.ok(resultFile, "the verdict result file must be packed in the archive");
   const original = Buffer.from(resultFile.contentBase64, "base64").toString("utf8");
   const tampered = original.replace("P2", "P0");
   assert.notEqual(tampered, original, "the tamper substitution must actually change bytes");

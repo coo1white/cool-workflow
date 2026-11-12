@@ -31,9 +31,6 @@
       "default": "the overall architecture"
     }
   ],
-  "sandboxProfiles": [
-    "readonly"
-  ],
   "compatibility": {
     "minVersion": "0.1.30",
     "workflowSchemaVersion": 1,

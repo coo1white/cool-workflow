@@ -1,22 +1,17 @@
-// shell/report.ts — report.md generation (the byte-exact section
-// headers/fallback lines from the spec), the actual file write.
-//
-// Evidence: SPEC/reporting-ux.md "report.md (written by writeReport)".
+// shell/report.ts — writes report.md (and report.html beside it) for a run.
+// Section headers and fallback lines are part of the report's shape:
+// verify-bundle relies on each result rendering as
+// `### <taskId>\n\nResult: <path>\n\n<body>`.
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createRequire } from "node:module";
-import { updatePhaseStatuses } from "../core/pipeline/dispatch.js";
-import { sandboxGuaranteeLabels } from "./execution-backend/registry.js";
-import { summarizeTrustAudit, listTrustAuditEvents } from "./trust-audit.js";
-import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
-import { runLifecycle } from "./run-registry-io.js";
-import { formatCounts } from "../core/util/collate.js";
+import { updatePhaseStatuses } from "../core/pipeline/drive-decide.js";
 import { normalizeResultEnvelope } from "../core/pipeline/result-normalize.js";
-import { countBy } from "../core/util/cli-args.js";
-/** One report head line: every control character (newline, CR, ESC and the
- *  rest of C0, and DEL; not tab) becomes a space, so a value from state.json
- *  such as `workflow.title` cannot start a new line in report.md. A value
- *  with no control character comes back byte-identical. */
+import { isVerdictTaskId } from "../core/trust/evidence-grounding.js";
+import { reportToHtml } from "../core/format/report-html.js";
+import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+/** Control characters (not tab) become spaces, so a value from state.json
+ *  cannot start a new line in report.md. */
 function oneLine(value) {
     return value.replace(/[\u0000-\u0008\u000a-\u001f\u007f]/g, " ");
 }
@@ -25,82 +20,44 @@ function formatInputList(value) {
         return value.join("; ");
     return value ? String(value) : "";
 }
+/** The run's one lifecycle word: running, failed, completed, or queued. */
+export function runVerdict(run) {
+    const tasks = run.tasks;
+    if (tasks.some((t) => t.status === "running"))
+        return "RUNNING";
+    if (tasks.some((t) => t.status === "failed"))
+        return "FAILED";
+    if (tasks.length > 0 && tasks.every((t) => t.status === "completed"))
+        return "PASS";
+    return tasks.some((t) => t.status === "completed") ? "RUNNING" : "QUEUED";
+}
+function underRunDir(run, file) {
+    const rel = path.relative(run.paths.runDir, file);
+    return rel && !rel.startsWith("..") && !path.isAbsolute(rel) ? rel.split(path.sep).join("/") : file;
+}
 function renderCommits(run) {
     if (!run.commits.length)
         return ["No state commits yet."];
     return run.commits.map((commit) => {
         const kind = commit.verifierGated ? "verifier-gated commit" : "checkpoint";
-        const gate = commit.verifierGated ? `verifier=${commit.verifierNodeId || "unknown"}, evidence=${commit.evidence?.length || 0}` : "verifierGated=false";
-        return `- ${commit.id}: ${commit.reason} [${commit.loopStage}; ${kind}; ${gate}] (${underRunDir(run, String(commit.snapshotPath))})`;
+        const gate = commit.verifierGated ? `verifier=${commit.verifierTaskId || "unknown"}, evidence=${commit.evidence?.length || 0}` : "verifierGated=false";
+        return `- ${commit.id}: ${commit.reason} [${commit.loopStage}; ${kind}; ${gate}] (${underRunDir(run, commit.snapshotPath)})`;
     });
 }
-/** A path inside the run folder, shown from that folder; any other path as it is. */
-function underRunDir(run, file) {
-    const rel = path.relative(run.paths.runDir, file);
-    return rel && !rel.startsWith("..") && !path.isAbsolute(rel) ? rel.split(path.sep).join("/") : file;
-}
-/** `## Sandbox Profiles`. */
-function renderSandboxProfiles(run) {
-    const profiles = run.sandboxProfiles || [];
-    if (!profiles.length)
-        return ["No sandbox profiles selected yet."];
-    return profiles.map((profile) => [
-        `- ${profile.id}: read=${profile.readPaths.length}, write=${profile.writePaths.length}, execute=${profile.execute.mode}, network=${profile.network.mode}`,
-        `  enforcedByCW=${profile.enforcement.enforcedByCW.join("; ")}`,
-        `  hostRequired=${profile.enforcement.hostRequired.join("; ")}`,
-    ].join("\n"));
-}
-/** `## Trust Audit` (plus renderTelemetryAttestation). */
-function renderTrustAudit(run) {
-    const summary = summarizeTrustAudit(run);
-    const integrity = summary.integrity;
-    // Model-identity tally, only when workers exist (an empty run's report stays byte-identical).
-    const workers = run.workers || [];
-    const selfReported = workers.filter((w) => workerModelProvenance(w) === "agent-self-reported").length;
-    const modelLines = workers.length
-        ? [`- Model provenance: ${selfReported} agent-self-reported · ${workers.length - selfReported} absent (agent-self-reported, never CW-verified)`]
-        : [];
-    // Only when a workflow app ran (an app-less run's report stays byte-identical).
-    const appCodeLines = run.appCode
-        ? [`- App code execution: ${run.appCode.execution} (trustedRoot=${run.appCode.trustedRoot}, ${run.appCode.path})`]
-        : [];
-    return [
-        `- Events: ${summary.eventCount}`,
-        `- Chain integrity: ${integrity ? (integrity.verified ? "verified" : "FAILED") : "n/a"}` +
-            `${integrity ? ` (${integrity.chained} chained, ${integrity.unchained} legacy${integrity.corruptLines ? `, ${integrity.corruptLines} corrupt` : ""})` : ""}`,
-        ...(integrity && !integrity.verified
-            ? [`  !! TRUST-AUDIT CHAIN TAMPER DETECTED: ${integrity.checks.filter((c) => !c.pass).map((c) => c.code).join(", ")}`]
-            : []),
-        `- Decisions: ${formatCounts(summary.byDecision)}`,
-        `- Sources: ${formatCounts(summary.bySource)}`,
-        `- Sandbox profiles: ${formatCounts(summary.bySandboxProfile)}`,
-        `- Event log: ${summary.eventLogPath}`,
-        `- Summary: ${summary.summaryPath}`,
-        `- Index: ${summary.indexPath}`,
-        ...modelLines,
-        ...appCodeLines,
-        ...renderTelemetryAttestation(run),
-    ];
-}
-/** Telemetry attestation coverage + a LOUD list of any `unattested`
- *  usage. */
-function renderTelemetryAttestation(run) {
-    const delegations = listTrustAuditEvents(run).filter((event) => event.kind === "worker.agent-delegation" && event.metadata && event.metadata.telemetryAttestation);
-    if (!delegations.length)
-        return [];
-    const statusOf = (event) => String(event.metadata.telemetryAttestation);
-    const attested = delegations.filter((event) => statusOf(event) === "attested").length;
-    const unattested = delegations.filter((event) => statusOf(event) === "unattested");
-    const absent = delegations.filter((event) => statusOf(event) === "absent").length;
+/** `## Telemetry`: who reported usage, whether it was signed, and whether the
+ *  attestation ledger's chain still verifies. */
+function renderTelemetry(run) {
+    const hops = run.tasks.filter((t) => t.usageAttestation);
+    if (!hops.length)
+        return ["No agent telemetry recorded."];
+    const by = (s) => hops.filter((t) => t.usageAttestation === s);
+    const unattested = by("unattested");
     const lines = [
-        `- Telemetry attestation: ${attested}/${delegations.length} attested` +
-            (unattested.length ? `, ${unattested.length} UNATTESTED` : "") +
-            (absent ? `, ${absent} absent` : ""),
+        `- Telemetry attestation: ${by("attested").length}/${hops.length} attested` + (unattested.length ? `, ${unattested.length} UNATTESTED` : "") + (by("absent").length ? `, ${by("absent").length} absent` : ""),
+        `- Models (agent-self-reported, never CW-verified): ${Array.from(new Set(hops.map((t) => t.model || "unreported"))).join(", ")}`,
     ];
-    for (const event of unattested) {
-        const reason = event.metadata.telemetryAttestationReason;
-        lines.push(`  - ⚠️  UNATTESTED usage — worker=${event.workerId || "?"} task=${event.taskId || "?"}: ${reason || "signature unverified"}`);
-    }
+    for (const t of unattested)
+        lines.push(`  - ⚠️  UNATTESTED usage — task=${t.id}`);
     const ledger = verifyTelemetryLedger(run);
     if (ledger.present) {
         lines.push(ledger.verified
@@ -109,55 +66,23 @@ function renderTelemetryAttestation(run) {
     }
     return lines;
 }
-function renderFeedback(run) {
-    const records = (run.feedback || []);
-    if (!records.length)
-        return ["No feedback records."];
-    return [
-        `- Total: ${records.length}`,
-        `- By status: ${formatCounts(countBy(records, (r) => r.status))}`,
-        `- By severity: ${formatCounts(countBy(records, (r) => r.severity))}`,
-        `- By classification: ${formatCounts(countBy(records, (r) => r.classification))}`,
-    ];
+function loadReceiptIo() {
+    return createRequire(import.meta.url)("./receipt-io.js");
 }
-/** The worker's model-identity label. Comes only from the usage record the
- *  agent self-reported into — an old record or no record at all reads as
- *  "absent" (fail closed, never made up). */
-function workerModelProvenance(worker) {
-    const usage = worker.usage;
-    return usage && usage.modelProvenance === "agent-self-reported" ? "agent-self-reported" : "absent";
+function receiptNote(run, ref) {
+    return ref.startsWith("receipt:") ? ` — ${loadReceiptIo().pinnedReceiptNote(run.paths.runDir, ref.slice("receipt:".length))}` : "";
 }
-function renderWorkers(run) {
-    const workers = run.workers || [];
-    if (!workers.length)
-        return ["No worker scopes yet."];
-    const lines = [`- Total: ${workers.length}`, `- By status: ${formatCounts(countBy(workers, (w) => w.status))}`];
-    // Guarantee labels (ONLY from sandboxGuaranteeLabels) for a worker with an attestation or usage record.
-    for (const w of workers) {
-        if (!w.backendAttestation && !w.usage)
-            continue;
-        const g = sandboxGuaranteeLabels(w.backendAttestation);
-        lines.push(`- ${w.id}: backend=${w.backendId || "none"} guarantees write=${g.write} read=${g.read} command=${g.command} network=${g.network} env=${g.env} model=${workerModelProvenance(w)}`);
-    }
-    const failed = workers.filter((w) => w.status === "failed" || w.status === "rejected");
-    if (failed.length) {
-        lines.push("", "Failed or rejected:");
-        for (const w of failed)
-            lines.push(`- ${w.id} (${w.status}) feedback=${w.feedbackIds.join(",") || "none"}`);
-    }
-    return lines;
+/** The answer as data: the completed verdict/synthesis task's id, summary
+ *  and evidence, or null when there is none. */
+export function reportAnswer(run) {
+    const verdict = run.tasks.find((task) => isVerdictTaskId(task.id) && task.status === "completed");
+    if (!verdict || !verdict.resultPath || !fs.existsSync(verdict.resultPath))
+        return null;
+    const envelope = normalizeResultEnvelope(fs.readFileSync(verdict.resultPath, "utf8"));
+    if (!envelope.summary.trim())
+        return null;
+    return { taskId: verdict.id, summary: envelope.summary.trim(), evidence: envelope.evidence };
 }
-function renderPendingTasks(run) {
-    const pending = run.tasks.filter((t) => t.status === "pending" || t.status === "running");
-    if (!pending.length)
-        return ["No pending tasks."];
-    return pending.map((t) => `- ${t.id} (${t.phase}, ${t.status}): ${t.taskPath}`);
-}
-/** The answer first: the completed verdict/synthesis task's own summary and
- *  evidence, above the run facts, so a reader does not scroll past them to
- *  find it. Nothing when the run has no completed verdict task or its
- *  result file is gone; the full result stays under ## Results. The same
- *  task-id rule as the terminal commit gate (drive-decide.ts). */
 function renderAnswer(run) {
     const answer = reportAnswer(run);
     if (!answer)
@@ -168,36 +93,6 @@ function renderAnswer(run) {
     lines.push(`Full result: ## Results, ### ${answer.taskId}`, "");
     return lines;
 }
-function loadReceiptIo() {
-    return createRequire(import.meta.url)("./receipt-io.js");
-}
-/** " — verified by receipt rc-… (exit 0 at <sha>): <command>" for a cited receipt; "" otherwise. */
-function receiptNote(run, ref) {
-    return ref.startsWith("receipt:") ? ` — ${loadReceiptIo().pinnedReceiptNote(run.paths.runDir, ref.slice("receipt:".length))}` : "";
-}
-/** `## Check Receipts`: present only when the run pinned one (byte-identical otherwise). */
-function renderReceipts(run) {
-    if (!fs.existsSync(path.join(run.paths.runDir, "receipts")))
-        return [];
-    return ["## Check Receipts", "", ...loadReceiptIo().pinnedReceiptLines(run.paths.runDir), ""];
-}
-/** The report's "## Answer" as data: the completed verdict/synthesis
- *  task's id, summary and evidence, or null when report.md has no Answer
- *  part. MCP's cw_report gives it back when asked (`answer: true`). */
-export function reportAnswer(run) {
-    const verdict = run.tasks.find((task) => /^verdict[:/]|^synthesis[:/]/i.test(task.id) && task.status === "completed");
-    if (!verdict || !verdict.resultPath || !fs.existsSync(verdict.resultPath))
-        return null;
-    const envelope = normalizeResultEnvelope(fs.readFileSync(verdict.resultPath, "utf8"));
-    if (!envelope.summary.trim())
-        return null;
-    return { taskId: verdict.id, summary: envelope.summary.trim(), evidence: envelope.evidence };
-}
-/** "run <-> PR linkage": one line per link; called only when `run.links` is non-empty. */
-function renderLinks(run) {
-    const links = run.links || [];
-    return links.map((link) => `- [${link.kind}] ${link.url}${link.note ? ` — ${link.note}` : ""} (added ${link.addedAt} by ${link.actor})`);
-}
 function renderResults(run) {
     const completed = run.tasks.filter((t) => t.status === "completed");
     if (!completed.length)
@@ -205,86 +100,72 @@ function renderResults(run) {
     const lines = [];
     for (const task of completed) {
         lines.push(`### ${task.id}`, "", `Result: ${task.resultPath}`, "");
-        if (task.resultPath && fs.existsSync(task.resultPath)) {
+        if (task.resultPath && fs.existsSync(task.resultPath))
             lines.push(fs.readFileSync(task.resultPath, "utf8").trim(), "");
-        }
-        else {
+        else
             lines.push("_Result file is not present on this host; state metadata remains inspectable._", "");
-        }
     }
     return lines;
 }
-/** writeReport — renders report.md and writes it. Returns the path. */
-export function writeReport(run) {
+function renderPending(run) {
+    const open = run.tasks.filter((t) => t.status !== "completed");
+    if (!open.length)
+        return ["No pending tasks."];
+    return open.map((t) => {
+        const last = t.errors?.length ? t.errors[t.errors.length - 1].message : "";
+        return `- ${t.id} (${t.phase}, ${t.status})${last ? `: ${oneLine(last)}` : ""}`;
+    });
+}
+export function renderReport(run) {
     updatePhaseStatuses(run);
-    const workflowApp = run.workflow.app;
-    // A research run (a folder, not a repo) says "Source", unless a --link already adds a "- Source:" line;
-    // every other app keeps the byte-identical "Repository:" (POLA).
-    const sourceLabel = workflowApp?.metadata?.domain === "research" && !run.inputs.sourceUrl ? "Source" : "Repository";
-    const lifecycle = runLifecycle(run);
-    const report = [
-        `# ${oneLine(String(run.workflow.title))}`,
+    const invariants = formatInputList(run.inputs.invariant).trim();
+    return [
+        `# ${oneLine(run.workflow.title)}`,
         "",
         `- Run: ${run.id}`,
-        `- Workflow: ${oneLine(String(run.workflow.id))}`,
-        ...(workflowApp
-            ? [`- Workflow App: ${oneLine(`${workflowApp.id}@${workflowApp.version}`)}`, `- Workflow App Source: ${oneLine(String(workflowApp.source?.manifestPath || workflowApp.source?.entrypointPath || workflowApp.source?.path || ""))}`]
-            : []),
+        `- Workflow: ${oneLine(run.workflow.id)}`,
         `- Created: ${run.createdAt}`,
         `- Updated: ${run.updatedAt}`,
-        `- ${sourceLabel}: ${oneLine(String(run.inputs.repo || run.cwd))}`,
-        ...(run.inputs.sourceUrl
-            ? [`- Source: ${oneLine(`${String(run.inputs.sourceUrl)}${run.inputs.sourceCommit ? `@${String(run.inputs.sourceCommit)}` : ""}`)}`]
-            : []),
+        `- Repository: ${oneLine(String(run.inputs.repo || run.cwd))}`,
         `- Question: ${oneLine(String(run.inputs.question || ""))}`,
-        ...(formatInputList(run.inputs.invariant).trim() ? [`- Invariants: ${oneLine(formatInputList(run.inputs.invariant))}`] : []),
+        ...(invariants ? [`- Invariants: ${oneLine(invariants)}`] : []),
         `- Loop Stage: ${run.loopStage}`,
-        `- Verdict: ${lifecycle === "completed" ? "PASS" : lifecycle.toUpperCase()}`,
+        `- Verdict: ${runVerdict(run)}`,
         "",
         ...renderAnswer(run),
-        ...renderReceipts(run),
+        ...(fs.existsSync(path.join(run.paths.runDir, "receipts")) ? ["## Check Receipts", "", ...loadReceiptIo().pinnedReceiptLines(run.paths.runDir), ""] : []),
         "## Phase Status",
         "",
         "| Phase | Status | Completed | Total |",
         "| --- | --- | ---: | ---: |",
         ...run.phases.map((phase) => {
-            const taskIds = new Set(phase.taskIds);
-            const phaseTasks = run.tasks.filter((t) => taskIds.has(t.id));
-            const completed = phaseTasks.filter((t) => t.status === "completed").length;
-            return `| ${phase.name} | ${phase.status} | ${completed} | ${phaseTasks.length} |`;
+            const ids = new Set(phase.taskIds);
+            const tasks = run.tasks.filter((t) => ids.has(t.id));
+            return `| ${phase.name} | ${phase.status} | ${tasks.filter((t) => t.status === "completed").length} | ${tasks.length} |`;
         }),
         "",
         "## Results",
         "",
         ...renderResults(run),
-        // Like "## Check Receipts", fully absent (no header) when empty.
-        ...(run.links && run.links.length ? ["", "## Links", "", ...renderLinks(run)] : []),
         "",
         "## Pending Tasks",
         "",
-        ...renderPendingTasks(run),
+        ...renderPending(run),
         "",
-        "## Error Feedback",
+        "## Telemetry",
         "",
-        ...renderFeedback(run),
-        "",
-        "## Workers",
-        "",
-        ...renderWorkers(run),
-        "",
-        "## Sandbox Profiles",
-        "",
-        ...renderSandboxProfiles(run),
-        "",
-        "## Trust Audit",
-        "",
-        ...renderTrustAudit(run),
+        ...renderTelemetry(run),
         "",
         "## State Commits",
         "",
         ...renderCommits(run),
         "",
     ].join("\n");
-    fs.writeFileSync(run.paths.report, report, "utf8");
+}
+/** Writes report.md and report.html. Returns the report.md path. */
+export function writeReport(run) {
+    const markdown = renderReport(run);
+    fs.writeFileSync(run.paths.report, markdown, "utf8");
+    fs.writeFileSync(path.join(path.dirname(run.paths.report), "report.html"), reportToHtml(markdown, run.workflow.title), "utf8");
     return run.paths.report;
 }

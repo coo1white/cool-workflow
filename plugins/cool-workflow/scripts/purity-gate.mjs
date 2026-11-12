@@ -28,8 +28,7 @@
 //   shell/**  -> may import core/** or shell/**
 //   wiring/** -> may import core/**, shell/**, or wiring/** (the capability
 //               table, which composes shell for the entry layers)
-//   cli/**    -> may import core/**, shell/**, wiring/**, or cli/** (never mcp/**)
-//   mcp/**    -> may import core/**, shell/**, wiring/**, or mcp/** (never cli/**)
+//   cli/**    -> may import core/**, shell/**, wiring/**, or cli/**
 //
 // Approach: a plain-text specifier scan (import/export-from/require), not a
 // real TS parser — this codebase uses only those three forms, verified
@@ -51,8 +50,7 @@ const ALLOWED_TARGET_LAYERS = {
   shell: new Set(["core", "shell"]),
   wiring: new Set(["core", "shell", "wiring"]),
   cli: new Set(["core", "shell", "wiring", "cli"]),
-  mcp: new Set(["core", "shell", "wiring", "mcp"]),
-  other: new Set(["core", "shell", "wiring", "cli", "mcp", "other"]),
+  other: new Set(["core", "shell", "wiring", "cli", "other"]),
 };
 
 function layerOf(relPath) {
@@ -60,7 +58,6 @@ function layerOf(relPath) {
   if (relPath.startsWith("shell/")) return "shell";
   if (relPath.startsWith("wiring/")) return "wiring";
   if (relPath.startsWith("cli/") || relPath === "cli") return "cli";
-  if (relPath.startsWith("mcp/") || relPath === "mcp-server") return "mcp";
   return "other";
 }
 

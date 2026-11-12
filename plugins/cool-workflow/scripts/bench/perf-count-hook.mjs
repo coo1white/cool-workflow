@@ -30,7 +30,7 @@ const isStateFile = (file) => typeof file === "string" && /[\\/]\.cw[\\/]runs[\\
 
 // A whole run state: the one object shape that carries all three keys.
 const isRunState = (value) =>
-  Boolean(value) && typeof value === "object" && !Array.isArray(value) && "workflow" in value && "paths" in value && "nodes" in value;
+  Boolean(value) && typeof value === "object" && !Array.isArray(value) && "workflow" in value && "paths" in value && "tasks" in value;
 
 // dist/ is ES modules, and an ES module graph never goes through
 // Module._extensions, so a module is counted at the load step of

@@ -1,7 +1,7 @@
 // shell/commands/check-cli.ts — `cw check -- <command>`, `check list`, `check show <id>` (docs/verifier-gated-commit.7.md, DONE RECEIPTS).
 import * as path from "node:path";
 import { judgeReceipt, receiptOutcome } from "../../core/trust/receipt.js";
-import { cwdArg, optionalArg } from "../../core/util/cli-args.js";
+import { cwdArg } from "../../core/util/cli-args.js";
 import { checkPublicKey, judgeStoredReceipt, listReceipts, loadReceipt, readCodeState, runCheck, saveReceipt } from "../receipt-io.js";
 import { green, red, yellow } from "../term.js";
 const USAGE = "Usage: cw check -- <command> [args...]  (for one: cw check -- npm test)";
@@ -73,11 +73,4 @@ export function formatCheckShow(json) {
     }
     lines.push(r.usable ? `  Cite it in a result's evidence as: ${r.cite}` : `  Next: ${r.next}`);
     return lines.join("\n");
-}
-/** MCP bodies: the same payloads as `--json`. */
-export function checkListMcp(args) {
-    return checkListCli(args);
-}
-export function checkShowMcp(args) {
-    return checkShowCli(optionalArg(args.id), args).json;
 }

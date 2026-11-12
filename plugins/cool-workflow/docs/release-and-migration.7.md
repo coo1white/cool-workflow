@@ -1,137 +1,43 @@
 # Release And Migration Discipline
 
 CW v0.1.14 made release checks and durable run-state compatibility clear.
+Batch 5 (2026-11-12) dropped old-state migration: see
+[Removed in batch 5](#removed-in-batch-5).
 
 ## Who Is Affected
 
 Maintainers cutting CW releases should use `npm run release:check` from
-`plugins/cool-workflow`. Operators loading old `.cw/runs/<run-id>/state.json`
-files can check compatibility with:
+`plugins/cool-workflow`. Anyone can see which CW they have with:
 
 ```bash
-cw state check <run-id>
+cw version
 ```
-
-Use `--state /path/to/state.json` when checking a state file outside the
-current `.cw/runs` tree. Add `--write` only when you truly want to write
-the normalized/migrated state back to disk.
 
 ## State Policy
 
-The current durable run-state schema is `1`, set by
-`CURRENT_RUN_STATE_SCHEMA_VERSION` in `src/core/version.ts`.
-
-Loading state goes in this order:
+The durable run-state schema is `2`, set by `RUN_STATE_SCHEMA_VERSION` in
+`src/core/state/types.ts`. A run folder whose `state.json` has any other
+`schemaVersion` is refused with one line:
 
 ```text
-read JSON -> detect schema -> migrate -> normalize -> validate -> report
+cw: Run <id> was made by an older cw and cannot be read by this one; start a new run: cw -q "<question>"
 ```
 
-CW supports old run state with no `schemaVersion` as past schema `0`
-and migrates it to schema `1`. Schema versions newer than the runtime fail
-closed. Bad state objects fail closed. Unknown user data is kept by
-copying and adding required fields, not by building state again from the start.
-
-## Dry Run
-
-`state check` is dry-run by default. It reports:
-
-- detected and current schema versions
-- compatibility status: `current`, `migrated`, `normalized`, or `unsupported`
-- whether writing would be needed
-- every field CW would add or normalize
-- warnings and errors
-
-## Backward Compatibility Fixtures
-
-Fixture runs live in `test/fixtures/runs/` and cover:
-
-- pre-app/simple run state
-- Sandbox Profiles
-- Workflow App framework metadata
-- End-to-End Golden Path
-- Operator UX
-- v0.1.13 MCP/App Surface
-
-`npm run fixture-compat` copies each fixture into a short-term `.cw/runs` tree,
-runs migration, and shows `status`, `graph`, and `report` still work. The
-fixture files are hashed before and after the test to show they were not
-changed.
+CW does not migrate, normalize or rewrite old state. The old folder is left
+on disk as it was; delete it by hand if you want the space.
 
 ## Release Check
 
-`npm run release:check` is the release gate for v0.1.14 and later. It runs:
+`npm run release:check` is the release gate. It runs, in order: docs
+presence, `npm run dist:check`, `npm run purity:check`, `npm run lang:check`,
+`npm run check` (type check and the 10,000-line size gate), `npm run test:ci`,
+`npm run test:unit`, `npm run gen:manifests -- --check`,
+`npm run version:sync`, and `npm run readme:check`. `--skip-tests` skips the
+two test steps.
 
-- docs presence checks
-- `npm run build`
-- `npm run check`
-- `npm test`
-- dogfood release smoke coverage
-- `npm run canonical-apps`
-- `npm run golden-path`
-- `npm run fixture-compat`
-- `npm run version:sync`
-
-The command is dry-run and non-destructive. Tagging, pushing, and publishing
-stay manual release actions after the gate passes.
-
-For v0.1.15, the same gate also includes the Security / Trust Hardening smoke
-test so audit/provenance coverage stays part of release discipline.
-
-For v0.1.18, the gate includes Coordinator / Blackboard smoke coverage and
-fixture normalization for empty blackboard state on older runs.
-
-For v0.1.19, the gate includes Multi-Agent Topologies smoke coverage and
-fixture normalization for empty topology state on older runs.
-
-For v0.1.20, the gate includes Multi-Agent CLI + MCP Surface smoke coverage.
-
-For v0.1.21, the gate includes Multi-Agent Operator UX smoke coverage for
-derived graph, dependency, failure, evidence adoption, report, and MCP parity
-views.
-
-For v0.1.22, the gate includes Multi-Agent Trust / Policy / Audit smoke
-coverage for role policy, permission decisions, blackboard write audit, message
-provenance, judge rationale, panel decisions, policy violations, report output,
-audit provenance, and MCP parity.
-
-For v0.1.24, the gate includes Multi-Agent Eval & Replay Harness smoke
-coverage for replay snapshots, isolated replay runs, normalized comparison,
-scoring, fail-closed regression detection, report output, and MCP parity.
-
-For v0.1.25, the gate includes State Explosion Management smoke coverage for
-durable summary records, compact and focused graph views, blackboard digests,
-critical-path preservation, fail-closed stale-summary detection, eval/replay
-summary metrics (`summary_freshness`, `compact_graph_parity`,
-`blackboard_digest_parity`, `critical_path_parity`, `evidence_digest_parity`,
-`expansion_ref_integrity`), and CLI/MCP parity. Summaries are derived userland
-indexes; raw blackboard, graph, audit, and evidence records are never deleted,
-and migrations stay backward compatible (pre-0.1.25 eval snapshots load with
-empty summary sections).
-
-For v0.1.26, the gate includes Evidence Adoption Reasoning Chain smoke coverage
-for derived, fingerprinted reasoning chains, fail-closed `unexplained` detection,
-reasoning steps exempt from compaction, eval/replay reasoning metrics
-(`reasoning_freshness`, `reasoning_chain_parity`, `reasoning_unexplained_parity`),
-and CLI/MCP parity. The reasoning chain is derived, never authoritative over raw
-state, and pre-0.1.26 snapshots load with empty reasoning sections.
-
-The host loop must keep CLI/MCP parity, stable JSON responses,
-blackboard/audit provenance, evidence-required scoring, fail-closed selection,
-and compatibility with the lower-level topology, multi-agent, blackboard, and
-candidate primitives.
-
-For v0.1.16, release discipline adds Dogfood One Real Repo. `npm run
-dogfood:release` runs the canonical `release-cut` app against the real Cool
-Workflow repository in dry-run mode and makes a CW report, audit summary,
-provenance, release candidate, score, selection, and verifier-gated
-commit/checkpoint. `npm run release:check` includes the dogfood smoke test so
-the wiring stays covered without running the full release gate inside itself.
-
-For v0.1.17, release discipline added Multi-Agent Runtime Core coverage
-(the multi-agent runtime core smoke, taken out with the multi-agent family;
-see "Removed Surfaces" below). Older fixture runs normalize with empty
-multi-agent state under `multiAgent`, while unknown user data stays kept.
+The command is dry-run and non-destructive. Patch releases are tagged by the
+`auto-patch` job on green `main`; a minor or major is the operator's signed
+cut (see [Release Tooling](release-tooling.7.md)).
 
 ## Removed Surfaces: The Multi-Agent Family
 
@@ -199,6 +105,60 @@ Old state still loads. A run folder that an older CW reclaimed (its
 Files only the removed verbs wrote (`.cw/schedules/`, `.cw/routines/`, the
 scheduling policy file) are left on disk and no longer read; delete them
 by hand if you want the space.
+
+## Removed in batch 5
+
+Batch 5 (2026-11-12, the owner's word: large deletions and breaking changes
+are open while CW is on 0.x) cut `src/` from 31,802 to under 10,000 lines.
+CW now does one thing: ask, run, report, check, verify.
+
+What stays:
+
+- `cw -q "<question>"` with `-claude -codex -gemini -opencode -deepseek -muse
+  -copilot -antigravity -grok`, `-r/--repo`, `-d/--dir`, `--json`, `--quiet`,
+  `--verbose`, `--no-color`, and `--resume --run <id>`.
+- `cw report [run-id] [--show|--open]`, `cw report bundle`,
+  `cw report verify-bundle`.
+- `cw check -- <cmd>`, `cw check list`, `cw check show`.
+- `cw demo tamper`, `cw doctor`, `cw fix`, `cw version`, `cw help`.
+
+What is gone (each verb now fails closed: `cw: Unknown command: <verb>`,
+exit 1):
+
+- The MCP server (`scripts/mcp-server.js`, `.mcp.json`, `server.json`, the
+  vendor `mcp.json` files, `mcpName`), the CLI/MCP parity gate and its doc.
+- `--link`, the step verbs (`plan`, `dispatch`, `result`, `next`, `commit`),
+  `quickstart`, `audit-run`, `app`, `list`, `search`, `info`, `init`,
+  `status`, `run` and all its sub-verbs, `registry`, `queue`, `history`,
+  `sandbox`, `backend`, `worker`, `feedback`, `audit`, `metrics`,
+  `operator`, `telemetry`, `migration`, `state`, `contract`, `node`,
+  `ledger`, `graph`, `man`, `completion`.
+- Worker isolation, sandbox profiles, and the container, remote and CI
+  execution backends. Workers are agent processes, spawned argv-style.
+- Old-state migration (see [State Policy](#state-policy)).
+- `cw commit`, unverified checkpoints, state nodes and node snapshots,
+  ErrorFeedback records, and the HTTP agent endpoint (`CW_AGENT_ENDPOINT`).
+- Observability, perf traces, cost accounting, error feedback.
+- The trust-audit chain. The telemetry ledger chain stays and is what
+  `cw report verify-bundle` re-proves.
+- Every workflow app except `architecture-review`.
+
+`--json` changes for kept verbs:
+
+- `cw doctor --json`: same keys; the `checks` list no longer has
+  `sandbox-enforceability`, `home-registry` or `audit-integrity` (nor the
+  `agent-sandbox` check). `cw doctor --onramp`, `--changed-from` and
+  `--conformance` are gone.
+- `cw report verify-bundle --json` and `cw report bundle --json`
+  (`verification`): `trustAuditVerified` is gone.
+- `cw -q --json`: same keys. A run now makes one state commit when it is
+  done (`commitId` is `state-0001`), not one per phase. `reopenedWorkers` is
+  added when `--resume` reopens parked workers.
+- A refused final commit is now a step with action `commit` and status
+  `blocked` (it was action `blocked`); its reason starts `final commit
+  refused:`.
+- `--fast` and `--concurrency` are no longer read; a parallel phase runs
+  up to the workflow's `maxConcurrentAgents` at once.
 
 ## Node Floor: 22.13
 
@@ -280,15 +240,15 @@ CW does not quietly load:
 - run state with a schema version below the supported minimum
 - state that cannot be normalized into the required runtime fields
 
-When compatibility is not clear, hold the release and add a fixture or migration
-step before going on.
+Each is refused with one line. When compatibility is not clear, hold the
+release.
 ## v0.1.27 — CLI ↔ MCP Parity
 
 v0.1.27 adds a declared capability registry and a fail-closed `npm run
 parity:check` (wired into `release:check`) that makes sure the CLI and MCP surfaces
 are two views of one data source. No run-state schema change: pre-0.1.27
 runs load unchanged, and every pre-0.1.27 CLI command and MCP tool keeps working.
-See [cli-mcp-parity.7.md](cli-mcp-parity.7.md).
+cli-mcp-parity(7) was removed in batch 5.
 
 ## Run Registry / Control Plane (v0.1.28)
 
@@ -297,8 +257,7 @@ No run-state schema change: pre-0.1.28 single-repo runs and existing `.cw/runs/`
 layouts keep working with an empty registry (`registry show` reports `absent`
 until the first `registry refresh`), and the registry, archive/provenance
 overlays, queue, and home discovery set are all derivable files that can be
-deleted and rebuilt from source. See
-[run-registry-control-plane.7.md](run-registry-control-plane.7.md).
+deleted and rebuilt from source. run-registry-control-plane(7) was removed in batch 5.
 
 ## Execution Backends (v0.1.29)
 
@@ -307,8 +266,7 @@ contract with interchangeable `node`/`bun`/`shell`/`container`/`remote`/`ci`
 drivers, picked by `--backend` (parallel to `--sandbox`) and inspected via
 `backend list|show|probe`. The result/evidence envelope is schema-identical across
 backends; the backend id + sandbox attestation are recorded as provenance, so this
-surface is unchanged no matter which backend executed a run. See
-[execution-backends.7.md](execution-backends.7.md).
+surface is unchanged no matter which backend executed a run. execution-backends(7) was removed in batch 5.
 ## Web / Desktop Workbench (v0.1.30, removed)
 
 v0.1.30 added the Web / Desktop Workbench, a read-only localhost console over run state. It was removed on 2026-11-12; see release-and-migration(7), "Removed Surfaces".
@@ -329,8 +287,7 @@ pricing is a separate `estimated` figure. Pricing is POLICY given as data
 (`--pricing <path>|default`), out of the kernel. The per-run report keeps a
 rebuildable, fingerprinted snapshot under `.cw/runs/<id>/metrics/`, and the
 cross-repo summary reports each snapshot's `valid|stale|absent` freshness against
-current source. See
-[observability-cost-accounting.7.md](observability-cost-accounting.7.md).
+current source. observability-cost-accounting(7) was removed in batch 5.
 
 Since 2026-11-12 CW no longer prices usage: the pricing policy (`--pricing`) and the hand-recorded usage flags went with the observability intake module, and cost is `unpriced` or `unreported` only.
 

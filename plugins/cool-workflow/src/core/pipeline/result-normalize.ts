@@ -6,6 +6,7 @@
 // Evidence: SPEC/pipeline-run.md "Result ingest — result-normalize module".
 
 import { isGroundedEvidence } from "../trust/evidence-grounding.js";
+import type { AssertTrue, IsOneWayData } from "../types/boundary.js";
 
 export type FindingClassification = "real" | "conditional" | "non-issue" | "unknown";
 export type Severity = "P0" | "P1" | "P2" | "P3" | "none";
@@ -22,6 +23,9 @@ export interface ResultEnvelope {
   findings: Finding[];
   evidence: string[];
 }
+
+/** Weld: the result an agent hands back is plain data. */
+export type ResultBoundaryWeld = AssertTrue<IsOneWayData<ResultEnvelope>>;
 
 const FINDING_ARRAY_KEYS = [
   "findings",

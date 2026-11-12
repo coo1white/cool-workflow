@@ -1,73 +1,52 @@
 #!/usr/bin/env node
 
-// park vs block — two distinct terminal-ish drive states.
+// park vs block — two distinct stop states, both exit 2.
 //
-// park: a task's agent hop fails past the retry budget (default maxAttempts
-// 3). recordWorkerFailure marks the task/worker "failed"; the step is
-// action:"park", status:"parked"; DriveResult.status becomes "parked".
+// park: a task's agent hop fails past the retry budget (maxAttempts 3).
+// Each failed try is a "fulfill" step with status "failed" and attempts
+// 1, 2; the third is action:"park", status:"parked", with the
+// "(attempt 3/3)" suffix. The run status is "parked" and nothing commits.
 //
-// block: driving further on a run that has a parked/failed task in an
-// incomplete phase finds no eligible worker (nothing pending/running, not
-// everything completed) and stops with the FIXED reason string
-// "no eligible worker (a parked/failed worker blocks the phase gate)" —
-// action/status "blocked", never re-attempting the parked task.
+// block: resuming that run with no agent configured reopens nothing to an
+// agent: it stops at once on one "blocked" step with the fixed reason,
+// never charging a new attempt to a parked task.
 
 import path from "node:path";
-import { run, gitRepo, caseMain, assert } from "../lib.mjs";
+import { run, gitRepo, readJson, caseMain, assert } from "../lib.mjs";
 
 const FAIL_AGENT = path.join(import.meta.dirname, "fixtures", "stub-agent-fail.mjs");
-function failAgentEnv() {
-  return { CW_AGENT_COMMAND: `node ${FAIL_AGENT} {{input}} {{result}}` };
-}
 
 caseMain(() => {
   const repo = gitRepo({ "a.txt": "hello\n" });
 
-  // A single-task app driven with an agent that always fails: 3 attempts,
-  // then park. attempts count up 1, 2, 3; the last reason carries the
-  // "(attempt n/max)" suffix.
-  const r = run(
-    ["run", "end-to-end-golden-path", "--drive", "--question", "prove it", "--repo", repo, "--json"],
-    { env: failAgentEnv() }
-  );
-  assert.equal(r.status, 0);
+  const r = run(["-q", "prove it", "--repo", repo, "--json"], {
+    env: { CW_AGENT_COMMAND: `node ${FAIL_AGENT} {{input}} {{result}}` },
+  });
+  assert.equal(r.status, 2);
   const parked = JSON.parse(r.stdout);
   assert.equal(parked.status, "parked");
-  assert.equal(parked.parkedWorkers, 1);
   assert.equal(parked.completedWorkers, 0);
+  assert.ok(parked.parkedWorkers > 0);
   assert.equal(parked.commitId, undefined, "a parked run must not commit");
 
-  const fulfillSteps = parked.steps.filter((s) => s.action === "fulfill");
-  assert.deepEqual(
-    fulfillSteps.map((s) => s.attempts),
-    [1, 2]
-  );
-  for (const s of fulfillSteps) {
-    assert.equal(s.status, "failed");
-    assert.equal(s.reason, "agent hop failed: golden:path: failed (exit 1)");
-  }
-  const parkStep = parked.steps[parked.steps.length - 1];
-  assert.equal(parkStep.action, "park");
-  assert.equal(parkStep.status, "parked");
-  assert.equal(parkStep.attempts, 3);
-  assert.equal(parkStep.reason, "agent hop failed: golden:path: failed (exit 1) (attempt 3/3)");
+  const mine = parked.steps.filter((s) => s.taskId === "map:server-api");
+  assert.deepEqual(mine.map((s) => [s.action, s.status, s.attempts]), [
+    ["fulfill", "failed", 1],
+    ["fulfill", "failed", 2],
+    ["park", "parked", 3],
+  ]);
+  assert.equal(mine[0].reason, "agent hop failed: map:server-api: failed (exit 1)");
+  assert.equal(mine[2].reason, "agent hop failed: map:server-api: failed (exit 1) (attempt 3/3)");
 
-  // Driving the SAME parked run again must not retry the task — it must
-  // block on the phase gate with the exact fixed reason string, one step.
-  const blocked = run(["run", "--drive", "--once", "--run", parked.runId, "--json"], {
-    cwd: repo,
-    env: failAgentEnv(),
-  });
-  assert.equal(blocked.status, 0);
-  const blockedPayload = JSON.parse(blocked.stdout);
-  assert.equal(blockedPayload.status, "blocked");
-  assert.equal(blockedPayload.steps.length, 1);
-  assert.equal(blockedPayload.steps[0].action, "blocked");
-  assert.equal(blockedPayload.steps[0].status, "blocked");
-  assert.equal(
-    blockedPayload.steps[0].reason,
-    "no eligible worker (a parked/failed worker blocks the phase gate)"
-  );
-  // parkedWorkers is still 1 — no new attempt was charged.
-  assert.equal(blockedPayload.parkedWorkers, 1);
+  // Resume with no agent: blocked on one step, no new attempt charged.
+  const blocked = run(["--resume", "--run", parked.runId, "--json"], { cwd: repo, env: { CW_NO_AUTO_AGENT: "1" } });
+  assert.equal(blocked.status, 2);
+  const b = JSON.parse(blocked.stdout);
+  assert.equal(b.status, "blocked");
+  assert.equal(b.resumedFrom, parked.runId);
+  assert.equal(b.steps.length, 1);
+  assert.equal(b.steps[0].action, "blocked");
+  assert.match(b.steps[0].reason, /^agent backend not configured/);
+  const task = readJson(b.statePath).tasks.find((t) => t.id === "map:server-api");
+  assert.equal(task.errors.length, 3, "no attempt was charged while blocked");
 });

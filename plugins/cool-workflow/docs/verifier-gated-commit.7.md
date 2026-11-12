@@ -7,74 +7,48 @@ Verifier-Gated Commit - commit only state that got past an evidence-backed verif
 ## SYNOPSIS
 
 ```text
-node dist/cli.js commit <run-id> --verifier <node-id> --reason "verified result"
-node dist/cli.js commit <run-id> --allow-unverified-checkpoint --reason "operator checkpoint"
+cw -q "<question>"            # the drive ends in one verifier-gated commit
 cw check -- npm test          # a done receipt a result can cite as receipt:<id>
-```
-
-```ts
-import { commitState } from "./commit";
-
-commitState(run, {
-  reason: "verified result",
-  verifierNodeId: `${run.id}:verifier:task-one`,
-  verifierGated: true
-});
 ```
 
 ## DESCRIPTION
 
 Verifier-Gated Commit is the CW rule that keeps committed state apart from
-normal checkpoints:
+work that is not done yet:
 
 ```text
 only verified state becomes committed state
 ```
 
-A verifier-gated commit needs a `verifier` state node with `verified` status
-and evidence, named with `--verifier <node-id>` (or found from a
-`result:<task-id>` reason whose task has a verifier node).
+A run makes one commit, at the end of the drive, once every worker is
+accepted. The commit is gated on the verdict task (`verdict:*`,
+`synthesis:*`): its accepted result must carry evidence, and that evidence
+must pass the checks in FAILURE MODES. The verifier gate has the final say.
+A run that cannot pass it stops `blocked` with the reason, writes
+`report.md`, and makes no commit; `cw --resume --run <id>` tries the commit
+again once the cause is fixed.
 
-The verifier gate has the final say.
-
-The `--candidate` and `--selection` inputs went with the multi-agent family
-(see release-and-migration(7), "Removed Surfaces"). A commit that passes
-one of them now fails closed with `commit-verifier-required`.
-
-## CHECKPOINTS
-
-CW still writes inside snapshots for planning, dispatch, result recording, and
-operator checkpoints. These records are checkpoints. They are good for audit,
-resume, and rollback, but they are not verifier-gated committed state.
-
-Checkpoint records have:
-
-```json
-{
-  "verifierGated": false,
-  "checkpoint": true
-}
-```
-
-Checkpoint state nodes use `kind: "commit"` and `status: "completed"`. A
-verifier-gated commit state node uses `status: "committed"`.
+There is no `cw commit` verb (removed in batch 5, with the step verbs) and
+no unverified checkpoint: a run is either committed by the gate or not
+committed.
 
 ## COMMIT RECORDS
 
-A verifier-gated commit writes gate metadata in the commit JSON and state node:
+The commit is one entry in the run's `commits` list, and a snapshot in
+`.cw/runs/<run-id>/commits/state-0001.json`:
 
 ```json
 {
+  "id": "state-0001",
+  "reason": "agent-delegation-drive: all 14 workers accepted",
   "verifierGated": true,
-  "checkpoint": false,
-  "verifierNodeId": "run:verifier:task",
-  "evidence": []
+  "verifierTaskId": "verdict:synthesis",
+  "evidence": ["src/server.ts:42"],
+  "gitHead": "1a2b3c4..."
 }
 ```
 
-The `evidence` field is copied from the verifier node. A commit record that an
-older CW wrote may still carry `candidateId` and `selectionId`; they are kept
-as data and read by `cw audit provenance`.
+The `evidence` field is copied from the verdict task's accepted result.
 
 ## DONE RECEIPTS
 
@@ -107,9 +81,7 @@ Piped, or with `--json`, it prints one JSON object: `schemaVersion`,
 does not end with exit 0 makes `cw check` exit 1 (the receipt of the
 failure is still kept). A program that is not on PATH is an error and
 leaves no receipt. `cw check list` and `cw check show` print JSON when
-piped too; `show` exits 1 when the receipt may not be cited now. The
-MCP tools `cw_check_list` and `cw_check_show` give the same JSON. Running
-a command is CLI only: an MCP host runs commands with its own tool.
+piped too; `show` exits 1 when the receipt may not be cited now.
 
 Note: `list` and `show` are words of `cw check` itself. To run a
 program named `list`, give its path: `cw check -- ./list`.
@@ -137,15 +109,12 @@ receipt file into `.cw/receipts/`. To shut that out, keep a key where
 the agent cannot read it: set `CW_CHECK_PRIVKEY` when you run `cw
 check`, and `CW_CHECK_PUBKEY` for the runs that cite receipts, so an
 unsigned or wrongly signed receipt is turned down (`receipt-unsigned`).
-On the agent side, an agent sandbox (`CW_AGENT_SANDBOX=srt`) lets the
-agent write only its worker folder and the sandbox profile's write
-paths; with a profile that does not give write to the repo (`readonly`),
-the agent cannot put a file in `.cw/receipts/`. A profile that writes the
-repo does not keep it out.
+An agent that can write the repo can write `.cw/receipts/` too; keeping
+it out is the host's sandbox's job.
 
 A worker result, or a person, cites a receipt as evidence:
-`receipt:<id>`. When a result is taken in (`cw worker output`, the
-drive) and again at the verifier-gated commit, CW checks every cited
+`receipt:<id>`. When a result is taken in by the drive and again at the
+verifier-gated commit, CW checks every cited
 receipt against the run's code at that time, and says no unless all of
 these hold, in this order:
 
@@ -170,8 +139,7 @@ refused result; after the fix, `cw --resume --run <id>` goes on. At the
 commit the error code is `commit-verifier-receipt-refused`.
 
 An accepted receipt is copied into the run, `.cw/runs/<run-id>/receipts/
-<id>.json`, and a `receipt.check` trust-audit event is written. So the
-run keeps it, `cw report bundle` takes it along, and `report.md` shows
+<id>.json`. So the run keeps it, `cw report bundle` takes it along, and `report.md` shows
 it: the Answer's evidence line reads `receipt:<id> — verified by receipt
 <id> (exit 0 at <sha>): <command>`, and a `## Check Receipts` part lists
 each one (this part is not there for a run with no receipt). Making the
@@ -181,24 +149,14 @@ check each pinned receipt again (its digest and id, and exit 0) and
 fail with `receipt-tampered:<id>` or `receipt-failed:<id>` in
 `failedChecks`; a bundle with no receipt gives the same output as before.
 
-Where a new user finds it (new in 0.4.0): `cw doctor --onramp` has one
-more quick-start line, a change to existing default output made with the
-operator's named yes of 2026-11-03, for 0.4.0:
+Where a new user finds it: `cw doctor` ends with the quick-start steps,
+one of which is:
 
 ```text
-cw check -- npm test   — keep a receipt that your tests passed; a result can cite it (no agent needed)
+cw check -- npm test   — keep a receipt that your tests passed; a result can cite it
 ```
 
-`cw help check` gives its words. The `cw help` front page is not
-changed: it keeps the five entries of 0.3.3 (unix-principles(7)). Two more
-outputs change, with the operator's named yes of 2026-11-03:
-
-- `cw help`, the "More commands" list: its last line goes from
-  `  man|version|fix|completion` to `  man|version|fix|completion|check`
-  (every command `cw` knows is listed there; the v2 fixture
-  `cli-help/_root.txt` pins it).
-- `cw completion` (bash, zsh, fish): the list of command words has one
-  more word, `check`.
+`cw help check` gives its words.
 
 ## FILES
 
@@ -207,25 +165,16 @@ outputs change, with the operator's named yes of 2026-11-03:
 .cw/runs/<run-id>/receipts/<receipt-id>.json
 .cw/runs/<run-id>/state.json
 .cw/runs/<run-id>/commits/<commit-id>.json
-.cw/runs/<run-id>/nodes/<commit-node-id>.json
-.cw/runs/<run-id>/feedback/<feedback-id>.json
 .cw/runs/<run-id>/report.md
 ```
-
-Every blocked commit try writes an `error` state node and an ErrorFeedback
-record before the command exits.
 
 ## FAILURE MODES
 
 The commit gate fails closed.
 
-Common feedback codes:
+The codes, in the `final commit refused:` reason of the blocked commit step:
 
 ```text
-commit-verifier-required
-commit-verifier-not-found
-commit-verifier-wrong-kind
-commit-verifier-not-verified
 commit-verifier-missing-evidence
 commit-verifier-evidence-ungrounded
 commit-verifier-evidence-unresolvable
@@ -234,22 +183,19 @@ commit-rationale-empty-capture
 commit-verifier-receipt-refused
 ```
 
-`commit-verifier-evidence-past-end` (from 2026-11-12): under the same rule as
-`commit-verifier-evidence-unresolvable` (`CW_REQUIRE_RESOLVABLE_EVIDENCE`, on by
-default), a `path:line` or `path:a-b` locator in the verifier node's evidence
-names a line past the end of a file that is on disk, for one when the file got
-shorter after the verdict was accepted. The reason reads `Verifier node <id>
+`commit-verifier-evidence-unresolvable` and `commit-verifier-evidence-past-end`
+follow `CW_REQUIRE_RESOLVABLE_EVIDENCE` (on by default): a file locator in
+the verdict's evidence must name a file on disk, and a `path:line` or
+`path:a-b` locator a line inside it. The reason reads `Verifier task <id>
 cites a line past the end of its file: <path>:<line> (<path> has <n> lines)`.
+The same checks run when the verdict's result is taken in, so a bad citation
+is retried and parked there first; the commit gate is the last line.
 
-Use `cw feedback list <run-id>` and `cw node graph <run-id>` to look at
-the failed transition.
+The blocked commit step and `report.md` name the reason.
 
 ## COMPATIBILITY
 
-Verifier-Gated Commit comes in with CW v0.1.7. It adds optional fields to
-commit records and keeps older run state readable.
-
-Programmatic snapshots that do not ask for a verifier gate stay checkpoints.
-The CLI `commit` command is more strict: a plain by-hand commit fails closed unless
-the operator passes `--allow-unverified-checkpoint`.
+Verifier-Gated Commit came in with CW v0.1.7. Batch 5 (2026-11-12) removed
+the `cw commit` verb, unverified checkpoints, state nodes and ErrorFeedback
+records; see release-and-migration(7).
 0.1.51

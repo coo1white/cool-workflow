@@ -1,175 +1,62 @@
 # Durable State & Locking
 
-CW v0.1.40 fixes the durability gaps its own architecture self-audit found:
-every authoritative write is now **atomic**, the audit-essential ones are
-**fsync-durable**, and the cross-process read-modify-write stores are
-**lock-serialized**. The kernel persistence primitive (`state.ts:writeJson`)
-was a non-atomic in-place `fs.writeFileSync`, the #1 P1 from the last verdict.
-That is now fixed for the whole control plane.
+Every write CW makes to run state is **atomic**; the authoritative ones are
+also **fsync-durable**; and the stores more than one process can change are
+**lock-serialized**. A run is driven by one process at a time.
 
 ## Atomic writes — order is the safety property
 
-`writeJson(file, value, { durable? })` writes to a unique temp file and then
-`rename(2)`s it over the target. Because rename is atomic on POSIX, a crash,
-`SIGKILL`, or `ENOSPC` part-way through a write can never leave a cut-short `state.json` that
-throws `Invalid JSON` on reload — a reader always sees **EITHER the old bytes OR
-the new bytes**, never a torn file. A failed rename clears away its temp file, so no
-half-written artifact is ever left behind.
+`writeJson(file, value, { durable? })` (`src/shell/fs-atomic.ts`) writes to a
+unique temp file in the same folder and then `rename(2)`s it over the target.
+Because rename is atomic on POSIX, a crash, `SIGKILL`, or `ENOSPC` part-way
+through a write can never leave a cut-short `state.json` that throws `Invalid
+JSON` on reload — a reader always sees **EITHER the old bytes OR the new
+bytes**, never a torn file.
 
-With `{ durable: true }` the file is also `fsync`'d (and its directory
-`fsync`'d as best it can) before the write counts as done, so the bytes
-live through power loss. Durability is kept for **authoritative** state — `state.json`
-(`saveCheckpoint`), the registry overlays (`archive.json`, `provenance.json`, the
-home queue, `repos.json`) — while high-frequency, rebuildable derived writes (node bodies, worker manifests,
-the registry index) stay atomic-but-not-fsync'd so the cheap torn-write fix is used
-everywhere without the fsync cost on the hot path.
+With `{ durable: true }` the temp file is also `fsync`'d before the rename, so
+the bytes live through power loss. Durability is kept for **authoritative**
+state — `state.json` and the telemetry ledger (`telemetry.json`) — while
+rebuildable writes (worker manifests, the report) stay atomic but not
+fsync'd.
 
-## Locking — serialize the cross-process read-modify-write
+## Locking
 
-The home queue (`queueAdd`/`queueDrain`), the archive overlay, and the repos
-registry are read-modify-write stores that more than one process can change.
-`withFileLock(targetPath, fn)` runs `fn` while it holds a portable advisory lock:
+Two locks, both a `<target>.lock` file that holds the owner's pid:
 
-- **Portable** — an `O_EXCL` (`wx`) lockfile next to the target; no native `flock(2)`,
-  so it works the same way under CI (node/npm/git only).
-- **Stale-stealing** — a lock older than the steal window (30 s) is taken back, so a
-  crashed holder can never block a store for good.
-- **Always released** — the lock is removed in a `finally`, even if `fn` throws.
+- **The drive lock** (`.cw/runs/<run-id>/drive.lock`). `cw -q` and `cw
+  --resume` hold it for the whole drive. A second process that tries to drive
+  the same run is refused at once with the holder's pid; it never waits and
+  never writes.
+- **`withFileLock(target, fn)`** runs `fn` while it holds `<target>.lock`,
+  waiting up to about 6 s. The telemetry ledger's append goes through it, so
+  two writers cannot both read the same tail and drop a record. It is
+  re-entrant inside one process.
 
-This holds **across processes**, not just within one: a newly-added queue
-task can no longer go missing under a concurrent drain.
+A lock is taken with `link(2)` (a per-try temp file hard-linked onto the lock
+path): `link` is single-winner, where `open(O_EXCL)` was seen not to be on
+Node 18 under load. A lock whose holder pid is gone is taken over, but only by
+the single winner of a `<lock>.steal` guard, which reads the pid again before
+it renames its own file over the lock (`test/fs-atomic-lock-steal-race-smoke.mjs`
+holds this: no two processes are ever inside the lock at once).
 
-### The whole-cycle run-state lock (unreleased)
+## Run paths come from where the run is
 
-`saveCheckpoint` locks only the WRITE of `state.json`. A verb that does
-load → change → save on its own left a window where two processes both
-load the same state and the later save silently drops the earlier change
-— the same lost-update class the v0.2.1 fix closed for `queue.json`
-and `triggers.json`. Two additions close it for the run state itself:
-
-- **`withRunStateLock(runId, cwd, fn)`** (run-store) holds the
-  `state.json` lock over the whole load → change → save cycle. `fn` gets
-  the run loaded UNDER the lock. `cw dispatch` and `cw result` go
-  through it, so two `cw result` calls for two tasks of the same run can
-  no longer lose a completion. Keep `fn` short: a critical section past
-  the 30 s steal window can be stolen.
-- **`withFileLock` is now re-entrant inside one process**: a nested call
-  on the same target runs its `fn` under the already-held lock instead
-  of waiting on its own lockfile until the tries run out. Save paths
-  inside `fn` (`saveCheckpoint`, worker-failure persists) keep their own
-  lock calls unchanged. Cross-process behavior is untouched.
-
-### A live drive and an operator write (unreleased)
-
-A drive round cannot hold the `state.json` lock while its agents run (that
-takes minutes, past the 30 s steal window), so it holds its own copy of the
-run instead. Before, a `cw result` or `cw commit` made on the same run while
-the drive's agents ran was lost: the drive's next save put its older copy
-back over the operator's write, with no error. Now:
-
-- After the agent wait (the serial spawn, a sub-workflow's child drive, or a
-  concurrent round's whole batch), the drive checks the `state.json` file
-  stamp it last loaded or saved. When no one wrote the file since, it goes on
-  with its copy (a `stat`, no extra read: one writer acts as before). When
-  someone did, it loads the run again and puts its own result on top, so both
-  writes are kept.
-- When the other writer settled the very task the drive's agent was working
-  on (for one, `cw result` for that task), the drive refuses: it exits
-  non-zero with `state.json of run <id> was changed by another writer ...;
-  refusing to overwrite it`, and saves nothing over the operator's write. Run
-  the drive again to go on from the saved state.
-- Every drive save checks the same stamp under the `state.json` lock and
-  refuses with the same message when the file changed after the drive's last
-  load or save, so a write that lands in any other part of a round is never
-  overwritten either.
-- The same is true of every other writer that takes the `state.json` lock:
-  `cw worker fail`, `cw feedback collect|task|resolve`, `cw audit attest`
-  and the MCP tools that do the same. Feedback, a worker record or an audit
-  note made during a live drive is kept; the drive refuses its own save
-  rather than write over it (commit a805c239;
-  `test/drive-feedback-write-kept-smoke.mjs`). Audit events go to their own
-  append-only log (`audit/events.jsonl`), not into `state.json`.
-
-### Run paths come from where the run is (unreleased)
-
-A run's `state.json` keeps a `paths` block (`runDir`, `state`, `report`,
-`tasksDir`, `auditDir`, and the rest) and an `audit` block
-(`eventLogPath`, `summaryPath`, `indexPath`). These are records, not
-orders. Every load of a run (`loadRunFromCwd`, `RunRegistry.loadRun`)
-makes them again from the folder its `state.json` was really found in,
-`<repo>/.cw/runs/<run-id>/`, and never uses the stored values as places
-to write:
-
-- A `state.json` in a cloned repo cannot point `paths.report` (or any
-  other path) out of its run folder; `cw report` writes only inside it.
-- A repo that was moved writes into its new place, not the old one.
-- A stored path that names the same real place as the rebuilt one is
-  kept byte for byte, also when the two strings differ only by a symlink
-  (for one, macOS `/var` and `/private/var`). CW checks this with the
-  real path of the file, or of its nearest parent that is there. So a
-  normal run prints and saves the same bytes as before. A stored path
-  that names any other place is replaced, and a stored `paths` key that
-  CW does not make is dropped on load.
-
-The report head (`# <title>`, `- Workflow:`, `- Question:`, and the other
-`- ` lines over the first section) puts a space in place of any control
-character (newline, CR, ESC, the rest of C0, DEL), so a value from
-`state.json` cannot add a line to `report.md`. A value with no control
-character is unchanged.
-
-`plan` takes an injected run id (`--arg runId=...`, or the MCP `arg`)
-only when it is one safe path segment (`[A-Za-z0-9._:-]`, not `.` or
-`..`); any other value is refused with `Unsafe run id: ...` before any
-folder is made.
-
-### A run folder copied by hand is refused (new in 0.3.2)
-
-A plain copy of a run folder (for one, `cp -R .cw/runs/<run-id>` into
-another repo) keeps a `state.json` whose stored places, `cwd` among
-them, still name the folder it was copied from. Before 0.3.2 CW loaded
-such a copy with no word. From 0.3.2, every full load of a run
-(`loadRunFromCwd`, `RunRegistry.loadRun`) refuses it, before anything is
-read for a change or written, when ALL of these hold:
-
-- the stored `paths.runDir` is an absolute path in the
-  `<repo>/.cw/runs/<run-id>` form, for the same run id, and is not the
-  folder the `state.json` was found in, nor the same real place (a
-  symlink, or macOS `/var` and `/private/var`, is the same place);
-- that stored folder is still there, with its own `state.json` (not the
-  same file, by device and inode, as the one found).
-
-So a repo that was moved (the old folder is gone), a repo cloned from
-another machine, a `state.json` with no `paths.runDir`, and a run made by
-`cw run import` or `cw run restore` all load as before. The command exits
-1 and prints, on stderr:
-
-```text
-cw: Refusing to load run <run-id>: the folder <copy>/.cw/runs/<run-id> is a copy of <original>/.cw/runs/<run-id>, made outside cw (for one, with cp -R), and its state still points at that original folder, which is still there. Using the copy could read or write the original, so cw stops here (fail closed). To move a run, take away this copy, then run: cw run export <run-id> --cwd <original> --output <copy>/<run-id>.cwrun.json and then: cw run import <copy>/<run-id>.cwrun.json --target <copy>
-```
-
-`cw run export` and `cw run import` are the way to move a run (see
-[run-registry-control-plane.7.md](run-registry-control-plane.7.md)).
-Read-only listings (`cw run list`, `cw run show`, `cw doctor`) and
-`cw state check` do not do a full load and are not changed. This is a
-change of default the operator said yes to on 2026-10-17, for 0.3.2.
-
-## Reclamation durability (the write-ahead seam, v0.1.40, removed)
-
-v0.1.40 also moved the result-node re-point of scratch reclamation inside the
-reclamation transaction. Reclamation (`cw gc`, `cw orphans`) was removed on
-2026-11-12; see release-and-migration(7), "Removed Surfaces". A run folder an
-older CW reclaimed still loads.
+A run's `state.json` is data, not a list of places to write. Each load makes
+the run's `paths` again from the folder it was found in
+(`.cw/runs/<run-id>/`), so a `state.json` that names another folder cannot
+send a write out of its run folder. A run id must be one safe path segment
+(no `/`, no `..`); anything else is refused. A `state.json` from before batch
+5 (schema 1), or one whose `id` is not its folder's name, is refused with one
+line; CW never migrates or repairs state.
 
 ## Compatibility
 
-Added on top and unseen by correct single-writer use. No schema change; pre-v0.1.40
-runs and stores load unchanged. Atomicity and locking change only HOW the same
-bytes are written, never WHAT — no audit, commit, or collaboration record is ever
-rewritten.
+Batch 5 (2026-11-12) removed the run registry, the home queue, the archive and
+repos overlays, the whole-cycle run-state lock for operator verbs (there are
+no operator verbs left that write a run), and state migrations. See
+release-and-migration(7), "Removed in batch 5".
 
-## See Also
-
-- `docs/run-registry-control-plane.7.md` — the registry overlays + home queue now locked.
+These changes alter only HOW bytes are written, never WHAT.
 
 ## Self-Audit Hardening & Pure-Router Decomposition (v0.1.41)
 

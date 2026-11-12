@@ -15,12 +15,12 @@ import { formatHelp } from "../../../dist/core/format/help.js";
 // added after that capture (--json, --quiet, --resume, -opencode, -muse; the check token, 2026-11-03;
 // -copilot, -antigravity, -grok, 2026-11-04). 0.4.3:
 // the -q rows at column 44, the agent flags in their own "Agents" block, no version|fix in More commands.
+// Batch 5 (2026-11-12): no --link row; More commands is the kept verbs only.
 {
   const expected = [
     "Cool Workflow",
     "",
     '  -q "question" [-<vendor>]                 Ask a question, get a report',
-    '  -q "question" --link <url>                Review a remote repo by URL',
     "  version                                   Show version",
     "  doctor                                    Check setup",
     "  fix                                       Show fix commands for setup issues",
@@ -47,10 +47,7 @@ import { formatHelp } from "../../../dist/core/format/help.js";
     "  -grok                  Use Grok agent",
     "",
     "More commands",
-    "  list|search|info|init|plan|status|next|dispatch|result|state|commit|report",
-    "  app|sandbox|backend|contract|node|feedback|worker|audit|registry|run|queue",
-    "  history|quickstart|audit-run|metrics|operator|telemetry|migration|demo",
-    "  ledger|graph|man|completion|check",
+    "  report|check|demo",
     "",
     "    Run  cw help <command>  for one command's subcommands and descriptions.",
   ].join("\n") + "\n";

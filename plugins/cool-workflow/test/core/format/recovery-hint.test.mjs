@@ -3,17 +3,20 @@
 // lookup from an error message to ONE copy-pasteable follow-up command.
 // Pure function, no IO — a plain require + assert is enough.
 //
-// Evidence: src/core/format/recovery-hint.ts (moved out of cli/entry.ts so
-// mcp/server.ts can reuse it without crossing the mcp/-may-never-import-
-// cli/ layer rule scripts/purity-gate.mjs enforces).
+// Evidence: src/core/format/recovery-hint.ts.
 
 import assert from "node:assert/strict";
 import { recoveryHint } from "../../../dist/core/format/recovery-hint.js";
 
-// "run not found" -> points at `cw run list`.
+// "run not found" or an old run -> start a new one.
 {
-  const hint = recoveryHint("Run not found: abc123");
-  assert.equal(hint, "cw run list", "a 'run not found' message must point at cw run list");
+  assert.equal(recoveryHint("Run not found: abc123"), 'cw -q "<question>"');
+  assert.equal(recoveryHint("Run old-run was made by an older cw and cannot be read by this one"), 'cw -q "<question>"');
+}
+
+// A missing question -> the -q form.
+{
+  assert.equal(recoveryHint("Missing required input: question"), 'cw -q "<question>"');
 }
 
 // "unknown command" (at the start of the message) -> points at `cw help`.
@@ -32,12 +35,7 @@ import { recoveryHint } from "../../../dist/core/format/recovery-hint.js";
 {
   const hint = recoveryHint("Missing required input --repo");
   assert.equal(hint, 'cw -q "<question>" -dir <project-folder>', "a missing --repo message must point at the -dir flag");
-}
-
-// "app" + "not found"/"not available" -> points at `cw app list`.
-{
-  assert.equal(recoveryHint("Workflow app not found: bogus-app"), "cw app list");
-  assert.equal(recoveryHint("App is not available: bogus-app"), "cw app list");
+  assert.equal(recoveryHint("/x is not a git project. Run cw inside a project, or pass --repo <path>."), 'cw -q "<question>" -dir <project-folder>', "a folder that is not a git project points at the -dir flag");
 }
 
 // No pattern matches -> undefined, never a wrong guess.

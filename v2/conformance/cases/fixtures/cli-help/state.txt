@@ -1,4 +1,0 @@
-# exit: 0
-cw state
-
-  cw state check  Check run-state schema compatibility.

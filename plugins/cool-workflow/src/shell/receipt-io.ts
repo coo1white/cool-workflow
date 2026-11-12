@@ -11,7 +11,6 @@ import { resolveTrustPublicKey } from "../core/trust/telemetry-attestation.js";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version.js";
 import { WorkflowRun } from "../core/state/types.js";
 import { writeJson } from "./fs-atomic.js";
-import { recordTrustAuditEvent } from "./trust-audit.js";
 
 const TAIL_BYTES = 4096;
 const TAIL_LINES = 20;
@@ -227,8 +226,8 @@ export function listReceipts(repo: string): ReceiptListEntry[] {
 
 /** The gate for a run: judge each cited receipt against the run's code
  *  now. On success the receipts are pinned into <runDir>/receipts/ (so the
- *  report and a bundle carry them) and one audit event is written. */
-export function checkCitedReceipts(run: WorkflowRun, ids: string[], context: { taskId?: string; workerId?: string } = {}): ReceiptJudgement[] {
+ *  report and a bundle carry them). */
+export function checkCitedReceipts(run: WorkflowRun, ids: string[]): ReceiptJudgement[] {
   const code = readCodeState(run.cwd);
   const verdicts = ids.map((id) => judgeStoredReceipt(run.cwd, id, code, run.paths.runDir));
   const refused = verdicts.filter((v) => !v.ok);
@@ -239,9 +238,6 @@ export function checkCitedReceipts(run: WorkflowRun, ids: string[], context: { t
       fs.mkdirSync(path.dirname(pinned), { recursive: true });
       writeJson(pinned, loadReceipt(run.cwd, id, run.paths.runDir));
     }
-  }
-  if (context.taskId) {
-    recordTrustAuditEvent(run, { kind: "receipt.check", decision: "accepted", source: "cw-validated", taskId: context.taskId, workerId: context.workerId, evidenceRefs: ids.map((id) => `receipt:${id}`), metadata: { gitHead: code.gitHead } });
   }
   return [];
 }

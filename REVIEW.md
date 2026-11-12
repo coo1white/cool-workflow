@@ -52,7 +52,7 @@ rule and its reason. When a new lesson is learned, add it here.
   cache mechanism without new measured need. Use narrow source profiles
   first.
 
-### `cw ledger` and other digests
+### Digests (lessons from `cw ledger`, removed in batch 5)
 
 - **A field left out of a digest with no binding check.** A
   content-addressed `id` must be bound to content on the verify path:
@@ -138,14 +138,13 @@ rule and its reason. When a new lesson is learned, add it here.
 
 ### Multi-agent work
 
-- **A new MCP server or policy layer for agents working together.** First
-  try the parts CW already has: workflow apps give the work shape, worker
-  output gives checked facts, each phase reads the results of the phase
-  before it, MCP gives tool access to the same run state, `cw ledger`
-  hands work between agents in two repos, and smoke tests prove the loop.
-  Do not make a new MCP server when the existing server can show the same
-  run state; add a workflow app first, then prove it with one smoke that
-  uses both CLI and MCP.
+- **A new MCP server or policy layer for agents working together.** The
+  MCP server, `cw ledger` and the run registry were removed in batch 5
+  (2026-11-12): CW keeps the books for one run at a time. First try the
+  parts CW has: the workflow app gives the work shape, each phase reads
+  the results of the phase before it, and the evidence gate checks what a
+  worker hands back. Bringing a server back needs a plan in the PR text
+  and the operator's yes.
 - **A three-agent loop out of order.** Keep the order plain: `plan ->
   build -> audit -> next action`, one phase each. If audit evidence is
   missing, let the worker evidence gate refuse the result instead of

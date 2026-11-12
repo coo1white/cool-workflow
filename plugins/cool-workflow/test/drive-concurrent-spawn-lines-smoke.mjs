@@ -60,7 +60,7 @@ function cwEnv(gate, extraEnv) {
   return env;
 }
 
-const ARGS = [cwBin, "-q", "How does routing work?", "--fast", "--json"];
+const ARGS = [cwBin, "-q", "How does routing work?", "--json"];
 // 0.4.3: ", may take minutes…" is on the
 // first round line of the process only; a worker's line ends at "spawning agent".
 const ROUND = /^\[drive\] » concurrent round: (\d+) agents? spawning in parallel(?:, may take minutes…)?$/m;

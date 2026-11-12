@@ -34,7 +34,7 @@ caseMain(() => {
   assert.equal(bundleResult.verification.ok, true);
   assert.equal(bundleResult.verification.archiveOk, true);
   assert.equal(bundleResult.verification.telemetryVerified, true);
-  assert.equal(bundleResult.verification.trustAuditVerified, true);
+  assert.equal("trustAuditVerified" in bundleResult.verification, false, "the trust-audit chain went in batch 5");
   assert.equal(bundleResult.verification.trustLevel, "unsigned", "the stub agent signs nothing");
   assert.deepEqual(bundleResult.verification.failedChecks, []);
   assert.ok(fs.existsSync(archivePath), "the archive file must exist at --output");

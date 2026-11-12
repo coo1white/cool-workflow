@@ -6,7 +6,7 @@
 //   node scripts/gen-manifests.mjs --check    # fail (exit 1) if any drift
 //
 // Mechanism vs policy (BSD discipline): the shared assets (skills/, dist/,
-// apps/, the MCP server) live once; each vendor manifest is a thin, generated
+// apps/) live once; each vendor manifest is a thin, generated
 // adapter. Edit manifest/plugin.manifest.json, never the generated files.
 //
 // v0.1.47 — VENDOR ADAPTER REGISTRY: vendor outputs are now declarative
@@ -95,7 +95,7 @@ function _resolveTemplate(template, src, pluginRootVar) {
   if (typeof template === "object") {
     const result = {};
     for (const [key, value] of Object.entries(template)) {
-      // Resolve key: {{mcp.serverName}} -> "cool-workflow"
+      // Resolve key: {{name}} -> "cool-workflow"
       const resolvedKey = _interpolate(key, src, pluginRootVar);
       const keyStr = typeof resolvedKey === "string" ? resolvedKey : key;
       result[keyStr] = _resolveTemplate(value, src, pluginRootVar);

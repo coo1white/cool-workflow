@@ -1,5 +1,5 @@
 {
-  "_comment": "SINGLE SOURCE OF TRUTH for every vendor manifest. Edit THIS file, then run `npm run gen:manifests`. Do NOT hand-edit the generated vendor manifests (.claude-plugin/, .codex-plugin/, .agents/, .mcp.json) — `npm run gen:manifests -- --check` (run by release:check) will fail if they drift from this source.",
+  "_comment": "SINGLE SOURCE OF TRUTH for every vendor manifest. Edit THIS file, then run `npm run gen:manifests`. Do NOT hand-edit the generated vendor manifests (.claude-plugin/, .codex-plugin/, .agents/) — `npm run gen:manifests -- --check` (run by release:check) will fail if they drift from this source.",
   "identity": {
     "name": "cool-workflow",
     "version": "0.4.4",
@@ -16,13 +16,14 @@
       "orchestration",
       "agents",
       "multi-agent",
-      "mcp"
+      "receipts",
+      "evidence"
     ]
   },
   "descriptions": {
-    "short": "A workflow control plane you are able to check.",
-    "standard": "A workflow control plane and run-time you are able to check: it sends out jobs in TypeScript, makes certain of work against facts before it goes through, puts state into fixed records, and talks MCP. It gives the doing of the work to outside agents — it never runs the models itself.",
-    "long": "Cool Workflow (CW) is a workflow control plane and run-time you are able to check. It gives you: a TypeScript COL run-time, Workflow App framework agreements, a Router and Orchestrator, Subagent Dispatch, a same-every-time Harness, a hard-questioning Verifier, Git and State Commit, Sandbox Profiles, time-ordered jobs, jobs that come round again, a high-level Multi-Agent CLI and MCP host face, and an MCP JSON-RPC 2.0 bridge. Builders make workflow apps they are able to use again; CW gives the doing of the work to an outside agent host and keeps a checked, play-again record of state — it never puts a model API inside itself."
+    "short": "Receipts for AI work you can check.",
+    "standard": "Keeps the books for AI work: an outside agent does the work, CW records each claim with the lines it rests on, gates the result on evidence, and writes a report you can verify offline. It never runs a model itself.",
+    "long": "Cool Workflow (CW) keeps the books for AI work. Ask a question with cw -q; CW plans the review, hands each step to an outside agent CLI, accepts only results whose evidence resolves to real lines, commits the run, and writes report.md and report.html. cw check keeps a receipt that a command passed; cw report bundle seals a run into one file that cw report verify-bundle checks offline and fails closed. CW never runs a model, never holds a key, and never uploads code."
   },
   "interface": {
     "displayName": "Cool Workflow",
@@ -41,39 +42,29 @@
   },
   "layout": {
     "pluginPathFromRepoRoot": "./plugins/cool-workflow",
-    "skillsDir": "./skills/",
-    "mcpServerScript": "dist/mcp-server.js"
-  },
-  "mcp": {
-    "serverName": "cool-workflow",
-    "command": "node"
+    "skillsDir": "./skills/"
   },
   "targets": {
     "claude": {
       "marketplace": ".claude-plugin/marketplace.json",
       "plugin": "plugins/cool-workflow/.claude-plugin/plugin.json",
-      "mcp": "plugins/cool-workflow/.mcp.json",
       "pluginRootVar": "${CLAUDE_PLUGIN_ROOT}/"
     },
     "codex": {
       "marketplace": ".agents/plugins/marketplace.json",
       "plugin": "plugins/cool-workflow/.codex-plugin/plugin.json",
-      "mcp": "plugins/cool-workflow/.codex-plugin/mcp.json",
       "pluginRootVar": "./"
     },
     "agents": {
       "plugin": ".agents/plugins/cool-workflow/plugin.json",
-      "mcp": ".agents/plugins/cool-workflow/mcp.json",
       "pluginRootVar": "./"
     },
     "gemini": {
       "plugin": "plugins/cool-workflow/.gemini-plugin/plugin.json",
-      "mcp": "plugins/cool-workflow/.gemini-plugin/mcp.json",
       "pluginRootVar": "./"
     },
     "opencode": {
       "plugin": "plugins/cool-workflow/.opencode-plugin/plugin.json",
-      "mcp": "plugins/cool-workflow/.opencode-plugin/mcp.json",
       "pluginRootVar": "./"
     }
   },
@@ -110,19 +101,6 @@
             "homepage": "{{identity.homepage}}",
             "license": "{{identity.license}}",
             "keywords": "{{identity.keywords}}"
-          }
-        },
-        {
-          "path": "{{targets.claude.mcp}}",
-          "json": {
-            "mcpServers": {
-              "{{mcp.serverName}}": {
-                "command": "{{mcp.command}}",
-                "args": [
-                  "{{pluginRootVar}}{{layout.mcpServerScript}}"
-                ]
-              }
-            }
           }
         }
       ]
@@ -161,7 +139,6 @@
             "author": "{{identity.author}}",
             "keywords": "{{identity.keywords}}",
             "skills": "{{layout.skillsDir}}",
-            "mcpServers": "./.codex-plugin/mcp.json",
             "interface": {
               "displayName": "{{interface.displayName}}",
               "shortDescription": "{{descriptions.short}}",
@@ -171,19 +148,6 @@
               "capabilities": "{{interface.capabilities}}",
               "brandColor": "{{interface.brandColor}}",
               "defaultPrompt": "{{interface.defaultPrompt}}"
-            }
-          }
-        },
-        {
-          "path": "{{targets.codex.mcp}}",
-          "json": {
-            "mcpServers": {
-              "{{mcp.serverName}}": {
-                "command": "{{mcp.command}}",
-                "args": [
-                  "{{pluginRootVar}}{{layout.mcpServerScript}}"
-                ]
-              }
             }
           }
         }
@@ -202,7 +166,6 @@
             "license": "{{identity.license}}",
             "keywords": "{{identity.keywords}}",
             "skills": "{{layout.skillsDir}}",
-            "mcpServers": "./.codex-plugin/mcp.json",
             "interface": {
               "displayName": "{{interface.displayName}}",
               "shortDescription": "{{descriptions.short}}",
@@ -212,19 +175,6 @@
               "capabilities": "{{interface.capabilities}}",
               "brandColor": "{{interface.brandColor}}",
               "defaultPrompt": "{{interface.defaultPrompt}}"
-            }
-          }
-        },
-        {
-          "path": "{{targets.agents.mcp}}",
-          "json": {
-            "mcpServers": {
-              "{{mcp.serverName}}": {
-                "command": "{{mcp.command}}",
-                "args": [
-                  "{{pluginRootVar}}{{layout.mcpServerScript}}"
-                ]
-              }
             }
           }
         }
@@ -243,7 +193,6 @@
             "license": "{{identity.license}}",
             "keywords": "{{identity.keywords}}",
             "skills": "{{layout.skillsDir}}",
-            "mcpServers": "./.gemini-plugin/mcp.json",
             "interface": {
               "displayName": "{{interface.displayName}}",
               "shortDescription": "{{descriptions.short}}",
@@ -253,19 +202,6 @@
               "capabilities": "{{interface.capabilities}}",
               "brandColor": "{{interface.brandColor}}",
               "defaultPrompt": "{{interface.defaultPrompt}}"
-            }
-          }
-        },
-        {
-          "path": "{{targets.gemini.mcp}}",
-          "json": {
-            "mcpServers": {
-              "{{mcp.serverName}}": {
-                "command": "{{mcp.command}}",
-                "args": [
-                  "{{pluginRootVar}}{{layout.mcpServerScript}}"
-                ]
-              }
             }
           }
         }
@@ -284,7 +220,6 @@
             "license": "{{identity.license}}",
             "keywords": "{{identity.keywords}}",
             "skills": "{{layout.skillsDir}}",
-            "mcpServers": "./.opencode-plugin/mcp.json",
             "interface": {
               "displayName": "{{interface.displayName}}",
               "shortDescription": "{{descriptions.short}}",
@@ -294,19 +229,6 @@
               "capabilities": "{{interface.capabilities}}",
               "brandColor": "{{interface.brandColor}}",
               "defaultPrompt": "{{interface.defaultPrompt}}"
-            }
-          }
-        },
-        {
-          "path": "{{targets.opencode.mcp}}",
-          "json": {
-            "mcpServers": {
-              "{{mcp.serverName}}": {
-                "command": "{{mcp.command}}",
-                "args": [
-                  "{{pluginRootVar}}{{layout.mcpServerScript}}"
-                ]
-              }
             }
           }
         }

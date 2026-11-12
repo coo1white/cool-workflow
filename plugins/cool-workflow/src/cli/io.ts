@@ -1,15 +1,4 @@
-// cli/io.ts — shared CLI input/output helpers.
-//
-// Pure + zero-dep JSON stdout, plus one impure TTY-aware help formatter.
-// See SPEC/cli-surface.md "Shared io helpers". Arg-coercion helpers
-// (`required`/`optionalArg`/`wantsJson`) live in core/util/cli-args.ts —
-// wiring/capability-table/*.ts needs them directly, and a cli/-layer file
-// may not be imported by wiring/ (scripts/purity-gate.mjs's layer rule).
-//
-// `styledHelp` is the one place `formatHelp()`'s plain text gets its
-// "Cool Workflow" header bolded, TTY/env-gated via shell/term.ts's
-// `bold()`. Kept here (not in core/format/help.ts, which stays a pure text
-// generator) since it needs shell/term.ts's env/TTY read.
+// cli/io.ts — help with a bold header, and JSON to stdout.
 
 import { formatHelp } from "../core/format/help.js";
 import { safeJsonStringify } from "../core/format/safe-json.js";

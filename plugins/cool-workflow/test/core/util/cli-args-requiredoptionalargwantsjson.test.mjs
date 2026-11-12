@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // cliargs-requiredoptionalargwantsjson — pins required/optionalArg/wantsJson,
-// the shared CLI argv / MCP tool-call arg-coercion helpers moved out of
+// the shared CLI argv arg-coercion helpers moved out of
 // cli/io.ts into core/util/cli-args.ts (architecture-review P2, closing a
 // wiring/-imports-cli/ purity-gate layer violation). Moved verbatim; this
 // file is the split-off half of the old cli-io-smoke.mjs coverage for these

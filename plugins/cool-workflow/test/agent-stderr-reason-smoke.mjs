@@ -52,7 +52,7 @@ function repo(name) {
 function run(dir, agent, extra = []) {
   const env = { ...process.env, CW_AGENT_COMMAND: `node ${agent} {{input}} {{result}}`, CW_NO_AUTO_AGENT: "1", CW_NO_OPEN: "1" };
   for (const key of ["CW_AGENT_ENDPOINT", "CW_AGENT_STREAM", "CW_DRIVE_PROGRESS"]) delete env[key];
-  const child = spawnSync(process.execPath, [cwBin, "-q", "How does routing work?", "--fast", "--json", ...extra], { cwd: dir, env, encoding: "utf8", timeout: 120000 });
+  const child = spawnSync(process.execPath, [cwBin, "-q", "How does routing work?", "--json", ...extra], { cwd: dir, env, encoding: "utf8", timeout: 120000 });
   // Every run here parks: a stopped run exits 2 (0.4.3), with its JSON on stdout.
   assert.equal(child.status, 2, `cw -q exits 2 on a parked run (stderr: ${child.stderr})`);
   return { child, result: JSON.parse(child.stdout) };
@@ -67,12 +67,12 @@ function logs(result) {
 }
 
 try {
-  // 1. Concurrent (batch) path: the default --fast Map round.
+  // 1. Concurrent (batch) path: the default Map + Assess round.
   {
     const { child, result } = run(repo("batch"), failing);
     assert.equal(result.status, "parked");
     const park = result.steps.filter((step) => step.status === "parked").pop();
-    assert.match(park.reason, /^agent hop failed: map:[a-z-]+: failed \(exit 3\) \(attempt 3\/3\)$/, "the recorded reason keeps its bytes");
+    assert.match(park.reason, /^agent hop failed: (?:map|assess):[a-z-]+: failed \(exit 3\) \(attempt 3\/3\)$/, "the recorded reason keeps its bytes");
     assert.ok(!child.stdout.includes("marker-5c1"), "the --json payload does not carry the stderr text");
     const shown = result.hint.match(/^a worker failed and stopped after its retries\. What the agent said is in (\S+) — fix the cause, then run: cw --resume --run (\S+)$/);
     assert.ok(shown, `the hint names the log: ${result.hint}`);
@@ -109,9 +109,9 @@ try {
     const { result } = run(repo("summary"), failing);
     const text = formatQuickstartHuman(result).replace(/\x1b\[[0-9;]*m/g, "");
     const lines = text.split("\n");
-    assert.match(text, /\n {2}Why: agent hop failed: map:[a-z-]+: failed \(exit 3\) \(attempt 3\/3\)\n {7}ENOTFOUND api\.example\.test marker-5c1 toke\*\*\*\[REDACTED\]\n {7}All of it: \S+agent-stderr\.log\n/, "Why: names the reason, the agent's last line, then the log");
+    assert.match(text, /\n {2}Why: agent hop failed: (?:map|assess):[a-z-]+: failed \(exit 3\) \(attempt 3\/3\)\n {7}ENOTFOUND api\.example\.test marker-5c1 toke\*\*\*\[REDACTED\]\n {7}All of it: \S+agent-stderr\.log\n/, "Why: names the reason, the agent's last line, then the log");
     assert.equal(lines[lines.length - 1], `  Next: cw --resume --run ${result.runId}`, "the last line is the one resume command");
-    assert.equal(lines[1], "  ! Status: parked — 0/6 workers", "the run-wide count says it counts workers, not a phase");
+    assert.equal(lines[1], "  ! Status: parked — 0/14 workers", "the run-wide count says it counts workers, not a phase");
     assert.ok(!text.includes("Try: cw report --show"), "one Next, not a second Try");
     console.log("agent-stderr: parked terminal summary shows Why and Next OK");
   }

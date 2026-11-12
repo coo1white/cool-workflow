@@ -1,19 +1,15 @@
-// shell/commands/report-cli.ts — CLI/MCP-reachable bodies for `cw report bundle`
-// and `cw report verify-bundle`.
-//
-// Evidence: SPEC/ledger-trust.md "CLI: `cw report verify-bundle` and `cw
-// report bundle`".
+// shell/commands/report-cli.ts — `cw report bundle` and `cw report verify-bundle`.
 import * as path from "node:path";
 import { cwdArg, optionalArg } from "../../core/util/cli-args.js";
 import { exportRun, verifyReportBundle } from "../run-export.js";
-import { loadRunFromCwd } from "../run-store.js";
+import { loadRun } from "../run-store.js";
 import { bold, doctorGlyph } from "../term.js";
 const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
 export function reportBundleCli(runId, args) {
     if (!runId)
         throw new Error("report bundle requires a run id (cw report bundle <run-id>)");
     const base = cwdArg(args);
-    const run = loadRunFromCwd(runId, base);
+    const run = loadRun(runId, base);
     const output = optionalArg(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
     const outputPath = path.resolve(base, output);
     if (SYSTEM_DIRS.test(outputPath)) {
@@ -65,7 +61,6 @@ export function formatReportVerifyBundle(r) {
     const checks = [
         [r.archiveOk, "archive intact — file digests match, no tamper"],
         [r.telemetryVerified, "telemetry hash chain verifies"],
-        [r.trustAuditVerified, "trust-audit chain verifies"],
         [r.reportFindingsVerified, "report.md matches every signed result"],
     ];
     for (const [ok, label] of checks)
@@ -93,7 +88,7 @@ export function formatReportVerifyBundle(r) {
     return lines.join("\n");
 }
 /** `cw report bundle` on a TTY: the check, then where the file went and how
- *  to put it elsewhere. A pipe keeps the JSON (cli/dispatch.ts). */
+ *  to put it elsewhere. A pipe keeps the JSON. */
 export function formatReportBundle(json) {
     const r = json;
     const rel = path.relative(process.cwd(), r.archivePath);

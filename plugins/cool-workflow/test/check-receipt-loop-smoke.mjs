@@ -85,7 +85,7 @@ function stubCiting(evidence) {
   ].join("\n"));
   return `${process.execPath} ${file} {{result}}`;
 }
-const drive = (evidence) => cw(["-q", "do the tests pass?", "--fast", "-dir", repo, "--agent-command", stubCiting(evidence), "--json"], { cwd: work, env });
+const drive = (evidence) => cw(["-q", "do the tests pass?", "-dir", repo, "--agent-command", stubCiting(evidence), "--json"], { cwd: work, env });
 function runStateText(out) {
   const runDir = path.join(repo, ".cw", "runs", out.runId);
   return fs.readFileSync(path.join(runDir, "state.json"), "utf8");

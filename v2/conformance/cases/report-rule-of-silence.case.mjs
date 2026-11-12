@@ -11,7 +11,7 @@ import { run, gitRepo, caseMain, assert, stubAgentEnv } from "../lib.mjs";
 caseMain(() => {
   // --- plain piped run: stderr is empty, stdout has no ANSI ---
   const repo1 = gitRepo({ "a.txt": "hello\n" });
-  const plain = run(["run", "end-to-end-golden-path", "--drive", "--question", "q", "--repo", repo1], {
+  const plain = run(["-q", "q", "--repo", repo1], {
     env: stubAgentEnv("a.txt:1"),
   });
   assert.equal(plain.status, 0);
@@ -23,7 +23,7 @@ caseMain(() => {
   // --- --json is the explicit ask for the same clean payload, same silence ---
   const repo2 = gitRepo({ "a.txt": "hello\n" });
   const asJson = run(
-    ["run", "end-to-end-golden-path", "--drive", "--question", "q", "--repo", repo2, "--json"],
+    ["-q", "q", "--repo", repo2, "--json"],
     { env: stubAgentEnv("a.txt:1") }
   );
   assert.equal(asJson.stderr, "");
@@ -33,7 +33,7 @@ caseMain(() => {
   // A script that still passes it gets the same run: silent stderr off a
   // TTY, clean stdout, and no inline report.
   const repo3 = gitRepo({ "a.txt": "hello\n" });
-  const full = run(["run", "end-to-end-golden-path", "--drive", "--question", "q", "--repo", repo3, "--full"], {
+  const full = run(["-q", "q", "--repo", repo3, "--full"], {
     env: stubAgentEnv("a.txt:1"),
   });
   assert.equal(full.status, 0);
@@ -45,7 +45,7 @@ caseMain(() => {
   // This is the intentional contrast case: chrome shows up, but only on
   // stderr, with the fixed "[drive] " prefix, and stdout is unaffected.
   const repo4 = gitRepo({ "a.txt": "hello\n" });
-  const forced = run(["run", "end-to-end-golden-path", "--drive", "--question", "q", "--repo", repo4], {
+  const forced = run(["-q", "q", "--repo", repo4], {
     env: Object.assign({}, stubAgentEnv("a.txt:1"), { CW_DRIVE_PROGRESS: "1" }),
   });
   assert.equal(forced.status, 0);
@@ -59,7 +59,7 @@ caseMain(() => {
   // --- CW_DRIVE_PROGRESS=0 is the explicit off switch (redundant off a
   // TTY-less spawn, but must not error and must stay silent) ---
   const repo5 = gitRepo({ "a.txt": "hello\n" });
-  const suppressed = run(["run", "end-to-end-golden-path", "--drive", "--question", "q", "--repo", repo5], {
+  const suppressed = run(["-q", "q", "--repo", repo5], {
     env: Object.assign({}, stubAgentEnv("a.txt:1"), { CW_DRIVE_PROGRESS: "0" }),
   });
   assert.equal(suppressed.stderr, "");
@@ -70,7 +70,7 @@ caseMain(() => {
   // after argv parsing but before the drive spawns. ---
   const repo6 = gitRepo({ "a.txt": "hello\n" });
   const quiet = run(
-    ["run", "end-to-end-golden-path", "--drive", "--question", "q", "--repo", repo6, "--quiet"],
+    ["-q", "q", "--repo", repo6, "--quiet"],
     { env: Object.assign({}, stubAgentEnv("a.txt:1"), { CW_DRIVE_PROGRESS: "1" }) }
   );
   assert.equal(quiet.status, 0);

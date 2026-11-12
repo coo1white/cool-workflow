@@ -11,8 +11,8 @@
 // underlying spawn then fails fast (ENOENT) — proving the flag rewired
 // the option without needing the vendor CLI to be installed or reachable.
 //
-// Uses the 1-worker end-to-end-golden-path app to stay fast: a single
-// task blocks/parks instead of running architecture-review's 14 workers.
+// A drive that cannot finish stops with exit 2 and a JSON report (batch 5,
+// 2026-11-12: `cw -q` is the one drive entry; the step verbs are gone).
 
 import { run, gitRepo, caseMain, assert } from "../lib.mjs";
 
@@ -25,11 +25,11 @@ caseMain(() => {
 
   // No agent backend at all: fails closed. Status "blocked",
   // agentConfigured:false, and a hint naming CW_AGENT_COMMAND/--agent-command.
-  const noAgent = run(["run", "end-to-end-golden-path", "--drive", "--question", "hi", "--json"], {
+  const noAgent = run(["-q", "hi", "--json"], {
     cwd: repo,
     env: NARROW_PATH,
   });
-  assert.equal(noAgent.status, 0);
+  assert.equal(noAgent.status, 2);
   const noAgentPayload = JSON.parse(noAgent.stdout);
   assert.equal(noAgentPayload.agentConfigured, false);
   assert.equal(noAgentPayload.status, "blocked");
@@ -43,12 +43,12 @@ caseMain(() => {
   // — proven because agentConfigured flips to true, and a run id is still
   // minted (never fabricated as complete), even though the mapped command
   // then fails to spawn under the narrowed PATH.
-  for (const flag of ["-claude", "-codex", "-gemini", "-deepseek"]) {
-    const r = run(["run", "end-to-end-golden-path", flag, "--drive", "--question", "hi", "--json"], {
+  for (const flag of ["-claude", "-codex", "-gemini", "-opencode", "-deepseek", "-muse", "-copilot", "-antigravity", "-grok"]) {
+    const r = run(["-q", "hi", flag, "--json"], {
       cwd: repo,
       env: NARROW_PATH,
     });
-    assert.equal(r.status, 0, `${flag}: exit 0 (a failed drive is still a valid JSON report, not a crash)`);
+    assert.equal(r.status, 2, `${flag}: exit 2 (a stopped drive is still a valid JSON report, not a crash)`);
     const payload = JSON.parse(r.stdout);
     assert.equal(payload.agentConfigured, true, `${flag} must set agentConfigured:true`);
     assert.notEqual(payload.status, "complete", `${flag}: the mapped command cannot actually run under a narrow PATH`);
@@ -58,10 +58,10 @@ caseMain(() => {
   // -a / --agent-command short alias: passing an explicit (bogus) command
   // template directly also flips agentConfigured to true, the same way.
   const explicit = run(
-    ["run", "end-to-end-golden-path", "-a", "node /no/such/agent.js {{input}} {{result}}", "--drive", "--question", "hi", "--json"],
+    ["-q", "hi", "-a", "node /no/such/agent.js {{input}} {{result}}", "--json"],
     { cwd: repo, env: NARROW_PATH }
   );
-  assert.equal(explicit.status, 0);
+  assert.equal(explicit.status, 2);
   const explicitPayload = JSON.parse(explicit.stdout);
   assert.equal(explicitPayload.agentConfigured, true);
 });

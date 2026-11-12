@@ -3,12 +3,11 @@
 // proxy, TLS trust, and CLAUDE_* vars, so a vendor CLI behind a proxy can
 // reach its API. Found live (0.3.3): `claude -p` worked in the shell, but
 // every `cw -q ... -claude` worker got "403 Request not allowed", because the
-// proxy vars were dropped. Names only go into `forwarded`; deny still wins.
+// proxy vars were dropped. Names only go into `forwarded`; a parent-only
+// CW secret (CW_NEVER_FORWARD_ENV) never reaches the child.
 
 import assert from "node:assert/strict";
 import { buildAgentChildEnv } from "../../../dist/shell/execution-backend/agent.js";
-
-const policy = (deny = []) => ({ env: { inherit: false, expose: [], deny } });
 
 const base = {
   PATH: "/usr/bin",
@@ -27,6 +26,7 @@ const base = {
   CLAUDE_CONFIG_DIR: "/home/u/.claude-alt",
   CW_RELEASE_VERDICT_PRIVKEY: "/keys/verdict.key",
   CW_WORKBENCH_TOKEN: "tok",
+  CW_CHECK_PRIVKEY: "/keys/check.key",
   SECRET_THING: "nope",
 };
 
@@ -36,7 +36,7 @@ const passed = [
 ];
 
 {
-  const { env, forwarded } = buildAgentChildEnv(policy(), base);
+  const { env, forwarded } = buildAgentChildEnv(base);
   for (const name of passed) {
     assert.equal(env[name], base[name], `${name} forwarded with its value`);
     assert.ok(forwarded.includes(name), `${name} named in forwarded`);
@@ -45,19 +45,10 @@ const passed = [
   for (const entry of forwarded) assert.ok(!entry.includes("proxy.invalid"), "no value in forwarded");
   assert.equal(env.SECRET_THING, undefined, "unrelated var not forwarded");
   assert.ok(!forwarded.includes("SECRET_THING"));
-  for (const name of ["CW_RELEASE_VERDICT_PRIVKEY", "CW_WORKBENCH_TOKEN"]) {
+  for (const name of ["CW_RELEASE_VERDICT_PRIVKEY", "CW_WORKBENCH_TOKEN", "CW_CHECK_PRIVKEY"]) {
     assert.equal(env[name], undefined, `${name} never forwarded`);
     assert.ok(!forwarded.includes(name));
   }
-}
-
-{
-  // An explicit deny still wins over the new names.
-  const { env, forwarded } = buildAgentChildEnv(policy(["HTTPS_PROXY", "CLAUDE_CONFIG_DIR"]), base);
-  assert.equal(env.HTTPS_PROXY, undefined, "denied HTTPS_PROXY stripped");
-  assert.ok(!forwarded.includes("HTTPS_PROXY"));
-  assert.equal(env.CLAUDE_CONFIG_DIR, undefined, "denied CLAUDE_CONFIG_DIR stripped");
-  assert.equal(env.https_proxy, base.https_proxy, "deny is by exact name");
 }
 
 console.log("agent-child-env-proxy: ok");

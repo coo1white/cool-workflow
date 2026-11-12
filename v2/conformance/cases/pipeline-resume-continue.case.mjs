@@ -1,80 +1,45 @@
 #!/usr/bin/env node
 
-// Resume: every drive call is a fresh CLI process reloading durable state
-// from disk (state.json + nodes/ + workers/). This proves a run can be
-// continued across process boundaries with `run --drive --once --run <id>`
-// and that `run drive <id>` / `run resume <id>` (read-only) agree with the
-// mutating drive on the run's current position, with no double-dispatch.
-//
-// A true kill-mid-agent-spawn interrupt cannot be simulated black-box (the
-// stub agent is a synchronous child that either finishes or the whole test
-// process is killed) — see skipped_surface_items.
+// Resume across processes: a run that parked (the agent kept failing) is
+// continued with `cw --resume --run <id>` once the agent is fixed. The
+// parked workers are reopened with a fresh budget (reopenedWorkers), every
+// worker is accepted, the run makes its one commit (state-0001), and the
+// output names the run it resumed (resumedFrom).
 
 import fs from "node:fs";
 import path from "node:path";
-import { run, gitRepo, stubAgentEnv, caseMain, assert } from "../lib.mjs";
+import { run, gitRepo, readJson, caseMain, assert, stubAgentEnv } from "../lib.mjs";
+
+const FAIL_AGENT = path.join(import.meta.dirname, "fixtures", "stub-agent-fail.mjs");
 
 caseMain(() => {
   const repo = gitRepo({ "a.txt": "hello\n" });
-  const env = stubAgentEnv("a.txt:1");
-
-  // Plan only (no drive yet) — a fresh process now "resumes" it.
-  const planResult = run(["plan", "end-to-end-golden-path", "--question", "prove it", "--repo", repo, "--json"], {
-    cwd: repo,
+  const first = run(["-q", "prove it", "--repo", repo, "--json"], {
+    env: { CW_AGENT_COMMAND: `node ${FAIL_AGENT} {{input}} {{result}}` },
   });
-  assert.equal(planResult.status, 0);
-  const planPayload = JSON.parse(planResult.stdout);
-  const runId = planPayload.runId;
+  assert.equal(first.status, 2);
+  const parked = JSON.parse(first.stdout);
+  assert.equal(parked.status, "parked");
 
-  // Read-only preview: next action is "dispatch", nothing mutated.
-  let preview = run(["run", "drive", runId, "--json"], { cwd: repo, env });
-  assert.equal(preview.status, 0);
-  let previewPayload = JSON.parse(preview.stdout);
-  assert.equal(previewPayload.nextAction, "dispatch");
-  assert.equal(previewPayload.pendingWorkers, 1);
-  assert.equal(previewPayload.completedWorkers, 0);
+  const resumed = run(["--resume", "--run", parked.runId, "--json"], { cwd: repo, env: stubAgentEnv("a.txt:1") });
+  assert.equal(resumed.status, 0, resumed.stderr);
+  const done = JSON.parse(resumed.stdout);
+  assert.equal(done.runId, parked.runId);
+  assert.equal(done.resumedFrom, parked.runId);
+  assert.equal(done.status, "complete");
+  assert.equal(done.completedWorkers, done.plannedWorkers);
+  assert.equal(done.parkedWorkers, 0);
+  assert.equal(done.commitId, "state-0001");
+  assert.deepEqual([...done.reopenedWorkers].sort(), parked.steps.filter((s) => s.action === "park").map((s) => s.taskId).sort());
 
-  // Read-only resume payload agrees, and lists the next task.
-  let resume = run(["run", "resume", runId, "--json"], { cwd: repo, env });
-  assert.equal(resume.status, 0);
-  let resumePayload = JSON.parse(resume.stdout);
-  assert.equal(resumePayload.runId, runId);
-  assert.equal(resumePayload.nextTasks.length, 1);
-  assert.equal(resumePayload.nextTasks[0].id, "golden:path");
-  assert.equal(resumePayload.nextTasks[0].status, "pending");
+  const state = readJson(done.statePath);
+  assert.ok(state.tasks.every((t) => t.status === "completed"));
+  assert.equal(state.commits.length, 1);
+  assert.ok(fs.existsSync(path.join(path.dirname(done.statePath), "commits", "state-0001.json")));
 
-  // Neither preview call dispatched anything.
-  const runDir = path.dirname(planPayload.statePath);
-  assert.deepEqual(fs.readdirSync(path.join(runDir, "dispatches")).length, 0);
-
-  // Now actually drive one step from a NEW process (simulating a resumed
-  // operator session): dispatch happens, task moves to running.
-  let step = run(["run", "--drive", "--once", "--run", runId, "--json"], { cwd: repo, env });
-  assert.equal(step.status, 0);
-  let stepPayload = JSON.parse(step.stdout);
-  assert.equal(stepPayload.status, "in-progress");
-  assert.equal(fs.readdirSync(path.join(runDir, "dispatches")).length, 1);
-
-  // Continue to completion from yet another process using --run.
-  let done = run(["run", "--drive", "--run", runId, "--json"], { cwd: repo, env });
-  assert.equal(done.status, 0);
-  let donePayload = JSON.parse(done.stdout);
-  assert.equal(donePayload.status, "complete");
-  assert.equal(donePayload.completedWorkers, 1);
-
-  // resume --drive (mutating twin) on the now-complete run reports the SAME
-  // run id and a drive field, with the terminal commit already in place —
-  // re-invoking is idempotent (a later drive step just reports "complete").
-  let resumeDrive = run(["run", "resume", runId, "--drive", "--once", "--json"], { cwd: repo, env });
-  assert.equal(resumeDrive.status, 0);
-  let resumeDrivePayload = JSON.parse(resumeDrive.stdout);
-  assert.equal(resumeDrivePayload.runId, runId);
-  assert.ok(resumeDrivePayload.drive, "resume --drive must add a drive field");
-  assert.equal(resumeDrivePayload.drive.status, "complete");
-
-  // Only ONE worker and ONE dispatch ever existed across the whole resume
-  // sequence — no duplicate dispatch from re-resolving the run repeatedly.
-  assert.equal(fs.readdirSync(path.join(runDir, "dispatches")).length, 1);
-  const workerDirs = fs.readdirSync(path.join(runDir, "workers")).filter((f) => f.startsWith("worker-"));
-  assert.equal(workerDirs.length, 1);
+  // Resuming a finished run is a no-op that still exits 0 and makes no
+  // second commit.
+  const again = run(["--resume", "--run", parked.runId, "--json"], { cwd: repo, env: stubAgentEnv("a.txt:1") });
+  assert.equal(again.status, 0);
+  assert.equal(readJson(done.statePath).commits.length, 1);
 });

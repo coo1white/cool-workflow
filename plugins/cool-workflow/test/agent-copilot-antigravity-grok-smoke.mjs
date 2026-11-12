@@ -174,7 +174,7 @@ console.log("doctor: builtin:<name> probes <cli> --version OK");
   const dir = shimDir("grok");
   const env = { ...process.env, PATH: `${dir}${path.delimiter}${process.env.PATH}`, CW_NO_AUTO_AGENT: "1", CW_NO_OPEN: "1", CW_HOME: path.join(repo, ".home") };
   for (const key of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_AGENT_STREAM", "CW_DRIVE_PROGRESS", "CW_GROK_MODEL"]) delete env[key];
-  const r = spawnSync(process.execPath, [cli, "-q", "How does routing work?", "--fast", "--json", "-grok"], { cwd: repo, env, encoding: "utf8", timeout: 120000 });
+  const r = spawnSync(process.execPath, [cli, "-q", "How does routing work?", "--json", "-grok"], { cwd: repo, env, encoding: "utf8", timeout: 120000 });
   assert.equal(r.status, 0, `cw -q -grok exits 0 (stderr: ${r.stderr})`);
   const result = JSON.parse(r.stdout);
   assert.equal(result.status, "complete", `the -grok run completes (got ${result.status})`);
