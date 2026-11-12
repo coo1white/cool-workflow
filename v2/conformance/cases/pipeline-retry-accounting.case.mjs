@@ -8,7 +8,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { run, gitRepo, readJson, caseMain, assert } from "../lib.mjs";
+import { run, gitRepo, readJson, caseMain, assert, seg } from "../lib.mjs";
 
 const FAIL_AGENT = path.join(import.meta.dirname, "fixtures", "stub-agent-fail.mjs");
 
@@ -26,12 +26,12 @@ caseMain(() => {
   assert.equal(task.attempts, 3);
   assert.deepEqual(task.errors.map((e) => e.code), ["agent-delegation-retry", "agent-delegation-retry", "agent-delegation-parked"]);
   assert.equal(task.errors[2].message, "agent hop failed: map:server-api: failed (exit 1) (attempt 3/3)");
-  assert.equal(task.workerId, "worker-map:server-api-0001");
+  assert.equal(task.workerId, `worker-${seg("map:server-api")}-0001`);
 
   // One worker folder per task, across all three tries.
   const workersDir = path.join(path.dirname(payload.statePath), "workers");
-  const mine = fs.readdirSync(workersDir).filter((w) => w.startsWith("worker-map:server-api-"));
-  assert.deepEqual(mine, ["worker-map:server-api-0001"]);
+  const mine = fs.readdirSync(workersDir).filter((w) => w.startsWith(`worker-${seg("map:server-api")}-`));
+  assert.deepEqual(mine, [`worker-${seg("map:server-api")}-0001`]);
   const input = fs.readFileSync(path.join(workersDir, mine[0], "input.md"), "utf8");
   assert.match(input, /## Previous Attempt\n\nCW refused the last attempt: agent hop failed: map:server-api: failed \(exit 1\)/);
   // The failing agent's stderr is kept for the person who reads the run.
