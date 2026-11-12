@@ -13,13 +13,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import { tmpDir } from "./helpers/workspace.mjs";
 
 const SCRIPTS = path.resolve(import.meta.dirname, "..", "scripts");
 const FLOW = path.join(SCRIPTS, "release-flow.mjs");
 const NOTES = path.join(SCRIPTS, "release-notes.mjs");
 assert.ok(fs.existsSync(NOTES), "scripts/release-notes.mjs must exist");
-const { titlesFromLog, pickChanges, renderWhatChanged, MAX_BULLETS } = await import(NOTES);
+const { titlesFromLog, pickChanges, renderWhatChanged, MAX_BULLETS } = await import(pathToFileURL(NOTES).href);
 
 const SLUG = { owner: "test-owner", repo: "test-repo" };
 const rec = (subject, body = "") => `${subject}\x1f${body}\x1e`;

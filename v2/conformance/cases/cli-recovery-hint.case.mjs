@@ -19,7 +19,8 @@ caseMain(() => {
   const cwd = freshDir("norun");
   const missingRun = run(["report", "no-such-run-id"], { cwd });
   assert.equal(missingRun.status, 1);
-  assert.match(missingRun.stderr, /^cw: Run not found: no-such-run-id \(no \.cw\/runs\/no-such-run-id\/state\.json under .*\)\n {2}Try: cw -q "<question>"\n$/);
+  // The path is in the host's own spelling: `\` between parts on Windows.
+  assert.match(missingRun.stderr, /^cw: Run not found: no-such-run-id \(no \.cw[\\/]runs[\\/]no-such-run-id[\\/]state\.json under .*\)\n {2}Try: cw -q "<question>"\n$/);
 
   // "not a git project" -> the -dir hint.
   const notGit = run(["-q", "what is this?"], { cwd: freshDir("notgit"), env: { CW_NO_AUTO_AGENT: "1" } });
