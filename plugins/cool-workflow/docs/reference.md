@@ -833,8 +833,20 @@ repository and succeeded. It works on that run's commit
    (`scripts/cw.js`, `scripts/agents/`, `scripts/children/`, ...),
    `package.json` and the vendor plugin manifests; test folders in them do
    not count. A change to tests, docs, CI or release tooling alone does
-   not release. The next version is the highest `vX.Y.Z` tag plus one
-   patch. The job FAILS when `package.json` on the commit is ahead of that:
+   not release. It also skips when a commit since that tag needs more
+   than a patch. CW follows Semantic Versioning, and the commit messages
+   follow [Conventional Commits](https://www.conventionalcommits.org/)
+   (a squash merge takes the PR title, so the PR title is the message):
+
+   | Commit since the last tag | Level | Who releases |
+   |---|---|---|
+   | `fix:`, `perf:`, `docs:`, `chore:`, ... | patch | this job |
+   | `feat:` | minor | the operator: `npm run release -- X.Y+1.0` |
+   | `type!:` or a `BREAKING CHANGE:` footer | major (minor while on 0.x) | the operator |
+
+   The skip line names the commit and the next cut. Patches start again
+   after the operator's release. The next version is the highest `vX.Y.Z`
+   tag plus one patch. The job FAILS when `package.json` on the commit is ahead of that:
    an operator minor or major is pending; cut it first.
 2. **Bump** (`release-auto-patch.mjs bump`): `npm run bump:version --
    X.Y.Z` on that commit, `git add -u`, one commit by

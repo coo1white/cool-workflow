@@ -4,7 +4,8 @@
 //
 //   1. scripts/release-auto-patch.mjs `plan`: releases on a shipped change;
 //      skips tests-only changes, release bookkeeping, an already-released
-//      commit and CW_AUTO_RELEASE=off; refuses a pending operator minor.
+//      commit, a breaking change since the last tag and CW_AUTO_RELEASE=off;
+//      refuses a pending operator minor.
 //   2. scripts/release-auto-patch.mjs `bump` makes a commit and tag that
 //      scripts/verify-release-verdict.mjs's automatic patch rule
 //      (checkAutoPatch) ACCEPTS with no verdict file — the case that fails on
@@ -148,6 +149,42 @@ const check = (dir, ciCheck = GREEN) => checkAutoPatch({ repoRoot: dir, ciCheck 
   const r = plan(dir, P);
   assert.equal(r.fields.release, "false", "release bookkeeping does not release");
   assert.match(r.text, /release bookkeeping/);
+}
+// Conventional Commits pick the level. A breaking change ("type!:" or a
+// "BREAKING CHANGE:" footer) or a "feat" anywhere since the last tag is not a
+// patch: the automatic patches stop until the operator cuts the next minor
+// (on 0.x and 1.x alike for a feat; here the fixture is 1.x, so a breaking
+// change names 2.0.0).
+{
+  const { dir, P } = fixture({ subject: "feat(check): a new flag" });
+  const r = plan(dir, P);
+  assert.equal(r.fields.release, "false", `a feat is a minor, not a patch:\n${r.text}`);
+  assert.match(r.text, /new feature/);
+  assert.match(r.text, /npm run release -- 1\.3\.0/);
+}
+for (const subject of ["feat(cli)!: drop the old verbs", "fix!: refuse old runs", "chore(cleanup): cut src\n\nBREAKING CHANGE: runs made by an older cw are refused"]) {
+  const { dir, P } = fixture({ subject });
+  const r = plan(dir, P);
+  assert.equal(r.code, 0, r.text);
+  assert.equal(r.fields.release, "false", `a breaking change is not a patch: ${JSON.stringify(subject)}\n${r.text}`);
+  assert.match(r.text, /breaking change/);
+  assert.match(r.text, /npm run release -- 2\.0\.0/, "names the operator's next cut (a major on 1.x)");
+}
+{
+  // ...and it keeps blocking: a later plain fix on top still does not release.
+  const { dir } = fixture({ subject: "refactor!: a breaking change" });
+  write(dir, "plugins/cool-workflow/src/x.ts", "later\n");
+  const Q = commit(dir, "fix(core): a later fix");
+  git(dir, ["update-ref", "refs/remotes/origin/main", Q]);
+  const r = plan(dir, Q);
+  assert.equal(r.fields.release, "false", `a breaking change earlier in the range still blocks:\n${r.text}`);
+  assert.match(r.text, /breaking change/);
+}
+{
+  // Words like "breaking" in prose are not the marker.
+  const { dir, P } = fixture({ subject: "fix(core): stop breaking the parser\n\nNot a BREAKING change." });
+  const r = plan(dir, P);
+  assert.equal(r.fields.release, "true", `prose is not a marker:\n${r.text}`);
 }
 {
   const { dir, P } = fixture({ pkgAtP: "1.3.0" });
