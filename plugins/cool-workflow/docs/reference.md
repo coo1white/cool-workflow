@@ -302,6 +302,30 @@ Piped, or with `--json`, it prints one JSON object: `schemaVersion`, `ok`,
   1 when the receipt cannot be cited now.
 - `list` and `show` are words of `cw check`. To run a program named
   `list`, give its path: `cw check -- ./list`.
+- `--tee` passes the command through as if CW were not there: its
+  stdout goes to stdout and its stderr to stderr as it runs, and `cw check`
+  exits with the command's own exit code (128 + the signal number when a
+  signal ended it). The one receipt line goes to stderr; no JSON is
+  printed.
+
+### Test runs in Claude Code
+
+With CW installed as a Claude Code plugin, a test run the agent starts
+gets a receipt by itself. A `PreToolUse` hook on the Bash tool
+(`scripts/auto-receipt-hook.mjs`) changes a plain test command into
+`cw check --tee -- <the same command>`, so the agent sees the same output
+and exit code, plus the receipt line.
+
+- Changed: one simple command that starts with `npm test`, `npm run
+  test…`, `pnpm`/`yarn`/`bun` `test` or `run test…`, `npx vitest`, `npx
+  jest`, `pytest`, `go test`, `cargo test` or `make test`.
+- Not changed: anything with a pipe, `&`, `;`, a redirect, `(`, a
+  backtick, `$` or a backslash; any other command; Windows; and when `cw`
+  is not on `PATH`.
+- The hook decides no permission. Claude Code checks its permission rules
+  against the changed command, so a rule for `npm test` alone no longer
+  covers it; allow `cw check --tee -- npm test` too to skip the prompt.
+- Off: set `CW_AUTO_RECEIPT=off` in the environment Claude Code runs in.
 
 ### The receipt file
 

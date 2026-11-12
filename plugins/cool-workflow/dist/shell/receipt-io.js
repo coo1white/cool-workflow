@@ -110,13 +110,13 @@ export function runCheck(argv, options) {
         const childEnv = { ...env };
         delete childEnv.CW_CHECK_PRIVKEY;
         const child = spawn(argv[0], argv.slice(1), { cwd: repo, shell: false, stdio: ["ignore", "pipe", "pipe"], env: childEnv });
-        const tee = (tap) => (chunk) => {
+        const copy = (tap, sink) => (chunk) => {
             tap.add(chunk);
-            if (options.echo)
-                process.stderr.write(chunk);
+            if (sink)
+                sink.write(chunk);
         };
-        child.stdout.on("data", tee(out));
-        child.stderr.on("data", tee(err));
+        child.stdout.on("data", copy(out, options.tee ? process.stdout : options.echo ? process.stderr : null));
+        child.stderr.on("data", copy(err, options.tee || options.echo ? process.stderr : null));
         child.on("error", (error) => {
             reject(new Error(error.code === "ENOENT" ? `command not found: ${argv[0]} (cw check runs it with no shell; give a program on PATH, for one: cw check -- npm test)` : `cannot start ${argv[0]}: ${error.message}`));
         });

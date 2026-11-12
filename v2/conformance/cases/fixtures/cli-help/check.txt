@@ -4,3 +4,6 @@ cw check
   cw check -- <command>       Run a command and keep a receipt a result can cite
   cw check list               List the receipts in this folder
   cw check show <receipt-id>  Show one receipt and whether it can be cited
+
+    Flags
+      --tee  Pass the output and exit code through; the receipt line goes to stderr
