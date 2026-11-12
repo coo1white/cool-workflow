@@ -70,6 +70,14 @@ the same as `cw <args>`.
 `cw version` prints the version. `cw help` prints the front page;
 `cw help <command>` prints one command's sub-commands and flags.
 
+### Install trouble
+
+| What you see | What to do |
+|---|---|
+| `EACCES: permission denied` | Do not use `sudo`. Put Node in your home folder with [nvm](https://github.com/nvm-sh/nvm), then install again. |
+| `cw: command not found` | Open a new terminal. Still missing? The `bin` folder under `npm prefix -g` must be on your `PATH`. |
+| `Unsupported engine` | Your Node is older than 22.13: update it. |
+
 ## Ask: `cw -q`
 
 ```text
