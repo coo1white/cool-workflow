@@ -76,8 +76,8 @@ Each backend says, for each part of the sandbox profile (reads, writes,
 commands, network, env), whether it puts it into force, only records it,
 or cannot do it — and a backend that cannot keep a needed part **fails
 closed** in place of running without it. A backend that is not configured
-is refused, never made to look done. Full rules: `cw man execution-backends`
-and `cw man real-execution-backends`.
+is refused, never made to look done. Full rules: `plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man execution-backends` was removed in batch 5)
+and `plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man real-execution-backends` was removed in batch 5).
 
 ## How A Run Goes
 
@@ -91,7 +91,7 @@ The drive loop (`cw -q`, `cw run <app> --drive`, `cw run resume <id>
 --drive`) goes round this line for you: plan, send out, take in, check,
 commit. When a step fails, it tries again, then parks the worker and stops,
 with the state saved, so `cw --resume --run <run-id>` can go on from there.
-See `cw man agent-delegation-drive`.
+See `plugins/cool-workflow/docs/reference.md`, "Agents and wrappers".
 
 ## State Layout
 

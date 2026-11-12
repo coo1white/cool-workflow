@@ -197,7 +197,8 @@ for guesses.)
   `npm i -g cool-workflow@latest`, clone the handoff repo, and verify with
   `cw ledger list --dir ledger` (fail-closed). Setup runbook:
   `plugins/cool-workflow/docs/handoff-setup.md` and
-  `plugins/cool-workflow/docs/cross-agent-ledger.7.md`.
+  `plugins/cool-workflow/docs/cross-agent-ledger.7.md` (both since removed;
+  the ledger went in batch 5, see `docs/reference.md`, "Removed surfaces").
 - (Done, kept for the record: the old "cut the v0.1.98 tag" blocker shipped
   on 2026-07-03; releases through v0.2.4 are live on npm.)
 

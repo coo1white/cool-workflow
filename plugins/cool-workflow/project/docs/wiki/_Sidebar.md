@@ -32,5 +32,5 @@
 **Source docs**
 
 - [Root README](https://github.com/coo1white/cool-workflow/blob/main/README.md)
-- [Trust Model](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/trust-model.md)
-- [Man pages](https://github.com/coo1white/cool-workflow/tree/main/plugins/cool-workflow/docs)
+- [Trust Model](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/reference.md#trust-model)
+- [Reference](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/reference.md)

@@ -31,7 +31,7 @@
 //
 // The next version is the highest vX.Y.Z tag plus one patch, never main's
 // package.json: main lags behind the tags, since bump commits live only on
-// tags (release-tooling(7), "Automatic patch releases").
+// tags (docs/reference.md, "Automatic patch releases").
 
 import fs from "node:fs";
 import path from "node:path";
@@ -180,7 +180,7 @@ function bump() {
   if (detach.code !== 0) refuse(`git checkout --detach ${sha} failed: ${detach.err}`);
 
   // A stale tsc incremental cache keeps dist/core/version.js at the old
-  // version (release-tooling(7), "Version surfaces"). The reproduction always
+  // version (docs/reference.md, "Version surfaces"). The reproduction always
   // builds in a fresh worktree, so build from a clean cache here too.
   fs.rmSync(path.join(pluginRoot, ".cache"), { recursive: true, force: true });
   const b = spawnSync("npm", ["run", "bump:version", "--", version], { cwd: pluginRoot, stdio: "inherit" });

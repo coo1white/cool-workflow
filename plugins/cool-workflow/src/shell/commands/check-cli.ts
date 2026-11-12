@@ -1,4 +1,4 @@
-// shell/commands/check-cli.ts — `cw check -- <command>`, `check list`, `check show <id>` (docs/verifier-gated-commit.7.md, DONE RECEIPTS).
+// shell/commands/check-cli.ts — `cw check -- <command>`, `check list`, `check show <id>` (docs/reference.md, "Check: cw check").
 
 import * as path from "node:path";
 import type { CommandResult } from "../../core/command.js";

@@ -218,8 +218,8 @@ function gateTestsLines(gateTests) {
 // The reviewer run below is the one live vendor call a cut needs, and the
 // reviewer is whatever agent the operator configures (any vendor): if it is
 // not live, the review fails and the cut stops (fail closed). Every other
-// vendor has a wrapper + offline smoke only (agent-delegation-drive(7)
-// "Support tiers"), so a release never waits on their keys or tokens. An operator who wants live numbers
+// vendor has a wrapper + offline smoke only (docs/reference.md, "Agents
+// and wrappers"), so a release never waits on their keys or tokens. An operator who wants live numbers
 // names them in CW_PREFLIGHT_VENDORS; a failure there is a warning on
 // stderr, not a stop. CW_SKIP_VENDOR_PREFLIGHT=1 still skips it. Test seam
 // CW_RELEASE_FLOW_PREFLIGHT_CMD overrides the command (smoke stubs it).

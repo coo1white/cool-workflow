@@ -25,7 +25,8 @@ rule and its reason. When a new lesson is learned, add it here.
 - **A hand-made release.** Never `git tag` by hand; never hand-write a
   verdict file; the operator runs `npm run release -- X.Y.Z`. Why: only
   the gated flow (gate, independent review, signed verdict) may put a
-  tag on npm. Runbook: `plugins/cool-workflow/docs/release-tooling.7.md`.
+  tag on npm. Runbook: "Release (operator runbook)" in
+  `plugins/cool-workflow/docs/reference.md`.
 - **A read-only or low-effort release review.** The independent reviewer
   must run EXECUTE-capable; never trust a read-only/low-effort verdict.
   Why: a reviewer that cannot run the gate it judges makes up a REJECTED
@@ -126,15 +127,15 @@ rule and its reason. When a new lesson is learned, add it here.
   arm's-length relationship that is now structural (a directory boundary),
   not just a convention. Do not move it without re-litigating this
   tradeoff.
-- **A behavior change with no man-page change.** Man-page sync is
-  binding: a shipped behavior change must update the matching
-  `docs/*.7.md` in the same diff, or the reviewer rejects it.
+- **A behavior change with no doc change.** Doc sync is binding: a
+  shipped behavior change must update `docs/reference.md` in the same
+  diff, or the reviewer rejects it.
 - **Deleting an "unreferenced" file on a grep alone.** A reference grep
   does not find every pin: a file can be pinned by CONTENT (a test doing
-  `readFileSync` + assert on it) or by a runtime path convention
-  (`cw man <topic>` serves `docs/<topic>.7.md`). Before deleting
-  "unreferenced" files, run the FULL suite against the committed head;
-  that is the real net.
+  `readFileSync` + assert on it) or by a script that builds the path
+  (`bump:version` and `version:sync` read `docs/reference.md`). Before
+  deleting "unreferenced" files, run the FULL suite against the committed
+  head; that is the real net.
 
 ### Multi-agent work
 

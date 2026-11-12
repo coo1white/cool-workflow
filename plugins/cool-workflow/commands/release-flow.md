@@ -53,5 +53,5 @@ operator in their own shell:
 node plugins/cool-workflow/scripts/release-flow.mjs --cut --version <x.y.z> --push
 ```
 
-See `docs/release-tooling.7.md` for the per-platform `CW_AGENT_COMMAND` presets
+See `docs/reference.md`, "The gate and the review", for the per-platform `CW_AGENT_COMMAND` presets
 (Codex / Gemini / OpenCode / DeepSeek).

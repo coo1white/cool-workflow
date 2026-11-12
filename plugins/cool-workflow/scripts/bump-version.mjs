@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // One-shot version bump across every STRUCTURED surface, then gate or auto-fix
-// the CONTENT surfaces (the docs/*.7.md man pages) that must mention the
-// new version for version-sync-check to pass.
+// the CONTENT surface (the version footer of docs/reference.md) that must
+// mention the new version for version-sync-check to pass.
 //
 //   node scripts/bump-version.mjs <new-version>           # gate (fail if content missing)
 //   node scripts/bump-version.mjs <new-version> --content # auto-append version placeholders
@@ -171,10 +171,10 @@ function main() {
 
 // ---- Content-surface handling (v0.1.52) -----------------------------------
 
-// The man-page footer line a release needs: the version itself for a minor
+// The reference's footer line a release needs: the version itself for a minor
 // or major (X.Y.0), and that same X.Y.0 line for a patch. Patches ship
-// automatically on green main (release-auto-patch.mjs) and add no man-page
-// lines; version-sync-check.mjs asks for the same line (manPageVersionLine).
+// automatically on green main (release-auto-patch.mjs) and add no footer
+// lines; version-sync-check.mjs asks for the same line (MAN_PAGE_LINE).
 function contentNeedle(next) {
   const [major, minor, patch] = next.split(".");
   return patch === "0" ? next : `${major}.${minor}.0`;
@@ -189,10 +189,9 @@ function contentSurfaceFiles(next) {
     // README.md by scripts/sync-readme.mjs and shows the version via the live npm/release shields
     // badges, not a hand-maintained literal — so it is NOT a version-bump surface. After a bump,
     // `npm run sync:readme` keeps it byte-identical to the GitHub README (guarded by readme:check).
-    { path: "plugins/cool-workflow/docs/release-tooling.7.md",               needle: line, desc: "release tooling doc" },
-    { path: "plugins/cool-workflow/docs/agent-delegation-drive.7.md",        needle: line, desc: "agent delegation doc" },
-    { path: "plugins/cool-workflow/docs/durable-state-and-locking.7.md",     needle: line, desc: "durable state doc" },
-    { path: "plugins/cool-workflow/docs/release-and-migration.7.md",         needle: line, desc: "release & migration doc" },
+    // The man pages were merged into docs/reference.md (2026-11-12); its
+    // last section is the version footer this line goes in.
+    { path: "plugins/cool-workflow/docs/reference.md",                       needle: line, desc: "reference version footer" },
   ];
 }
 
@@ -211,7 +210,7 @@ function handleContentSurfaces(current, next) {
     // the real version-history line actually being present. See
     // version-sync-check.mjs's checkIncludesOwnLine for the matching CI-side
     // gate (found live: v0.2.4's bump masked a real missing footer line in
-    // release-tooling.7.md this way).
+    // the release-tooling man page, now docs/reference.md, this way).
     const hasOwnLine = text.split("\n").some((line) => line.trim() === needle);
     if (!hasOwnLine) missing.push({ rel, needle });
   }

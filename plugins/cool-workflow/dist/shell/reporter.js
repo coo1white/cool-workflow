@@ -35,7 +35,7 @@ export const reporter = createReporter(process.stderr);
 export function formatQuickstartSummary(f, opened) {
     const out = process.stdout;
     // "workers": this is the whole run's count, so it does not read as the
-    // same number as a phase line's "(done/total)" (D1 in unix-principles.md).
+    // same number as a phase line's "(done/total)" (docs/reference.md, "Live output").
     const counts = typeof f.completedWorkers === "number" && typeof f.plannedWorkers === "number" ? ` — ${f.completedWorkers}/${f.plannedWorkers} workers` : "";
     // A stopped run (blocked or parked) does not get a finished run's green mark.
     const stopped = f.status === "parked" || f.status === "blocked";
@@ -55,7 +55,7 @@ export function formatQuickstartSummary(f, opened) {
         }
         if (stopped) {
             // A stop with an agent set: say why, and name the one command that
-            // goes on from here (D2 in docs/unix-principles.md).
+            // goes on from here (docs/reference.md, "Output rules").
             const why = (f.why || []).filter((line) => line.trim());
             why.forEach((line, index) => lines.push(`  ${index === 0 ? `${dim("Why:", out)} ` : "     "}${line}`));
             lines.push(opened ? openedLine : `  ${tryHint("cw report --open", out)}`);

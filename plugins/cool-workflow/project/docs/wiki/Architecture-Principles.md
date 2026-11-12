@@ -76,7 +76,7 @@ CW checks and records the sandbox profile, and refuses output that breaks
 it. Stopping the agent process itself (files, network, other processes) is
 the agent host's work — or, from 0.3.3, the job of Anthropic's sandbox
 runtime `srt`, which CW can run each agent inside when you set
-`CW_AGENT_SANDBOX=srt`. See `cw man sandbox-profiles`.
+`CW_AGENT_SANDBOX=srt`. See `plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man sandbox-profiles` was removed in batch 5).
 
 ## 5. Verifier-gated commits
 
@@ -107,7 +107,7 @@ make up a success, and it does not quietly go around the problem:
 
 CW gives the work to an outside agent, so the line between CW and the agent
 has hard rules (the agent contract has the name `cw-agent/1`; see
-`cw man agent-delegation-drive`):
+`plugins/cool-workflow/docs/reference.md`, "Agents and wrappers"):
 
 - **Output schema.** A task may give a JSON `schema` for its result. CW
   checks the result against it with a small checker that has no

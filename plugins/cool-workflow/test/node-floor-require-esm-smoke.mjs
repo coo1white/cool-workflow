@@ -106,7 +106,7 @@ for (const root of [checkout, installed]) {
 //     not a plain `exports` object, and writes nothing to stderr;
 //   - putting a new value on an export throws a TypeError in strict code and
 //     is a no-op in sloppy code, so the export keeps its value
-//     (docs/release-and-migration.7.md, "Module Form").
+//     (dist/ has been ES modules since 0.3.2).
 // Against a CommonJS dist/ (e.g. v0.3.1's) require() gives a plain object
 // ("[object Object]"), the strict assignment does not throw, and the new
 // value takes, so each assert below fails.

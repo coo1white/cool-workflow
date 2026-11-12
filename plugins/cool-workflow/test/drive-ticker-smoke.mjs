@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // drive-ticker-smoke — the sign of life while a round waits on its agents
-// (D1 in docs/unix-principles.md §8: a new line at least every 10 s).
+// (docs/reference.md, "Output rules": a new line at least every 10 s).
 //
 // With [drive] progress on, a round that waits on a slow agent prints
 // `[drive]   … <Phase> still working — <n>s` to stderr at each tick

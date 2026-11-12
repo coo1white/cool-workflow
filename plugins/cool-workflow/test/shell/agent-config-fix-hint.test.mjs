@@ -4,7 +4,7 @@
 // The fault this guards (first-run walkthrough, 2026-11-03): `cw doctor`,
 // `cw quickstart --check` and the `cw -q` hint told a new user to pass
 // --agent-command "claude -p", but a bare "claude -p" never completes a
-// worker (docs/agent-delegation-drive.7.md). Now all of them give the one
+// worker (docs/reference.md, "Agents and wrappers"). Now all of them give the one
 // AGENT_FIX text, which names -claude / builtin:claude, the README's form.
 
 import assert from "node:assert/strict";

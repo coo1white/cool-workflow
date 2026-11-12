@@ -151,7 +151,7 @@ These steps are the whole tool: CW does nothing else.
 
 ## Can You Trust the Report?
 
-CW does not run the model — it keeps the books. Your agent signs its findings (**ed25519**), and `cw report verify-bundle` checks — offline, with only the public key — that every signed finding is in the report unaltered. CW holds no private key: the agent signs, CW only verifies. This proves the signed findings reached you unaltered — not that nothing else was added, and not that none were left out. See the **[Trust Model](plugins/cool-workflow/docs/trust-model.md)**.
+CW does not run the model — it keeps the books. Your agent signs its findings (**ed25519**), and `cw report verify-bundle` checks — offline, with only the public key — that every signed finding is in the report unaltered. CW holds no private key: the agent signs, CW only verifies. This proves the signed findings reached you unaltered — not that nothing else was added, and not that none were left out. See the **[Trust Model](plugins/cool-workflow/docs/reference.md#trust-model)**.
 
 ## Troubleshooting
 

@@ -40,7 +40,7 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
 // A same-version re-run with a MISSING content surface must FAIL (gate mode).
 // Fixture: a minimal <root>/plugins/cool-workflow layout (bump-version resolves
 // repoRoot from its own __dirname) whose package.json is already at the target
-// version but whose durable-state-and-locking.7.md lacks any mention of it. The
+// version but whose docs/reference.md lacks any mention of it. The
 // pre-fix code early-exited 0 here without ever looking at content surfaces.
 {
   const root = tmpDir("cw-bump-gate-");
@@ -54,15 +54,15 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
     path.join(fixPlugin, "scripts", "canonical-apps-list.mjs")
   );
   fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify({ name: "x", version: "9.9.0", scripts: {} }, null, 2)}\n`);
-  const surfacePath = path.join(fixPlugin, "docs", "durable-state-and-locking.7.md");
-  fs.writeFileSync(surfacePath, "# Durable State & Locking\n\nno version mention here\n");
+  const surfacePath = path.join(fixPlugin, "docs", "reference.md");
+  fs.writeFileSync(surfacePath, "# Cool Workflow Reference\n\nno version mention here\n");
 
   const gate = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.mjs"), "9.9.0"], {
     cwd: fixPlugin,
     encoding: "utf8"
   });
   assert.notEqual(gate.status, 0, "same-version re-run must still FAIL the content gate when a surface is missing (pre-fix: silent exit 0)");
-  assert.match(`${gate.stdout}${gate.stderr}`, /durable-state-and-locking\.7\.md/, "the failure must name the missing surface");
+  assert.match(`${gate.stdout}${gate.stderr}`, /docs\/reference\.md/, "the failure must name the missing surface");
 
   // And --content on the same-version re-run must actually FILL the missing
   // surface — the exact v0.2.3 incident: `bump:version -- 0.2.3 --content`
@@ -83,15 +83,15 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
     "--content on a same-version re-run must append the version to the missing surface (pre-fix: it never did)"
   );
 
-  // A patch needs no man-page line of its own: its footer line is the
+  // A patch needs no footer line of its own: its footer line is the
   // minor's X.Y.0 (patches ship automatically and add no --content lines,
-  // release-tooling(7), "Automatic patch releases"). Gate mode at 9.9.1
+  // docs/reference.md, "Automatic patch releases"). Gate mode at 9.9.1
   // passes on the 9.9.0 line just added, and appends nothing.
   pkg.version = "9.9.1";
   fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify(pkg, null, 2)}\n`);
   // Every content surface the gate named above, each with the 9.9.0 line.
-  const surfaces = [...new Set(`${gate.stdout}${gate.stderr}`.match(/plugins\/cool-workflow\/docs\/[\w.-]+\.7\.md/g))];
-  assert.ok(surfaces.length > 1, "the gate lists the content surfaces");
+  const surfaces = [...new Set(`${gate.stdout}${gate.stderr}`.match(/plugins\/cool-workflow\/docs\/[\w.-]+\.md/g))];
+  assert.ok(surfaces.length >= 1, "the gate lists the content surfaces");
   for (const rel of surfaces) {
     const abs = path.join(root, rel);
     if (!fs.existsSync(abs)) fs.writeFileSync(abs, "# page\n\n9.9.0\n");

@@ -98,5 +98,4 @@ separate executor that the local operator cannot rewrite.
 
 The full trust statement lives in:
 
-- `plugins/cool-workflow/docs/trust-model.md`
-- `plugins/cool-workflow/docs/security-trust-hardening.7.md`
+- `plugins/cool-workflow/docs/reference.md` ("Trust model")

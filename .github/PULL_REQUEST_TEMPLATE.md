@@ -24,5 +24,5 @@ conformance case).
 
 - [ ] `npm run build` clean and `npm test` green (run from `plugins/cool-workflow/`)
 - [ ] No new runtime dependency, no model SDK, no network call from the control plane
-- [ ] Docs updated if a documented surface moved (`docs/*.7.md` are the contract)
+- [ ] Docs updated if a documented surface moved (`docs/reference.md` is the contract)
 - [ ] No TODO/FIXME added without a linked issue

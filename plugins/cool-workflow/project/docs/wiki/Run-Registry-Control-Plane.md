@@ -120,7 +120,7 @@ Every command here is in the capability registry one time, so
 `cw_queue_list`, `cw_queue_drain`, `cw_queue_show`, and `cw_history`. See
 [MCP And Manifests](MCP-And-Manifests.md).
 
-Full rules: `cw man run-registry-control-plane`.
+Full rules: `plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man run-registry-control-plane` was removed in batch 5).
 
 ## Related Pages
 

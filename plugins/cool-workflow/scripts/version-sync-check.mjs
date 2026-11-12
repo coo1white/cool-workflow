@@ -47,8 +47,8 @@ function readReleaseSource(relativePath) {
 // Read it from the released commit so the asserted-against version is itself
 // taken from HEAD, not a half-written working copy.
 const VERSION = JSON.parse(readReleaseSource("plugins/cool-workflow/package.json").text).version;
-// The man-page footer line: VERSION for a minor or major (X.Y.0), X.Y.0 for a
-// patch. Patches ship automatically on green main and add no man-page lines;
+// The reference's footer line: VERSION for a minor or major (X.Y.0), X.Y.0
+// for a patch. Patches ship automatically on green main and add no lines;
 // bump-version.mjs's contentNeedle() appends the same line.
 const MAN_PAGE_LINE = (() => {
   const [major, minor, patch] = VERSION.split(".");
@@ -85,22 +85,17 @@ function main() {
   // badges — not a hand-maintained literal — exactly like the GitHub page. It is no longer
   // version-pinned here; readme:check guards that the two pages stay identical, and the surfaces
   // above (version.ts/dist/package.json/manifests/docs) still pin the release.
-  checkIncludes("plugins/cool-workflow/docs/index.md", "release-and-migration.7.md", checks);
-  checkIncludes("plugins/cool-workflow/docs/release-tooling.7.md", "Release Tooling", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/release-tooling.7.md", MAN_PAGE_LINE, checks);
-  checkIncludes("plugins/cool-workflow/docs/index.md", "release-tooling.7.md", checks);
+  // The man pages were merged into one reference (2026-11-12). It must keep
+  // the parts a release relies on, and end with this release's footer line.
+  const REFERENCE = "plugins/cool-workflow/docs/reference.md";
+  checkIncludes(REFERENCE, "## Release (operator runbook)", checks);
+  checkIncludes(REFERENCE, "## Removed surfaces", checks);
+  checkIncludes(REFERENCE, "npm run release:check", checks);
+  checkIncludesOwnLine(REFERENCE, MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/test/release-tooling-smoke.mjs", "release-tooling-smoke", checks);
-  checkIncludes("plugins/cool-workflow/docs/agent-delegation-drive.7.md", "Agent Delegation Drive", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/agent-delegation-drive.7.md", MAN_PAGE_LINE, checks);
-  checkIncludes("plugins/cool-workflow/docs/index.md", "agent-delegation-drive.7.md", checks);
-  checkIncludes("plugins/cool-workflow/docs/durable-state-and-locking.7.md", "Durable State & Locking", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/durable-state-and-locking.7.md", MAN_PAGE_LINE, checks);
-  checkIncludes("plugins/cool-workflow/docs/index.md", "durable-state-and-locking.7.md", checks);
   checkIncludes("plugins/cool-workflow/src/shell/fs-atomic.ts", "withFileLock", checks);
   checkIncludes("plugins/cool-workflow/src/shell/drive.ts", "export async function drive(", checks);
   checkIncludes("plugins/cool-workflow/dist/shell/drive.js", "export async function drive(", checks);
-  checkIncludes("plugins/cool-workflow/docs/getting-started.md", "npm run release:check", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/release-and-migration.7.md", MAN_PAGE_LINE, checks);
   // Homebrew formula (repo root): git-tag formula. Homebrew scans the version
   // from the tag, so the tag is the single version surface to gate (an explicit
   // `version` line would be redundant and brew audit rejects it). bump-version.mjs
@@ -144,7 +139,7 @@ function checkIncludes(relativePath, needle, checks) {
 // line, appended by bump-version.mjs's --content step) actually having
 // been updated. A plain substring check would silently pass on the
 // coincidental prose match and never notice the real footer line is
-// missing (found live: v0.2.4's bump left release-tooling.7.md's footer
+// missing (found live: v0.2.4's bump left the release-tooling page's footer
 // stuck at 0.2.3, masked by an unrelated "npm run release -- 0.2.4"
 // example a few lines up). Require the needle on its own line instead.
 function checkIncludesOwnLine(relativePath, needle, checks) {

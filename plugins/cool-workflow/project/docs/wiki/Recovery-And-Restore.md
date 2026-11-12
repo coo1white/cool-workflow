@@ -139,7 +139,7 @@ cw node verify <run-id> <replay-id>                     # replay against the sou
 A replay of one snapshot gives the same bytes every time. If the step has
 changed since the snapshot was taken, it is `stale`; if it is gone, it is
 `absent` — and diff and replay are refused, never run on old data. Full
-rules: `cw man node-snapshot-diff-replay`.
+rules: `plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man node-snapshot-diff-replay` was removed in batch 5).
 
 ## Find A Run Across Repos
 

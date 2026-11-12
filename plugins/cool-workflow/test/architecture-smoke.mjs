@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // architecture-smoke — the map from each structural rule to the thing that
 // holds it, the way yokoten's AGENTS.md rule table has a "Check" column.
-// Included in `npm test`. Read-only: it reads src/, docs/, scripts/ and one
+// Included in `npm test`. Read-only: it reads src/, docs/reference.md, scripts/ and one
 // `git grep`, and loads no CW module, so no cw command gets slower.
 //
 // Why: CW has some fifty guards (smokes and `npm run *:check` scripts), each
@@ -14,11 +14,13 @@
 //      guard is put on the map in the same diff. A rule no file holds names
 //      "reviewer", "branch protection" or "tsc".
 //   2. SECURITY_PATHS: signing, release tooling, sandbox, receipts,
-//      redaction, the never-forward env list are on disk and named by a man
-//      page; the release key's env name is in no code but the release
-//      scripts that read it (and the list that strips it from children).
-//   3. Commands -> docs: every cw verb in the command table has its own
-//      docs/<verb>.7.md, or a VERB_EXEMPT row naming the page that has it.
+//      redaction, the never-forward env list are on disk and named in
+//      docs/reference.md; the release key's env name is in no code but the
+//      release scripts that read it (and the list that strips it from
+//      children).
+//   3. Commands -> docs: docs/reference.md shows every cw verb in the
+//      command table (`cw <verb>`). The man pages were merged into that one
+//      page on 2026-11-12, so there is no page per verb any more.
 //   4. No barrel files (a file that only re-exports) in src/.
 // The exempt lists can only get shorter: a ceiling stops growth, and a row
 // that is no longer needed is a fault too.
@@ -36,6 +38,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
 const PLUGIN = "plugins/cool-workflow/";
 const ME = "test/architecture-smoke.mjs";
+const REFERENCE = "docs/reference.md";
 
 // [rule, why (incident or risk), guards: plugin-relative files or a NON_FILE_GUARDS name]
 // The rows mirror "The floor" table in the root AGENTS.md; change the two together.
@@ -62,29 +65,29 @@ const CHECK_NOT_A_RULE = {
   "release:check": "runs the gates above (and the tests) before a cut",
 };
 
-// [plugin-relative path, why it is sensitive, man page, text that page must hold]
+// [plugin-relative path, why it is sensitive, text docs/reference.md must hold]
 const SECURITY_PATHS = [
-  ["../../.cw-release/verdict-signing.pub", "CI checks release verdicts against it", "release-tooling.7.md", "verdict-signing.pub"],
-  ["scripts/release-flow.mjs", "the one writer of a signed verdict", "release-tooling.7.md", "release-flow.mjs"],
-  ["scripts/release-gate.mjs", "the gate a release must pass", "release-tooling.7.md", "release-gate.mjs"],
-  ["scripts/release-oneclick.mjs", "the operator's cut: tag push, publish wait", "release-tooling.7.md", "release-oneclick.mjs"],
-  ["scripts/release-preflight.mjs", "checks the signing key before a cut", "release-tooling.7.md", "release-preflight.mjs"],
-  ["scripts/release-ci-checks.mjs", "the required CI checks a cut trusts", "release-tooling.7.md", "release-ci-checks.mjs"],
-  ["scripts/release-auto-patch.mjs", "tags and starts the publish of a patch with no human command", "release-tooling.7.md", "release-auto-patch.mjs"],
-  ["scripts/verify-release-verdict.mjs", "CI's verdict check on a tag", "release-tooling.7.md", "verify-release-verdict.mjs"],
-  ["scripts/verify-verdict-signature.mjs", "CI's ed25519 signature check", "release-tooling.7.md", "verify-verdict-signature.mjs"],
-  ["scripts/verdict-keygen.mjs", "makes the verdict key pair", "release-tooling.7.md", "verdict-keygen.mjs"],
-  ["scripts/block-unapproved-tag.mjs", "local hook refusing an unsigned tag", "release-tooling.7.md", "block-unapproved-tag.mjs"],
-  ["src/core/trust/receipt.ts", "done-receipt digest and signature", "verifier-gated-commit.7.md", "CW_CHECK_PRIVKEY"],
-  ["src/shell/receipt-io.ts", "runs the checked command, signs the receipt", "verifier-gated-commit.7.md", "CW_CHECK_PRIVKEY"],
-  ["src/shell/execution-backend/local.ts", "CW_NEVER_FORWARD_ENV: keys no child gets", "verifier-gated-commit.7.md", "CW never hands that key to an agent"],
-  ["src/core/trust/telemetry-attestation.ts", "signed agent usage records", "report-verifiable-bundle.7.md", "CW_AGENT_ATTEST_PUBKEY"],
-  ["src/shell/telemetry-ledger-io.ts", "the one hash chain: the telemetry ledger", "report-verifiable-bundle.7.md", "telemetry.json"],
-  ["src/shell/run-export.ts", "seals and verifies a run bundle offline", "report-verifiable-bundle.7.md", "verify-bundle"],
-  ["src/shell/fs-atomic.ts", "atomic writes and locks for state", "durable-state-and-locking.7.md", "atomic"],
+  ["../../.cw-release/verdict-signing.pub", "CI checks release verdicts against it", "verdict-signing.pub"],
+  ["scripts/release-flow.mjs", "the one writer of a signed verdict", "release-flow.mjs"],
+  ["scripts/release-gate.mjs", "the gate a release must pass", "release-gate.mjs"],
+  ["scripts/release-oneclick.mjs", "the operator's cut: tag push, publish wait", "release-oneclick.mjs"],
+  ["scripts/release-preflight.mjs", "checks the signing key before a cut", "release-preflight.mjs"],
+  ["scripts/release-ci-checks.mjs", "the required CI checks a cut trusts", "release-ci-checks.mjs"],
+  ["scripts/release-auto-patch.mjs", "tags and starts the publish of a patch with no human command", "release-auto-patch.mjs"],
+  ["scripts/verify-release-verdict.mjs", "CI's verdict check on a tag", "verify-release-verdict.mjs"],
+  ["scripts/verify-verdict-signature.mjs", "CI's ed25519 signature check", "verify-verdict-signature.mjs"],
+  ["scripts/verdict-keygen.mjs", "makes the verdict key pair", "verdict-keygen.mjs"],
+  ["scripts/block-unapproved-tag.mjs", "local hook refusing an unsigned tag", "block-unapproved-tag.mjs"],
+  ["src/core/trust/receipt.ts", "done-receipt digest and signature", "CW_CHECK_PRIVKEY"],
+  ["src/shell/receipt-io.ts", "runs the checked command, signs the receipt", "CW_CHECK_PRIVKEY"],
+  ["src/shell/execution-backend/local.ts", "CW_NEVER_FORWARD_ENV: keys no child gets", "CW never hands that key to an agent"],
+  ["src/core/trust/telemetry-attestation.ts", "signed agent usage records", "CW_AGENT_ATTEST_PUBKEY"],
+  ["src/shell/telemetry-ledger-io.ts", "the one hash chain: the telemetry ledger", "telemetry.json"],
+  ["src/shell/run-export.ts", "seals and verifies a run bundle offline", "verify-bundle"],
+  ["src/shell/fs-atomic.ts", "atomic writes and locks for state", "atomic"],
 ];
-// Sensitive paths no man page names yet. Empty since the release runbook
-// moved from AGENTS.md into release-tooling.7.md (2026-11-03).
+// Sensitive paths the reference does not name yet. Empty since the release
+// runbook moved from AGENTS.md into the docs (2026-11-03).
 const SECURITY_UNCITED = {};
 const SECURITY_UNCITED_CEILING = 0;
 
@@ -103,14 +106,6 @@ const RELEASE_KEY_CODE = [
   "src/shell/execution-backend/local.ts",
 ];
 const NEVER_FORWARD_MUST_HOLD = [RELEASE_KEY, "CW_CHECK_PRIVKEY"];
-
-// verb -> [the page that documents it, why it has no page of its own]
-const VERB_EXEMPT = {
-  check: ["verifier-gated-commit.7.md", "receipts feed the commit gate"],
-  report: ["report-verifiable-bundle.7.md", "the bundle page owns it"],
-  version: ["release-and-migration.7.md", "one line: the version a release carries"],
-};
-const VERB_EXEMPT_CEILING = 3;
 
 // src-relative barrel -> why it stays
 const BARREL_ALLOW = {};
@@ -139,20 +134,18 @@ function checkRules(rules, scripts, exists, notARule = {}) {
   return findings;
 }
 
-function checkSecurity({ paths, uncited, ceiling, docs, exists, keyHits, neverForward }) {
+function checkSecurity({ paths, uncited, ceiling, doc, exists, keyHits, neverForward }) {
   const findings = [];
   const why = "security-sensitive code is documented and kept where reviewers look";
-  for (const [p, , page, cite] of paths) {
+  for (const [p, , cite] of paths) {
     if (!exists(p)) findings.push(fault(`${p} is not on disk`, why, "fix SECURITY_PATHS to the new path"));
-    if (!(docs.get(page) || "").includes(cite)) findings.push(fault(`${p}: docs/${page} does not hold "${cite}"`, why, "say what it does in that man page, or fix the row"));
+    if (!doc.includes(cite)) findings.push(fault(`${p}: ${REFERENCE} does not hold "${cite}"`, why, "say what it does in the reference, or fix the row"));
   }
   for (const p of Object.keys(uncited)) {
     if (!exists(p)) findings.push(fault(`${p} is not on disk`, why, "drop it from SECURITY_UNCITED"));
-    const base = path.basename(p);
-    const page = [...docs].find(([, t]) => t.includes(base));
-    if (page) findings.push(fault(`${p} is now named in docs/${page[0]}`, "exempt lists only shrink", "move it to SECURITY_PATHS"));
+    if (doc.includes(path.basename(p))) findings.push(fault(`${p} is now named in ${REFERENCE}`, "exempt lists only shrink", "move it to SECURITY_PATHS"));
   }
-  if (Object.keys(uncited).length > ceiling) findings.push(fault(`SECURITY_UNCITED has ${Object.keys(uncited).length} rows, ceiling ${ceiling}`, "exempt lists only shrink", "name the path in a man page instead"));
+  if (Object.keys(uncited).length > ceiling) findings.push(fault(`SECURITY_UNCITED has ${Object.keys(uncited).length} rows, ceiling ${ceiling}`, "exempt lists only shrink", "name the path in the reference instead"));
   const keyWhy = "an agent holding the key could sign a release verdict";
   for (const [file, text] of keyHits) {
     if (file.endsWith(".md") || file.startsWith("test/")) continue;
@@ -170,20 +163,9 @@ function checkSecurity({ paths, uncited, ceiling, docs, exists, keyHits, neverFo
   return findings;
 }
 
-function checkVerbs(verbs, docs, exempt, ceiling) {
-  const findings = [];
+function checkVerbs(verbs, doc) {
   const why = "a user finds how a command works by its name";
-  for (const verb of verbs) {
-    const own = docs.has(`${verb}.7.md`);
-    if (own && exempt[verb]) findings.push(fault(`cw ${verb} has docs/${verb}.7.md but is in VERB_EXEMPT`, "exempt lists only shrink", "drop its VERB_EXEMPT row"));
-    if (!own && !exempt[verb]) findings.push(fault(`cw ${verb} has no man page`, why, `write docs/${verb}.7.md (VERB_EXEMPT may not grow)`));
-  }
-  for (const [verb, [page]] of Object.entries(exempt)) {
-    if (!verbs.includes(verb)) findings.push(fault(`VERB_EXEMPT names ${verb}, not a cw verb`, "exempt lists only shrink", "drop the row"));
-    else if (!mentions(docs.get(page) || "", verb)) findings.push(fault(`cw ${verb}: docs/${page} does not show "cw ${verb}"`, why, "document it there, or fix the row"));
-  }
-  if (Object.keys(exempt).length > ceiling) findings.push(fault(`VERB_EXEMPT has ${Object.keys(exempt).length} rows, ceiling ${ceiling}`, "exempt lists only shrink", "give the verb its own docs/<verb>.7.md"));
-  return findings;
+  return verbs.filter((verb) => !mentions(doc, verb)).map((verb) => fault(`cw ${verb}: ${REFERENCE} does not show "cw ${verb}"`, why, "document it in the reference"));
 }
 
 function isBarrel(text) {
@@ -219,7 +201,7 @@ const parseNeverForward = (text) => [.../CW_NEVER_FORWARD_ENV[^=]*=\s*new Set\(\
 
 // 1. The real tree.
 const exists = (p) => fs.existsSync(path.join(pluginRoot, p));
-const docs = new Map(fs.readdirSync(path.join(pluginRoot, "docs")).filter((f) => f.endsWith(".7.md")).map((f) => [f, fs.readFileSync(path.join(pluginRoot, "docs", f), "utf8")]));
+const doc = fs.readFileSync(path.join(pluginRoot, REFERENCE), "utf8");
 const scripts = JSON.parse(fs.readFileSync(path.join(pluginRoot, "package.json"), "utf8")).scripts;
 const keyHits = execFileSync("git", ["-C", repoRoot, "grep", "-l", "-F", RELEASE_KEY], { encoding: "utf8" }).split("\n").filter(Boolean)
   .map((f) => [f.startsWith(PLUGIN) ? f.slice(PLUGIN.length) : `../../${f}`, fs.readFileSync(path.join(repoRoot, f), "utf8")]);
@@ -227,8 +209,8 @@ const localTs = fs.readFileSync(path.join(pluginRoot, "src/shell/execution-backe
 const verbs = parseVerbs(readTree(path.join(pluginRoot, "src/wiring"), ".ts").map(([, t]) => t));
 const real = [
   ...checkRules(RULES, scripts, exists, CHECK_NOT_A_RULE),
-  ...checkSecurity({ paths: SECURITY_PATHS, uncited: SECURITY_UNCITED, ceiling: SECURITY_UNCITED_CEILING, docs, exists, keyHits, neverForward: parseNeverForward(localTs) }),
-  ...checkVerbs(verbs, docs, VERB_EXEMPT, VERB_EXEMPT_CEILING),
+  ...checkSecurity({ paths: SECURITY_PATHS, uncited: SECURITY_UNCITED, ceiling: SECURITY_UNCITED_CEILING, doc, exists, keyHits, neverForward: parseNeverForward(localTs) }),
+  ...checkVerbs(verbs, doc),
   ...checkSource(readTree(path.join(pluginRoot, "src"), ".ts"), BARREL_ALLOW, BARREL_CEILING),
 ];
 assert.equal(real.length, 0, `the real tree breaks ${real.length} architecture rule(s):\n  ${real.join("\n  ")}`);
@@ -244,26 +226,21 @@ assert.deepEqual(heads(checkRules(
 
 const plantedLocal = `x = "${RELEASE_KEY}";\nexport const CW_NEVER_FORWARD_ENV = new Set([\n  "${RELEASE_KEY}",\n]);\n`;
 assert.deepEqual(heads(checkSecurity({
-  paths: [["src/gone.ts", "", "a.7.md", "x"], ["src/here.ts", "", "a.7.md", "missing text"]],
+  paths: [["src/gone.ts", "", "x"], ["src/here.ts", "", "missing text"]],
   uncited: { "scripts/a.mjs": "", "scripts/b.mjs": "" }, ceiling: 1,
-  docs: new Map([["a.7.md", "run b.mjs"]]), exists: (p) => p !== "src/gone.ts",
-  keyHits: [["src/shell/new.ts", RELEASE_KEY], ["src/shell/execution-backend/local.ts", plantedLocal], ["docs/x.7.md", ""], ["test/y-smoke.mjs", ""]],
+  doc: "run b.mjs", exists: (p) => p !== "src/gone.ts",
+  keyHits: [["src/shell/new.ts", RELEASE_KEY], ["src/shell/execution-backend/local.ts", plantedLocal], ["docs/reference.md", ""], ["test/y-smoke.mjs", ""]],
   neverForward: parseNeverForward(plantedLocal),
 })), [
-  "src/gone.ts is not on disk", 'src/gone.ts: docs/a.7.md does not hold "x"', 'src/here.ts: docs/a.7.md does not hold "missing text"',
-  "scripts/b.mjs is now named in docs/a.7.md", "SECURITY_UNCITED has 2 rows, ceiling 1",
+  "src/gone.ts is not on disk", 'src/gone.ts: docs/reference.md does not hold "x"', 'src/here.ts: docs/reference.md does not hold "missing text"',
+  "scripts/b.mjs is now named in docs/reference.md", "SECURITY_UNCITED has 2 rows, ceiling 1",
   `src/shell/new.ts names ${RELEASE_KEY}`, `src/shell/execution-backend/local.ts names ${RELEASE_KEY} outside CW_NEVER_FORWARD_ENV`,
   ...RELEASE_KEY_CODE.filter((f) => f !== "src/shell/execution-backend/local.ts").map((f) => `${f} no longer names ${RELEASE_KEY}`),
   "CW_NEVER_FORWARD_ENV lacks CW_CHECK_PRIVKEY",
 ]);
 
-assert.deepEqual(heads(checkVerbs(
-  ["fix", "gone", "list", "newverb"],
-  new Map([["fix.7.md", "cw fix"], ["init.7.md", "cw list-all"]]),
-  { fix: ["fix.7.md", ""], list: ["init.7.md", ""], old: ["init.7.md", ""] }, 2,
-)), [
-  "cw fix has docs/fix.7.md but is in VERB_EXEMPT", "cw gone has no man page", "cw newverb has no man page",
-  'cw list: docs/init.7.md does not show "cw list"', "VERB_EXEMPT names old, not a cw verb", "VERB_EXEMPT has 3 rows, ceiling 2",
+assert.deepEqual(heads(checkVerbs(["fix", "list", "newverb"], "Run `cw fix`, or cw list-all.")), [
+  'cw list: docs/reference.md does not show "cw list"', 'cw newverb: docs/reference.md does not show "cw newverb"',
 ]);
 
 const tmp = tmpDir("cw-architecture-");

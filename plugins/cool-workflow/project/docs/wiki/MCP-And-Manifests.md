@@ -115,7 +115,7 @@ place of about 104 KB):
 
 The profile decides only what is listed: `tools/call` still takes every known
 tool name. A set `CW_MCP_ENABLED_TOOLS` / `CW_MCP_DISABLED_TOOLS` policy decides
-the list in place of the profile. Full rules: `cw man cli-mcp-parity`.
+the list in place of the profile. Full rules: `plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man cli-mcp-parity` was removed in batch 5).
 
 ### The answer in one call
 
@@ -130,7 +130,7 @@ With neither, the result is the same bytes as `cw report <id> --json`.
 The server also answers `resources/list` and `resources/read` for
 `cw://runs/<run-id>/report.md`, so a client can read a run's report as a
 resource. Bad URIs, unsafe run ids and missing reports are refused. Full rules:
-`cw man mcp-app-surface`.
+`plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man mcp-app-surface` was removed in batch 5).
 
 ## Why The CLI And MCP Agree (Parity)
 
@@ -156,9 +156,9 @@ command and its MCP tool. Nothing is kept up by hand in two places.
   sees the check catch it.
 
 To add a capability, add one row to the registry against one core entry;
-the CLI command and the MCP tool come from that row. The full, generated
-list of every capability and its tool is in
-[`docs/cli-mcp-parity.7.md`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/cli-mcp-parity.7.md).
+the CLI command and the MCP tool come from that row. The MCP server, the registry
+and its generated list were removed in batch 5; see
+[`docs/reference.md`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/reference.md#removed-surfaces).
 
 ## Generated Vendor Targets
 
