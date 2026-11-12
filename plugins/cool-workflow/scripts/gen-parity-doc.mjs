@@ -36,7 +36,7 @@ function cliCommand(cap) {
   return cap.cli ? `cw ${cap.cli.path.join(" ")}` : "—";
 }
 function cliDisplay(cap) {
-  // Human form used in the prose bullets (e.g. "schedule daemon", "demo tamper").
+  // Human form used in the prose bullets (e.g. "run show", "demo tamper").
   return cap.cli ? cap.cli.path.join(" ") : cap.capability;
 }
 function mcpTool(cap) {

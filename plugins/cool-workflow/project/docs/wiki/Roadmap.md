@@ -55,22 +55,12 @@ These are in the repo's
 each with its reason. None is being worked on now:
 
 - a file lock that does not stop the MCP server while it waits;
-- one shape for `schedule`, `routine`, and `sched`;
 - running a workflow app's own `workflow.js` in a sandbox (today it runs in
   the CW process, and the run record says so);
 - letting `cw` review this repo's own pull requests;
 - a smaller `state.json` for runs with very many workers;
 - a step that reads one agent's output to decide what to send out next
   (the bounded `loop()` phase is the first step to this).
-
-## Frozen: fixes only
-
-These parts are still there and still work, but they get fixes and
-deletions only; any growth needs the operator's yes in writing:
-
-- scheduling (`cw schedule`, `cw sched`),
-- the Workbench (`cw workbench`),
-- the telemetry demo, observability intake, and run reclamation code.
 
 ## Taken out
 
@@ -84,6 +74,12 @@ deletions only; any growth needs the operator's yes in writing:
   and hand work between agents in two repos with `cw ledger`.
 - **Node.js 18 and 20** — 0.3.1 was the last release for them; CW now
   needs Node.js 22.13 or newer.
+- **The frozen surfaces** — on 2026-11-12: scheduling (`cw schedule`,
+  `cw loop`, `cw routine`, `cw sched`), the Workbench (`cw workbench`), the
+  telemetry demo (`cw demo bundle`), the observability intake (`--pricing`,
+  `--usage-*`), and run reclamation (`cw gc`, `cw orphans`, `cw clones`),
+  with their 31 MCP tools. `cw demo tamper`, `cw report verify-bundle` and
+  the run queue stay. Old run state still loads.
 
 ## Related Pages
 

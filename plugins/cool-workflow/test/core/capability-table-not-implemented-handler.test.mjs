@@ -44,7 +44,7 @@ import { CapabilityNotImplementedError } from "../../dist/core/capability-data.j
 // still-synchronous handler is a no-op, so the same loop covers both.
 async function main() {
   const mcpRows = REGISTRY.filter((row) => row.mcp);
-  assert.ok(mcpRows.length > 100, "the mcp surface must be present");
+  assert.ok(mcpRows.length > 80, "the mcp surface must be present"); // 94 since the frozen surfaces went (2026-11-12)
   const stillUnimplemented = [];
   for (const row of mcpRows) {
     try {

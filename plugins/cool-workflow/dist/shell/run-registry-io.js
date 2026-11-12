@@ -18,7 +18,7 @@ import { assertNotHandCopiedRun, assertNotSuspectedDataLoss, loadRunStateFile, r
 import { fingerprintStrings } from "../core/hash.js";
 import { compareBytes } from "../core/util/collate.js";
 export const RUN_REGISTRY_SCHEMA_VERSION = 1;
-export const DEFAULT_RUN_REGISTRY_POLICY = {
+const DEFAULT_RUN_REGISTRY_POLICY = {
     schemaVersion: 1,
     archiveOlderThanDays: 0,
     archiveStates: ["completed", "failed"],
@@ -146,9 +146,7 @@ let queueCounter = 0;
  *  formats"), unchanged. `queueCounter` alone is not enough to keep ids
  *  unique: it resets to 0 for every fresh `cw` process, so two SEPARATE
  *  processes calling `queue add` within the same second both compute
- *  `queueCounter === 1` and mint the IDENTICAL id — `sched lease` then
- *  keys grants by id, so both queue entries get treated as one, breaking
- *  through `maxConcurrent`. `existingIds` is the current queue file's ids
+ *  `queueCounter === 1` and mint the IDENTICAL id, so both queue entries would be treated as one. `existingIds` is the current queue file's ids
  *  (read inside queueAdd's own file lock, so this sees every entry any
  *  earlier-completed `queue add` — same process or not — has already
  *  saved); bumping past any collision against that real, shared state
@@ -334,8 +332,7 @@ export class RunRegistry {
         const file = this.queueFilePath();
         if (!fs.existsSync(file))
             return [];
-        // queue.json is durable state and fails CLOSED (the conformance rule in
-        // sched-corrupt-fail-closed.case.mjs): a file with good JSON but a bad
+        // queue.json is durable state and fails CLOSED: a file with good JSON but a bad
         // shape (entries not an array) must not read as an empty queue, or the
         // next queueAdd would write a fresh file over the broken one, losing
         // what it held. Never write over bytes we could not read.
@@ -351,9 +348,6 @@ export class RunRegistry {
     }
     saveQueueEntries(entries) {
         writeJson(this.queueFilePath(), { schemaVersion: 1, entries }, { durable: true });
-    }
-    schedulingPolicyPath() {
-        return path.join(this.homeRegistryDir(), "scheduling-policy.json");
     }
     queueAdd(options = {}) {
         const repo = options.repo ? path.resolve(options.repo) : this.repoRoot;
@@ -864,7 +858,7 @@ export class RunRegistry {
     }
     rerun(runId, options = {}) {
         if (!this.planner)
-            throw new Error("rerun requires a run planner (CoolWorkflowRunner)");
+            throw new Error("rerun requires a run planner (RunPlanner)");
         const scope = options.scope || "home";
         const located = this.locate(runId, scope);
         if (!located)

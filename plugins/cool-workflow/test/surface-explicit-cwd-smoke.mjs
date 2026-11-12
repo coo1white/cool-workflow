@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// surface-explicit-cwd-smoke: MCP and Workbench surface calls must use explicit
+// surface-explicit-cwd-smoke: MCP surface calls must use explicit
 // cwd scoping, not process-global chdir. This protects long-lived hosts from
 // cross-request cwd bleed while preserving run lookup and relative output paths.
 
@@ -8,12 +8,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-// v2 relocated the MCP surface to src/mcp/dispatch.ts and moved workbench-host
-// under src/shell/. Same no-process.chdir guard, new paths.
-const srcGuards = [
-  path.join(pluginRoot, "src", "mcp", "dispatch.ts"),
-  path.join(pluginRoot, "src", "shell", "workbench-host.ts")
-];
+// v2 relocated the MCP surface to src/mcp/dispatch.ts. Same no-process.chdir
+// guard, new path.
+const srcGuards = [path.join(pluginRoot, "src", "mcp", "dispatch.ts")];
 const carvedToolCall = path.join(pluginRoot, "src", "mcp", "tool-call.ts");
 if (fs.existsSync(carvedToolCall)) srcGuards.push(carvedToolCall);
 

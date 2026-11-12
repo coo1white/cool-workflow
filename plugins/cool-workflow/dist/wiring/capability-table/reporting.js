@@ -1,8 +1,8 @@
 // wiring/capability-table/reporting.ts — CLI bindings for reporting,
-// observability, doctor/fix, workbench, run summary/status/operator,
+// observability, doctor/fix, run summary/status/operator,
 // worker.*, feedback.*, audit.*.
 import { attachCliBinding, REGISTRY_BY_CAPABILITY } from "./registry-core.js";
-import { required, optionalArg, wantsJson } from "../../core/util/cli-args.js";
+import { required, optionalArg } from "../../core/util/cli-args.js";
 import { adviseNoRun } from "../../core/format/recovery-hint.js";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
@@ -131,7 +131,7 @@ attachCliBinding("metrics.summary", {
     },
 });
 REGISTRY_BY_CAPABILITY.get("metrics.summary").mcp.handler = (args) => loadMetricsCli().metricsSummaryCli(args);
-// ---- worker.summary (the workbench worker panel + `cw worker summary`) ----
+// ---- worker.summary (`cw worker summary`) ----------------------------
 function loadWorkerIsolation() {
     return require("../../shell/worker-isolation.js");
 }
@@ -251,69 +251,6 @@ attachCliBinding("feedback.resolve", {
     handler: (args) => ({ json: loadFeedbackCli().feedbackResolveCli({ ...args.options, runId: args.positionals[0], feedbackId: args.positionals[1] }) }),
 });
 REGISTRY_BY_CAPABILITY.get("feedback.resolve").mcp.handler = (args) => loadFeedbackCli().feedbackResolveCli(args);
-// ---- workbench.view / workbench.serve ---------------------------------
-function loadWorkbench() {
-    return require("../../shell/workbench.js");
-}
-function loadWorkbenchText() {
-    return require("../../shell/workbench-text.js");
-}
-function loadWorkbenchHost() {
-    return require("../../shell/workbench-host.js");
-}
-attachCliBinding("workbench.view", {
-    path: ["workbench", "view"],
-    jsonMode: "flag",
-    handler: (args) => {
-        const runId = required(optionalArg(args.positionals[0]), "run id");
-        const view = loadWorkbench().buildWorkbenchRunView(runId, args.options);
-        return { json: view, text: `${loadWorkbenchText().formatWorkbenchView(view)}\n` };
-    },
-});
-// The MCP path is CLI-facing byte-identical (buildWorkbenchRunView takes
-// the same args shape either way) — required here since `.cli` and
-// `.mcp` never share a handler object per byte-compat item 5.
-REGISTRY_BY_CAPABILITY.get("workbench.view").mcp.handler = (args) => loadWorkbench().buildWorkbenchRunView(required(optionalArg(args.runId), "run id"), args);
-attachCliBinding("workbench.serve", {
-    path: ["workbench", "serve"],
-    jsonMode: "flag",
-    handler: (args) => {
-        const { WorkbenchHost } = loadWorkbenchHost();
-        const host = new WorkbenchHost(args.options);
-        if (args.options.once || wantsJson(args.options)) {
-            return { json: host.descriptor(true) };
-        }
-        // The default (no --once, no --json) actually binds and blocks: the
-        // host is started here and the handler never returns. See
-        // cli/dispatch.ts's renderCliResult: it is synchronous, so a genuinely
-        // blocking serve must perform its own stdout write and keep the event
-        // loop alive rather than returning a CliHandlerResult at all.
-        // run() already fails closed internally (a `cw:` line + exit 1) for the
-        // known bind failures; this .catch is a backstop so any future throw
-        // path can never surface as an unhandled-rejection stack dump.
-        void host.run().catch((error) => {
-            process.stderr.write(`cw: ${error instanceof Error ? error.message : String(error)}\n`);
-            process.exitCode = 1;
-        });
-        return { json: undefined };
-    },
-});
-// `cw_workbench_serve` NEVER starts the server — the MCP path forces
-// `once: true` unconditionally, per SPEC/reporting-ux.md's "one declared
-// divergence": an MCP client must never be able to make the server
-// process open a persistent listening socket.
-REGISTRY_BY_CAPABILITY.get("workbench.serve").mcp.handler = (args) => new (loadWorkbenchHost().WorkbenchHost)(args).descriptor(true);
-// PARITY: both surfaces route through the single core entry
-// buildWorkbenchServeDescriptor and return the IDENTICAL serve
-// descriptor under `cw workbench serve --json`/`--once` and
-// `cw_workbench_serve`. They diverge only in side effect, not payload:
-// the CLI's default `cw workbench serve` (no --once) additionally
-// STARTS the blocking localhost host, which an MCP stdio host cannot do,
-// so cw_workbench_serve only ever returns the descriptor. Declared
-// divergence, not drift.
-REGISTRY_BY_CAPABILITY.get("workbench.serve").payloadIdentical = false;
-REGISTRY_BY_CAPABILITY.get("workbench.serve").reason =
-    "Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host, which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.";
 // ---- audit.summary ----------------------------------------------------
 function loadAuditCli() {
     return require("../../shell/commands/audit-cli.js");

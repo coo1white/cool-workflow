@@ -52,7 +52,7 @@ caseMain(() => {
   assert.equal(dashH.stdout, rootFixture);
 
   // Per-command help pages, byte-exact against captures.
-  for (const cmd of ["help", "version", "list", "state", "doctor", "ledger", "clones", "node", "backend", "run", "quickstart", "man", "demo", "check"]) {
+  for (const cmd of ["help", "version", "list", "state", "doctor", "ledger", "node", "backend", "run", "quickstart", "man", "demo", "check"]) {
     const fx = loadFixture(cmd);
     const r = run(["help", cmd]);
     assert.equal(r.status, fx.exit, `cw help ${cmd}: exit code`);

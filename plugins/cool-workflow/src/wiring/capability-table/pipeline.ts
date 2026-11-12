@@ -50,8 +50,8 @@ attachCliBinding("plan", {
 attachCliBinding("run.drive.step", {
   path: ["run"],
   // NOTE: the doubled "cw run drive" command column (this row + run.drive's
-  // preview row below) is pinned by SPEC/cli-probe.md "Odd things" item 5,
-  // same as `cw sched policy`. The two look-alike rows are told apart by
+  // preview row below) is pinned by SPEC/cli-probe.md "Odd things" item 5.
+  // The two look-alike rows are told apart by
   // their SUMMARIES (each names its own invocation spelling), never by the
   // row count or the command column.
   helpPath: ["run", "drive"],

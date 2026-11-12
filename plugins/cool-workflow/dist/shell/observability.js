@@ -48,7 +48,7 @@ function usageKey(usage) {
         return "unreported";
     return `${usage.source}:${usage.model || "-"}:${usage.inputTokens ?? "-"}:${usage.outputTokens ?? "-"}`;
 }
-export function fingerprintMetricsSource(run) {
+function fingerprintMetricsSource(run) {
     const parts = [`id:${run.id}`, `createdAt:${run.createdAt}`, `updatedAt:${run.updatedAt}`, `app:${run.workflow.app?.id || run.workflow.id}`];
     for (const task of [...run.tasks].sort((a, b) => stableCompare(a.id, b.id))) {
         parts.push(`task:${task.id}:${task.status}:${task.dispatchedAt || "-"}:${task.completedAt || "-"}:${usageKey(task.usage)}:${task.backendId || "-"}`);
@@ -167,79 +167,14 @@ export function deriveAttestationCoverage(run) {
         ledger: { present: ledger.present, verified: ledger.verified, records: ledger.records.length },
     };
 }
-function priceUsage(usage, price) {
-    const input = ((usage.inputTokens || 0) / 1_000_000) * price.inputPerMillion;
-    const output = ((usage.outputTokens || 0) / 1_000_000) * price.outputPerMillion;
-    const cacheRead = ((usage.cacheReadTokens || 0) / 1_000_000) * (price.cacheReadPerMillion || 0);
-    const cacheWrite = ((usage.cacheWriteTokens || 0) / 1_000_000) * (price.cacheWritePerMillion || 0);
-    return input + output + cacheRead + cacheWrite;
-}
-function deriveCost(rows, policy) {
-    const currency = policy?.currency || "USD";
+// CW never prices usage: cost is `unreported` when no worker reported
+// usage, and `unpriced` when some did — never a guessed number.
+function deriveCost(rows) {
+    const currency = "USD";
     if (rows.length === 0) {
-        return { state: "unreported", currency, attestedUsd: null, estimatedUsd: null, policyId: policy?.id, unpricedModels: [], pricedCoverage: null, notes: ["No attested usage on this run; cost is unreported, not zero."] };
+        return { state: "unreported", currency, attestedUsd: null, estimatedUsd: null, unpricedModels: [], pricedCoverage: null, notes: ["No attested usage on this run; cost is unreported, not zero."] };
     }
-    if (!policy) {
-        return { state: "unpriced", currency, attestedUsd: null, estimatedUsd: null, unpricedModels: [], pricedCoverage: null, notes: ["Attested usage present but no pricing policy supplied; pass --pricing <path> to price it."] };
-    }
-    const byModel = new Map();
-    for (const m of policy.models || [])
-        byModel.set(m.model, m);
-    let attestedUsd = 0;
-    let estimatedUsd = 0;
-    let pricedTokens = 0;
-    let attestedTokens = 0;
-    let usedDefault = false;
-    let usedExact = false;
-    const unpriced = new Set();
-    for (const rowUsage of rows.map((r) => r.usage)) {
-        const tokens = tokenTotal(rowUsage);
-        attestedTokens += tokens;
-        const model = rowUsage.model;
-        const exact = model ? byModel.get(model) : undefined;
-        const price = exact || policy.defaultPrice;
-        if (!price) {
-            if (model)
-                unpriced.add(model);
-            continue;
-        }
-        const cost = priceUsage(rowUsage, price);
-        pricedTokens += tokens;
-        if (exact) {
-            attestedUsd += cost;
-            usedExact = true;
-        }
-        else {
-            estimatedUsd += cost;
-            usedDefault = true;
-            if (model)
-                unpriced.add(model);
-        }
-    }
-    let state;
-    if (pricedTokens === 0)
-        state = "unpriced";
-    else if (usedDefault)
-        state = "estimated";
-    else if (usedExact)
-        state = "attested";
-    else
-        state = "unpriced";
-    const notes = [];
-    if (usedDefault)
-        notes.push("Some models lacked an exact policy entry and were priced with the policy default; that portion is `estimated`, not `attested`.");
-    if (state === "unpriced")
-        notes.push("Attested usage present but no policy entry (and no default) priced it; cost is unpriced.");
-    return {
-        state,
-        currency,
-        attestedUsd: usedExact ? round(attestedUsd, 6) : null,
-        estimatedUsd: usedDefault ? round(estimatedUsd, 6) : null,
-        policyId: policy.id,
-        unpricedModels: [...unpriced].sort(),
-        pricedCoverage: attestedTokens > 0 ? round(pricedTokens / attestedTokens, 6) : null,
-        notes,
-    };
+    return { state: "unpriced", currency, attestedUsd: null, estimatedUsd: null, unpricedModels: [], pricedCoverage: null, notes: ["Attested usage present; CW does not price it, so cost is unpriced, not zero."] };
 }
 function deriveFailureRate(run) {
     const workers = run.workers || [];
@@ -342,7 +277,7 @@ export function deriveMetricsReport(run, options) {
     const pendingOrRunning = run.tasks.filter((t) => t.status === "pending" || t.status === "running").length;
     const runDuration = { startedAt: run.createdAt, endedAt: run.updatedAt, wallClockMs: durationMsBetween(run.createdAt, run.updatedAt), inFlight: pendingOrRunning > 0 };
     const { totals, rows } = deriveUsageTotals(run);
-    const cost = deriveCost(rows, options.policy);
+    const cost = deriveCost(rows);
     const currentFingerprint = fingerprintMetricsSource(run);
     let status;
     if (!options.persistedFingerprint)
@@ -374,7 +309,7 @@ export function deriveMetricsReport(run, options) {
         attestation: deriveAttestationCoverage(run),
         collaboration: deriveCollaborationMetrics(run),
         nextAction: totals.unreportedUnits > 0 && totals.attestedUnits === 0
-            ? "No attested usage yet — record host usage on result/worker intake (cw result ... --usage-input-tokens N --usage-output-tokens M --usage-model ID)."
+            ? "No attested usage yet — usage is recorded when a driven agent reports it."
             : `cw metrics show ${run.id} --json`,
     };
 }
@@ -397,16 +332,13 @@ export function loadPersistedMetricsFingerprint(run) {
 }
 /** Derive + persist the per-run report. The RETURNED payload is pinned to
  *  `freshness: "valid"` (persistedFingerprint === itself) so `cw metrics
- *  show --json` and the MCP tool are byte-identical. The Workbench's private
- *  projection mode keeps that established payload but does not create a
- *  derived file; NEVER touches state.json (invariant 6). */
+ *  show --json` and the MCP tool are byte-identical. NEVER touches
+ *  state.json (invariant 6). */
 export function showMetricsReport(run, options) {
-    const live = deriveMetricsReport(run, { now: options.now, policy: options.policy });
+    const live = deriveMetricsReport(run, { now: options.now });
     const report = { ...live, freshness: { status: "valid", persistedFingerprint: live.sourceFingerprint, currentFingerprint: live.sourceFingerprint } };
-    if (options.persist !== false) {
-        fs.mkdirSync(metricsDir(run), { recursive: true });
-        writeJson(metricsReportPath(run), report);
-    }
+    fs.mkdirSync(metricsDir(run), { recursive: true });
+    writeJson(metricsReportPath(run), report);
     return report;
 }
 function poolRates(metric, rates) {
@@ -440,53 +372,13 @@ function poolUsage(list) {
     return { units, attestedUnits, unreportedUnits: units - attestedUnits, coverage: units > 0 ? round(attestedUnits / units, 6) : null, inputTokens, outputTokens, totalTokens, models: [...models].sort() };
 }
 function poolCost(list) {
-    const currency = list.find((c) => c.currency)?.currency || "USD";
-    let attestedUsd = null;
-    let estimatedUsd = null;
-    const unpriced = new Set();
-    let anyAttested = false;
-    let anyEstimated = false;
-    let anyUnpriced = false;
-    let anyReported = false;
-    let policyId;
-    for (const c of list) {
-        if (c.attestedUsd !== null) {
-            attestedUsd = round((attestedUsd || 0) + c.attestedUsd, 6);
-            anyAttested = true;
-        }
-        if (c.estimatedUsd !== null) {
-            estimatedUsd = round((estimatedUsd || 0) + c.estimatedUsd, 6);
-            anyEstimated = true;
-        }
-        for (const m of c.unpricedModels)
-            unpriced.add(m);
-        if (c.state === "unpriced")
-            anyUnpriced = true;
-        if (c.state !== "unreported")
-            anyReported = true;
-        if (c.policyId)
-            policyId = c.policyId;
-    }
-    let state;
-    if (!anyReported)
-        state = "unreported";
-    else if (anyEstimated)
-        state = "estimated";
-    else if (anyAttested)
-        state = "attested";
-    else if (anyUnpriced)
-        state = "unpriced";
-    else
-        state = "unreported";
-    const notes = [];
-    if (anyAttested && anyEstimated)
-        notes.push("Totals mix exact-priced (attested) and default-priced (estimated) runs; the two USD figures are kept separate.");
-    return { state, currency, attestedUsd, estimatedUsd, policyId, unpricedModels: [...unpriced].sort(), pricedCoverage: null, notes };
+    const state = list.some((c) => c.state !== "unreported") ? "unpriced" : "unreported";
+    return { state, currency: "USD", attestedUsd: null, estimatedUsd: null, unpricedModels: [], pricedCoverage: null, notes: [] };
 }
 export function deriveMetricsSummary(inputs, options) {
     const perRun = [];
     for (const input of inputs) {
-        const report = deriveMetricsReport(input.run, { now: options.now, policy: options.policy, persistedFingerprint: input.persistedFingerprint });
+        const report = deriveMetricsReport(input.run, { now: options.now, persistedFingerprint: input.persistedFingerprint });
         perRun.push({ report, ref: { runId: report.runId, repo: input.repo, app: report.scope.app, backendIds: report.scope.backendIds, freshness: report.freshness.status, rates: report.rates, usage: report.usage, cost: report.cost } });
     }
     perRun.sort((a, b) => stableCompare(a.report.runId, b.report.runId));
@@ -543,5 +435,4 @@ export function deriveMetricsSummary(inputs, options) {
         nextAction: perRun.length === 0 ? "No indexed runs; run a workflow, then `cw metrics summary`." : "Per-run detail: cw metrics show <run-id> --json",
     };
 }
-export { loadCostPolicy, parseUsageFromArgs } from "./observability-intake.js";
 export { formatMetricsReport, formatMetricsSummary } from "./observability-format.js";

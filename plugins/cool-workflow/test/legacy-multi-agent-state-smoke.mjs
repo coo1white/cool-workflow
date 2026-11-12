@@ -11,7 +11,8 @@
 // dispatch's multiAgent block, and an old commit with candidate/selection
 // ids, an acceptance rationale and review provenance. Every kept command
 // that reads a run must then work on it — state check, status, operator
-// status, graph, report, workbench view, audit summary, run resume — and the
+// status, graph, report, worker summary, metrics show, audit summary, run
+// resume — and the
 // run must still go forward (dispatch -> worker output -> verifier-gated
 // commit). The old records stay in state.json as data, untouched.
 //
@@ -123,14 +124,11 @@ for (const gone of ["## State Size & Compaction", "## Multi-Agent Runtime", "## 
 }
 assert.ok(!report.includes("LEGACY_BLACKBOARD_MESSAGE"), "report.md must not re-surface old blackboard text");
 
-const view = runJson(["workbench", "view", runId, "--json"]);
-assert.equal(view.resolved, true);
-assert.deepEqual(Object.keys(view.panels), ["graph", "worker", "metrics", "audit"]);
-for (const [group, members] of Object.entries(view.panels)) {
-  for (const [member, panel] of Object.entries(members)) {
-    assert.equal(panel.status, "present", `workbench ${group}.${member} must load on a legacy state: ${panel.error || ""}`);
-  }
-}
+const workers = runJson(["worker", "summary", runId, "--json"]);
+assert.equal(typeof workers.total, "number", "worker summary must load on a legacy state");
+
+const metrics = runJson(["metrics", "show", runId, "--json"]);
+assert.equal(metrics.runId, runId, "metrics show must load on a legacy state");
 
 const audit = runJson(["audit", "summary", runId]);
 assert.equal(audit.runId, runId);

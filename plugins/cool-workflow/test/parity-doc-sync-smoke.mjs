@@ -36,7 +36,8 @@ assert.equal(
 // truth is now wiring/capability-table's REGISTRY (same array shape: capability,
 // surface, cli, mcp, ...). Same intent: the registry is not empty/partial.
 import { REGISTRY as CAPABILITY_REGISTRY } from "../dist/wiring/capability-table/index.js";
-// 157 capabilities since the multi-agent family went (slim-and-esm step 2).
-assert.ok(CAPABILITY_REGISTRY.length >= 150, `registry unexpectedly small (${CAPABILITY_REGISTRY.length})`);
+// 157 capabilities since the multi-agent family went (slim-and-esm step 2);
+// 120 since the frozen surfaces went (2026-11-12).
+assert.ok(CAPABILITY_REGISTRY.length >= 115, `registry unexpectedly small (${CAPABILITY_REGISTRY.length})`);
 
 process.stdout.write(`parity-doc-sync-smoke: ok (matrix generated + in sync; ${CAPABILITY_REGISTRY.length} capabilities)\n`);

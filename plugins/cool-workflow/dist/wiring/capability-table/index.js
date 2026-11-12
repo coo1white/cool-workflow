@@ -19,7 +19,7 @@ import "./state.js";
 import "./exec-backend.js";
 import "./pipeline.js";
 import "./trust-ledger.js";
-import "./scheduling-registry.js";
+import "./run-registry.js";
 import "./reporting.js";
 import "./workflow-apps.js";
 export * from "./parity.js";

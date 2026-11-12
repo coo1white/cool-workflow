@@ -3,7 +3,7 @@
 
 // A signal to the MCP parent must stop a tool child that is waiting on a real
 // state lock. Releasing the lock after the parent is gone must not let that
-// old child make a late schedule write. The next server must still work.
+// old child make a late queue write. The next server must still work.
 
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
@@ -31,18 +31,21 @@ function waitForExit(child, signal) {
 
 async function signalStopsBlockedTool(signal) {
   const cwd = tmpDir("cw-mcp-tool-stop-");
-  const storePath = path.join(cwd, ".cw", "schedules", "tasks.json");
+  // cw_queue_add writes the home queue under its file lock; the home lives
+  // in the temp dir so the held lock is this test's own.
+  const home = path.join(cwd, "home");
+  const storePath = path.join(home, "registry", "queue.json");
   const lockPath = `${storePath}.lock`;
   fs.mkdirSync(path.dirname(storePath), { recursive: true });
   fs.writeFileSync(lockPath, `${process.pid}@${new Date().toISOString()}\n`, { mode: 0o600 });
-  const server = spawn(process.execPath, [mcp], { cwd: pluginRoot, stdio: ["pipe", "ignore", "ignore"] });
+  const server = spawn(process.execPath, [mcp], { cwd: pluginRoot, stdio: ["pipe", "ignore", "ignore"], env: { ...process.env, CW_HOME: home } });
   try {
     server.stdin.write(
       `${JSON.stringify({
         jsonrpc: "2.0",
         id: 1,
         method: "tools/call",
-        params: { name: "cw_schedule_create", arguments: { cwd, kind: "loop", interval: 1, prompt: "stop test" } },
+        params: { name: "cw_queue_add", arguments: { cwd, app: "stop-test" } },
       })}\n`
     );
     // Give the durable child time to receive the request and enter the lock
@@ -55,7 +58,7 @@ async function signalStopsBlockedTool(signal) {
     // The old synchronous acquire could wait for up to six seconds. A late
     // child write after this span proves the parent did not contain it.
     await wait(6500);
-    assert.equal(fs.existsSync(storePath), false, `${signal} leaves no late schedule write`);
+    assert.equal(fs.existsSync(storePath), false, `${signal} leaves no late queue write`);
   } finally {
     server.kill();
     fs.rmSync(cwd, { recursive: true, force: true });

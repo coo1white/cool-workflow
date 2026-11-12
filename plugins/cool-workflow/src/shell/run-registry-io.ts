@@ -128,7 +128,7 @@ export interface RunRegistryPolicy {
 
 export const RUN_REGISTRY_SCHEMA_VERSION = 1 as const;
 
-export const DEFAULT_RUN_REGISTRY_POLICY: RunRegistryPolicy = {
+const DEFAULT_RUN_REGISTRY_POLICY: RunRegistryPolicy = {
   schemaVersion: 1,
   archiveOlderThanDays: 0,
   archiveStates: ["completed", "failed"],
@@ -285,9 +285,9 @@ export interface RunHistoryResult {
   nextAction: string;
 }
 
-// ReclaimedOverlay's minimal shape needed here (full type lives in
-// reclamation-io.ts; duplicated narrowly to avoid a circular import — this
-// file only ever READS the tombstone list to derive tier/capability).
+// The shape of a run dir's reclaimed.json overlay, written by older CW
+// builds that could reclaim runs. This file only ever READS the tombstone
+// list to derive tier/capability, so old run folders still read right.
 export interface ReclaimedOverlayLite {
   schemaVersion: 1;
   runId: string;
@@ -298,9 +298,8 @@ export interface ReclaimedOverlayLite {
     capability: RunCapability;
     capabilityReason: RunCapabilityReason;
   }>;
-  /** true when reclaimed.json EXISTS but failed to parse/validate — see
-   *  reclamation-io.ts's ReclaimedOverlay.corrupted (same fail-closed
-   *  contract, this is the lite/registry-scan copy of the same read). */
+  /** true when reclaimed.json EXISTS but failed to parse/validate — the
+   *  registry fails closed on it instead of reading it as never reclaimed. */
   corrupted?: boolean;
 }
 
@@ -415,9 +414,7 @@ let queueCounter = 0;
  *  formats"), unchanged. `queueCounter` alone is not enough to keep ids
  *  unique: it resets to 0 for every fresh `cw` process, so two SEPARATE
  *  processes calling `queue add` within the same second both compute
- *  `queueCounter === 1` and mint the IDENTICAL id — `sched lease` then
- *  keys grants by id, so both queue entries get treated as one, breaking
- *  through `maxConcurrent`. `existingIds` is the current queue file's ids
+ *  `queueCounter === 1` and mint the IDENTICAL id, so both queue entries would be treated as one. `existingIds` is the current queue file's ids
  *  (read inside queueAdd's own file lock, so this sees every entry any
  *  earlier-completed `queue add` — same process or not — has already
  *  saved); bumping past any collision against that real, shared state
@@ -656,8 +653,7 @@ export class RunRegistry {
   loadQueueEntries(): RunQueueEntry[] {
     const file = this.queueFilePath();
     if (!fs.existsSync(file)) return [];
-    // queue.json is durable state and fails CLOSED (the conformance rule in
-    // sched-corrupt-fail-closed.case.mjs): a file with good JSON but a bad
+    // queue.json is durable state and fails CLOSED: a file with good JSON but a bad
     // shape (entries not an array) must not read as an empty queue, or the
     // next queueAdd would write a fresh file over the broken one, losing
     // what it held. Never write over bytes we could not read.
@@ -678,10 +674,6 @@ export class RunRegistry {
 
   saveQueueEntries(entries: RunQueueEntry[]): void {
     writeJson(this.queueFilePath(), { schemaVersion: 1, entries }, { durable: true });
-  }
-
-  schedulingPolicyPath(): string {
-    return path.join(this.homeRegistryDir(), "scheduling-policy.json");
   }
 
   queueAdd(
@@ -1208,7 +1200,7 @@ export class RunRegistry {
   }
 
   rerun(runId: string, options: { reason?: string; scope?: "repo" | "home" } = {}): RunRerunResult {
-    if (!this.planner) throw new Error("rerun requires a run planner (CoolWorkflowRunner)");
+    if (!this.planner) throw new Error("rerun requires a run planner (RunPlanner)");
     const scope = options.scope || "home";
     const located = this.locate(runId, scope);
     if (!located) throw new Error(`Cannot rerun: run ${runId} not found in source state (fail closed).`);

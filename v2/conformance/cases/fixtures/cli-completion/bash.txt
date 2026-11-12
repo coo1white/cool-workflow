@@ -3,7 +3,7 @@
 _cw_complete() {
   local cur="${COMP_WORDS[COMP_CWORD]}"
   if [ "$COMP_CWORD" -eq 1 ]; then
-    COMPREPLY=( $(compgen -W "help doctor list search info init plan status next dispatch result state commit report app sandbox backend contract node feedback worker audit loop schedule routine registry run queue clones orphans history quickstart audit-run metrics operator sched gc telemetry migration demo workbench ledger graph man version fix completion check" -- "$cur") )
+    COMPREPLY=( $(compgen -W "help doctor list search info init plan status next dispatch result state commit report app sandbox backend contract node feedback worker audit registry run queue history quickstart audit-run metrics operator telemetry migration demo ledger graph man version fix completion check" -- "$cur") )
   fi
 }
 complete -F _cw_complete cw

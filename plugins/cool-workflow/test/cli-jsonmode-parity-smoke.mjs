@@ -44,10 +44,10 @@ const cli = path.join(pluginRoot, "dist", "cli.js");
 // CAPABILITY_REGISTRY is now dist/wiring/capability-table/index.js's REGISTRY (same
 // per-entry shape: { capability, cli: { path, jsonMode }, ... }).
 //
-// REAL GAP (v2): six probed verbs — next, contract.show, feedback.summary,
-// commit.summary, gc.plan, gc.verify — are declared surface:"both" in the v2
-// REGISTRY but carry NO cli binding (only an mcp binding). Some (gc.plan,
-// contract.show) DO have a working CLI surface, so the REGISTRY data is out of
+// REAL GAP (v2): four probed verbs — next, contract.show, feedback.summary,
+// commit.summary — are declared surface:"both" in the v2
+// REGISTRY but carry NO cli binding (only an mcp binding). Some (contract.show)
+// DO have a working CLI surface, so the REGISTRY data is out of
 // sync with the actual CLI; `next` prints "not implemented in this milestone".
 // capById() rightly fails closed on the missing cli binding. Reported for a
 // human call; this smoke stays red until the v2 REGISTRY records cli bindings
@@ -91,10 +91,7 @@ const RUN_PROBES = [
   "feedback.summary",
   "commit.summary",
   "audit.summary",
-  "workbench.view",
-  "metrics.show",
-  "gc.plan",
-  "gc.verify"
+  "metrics.show"
 ];
 
 function capById(id) {

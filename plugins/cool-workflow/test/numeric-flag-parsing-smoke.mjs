@@ -65,36 +65,6 @@ function runFail(args, opts) {
 }
 
 // ---------------------------------------------------------------------
-// sched lease / sched policy set: bare or garbage --limit / --maxConcurrent
-// must error. The policy-set message is asserted byte-for-byte against the
-// PRE-EXISTING wording (this cycle only made numericFlag delegate to the
-// shared parser -- it must not change externally-visible behavior).
-// ---------------------------------------------------------------------
-{
-  const home = tmpDir("cw-numeric-flag-sched-");
-  const env = { ...process.env, CW_HOME: home };
-  const opts = { cwd: home, env };
-
-  const bareLease = runFail(["sched", "lease", "--limit"], opts);
-  assert.match(bareLease.stderr, /--limit requires a value/, "a bare --limit on sched lease must error, not silently grant 0");
-
-  const garbageLease = runFail(["sched", "lease", "--limit", "abc"], opts);
-  assert.match(garbageLease.stderr, /Invalid --limit "abc": expected a number/, "an unparseable --limit on sched lease must error");
-
-  const badPolicy = runFail(["sched", "policy", "set", "--maxConcurrent", "abc"], opts);
-  assert.match(badPolicy.stderr, /Invalid --maxConcurrent "abc": expected a number/, "numericFlag's delegation must preserve its pre-existing error wording");
-
-  // Empty-string case (reachable via `--limit=` or an unset shell variable
-  // interpolated into `--limit=$VAR`): Number("") is 0, which used to be
-  // indistinguishable from a genuinely-typed 0 -- must error, not silently
-  // grant a 0-limit lease.
-  const emptyLease = runFail(["sched", "lease", "--limit="], opts);
-  assert.match(emptyLease.stderr, /Invalid --limit "": expected a number/, "an empty --limit= on sched lease must error, not silently become 0");
-
-  fs.rmSync(home, { recursive: true, force: true });
-}
-
-// ---------------------------------------------------------------------
 // run list: a bare --limit must error, not silently mean "limit to 1"
 // (RunRegistry.search's OWN pagination floor separately clamps any
 // genuinely-given limit to >= 1 -- that floor is unrelated pre-existing
@@ -121,12 +91,11 @@ function runFail(args, opts) {
 }
 
 // ---------------------------------------------------------------------
-// A confirmed adversarial-review finding: 5 of the 6 identical run.*/
-// queue.*/gc.* --limit call sites in registry-cli.ts (run search, run
-// resume, history, queue drain, gc run) had NO dedicated regression
-// coverage -- only run list did. All 6 are correctly wired today; this
-// closes the coverage gap so a future refactor of any of the other 5
-// can't silently regress without a test noticing. None of these need a
+// A confirmed adversarial-review finding: the run.*/queue.*
+// --limit call sites in registry-cli.ts (run search, run resume, history,
+// queue drain) had NO dedicated regression coverage -- only run list did.
+// All are correctly wired today; this closes the coverage gap so a future
+// refactor of any of them can't silently regress without a test noticing. None of these need a
 // real run/queue fixture: requiredNumberFlag throws while building the
 // options object, before any registry lookup happens.
 // ---------------------------------------------------------------------
@@ -139,8 +108,7 @@ function runFail(args, opts) {
     ["run", "search", "--limit"],
     ["run", "resume", "bogus-run-id", "--limit"],
     ["history", "--limit"],
-    ["queue", "drain", "--limit"],
-    ["gc", "run", "bogus-run-id", "--limit"]
+    ["queue", "drain", "--limit"]
   ]) {
     const bare = runFail(args, opts);
     assert.match(bare.stderr, /--limit requires a value/, `a bare --limit on "cw ${args.join(" ")}" must error`);
@@ -157,9 +125,8 @@ function runFail(args, opts) {
 
 // ---------------------------------------------------------------------
 // A confirmed adversarial-review finding: registry-cli.ts's OTHER
-// numeric flags (queue add's --priority, gc plan/run's
-// --reclaimAfterArchiveDays, run archive's --older-than-days, orphans
-// gc's --minAgeMinutes/--min-age-minutes) shared the exact same
+// numeric flags (queue add's --priority, run archive's
+// --older-than-days) shared the exact same
 // bare-flag-becomes-1 bug as --limit, just never named by the original
 // audit ("and friends" was scoped to pagination limit). All now route
 // through the same shared parser.
@@ -172,18 +139,12 @@ function runFail(args, opts) {
   const barePriority = runFail(["queue", "add", "--runId", "x", "--priority"], opts);
   assert.match(barePriority.stderr, /--priority requires a value/, "a bare --priority on queue add must error, not silently become 1");
 
-  const bareReclaim = runFail(["gc", "plan", "--reclaimAfterArchiveDays"], opts);
-  assert.match(bareReclaim.stderr, /--reclaimAfterArchiveDays requires a value/, "a bare --reclaimAfterArchiveDays on gc plan must error");
-
   const bareOlderThanDays = runFail(["run", "archive", "--older-than-days"], opts);
   assert.match(bareOlderThanDays.stderr, /--older-than-days requires a value/, "a bare --older-than-days on run archive must error");
   // Absent entirely (neither a run id nor the retention flag) keeps its own,
   // DIFFERENT pre-existing message -- proves the fix didn't disturb that path.
   const neitherGiven = runFail(["run", "archive"], opts);
   assert.match(neitherGiven.stderr, /Missing run id \(or --older-than-days N/, "omitting both the run id and --older-than-days must keep its own pre-existing message");
-
-  const bareMinAge = runFail(["orphans", "gc", "--minAgeMinutes"], opts);
-  assert.match(bareMinAge.stderr, /--min-age-minutes requires a value/, "a bare --minAgeMinutes on orphans gc must error");
 
   fs.rmSync(home, { recursive: true, force: true });
 }
@@ -229,7 +190,7 @@ function runFail(args, opts) {
 }
 
 process.stdout.write(
-  "numeric-flag-parsing-smoke: ok (dispatch 0/-1/bare/garbage, sched lease + policy set + empty-string, run list bare/exact/offset, " +
-    "run search/resume/history/queue-drain/gc-run coverage, registry --priority/--reclaimAfterArchiveDays/--older-than-days/--minAgeMinutes, " +
+  "numeric-flag-parsing-smoke: ok (dispatch 0/-1/bare/garbage, run list bare/exact/offset, " +
+    "run search/resume/history/queue-drain coverage, registry --priority/--older-than-days, " +
     "metrics summary, cw next)\n"
 );

@@ -206,7 +206,6 @@ npm run parity:check
 | `cw run import PATH --target DIR` | `cw_run_import` |
 | `cw run verify-import <run-id>` | `cw_run_verify_import` |
 | `cw telemetry verify <run-id>` | `cw_telemetry_verify` |
-| `cw workbench view <run-id> --json` | `cw_workbench_view` |
 
 Some capabilities are intentionally CLI-only, such as `quickstart`, because they
 are convenience wrappers over lower-level mechanisms MCP hosts can compose.

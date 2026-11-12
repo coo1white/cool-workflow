@@ -161,7 +161,9 @@ function openMcp() {
     // probe targets (topology/candidate/summary/review/comment/approve/
     // reject/handoff and the candidate/multi-agent summaries) went with it.
     // 50 since check.list joined the global probes (2026-11-03, done receipt).
-    assert.equal(plan.targets.length, 50, "payload probe plan must include all local scenario target batches");
+    // 47 since the frozen surfaces went (2026-11-12): workbench.view, gc.plan
+    // and gc.verify were run probes.
+    assert.equal(plan.targets.length, 47, "payload probe plan must include all local scenario target batches");
     assert.ok(plan.deferred.length > 0, "complex payload-identical capabilities must be explicitly deferred with reasons");
     for (const deferred of plan.deferred) {
       assert.ok(deferred.reason && deferred.reason.trim(), `${deferred.capability}: deferred payload probe must record a reason`);
@@ -216,8 +218,7 @@ function openMcp() {
     // the probe is BROAD, not a hand-picked handful. The tolerance tracks the
     // documented opt-out count (each entry-by-file/stdin ledger verb — verify,
     // apply — and the timestamped ledger.propose/review legitimately opt out of
-    // the generic byte-identity probe; orphans.gc joins gc.run/clones.gc as a
-    // mutating sweep with a now-derived payload); bump it only when a NEW opt-out
+    // the generic byte-identity probe); bump it only when a NEW opt-out
     // is added with a documented reason, never to hide an accidentally-unprobed verb.
     assert.ok(
       probeSet.length >= bothBound.length - 12,
@@ -260,9 +261,9 @@ function openMcp() {
       assert.equal(scenarioTargets.get(writeCap), "scenario", `${writeCap}: write/multi-argument verb must be scenario-probed`);
     }
 
-    // the documented opt-outs are exactly the 5 reasoned divergences, each with
+    // the documented opt-outs include these 3 reasoned divergences, each with
     // a real reason — opting out REQUIRES a paper trail (fail-closed default).
-    for (const optId of ["commit", "backend.agent.config.set", "run.drive.step", "gc.run", "workbench.serve"]) {
+    for (const optId of ["commit", "backend.agent.config.set", "run.drive.step"]) {
       const cap = registry.CAPABILITY_REGISTRY.find((entry) => entry.capability === optId);
       assert.ok(cap, `${optId}: registry entry must exist`);
       assert.equal(cap.payloadIdentical, false, `${optId}: declared payload divergence`);

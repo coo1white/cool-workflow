@@ -71,10 +71,8 @@ export function reportVerifyBundleCli(args: Record<string, unknown>): ReportBund
 /** `cw report verify-bundle`'s human render (default; `--json` prints
  *  `ReportBundleVerification` verbatim instead). Mirrors `doctor`'s
  *  checks-list-then-verdict shape (`shell/doctor.ts`'s
- *  `formatDoctorReport`) rather than `demo bundle`'s narrative one
- *  (`shell/telemetry-demo.ts`'s `formatBundleDemo`) — verify-bundle is a
- *  flat set of pass/fail checks on one already-sealed archive, not a
- *  multi-step forge-and-catch demonstration. */
+ *  `formatDoctorReport`) — verify-bundle is a flat set of pass/fail
+ *  checks on one already-sealed archive. */
 export function formatReportVerifyBundle(r: ReportBundleVerification): string {
   const lines: string[] = [bold(`cw report verify-bundle ${r.archivePath}`), ""];
   const checks: Array<[boolean, string]> = [

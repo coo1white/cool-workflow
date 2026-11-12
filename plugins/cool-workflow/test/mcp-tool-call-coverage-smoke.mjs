@@ -75,12 +75,6 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
   assert.ok(listR, "migration list returns ok");
 }
 
-// ---- Clones (no run needed) ----
-{
-  const listR = callTool("cw_clones_list", {});
-  assert.ok(listR, "clones list returns ok");
-}
-
 // ---- Registry + Run list (no run needed) ----
 {
   const showR = callTool("cw_registry_show", {});
@@ -108,56 +102,6 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
   assert.ok(listR, "queue list returns ok");
 }
 
-// ---- Scheduling (no run needed) ----
-{
-  const schedR = callTool("cw_schedule_create", {
-    kind: "loop",
-    intervalMinutes: 60,
-    command: "echo test",
-    prompt: "test schedule"
-  });
-  assert.ok(schedR, "schedule create returns ok");
-
-  const listR = callTool("cw_schedule_list", {});
-  assert.ok((listR), "schedule list returns array");
-
-  const dueR = callTool("cw_schedule_due", {});
-  assert.ok((dueR), "schedule due returns array");
-
-  if (schedR.id) {
-    callTool("cw_schedule_pause", { id: schedR.id });
-    callTool("cw_schedule_resume", { id: schedR.id });
-    const historyR = callTool("cw_schedule_history", { id: schedR.id });
-    assert.ok((historyR), "schedule history returns array");
-    callTool("cw_schedule_delete", { id: schedR.id });
-  }
-}
-
-// ---- Routine triggers (no run needed) ----
-{
-  const listR = callTool("cw_routine_list", {});
-  assert.ok((listR), "routine list returns array");
-
-  const createR = callTool("cw_routine_create", {
-    kind: "api",
-    prompt: "test event",
-    eventKind: "api"
-  });
-  assert.ok(createR, "routine create returns ok");
-
-  if (createR.id) {
-    const eventsR = callTool("cw_routine_events", { id: createR.id });
-    assert.ok((eventsR), "routine events returns array");
-    callTool("cw_routine_delete", { id: createR.id });
-  }
-}
-
-// ---- Sched policy (no run needed) ----
-{
-  const policyR = callTool("cw_sched_policy_show", {});
-  assert.ok(policyR, "sched policy show returns ok");
-}
-
 // ---- Read-only run arms (need a run) ----
 {
   // Create a minimal run for testing read-only tools. Use tmp as cwd
@@ -178,7 +122,6 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
   callTool("cw_audit_summary", { runId, cwd: tmp });
   callTool("cw_metrics_show", { runId, cwd: tmp });
   callTool("cw_report", { runId, cwd: tmp });
-  callTool("cw_workbench_view", { runId, cwd: tmp });
   callTool("cw_feedback_list", { runId, cwd: tmp });
   callTool("cw_worker_list", { runId, cwd: tmp });
   callTool("cw_run_show", { runId, cwd: tmp });

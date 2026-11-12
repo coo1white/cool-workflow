@@ -86,10 +86,10 @@ import { REGISTRY } from "../../dist/wiring/capability-table/index.js";
   );
 }
 
-// REGISTRY is non-trivially large (sanity bound, not an exact count pin —
-// the exact count is expected to grow as later milestones add rows).
+// REGISTRY is non-trivially large (sanity bound, not an exact count pin;
+// 120 rows since the frozen surfaces went, 2026-11-12).
 {
-  assert.ok(REGISTRY.length > 150, "REGISTRY should already carry well over 150 rows at this point in the build");
+  assert.ok(REGISTRY.length > 100, "REGISTRY should already carry well over 100 rows at this point in the build");
 }
 
 process.stdout.write("captable-registry-self-consistency: ok\n");

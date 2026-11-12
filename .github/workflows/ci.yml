@@ -44,19 +44,6 @@ jobs:
       # The CSS is built by Tailwind and committed like dist/; a stale copy
       # fails here, not on a user's screen.
       - run: bun run build:css && git diff --exit-code -- src/core/format/report-css.ts
-      # The Workbench is a Next static export, built here (out/ is not
-      # committed: Turbopack chunk names differ by platform). It runs on the
-      # Node 22 leg only; the Node 24 leg tests the host's fallback. bun is
-      # already set up above.
-      - run: bun install --frozen-lockfile
-        if: matrix.node-version == '22'
-        working-directory: plugins/cool-workflow/ui/workbench
-      - run: bun run build
-        if: matrix.node-version == '22'
-        working-directory: plugins/cool-workflow/ui/workbench
-      - run: bun run class-gate
-        if: matrix.node-version == '22'
-        working-directory: plugins/cool-workflow/ui/workbench
       # Committed dist/ must equal a fresh build of src/ (fail closed on drift).
       # `git status --porcelain` catches modified AND added/deleted dist files;
       # `git diff` would miss untracked ones. release:check re-verifies via dist:check.
@@ -69,7 +56,6 @@ jobs:
           fi
       - run: bun run check
       - run: node scripts/cw.js list
-      - run: node scripts/cw.js schedule list
       # Black-box regression net: the shipping cli.js must stay byte-identical
       # in observable behavior. The v0.2.0 GitHub Release notes make this
       # promise; it must run in CI or that promise is false.

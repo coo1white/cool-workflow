@@ -22,7 +22,7 @@ import { messageOf, NETWORK_ENV_NAMES } from "../../core/util/cli-args.js";
  *  This backend builds its `-e` args straight from baseEnv rather than through
  *  buildChildEnv, so it must apply CW_NEVER_FORWARD_ENV itself — otherwise
  *  inherit:true would still copy CW's own parent-only secrets (the release
- *  signing key, the workbench token) into the container. */
+ *  signing key, the retired workbench token) into the container. */
 export function buildContainerEnvArgs(policy, baseEnv = process.env) {
     const args = [];
     if (policy.env.inherit || (policy.env.expose && policy.env.expose.length)) {

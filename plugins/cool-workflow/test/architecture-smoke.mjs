@@ -114,26 +114,22 @@ const VERB_EXEMPT = {
   audit: ["security-trust-hardening.7.md", "part of the trust story"],
   backend: ["execution-backends.7.md", "the backends page owns it"],
   check: ["verifier-gated-commit.7.md", "receipts feed the commit gate"],
-  clones: ["remote-source-review.7.md", "clones come from remote review"],
   commit: ["verifier-gated-commit.7.md", "the commit gate page owns it"],
   completion: ["cli-mcp-parity.7.md", "GAP: only a row of the generated parity table"],
   contract: ["pipeline-runner.7.md", "one usage line in the runner page"],
   dispatch: ["pipeline-verbs.7.md", "one of the pipeline verbs"],
   feedback: ["error-feedback.7.md", "the feedback page owns it"],
-  gc: ["run-retention-reclamation.7.md", "reclamation owns it"],
   graph: ["operator-ux.7.md", "an operator view"],
   history: ["run-registry-control-plane.7.md", "a registry read"],
   info: ["init.7.md", "named in the first-steps list"],
   ledger: ["cross-agent-ledger.7.md", "the ledger page owns it"],
   list: ["init.7.md", "named in the first-steps list"],
-  loop: ["control-plane-scheduling.7.md", "short form of schedule create"],
   man: ["capability-topology-registry.7.md", "GAP: only an example line"],
   metrics: ["observability-cost-accounting.7.md", "the cost page owns it"],
   migration: ["contract-migration-tooling.7.md", "the migration page owns it"],
   next: ["pipeline-verbs.7.md", "one of the pipeline verbs"],
   node: ["pipeline-runner.7.md", "node state of a run"],
   operator: ["release-and-migration.7.md", "GAP: named only in passing"],
-  orphans: ["run-retention-reclamation.7.md", "reclamation owns it"],
   plan: ["pipeline-verbs.7.md", "one of the pipeline verbs"],
   queue: ["run-registry-control-plane.7.md", "the registry page owns it"],
   quickstart: ["agent-delegation-drive.7.md", "the drive page owns it"],
@@ -142,17 +138,14 @@ const VERB_EXEMPT = {
   result: ["pipeline-verbs.7.md", "one of the pipeline verbs"],
   run: ["run-registry-control-plane.7.md", "the registry page owns it"],
   sandbox: ["sandbox-profiles.7.md", "the profiles page owns it"],
-  sched: ["routine.7.md", "named in the routine page"],
-  schedule: ["control-plane-scheduling.7.md", "the scheduling page owns it"],
   search: ["run-registry-control-plane.7.md", "GAP: named only in a history list"],
   state: ["durable-state-and-locking.7.md", "the state page owns it"],
   status: ["operator-ux.7.md", "an operator view"],
   telemetry: ["agent-delegation-drive.7.md", "GAP: one line on telemetry verify"],
   version: ["operator-ux.7.md", "GAP: named only in passing"],
-  workbench: ["web-desktop-workbench.7.md", "the workbench page owns it"],
   worker: ["worker-isolation.7.md", "the isolation page owns it"],
 };
-const VERB_EXEMPT_CEILING = 41;
+const VERB_EXEMPT_CEILING = 34;
 
 // src-relative barrel -> why it stays
 const BARREL_ALLOW = {
@@ -278,7 +271,7 @@ const real = [
   ...checkSource(readTree(path.join(pluginRoot, "src"), ".ts"), BARREL_ALLOW, BARREL_CEILING),
 ];
 assert.equal(real.length, 0, `the real tree breaks ${real.length} architecture rule(s):\n  ${real.join("\n  ")}`);
-assert.ok(verbs.length >= 40, `found ${verbs.length} verbs in the capability table; the path: [...] parse is broken`);
+assert.ok(verbs.length >= 35, `found ${verbs.length} verbs in the capability table; the path: [...] parse is broken`);
 
 // 2. Teeth: one planted fault per rule, each named exactly.
 assert.deepEqual(heads(checkRules(

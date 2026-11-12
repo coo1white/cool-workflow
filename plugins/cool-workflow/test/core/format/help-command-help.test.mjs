@@ -18,41 +18,41 @@ function noSuggestion() {
   return undefined;
 }
 
-// Known verb with a literal, multi-row COMMAND_HELP_ROWS entry ("clones"):
+// Known verb with a literal, multi-row COMMAND_HELP_ROWS entry ("registry"):
 // bold header line `cw <verb>`, blank line, then rows sorted by command
 // string, each `  <padded command>  <summary>`.
 {
-  const out = formatCommandHelp("clones", noSuggestion);
+  const out = formatCommandHelp("registry", noSuggestion);
   const lines = out.split("\n");
-  assert.equal(lines[0], "cw clones", "first line is 'cw <verb>'");
+  assert.equal(lines[0], "cw registry", "first line is 'cw <verb>'");
   assert.equal(lines[1], "", "second line is blank");
-  assert.ok(lines[2].startsWith("  cw clones gc "), "row starts with a 2-space indent + padded command");
-  assert.ok(lines[2].includes("Reclaim cached remote-source checkouts"), "row 1 carries the gc summary");
-  assert.ok(lines[3].includes("List the cached remote-source checkouts"), "row 2 carries the list summary");
-  // "cw clones gc" < "cw clones list" lexicographically -> gc row must come
-  // first (line 2), list row second (line 3).
-  assert.ok(lines[2].includes("clones gc"), "the gc row (lexicographically first) must be the first row");
-  assert.ok(lines[3].includes("clones list"), "the list row (lexicographically second) must be the second row");
+  assert.ok(lines[2].startsWith("  cw registry refresh "), "row starts with a 2-space indent + padded command");
+  assert.ok(lines[2].includes("Recompute and persist the derived run registry index"), "row 1 carries the refresh summary");
+  assert.ok(lines[3].includes("Read the run registry index"), "row 2 carries the show summary");
+  // "cw registry refresh" < "cw registry show" lexicographically -> refresh
+  // row must come first (line 2), show row second (line 3).
+  assert.ok(lines[2].includes("registry refresh"), "the refresh row (lexicographically first) must be the first row");
+  assert.ok(lines[3].includes("registry show"), "the show row (lexicographically second) must be the second row");
   assert.ok(out.endsWith("\n"), "output ends with a single trailing newline");
 }
 
 // Column padding: both rows pad their command column to the same width
 // (the longest command length in this verb's row set, capped at 40) —
-// verified by the fixed "cw clones <verb>" prefix each row's padded
+// verified by the fixed "cw registry <verb>" prefix each row's padded
 // command column occupies before the 2-space gap to the summary.
 {
-  const out = formatCommandHelp("clones", noSuggestion);
-  const lines = out.split("\n").filter((l) => l.startsWith("  cw clones"));
+  const out = formatCommandHelp("registry", noSuggestion);
+  const lines = out.split("\n").filter((l) => l.startsWith("  cw registry"));
   // Row shape: "  " + command.padEnd(longest) + "  " + summary. The gap
   // between the end of the (unpadded) command text and the summary text
   // must differ per row by exactly the padding needed to reach one shared
   // column width.
-  const gcMatch = lines[0].match(/^  (cw clones gc)( +)Reclaim/);
-  const listMatch = lines[1].match(/^  (cw clones list)( +)List/);
-  assert.ok(gcMatch && listMatch, "both rows must match the expected '<command><spaces><summary>' shape");
-  const gcColumnEnd = 2 + gcMatch[1].length + gcMatch[2].length;
-  const listColumnEnd = 2 + listMatch[1].length + listMatch[2].length;
-  assert.equal(gcColumnEnd, listColumnEnd, "both clones rows must pad the command column to the same total width");
+  const refreshMatch = lines[0].match(/^  (cw registry refresh)( +)Recompute/);
+  const showMatch = lines[1].match(/^  (cw registry show)( +)Read/);
+  assert.ok(refreshMatch && showMatch, "both rows must match the expected '<command><spaces><summary>' shape");
+  const refreshColumnEnd = 2 + refreshMatch[1].length + refreshMatch[2].length;
+  const showColumnEnd = 2 + showMatch[1].length + showMatch[2].length;
+  assert.equal(refreshColumnEnd, showColumnEnd, "both registry rows must pad the command column to the same total width");
 }
 
 // Single-row verb ("help" itself): header + blank + one row.
@@ -141,10 +141,10 @@ function noSuggestion() {
 // Unknown verb WITH a suggestion: inserts the "Did you mean" line between
 // the header and the generic tip.
 {
-  const out = formatCommandHelp("clone", (input) => (input === "clone" ? "clones" : undefined));
+  const out = formatCommandHelp("queu", (input) => (input === "queu" ? "queue" : undefined));
   assert.equal(
     out,
-    "Unknown command: clone\n  Did you mean:  cw clones\n  Try:  cw help   (list all commands)\n",
+    "Unknown command: queu\n  Did you mean:  cw queue\n  Try:  cw help   (list all commands)\n",
     "unknown verb with a suggestion inserts the Did-you-mean line"
   );
 }

@@ -2,8 +2,8 @@
 //
 // It also holds the `normalizeValue`/`replayStableStringify` pair (defined
 // below). This is the SINGLE source of truth for the 13-field
-// projected-node shape; node-snapshot.ts and reclamation-io.ts's tombstone
-// chain both read from here so the field set can only change in one place.
+// projected-node shape; node-snapshot.ts reads from here so the field set
+// can only change in one place.
 //
 // BYTE-IDENTITY [load-bearing]: `normalizeValue` sorts object keys, so field
 // ORDER never affects the bytes — only the field SET matters.
@@ -81,10 +81,4 @@ export function rawNodeProjection(node: StateNode): Record<string, unknown> {
 /** `normalizeValue(rawNodeProjection(node))` — the `NodeSnapshotBody`. */
 export function projectNodeBody(node: StateNode): NodeSnapshotBody {
   return normalizeValue(rawNodeProjection(node)) as NodeSnapshotBody;
-}
-
-/** `replayStableStringify(rawNodeProjection(node))` — shared with the
- *  reclamation tombstone chain so it cannot drift. */
-export function nodeProjectionDigestInput(node: StateNode): string {
-  return replayStableStringify(rawNodeProjection(node));
 }

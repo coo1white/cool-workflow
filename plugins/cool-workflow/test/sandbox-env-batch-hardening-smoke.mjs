@@ -71,7 +71,7 @@ async function main() {
   // ---- 4c. CW's own secrets are NEVER forwarded to a child (security audit) -----
   // buildAgentChildEnv re-adds every CW_* var (the CW_ arm of
   // AGENT_PROVIDER_KEY_ENV_RE), which used to sweep in CW_RELEASE_VERDICT_PRIVKEY
-  // and CW_WORKBENCH_TOKEN — the release signing key and the workbench bearer
+  // and CW_WORKBENCH_TOKEN — the release signing key and the retired workbench's bearer
   // token — into EVERY spawned agent child unless the operator remembered to
   // deny each by name. Both are now on a fail-closed CW_NEVER_FORWARD_ENV list
   // that wins over inherit/expose/deny AND over the provider-key re-add. The

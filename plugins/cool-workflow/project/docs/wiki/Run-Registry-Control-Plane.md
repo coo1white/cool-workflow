@@ -111,13 +111,6 @@ entry. `queue drain` marks the next entries as handed out and gives them
 back. CW records the order; **your host runs the work**. Nothing in the
 queue starts work by itself.
 
-`cw sched` puts rules on top of the queue: how many runs may be out at one
-time, how many tries each gets, a wait between tries that gets longer each
-time, and a `parked` state after the last try (`cw sched reset <id>` is the
-only way back). Its rules are kept in `$CW_HOME/registry/scheduling-policy.json`.
-`cw sched` is a frozen part of CW: it gets fixes only. Full rules:
-`cw man control-plane-scheduling`.
-
 ## The same from MCP
 
 Every command here is in the capability registry one time, so

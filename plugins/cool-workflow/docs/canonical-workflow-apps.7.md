@@ -48,13 +48,11 @@ node scripts/architecture-review-fast.js \
   --question "Is this architecture sound?" \
   --fast-model gpt-5.5-high \
   --strong-model gpt-5.5-extra-high \
-  --metrics \
-  --schedule-full
+  --metrics
 ```
 
 The wrapper gets one cached JSONL source context ready, passes its sha256 digest to
-the fast app, runs `quickstart architecture-review-fast`, and may make
-a one-shot background schedule for the full `architecture-review` app. When run
+the fast app, and runs `quickstart architecture-review-fast`. When run
 against an outside repo without `--profile` or `--profile-file`, it writes a
 small repo-local `repo` profile that covers common tracked text surfaces such as
 README/package metadata, `src/`, `lib/`, `apps/`, `scripts/`, docs, and tests.
@@ -67,8 +65,9 @@ set the same task-level hints as `CW_ARCHITECTURE_REVIEW_FAST_MODEL` and
 agent-spawn, and result-cache-hit counts to the JSON payload so operators can
 measure foreground wait cuts without changing the default output shape.
 
-For long full reviews, use the routine or schedule surfaces you have to run
-`architecture-review` in the background after the fast report has come back.
+For a long full review, run the `architecture-review` app yourself after the
+fast report has come back. (`--schedule-full`, which put it on `cw schedule`,
+went with the scheduling surface on 2026-11-12 and is now refused.)
 
 `pr-review-fix-ci`
 

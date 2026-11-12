@@ -20,7 +20,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { CoolWorkflowRunner, drive } from "../dist/shell/orchestrator.js";
+import { plan } from "../dist/shell/pipeline.js";
+import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
+import { drive } from "../dist/shell/drive.js";
+import { loadRunFromCwd } from "../dist/shell/run-store.js";
+import { summarizeTrustAudit } from "../dist/shell/trust-audit.js";
 import { resolveAgentConfig } from "../dist/shell/agent-config.js";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -59,8 +63,8 @@ function writeStubAgent(dir) {
   return file;
 }
 
-function auditSummaryFor(runner, run) {
-  const audit = runner.auditSummary(run.id);
+function auditSummaryFor(run) {
+  const audit = summarizeTrustAudit(run);
   const byKind = audit.byKind || (audit.summary && audit.summary.byKind) || {};
   const auditDir = path.join(run.paths.runDir, "audit");
   fs.mkdirSync(auditDir, { recursive: true });
@@ -78,14 +82,13 @@ function runSmoke() {
   try {
     // The run artifacts (report + audit summary) are LEFT IN PLACE under `work` so
     // the gate can existsSync them — the caller cleans up `summary.workspace`.
-    const runner = new CoolWorkflowRunner({ pluginRoot });
-    const run = runner.plan("architecture-review", { repo: work, question: "Smoke: is the control plane sound?" });
-    const result = drive(runner, run.id, {
+    const run = plan(loadWorkflowApp("architecture-review"), { repo: work, question: "Smoke: is the control plane sound?" });
+    const result = drive(run.id, process.cwd(), {
       now: FIXED_NOW,
       agentConfig: { schemaVersion: 1, command: process.execPath, args: [stub, "{{result}}"], model: "smoke-operator-pick", source: "flag" }
     });
-    const final = runner.loadRun(run.id);
-    const { byKind, auditSummaryPath } = auditSummaryFor(runner, final);
+    const final = loadRunFromCwd(run.id, process.cwd());
+    const { byKind, auditSummaryPath } = auditSummaryFor(final);
     const verdict = final.tasks.find((task) => /^verdict[:/]/i.test(task.id));
     const verdictAccepted = Boolean(verdict && verdict.status === "completed");
     const agentDelegationEvents = byKind["worker.agent-delegation"] || 0;
@@ -142,9 +145,8 @@ function runLive() {
   if (!agentConfig.command && !agentConfig.endpoint) {
     throw new Error("live dogfood requires a configured agent: set CW_AGENT_COMMAND or pass --agent-command (a wrapper that reads {{input}} and writes {{result}} — see docs/agent-delegation-drive.7.md)");
   }
-  const runner = new CoolWorkflowRunner({ pluginRoot });
-  const run = runner.plan("architecture-review", { repo: repoAbs, question });
-  // The run lives under the repo's .cw/ and every runner verb resolves a run from
+  const run = plan(loadWorkflowApp("architecture-review"), { repo: repoAbs, question });
+  // The run lives under the repo's .cw/ and every run read resolves a run from
   // the process cwd, so drive WITH the repo as cwd (the agent also reads the repo).
   const cwd0 = process.cwd();
   let result;
@@ -153,9 +155,9 @@ function runLive() {
   let auditSummaryPath;
   try {
     if (repoAbs !== process.cwd()) process.chdir(repoAbs);
-    result = drive(runner, run.id, { now: argValue("--now"), agentConfig });
-    final = runner.loadRun(run.id);
-    ({ byKind, auditSummaryPath } = auditSummaryFor(runner, final));
+    result = drive(run.id, process.cwd(), { now: argValue("--now"), agentConfig });
+    final = loadRunFromCwd(run.id, process.cwd());
+    ({ byKind, auditSummaryPath } = auditSummaryFor(final));
   } finally {
     if (process.cwd() !== cwd0) process.chdir(cwd0);
   }

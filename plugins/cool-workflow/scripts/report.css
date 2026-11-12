@@ -1,8 +1,7 @@
-/* Tailwind 4 + daisyUI 5 input: the only CSS file a person edits. The rules
-   live in the class names of app/, src/ and report-html.ts. The two theme
+/* Tailwind 4 + daisyUI 5 input for report.html: the only CSS file a person
+   edits. The rules live in the class names of report-html.ts. The two theme
    blocks are a copy of ~/Developer/TECH-SPEC.md section 3 (that file wins).
-   The three faces come from app/fonts/ through next/font/local; nothing is
-   fetched at build time. */
+   scripts/build-css.mjs builds it into src/core/format/report-css.ts. */
 @import "tailwindcss" source(none);
 @plugin "@tailwindcss/typography";
 @plugin "daisyui" {
@@ -28,9 +27,7 @@
   --radius-selector: 0.5rem; --radius-field: 0.5rem; --radius-box: 0.75rem; --size-selector: 0.25rem; --size-field: 0.25rem;
   --border: 1px; --depth: 0; --noise: 0;
 }
-@source "./";
-@source "../src/";
-@source "../../../src/core/format/report-html.ts";
+@source "../src/core/format/report-html.ts";
 @theme {
   --font-sans: var(--font-montserrat), Montserrat, ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-unbounded), Unbounded, Montserrat, sans-serif;

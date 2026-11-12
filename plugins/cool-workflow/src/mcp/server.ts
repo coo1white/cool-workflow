@@ -162,7 +162,7 @@ export function negotiateProtocolVersion(requested: unknown): string {
 //
 // This list is deliberately exhaustive over every MCP tool reachable from
 // a worker/agent/operator-authored free-text field. The aggregate
-// dashboards (cw_workbench_view, cw_operator_status, cw_operator_report)
+// dashboards (cw_operator_status, cw_operator_report)
 // re-surface no stored text, so they need no advisory.
 const UNTRUSTED_RESULT_FIELDS: Record<string, string[]> = {
   cw_worker_list: ["[].errors[].message"],

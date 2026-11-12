@@ -1,9 +1,9 @@
 name: Pages
 
-# The Workbench and report.html, as one static snapshot of a real run, at
+# report.html, as one static snapshot of a real run, at
 # https://coo1white.github.io/cool-workflow/ . Every push to main makes a
-# fresh run with the release-cut app (node backend, no agent, no secret),
-# turns the two JSON routes into files, and publishes them with the UI.
+# fresh run with the release-cut app (node backend, no agent, no secret)
+# and publishes its report.
 
 on:
   push:
@@ -39,10 +39,6 @@ jobs:
           bun-version: 1.4.1
       - run: bun install --frozen-lockfile --ignore-scripts
       - run: bun run build
-      - run: bun install --frozen-lockfile && bun run build
-        working-directory: plugins/cool-workflow/ui/workbench
-        env:
-          WORKBENCH_ASSET_PREFIX: /cool-workflow/ui
       - run: bun run dogfood:release
       - run: node scripts/site-snapshot.mjs ../../site
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

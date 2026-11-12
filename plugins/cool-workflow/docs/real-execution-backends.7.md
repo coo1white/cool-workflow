@@ -25,8 +25,8 @@ The execution handle (`image@digest`, `endpoint#jobId`) lives in
 `provenance.handle` and the sandbox attestation in `provenance.attestation` —
 NEVER in `evidence`. So a `container` run of the same task is byte-stable against
 `node` once you take provenance away: only `provenance.backendId`/`handle`/
-`attestation` and ISO timestamps are not the same. Eval/replay, the verifier gates, the
-v0.1.28 registry, and the v0.1.30 Workbench all stay backend-agnostic.
+`attestation` and ISO timestamps are not the same. Eval/replay, the verifier gates, and the
+v0.1.28 registry all stay backend-agnostic.
 
 ## container
 
@@ -122,17 +122,17 @@ per-node snapshot, structural diff, and isolated deterministic replay over State
 
 first-class declared migration registry (run-state + workflow-app) with per-edge compatibility proofs, fail-closed reachability, and a round-trip/non-destruction prover. See contract-migration-tooling(7).
 
-## Control-Plane Scheduling (v0.1.37)
+## Control-Plane Scheduling (v0.1.37, removed)
 
-priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue; policy-as-data, deterministic. See control-plane-scheduling(7).
+priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue. Removed 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Agent Delegation Drive (v0.1.38)
 
 start an outside agent process for each worker, take in result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
 
-## Run Retention & Provable Reclamation (v0.1.39)
+## Run Retention & Provable Reclamation (v0.1.39, removed)
 
-tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the bulk that can be built again, prove it
+tiered, append-only, hash-chained run reclamation (`cw gc`, `cw orphans`). Removed 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Durable State & Locking (v0.1.40)
 

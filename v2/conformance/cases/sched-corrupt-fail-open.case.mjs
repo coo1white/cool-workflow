@@ -26,8 +26,8 @@ caseMain(() => {
   assert.equal(showReport.counts.total, 0, "no runs yet in this repo");
 
   // The home-scope index.json is a separate file with the same fail-open rule.
-  const clonesProbe = run(["clones", "list", "--json"], { cwd: repo });
-  const cwHome = path.dirname(JSON.parse(clonesProbe.stdout).clonesDir);
+  const homeProbe = run(["registry", "show", "--scope", "home", "--json"], { cwd: repo });
+  const cwHome = JSON.parse(homeProbe.stdout).root;
   const homeIndexPath = path.join(cwHome, "registry", "index.json");
   assert.ok(fs.existsSync(homeIndexPath));
   fs.writeFileSync(homeIndexPath, "not json {{{");
@@ -45,13 +45,6 @@ caseMain(() => {
 
   const reclaimedPath = path.join(repo, ".cw", "runs", runId, "reclaimed.json");
   fs.writeFileSync(reclaimedPath, "not json {{{");
-
-  const verify = run(["gc", "verify", runId, "--json"], { cwd: repo });
-  assert.equal(verify.status, 0, "a corrupt reclaimed.json must never brick gc verify");
-  const verifyReport = JSON.parse(verify.stdout);
-  assert.equal(verifyReport.reclaimed, false, "an unreadable tombstone chain reads as empty, i.e. never reclaimed");
-  assert.equal(verifyReport.verified, false);
-  assert.equal(verifyReport.chainLength, 0);
 
   const showRun = run(["run", "show", runId, "--json"], { cwd: repo });
   assert.equal(showRun.status, 0, "run show must also survive a corrupt reclaimed.json");

@@ -14,7 +14,6 @@ absolute plugin script path. Run data is written to `.cw/runs/<run-id>/` under
 - [Plan / dispatch / result / report](#plan--dispatch--result--report)
 - [Sandbox profiles](#sandbox-profiles)
 - [Commit, state & summaries](#commit-state--summaries)
-- [Scheduling & routines](#scheduling--routines)
 - [Release & maintenance npm scripts](#release--maintenance-npm-scripts)
 - [MCP tools](#mcp-tools)
 
@@ -102,22 +101,6 @@ cw worker summary <run-id>
 cw feedback summary <run-id>
 cw commit summary <run-id>
 cw state check <run-id>
-```
-
-## Scheduling & routines
-
-CW supports loop, cron, and reminder schedules in `.cw/schedules/tasks.json`.
-Use `schedule due` to find due work and `schedule complete <id>` after the due
-prompt is handled. `routine create`/`routine fire` handle API/GitHub trigger
-events.
-
-```bash
-cw loop --intervalMinutes 30 --prompt "Continue this workflow."
-cw schedule create --kind loop --intervalMinutes 30 --prompt "Continue this workflow."
-cw schedule due
-cw schedule daemon --once
-cw routine create --kind github --prompt "Handle this GitHub event."
-cw routine fire github payload.json
 ```
 
 ## Release & maintenance npm scripts

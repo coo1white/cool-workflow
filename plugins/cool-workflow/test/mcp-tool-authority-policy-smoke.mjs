@@ -39,8 +39,8 @@ function rpc(messages, env = {}) {
   try {
     const result = rpc([
       { jsonrpc: "2.0", id: 3, method: "tools/list" },
-      { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "cw_schedule_create", arguments: { cwd, kind: "loop", interval: 1, prompt: "must not write" } } },
-    ], { CW_MCP_ENABLED_TOOLS: "cw_schedule_create,cw_list", CW_MCP_DISABLED_TOOLS: "cw_schedule_create" });
+      { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "cw_plan", arguments: { workflowId: "end-to-end-golden-path", repo: cwd, question: "must not write" } } },
+    ], { CW_MCP_ENABLED_TOOLS: "cw_plan,cw_list", CW_MCP_DISABLED_TOOLS: "cw_plan" });
     assert.equal(result.status, 0, `deny server exits cleanly: ${result.stderr}`);
     assert.deepEqual(result.lines.find((line) => line.id === 3).result.tools.map((tool) => tool.name), ["cw_list"], "deny removes an enabled tool");
     const denied = result.lines.find((line) => line.id === 4);

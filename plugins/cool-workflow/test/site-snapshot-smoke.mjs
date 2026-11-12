@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 // @cw-smoke: tags pages
-// site-snapshot-smoke — the GitHub Pages snapshot script, end to end: runs
-// `node scripts/build-ui.mjs` (skips, with a note, when it leaves no
-// ui/workbench/out/index.html — e.g. no bun on this machine) then
-// `node scripts/site-snapshot.mjs <tmp>` and checks the files a Pages
-// deploy needs are there: the Next export's own index.html at the site
-// root, its assets under ui/, and the two JSON routes as files.
+// site-snapshot-smoke — the GitHub Pages snapshot script, end to end: two
+// run folders under a temp repo's .cw/runs/, then
+// `node scripts/site-snapshot.mjs <tmp> <repo>` must publish the NEWEST
+// run's report.md as index.html and report.html (plus .nojekyll); a repo
+// with no run is a refusal (exit 1), not an empty site.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -13,23 +12,28 @@ import { spawnSync } from "node:child_process";
 import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
+const script = path.join(pluginRoot, "scripts", "site-snapshot.mjs");
 
-const build = spawnSync(process.execPath, [path.join(pluginRoot, "scripts", "build-ui.mjs")], { cwd: pluginRoot, encoding: "utf8" });
-if (build.status !== 0 || !fs.existsSync(path.join(pluginRoot, "ui", "workbench", "out", "index.html"))) {
-  process.stdout.write(`site-snapshot-smoke: skipped, no ui/workbench/out/index.html after build-ui.mjs (${build.stderr.trim() || "build-ui.mjs did not run"})\n`);
-  process.exit(0);
+const repo = tmpDir("cw-site-repo-");
+for (const [id, title] of [["run-a", "Older"], ["run-b", "Newest"]]) {
+  const dir = path.join(repo, ".cw", "runs", id);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "state.json"), "{}\n");
+  fs.writeFileSync(path.join(dir, "report.md"), `# ${title} report\n`);
 }
 
 const site = tmpDir("cw-site-snapshot-");
-const run = spawnSync(process.execPath, [path.join(pluginRoot, "scripts", "site-snapshot.mjs"), site], { cwd: pluginRoot, encoding: "utf8" });
+const run = spawnSync(process.execPath, [script, site, repo], { cwd: pluginRoot, encoding: "utf8" });
 assert.equal(run.status, 0, `site-snapshot.mjs exited 0: ${run.stderr}`);
-
-assert.ok(fs.existsSync(path.join(site, "index.html")), "index.html at the site root");
-assert.ok(fs.existsSync(path.join(site, "ui", "_next")), "ui/_next/ (the export's assets)");
-assert.ok(fs.existsSync(path.join(site, "ui", "icon.svg")), "ui/icon.svg");
-assert.ok(fs.existsSync(path.join(site, "api", "index")), "api/index");
 assert.ok(fs.existsSync(path.join(site, ".nojekyll")), ".nojekyll");
-assert.ok(fs.readFileSync(path.join(site, "index.html"), "utf8").includes('id="run-list"'), 'index.html has id="run-list"');
+const index = fs.readFileSync(path.join(site, "index.html"), "utf8");
+assert.ok(index.includes("Newest report"), "index.html is the newest run's report");
+assert.equal(fs.readFileSync(path.join(site, "report.html"), "utf8"), index, "report.html is the same page");
 
-fs.rmSync(site, { recursive: true, force: true });
+const empty = tmpDir("cw-site-empty-");
+const refused = spawnSync(process.execPath, [script, path.join(empty, "site"), empty], { cwd: pluginRoot, encoding: "utf8" });
+assert.equal(refused.status, 1, "no run is a refusal");
+assert.match(refused.stderr, /^site-snapshot: no run with a report\.md under /);
+
+for (const d of [repo, site, empty]) fs.rmSync(d, { recursive: true, force: true });
 process.stdout.write("site-snapshot-smoke: ok\n");

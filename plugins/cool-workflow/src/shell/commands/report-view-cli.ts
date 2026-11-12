@@ -123,7 +123,6 @@ export function operatorReportText(runId: string, args: Record<string, unknown>)
 /** `cw graph <id> [--json]` / `cw operator graph`. */
 export function graphCli(runId: string, args: Record<string, unknown>): unknown {
   const run = loadRunFromCwd(runId, cwdArg(args));
-  if (args.__cwWorkbenchReadOnlyProjection === true) (run as unknown as Record<string, unknown>).__cwWorkbenchReadOnlyProjection = true;
   return buildOperatorGraph(run);
 }
 

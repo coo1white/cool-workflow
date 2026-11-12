@@ -3,8 +3,7 @@
 // architecture-review-fast — userland accelerator wrapper.
 //
 // Mechanism only: prepare one cached JSONL source context, pass its digest into
-// the opt-in fast app, then optionally create a background schedule for the full
-// architecture-review app. The model still runs only through CW's external agent
+// the opt-in fast app. The model still runs only through CW's external agent
 // backend; this script imports no model SDK and holds no key.
 
 import crypto from "node:crypto";
@@ -22,6 +21,9 @@ function main() {
   const started = nowNs();
   const args = parseArgs(process.argv.slice(2));
   if (args.help) return usage(0);
+  // `cw schedule` went with the frozen surfaces (2026-11-12): refuse the old
+  // flag rather than drop it without a word.
+  if (args.scheduleFull || args["schedule-full"]) die("--schedule-full is gone with cw schedule; run the full architecture-review app yourself when the fast review is done");
 
   const repo = path.resolve(required(args.repo, "repo"));
   const question = required(args.question, "question");
@@ -43,8 +45,7 @@ function main() {
   // Opt-in incremental overlay: scope the exported source context to files
   // changed since REF (e.g. origin/main). The source-context export resolves
   // the ref, keys its cache separately, and records the base. The fast review
-  // then runs over the narrower context; the scheduled full review stays a
-  // complete audit (see scheduleFullReview).
+  // then runs over the narrower context.
   const changedFrom = stringArg(args.changedFrom || args["changed-from"]);
 
   const contextExport = timed(() => exportSourceContext({
@@ -107,19 +108,13 @@ function main() {
     cacheDir,
     ...(changedFrom ? { changedFrom } : {})
   };
-  const fullReviewScheduleRun = truthy(args.scheduleFull || args["schedule-full"])
-    ? timed(() => scheduleFullReview(repo, question, args, fastReview, sourceContextMeta))
-    : undefined;
-  const fullReviewSchedule = fullReviewScheduleRun?.value;
-
   writeJson({
     schemaVersion: 1,
     appId: "architecture-review-fast",
     sourceContext: sourceContextMeta,
     fastReview,
     ...(fastModel || strongModel ? { modelPolicy: { ...(fastModel ? { fastModel } : {}), ...(strongModel ? { strongModel } : {}) } } : {}),
-    ...(fullReviewSchedule ? { fullReviewSchedule } : {}),
-    ...(includeMetrics ? { metrics: buildMetrics(started, contextText, contextExport.elapsedMs, fastReview, fastReviewRun.elapsedMs, fullReviewScheduleRun?.elapsedMs, changedFrom) } : {})
+    ...(includeMetrics ? { metrics: buildMetrics(started, contextText, contextExport.elapsedMs, fastReview, fastReviewRun.elapsedMs, changedFrom) } : {})
   });
 }
 
@@ -239,39 +234,6 @@ function assertNonEmptySourceContext(text, profile, repo) {
   ].join("; "));
 }
 
-function scheduleFullReview(repo, question, args, fastReview, sourceContextMeta) {
-  const delayMinutes = stringArg(args.fullDelayMinutes || args["full-delay-minutes"]) || "1";
-  const prompt = [
-    `Run full architecture-review for ${repo}.`,
-    `Question: ${question}`,
-    args.focus ? `Focus: ${args.focus}` : "",
-    `Fast review run: ${fastReview?.runId || "unknown"}.`,
-    fastReview?.reportPath ? `Fast review report: ${fastReview.reportPath}.` : "",
-    `Fast review status: ${fastReview?.status || "unknown"} (${fastReview?.completedWorkers || 0}/${fastReview?.plannedWorkers || 0} workers completed).`,
-    `Source context: ${sourceContextMeta.path} (${sourceContextMeta.digest}, profile ${sourceContextMeta.profile}, ref ${sourceContextMeta.ref}).`,
-    sourceContextMeta.changedFrom
-      ? `Fast review used an incremental overlay (changed-from ${sourceContextMeta.changedFrom}); this full review must audit the complete source, not only the changed files.`
-      : "",
-    "Use the completed architecture-review-fast report as the foreground triage result; write the full review report path and digest when the background review finishes."
-  ].filter(Boolean).join(" ");
-  return runCwJson([
-    "schedule",
-    "create",
-    "--cwd",
-    repo,
-    "--kind",
-    "reminder",
-    "--delayMinutes",
-    delayMinutes,
-    "--maxRuns",
-    "1",
-    "--workflowId",
-    "architecture-review",
-    "--prompt",
-    prompt
-  ], repo);
-}
-
 function runCwJson(args, cwd, extraEnv = {}) {
   const result = spawnSync(node, [cw, ...args], {
     cwd,
@@ -362,7 +324,7 @@ function timed(fn) {
   return { value, elapsedMs: elapsedMs(started) };
 }
 
-function buildMetrics(started, contextText, sourceContextElapsedMs, fastReview, fastReviewElapsedMs, fullReviewScheduleElapsedMs, changedFrom) {
+function buildMetrics(started, contextText, sourceContextElapsedMs, fastReview, fastReviewElapsedMs, changedFrom) {
   const steps = Array.isArray(fastReview?.steps) ? fastReview.steps : [];
   const handleKinds = countBy(steps.map((step) => step && step.handleKind).filter(Boolean));
   const actions = countBy(steps.map((step) => step && step.action).filter(Boolean));
@@ -386,8 +348,7 @@ function buildMetrics(started, contextText, sourceContextElapsedMs, fastReview, 
       resultCacheHits: Number(handleKinds["result-cache"] || 0),
       agentSpawns: steps.filter((step) => step && step.backendId === "agent" && step.handleKind && step.handleKind !== "result-cache").length,
       taskMetrics
-    },
-    ...(fullReviewScheduleElapsedMs === undefined ? {} : { fullReviewSchedule: { elapsedMs: fullReviewScheduleElapsedMs } })
+    }
   };
 }
 
@@ -452,7 +413,6 @@ function usage(code) {
     "  --changed-from REF   (incremental overlay: scope context to files changed since REF)",
     "  --fast-model MODEL --strong-model MODEL",
     "  --invariant TEXT --focus TEXT --preview --once",
-    "  --schedule-full [--full-delay-minutes N]",
     "  --metrics"
   ].join("\n") + "\n");
   process.exitCode = code;

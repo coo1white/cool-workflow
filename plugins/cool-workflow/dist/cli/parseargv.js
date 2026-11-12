@@ -16,7 +16,7 @@
 //     with "-" (single or double dash); otherwise the value is `true`;
 //   - "--key=value" gives a value that may itself start with "-";
 //   - a repeated option becomes an array of values.
-/** src/shell/orchestrator.ts — single-dash short-flag table. */
+/** The single-dash short-flag table. */
 const SHORT_FLAG_TABLE = {
     q: "question",
     r: "repo",
@@ -29,7 +29,7 @@ const SHORT_FLAG_TABLE = {
 function looksLikeFlagValue(token) {
     return token !== undefined && !token.startsWith("-");
 }
-/** src/shell/orchestrator.ts — appendOption: a repeated key becomes an
+/** appendOption: a repeated key becomes an
  *  array; a third+ occurrence pushes onto that same array. */
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -104,10 +104,10 @@ export const KNOWN_COMMANDS = new Set([
     "help", "list", "doctor", "info", "search", "man", "init", "quickstart",
     "plan", "status", "next", "dispatch", "result", "state", "commit", "report",
     "app", "sandbox", "backend", "contract", "node", "feedback", "worker",
-    "audit", "loop", "schedule", "routine", "registry",
-    "run", "queue", "clones", "orphans", "history", "audit-run",
+    "audit", "registry",
+    "run", "queue", "history", "audit-run",
     "metrics", "operator",
-    "sched", "gc", "telemetry", "migration", "demo", "workbench",
+    "telemetry", "migration", "demo",
     "graph", "version", "fix",
     "completion", "check",
 ]);

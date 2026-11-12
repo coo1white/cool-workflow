@@ -386,16 +386,9 @@ drivers you can swap, picked by `--backend` (parallel to `--sandbox`) and looked
 backends; the backend id + sandbox attestation are kept as provenance, so this
 surface is unchanged no matter which backend ran a run. See
 [execution-backends.7.md](execution-backends.7.md).
-## Web / Desktop Workbench (v0.1.30)
+## Web / Desktop Workbench (v0.1.30, removed)
 
-v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
-console that shows this surface (and the other four operator panels — run
-graph, blackboard, worker logs, candidate compare, audit timeline) for any run,
-reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR beside
-the CLI and MCP that holds no authoritative state and forks no schema: each panel
-equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
-makes everything again from disk. See
-[web-desktop-workbench.7.md](web-desktop-workbench.7.md).
+v0.1.30 added the Web / Desktop Workbench, a read-only localhost console over run state. It was removed on 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Observability + Cost Accounting (v0.1.31)
 
@@ -404,10 +397,10 @@ work out durations, failure/verifier/acceptance rates (with sample counts and
 fail-closed `n/a`), and host-attested token/cost from durable run state that is already there
 — no metrics database, no collector daemon, no hidden counter. Usage is additive
 and optional (absent ⇒ `unreported`, never 0); cost is `attested` (attested usage
-× a recorded pricing policy) or clearly `estimated`, with pricing as policy. Both
-verbs are parity-gated and show read-only in the v0.1.30 Workbench. See
+× a recorded pricing policy) or clearly `estimated`, with pricing as policy. Both verbs are parity-gated. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
+Since 2026-11-12 CW no longer prices usage: the pricing policy (`--pricing`) and the hand-recorded usage flags went with the observability intake module, and cost is `unpriced` or `unreported` only.
 
 ## Team Collaboration (v0.1.32, removed)
 
@@ -431,17 +424,17 @@ per-node snapshot, structural diff, and on-its-own deterministic replay over Sta
 
 first-class declared migration registry (run-state + workflow-app) with per-edge compatibility proofs, fail-closed reachability, and a round-trip/non-destruction prover. See contract-migration-tooling(7).
 
-## Control-Plane Scheduling (v0.1.37)
+## Control-Plane Scheduling (v0.1.37, removed)
 
-priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue; policy-as-data, deterministic. See control-plane-scheduling(7).
+priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue. Removed 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Agent Delegation Drive (v0.1.38)
 
 start an external agent process per worker, take in result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
 
-## Run Retention & Provable Reclamation (v0.1.39)
+## Run Retention & Provable Reclamation (v0.1.39, removed)
 
-tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the bulk that can be built again, prove it
+tiered, append-only, hash-chained run reclamation (`cw gc`, `cw orphans`). Removed 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Durable State & Locking (v0.1.40)
 

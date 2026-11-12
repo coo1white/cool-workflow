@@ -81,8 +81,8 @@ two behavior hints:
 
 - `readOnlyHint: true` — the tool only reads; it makes no change on disk.
 - `destructiveHint: true` (with `readOnlyHint: false`) — the tool deletes
-  stored data (the gc / delete sweeps: `cw_gc_run`, `cw_orphans_gc`,
-  `cw_clones_gc`, `cw_schedule_delete`, `cw_routine_delete`).
+  stored data. No tool carries it today: the gc and delete sweeps that did
+  went with the frozen surfaces (2026-11-12).
 
 The hints come from one side table (`MCP_TOOL_ANNOTATIONS` in
 `src/core/capability-data.ts`), and a tool goes in only after its handler
@@ -150,7 +150,7 @@ relationship. `identical` means `cw <cmd> --json` is equal to the `cw_<tool>`
 payload; `projected` means a declared divergence with a reason; `cli-only` marks
 a surface-specific capability with a recorded reason. The matrix is
 <!-- gen:parity:count -->
-machine-complete by design: 160 capabilities, 125 MCP tools.
+machine-complete by design: 120 capabilities, 94 MCP tools.
 <!-- /gen:parity:count -->
 
 <!-- gen:parity:table -->
@@ -178,8 +178,6 @@ machine-complete by design: 160 capabilities, 125 MCP tools.
 | `graph` | `cw graph` | `cw_operator_graph` | `graph` | both | identical |
 | `operator.report` | `cw operator report` | `cw_operator_report` | `operator.report` | both | identical |
 | `worker.summary` | `cw worker summary` | `cw_worker_summary` | `worker.summary` | both | identical |
-| `workbench.view` | `cw workbench view` | `cw_workbench_view` | `workbench.view` | both | identical |
-| `workbench.serve` | `cw workbench serve` | `cw_workbench_serve` | `workbench.serve` | both | projected |
 | `feedback.summary` | `cw feedback summary` | `cw_feedback_summary` | `feedback.summary` | both | identical |
 | `commit.summary` | `cw commit summary` | `cw_commit_summary` | `commit.summary` | both | identical |
 | `audit.summary` | `cw audit summary` | `cw_audit_summary` | `audit.summary` | both | identical |
@@ -223,20 +221,6 @@ machine-complete by design: 160 capabilities, 125 MCP tools.
 | `feedback.collect` | `cw feedback collect` | `cw_feedback_collect` | `feedback.collect` | both | identical |
 | `feedback.task` | `cw feedback task` | `cw_feedback_task` | `feedback.task` | both | identical |
 | `feedback.resolve` | `cw feedback resolve` | `cw_feedback_resolve` | `feedback.resolve` | both | identical |
-| `schedule.create` | `cw schedule create` | `cw_schedule_create` | `schedule.create` | both | identical |
-| `schedule.list` | `cw schedule list` | `cw_schedule_list` | `schedule.list` | both | identical |
-| `schedule.due` | `cw schedule due` | `cw_schedule_due` | `schedule.due` | both | identical |
-| `schedule.complete` | `cw schedule complete` | `cw_schedule_complete` | `schedule.complete` | both | identical |
-| `schedule.pause` | `cw schedule pause` | `cw_schedule_pause` | `schedule.pause` | both | identical |
-| `schedule.resume` | `cw schedule resume` | `cw_schedule_resume` | `schedule.resume` | both | identical |
-| `schedule.run-now` | `cw schedule run-now` | `cw_schedule_run_now` | `schedule.run-now` | both | identical |
-| `schedule.history` | `cw schedule history` | `cw_schedule_history` | `schedule.history` | both | identical |
-| `schedule.delete` | `cw schedule delete` | `cw_schedule_delete` | `schedule.delete` | both | identical |
-| `routine.create` | `cw routine create` | `cw_routine_create` | `routine.create` | both | identical |
-| `routine.list` | `cw routine list` | `cw_routine_list` | `routine.list` | both | identical |
-| `routine.fire` | `cw routine fire` | `cw_routine_fire` | `routine.fire` | both | identical |
-| `routine.events` | `cw routine events` | `cw_routine_events` | `routine.events` | both | identical |
-| `routine.delete` | `cw routine delete` | `cw_routine_delete` | `routine.delete` | both | identical |
 | `registry.refresh` | `cw registry refresh` | `cw_registry_refresh` | `registry.refresh` | both | identical |
 | `registry.show` | `cw registry show` | `cw_registry_show` | `registry.show` | both | identical |
 | `metrics.show` | `cw metrics show` | `cw_metrics_show` | `metrics.show` | both | identical |
@@ -260,21 +244,6 @@ machine-complete by design: 160 capabilities, 125 MCP tools.
 | `queue.list` | `cw queue list` | `cw_queue_list` | `queue.list` | both | identical |
 | `queue.drain` | `cw queue drain` | `cw_queue_drain` | `queue.drain` | both | identical |
 | `queue.show` | `cw queue show` | `cw_queue_show` | `queue.show` | both | identical |
-| `sched.plan` | `cw sched plan` | `cw_sched_plan` | `sched.plan` | both | identical |
-| `sched.lease` | `cw sched lease` | `cw_sched_lease` | `sched.lease` | both | identical |
-| `sched.release` | `cw sched release` | `cw_sched_release` | `sched.release` | both | identical |
-| `sched.complete` | `cw sched complete` | `cw_sched_complete` | `sched.complete` | both | identical |
-| `sched.reclaim` | `cw sched reclaim` | `cw_sched_reclaim` | `sched.reclaim` | both | identical |
-| `sched.reset` | `cw sched reset` | `cw_sched_reset` | `sched.reset` | both | identical |
-| `sched.policy.show` | `cw sched policy` | `cw_sched_policy_show` | `sched.policy.show` | both | identical |
-| `sched.policy.set` | `cw sched policy` | `cw_sched_policy_set` | `sched.policy.set` | both | identical |
-| `gc.plan` | `cw gc plan` | `cw_gc_plan` | `gc.plan` | both | identical |
-| `gc.run` | `cw gc run` | `cw_gc_run` | `gc.run` | both | projected |
-| `gc.verify` | `cw gc verify` | `cw_gc_verify` | `gc.verify` | both | identical |
-| `clones.list` | `cw clones list` | `cw_clones_list` | `clones.list` | both | identical |
-| `clones.gc` | `cw clones gc` | `cw_clones_gc` | `clones.gc` | both | projected |
-| `orphans.list` | `cw orphans list` | `cw_orphans_list` | `orphans.list` | both | identical |
-| `orphans.gc` | `cw orphans gc` | `cw_orphans_gc` | `orphans.gc` | both | projected |
 | `telemetry.verify` | `cw telemetry verify` | `cw_telemetry_verify` | `telemetry.verify` | both | identical |
 | `history` | `cw history` | `cw_history` | `history` | both | identical |
 | `audit.head` | `cw audit head` | `cw_audit_head` | `audit.head` | both | identical |
@@ -288,17 +257,9 @@ machine-complete by design: 160 capabilities, 125 MCP tools.
 | `fix` | `cw fix` | `—` | `fix` | cli-only | cli-only |
 | `quickstart` | `cw quickstart` | `—` | `quickstart` | cli-only | cli-only |
 | `demo.tamper` | `cw demo tamper` | `—` | `demo.tamper` | cli-only | cli-only |
-| `demo.bundle` | `cw demo bundle` | `—` | `demo.bundle` | cli-only | cli-only |
 | `check.run` | `cw check` | `—` | `check.run` | cli-only | cli-only |
-| `loop` | `cw loop` | `—` | `loop` | cli-only | cli-only |
-| `schedule` | `cw schedule` | `—` | `schedule` | cli-only | cli-only |
-| `routine` | `cw routine` | `—` | `routine` | cli-only | cli-only |
-| `sched` | `cw sched` | `—` | `sched` | cli-only | cli-only |
 | `registry` | `cw registry` | `—` | `registry` | cli-only | cli-only |
 | `queue` | `cw queue` | `—` | `queue` | cli-only | cli-only |
-| `gc` | `cw gc` | `—` | `gc` | cli-only | cli-only |
-| `orphans` | `cw orphans` | `—` | `orphans` | cli-only | cli-only |
-| `clones` | `cw clones` | `—` | `clones` | cli-only | cli-only |
 | `app.usage` | `cw app` | `—` | `app.usage` | cli-only | cli-only |
 | `sandbox.usage` | `cw sandbox` | `—` | `sandbox.usage` | cli-only | cli-only |
 | `state.usage` | `cw state` | `—` | `state.usage` | cli-only | cli-only |
@@ -312,7 +273,6 @@ machine-complete by design: 160 capabilities, 125 MCP tools.
 | `feedback.usage` | `cw feedback` | `—` | `feedback.usage` | cli-only | cli-only |
 | `metrics.usage` | `cw metrics` | `—` | `metrics.usage` | cli-only | cli-only |
 | `operator.usage` | `cw operator` | `—` | `operator.usage` | cli-only | cli-only |
-| `workbench.usage` | `cw workbench` | `—` | `workbench.usage` | cli-only | cli-only |
 | `worker.usage` | `cw worker` | `—` | `worker.usage` | cli-only | cli-only |
 | `man` | `cw man` | `—` | `man` | cli-only | cli-only |
 | `info` | `cw info` | `—` | `info` | cli-only | cli-only |
@@ -331,7 +291,7 @@ A capability may be on one surface only, but never without word of it — it mus
 carry a recorded reason in the registry.
 
 <!-- gen:parity:cliOnly -->
-35 capabilities are CLI-only:
+26 capabilities are CLI-only:
 
 - `version` — version is a local, no-run-state print; the old build never gave it an MCP peer.
 - `completion` — shell-completion output is a script for the user's OWN shell to source, not data an MCP client could use — CLI-only, same reasoning as doctor/fix.
@@ -340,17 +300,9 @@ carry a recorded reason in the registry.
 - `fix` — Environment fix commands are local diagnostics, same reasoning as doctor.
 - `quickstart` — quickstart composes plan/runDrive/report; SPEC/mcp.md's declared cli-only list names it explicitly (no MCP peer). `audit-run` is a CLI-only alias of the same wrapper.
 - `demo tamper` — Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo.
-- `demo bundle` — Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface report.verify-bundle. No agent or MCP client needs to invoke a demo.
 - `check` — Runs a local process for the person at the terminal; an MCP host already runs commands with its own tool and cites the receipt. Reading receipts is both-surface (check.list, check.show).
-- `loop` — loop is CLI-only sugar over schedule.create; the old build never gave it an MCP tool of its own (SPEC/scheduling-registry.md section I).
-- `schedule` — cw schedule is the desktop wall-clock scheduler; SPEC/mcp.md declares its MCP peers per verb (cw_schedule_*), each wired below.
-- `routine` — cw routine is the API/GitHub-style trigger bridge; SPEC/mcp.md declares its MCP peers per verb (cw_routine_*), each wired below.
-- `sched` — cw sched is the durable-queue lease scheduler; SPEC/mcp.md declares its MCP peers per verb (cw_sched_*), each wired below.
 - `registry` — cw registry is the derived run-registry index; SPEC/mcp.md declares its MCP peers (cw_registry_refresh|show), each wired below.
 - `queue` — cw queue is the durable run queue; SPEC/mcp.md declares its MCP peers (cw_queue_add|list|drain|show), each wired below.
-- `gc` — cw gc is run retention & provable reclamation; SPEC/mcp.md declares its MCP peers (cw_gc_plan|run|verify), each wired below.
-- `orphans` — cw orphans reclaims killed-process run dirs with no state.json; SPEC/mcp.md declares its MCP peers (cw_orphans_list|gc), each wired below.
-- `clones` — cw clones is the cached remote-source checkout cache; SPEC/mcp.md declares its MCP peers (cw_clones_list|gc), each wired below.
 - `app` — app.usage exists only to own the fixed usage-error text for an unrecognized app subcommand; every real app.* action is its own capability row above.
 - `sandbox` — sandbox.usage exists only to own the fixed usage-error text for an unrecognized sandbox subcommand; every real sandbox.* action is its own capability row above.
 - `state` — state.usage exists only to own the fixed usage-error text for an unrecognized state subcommand; every real state.* action is its own capability row above.
@@ -364,16 +316,14 @@ carry a recorded reason in the registry.
 - `feedback` — feedback.usage exists only to own the fixed usage-error text for an unrecognized feedback subcommand; every real feedback.* action is its own capability row above.
 - `metrics` — metrics.usage exists only to own the fixed usage-error text for an unrecognized metrics subcommand; every real metrics.* action is its own capability row above.
 - `operator` — operator.usage exists only to own the fixed usage-error text for an unrecognized operator subcommand; every real operator.* action is its own capability row above.
-- `workbench` — workbench.usage exists only to own the fixed usage-error text for an unrecognized workbench subcommand; every real workbench.* action is its own capability row above.
 - `worker` — worker.usage exists only to own the fixed usage-error text for an unrecognized worker subcommand; every real worker.* action is its own capability row above.
 - `man` — man is a CLI-only raw-file reader over docs/; the old build never gave it an MCP peer.
 - `info` — info is a CLI-only convenience card over app.show; the old build never gave it an MCP peer.
 <!-- /gen:parity:cliOnly -->
 
 <!-- gen:parity:projected -->
-Twelve capabilities are payload-divergent on purpose (`projected`):
+Eight capabilities are payload-divergent on purpose (`projected`):
 
-- `workbench.serve` — Both surfaces route through the single core entry buildWorkbenchServeDescriptor and return the IDENTICAL serve descriptor under `cw workbench serve --json`/`--once` and `cw_workbench_serve`. They diverge only in side effect, not payload: the CLI's default `cw workbench serve` (no --once) additionally STARTS the blocking localhost host, which an MCP stdio host cannot do, so cw_workbench_serve only ever returns the descriptor. Declared divergence, not drift.
 - `backend.agent.config.set` — Mutating: persists $CW_HOME/agent-config.json (secret-stripped) before returning the effective config; both surfaces perform the same write — it is a surface-mutating verb, not a read probe.
 - `commit` — Both surfaces route through the single core entry runner.commit. The CLI emits the raw StateCommitResult for scripting (commit.id, commit.evidence, commit.gate); cw_commit emits the operator commit envelope (commitId, verifierGated, checkpoint, evidenceCount, snapshotPath, nextActions, plus the raw result under `commit`). Declared projection, not drift.
 - `ledger.propose` — Mints a fresh entry each call: createdAt is the wall-clock instant and the id/digest are derived from it, so the output is inherently non-deterministic and a byte-identity probe does not apply. Both surfaces call the same buildLedgerProposal core; round-trip + fail-closed behavior is covered by ledger-verify-smoke.
@@ -382,9 +332,6 @@ Twelve capabilities are payload-divergent on purpose (`projected`):
 - `ledger.apply` — The entry arrives by --file/stdin on the CLI and as an `entry` argument over MCP; there is no shared arg-bag the byte-identity probe can feed both. Both surfaces call the same applyLedgerProposal core (a fail-closed wrapper over verifyLedgerEntry); ledger-apply-smoke proves the diff only escapes a verified proposal.
 - `ledger.list` — Output depends on the on-disk contents of the named ledger directory/directories, which the generic payload probe does not populate. Both surfaces call the same listLedgerEntries/unionLedgerEntries core; ledger-verify-smoke covers the fail-closed inbox and the multi-mirror union.
 - `run.drive.step` — Mutating: advances the run by spawning the external agent per worker and recording attested output — not a read probe. CLI (--drive/--step) and MCP route through the same drive() core.
-- `gc.run` — Mutating: frees disk and appends a tombstone; both surfaces perform the identical transaction but the payload reports now-derived bytesFreed/tombstone.
-- `clones.gc` — Mutating: removes cache directories and reports now-derived freedBytes/removed; both surfaces perform the identical reclamation.
-- `orphans.gc` — Mutating: removes orphan run directories and reports now-derived freedBytes/removed; both surfaces perform the identical sweep.
 <!-- /gen:parity:projected -->
 
 ## Fail-Closed Rules
@@ -404,8 +351,7 @@ registry, the surfaces, and the recorded reasons are in agreement.
 
 Boolean arguments: an MCP tool argument sent as JSON `false` means false, the
 same as leaving the flag out of the CLI (for example `cw_state_check`
-`{"write": false}` does not write, and `cw_orphans_gc` `{"all": false}` keeps
-the age sweep). JSON `true` and numbers still come to the handler as their
+`{"write": false}` does not write). JSON `true` and numbers still come to the handler as their
 CLI string form (`"true"`, `"5"`).
 
 ## Enforcement & Smoke Coverage
@@ -474,16 +420,9 @@ picked by `--backend` (parallel to `--sandbox`) and looked at through
 backends; the backend id + sandbox attestation are recorded as provenance, so this
 surface is the same no matter which backend ran a run. See
 [execution-backends.7.md](execution-backends.7.md).
-## Web / Desktop Workbench (v0.1.30)
+## Web / Desktop Workbench (v0.1.30, removed)
 
-v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
-console that renders this surface (and the other operator panels — run
-graph, worker logs, metrics, audit timeline) for any run,
-reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR next to
-the CLI and MCP that holds no authoritative state and forks no schema: each panel
-is equal to its `cw <cmd> --json` payload byte-for-byte (parity-gated), and
-refresh makes everything again from disk. See
-[web-desktop-workbench.7.md](web-desktop-workbench.7.md).
+v0.1.30 added the Web / Desktop Workbench, a read-only localhost console over run state. It was removed on 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Observability + Cost Accounting (v0.1.31)
 
@@ -493,10 +432,10 @@ fail-closed `n/a`), and host-attested token/cost from run state already kept on
 disk — no metrics database, no collector daemon, no hidden counter. Usage is added
 on and optional (when not there ⇒ `unreported`, never 0); cost is `attested`
 (attested usage × a recorded pricing policy) or clearly `estimated`, with pricing
-as policy. Both verbs are parity-gated and render read-only in the v0.1.30
-Workbench. See
+as policy. Both verbs are parity-gated. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
+Since 2026-11-12 CW no longer prices usage: the pricing policy (`--pricing`) and the hand-recorded usage flags went with the observability intake module, and cost is `unpriced` or `unreported` only.
 
 ## Team Collaboration (v0.1.32)
 
@@ -527,17 +466,17 @@ per-node snapshot, structural diff, and on-its-own deterministic replay over Sta
 
 first-class declared migration registry (run-state + workflow-app) with per-edge compatibility proofs, fail-closed reachability, and a round-trip/non-destruction prover. See contract-migration-tooling(7).
 
-## Control-Plane Scheduling (v0.1.37)
+## Control-Plane Scheduling (v0.1.37, removed)
 
-priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue; policy-as-data, deterministic. See control-plane-scheduling(7).
+priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue. Removed 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Agent Delegation Drive (v0.1.38)
 
 start up an outside agent process per worker, take in result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
 
-## Run Retention & Provable Reclamation (v0.1.39)
+## Run Retention & Provable Reclamation (v0.1.39, removed)
 
-tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the bulk that can be built again, prove it
+tiered, append-only, hash-chained run reclamation (`cw gc`, `cw orphans`). Removed 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Durable State & Locking (v0.1.40)
 

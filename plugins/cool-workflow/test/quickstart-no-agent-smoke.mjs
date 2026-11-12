@@ -1,14 +1,13 @@
 #!/usr/bin/env node
 // quickstart-no-agent-smoke — Track A first-run acceptance.
 //
-// Proves the no-agent user path: demo tamper + demo bundle work without an agent,
+// Proves the no-agent user path: demo tamper works without an agent,
 // `cw doctor` clearly reports agent status, `cw doctor --onramp` includes the
 // "No Agent?" section, and blocked quickstart output is actionable (not a
 // mysterious error). A user who starts cold (no agent installed) can:
 //   1. Run `demo tamper` and see trust holds
-//   2. Run `demo bundle` and see the bundle proof
-//   3. Run `cw doctor` and see exactly what's missing
-//   4. Read the onramp and find a concrete install command
+//   2. Run `cw doctor` and see exactly what's missing
+//   3. Read the onramp and find a concrete install command
 //
 // Hermetic: no agent binary, no network, no shared state.
 //
@@ -44,14 +43,7 @@ try {
     assert.ok(result.stdout.includes("tamper-evidence holds"), "demo tamper proves trust holds");
   }
 
-  // ---- 2. demo bundle works without agent -------------------------------------
-  {
-    const result = runCw(["demo", "bundle"]);
-    assert.equal(result.status, 0, "demo bundle exits 0");
-    assert.ok(result.stdout.includes("VERDICT: bundle verification holds"), "demo bundle proves the bundle guarantee");
-  }
-
-  // ---- 3. cw doctor prints clear diagnosis for no-agent state ------------------
+  // ---- 2. cw doctor prints clear diagnosis for no-agent state ------------------
   {
     // With CW_AGENT_COMMAND cleared: auto-detect may find an agent (ok), or
     // report it as warn/fail. Either outcome is correct — the check runs.
@@ -65,17 +57,18 @@ try {
     assert.ok(doct.checks.some((c) => c.name === "node" && c.status === "ok"), "doctor checks node runtime");
   }
 
-  // ---- 4. cw doctor --onramp includes the 3-step quickstart + No Agent? section -
+  // ---- 3. cw doctor --onramp includes the 3-step quickstart + No Agent? section -
   {
     const result = runCw(["doctor", "--onramp"], { CW_AGENT_COMMAND: "" });
     const out = result.stdout;
     assert.ok(out.includes("Quick start (3 steps)"), "doctor --onramp prints the quick start block");
-    assert.ok(out.includes("cw demo tamper") && out.includes("cw demo bundle"), "doctor lists demo steps");
+    assert.ok(out.includes("cw demo tamper") && out.includes("cw check -- npm test"), "doctor lists the no-agent steps");
+    assert.ok(!out.includes("cw demo bundle"), "doctor names no retired demo");
     assert.ok(out.includes("No Agent?"), "doctor --onramp includes the No Agent? section");
     assert.ok(out.includes("npm install -g @anthropic-ai/claude-code"), "doctor --onramp gives an install command");
   }
 
-  // ---- 5. cw doctor --json onramp has the sections we added -------------------
+  // ---- 4. cw doctor --json onramp has the sections we added -------------------
   {
     const doct = json(["doctor", "--onramp"], { CW_AGENT_COMMAND: "" });
     assert.ok(doct.onramp, "doctor --onramp json carries onramp");
@@ -87,10 +80,11 @@ try {
     assert.ok(noAgentSection.actions.some((a) => a.id === "agent-claude"), "no-agent section lists claude install");
     assert.ok(noAgentSection.actions.some((a) => a.id === "agent-check"), "no-agent section points to cw doctor");
     const firstRun = doct.onramp.sections.find((s) => s.id === "first-run");
-    assert.ok(firstRun.actions.some((a) => a.id === "demo-bundle"), "first-run section includes demo bundle");
+    assert.ok(firstRun.actions.some((a) => a.id === "demo"), "first-run section includes demo tamper");
+    assert.ok(!firstRun.actions.some((a) => a.id === "demo-bundle"), "first-run section names no retired demo");
   }
 
-  // ---- 6. quickstart with no explicit agent config (auto-detect may or may not work) --
+  // ---- 5. quickstart with no explicit agent config (auto-detect may or may not work) --
   {
     // Without CW_AGENT_COMMAND set, the quickstart may auto-detect an agent (complete)
     // or find none (blocked). Either is correct — we verify the response is well-formed

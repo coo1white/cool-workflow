@@ -23,7 +23,7 @@ export interface ParsedArgv {
   options: Record<string, unknown>;
 }
 
-/** src/shell/orchestrator.ts — single-dash short-flag table. */
+/** The single-dash short-flag table. */
 const SHORT_FLAG_TABLE: Record<string, string> = {
   q: "question",
   r: "repo",
@@ -38,7 +38,7 @@ function looksLikeFlagValue(token: string | undefined): token is string {
   return token !== undefined && !token.startsWith("-");
 }
 
-/** src/shell/orchestrator.ts — appendOption: a repeated key becomes an
+/** appendOption: a repeated key becomes an
  *  array; a third+ occurrence pushes onto that same array. */
 function appendOption(options: Record<string, unknown>, key: string, value: unknown): void {
   if (Object.prototype.hasOwnProperty.call(options, key)) {
@@ -120,10 +120,10 @@ export const KNOWN_COMMANDS: Set<string> = new Set([
   "help", "list", "doctor", "info", "search", "man", "init", "quickstart",
   "plan", "status", "next", "dispatch", "result", "state", "commit", "report",
   "app", "sandbox", "backend", "contract", "node", "feedback", "worker",
-  "audit", "loop", "schedule", "routine", "registry",
-  "run", "queue", "clones", "orphans", "history", "audit-run",
+  "audit", "registry",
+  "run", "queue", "history", "audit-run",
   "metrics", "operator",
-  "sched", "gc", "telemetry", "migration", "demo", "workbench",
+  "telemetry", "migration", "demo",
   "graph", "version", "fix",
   "completion", "check",
 ]);

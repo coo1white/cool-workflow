@@ -51,11 +51,6 @@ function run(args) {
   assert.match(migration.stderr, /Migration target not found: no-such-target/, "migration check: the real capability's not-found error");
   assert.doesNotMatch(migration.stderr, /is not implemented in this milestone/);
 }
-{
-  const gc = run(["gc", "verify", "no-such-run"]);
-  assert.equal(gc.status, 0, "gc verify: the real capability's verdict, exit 0 for an unresolvable run (not a failure)");
-  assert.match(gc.stdout, /GC Verify no-such-run:/, "gc verify: real human-text verdict line");
-}
 
 // ---- 2. search is a real, cli-only capability-table row --------------------
 {

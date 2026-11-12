@@ -93,8 +93,7 @@ console.log("headline: vendor flags -claude/-codex/-gemini/-deepseek route ok");
     [["help"], /Cool Workflow/],
     [["doctor"], /(ready|node:)/i],
     [["fix"], /(No fixes needed|Fix Commands|--agent-command)/],
-    [["demo", "tamper"], /tamper-evidence holds/],
-    [["demo", "bundle"], /bundle verification holds/]
+    [["demo", "tamper"], /tamper-evidence holds/]
   ]) {
     const r = run(args, anywhere);
     assert.equal(r.status === 0 || r.status === 1, true, `cw ${args.join(" ")} runs (status ${r.status})`);

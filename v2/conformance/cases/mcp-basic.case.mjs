@@ -35,7 +35,7 @@ caseMain(async () => {
     assert.equal(list.id, 2);
     const tools = list.result.tools;
     assert.ok(Array.isArray(tools) && tools.length > 0, "tools/list must return a non-empty array");
-    assert.ok(tools.length >= 100, "tool set should be large (196 in the spec snapshot)");
+    assert.ok(tools.length >= 90, "tool set should be large (94 once the frozen surfaces went)");
 
     const byName = new Map(tools.map((t) => [t.name, t]));
     assert.ok(byName.has("cw_list"), "cw_list must be in the tool set");
@@ -66,14 +66,8 @@ caseMain(async () => {
     });
 
     // Behavior-hint annotations: a checked pure read carries readOnlyHint
-    // true, a checked delete sweep carries destructiveHint true, and a
-    // tool not checked by hand has NO annotations key at all.
+    // true, and a tool not checked by hand has NO annotations key at all.
     assert.deepEqual(byName.get("cw_node_list").annotations, { readOnlyHint: true }, "cw_node_list must be marked read-only");
-    assert.deepEqual(
-      byName.get("cw_gc_run").annotations,
-      { readOnlyHint: false, destructiveHint: true },
-      "cw_gc_run must be marked destructive"
-    );
     assert.ok(!("annotations" in byName.get("cw_plan")), "cw_plan must carry no annotations key");
 
     // tools/call — content[0].text is a STRING holding pretty JSON, not a raw object.

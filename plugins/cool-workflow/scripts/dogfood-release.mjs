@@ -3,7 +3,15 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { CoolWorkflowRunner } from "../dist/shell/orchestrator.js";
+import { loadRunFromCwd, saveCheckpoint, withRunStateLock } from "../dist/shell/run-store.js";
+import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";
+import { plan as planRun } from "../dist/shell/pipeline.js";
+import { createDispatchManifest } from "../dist/shell/dispatch.js";
+import { recordWorkerOutput } from "../dist/shell/worker-isolation.js";
+import { commitRun } from "../dist/shell/commands/pipeline-cli.js";
+import { workerManifestCli } from "../dist/shell/commands/worker-cli.js";
+import { auditAttestCli, auditDecisionCli, auditProvenanceCli, auditSummaryCli } from "../dist/shell/commands/audit-cli.js";
+import { reportWriteCli } from "../dist/shell/commands/report-view-cli.js";
 import { pathToFileURL } from "node:url";
 
 const TARGET_VERSION = "0.4.4";
@@ -18,7 +26,7 @@ function main() {
   const dryRun = !options.execute;
   enforceReleaseActionGate(options, dryRun);
 
-  const runner = new CoolWorkflowRunner({ pluginRoot }).withBaseDir(repoRoot);
+  const runner = releaseRunner(repoRoot);
   const plan = runner.plan("release-cut", {
     repo: repoRoot,
     version: TARGET_VERSION,
@@ -134,6 +142,35 @@ function main() {
   }
 
   if (!allPassed) process.exitCode = 1;
+}
+
+// The run verbs this script calls, each over the shipped dist/ functions,
+// with every run resolved against `cwd` (the repo root), never
+// process.cwd().
+function releaseRunner(cwd) {
+  return {
+    plan: (appId, inputs) => planRun(loadWorkflowApp(appId), inputs),
+    loadRun: (runId) => loadRunFromCwd(runId, cwd),
+    dispatch: (runId, { limit }) =>
+      withRunStateLock(runId, cwd, (run) => {
+        const manifest = createDispatchManifest(run, limit, {});
+        saveCheckpoint(run);
+        return manifest;
+      }),
+    showWorkerManifest: (runId, workerId) => workerManifestCli({ runId, workerId, cwd }),
+    recordWorkerOutput: (runId, workerId, resultPath) =>
+      withRunStateLock(runId, cwd, (run) => {
+        const output = recordWorkerOutput(run, workerId, path.resolve(cwd, resultPath), {});
+        saveCheckpoint(run);
+        return output;
+      }),
+    recordAuditAttestation: (runId, options) => auditAttestCli(runId, { ...options, runId, cwd }),
+    recordAuditDecision: (runId, workerId, options) => auditDecisionCli(runId, workerId, { ...options, runId, cwd }),
+    commit: (runId, options) => commitRun({ ...options, runId, cwd }),
+    auditSummary: (runId) => auditSummaryCli(runId, { cwd }),
+    evidenceProvenance: (runId, options) => auditProvenanceCli(runId, { ...options, cwd }),
+    report: (runId) => reportWriteCli(runId, { cwd })
+  };
 }
 
 function runTask(context, expectedTaskId) {

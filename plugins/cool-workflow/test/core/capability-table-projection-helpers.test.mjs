@@ -39,13 +39,14 @@ import { cliCapabilities, declaredMcpTools, REGISTRY } from "../../dist/wiring/c
   assert.ok(ids.includes("app.run"), "cliCapabilities() must include app.run (it carries a cli binding at the shipped release)");
 }
 
-// declaredMcpTools(): returns exactly 123 tool names (201 until
-// 2026-09-28, when cw_sandbox_resolve and the two cw_bands_* tools were
-// taken out; 198 until the 75 multi-agent family tools went in slim-and-esm
-// step 2), in the pinned tools/list source order.
+// declaredMcpTools(): returns exactly 94 tool names (125 until 2026-11-12,
+// when the 31 tools of the frozen surfaces went; 201 until 2026-09-28, when
+// cw_sandbox_resolve and the two cw_bands_* tools were taken out; 198 until
+// the 75 multi-agent family tools went in slim-and-esm step 2), in the
+// pinned tools/list source order.
 {
   const tools = declaredMcpTools();
-  assert.equal(tools.length, 125, "declaredMcpTools() must report exactly 125 tool names");
+  assert.equal(tools.length, 94, "declaredMcpTools() must report exactly 94 tool names");
   assert.equal(tools[0], "cw_list", "the first declared tool must be cw_list");
   assert.equal(tools[tools.length - 1], "cw_check_show", "the last declared tool must be cw_check_show");
 }

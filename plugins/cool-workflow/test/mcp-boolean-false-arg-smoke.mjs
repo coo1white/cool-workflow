@@ -7,7 +7,6 @@
 //   cw_commit        {allowUnverifiedCheckpoint:false} wrote an unverified checkpoint
 //   cw_state_check   {write:false}                     wrote the state file
 //   cw_audit_repair  {write:false}                     ran in write mode
-//   cw_orphans_gc    {all:false}                       swept orphans of every age
 //   cw_run_drive_step {once:false}                     stopped after one step
 //
 // Each case also sends `true` (or leaves the flag out) as a control, so the
@@ -120,22 +119,6 @@ try {
     assert.equal(off.json.write, false, "write:false must be reported (and run) as a dry run");
     const on = call("cw_audit_repair", { runId: run.id, cwd: repo, write: true });
     assert.equal(on.json.write, true, "control: write:true is write mode");
-  }
-
-  // ---- cw_orphans_gc {all:false} keeps the age sweep -----------------------
-  {
-    const repo = tmpDir("cw-mcp-bool-orphans-");
-    const orphan = path.join(repo, ".cw", "runs", "orphan-fresh");
-    fs.mkdirSync(orphan, { recursive: true });
-    fs.writeFileSync(path.join(orphan, "scratch.txt"), "x".repeat(32));
-    const off = call("cw_orphans_gc", { scope: "repo", cwd: repo, all: false });
-    assert.equal(off.isError, false, off.text);
-    assert.equal(off.json.all, false, "all:false must not mean --all");
-    assert.equal(off.json.removed.length, 0, "all:false must keep a fresh orphan (age sweep)");
-    assert.ok(fs.existsSync(orphan), "all:false must not delete a fresh orphan");
-    const on = call("cw_orphans_gc", { scope: "repo", cwd: repo, all: true });
-    assert.equal(on.json.removed.length, 1, "control: all:true sweeps the fresh orphan");
-    assert.ok(!fs.existsSync(orphan), "control: all:true deletes it");
   }
 
   // ---- cw_run_drive_step {once:false} drives to the end --------------------

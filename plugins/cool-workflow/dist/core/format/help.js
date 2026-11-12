@@ -29,10 +29,10 @@ export const MORE_COMMANDS_TOKENS = [
     "list", "search", "info", "init", "plan", "status", "next", "dispatch",
     "result", "state", "commit", "report", "app", "sandbox", "backend",
     "contract", "node", "feedback", "worker", "audit",
-    "loop", "schedule", "routine", "registry", "run", "queue", "clones",
-    "orphans", "history", "quickstart", "audit-run",
-    "metrics", "operator", "sched",
-    "gc", "telemetry", "migration", "demo", "workbench",
+    "registry", "run", "queue",
+    "history", "quickstart", "audit-run",
+    "metrics", "operator",
+    "telemetry", "migration", "demo",
     "ledger", "graph", "man", "version",
     "fix", "completion", "check",
 ];
@@ -64,57 +64,14 @@ function wrapPipeJoined(tokens, width) {
  *  hand-sync drift the table exists to remove. */
 const COMMAND_HELP_ROWS = {
     help: [{ command: "cw help", summary: "Print the human CLI help text." }],
-    // "clones" (and, below, "schedule"/"routine"/"sched"/"registry"/"queue"/
-    // "gc"/"orphans") STAY literal here even though each verb has a real
+    // "registry"/"queue" STAY literal here even though each verb has a real
     // capability-table row: that row's OWN `cli.path` is the bare 1-token verb
-    // (e.g. ["clones"]) because dispatchTable only supports 1- or 2-token
+    // (e.g. ["queue"]) because dispatchTable only supports 1- or 2-token
     // paths and these verbs each have MANY subcommands handled by one internal
     // switch — so the row's `cli` binding is a dispatch/usage-error mechanism,
     // not a per-subcommand help entry, and is marked `hiddenFromHelp` for
     // exactly that reason (wiring/capability-table/). The per-subcommand
-    // summaries a human reads via `cw help clones` come from literal rows here.
-    clones: [
-        {
-            command: "cw clones gc",
-            summary: "Reclaim cached remote-source checkouts: a TTL sweep (--older-than-days, default 30) or --all. Deletes only inside the clones cache.",
-        },
-        {
-            command: "cw clones list",
-            summary: "List the cached remote-source checkouts that --link/URL reviews populate (origin URL, kind, commit, age, bytes). Read-only.",
-        },
-    ],
-    schedule: [
-        { command: "cw schedule create", summary: "Create a scheduled CW task." },
-        { command: "cw schedule list", summary: "List scheduled CW tasks." },
-        { command: "cw schedule delete", summary: "Delete a scheduled CW task." },
-        { command: "cw schedule due", summary: "List due scheduled CW tasks." },
-        { command: "cw schedule complete", summary: "Mark a scheduled task complete." },
-        { command: "cw schedule pause", summary: "Pause a scheduled CW task." },
-        { command: "cw schedule resume", summary: "Resume a scheduled CW task." },
-        { command: "cw schedule run-now", summary: "Create an immediate scheduled-task run record." },
-        { command: "cw schedule history", summary: "List scheduled-task run history." },
-        { command: "cw schedule daemon", summary: "Tick the wall-clock scheduler once (--once) or run forever." },
-    ],
-    routine: [
-        { command: "cw routine create", summary: "Create a routine-style API/GitHub trigger." },
-        { command: "cw routine list", summary: "List routine-style triggers." },
-        { command: "cw routine delete", summary: "Delete a routine-style trigger." },
-        { command: "cw routine fire", summary: "Record an API/GitHub trigger event." },
-        { command: "cw routine events", summary: "List routine trigger events." },
-    ],
-    sched: [
-        { command: "cw sched plan", summary: "Read-only control-plane lease plan for the queue+policy+now." },
-        { command: "cw sched lease", summary: "Claim eligible queue entries as leases (concurrency-bounded)." },
-        { command: "cw sched release", summary: "Release a held lease (failed -> retry/backoff or park)." },
-        { command: "cw sched complete", summary: "Complete a held lease (terminal success)." },
-        { command: "cw sched reclaim", summary: "Reclaim expired leases (each counts a failed attempt)." },
-        { command: "cw sched reset", summary: "Reset a parked entry to ready (operator recovery)." },
-        // Two rows for one command string, on purpose: `sched policy` is one of
-        // the show/set pairs the help printer must keep doubled
-        // (SPEC/cli-probe.md item 5).
-        { command: "cw sched policy", summary: "Show the scheduling policy (file or default)." },
-        { command: "cw sched policy", summary: "Set scheduling policy fields (concurrency/attempts/backoff/TTL)." },
-    ],
+    // summaries a human reads via `cw help queue` come from literal rows here.
     registry: [
         { command: "cw registry refresh", summary: "Recompute and persist the derived run registry index." },
         { command: "cw registry show", summary: "Read the run registry index with valid|stale|absent freshness." },
@@ -124,30 +81,6 @@ const COMMAND_HELP_ROWS = {
         { command: "cw queue list", summary: "List the durable run queue in policy order." },
         { command: "cw queue drain", summary: "Mark the next ready queue entries drained (the host still executes)." },
         { command: "cw queue show", summary: "Show one durable queue entry." },
-    ],
-    gc: [
-        {
-            command: "cw gc plan",
-            summary: "Dry-run plan of run reclamation (per-kind bytes + capability downgrade); frees nothing.",
-        },
-        {
-            command: "cw gc run",
-            summary: "Execute the write-ahead reclamation transaction (skeleton -> tombstone -> fsync -> free).",
-        },
-        {
-            command: "cw gc verify",
-            summary: "Re-prove a reclaimed run: skeleton-complete, tombstone chain untampered, artifacts reconstructable.",
-        },
-    ],
-    orphans: [
-        {
-            command: "cw orphans list",
-            summary: "List run directories under .cw/runs/ that the run registry cannot see (no state.json — a killed/interrupted process never wrote one), with age + bytes. Read-only.",
-        },
-        {
-            command: "cw orphans gc",
-            summary: "Reclaim orphan run directories (no state.json): an age sweep (--min-age-minutes, default 60) or --all. Deletes only inside a scanned repo's .cw/runs/, never a run the registry knows about.",
-        },
     ],
     run: [
         // Neither "cw run drive" row is listed here: the read-only preview
