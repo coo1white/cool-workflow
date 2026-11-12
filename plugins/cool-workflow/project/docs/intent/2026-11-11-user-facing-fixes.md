@@ -376,6 +376,27 @@ The owner was asked which to build (C1 and C2 now with C3 later, all
 three, or C1 only) and answered, word for word (2026-11-11): "C1 + C2 now,
 C3 later (Recommended)".
 
+### Sweep (2026-11-12, the program's first working rule)
+
+Run in `plugins/cool-workflow/`.
+
+- C1, every way a result is taken in:
+  `grep -rn 'recordWorkerOutput(' src | grep -v 'export function'` gives 6
+  callers (drive 3, `pipeline-cli.ts`, `worker-cli.ts`, `orchestrator.ts`),
+  all through the one accept path the check is in. `grep -rn
+  'normalizeResultEnvelope(' src` gives 2 more, `doctor-conformance.ts` and
+  `report.ts`; both only read a result already taken in. 0 more to fix.
+- C2, every check of a cited file that asks only that it is there:
+  `grep -rn 'unresolvedFileEvidence\|unresolvedRunFileEvidence' src` gives 2:
+  the accept check (fixed here) and the final commit gate
+  (`src/core/pipeline/commit-gate.ts`, `commit-verifier-evidence-unresolvable`),
+  which still takes a line past the end if the file got shorter after the
+  accept. 1 more in the class. The owner was asked whether to fix it in
+  the same PR, with its new text, and answered, word for word
+  (2026-11-12): "Yes, add it to #893 (Recommended)". Fixed: the gate
+  turns it down as `commit-verifier-evidence-past-end`; test
+  `test/verdict-evidence-gate-smoke.mjs` case 3.
+
 ### Paths weighed (batch C)
 
 - Taken: two refusals on the path that already turns down a bad verdict
@@ -395,6 +416,13 @@ result that was taken in before and is now turned down:
 - 「Task <id> cites a line past the end of its file: <path>:<line> (<path>
   has <n> lines)」
 
+The owner's yes for the one more case the sweep found, word for word
+(2026-11-12): "Yes, add it to #893 (Recommended)". The question quoted
+its new reason:
+
+- 「Verifier node <id> cites a line past the end of its file: <path>:<line>
+  (<path> has <n> lines)」
+
 No pinned output file changes. The promised lines:
 
 ```promise
@@ -402,10 +430,11 @@ Task <id> finding <fid> severity <sev> requires grounded evidence (a path-like l
 Task <id> cites a line past the end of its file: <path>:<line> (<path> has <n> lines)
 Give each P0, P1 or P2 finding its own evidence: a path-like locator, URL, or namespace:value token.
 Cite only lines that are in the file.
+Verifier node <id> cites a line past the end of its file: <path>:<line> (<path> has <n> lines)
 ```
 
 Man pages that say the new text: `docs/worker-isolation.7.md`,
-`docs/agent-delegation-drive.7.md`.
+`docs/agent-delegation-drive.7.md`, `docs/verifier-gated-commit.7.md`.
 
 ## Working rules for this program (the answer to "what went wrong before")
 
@@ -444,7 +473,8 @@ Man pages that say the new text: `docs/worker-isolation.7.md`,
 |---|---|
 | A — twelve rows (0.4.3) | built and merged (#891, 2026-11-11); waiting on the operator's release command |
 | B — release flow | the owner chose B1 to B3 (2026-11-11); built: B1 promise lines and B2 the change sheet in `pola:check`, B3 the reviewer output table (7 real rejection shapes were read as invalid output). On its first run B1 held all seven 0.4.3 promise lines, one after a fix to the line: the quote's example phase `Verify` became `<phase>` |
-| C — downstream asks | the owner chose C1 and C2, C3 later (2026-11-11); built: C1 the finding evidence check on intake, C2 the line past the end check for verdicts; for 0.4.4, so it merges after the 0.4.3 cut |
+| C — downstream asks | the owner chose C1 and C2, C3 later (2026-11-11); built: C1 the finding evidence check on intake, C2 the line past the end check for verdicts, at accept and (after the sweep) at the final commit; for 0.4.4, so it merges after the 0.4.3 cut |
+| Found later: the parked summary lost the agent's log for a task id that `safeFileName` changes | fixed in #893 (`ea854b70`); sweep `grep -rn 'worker-\${' src \| grep -v safeFileName` found 1; test `test/shell/commands/pipeline-cli-stop-log.test.mjs` |
 
 ## What this spec got wrong
 

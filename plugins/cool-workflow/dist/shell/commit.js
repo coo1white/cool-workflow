@@ -132,6 +132,7 @@ export function commitState(run, input, behavior = {}) {
         backingResult,
         taskRequiresEvidence: requiresEvidence,
         unresolvedFileEvidence: requireResolvableEvidence() ? (evidence) => unresolvedRunFileEvidence(run, evidence) : undefined,
+        linePastEnd: requireResolvableEvidence() ? (evidence) => runLineCitedPastEnd(run, evidence) : undefined,
         refusedReceipts: (ids) => createRequire(import.meta.url)("./receipt-io.js").checkCitedReceipts(run, ids),
     });
     if (gate.errors.length) {

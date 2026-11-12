@@ -150,6 +150,7 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
     backingResult,
     taskRequiresEvidence: requiresEvidence,
     unresolvedFileEvidence: requireResolvableEvidence() ? (evidence: string[]) => unresolvedRunFileEvidence(run, evidence) : undefined,
+    linePastEnd: requireResolvableEvidence() ? (evidence: string[]) => runLineCitedPastEnd(run, evidence) : undefined,
     refusedReceipts: (ids) => (createRequire(import.meta.url)("./receipt-io.js") as typeof import("./receipt-io.js")).checkCitedReceipts(run, ids),
   });
 

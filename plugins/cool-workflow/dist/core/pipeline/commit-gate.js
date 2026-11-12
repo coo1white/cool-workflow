@@ -113,6 +113,13 @@ function groundVerifierEvidence(run, verifierNode, errors, deps, now) {
                 }, now));
             }
         }
+        const pastEnd = deps.linePastEnd ? deps.linePastEnd(locators) : null;
+        if (pastEnd) {
+            errors.push(error("commit-verifier-evidence-past-end", `Verifier node ${verifierNode.id} cites a line past the end of its file: ${pastEnd.path}:${pastEnd.line} (${pastEnd.path} has ${pastEnd.lines} lines)`, {
+                nodeId: verifierNode.id,
+                details: { verifierNodeId: verifierNode.id, ...pastEnd },
+            }, now));
+        }
     }
     const receiptIds = receiptIdsIn(verifierNode.evidence.map(evidenceLocatorString));
     const refused = !receiptIds.length ? [] : deps.refusedReceipts ? deps.refusedReceipts(receiptIds) : receiptIds.map((id) => ({ id, reason: "no receipt check is wired here", next: "cw check list" }));
