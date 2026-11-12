@@ -30,6 +30,10 @@ TARGETED `old -> new` replace, so older references (a past `minVersion`, a
 `version-sync-check.mjs` reads the looked-for version from `package.json`, so the
 checker can never get out of step with the bump source.
 
+The man-page footer line a release needs is the version itself for a minor
+or major (`X.Y.0`), and that same `X.Y.0` line for a patch: a patch adds no
+man-page lines, so the automatic patch bump below needs no `--content`.
+
 ## De-duplicated release:check
 
 `release:check` before this ran `npm test` AND then ran ~15 of those same smoke
@@ -110,7 +114,15 @@ PR CI.
 (The runbook moved here from the root `AGENTS.md` on 2026-11-03;
 `AGENTS.md` keeps the hard rules.)
 
-A release is two steps. Both `npm run` commands below run with cwd
+Since 2026-11-12 there are two ways out:
+
+- A **patch** (`X.Y.Z`, `Z > 0`) ships by itself on green `main`. No one
+  runs a command; the operator only approves the `npm` environment run on
+  GitHub. See "Automatic patch releases" below.
+- A **minor or major** (`X.Y.0`) is the operator's signed cut, the two
+  steps below, unchanged: `npm run release -- X.Y.0`.
+
+The operator's cut is two steps. Both `npm run` commands below run with cwd
 `plugins/cool-workflow/` (there is no root package.json):
 
 1. **Agent prep**: land the version bump as its OWN PR
@@ -136,10 +148,91 @@ A release is two steps. Both `npm run` commands below run with cwd
 After a release the operator publishes the wiki by hand (see "Wiki
 publish" below).
 
-Publishing is tag-driven, not merge-driven. Merging a release PR to `main`
-does NOT publish. `release.yml` and `npm-publish.yml` both fire on a
-`push` of a `v*` tag. No tag ⇒ nothing new in Actions and npm stays on the
-old version.
+Publishing is tag-driven. `release.yml` and `npm-publish.yml` both fire on a
+`push` of a `v*` tag, and the automatic patch job below dispatches
+`npm-publish.yml` on the tag it makes. No tag ⇒ nothing new on npm.
+
+### Automatic patch releases
+
+The `auto-patch` job in `.github/workflows/release.yml`
+(`scripts/release-auto-patch.mjs`) starts on `workflow_run` of the `CI`
+workflow. It goes on only when that run was a push to `main` in this
+repository and concluded success, and it works on that run's commit
+(`workflow_run.head_sha`), never on whatever `main` is at that moment.
+
+1. **Plan** (`release-auto-patch.mjs plan`). No release, one log line, exit
+   0, when: the repo variable `CW_AUTO_RELEASE` is `off`; the commit's
+   subject starts with `chore(release)`; the commit is already in the
+   newest release tag's history; or no shipped file changed since that
+   tag's parent on `main`. "Shipped" is the `SHIPPED` list in the script:
+   `src/`, `dist/`, `apps/`, `workflows/`, `skills/`, `agents/`,
+   `commands/`, `hooks/`, `manifest/`, `ui/`, the runtime scripts
+   (`scripts/cw.js`, `scripts/mcp-server.js`, `scripts/agents/`,
+   `scripts/children/`, ...), `package.json`, `server.json` and the vendor
+   plugin manifests; test folders inside them do not count. A change to
+   tests, docs, CI files or release tooling alone does not release. The
+   next version is the highest `vX.Y.Z` tag plus one patch. The job FAILS
+   when `package.json` on the commit is ahead of that (an operator minor
+   or major is pending: cut it first).
+2. **Bump** (`release-auto-patch.mjs bump`): `npm run bump:version --
+   X.Y.Z` on that commit, `git add -u`, one commit by
+   `github-actions[bot]`, and an annotated tag `vX.Y.Z` on it. The same
+   bump `cut()` makes, with no verdict file. The commit is detached: it is
+   never pushed to `main`.
+3. **Gate**: `release-gate.mjs` on the tag commit (build, full test
+   suite, substance, test evidence, branch naming), before anything is
+   pushed. A red gate leaves no tag.
+4. **Verify**: `verify-release-verdict.mjs` on the tag commit, the same
+   check `npm-publish.yml` runs (below).
+5. **Push only the tag**, then `gh workflow run npm-publish.yml --ref
+   vX.Y.Z` (a tag pushed with `GITHUB_TOKEN` starts no tag-push run, a
+   dispatch does) and `gh release create vX.Y.Z --generate-notes
+   --verify-tag`.
+
+The publish waits in the protected `npm` environment for the operator's
+approval, as every publish does.
+
+What the verifier accepts with NO verdict (its "automatic patch rule";
+anything else falls back to the signed-verdict check, unchanged):
+
+- (a) the version in the tag commit's `package.json` is `X.Y.Z` with `Z >
+  0`, a `vX.Y.Z` tag points at the commit, and the highest other tag below
+  it is `X.Y.(Z-1)`;
+- (b) the tag commit has exactly one parent, that parent is an ancestor of
+  `origin/main`, and the previous tag's parent is an ancestor of it (older
+  `main` code cannot ship under a new number);
+- (c) the tag commit's tree is byte for byte the bump reproduced from that
+  parent (`verify-bump-reproduction.mjs --no-verdict`);
+- (d) the `CI` workflow (`.github/workflows/ci.yml`) concluded success on a
+  push to `main` at that parent: GitHub's
+  `GET /repos/{owner}/{repo}/actions/runs?head_sha=<parent>&event=push`,
+  asked with `GITHUB_TOKEN` (`actions: read`). No token, an API error or
+  an unexpected answer refuses.
+
+A minor or major (`Z == 0`) never passes this rule: it always needs the
+signed verdict.
+
+To stop automatic releases: set the repository variable
+`CW_AUTO_RELEASE` to `off` (Settings → Secrets and variables → Actions →
+Variables). The job then logs one line and does nothing. Remove the
+variable (or set any other value) to start them again.
+
+**`main` lags behind npm.** The bump commit lives only on the tag, so
+after an automatic patch `main`'s `package.json`, `src/core/version.ts`,
+the vendor manifests, `server.json` and `Formula/cool-workflow.rb` still
+name the last version an operator cut landed on `main`. Nothing on `main`
+or in CI compares that version with the tags (`version:sync` checks that
+`main`'s surfaces agree with each other). The next patch number always
+comes from the tags, never from `main`'s `package.json`. One effect: a
+Homebrew install from `main`'s formula, or a plugin install from `main`,
+names the older version (the plugin install runs `main`'s newer code).
+`npm run release:doctor` with no version defaults to `main`'s version;
+give it the minor you mean to cut.
+
+The operator's minor or major is the same as before: `npm run release --
+X.Y.0`. Its bump PR (subject `chore(release): ...`) does not start a
+patch; any other merge before the cut makes the `auto-patch` job fail
+with "an operator release is pending" until the `vX.Y.0` tag exists.
 
 There is no hand-written changelog file (`RELEASE.md` and `CHANGELOG.md`
 were removed on 2026-08-04). `--generate-notes` (GitHub's auto-generated
@@ -150,7 +243,8 @@ notes from commits) is the release-notes source, the same fallback
 
 Do not work around them by hand:
 
-- The verdict must be SIGNED. The ed25519 private key stays with the
+- A minor or major needs a SIGNED verdict (a patch ships by the
+  automatic patch rule above, with no verdict). The ed25519 private key stays with the
   operator (`CW_RELEASE_VERDICT_PRIVKEY`, normally
   `~/.cw-keys/verdict-signing.key`) and is NEVER read by an agent or
   committed. The committed public key makes CI reject unsigned cuts.
@@ -783,6 +877,10 @@ with the tag checkout as its working directory (the repo being judged). If
 `origin/main` cannot be fetched or lacks any of the files, the step fails and
 nothing is published (fail closed). The public key, as before, also comes
 from `origin/main`.
+
+When the tag has no signed verdict, the same verifier applies its
+automatic patch rule ("Automatic patch releases" above), so both jobs pass
+`GITHUB_TOKEN` to the verify step and hold `actions: read`.
 
 On a tag push, `release.yml` and `npm-publish.yml` both come from the tag,
 so a tag could drop this step from its own copy. What the tag cannot change

@@ -53,11 +53,11 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
     path.join(pluginRoot, "scripts", "canonical-apps-list.mjs"),
     path.join(fixPlugin, "scripts", "canonical-apps-list.mjs")
   );
-  fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify({ name: "x", version: "9.9.9", scripts: {} }, null, 2)}\n`);
+  fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify({ name: "x", version: "9.9.0", scripts: {} }, null, 2)}\n`);
   const surfacePath = path.join(fixPlugin, "docs", "trust-audit-anchor.7.md");
   fs.writeFileSync(surfacePath, "# Trust Audit Anchor\n\nno version mention here\n");
 
-  const gate = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.mjs"), "9.9.9"], {
+  const gate = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.mjs"), "9.9.0"], {
     cwd: fixPlugin,
     encoding: "utf8"
   });
@@ -72,16 +72,45 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
   const pkg = JSON.parse(fs.readFileSync(path.join(fixPlugin, "package.json"), "utf8"));
   pkg.scripts["version:sync"] = "exit 0";
   fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify(pkg, null, 2)}\n`);
-  const fill = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.mjs"), "9.9.9", "--content"], {
+  const fill = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.mjs"), "9.9.0", "--content"], {
     cwd: fixPlugin,
     encoding: "utf8"
   });
   assert.equal(fill.status, 0, `same-version --content must fill and exit 0:\n${fill.stdout}${fill.stderr}`);
   assert.match(
     fs.readFileSync(surfacePath, "utf8"),
-    /9\.9\.9/,
+    /^9\.9\.0$/m,
     "--content on a same-version re-run must append the version to the missing surface (pre-fix: it never did)"
   );
+
+  // A patch needs no man-page line of its own: its footer line is the
+  // minor's X.Y.0 (patches ship automatically and add no --content lines,
+  // release-tooling(7), "Automatic patch releases"). Gate mode at 9.9.1
+  // passes on the 9.9.0 line just added, and appends nothing.
+  pkg.version = "9.9.1";
+  fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify(pkg, null, 2)}\n`);
+  // Every content surface the gate named above, each with the 9.9.0 line.
+  const surfaces = [...new Set(`${gate.stdout}${gate.stderr}`.match(/plugins\/cool-workflow\/docs\/[\w.-]+\.7\.md/g))];
+  assert.ok(surfaces.length > 1, "the gate lists the content surfaces");
+  for (const rel of surfaces) {
+    const abs = path.join(root, rel);
+    if (!fs.existsSync(abs)) fs.writeFileSync(abs, "# page\n\n9.9.0\n");
+  }
+  const before = fs.readFileSync(surfacePath, "utf8");
+  const patch = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.mjs"), "9.9.1"], {
+    cwd: fixPlugin,
+    encoding: "utf8"
+  });
+  assert.equal(patch.status, 0, `a patch must pass the content gate on its minor's line (pre-fix: it asked for 9.9.1):\n${patch.stdout}${patch.stderr}`);
+  assert.equal(fs.readFileSync(surfacePath, "utf8"), before, "a patch adds no man-page line");
+  // And without the minor's line the patch still fails closed, naming it.
+  fs.writeFileSync(surfacePath, "# Trust Audit Anchor\n\nno version mention here\n");
+  const patchGate = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.mjs"), "9.9.1"], {
+    cwd: fixPlugin,
+    encoding: "utf8"
+  });
+  assert.notEqual(patchGate.status, 0, "a patch with no X.Y.0 line still fails the content gate");
+  assert.match(`${patchGate.stdout}${patchGate.stderr}`, /must contain "9\.9\.0"/, "the failure names the minor's line");
 }
 
 process.stdout.write("bump-version-idempotent-smoke: ok (re-bump is a structured no-op exit 0; surfaces untouched; bad version fails closed; same-version re-run still gates content)\n");

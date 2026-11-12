@@ -43,10 +43,14 @@ receipt for agent work. Anything else is cut, not frozen.
    must be green.
 3. On green CI the agent merges its own PR (squash). Oldest ready PR
    first.
-4. A merged fix ships as a patch release the same day. Until the release
-   is automatic, the operator runs `npm run release -- X.Y.Z` (runbook:
+4. A merged fix ships as a patch release by itself: when CI is green on
+   `main`, the `auto-patch` job in `.github/workflows/release.yml` tags the
+   next patch and starts the npm publish; the operator only approves the
+   `npm` environment run. A minor or major is the operator's signed cut,
+   `npm run release -- X.Y.0` (runbook:
    `plugins/cool-workflow/docs/release-tooling.7.md`). Never `git tag` by
-   hand; the signing key stays with the operator.
+   hand; the signing key stays with the operator. `CW_AUTO_RELEASE=off`
+   (a repo variable) stops the automatic patches.
 5. A big new capability gets a short plan in the PR text: what was
    measured, one other way turned down. No separate intent file.
 

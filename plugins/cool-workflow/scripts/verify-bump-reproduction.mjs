@@ -21,6 +21,11 @@
 // for line — same steps, same messages, same exit map.)
 //
 // Usage: verify-bump-reproduction.mjs <approved-parent-sha> <tagged-sha> <verdict-repo-relative-path> [sig-repo-relative-path]
+//        verify-bump-reproduction.mjs --no-verdict <parent-sha> <tagged-sha>
+//
+// --no-verdict is the automatic patch release's shape (release-auto-patch.mjs
+// makes the bump commit with no verdict file in it): the reproduction is the
+// same bump and the same `git add -u` staging, with no verdict/.sig added.
 //
 // Exit 0: the tagged commit's tree matches the reproduced bump exactly.
 // Exit 1: mismatch, or any step failed (install, bump, worktree, etc).
@@ -44,9 +49,11 @@ function err(msg) {
   process.stderr.write(`${msg}\n`);
 }
 
-const [, , PARENT, TAGGED, VERDICT_REL, SIG_REL = ""] = process.argv;
-if (!PARENT || !TAGGED || !VERDICT_REL) {
+const NO_VERDICT = process.argv[2] === "--no-verdict";
+const [PARENT, TAGGED, VERDICT_REL = "", SIG_REL = ""] = process.argv.slice(NO_VERDICT ? 3 : 2);
+if (!PARENT || !TAGGED || (NO_VERDICT ? VERDICT_REL !== "" : !VERDICT_REL)) {
   err("usage: verify-bump-reproduction.mjs <parent-sha> <tagged-sha> <verdict-rel-path> [sig-rel-path]");
+  err("       verify-bump-reproduction.mjs --no-verdict <parent-sha> <tagged-sha>");
   process.exit(1);
 }
 
@@ -168,27 +175,35 @@ function main() {
     return 1;
   }
 
-  fs.mkdirSync(path.join(SCRATCH, ".cw-release"), { recursive: true });
-  try {
-    fs.copyFileSync(path.join(REPO_ROOT, VERDICT_REL), path.join(SCRATCH, VERDICT_REL));
-  } catch {
-    return 1;
-  }
-  if (SIG_REL && fs.existsSync(path.join(REPO_ROOT, SIG_REL))) {
+  if (!NO_VERDICT) {
+    fs.mkdirSync(path.join(SCRATCH, ".cw-release"), { recursive: true });
     try {
-      fs.copyFileSync(path.join(REPO_ROOT, SIG_REL), path.join(SCRATCH, SIG_REL));
+      fs.copyFileSync(path.join(REPO_ROOT, VERDICT_REL), path.join(SCRATCH, VERDICT_REL));
     } catch {
       return 1;
+    }
+    if (SIG_REL && fs.existsSync(path.join(REPO_ROOT, SIG_REL))) {
+      try {
+        fs.copyFileSync(path.join(REPO_ROOT, SIG_REL), path.join(SCRATCH, SIG_REL));
+      } catch {
+        return 1;
+      }
     }
   }
 
   // Mirror cut()'s OWN staging exactly (git-add -u + the explicit verdict/.sig
   // paths) — never -A, so an untracked stray left by npm/tooling in the scratch
-  // worktree can never silently ride into what we compare.
-  gitIn(SCRATCH, ["add", "-u"]);
-  gitIn(SCRATCH, ["add", "--", VERDICT_REL]);
-  if (SIG_REL && fs.existsSync(path.join(SCRATCH, SIG_REL))) {
-    gitIn(SCRATCH, ["add", "--", SIG_REL]);
+  // worktree can never silently ride into what we compare. --no-verdict
+  // stages tracked changes only, as release-auto-patch.mjs does.
+  if (gitIn(SCRATCH, ["add", "-u"]).status !== 0) {
+    err("verify-bump-reproduction: git add -u failed in the scratch worktree");
+    return 1;
+  }
+  if (!NO_VERDICT) {
+    gitIn(SCRATCH, ["add", "--", VERDICT_REL]);
+    if (SIG_REL && fs.existsSync(path.join(SCRATCH, SIG_REL))) {
+      gitIn(SCRATCH, ["add", "--", SIG_REL]);
+    }
   }
 
   const EXPECTED_TREE = gitIn(SCRATCH, ["write-tree"]).stdout.trim();
