@@ -135,11 +135,6 @@ usage. A missing, unreadable, or schema-unsupported bundle is also `ok: false`.
 ## Usage
 
 ```
-# See it in 30 seconds, hermetic — no agent, no API key, no repo:
-npx cool-workflow demo bundle
-#   -> builds a sealed bundle, forges it two ways, and shows verify-bundle
-#      catching both offline with only the embedded public key.
-
 # Run the review AND get a shippable, client-verifiable bundle from ONE command:
 cw quickstart architecture-review --repo . --question "How does auth work end-to-end here?" \
   -claude --bundle --with-trust-key ./trust-pub.pem

@@ -5,8 +5,6 @@
 // `flagsComplete: true` is checked, the warning is ONE stderr line, and
 // it prints ONLY when stderr is a real TTY — a piped/scripted run stays
 // byte-silent, so no conformance case or script can ever see it.
-//
-// Fake-stream style of ui/workbench/tests/workbench-serve-tty-hint.test.js.
 
 import assert from "node:assert/strict";
 import path from "node:path";

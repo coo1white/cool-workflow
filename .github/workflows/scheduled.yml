@@ -2,7 +2,7 @@ name: scheduled
 
 # Observation, not a gate: scripts/bench existed with no workflow running
 # it, so timing drift was invisible. This runs the portable bench (node
-# only, stub agent, no k6, no network) on a schedule and on demand, and
+# only, stub agent, no network) on a schedule and on demand, and
 # prints the JSON report into the job log — no artifact store, no new
 # action dependency. Timing on shared runners moves for reasons that are
 # not code, so this job never fails on a number; it fails only when the
@@ -42,6 +42,6 @@ jobs:
       - run: bun run build
       # Stub agent, zero think-delay: what is left is CW's own plan/drive
       # overhead — the number this job exists to watch.
-      - run: node scripts/bench/run.mjs --arch ci-x64 --agent claude --delay-ms 0 --runs 5 --skip-workbench --json-report bench-report.json
+      - run: node scripts/bench/run.mjs --arch ci-x64 --agent claude --delay-ms 0 --runs 5 --json-report bench-report.json
       - name: Print report
         run: cat bench-report.json

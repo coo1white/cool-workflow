@@ -7,9 +7,9 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 
-// Ledger, telemetry, trust-audit and tamper/bundle demo CLI
+// Ledger, telemetry, trust-audit and tamper demo CLI
 // bindings: ledger propose|review|verify|apply|list, telemetry verify,
-// audit verify, demo tamper|bundle, report bundle|verify-bundle. Handler
+// audit verify, demo tamper, report bundle|verify-bundle. Handler
 // BODIES live in shell/commands/ledger-cli.ts, shell/commands/telemetry-cli.ts, shell/
 // audit-cli.ts, shell/commands/demo-cli.ts, shell/commands/report-cli.ts (impure — file/
 // stdin reads, run-state loads, archive IO); this table only wires argv
@@ -35,8 +35,8 @@ function loadAuditCli(): typeof import("../../shell/commands/audit-cli.js") {
 function loadDemoCli(): typeof import("../../shell/commands/demo-cli.js") {
   return require("../../shell/commands/demo-cli.js") as typeof import("../../shell/commands/demo-cli.js");
 }
-function loadTelemetryDemo(): typeof import("../../shell/telemetry-demo.js") {
-  return require("../../shell/telemetry-demo.js") as typeof import("../../shell/telemetry-demo.js");
+function loadTamperDemo(): typeof import("../../shell/tamper-demo.js") {
+  return require("../../shell/tamper-demo.js") as typeof import("../../shell/tamper-demo.js");
 }
 function loadReportCli(): typeof import("../../shell/commands/report-cli.js") {
   return require("../../shell/commands/report-cli.js") as typeof import("../../shell/commands/report-cli.js");
@@ -129,7 +129,7 @@ attachCliBinding("telemetry.verify", {
   handler: (args) => {
     const runId = required(optionalArg(args.positionals[0]) || optionalArg(args.options.runId) || optionalArg(args.options.run), "run id");
     const result = loadTelemetryCli().telemetryVerifyCli(runId, args.options);
-    return { json: result, text: loadTelemetryDemo().formatTelemetryVerify(result), exitCode: result.verified ? undefined : 1 };
+    return { json: result, text: loadTelemetryCli().formatTelemetryVerify(result), exitCode: result.verified ? undefined : 1 };
   },
 });
 REGISTRY_BY_CAPABILITY.get("telemetry.verify")!.mcp!.handler = (args) =>
@@ -178,24 +178,10 @@ addCliOnlyCapability(
     jsonMode: "flag",
     handler: (args) => {
       const result = loadDemoCli().demoTamperCli();
-      return { json: result, text: loadTelemetryDemo().formatTamperDemo(result), exitCode: result.proven ? undefined : 1 };
+      return { json: result, text: loadTamperDemo().formatTamperDemo(result), exitCode: result.proven ? undefined : 1 };
     },
   },
   "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo."
-);
-
-addCliOnlyCapability(
-  "demo.bundle",
-  "Prove portable-bundle verification: export a sealed report bundle, forge it two ways, watch report verify-bundle catch both offline with only the embedded public key.",
-  {
-    path: ["demo", "bundle"],
-    jsonMode: "flag",
-    handler: (args) => {
-      const result = loadDemoCli().demoBundleCli();
-      return { json: result, text: loadTelemetryDemo().formatBundleDemo(result), exitCode: result.proven ? undefined : 1 };
-    },
-  },
-  "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface report.verify-bundle. No agent or MCP client needs to invoke a demo."
 );
 
 attachCliBinding("report.bundle", {

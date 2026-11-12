@@ -52,9 +52,6 @@ export const PROPERTY_OVERRIDES = {
             description: "Write a non-gated checkpoint instead of committed state",
         },
     },
-    cw_routine_fire: {
-        payload: { type: "object", description: "Event payload" },
-    },
 };
 /** A real type and a true, short, one-sentence description for every
  *  property name used anywhere in `MCP_TOOL_DATA` below, keyed by the
@@ -63,23 +60,19 @@ export const PROPERTY_OVERRIDES = {
  *  wiring/capability-table/registry-core.ts looks a property up here
  *  only when `PROPERTY_OVERRIDES` has no entry for it on that tool; a
  *  name not found in either table falls back to the plain
- *  `stringProperty` form (there should be very few of those — the two
- *  names left out here, `allowUnverifiedCheckpoint` and `payload`, are
- *  already covered by `PROPERTY_OVERRIDES` on their one tool each). */
+ *  `stringProperty` form (there should be very few of those — the one
+ *  name left out here, `allowUnverifiedCheckpoint`, is already covered
+ *  by `PROPERTY_OVERRIDES` on its one tool). */
 export const COMMON_PROPERTY_TYPES = {
     actor: { type: "string", description: "the name of the actor doing this" },
     agentCommand: { type: "string", description: "the command template used to run the agent" },
     agentEndpoint: { type: "string", description: "the network address of the agent service" },
     agentModel: { type: "string", description: "the name of the agent model to use" },
-    all: { type: "boolean", description: "when true, act on every item, not only old ones" },
     app: { type: "string", description: "the workflow app's id" },
     appId: { type: "string", description: "the workflow app's id" },
     archive: { type: "string", description: "the path to the run archive file" },
     backend: { type: "string", description: "the name of the execution backend" },
     backendId: { type: "string", description: "the id of the execution backend" },
-    backoffBaseMs: { type: "number", description: "the starting wait time, in milliseconds, before a retry" },
-    backoffCapMs: { type: "number", description: "the largest wait time, in milliseconds, before a retry" },
-    backoffFactor: { type: "number", description: "the number the wait time is multiplied by after each retry" },
     baselineSnapshotId: { type: "string", description: "the id of the baseline snapshot" },
     bundle: { type: "string", description: "the path to the run bundle file" },
     candidate: { type: "string", description: "the candidate's id" },
@@ -92,9 +85,7 @@ export const COMMON_PROPERTY_TYPES = {
     concurrency: { type: "number", description: "the largest number of steps to run at once" },
     contract: { type: "string", description: "the pipeline contract's id" },
     contractId: { type: "string", description: "the pipeline contract's id" },
-    cron: { type: "string", description: "the cron schedule text" },
     cwd: { type: "string", description: "the working directory to run in" },
-    delayMinutes: { type: "number", description: "the number of minutes to wait before the task runs" },
     diff: { type: "string", description: "the change text (diff) for this proposal" },
     dir: { type: "string", description: "the path to one ledger directory" },
     directory: { type: "string", description: "the directory path to write into" },
@@ -104,7 +95,6 @@ export const COMMON_PROPERTY_TYPES = {
     expectCount: { type: "number", description: "the event count the chain must match" },
     expectHead: { type: "string", description: "the head hash the chain must match" },
     extractReport: { type: "boolean", description: "when true, also pull the plain report out of the bundle" },
-    failed: { type: "boolean", description: "when true, mark the lease as failed" },
     feedbackId: { type: "string", description: "the id of the feedback record" },
     file: { type: "string", description: "the path to the archive file" },
     files: { type: "array", description: "the list of file paths this change touches" },
@@ -114,19 +104,9 @@ export const COMMON_PROPERTY_TYPES = {
     id: { type: "string", description: "the id of this item" },
     includeArchived: { type: "boolean", description: "when true, also list archived runs" },
     inputs: { type: "object", description: "the structured input values for the app" },
-    intervalMinutes: { type: "number", description: "how often, in minutes, the task should repeat" },
-    keepCommits: { type: "number", description: "the number of recent commits to keep" },
-    keepScratch: { type: "boolean", description: "when true, keep scratch files instead of freeing them" },
-    keepSnapshots: { type: "number", description: "the number of recent snapshots to keep" },
     kind: { type: "string", description: "the kind of this item" },
-    leaseId: { type: "string", description: "the id of the queue lease" },
-    leaseTtlMs: { type: "number", description: "how long, in milliseconds, a lease stays valid" },
     limit: { type: "number", description: "the largest number of items to return" },
-    match: { type: "string", description: "the text pattern used to match trigger events" },
-    maxAttempts: { type: "number", description: "the largest number of retry attempts allowed" },
-    maxConcurrent: { type: "number", description: "the largest number of runs allowed at once" },
     message: { type: "string", description: "the message text" },
-    minAgeMinutes: { type: "number", description: "the least age, in minutes, an item must have" },
     network: { type: "string", description: "the network access rule that was checked" },
     node: { type: "string", description: "the state node's id" },
     nodeId: { type: "string", description: "the state node's id" },
@@ -137,21 +117,15 @@ export const COMMON_PROPERTY_TYPES = {
     once: { type: "boolean", description: "when true, run only one step, then stop" },
     output: { type: "string", description: "the output file path to write" },
     path: { type: "string", description: "a file path" },
-    port: { type: "number", description: "the network port to use" },
-    pricing: { type: "string", description: "the pricing table to use for cost figures" },
     priority: { type: "number", description: "the queue order priority" },
     profileFile: { type: "string", description: "the path to the sandbox profile file" },
     profileId: { type: "string", description: "the id of the sandbox profile" },
-    prompt: { type: "string", description: "the prompt text for this task" },
     pubkey: { type: "string", description: "the public key used to check a signature" },
     question: { type: "string", description: "the question that starts the run" },
-    queue: { type: "boolean", description: "when true, also add a tier-3 breach to the queue" },
     rationale: { type: "string", description: "the reason behind this decision" },
     reason: { type: "string", description: "a short text that explains why" },
-    reclaimAfterArchiveDays: { type: "number", description: "how many days after archive before a run can be freed" },
     replayId: { type: "string", description: "the replay's id" },
     repo: { type: "string", description: "the path to the repo" },
-    requireToken: { type: "boolean", description: "when true, require a token to reach the host" },
     resultPath: { type: "string", description: "the file path to the result" },
     retryable: { type: "boolean", description: "when true, mark this failure as safe to retry" },
     runId: { type: "string", description: "the run's id" },
@@ -194,13 +168,12 @@ export const COMMON_PROPERTY_TYPES = {
  *     seen to do no write at all (no saveCheckpoint, no writeJson, no
  *     writeReport, no fs write of any kind);
  *   - `destructiveHint: true` for a tool whose handler was read and seen
- *     to delete stored data (gc / delete sweeps);
+ *     to delete stored data (no tool has it today);
  *   - every other tool is ABSENT from this table and gets no
  *     annotations. Absent beats wrong. Some absences that look like
  *     reads are deliberate: cw_metrics_show persists its derived report,
- *     cw_workbench_view calls the metrics.show handler for one panel,
- *     cw_operator_report re-writes report.md, cw_schedule_due marks
- *     expired tasks, and cw_run_resume can take the opt-in --drive path. */
+ *     cw_operator_report re-writes report.md, and cw_run_resume can take
+ *     the opt-in --drive path. */
 export const MCP_TOOL_ANNOTATIONS = {
     // pure reads, in MCP_TOOL_DATA order (each handler checked by hand)
     cw_list: { readOnlyHint: true },
@@ -236,10 +209,6 @@ export const MCP_TOOL_ANNOTATIONS = {
     cw_ledger_verify: { readOnlyHint: true },
     cw_ledger_apply: { readOnlyHint: true },
     cw_ledger_list: { readOnlyHint: true },
-    cw_schedule_list: { readOnlyHint: true },
-    cw_schedule_history: { readOnlyHint: true },
-    cw_routine_list: { readOnlyHint: true },
-    cw_routine_events: { readOnlyHint: true },
     cw_registry_show: { readOnlyHint: true },
     cw_metrics_summary: { readOnlyHint: true },
     cw_run_search: { readOnlyHint: true },
@@ -249,23 +218,11 @@ export const MCP_TOOL_ANNOTATIONS = {
     cw_run_drive: { readOnlyHint: true },
     cw_queue_list: { readOnlyHint: true },
     cw_queue_show: { readOnlyHint: true },
-    cw_sched_plan: { readOnlyHint: true },
-    cw_sched_policy_show: { readOnlyHint: true },
-    cw_gc_plan: { readOnlyHint: true },
-    cw_gc_verify: { readOnlyHint: true },
-    cw_clones_list: { readOnlyHint: true },
-    cw_orphans_list: { readOnlyHint: true },
     cw_telemetry_verify: { readOnlyHint: true },
     cw_history: { readOnlyHint: true },
     cw_audit_head: { readOnlyHint: true },
     cw_check_list: { readOnlyHint: true },
     cw_check_show: { readOnlyHint: true },
-    // delete sweeps (each handler checked by hand: all delete stored data)
-    cw_schedule_delete: { readOnlyHint: false, destructiveHint: true },
-    cw_routine_delete: { readOnlyHint: false, destructiveHint: true },
-    cw_gc_run: { readOnlyHint: false, destructiveHint: true },
-    cw_clones_gc: { readOnlyHint: false, destructiveHint: true },
-    cw_orphans_gc: { readOnlyHint: false, destructiveHint: true },
 };
 /** The MCP `core` tool profile: what `tools/list` shows when
  *  CW_MCP_TOOLS is unset or `core` (mcp/server.ts), in this order.
@@ -291,7 +248,7 @@ export const MCP_TOOL_DATA = [
     { tool: "cw_list", capability: "list", requiredArgs: [], properties: [], description: "List bundled CW workflows." },
     { tool: "cw_plan", capability: "plan", requiredArgs: ["workflowId"], properties: ["workflowId", "repo", "question"], description: "Create a CW run and return its canonical plan summary." },
     { tool: "cw_app_run", capability: "app.run", requiredArgs: ["appId"], properties: ["cwd", "appId", "inputs", "sandbox", "sandboxProfile", "sandboxProfileId"], description: "Create a run from an app id + structured inputs." },
-    { tool: "cw_status", capability: "status", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read run checkpoint status. The quick first check on one run: lifecycle, task counts, and next actions. For the fuller operator view use cw_operator_status; for every panel in one call use cw_workbench_view." },
+    { tool: "cw_status", capability: "status", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read run checkpoint status. The quick first check on one run: lifecycle, task counts, and next actions. For the fuller operator view use cw_operator_status." },
     { tool: "cw_init", capability: "init", requiredArgs: ["workflowId"], properties: ["workflowId", "title", "output"], description: "Scaffold a new workflow definition." },
     { tool: "cw_next", capability: "next", requiredArgs: ["runId"], properties: ["runId", "cwd", "limit"], description: "Read the next recommended tasks for a run." },
     { tool: "cw_state_check", capability: "state.check", requiredArgs: ["runId"], properties: ["runId", "cwd", "state", "write"], description: "Check run-state schema compatibility." },
@@ -306,12 +263,10 @@ export const MCP_TOOL_DATA = [
     { tool: "cw_migration_list", capability: "migration.list", requiredArgs: [], properties: [], description: "List the declared migration registry." },
     { tool: "cw_migration_check", capability: "migration.check", requiredArgs: [], properties: ["target", "contract", "cwd"], description: "Dry-run migration verdict for a target." },
     { tool: "cw_migration_prove", capability: "migration.prove", requiredArgs: [], properties: ["target", "contract", "cwd"], description: "Round-trip / non-destruction migration proof for a target." },
-    { tool: "cw_operator_status", capability: "operator.status", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured Operator UX run status. Fuller than cw_status: workers, feedback, and commits in one operator view. For every panel in one call use cw_workbench_view." },
+    { tool: "cw_operator_status", capability: "operator.status", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured Operator UX run status. Fuller than cw_status: workers, feedback, and commits in one operator view." },
     { tool: "cw_operator_graph", capability: "graph", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured Operator UX run graph." },
     { tool: "cw_operator_report", capability: "operator.report", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Refresh and read the structured Operator UX report summary." },
     { tool: "cw_worker_summary", capability: "worker.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured worker summary for a run." },
-    { tool: "cw_workbench_view", capability: "workbench.view", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the read-only Workbench view of one run (graph, worker, metrics, audit). The widest one-call overview; prefer it when you want everything at once. For one quick answer use cw_status or cw_operator_status instead." },
-    { tool: "cw_workbench_serve", capability: "workbench.serve", requiredArgs: [], properties: ["cwd", "port", "scope", "requireToken"], description: "Describe/serve the optional localhost-only, read-only Workbench host. requireToken is a CLI-only opt-in (the MCP path never actually binds, so it is a no-op here)." },
     { tool: "cw_feedback_summary", capability: "feedback.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured feedback summary for a run." },
     { tool: "cw_commit_summary", capability: "commit.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the structured commit summary for a run." },
     { tool: "cw_audit_summary", capability: "audit.summary", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Read the trust/audit summary." },
@@ -355,24 +310,10 @@ export const MCP_TOOL_DATA = [
     { tool: "cw_feedback_collect", capability: "feedback.collect", requiredArgs: ["runId"], properties: ["runId", "cwd"], description: "Collect feedback from failed nodes." },
     { tool: "cw_feedback_task", capability: "feedback.task", requiredArgs: ["runId"], properties: ["runId", "feedbackId", "cwd", "verify"], description: "Create a correction task for feedback." },
     { tool: "cw_feedback_resolve", capability: "feedback.resolve", requiredArgs: ["runId"], properties: ["runId", "feedbackId", "cwd", "node", "status"], description: "Resolve or reject feedback." },
-    { tool: "cw_schedule_create", capability: "schedule.create", requiredArgs: [], properties: ["cwd", "kind", "prompt", "intervalMinutes", "cron", "delayMinutes"], description: "Create a scheduled CW task." },
-    { tool: "cw_schedule_list", capability: "schedule.list", requiredArgs: [], properties: ["cwd", "status"], description: "List scheduled CW tasks." },
-    { tool: "cw_schedule_due", capability: "schedule.due", requiredArgs: [], properties: ["cwd"], description: "List due scheduled CW tasks." },
-    { tool: "cw_schedule_complete", capability: "schedule.complete", requiredArgs: ["id"], properties: ["cwd", "id"], description: "Mark a scheduled task complete." },
-    { tool: "cw_schedule_pause", capability: "schedule.pause", requiredArgs: ["id"], properties: ["cwd", "id"], description: "Pause a scheduled CW task." },
-    { tool: "cw_schedule_resume", capability: "schedule.resume", requiredArgs: ["id"], properties: ["cwd", "id"], description: "Resume a scheduled CW task." },
-    { tool: "cw_schedule_run_now", capability: "schedule.run-now", requiredArgs: ["id"], properties: ["cwd", "id"], description: "Create an immediate scheduled-task run record." },
-    { tool: "cw_schedule_history", capability: "schedule.history", requiredArgs: [], properties: ["cwd", "id"], description: "List scheduled-task run history." },
-    { tool: "cw_schedule_delete", capability: "schedule.delete", requiredArgs: ["id"], properties: ["cwd", "id"], description: "Delete a scheduled CW task." },
-    { tool: "cw_routine_create", capability: "routine.create", requiredArgs: [], properties: ["cwd", "kind", "prompt", "match"], description: "Create a routine-style API/GitHub trigger." },
-    { tool: "cw_routine_list", capability: "routine.list", requiredArgs: [], properties: ["cwd", "kind"], description: "List routine-style triggers." },
-    { tool: "cw_routine_fire", capability: "routine.fire", requiredArgs: ["kind"], properties: ["cwd", "kind", "payload"], description: "Record an API/GitHub trigger event." },
-    { tool: "cw_routine_events", capability: "routine.events", requiredArgs: [], properties: ["cwd", "id"], description: "List routine trigger events." },
-    { tool: "cw_routine_delete", capability: "routine.delete", requiredArgs: ["id"], properties: ["cwd", "id"], description: "Delete a routine-style trigger." },
     { tool: "cw_registry_refresh", capability: "registry.refresh", requiredArgs: [], properties: ["cwd", "scope"], description: "Recompute and persist the derived run registry index." },
     { tool: "cw_registry_show", capability: "registry.show", requiredArgs: [], properties: ["cwd", "scope"], description: "Read the run registry index with valid|stale|absent freshness." },
-    { tool: "cw_metrics_show", capability: "metrics.show", requiredArgs: ["runId"], properties: ["runId", "cwd", "pricing", "now"], description: "Read the derived per-run observability + attested-cost report (durations, failure/verifier/acceptance rates with sample counts, attested usage, cost, coverage)." },
-    { tool: "cw_metrics_summary", capability: "metrics.summary", requiredArgs: [], properties: ["cwd", "scope", "pricing", "now", "limit"], description: "Read the cross-repo observability + cost rollup over the v0.1.28 run registry, with per-app and per-backend breakdowns." },
+    { tool: "cw_metrics_show", capability: "metrics.show", requiredArgs: ["runId"], properties: ["runId", "cwd", "now"], description: "Read the derived per-run observability + attested-cost report (durations, failure/verifier/acceptance rates with sample counts, attested usage, cost, coverage)." },
+    { tool: "cw_metrics_summary", capability: "metrics.summary", requiredArgs: [], properties: ["cwd", "scope", "now", "limit"], description: "Read the cross-repo observability + cost rollup over the v0.1.28 run registry, with per-app and per-backend breakdowns." },
     { tool: "cw_run_search", capability: "run.search", requiredArgs: [], properties: ["cwd", "scope", "text", "app", "status", "repo", "since", "until", "includeArchived", "limit", "offset"], description: "Search runs by app/status/time/repo/free-text, deterministic + paginated." },
     { tool: "cw_run_list", capability: "run.list", requiredArgs: [], properties: ["cwd", "scope", "includeArchived", "limit", "offset"], description: "List indexed runs across repos (search with no filters)." },
     { tool: "cw_run_show", capability: "run.show", requiredArgs: ["runId"], properties: ["runId", "cwd", "scope"], description: "Resolve one run by id across the registry; fail closed on missing source." },
@@ -392,21 +333,6 @@ export const MCP_TOOL_DATA = [
     { tool: "cw_queue_list", capability: "queue.list", requiredArgs: [], properties: ["cwd", "status", "repo"], description: "List the durable run queue in policy order." },
     { tool: "cw_queue_drain", capability: "queue.drain", requiredArgs: [], properties: ["cwd", "limit", "repo"], description: "Mark the next ready queue entries drained (the host still executes)." },
     { tool: "cw_queue_show", capability: "queue.show", requiredArgs: ["id"], properties: ["cwd", "id"], description: "Show one durable queue entry." },
-    { tool: "cw_sched_plan", capability: "sched.plan", requiredArgs: [], properties: ["cwd"], description: "Read-only control-plane lease plan for the queue+policy+now." },
-    { tool: "cw_sched_lease", capability: "sched.lease", requiredArgs: [], properties: ["cwd", "limit"], description: "Claim eligible queue entries as leases (concurrency-bounded)." },
-    { tool: "cw_sched_release", capability: "sched.release", requiredArgs: [], properties: ["cwd", "leaseId", "failed", "reason"], description: "Release a held lease (failed -> retry/backoff or park)." },
-    { tool: "cw_sched_complete", capability: "sched.complete", requiredArgs: [], properties: ["cwd", "leaseId"], description: "Complete a held lease (terminal success)." },
-    { tool: "cw_sched_reclaim", capability: "sched.reclaim", requiredArgs: [], properties: ["cwd"], description: "Reclaim expired leases (each counts a failed attempt)." },
-    { tool: "cw_sched_reset", capability: "sched.reset", requiredArgs: [], properties: ["cwd", "id"], description: "Reset a parked entry to ready (operator recovery)." },
-    { tool: "cw_sched_policy_show", capability: "sched.policy.show", requiredArgs: [], properties: ["cwd"], description: "Show the scheduling policy (file or default)." },
-    { tool: "cw_sched_policy_set", capability: "sched.policy.set", requiredArgs: [], properties: ["cwd", "maxConcurrent", "maxAttempts", "leaseTtlMs", "backoffBaseMs", "backoffFactor", "backoffCapMs"], description: "Set scheduling policy fields (concurrency/attempts/backoff/TTL)." },
-    { tool: "cw_gc_plan", capability: "gc.plan", requiredArgs: [], properties: ["cwd", "scope", "runId", "reclaimAfterArchiveDays", "keepScratch", "keepSnapshots", "keepCommits"], description: "Dry-run plan of run reclamation (per-kind bytes + capability downgrade); frees nothing." },
-    { tool: "cw_gc_run", capability: "gc.run", requiredArgs: [], properties: ["cwd", "scope", "runId", "reclaimAfterArchiveDays", "keepScratch", "keepSnapshots", "keepCommits", "limit", "actor"], description: "Execute the write-ahead reclamation transaction (skeleton -> tombstone -> fsync -> free)." },
-    { tool: "cw_gc_verify", capability: "gc.verify", requiredArgs: ["runId"], properties: ["cwd", "scope", "runId"], description: "Re-prove a reclaimed run: skeleton-complete, tombstone chain untampered, artifacts reconstructable." },
-    { tool: "cw_clones_list", capability: "clones.list", requiredArgs: [], properties: [], description: "List the cached remote-source checkouts that --link/URL reviews populate (origin URL, kind, commit, age, bytes). Read-only." },
-    { tool: "cw_clones_gc", capability: "clones.gc", requiredArgs: [], properties: ["olderThanDays", "all"], description: "Reclaim cached remote-source checkouts: a TTL sweep (--older-than-days, default 30) or --all. Deletes only inside the clones cache." },
-    { tool: "cw_orphans_list", capability: "orphans.list", requiredArgs: [], properties: ["cwd", "scope"], description: "List run directories under .cw/runs/ that the run registry cannot see (no state.json — a killed/interrupted process never wrote one), with age + bytes. Read-only." },
-    { tool: "cw_orphans_gc", capability: "orphans.gc", requiredArgs: [], properties: ["cwd", "scope", "minAgeMinutes", "all"], description: "Reclaim orphan run directories (no state.json): an age sweep (--min-age-minutes, default 60) or --all. Deletes only inside a scanned repo's .cw/runs/, never a run the registry knows about." },
     { tool: "cw_telemetry_verify", capability: "telemetry.verify", requiredArgs: ["runId"], properties: ["cwd", "runId", "pubkey"], description: "Re-prove a run's telemetry attestation ledger offline: chain linkage + independent hash recompute, and (with --pubkey / CW_AGENT_ATTEST_PUBKEY) re-verify each attested hop's ed25519 signature against the public key." },
     { tool: "cw_history", capability: "history", requiredArgs: [], properties: ["cwd", "scope", "app", "status", "limit", "offset"], description: "Read a cross-repo unified run timeline (newest first)." },
     // --- later additions (appended; see the header note above) ---

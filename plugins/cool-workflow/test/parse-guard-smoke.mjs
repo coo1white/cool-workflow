@@ -1,65 +1,19 @@
-// parse-guard-smoke (v0.1.96). Proves the P2 audit fixes:
-// metadata parse gives a clear error on invalid JSON (not raw SyntaxError),
-// routine fire gives a clear error on bad payload files,
-// and the shell backend guard catches # * ? ~ metacharacters.
+// parse-guard-smoke (v0.1.96). Proves the P2 audit fix: the shell backend
+// guard catches # * ? ~ metacharacters. (The metadata and routine-fire parse
+// checks went with the scheduling surface.)
 //
 // @cw-smoke: parse-guard-smoke
 
 import assert from "node:assert/strict";
 import path from "node:path";
-import fs from "node:fs";
-import { spawnSync, execFileSync } from "node:child_process";
-import * as schedulerIoModule from "../dist/shell/scheduler-io.js";
 import * as registryModule from "../dist/shell/execution-backend/registry.js";
 import * as sandboxProfileModule from "../dist/shell/sandbox-profile.js";
-import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-const cw = path.join(pluginRoot, "dist", "cli.js");
 
 
 
 function main() {
-  // ---- 1. metadata JSON parse throws clear error on invalid JSON --------------
-  // v2 NO-EQUIVALENT: the old flat exported internal API metadataOption(options)
-  // from the old orchestrator cli-options module is gone. v2 collapsed it into the
-  // module-private helper parseJsonObject(value) at src/shell/scheduler-io.ts
-  // (throws "Expected a JSON object, got invalid JSON"; matches /Invalid JSON/i).
-  // It is NOT exported, so it cannot be required and called directly.
-  // The reachable v2 surface that routes options.metadata through that same
-  // successor parser is RoutineTriggerBridge.create() (scheduler-io.ts:506),
-  // so we drive the identical four metadata-parse behaviors through it. This
-  // preserves every assertion's intent (invalid -> clear error, object
-  // passthrough, valid-string parse, absent -> undefined) against the real v2
-  // code path; it does not weaken any of them.
-  {
-    const { RoutineTriggerBridge } = schedulerIoModule;
-    const tmp1 = tmpDir("cw-smoke-md-");
-    const bridge = new RoutineTriggerBridge(tmp1);
-    const withMetadata = (metadata) => bridge.create({ kind: "api", prompt: "guard-smoke", metadata }).metadata;
-    assert.throws(() => withMetadata("{bad"), /Invalid JSON/i, "metadata parse rejects invalid JSON");
-    assert.deepEqual(withMetadata({ key: "val" }), { key: "val" }, "metadata parse passes through objects");
-    assert.equal(withMetadata(JSON.stringify({ key: "val" })).key, "val", "metadata parse parses valid JSON string");
-    assert.equal(bridge.create({ kind: "api", prompt: "guard-smoke" }).metadata, undefined, "metadata is undefined when absent");
-    fs.rmSync(tmp1, { recursive: true, force: true });
-  }
-
-  // ---- 2. routine fire handles bad payload file with clear error --------------
-  {
-    const tmp = tmpDir("cw-smoke-");
-    const badFile = path.join(tmp, "bad.json");
-    fs.writeFileSync(badFile, "{not valid", "utf8");
-    const child = spawnSync(process.execPath, [cw, "routine", "fire", "api", badFile], { encoding: "utf8", cwd: tmp, env: { ...process.env, CW_NO_AUTO_AGENT: "1" } });
-    assert.ok(child.status !== 0, "routine fire with bad file exits non-zero");
-    const stderr = String(child.stderr || "");
-    assert.ok(stderr.includes("parse") || stderr.includes("Parse") || stderr.includes("JSON") || stderr.includes("payload"), `payload error is clear: ${stderr.slice(0, 200)}`);
-    // resolveRoutineFirePayload (shell/commands/registry-cli.ts) owns this wording now
-    // (moved out of wiring/capability-table/) — pin the exact prefix so the
-    // move stayed byte-identical.
-    assert.ok(stderr.includes(`Failed to parse payload file "${badFile}"`), `exact error prefix preserved: ${stderr.slice(0, 200)}`);
-    fs.rmSync(tmp, { recursive: true, force: true });
-  }
-
   // ---- 3. shell backend catches # comment truncation --------------------------
   {
     const { runBackend } = registryModule;

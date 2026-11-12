@@ -6,36 +6,20 @@
 //
 // Evidence: SPEC/reporting-ux.md "cw metrics show" / "cw metrics
 // summary".
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { cwdArg } from "../../core/util/cli-args.js";
 import { requiredNumberFlag } from "../../core/util/numeric-flag.js";
 import { loadRunFromCwd, loadRunStateFile } from "../run-store.js";
-import { loadCostPolicy, loadPersistedMetricsFingerprint, showMetricsReport, deriveMetricsSummary } from "../observability.js";
+import { loadPersistedMetricsFingerprint, showMetricsReport, deriveMetricsSummary } from "../observability.js";
 import { RunRegistry } from "../run-registry-io.js";
-function pluginRoot() {
-    let dir = import.meta.dirname;
-    for (let i = 0; i < 8; i++) {
-        const candidate = path.join(dir, "plugins", "cool-workflow");
-        if (fs.existsSync(candidate))
-            return candidate;
-        const parent = path.dirname(dir);
-        if (parent === dir)
-            break;
-        dir = parent;
-    }
-    return process.cwd();
-}
 function nowOf(args) {
     return typeof args.now === "string" && args.now.trim() ? args.now : new Date().toISOString();
 }
-/** `cw metrics show <run-id> [--json] [--pricing ...] [--now ISO]`. */
+/** `cw metrics show <run-id> [--json] [--now ISO]`. */
 export function metricsShowCli(runId, args) {
     const run = loadRunFromCwd(runId, cwdArg(args));
-    const policy = loadCostPolicy(args, pluginRoot());
-    return showMetricsReport(run, { now: nowOf(args), policy, persist: args.__cwWorkbenchReadOnlyProjection !== true });
+    return showMetricsReport(run, { now: nowOf(args) });
 }
-/** `cw metrics summary [--scope repo|home] [--pricing ...] [--now ISO] [--limit N]`.
+/** `cw metrics summary [--scope repo|home] [--now ISO] [--limit N]`.
  *  `--limit` defaults to RunRegistry.list()'s own 50-record floor when omitted. */
 export function metricsSummaryCli(args) {
     const cwd = cwdArg(args);
@@ -58,6 +42,5 @@ export function metricsSummaryCli(args) {
             unreadableRuns++;
         }
     }
-    const policy = loadCostPolicy(args, pluginRoot());
-    return deriveMetricsSummary(inputs, { now: nowOf(args), scope, policy, unreadableRuns });
+    return deriveMetricsSummary(inputs, { now: nowOf(args), scope, unreadableRuns });
 }

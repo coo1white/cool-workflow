@@ -2,9 +2,9 @@
 // captable-mcp-tool-definitions — pins mcpToolDefinitions()'s exact JSON
 // shape: SPEC/mcp.md's toolDefinitions()/mcpToolDefinition() contract
 // ("inputSchema.additionalProperties is always true") plus:
-//   - the file's own two hand-written PROPERTY_OVERRIDES exceptions
-//     (cw_commit's boolean allowUnverifiedCheckpoint, cw_routine_fire's
-//     object payload) — these win over COMMON_PROPERTY_TYPES below;
+//   - the file's own hand-written PROPERTY_OVERRIDES exception
+//     (cw_commit's boolean allowUnverifiedCheckpoint) — it wins over
+//     COMMON_PROPERTY_TYPES below;
 //   - COMMON_PROPERTY_TYPES, which gives every other declared property
 //     name a real type and a true, short description (not the bare
 //     name-echoing string form);
@@ -20,7 +20,7 @@ import { COMMON_PROPERTY_TYPES } from "../../dist/core/capability-data.js";
 // inputSchema:{type:"object", properties, additionalProperties:true}.
 {
   const defs = mcpToolDefinitions();
-  assert.equal(defs.length, 125, "mcpToolDefinitions() must return exactly 125 entries");
+  assert.equal(defs.length, 94, "mcpToolDefinitions() must return exactly 94 entries");
   for (const def of defs) {
     assert.equal(typeof def.name, "string", `${def.name}: name must be a string`);
     assert.equal(typeof def.description, "string", `${def.name}: description must be a string`);
@@ -151,19 +151,6 @@ import { COMMON_PROPERTY_TYPES } from "../../dist/core/capability-data.js";
   );
 }
 
-// PROPERTY_OVERRIDES exception 2: cw_routine_fire's payload is an object
-// property, not the plain string default.
-{
-  const defs = mcpToolDefinitions();
-  const cwRoutineFire = defs.find((d) => d.name === "cw_routine_fire");
-  assert.ok(cwRoutineFire, "cw_routine_fire must be declared");
-  assert.deepEqual(
-    cwRoutineFire.inputSchema.properties.payload,
-    { type: "object", description: "Event payload" },
-    "cw_routine_fire's payload must be the object override, not the plain string form"
-  );
-}
-
 // Overrides are scoped to their OWN tool only — cw_commit's boolean
 // override for allowUnverifiedCheckpoint must not leak onto any other
 // tool that happens to share a property name (defensive: no other
@@ -193,31 +180,23 @@ import { COMMON_PROPERTY_TYPES } from "../../dist/core/capability-data.js";
 }
 
 // Behavior-hint annotations (MCP_TOOL_ANNOTATIONS): a checked pure read
-// carries readOnlyHint true, a checked delete sweep carries
-// destructiveHint true (with readOnlyHint false), and a tool NOT in the
-// side table has NO annotations key at all — absent beats wrong.
+// carries readOnlyHint true, and a tool NOT in the side table has NO
+// annotations key at all — absent beats wrong. No tool carries
+// destructiveHint since the delete sweeps went with the frozen surfaces.
 {
   const defs = mcpToolDefinitions();
   const byName = new Map(defs.map((d) => [d.name, d]));
 
   assert.deepEqual(byName.get("cw_node_list").annotations, { readOnlyHint: true }, "cw_node_list is a checked pure read");
   assert.deepEqual(byName.get("cw_status").annotations, { readOnlyHint: true }, "cw_status is a checked pure read");
-  assert.deepEqual(
-    byName.get("cw_gc_run").annotations,
-    { readOnlyHint: false, destructiveHint: true },
-    "cw_gc_run is a checked delete sweep"
-  );
-  assert.deepEqual(
-    byName.get("cw_schedule_delete").annotations,
-    { readOnlyHint: false, destructiveHint: true },
-    "cw_schedule_delete is a checked delete sweep"
-  );
+  for (const def of defs) {
+    assert.ok(!(def.annotations && def.annotations.destructiveHint), `${def.name}: no tool is a delete sweep now`);
+  }
 
   // Deliberately unannotated tools: cw_plan and cw_commit mutate;
-  // cw_metrics_show / cw_workbench_view / cw_operator_report look like
-  // reads but persist a derived report; cw_schedule_due marks expired
-  // tasks. None may carry a hint.
-  for (const name of ["cw_plan", "cw_commit", "cw_metrics_show", "cw_workbench_view", "cw_operator_report", "cw_schedule_due"]) {
+  // cw_metrics_show / cw_operator_report look like reads but persist a
+  // derived report. None may carry a hint.
+  for (const name of ["cw_plan", "cw_commit", "cw_metrics_show", "cw_operator_report"]) {
     assert.ok(!("annotations" in byName.get(name)), `${name} must carry NO annotations key`);
   }
 
@@ -231,17 +210,18 @@ import { COMMON_PROPERTY_TYPES } from "../../dist/core/capability-data.js";
   }
 }
 
-// "When to use which" cross-references: each of the three status-family
-// descriptions names at least one sibling status tool. A drift guard so a later description edit keeps the
-// cross-references. (cw_multi_agent_status, the fourth, went with the
-// multi-agent family, slim-and-esm step 2; no description may still name it.)
+// "When to use which" cross-references: each of the two status-family
+// descriptions names its sibling status tool. A drift guard so a later description edit keeps the
+// cross-references. (cw_multi_agent_status went with the multi-agent family, slim-and-esm
+// step 2, and cw_workbench_view with the frozen surfaces; no description
+// may still name either.)
 {
   const defs = mcpToolDefinitions();
   const byName = new Map(defs.map((d) => [d.name, d]));
   for (const def of defs) {
-    assert.ok(!/cw_(multi_agent|blackboard|candidate|topology)_/.test(def.description), `${def.name}'s description must not name a removed tool`);
+    assert.ok(!/cw_(multi_agent|blackboard|candidate|topology|workbench|schedule|routine|sched|gc|clones|orphans)_/.test(def.description), `${def.name}'s description must not name a removed tool`);
   }
-  const statusFamily = ["cw_status", "cw_operator_status", "cw_workbench_view"];
+  const statusFamily = ["cw_status", "cw_operator_status"];
   for (const name of statusFamily) {
     const description = byName.get(name).description;
     const siblings = statusFamily.filter((sibling) => sibling !== name);

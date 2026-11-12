@@ -14,7 +14,6 @@
     { "domain": "pipeline-contract", "constant": "PIPELINE_CONTRACT_SCHEMA_VERSION", "source": "core/state/state-node.ts" },
     { "domain": "run-registry", "constant": "RUN_REGISTRY_SCHEMA_VERSION", "source": "shell/run-registry-io.ts" },
     { "domain": "sandbox-profile", "constant": "SANDBOX_PROFILE_SCHEMA_VERSION", "source": "shell/sandbox-profile.ts" },
-    { "domain": "scheduling", "constant": "SCHEDULING_SCHEMA_VERSION", "source": "shell/scheduling-io.ts" },
     { "domain": "state-node", "constant": "STATE_NODE_SCHEMA_VERSION", "source": "core/state/state-node.ts" },
     { "domain": "telemetry-ledger", "constant": "TELEMETRY_LEDGER_SCHEMA_VERSION", "source": "core/trust/telemetry-ledger.ts" },
     { "domain": "trust-audit", "constant": "TRUST_AUDIT_SCHEMA_VERSION", "source": "shell/trust-audit.ts" },

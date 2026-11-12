@@ -29,7 +29,7 @@ So CW took the low-level habits, not a closed product:
 | keeping the outputs in order | task, result, and report files |
 | review and checking | verifier gates |
 | only good state is kept | the verifier-gated commit |
-| work that goes on in the background | schedules and routines |
+| work that goes on later | the run queue and resumable runs |
 | working with any host | the CLI, MCP, and skills |
 
 What CW keeps away from: being tied to one vendor, ideas that only hold on

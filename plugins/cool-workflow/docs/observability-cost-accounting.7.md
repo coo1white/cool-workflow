@@ -37,8 +37,8 @@ Every number comes from durable state that is already there:
 - the candidate acceptance rate counts `selected`/`verified` candidates over all
   candidate records.
 
-There is no metrics store. `deriveMetricsReport(run, { now, policy })` is a PURE
-function of one run's state, an injected `now`, and an optional pricing policy.
+There is no metrics store. `deriveMetricsReport(run, { now })` is a PURE
+function of one run's state and an injected `now`.
 The only now-derived field is `generatedAt`; durations are worked out from recorded
 timestamps, so a report over a fixed snapshot is byte-reproducible (eval/replay
 agnostic). The per-run report is kept as a rebuildable, fingerprinted
@@ -57,42 +57,23 @@ can check the numerator and denominator.
 ## Cost is attested, never measured or fabricated
 
 CW does not call the model; the host/worker does. Token usage is recorded as
-HOST-ATTESTED provenance — a `UsageRecord` taken in on the existing intake path
-and stored on the task or worker record (never on `ResultEnvelope`):
-
-```
-cw result <run-id> <task-id> <file> \
-  --usage-input-tokens 12000 --usage-output-tokens 3400 \
-  --usage-model claude-opus-4-8 --usage-source host-attested
-cw worker output <run-id> <worker-id> <file> --usage-input-tokens N --usage-output-tokens M --usage-model ID
-```
+HOST-ATTESTED provenance — a `UsageRecord` stored on the worker record (never
+on `ResultEnvelope`) when a driven agent reports it.
 
 CW records what the host attests, word for word, and makes up nothing. When the
 host reports no usage the value is a clear `unreported` — never `0`, never a
 quiet guess. The report shows `usage.coverage` (the part of work units
 carrying attested usage) and `usage.unreportedUnits` so the gap can be seen.
 
-A money figure is `attested` ONLY when it comes from attested usage × a
-recorded pricing policy with an EXACT model match. When a model is priced by the
-policy's `defaultPrice` fallback, that part is a SEPARATE `estimated` figure
-and the cost `state` becomes `estimated`; the two USD figures are never mixed
-into one. Cost states:
+CW does not put a price on usage. Cost states:
 
-- `attested` — every attested model exact-matched a policy entry;
-- `estimated` — some attested usage was priced by the policy default/fallback;
-- `unpriced` — attested usage present but no policy entry (and no default);
-- `unreported` — no attested usage to price.
+- `unpriced` — attested usage present; CW gives no money figure for it;
+- `unreported` — no attested usage at all.
 
-## Mechanism vs policy: pricing is data
-
-The runtime is MECHANISM: it records attested usage and derives rates/durations.
-The pricing table is POLICY — given as DATA (`CostPolicy`), not built into the
-kernel. The same attested usage gives different cost reports under different
-pricing without touching the runtime. A bundled EXAMPLE policy lives at
-`manifest/pricing.policy.json` (USD per 1e6 tokens, a starting point you can edit —
-not a live price feed); pass `--pricing <path>` to use your own, or
-`--pricing default` for the bundled example. With no policy given, cost is
-`unpriced`/`unreported`, never guessed.
+The money fields (`attestedUsd`, `estimatedUsd`) stay in the payload and are
+always `null`. The pricing policy (`--pricing` and its bundled example file)
+and the hand-recorded usage flags (`--usage-*` on `cw result` and
+`cw worker output`) went with the observability intake module on 2026-11-12.
 
 ## One source, every surface
 
@@ -100,15 +81,13 @@ The metrics verbs are declared once in `src/core/capability-data.ts`, so the CLI
 and MCP surfaces are two views of one core (`src/shell/observability.ts`) and pass
 the v0.1.27 parity gate — `cw <cmd> --json` is byte-identical to `cw_<tool>`
 (durations are integers from recorded timestamps; only the ISO `generatedAt` is
-now-derived and made neutral by the parity probe). The v0.1.30 Workbench renders a
-read-only metrics panel from the same payload, showing coverage and
-`unreported`/`n/a` in an honest way — it shows nothing the CLI/MCP cannot.
+now-derived and made neutral by the parity probe).
 
 ## Commands
 
 - `cw metrics show <run-id>` — the derived per-run report: durations, the three
   rates with sample counts, attested usage with coverage, and cost. `--json` for
-  the canonical payload; `--pricing <path>|default` to price attested usage.
+  the canonical payload.
 - `cw metrics summary` — the cross-repo rollup over the v0.1.28 run registry:
   pooled rates, summed attested usage/cost with coverage, and per-app and
   per-backend breakdowns. `--scope repo|home`; runs that cannot be read are counted
@@ -144,17 +123,17 @@ per-node snapshot, structural diff, and isolated deterministic replay over State
 
 first-class declared migration registry (run-state + workflow-app) with per-edge compatibility proofs, fail-closed reachability, and a round-trip/non-destruction prover. See contract-migration-tooling(7).
 
-## Control-Plane Scheduling (v0.1.37)
+## Control-Plane Scheduling (v0.1.37, removed)
 
-priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue; policy-as-data, deterministic. See control-plane-scheduling(7).
+priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue. Removed 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Agent Delegation Drive (v0.1.38)
 
 spawn an external agent process per worker, capture result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
 
-## Run Retention & Provable Reclamation (v0.1.39)
+## Run Retention & Provable Reclamation (v0.1.39, removed)
 
-tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the reconstructable bulk, prove it
+tiered, append-only, cryptographically-verifiable run reclamation. Removed 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Durable State & Locking (v0.1.40)
 
@@ -191,7 +170,7 @@ Migration DAG with reversible edges (v0.1.45), capability auto-discovery (v0.1.4
 
 ## Fast Architecture Review (v0.1.80)
 
-Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, background full-review handoff you can act on, and userland model policy flags for routing fast/strong workers without changing the full review contract.
+Adds the opt-in fast architecture-review lane: scoped JSONL source contexts, diff-aware exports, reusable Map and Assess results, measurable wrapper metrics, and userland model policy flags for routing fast/strong workers without changing the full review contract.
 
 _No changes to the observability + cost-accounting surface in v0.1.81 (the observability module was split into behavior-preserving siblings; output is byte-identical)._
 _No changes in v0.1.82._

@@ -466,7 +466,7 @@ For faster first results with a pinned source context and model routing, use
 the fast app's wrapper in place of changing the full review contract:
 
 ```text
-node scripts/architecture-review-fast.js --repo /path/to/repo --question "Is the design sound?" --fast-model gpt-5.5-high --strong-model gpt-5.5-extra-high --metrics --schedule-full
+node scripts/architecture-review-fast.js --repo /path/to/repo --question "Is the design sound?" --fast-model gpt-5.5-high --strong-model gpt-5.5-extra-high --metrics
 ```
 
 `architecture-review-fast` has six workers: two Map and two Assess workers at the
@@ -830,12 +830,12 @@ added on and optional; older run state loads unchanged. No `.cw/` layout change.
 ## See Also
 
 execution-backends(7), real-execution-backends(7), node-snapshot-diff-replay(7),
-control-plane-scheduling(7), dogfood-one-real-repo(7), cli-mcp-parity(7),
+dogfood-one-real-repo(7), cli-mcp-parity(7),
 observability-cost-accounting(7)
 
-## Run Retention & Provable Reclamation (v0.1.39)
+## Run Retention & Provable Reclamation (v0.1.39, removed)
 
-tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the bulk that can be built again, prove it
+tiered, append-only, hash-chained run reclamation (`cw gc`, `cw orphans`). Removed 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Durable State & Locking (v0.1.40)
 

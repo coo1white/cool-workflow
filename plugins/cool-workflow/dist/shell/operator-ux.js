@@ -143,7 +143,7 @@ export function summarizeOperatorRun(run) {
     const workers = summarizeOperatorWorkers(run);
     const feedback = summarizeOperatorFeedback(run);
     const commits = summarizeOperatorCommits(run);
-    const trust = summarizeTrustAudit(run, { persist: run.__cwWorkbenchReadOnlyProjection !== true });
+    const trust = summarizeTrustAudit(run);
     const activePhase = phases.find((p) => p.status === "running") || phases.find((p) => p.status === "pending");
     const blockedReasons = [];
     for (const worker of workers.workers) {

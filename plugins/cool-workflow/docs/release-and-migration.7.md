@@ -154,8 +154,7 @@ operator's yes of 2026-09-28, decision D1). These are no longer part of CW, on t
 - report.md has no State Size & Compaction, Multi-Agent Runtime,
   Blackboard / Coordinator, Acceptance Rationale, or Candidates part.
 - `cw operator status --json` has no `candidates`, `multiAgent`,
-  `multiAgentOperator`, `multiAgentTrust`, or `blackboard` keys; the
-  Workbench run view has the graph, worker, metrics, and audit panels only.
+  `multiAgentOperator`, `multiAgentTrust`, or `blackboard` keys.
 - The `pdca-blackboard-loop` example app.
 
 A state file written by an older CW with `multiAgent`, `blackboard`,
@@ -163,6 +162,43 @@ A state file written by an older CW with `multiAgent`, `blackboard`,
 checks, reports, exports, and resumes. Those fields are kept as data, just as
 CW keeps any other user data; no command reads them as live state any more.
 `test/legacy-multi-agent-state-smoke.mjs` holds this.
+
+## Removed Surfaces: The Frozen Surfaces (2026-11-12)
+
+The surfaces that were frozen (fixes and deletions only) were taken out on
+the owner's word of 2026-11-12 (large deletions and breaking changes are
+open while CW is on 0.x). These are no longer part of CW:
+
+- Scheduling: `cw schedule`, `cw loop`, `cw routine`, `cw sched`, the
+  scheduling policy file (`registry/scheduling-policy.json` under the CW
+  home), and `scripts/architecture-review-fast.js --schedule-full` (now
+  refused, exit 1). The run queue (`cw queue`, `cw registry`, `cw run`,
+  `cw history`) stays.
+- Workbench: `cw workbench`, the `ui/workbench` sub-package, and the
+  `build:ui`, `prepack` and `bench:workbench:deep` npm scripts. `report.html`
+  stays; its Tailwind input is now `scripts/report.css`.
+- Orchestrator: `src/shell/orchestrator.ts`.
+- Telemetry demo: `cw demo bundle`. `cw demo tamper` stays (now
+  `src/shell/tamper-demo.ts`), and so does `cw report verify-bundle`.
+  `cw doctor --onramp` lists `cw check -- npm test` as its second quick-start
+  step in place of `cw demo bundle`.
+- Observability intake: `--pricing` on `cw metrics show|summary` (and the
+  `pricing` MCP argument), the bundled `manifest/pricing.policy.json`, and the
+  `--usage-*` flags on `cw result`. Cost is now `unpriced` or `unreported`
+  only; `attestedUsd` and `estimatedUsd` are always `null`.
+- Reclamation: `cw gc`, `cw orphans`, `cw clones`.
+- MCP tools: the 31 `cw_schedule_*`, `cw_routine_*`, `cw_sched_*`,
+  `cw_workbench_*`, `cw_gc_*`, `cw_orphans_*` and `cw_clones_*` tools.
+  `tools/list` with `CW_MCP_TOOLS=full` now names 94 tools.
+
+Each removed verb now fails closed: `cw: Unknown command: <verb>`, exit 1.
+`cw help` no longer names them under "More commands".
+
+Old state still loads. A run folder that an older CW reclaimed (its
+`reclaimed.json`) still reads, and a remote-source clone cache still works.
+Files only the removed verbs wrote (`.cw/schedules/`, `.cw/routines/`, the
+scheduling policy file) are left on disk and no longer read; delete them
+by hand if you want the space.
 
 ## Node Floor: 22.13
 
@@ -273,16 +309,9 @@ drivers, picked by `--backend` (parallel to `--sandbox`) and inspected via
 backends; the backend id + sandbox attestation are recorded as provenance, so this
 surface is unchanged no matter which backend executed a run. See
 [execution-backends.7.md](execution-backends.7.md).
-## Web / Desktop Workbench (v0.1.30)
+## Web / Desktop Workbench (v0.1.30, removed)
 
-v0.1.30 adds the Web / Desktop Workbench: a read-only, localhost-only human
-console that renders this surface (and the other four operator panels — run
-graph, blackboard, worker logs, candidate compare, audit timeline) for any run,
-reading the SAME capability `--json` payloads. It is a THIRD FRONT DOOR next to
-the CLI and MCP that holds no authoritative state and forks no schema: each panel
-equals its `cw <cmd> --json` payload byte-for-byte (parity-gated), and refresh
-derives everything again from disk. See
-[web-desktop-workbench.7.md](web-desktop-workbench.7.md).
+v0.1.30 added the Web / Desktop Workbench, a read-only localhost console over run state. It was removed on 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Observability + Cost Accounting (v0.1.31)
 
@@ -303,6 +332,7 @@ cross-repo summary reports each snapshot's `valid|stale|absent` freshness agains
 current source. See
 [observability-cost-accounting.7.md](observability-cost-accounting.7.md).
 
+Since 2026-11-12 CW no longer prices usage: the pricing policy (`--pricing`) and the hand-recorded usage flags went with the observability intake module, and cost is `unpriced` or `unreported` only.
 
 ## Team Collaboration (v0.1.32, removed)
 
@@ -326,17 +356,17 @@ per-node snapshot, structural diff, and isolated deterministic replay over State
 
 first-class declared migration registry (run-state + workflow-app) with per-edge compatibility proofs, fail-closed reachability, and a round-trip/non-destruction prover. See contract-migration-tooling(7).
 
-## Control-Plane Scheduling (v0.1.37)
+## Control-Plane Scheduling (v0.1.37, removed)
 
-priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue; policy-as-data, deterministic. See control-plane-scheduling(7).
+priority + concurrency limits + lease lifecycle + retry/backoff + fail-closed park over the v0.1.28 Run Registry queue. Removed 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Agent Delegation Drive (v0.1.38)
 
 spawn an external agent process per worker, capture result.md + attestation, auto-drive plan->dispatch->fulfill->accept->commit
 
-## Run Retention & Provable Reclamation (v0.1.39)
+## Run Retention & Provable Reclamation (v0.1.39, removed)
 
-tiered, append-only, cryptographically-verifiable run reclamation: seal the audit skeleton, free the reconstructable bulk, prove it
+tiered, append-only, hash-chained run reclamation (`cw gc`, `cw orphans`). Removed 2026-11-12; see release-and-migration(7), "Removed Surfaces".
 
 ## Durable State & Locking (v0.1.40)
 

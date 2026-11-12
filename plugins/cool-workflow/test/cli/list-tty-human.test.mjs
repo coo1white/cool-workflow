@@ -6,8 +6,7 @@
 // --json/--format json — every piped call keeps the exact JSON bytes
 // (v2/conformance/cases/cli-json-mode.case.mjs pins those bytes end-to-end).
 //
-// Uses the same fakeStream({isTTY}) shape as
-// ui/workbench/tests/workbench-serve-tty-hint.test.js: no real terminal, no spawned CLI.
+// Uses a fakeStream({isTTY}) shape: no real terminal, no spawned CLI.
 
 import assert from "node:assert/strict";
 import path from "node:path";

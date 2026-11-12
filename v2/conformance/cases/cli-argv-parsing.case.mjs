@@ -5,7 +5,7 @@
 // printed back in "No workflows matched "<kw>"." on a miss. This makes the
 // parsed positionals/options observable without reading any source.
 //
-// Rules covered (src/orchestrator.ts:789-838, see SPEC/cli-surface.md):
+// Rules covered (src/cli/parseargv.ts, see SPEC/cli-surface.md):
 // - a bare --flag never eats a dash-leading next token (value becomes true,
 //   and the dash-leading token stays a positional / or is itself parsed as
 //   another flag)

@@ -10,8 +10,8 @@
 // temp prefix, then the npx path), and runs the installed bin. It is offline:
 // the package has zero runtime dependencies, so npm needs no network.
 //
-// The pack uses --ignore-scripts: "prepack" builds the workbench UI, which a
-// local-install proof does not need. Install scripts are NOT ignored on the
+// The pack uses --ignore-scripts: no pack-time script belongs in a
+// local-install proof. Install scripts are NOT ignored on the
 // install itself — running them is the point.
 
 import assert from "node:assert/strict";

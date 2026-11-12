@@ -207,7 +207,7 @@ and define sync and async re-entry before it changes a call chain.
 
 Status: complete in the workflow-overhead baseline cycle.
 
-The benchmark runner now has opt-in zero-delay and Workbench-skip modes. It
+The benchmark runner now has an opt-in zero-delay mode. It
 writes plan, drive, and total times for every run plus medians to a JSON report.
 Old benchmark calls keep their same CSV stdout bytes and defaults.
 
@@ -256,36 +256,10 @@ change the execution or durable-state contract.
 
 ## Simple UI/UX Work Map
 
-The Workbench stays a small, read-only view. FreeBSD `style(9)` and `hier(7)`
-give the rules for clear errors, man-page agreement, and one place for each
-sort of state. Homebrew `brew(1)` and its External Commands guide give the
-rules for a short front door, clear help, and no new inside path. Codex Best
-practices and app commands give the rules for saved context, review, key
-movement, and Back/Forward movement. The source links and full mapping are in
-`plugins/cool-workflow/docs/web-desktop-workbench.7.md`.
-
-Its read path makes no derived audit or metrics file. The normal CLI report
-commands keep their durable files; the Workbench uses the same calculation in
-an in-memory projection only.
-
-### 1. Predictable Workbench Navigation
-
-Status: complete in the predictable Workbench navigation cycle.
-
-The page fragment names one run and one panel. Run and panel changes use
-browser history, and reload, Back, and Forward keep the same view. A small
-pure navigation helper gives the fragment and key rules. A latest-request
-check stops an old run answer from taking the place of a new one. The run
-list and panel tabs have full keyboard and ARIA links.
-
-### 2. Action-First Inspection
-
-Status: complete in the action-first Workbench inspection cycle.
-
-When a present capability payload has integrity, problem, missing-evidence,
-or next-action facts, the Workbench puts those source facts before the full
-record. It does not make a new rank, state, or action. The full payload stays
-in the panel, and CLI, MCP, and HTTP bytes stay the same.
+The Workbench, the small read-only web view this map was for, was taken out
+on 2026-11-12 with the other frozen surfaces (release-and-migration(7),
+"Removed Surfaces"). The CLI, `report.md`, and the one offline `report.html`
+are the views that stay.
 
 ## Release Rules
 
@@ -321,7 +295,9 @@ project's version history now lives only in git tags and GitHub Releases
 - evidence-gated commit：模型说"做完了"不算数，要有 evidence + verifier 通过才提交。
 - 跨厂商移植：一个内核生成所有 vendor 的 plugin（Claude/Codex/…）。
 - 把已有资产用得更狠：registry、delegating backends、workbench、audit chain、
-  parity、scheduling 都已经在了——深化它们，而不是重造。（blackboard 与整个
+  parity、scheduling 都已经在了——深化它们，而不是重造。（Note, 2026-11-12:
+  the workbench and scheduling named here were taken out with the frozen
+  surfaces; the text above is kept word for word.）（blackboard 与整个
   多 agent 一族已于 2026-09-28 删除，见下方"常见误判"。）
 - 两个落地场景全力投入（它们 100% 吃现有资产）：代码库风险分析工具
   （architecture-review workflow + evidence + audit trail）；给别的 agent
@@ -395,7 +371,7 @@ for guesses.)
      stronger models for verification and last verdict tasks.
   5. Cache source context and middle maps by git SHA plus profile digest,
      and fail closed when the digest does not match.
-  6. Move long full reviews to routines/background runs so foreground user
+  6. Move long full reviews to background runs so foreground user
      flows give back progress and a fast report in place of stopping for 40 minutes.
 - `architecture-review-fast` is the opt-in fast/full split build. It
   keeps `architecture-review` the same, plans 6 workers in place of 14, runs Map
@@ -412,11 +388,9 @@ for guesses.)
   cache records fail closed.
 - `scripts/architecture-review-fast.js` is the automated fast-review wrapper. It
   exports cached source context for a target repo, computes the JSONL digest,
-  starts `architecture-review-fast`, and can schedule a one-shot background
-  `architecture-review` run with `--schedule-full`.
-- `architecture-review-fast --schedule-full` stores foreground handoff context in
-  the schedule prompt: fast run id, fast report path, source-context digest and
-  profile, plus an instruction to return the full review report path and digest.
+  starts `architecture-review-fast`. Its old `--schedule-full` flag went with
+  `cw schedule` on 2026-11-12 and is now refused; run the full
+  `architecture-review` app yourself after the fast review.
 - `scripts/architecture-review-fast.js --metrics` is opt-in. Default JSON output
   remains unchanged; the metrics payload reports elapsed milliseconds, source
   context bytes, fast-review step counts, agent-spawn counts, and result-cache
@@ -507,7 +481,7 @@ for guesses.)
   blocker before another structure cycle starts.
 - The chime scope item in "In-flight relay" is operator work. It is separate
   from the code roadmap.
-- Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics --schedule-full`
+- Use `node plugins/cool-workflow/scripts/architecture-review-fast.js --repo <repo> --profile core --once --metrics`
   for the automated 1→6 path on a CW-shaped repo. Use `--profile-file` for
   non-CW repositories.
 - Map, Assess, Verify, and Verdict now have opt-in result cache use. Do not add

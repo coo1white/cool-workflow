@@ -24,10 +24,6 @@ const old = {
   },
   // shell/commands/report-view-cli.ts mcpFlag
   mcpFlag: (value) => value === true || value === "true",
-  // shell/scheduling-io.ts isTrue
-  schedIsTrue: (value) => value === true || value === "true" || value === "1",
-  // shell/reclamation-io.ts isTrue
-  reclIsTrue: (value) => value === true || value === "true" || value === "1" || value === 1,
   // shell/agent-config.ts boolish
   boolish(value) {
     if (typeof value === "boolean") return value;
@@ -57,7 +53,7 @@ const old = {
     if (typeof args.repo === "string" && args.repo.trim()) return path.resolve(args.repo);
     return process.cwd();
   },
-  // exec-backend-cli / scheduling-io / state-cli resolveCwd (+ state-cli loadRun)
+  // exec-backend-cli / state-cli resolveCwd (+ state-cli loadRun)
   resolveCwd: (options) => path.resolve(String(options.cwd || process.cwd())),
   // registry-cli resolveCwd
   registryResolveCwd: (options) => path.resolve(String(options.cwd || options.repo || process.cwd())),
@@ -80,8 +76,6 @@ for (const v of boolInputs) {
   const tag = JSON.stringify(v) ?? String(v);
   assert.equal(flagOn(v), old.truthyFlag(v), `flagOn() vs truthyFlag(${tag})`);
   assert.equal(flagOn(v, ["true"]), old.mcpFlag(v), `flagOn(["true"]) vs mcpFlag(${tag})`);
-  assert.equal(flagOn(v, ["true", "1"]), old.schedIsTrue(v), `flagOn(["true","1"]) vs scheduling isTrue(${tag})`);
-  assert.equal(flagOn(v, ["true", "1", 1]), old.reclIsTrue(v), `flagOn(["true","1",1]) vs reclamation isTrue(${tag})`);
   assert.equal(boolWord(v), old.boolish(v), `boolWord vs boolish(${tag})`);
   assert.deepEqual(outcome(() => parseBoolFlag(v, "--flag")), outcome(() => old.parseBoolFlag(v, "--flag")), `parseBoolFlag(${tag})`);
 }

@@ -17,12 +17,15 @@ const mcp = path.join(pluginRoot, "dist", "mcp-server.js");
 assert.ok(fs.existsSync(mcp), "dist/mcp-server.js must exist (run npm run build)");
 
 const cwd = tmpDir("cw-mcp-control-");
-const storePath = path.join(cwd, ".cw", "schedules", "tasks.json");
+// cw_queue_add writes the home queue under its file lock; the home lives in
+// the temp dir so the held lock is this test's own.
+const home = path.join(cwd, "home");
+const storePath = path.join(home, "registry", "queue.json");
 const lockPath = `${storePath}.lock`;
 fs.mkdirSync(path.dirname(storePath), { recursive: true });
 fs.writeFileSync(lockPath, `${process.pid}@${new Date().toISOString()}\n`, { mode: 0o600 });
 
-const server = spawn(process.execPath, [mcp], { cwd: pluginRoot, stdio: ["pipe", "pipe", "pipe"] });
+const server = spawn(process.execPath, [mcp], { cwd: pluginRoot, stdio: ["pipe", "pipe", "pipe"], env: { ...process.env, CW_HOME: home } });
 let nextId = 1;
 const pending = new Map();
 const replies = [];
@@ -70,14 +73,14 @@ function closeServer() {
   }, 1500);
   try {
     const tool = rpc("tools/call", {
-      name: "cw_schedule_create",
-      arguments: { cwd, kind: "loop", interval: 1, prompt: "control process test" },
+      name: "cw_queue_add",
+      arguments: { cwd, app: "control-process-test" },
     });
     const ping = await rpc("ping", {});
     assert.equal(lockGone, false, "ping must answer before the held tool lock is released");
     assert.deepEqual(ping.result, {}, "ping keeps its empty MCP result");
     const toolReply = await tool;
-    assert.equal(toolReply.result.isError, undefined, `schedule tool must complete after lock release: ${JSON.stringify(toolReply)}\nstderr:\n${stderr}`);
+    assert.equal(toolReply.result.isError, undefined, `queue tool must complete after lock release: ${JSON.stringify(toolReply)}\nstderr:\n${stderr}`);
     assert.equal(replies[0].id, ping.id, "ping reply must arrive before the blocked tools/call reply");
   } finally {
     clearTimeout(release);

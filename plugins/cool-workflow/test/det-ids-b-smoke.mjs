@@ -17,8 +17,6 @@ import { recordFeedback } from "../dist/shell/error-feedback-io.js";
 import { commitState } from "../dist/shell/commit.js";
 // (The candidate/score/selection, multi-agent and blackboard id-minting sites
 // went with the multi-agent family, slim-and-esm step 2.)
-import { RoutineTriggerBridge } from "../dist/shell/scheduler-io.js";
-import * as schedulerIoModule from "../dist/shell/scheduler-io.js";
 import { tmpDir } from "./helpers/workspace.mjs";
 
 const RUN_ID = "det-ids-b";
@@ -175,21 +173,6 @@ function mintAll(tmp) {
   return ids;
 }
 
-// Standalone trigger store (createTriggerId / createEventId): not run-scoped, so
-// it is exercised through its own bridge against a fresh cwd.
-function mintTriggers(tmp) {
-  const bridge = new RoutineTriggerBridge(tmp);
-  const trigger = bridge.create({ kind: "api", prompt: "deterministic trigger", match: { ref: "main" } });
-  const events = bridge.fire("api", { ref: "main" });
-  assert.equal(events.length, 1, "one matching trigger fires one event");
-  const ids = { triggerId: trigger.id, eventId: events[0].id };
-  assert.notEqual(ids.triggerId, ids.eventId, "trigger and event ids must differ");
-  for (const value of Object.values(ids)) {
-    assert.ok(!/\d{8}T\d{6}Z/.test(value), `trigger/event id must not embed a wall-clock stamp: ${value}`);
-  }
-  return ids;
-}
-
 const tmpA = tmpDir("cw-det-ids-b-a-");
 const tmpB = tmpDir("cw-det-ids-b-b-");
 
@@ -203,35 +186,8 @@ assert.deepEqual(
   `entity ids must be byte-identical across two fresh runs\nA: ${JSON.stringify(idsA, null, 2)}\nB: ${JSON.stringify(idsB, null, 2)}`
 );
 
-const trigA = mintTriggers(tmpDir("cw-det-ids-b-trig-a-"));
-const trigB = mintTriggers(tmpDir("cw-det-ids-b-trig-b-"));
-assert.deepEqual(trigB, trigA, `trigger/event ids must be byte-identical across two fresh stores\nA: ${JSON.stringify(trigA)}\nB: ${JSON.stringify(trigB)}`);
-
 // Sanity: the minted ids carry their human-readable prefix (format preserved).
 assert.match(idsA.commitId, /^state-\d{4}$/, "commit id is a zero-padded sequence");
 assert.match(idsA.feedbackId, /^feedback-/, "feedback id keeps its descriptive prefix");
-assert.match(trigA.triggerId, /^api-\d{4}$/, "trigger id is a zero-padded sequence");
-assert.match(trigA.eventId, /^event-api-\d{4}$/, "event id is a zero-padded sequence");
-
-// Trigger ids must survive delete: the routine store supports delete(), so a
-// length-based seq would reuse a LIVE id after delete+create (corrupting the
-// append-only event/audit log). nextTriggerSeq is monotonic.
-{
-  const { RoutineTriggerBridge } = schedulerIoModule;
-  const make = () => {
-    const cwd = tmpDir("cw-det-trig-");
-    const b = new RoutineTriggerBridge(cwd);
-    const t1 = b.create({ kind: "api", prompt: "p" }).id;
-    const t2 = b.create({ kind: "api", prompt: "p" }).id;
-    b.delete(t1);
-    const t3 = b.create({ kind: "api", prompt: "p" }).id;
-    return [t1, t2, t3];
-  };
-  const run1 = make();
-  const run2 = make();
-  assert.notEqual(run1[2], run1[1], "trigger create after delete must NOT reuse the live id");
-  assert.equal(new Set([run1[1], run1[2]]).size, 2, "no live trigger-id collision after delete+create");
-  assert.deepEqual(run1, run2, "trigger ids are deterministic across fresh runs");
-}
 
 process.stdout.write("det-ids-b-smoke: ok\n");

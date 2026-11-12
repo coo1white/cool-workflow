@@ -124,7 +124,7 @@ The report opens in your browser by itself when the run ends. It starts with the
 cw report --open
 ```
 
-Want to see one first? A real run's Workbench and report, rebuilt on every push: **[coo1white.github.io/cool-workflow](https://coo1white.github.io/cool-workflow/)** (the report is at [/report.html](https://coo1white.github.io/cool-workflow/report.html)).
+Want to see one first? A real run's report, rebuilt on every push: **[coo1white.github.io/cool-workflow](https://coo1white.github.io/cool-workflow/)** (also at [/report.html](https://coo1white.github.io/cool-workflow/report.html)).
 
 ### 4 · Keep proof that your tests passed
 

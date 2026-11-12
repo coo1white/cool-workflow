@@ -30,7 +30,7 @@ import path from "node:path";
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 // v2 layout: the old flat capability-core/orchestrator/telemetry-demo/
 // telemetry-ledger modules split into core/ (pure) + shell/ (IO). The
-// tamper demo runner is now shell/telemetry-demo; the two CLI-reachable
+// tamper demo runner is now shell/tamper-demo; the two CLI-reachable
 // verbs the old smoke called through capability-core map 1:1 to the v2
 // CLI bodies:
 //   telemetryVerify(runner, {runId})  ->  telemetryVerifyCli(runId, {cwd})
@@ -41,7 +41,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 // to dismantle): a run is planned by loadWorkflowApp(appId) + plan(app, inputs),
 // which writes <cwd>/.cw/runs/<id> and returns the full WorkflowRun (with
 // run.id + run.paths.runDir) — exactly what runner.plan(...) gave us.
-import { runTamperDemo } from "../dist/shell/telemetry-demo.js";
+import { runTamperDemo } from "../dist/shell/tamper-demo.js";
 import { telemetryVerifyCli } from "../dist/shell/commands/telemetry-cli.js";
 import { demoTamperCli } from "../dist/shell/commands/demo-cli.js";
 import { loadWorkflowApp } from "../dist/shell/workflow-app-loader.js";

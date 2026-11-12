@@ -92,8 +92,6 @@ report chain. See `references/commands.md` for the exact invocations.
   `research-synthesis`.
 - **Sandbox profiles** — named CW policy contracts (read/write paths, command,
   network, environment, host enforcement); CW validates, the host enforces.
-- **Scheduling & routines** — loop/cron/reminder schedules and API/GitHub
-  trigger routines.
 
 ## Essential Commands
 
@@ -111,8 +109,7 @@ from the source snapshot.
 
 **For the full command catalog and the matching MCP tool surface, read
 `references/commands.md`.** It covers apps, plan/dispatch/result/report,
-sandbox profiles, commit/state/summaries, scheduling/routines, and release
-scripts.
+sandbox profiles, commit/state/summaries, and release scripts.
 
 ## CLI / MCP Parity
 

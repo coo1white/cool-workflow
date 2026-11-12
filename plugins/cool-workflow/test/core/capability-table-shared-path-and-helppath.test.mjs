@@ -33,17 +33,13 @@ import { REGISTRY, findCapabilityByCliPath } from "../../dist/wiring/capability-
   assert.equal(resolved.capability, "backend.agent.config.show", "the first-declared row (show) must win the shared-path lookup");
 }
 
-// sched.policy.show and sched.policy.set share dispatch path
-// ["sched","policy"] the same way (the first-declared row, show, wins).
-// The blackboard.message.post/list pair that also shared a path went with
-// the multi-agent family (slim-and-esm step 2): its path resolves to nothing.
+// The sched.policy.show/set pair (scheduling, gone with the frozen
+// surfaces) and the blackboard.message.post/list pair (gone with the
+// multi-agent family, slim-and-esm step 2) also shared a path; neither path
+// resolves to anything now.
 {
-  const show = REGISTRY.find((r) => r.capability === "sched.policy.show");
-  const set = REGISTRY.find((r) => r.capability === "sched.policy.set");
-  assert.ok(show && set, "both sched.policy rows must be declared");
-  assert.deepEqual(show.cli.path, ["sched", "policy"], "show's dispatch path must be [sched,policy]");
-  assert.deepEqual(set.cli.path, ["sched", "policy"], "set's dispatch path must be [sched,policy] too (shared)");
-  assert.equal(findCapabilityByCliPath(["sched", "policy"]).capability, "sched.policy.show", "the first-declared row wins");
+  assert.equal(REGISTRY.find((r) => r.capability === "sched.policy.show"), undefined, "the removed sched.policy rows must be gone");
+  assert.equal(findCapabilityByCliPath(["sched", "policy"]), undefined, "the removed sched path must not resolve");
   assert.equal(findCapabilityByCliPath(["blackboard", "message"]), undefined, "the removed blackboard path must not resolve");
 }
 

@@ -5,7 +5,7 @@
 // proves it stays silent for tools that aren't, including a sibling tool
 // (cw_node_graph) that looks like it should be covered but structurally
 // never carries the untrusted field, and the dashboard tools
-// (cw_workbench_view, cw_operator_status/report), which no longer
+// (cw_operator_status/report), which no longer
 // re-surface stored text since the multi-agent family went.
 //
 // Background: an MCP tool's result can echo stored text originally authored
@@ -129,7 +129,7 @@ assertLabeled(
 // that projects only {id,kind,status,parents,children} and never carries the
 // same run's `errors` field, so it must stay unlabeled even though its
 // sibling tools (over the identical run) are labeled. The dashboard tools
-// (cw_operator_status/report, cw_workbench_view) re-surfaced stored text only
+// (cw_operator_status/report) re-surfaced stored text only
 // through the multi-agent, blackboard, review and judge panels, which went
 // with that family (slim-and-esm step 2): they must now carry no stored
 // failure text at all, and so no advisory. ---------------------------------
@@ -140,7 +140,6 @@ const NEGATIVE_CASES = [
   { tool: "cw_node_graph", args: { cwd: tmp, runId } },
   { tool: "cw_operator_status", args: { cwd: tmp, runId } },
   { tool: "cw_operator_report", args: { cwd: tmp, runId } },
-  { tool: "cw_workbench_view", args: { cwd: tmp, runId } },
 ];
 
 for (const { tool, args } of NEGATIVE_CASES) {

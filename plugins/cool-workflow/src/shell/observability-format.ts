@@ -17,12 +17,10 @@ function formatMs(ms: number | null): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+// CW never prices usage, so the USD figures and unpriced-model list are
+// always empty and only the state is shown.
 function formatCost(c: CostMetric): string {
-  const parts: string[] = [`state=${c.state}`];
-  if (c.attestedUsd !== null) parts.push(`attested=${c.currency} ${c.attestedUsd}`);
-  if (c.estimatedUsd !== null) parts.push(`estimated=${c.currency} ${c.estimatedUsd}`);
-  if (c.unpricedModels.length) parts.push(`unpriced-models=${c.unpricedModels.join(",")}`);
-  return parts.join("  ");
+  return `state=${c.state}`;
 }
 
 export function formatMetricsReport(report: MetricsReport): string {

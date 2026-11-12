@@ -162,14 +162,14 @@ function writeCloneMeta(dir, meta) {
         fs.writeFileSync(path.join(dir, ".cw-clone-meta.json"), `${JSON.stringify(meta, null, 2)}\n`, "utf8");
     }
     catch {
-        /* meta is advisory (used by `cw clones`); never fail a clone over it */
+        /* meta is advisory (cachedArchive reads it back); never fail a clone over it */
     }
 }
 function cloneGit(rawUrl, sanitizedUrl, opts) {
     const root = cacheRoot(opts);
     const dir = cacheDirFor(root, sanitizedUrl, opts.ref);
     // Containment: the target MUST be inside clones/ (the key is hex, so this always holds —
-    // assert anyway so a future change can never write or, later, gc outside the cache root).
+    // assert anyway so a future change can never write outside the cache root).
     if (!path.resolve(dir).startsWith(path.resolve(root) + path.sep)) {
         throw new Error(`refusing clone target outside the cache root: ${dir}`);
     }

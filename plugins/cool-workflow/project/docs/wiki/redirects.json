@@ -29,7 +29,7 @@
   },
   "Control-Plane-Scheduling": {
     "to": "Run-Registry-Control-Plane",
-    "why": "The run queue rules (cw sched) are now one part of the Run Registry page; the code is still there, but it gets fixes only, no new growth."
+    "why": "The run queue is one part of the Run Registry page; the scheduling verbs (cw schedule, cw sched, cw routine) were taken out on 2026-11-12."
   },
   "Distribution-Strategy": {
     "to": "Getting-Started",
@@ -129,6 +129,6 @@
   },
   "Web-Desktop-Workbench": {
     "to": "Operations",
-    "why": "The Workbench is still there, but it gets fixes only, and its blackboard and candidate panels went in 0.3.1; how to start it is in the Operations page."
+    "why": "The Workbench was taken out on 2026-11-12; a run's report and the operator views are in the Operations page."
   }
 }

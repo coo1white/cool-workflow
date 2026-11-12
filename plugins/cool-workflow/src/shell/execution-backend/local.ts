@@ -23,7 +23,7 @@ import { messageOf, addNetworkEnv } from "../../core/util/cli-args.js";
  *  it to sign telemetry. */
 export const CW_NEVER_FORWARD_ENV: ReadonlySet<string> = new Set([
   "CW_RELEASE_VERDICT_PRIVKEY", // release verdict signing key — release-flow.mjs only
-  "CW_WORKBENCH_TOKEN", // workbench HTTP bearer token — workbench-host.ts only
+  "CW_WORKBENCH_TOKEN", // the retired workbench's bearer token — an older setup may still set it
   "CW_BENCH_TRACE_FILE", // benchmark trace path — parent drive only
   "CW_CHECK_PRIVKEY", // done-receipt signing key — cw check only; an agent holding it could forge receipts
 ]);

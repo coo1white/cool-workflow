@@ -4,9 +4,9 @@ import { attachCliBinding, addCliOnlyCapability, REGISTRY_BY_CAPABILITY } from "
 import { required, optionalArg } from "../../core/util/cli-args.js";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
-// Ledger, telemetry, trust-audit and tamper/bundle demo CLI
+// Ledger, telemetry, trust-audit and tamper demo CLI
 // bindings: ledger propose|review|verify|apply|list, telemetry verify,
-// audit verify, demo tamper|bundle, report bundle|verify-bundle. Handler
+// audit verify, demo tamper, report bundle|verify-bundle. Handler
 // BODIES live in shell/commands/ledger-cli.ts, shell/commands/telemetry-cli.ts, shell/
 // audit-cli.ts, shell/commands/demo-cli.ts, shell/commands/report-cli.ts (impure — file/
 // stdin reads, run-state loads, archive IO); this table only wires argv
@@ -31,8 +31,8 @@ function loadAuditCli() {
 function loadDemoCli() {
     return require("../../shell/commands/demo-cli.js");
 }
-function loadTelemetryDemo() {
-    return require("../../shell/telemetry-demo.js");
+function loadTamperDemo() {
+    return require("../../shell/tamper-demo.js");
 }
 function loadReportCli() {
     return require("../../shell/commands/report-cli.js");
@@ -119,7 +119,7 @@ attachCliBinding("telemetry.verify", {
     handler: (args) => {
         const runId = required(optionalArg(args.positionals[0]) || optionalArg(args.options.runId) || optionalArg(args.options.run), "run id");
         const result = loadTelemetryCli().telemetryVerifyCli(runId, args.options);
-        return { json: result, text: loadTelemetryDemo().formatTelemetryVerify(result), exitCode: result.verified ? undefined : 1 };
+        return { json: result, text: loadTelemetryCli().formatTelemetryVerify(result), exitCode: result.verified ? undefined : 1 };
     },
 });
 REGISTRY_BY_CAPABILITY.get("telemetry.verify").mcp.handler = (args) => loadTelemetryCli().telemetryVerifyCli(required(optionalArg(args.runId), "run id"), args);
@@ -157,17 +157,9 @@ addCliOnlyCapability("demo.tamper", "Prove tamper-evidence: build a signed telem
     jsonMode: "flag",
     handler: (args) => {
         const result = loadDemoCli().demoTamperCli();
-        return { json: result, text: loadTelemetryDemo().formatTamperDemo(result), exitCode: result.proven ? undefined : 1 };
+        return { json: result, text: loadTamperDemo().formatTamperDemo(result), exitCode: result.proven ? undefined : 1 };
     },
 }, "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface telemetry.verify. No agent or MCP client needs to invoke a demo.");
-addCliOnlyCapability("demo.bundle", "Prove portable-bundle verification: export a sealed report bundle, forge it two ways, watch report verify-bundle catch both offline with only the embedded public key.", {
-    path: ["demo", "bundle"],
-    jsonMode: "flag",
-    handler: (args) => {
-        const result = loadDemoCli().demoBundleCli();
-        return { json: result, text: loadTelemetryDemo().formatBundleDemo(result), exitCode: result.proven ? undefined : 1 };
-    },
-}, "Human-facing demonstration (operator/newcomer onboarding); the underlying integrity check is exposed programmatically as the both-surface report.verify-bundle. No agent or MCP client needs to invoke a demo.");
 attachCliBinding("report.bundle", {
     path: ["report", "bundle"],
     jsonMode: "default",

@@ -24,7 +24,6 @@ Every important event in a run is put on disk as state you can read:
 - each worker's result, and each error,
 - each verifier decision,
 - each commit and checkpoint,
-- each schedule and routine trigger,
 - each trust-audit event.
 
 It all lives under `.cw/runs/<run-id>/` as plain JSON and Markdown. You can
@@ -151,8 +150,8 @@ the release if they go out of step. See
 
 - **No model calls in the kernel.** CW never imports a model SDK, never
   holds your keys, and never calls a model API. Your agent does that.
-- **No hidden dashboard as the truth.** The Workbench and every index are
-  views worked out from the files on disk; delete them and nothing is lost.
+- **No hidden dashboard as the truth.** Every index and report is a view
+  worked out from the files on disk; delete them and nothing is lost.
 - **No guessed success.** A missing reason or missing evidence is a clear
   stop, not a pass.
 - **No runtime dependencies.** The CLI and the MCP server run on Node.js

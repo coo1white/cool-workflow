@@ -65,21 +65,13 @@ never a hang on an auth prompt (`GIT_TERMINAL_PROMPT=0`). Hardening:
   (http(s) scheme + no private/loopback/link-local host) before connecting — a
   public URL cannot redirect CW into an internal service.
 
-## Cache — `cw clones`
+## Cache
 
 Checkouts are cached, content-addressed, under
 `~/.local/state/cool-workflow/clones/<hash>/` (honoring `CW_HOME`/`XDG_STATE_HOME`)
-and reused on the next question; `--refresh` re-fetches. Manage the cache:
-
-```bash
-cw clones list                          # origin url, kind, commit, age, bytes
-cw clones gc --older-than-days 30       # reclaim checkouts older than N days
-cw clones gc --all                      # reclaim everything
-```
-
-`cw clones gc` deletes only paths it has proven are inside the clones cache (fail
-closed). Both verbs have MCP peers (`cw_clones_list`, `cw_clones_gc`) with
-byte-identical payloads.
+and reused on the next question; `--refresh` re-fetches. The `cw clones`
+verbs that listed and cleared this cache went with the frozen surfaces
+(2026-11-12); remove an entry by hand to free its space.
 
 ## Determinism note
 

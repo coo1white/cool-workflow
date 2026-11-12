@@ -126,7 +126,8 @@ false. A gate is only as real as its wiring.
 is then due on every daemon tick, forever — a runaway that spawns
 agent work without pause, from one ordinary typo. The right guard
 (`clampInt`, positive-bounds checks) exists in the codebase; this
-call site does not use it.
+call site does not use it. (`cw schedule` itself was later taken out,
+on 2026-11-12.)
 
 ## The patterns under the findings
 

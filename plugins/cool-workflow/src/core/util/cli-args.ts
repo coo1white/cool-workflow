@@ -142,7 +142,7 @@ export function cwdArg(args: Record<string, unknown>, keys: readonly string[] = 
  *  a dropped arg). JSON `false` is the one exception: it stays the real
  *  boolean `false`. Its string form "false" is a non-empty string, and the
  *  handlers read flags with `Boolean(args.x)`, so `{"write": false}` would
- *  WRITE, `{"all": false}` would sweep orphans of every age, and
+ *  WRITE, and
  *  `{"allowUnverifiedCheckpoint": false}` would write an unverified checkpoint
  *  (fail-open). The CLI never makes a real `false`, so CLI bytes do not
  *  change; a tri-state reader (`parseBoolFlag`) still sees an explicit

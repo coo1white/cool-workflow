@@ -1,0 +1,198 @@
+// shell/tamper-demo.ts — `cw demo tamper`: the hermetic, offline
+// trust proof. Impure (fs, ephemeral keypair generation,
+// tmpdir), so this lives in shell/ not core/.
+//
+// Fully hermetic + deterministic: an EPHEMERAL ed25519 keypair, fixed
+// hops/usages, a pinned `now`, no network, no model. Only the keypair
+// itself varies per run and never leaves this module.
+//
+// Evidence: SPEC/ledger-trust.md "`cw demo tamper`".
+
+import * as crypto from "node:crypto";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { sha256 } from "../core/hash.js";
+import { signTelemetry, verifyTelemetryAttestation } from "../core/trust/telemetry-attestation.js";
+import { TelemetryLedgerCheck } from "../core/trust/telemetry-ledger.js";
+import { appendTelemetryAttestation, computeRecordHash, telemetryLedgerPath, verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+import { WorkflowRun } from "../core/state/types.js";
+
+export interface TamperDemoLayer {
+  layer: "ledger" | "signature" | "result";
+  tamper: string;
+  before: { verified: boolean; detail: string };
+  after: { verified: boolean; detail: string };
+  failures: string[];
+}
+
+export interface TamperDemoResult {
+  schemaVersion: 1;
+  runId: string;
+  workers: number;
+  trustKey: "ephemeral-ed25519";
+  baseline: { ledgerVerified: boolean; signaturesValid: number; records: number };
+  layers: TamperDemoLayer[];
+  proven: boolean;
+}
+
+/** Human-facing render of `demo tamper`. */
+export function formatTamperDemo(r: TamperDemoResult): string {
+  const lines: string[] = [];
+  lines.push(`cw demo tamper — tamper-evidence proof (hermetic, ${r.trustKey} key)`);
+  lines.push("");
+  lines.push(`▶ Built an attested telemetry ledger: ${r.workers} hops, ${r.baseline.records} records`);
+  lines.push(`  ${r.baseline.ledgerVerified ? "✓" : "✗"} ledger verifies   ${r.baseline.signaturesValid} signed hop(s) verify against the public key`);
+  for (const l of r.layers) {
+    lines.push("");
+    lines.push(`▶ ${l.layer.toUpperCase()} tamper`);
+    lines.push(`  edit:   ${l.tamper}`);
+    lines.push(`  before: ${l.before.verified ? "✓ verified" : "✗"} — ${l.before.detail}`);
+    lines.push(`  after:  ${l.after.verified ? "✓ (UNDETECTED!)" : "✗ DETECTED"} — ${l.after.detail}`);
+  }
+  lines.push("");
+  lines.push(
+    r.proven
+      ? "VERDICT: tamper-evidence holds ✓ — every forgery was caught offline, with only the public key. No server was trusted."
+      : "VERDICT: PROOF FAILED ✗ — a tamper went undetected. This is a regression in the integrity guarantee."
+  );
+  return lines.join("\n");
+}
+
+interface DemoHop {
+  workerId: string;
+  taskId: string;
+  promptDigest: string;
+  usage: Record<string, unknown>;
+  attestation: "attested" | "unattested";
+}
+
+// Three hops with a deliberate mix: two signed/attested, one unattested —
+// so the ledger-layer tamper can forge the unattested verdict into
+// "attested" (the exact threat the ledger exists to catch).
+const HOPS: DemoHop[] = [
+  { workerId: "w-map", taskId: "map:server-api", promptDigest: sha256("map:server-api"), usage: { input_tokens: 2117, output_tokens: 1911 }, attestation: "attested" },
+  { workerId: "w-assess", taskId: "assess:security", promptDigest: sha256("assess:security"), usage: { input_tokens: 1840, output_tokens: 1502 }, attestation: "unattested" },
+  { workerId: "w-verdict", taskId: "verdict:synthesis", promptDigest: sha256("verdict:synthesis"), usage: { input_tokens: 980, output_tokens: 770 }, attestation: "attested" },
+];
+
+const DEMO_NOW = "2026-01-01T00:00:00.000Z";
+
+function failingChecks(checks: TelemetryLedgerCheck[]): string[] {
+  return checks.filter((c) => !c.pass).map((c) => `${c.name}: ${c.code}`);
+}
+
+/** Run the full tamper-evidence demonstration in a private tmpdir
+ *  (cleaned up unless `keepDir` is set). Deterministic except for the
+ *  ephemeral keypair, which never leaves this function. */
+export function runTamperDemo(options: { dir?: string; keepDir?: boolean } = {}): TamperDemoResult {
+  const runDir = options.dir || fs.mkdtempSync(path.join(os.tmpdir(), "cw-tamper-demo-"));
+  fs.mkdirSync(runDir, { recursive: true });
+  const runId = "demo-tamper-run";
+  // Minimal run shape: the ledger API uses only id + paths.runDir.
+  const run = { id: runId, paths: { runDir } } as unknown as WorkflowRun;
+
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
+  const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
+  const privateKeyPem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+
+  // 1. Build a REAL ledger through the production append API, signing
+  //    each attested hop's usage with the ephemeral key.
+  const signed: Array<{ hop: DemoHop; signature?: string }> = [];
+  for (const hop of HOPS) {
+    const ctx = { runId, taskId: hop.taskId, promptDigest: hop.promptDigest };
+    const signature = hop.attestation === "attested" ? signTelemetry(hop.usage, privateKeyPem, ctx) : undefined;
+    appendTelemetryAttestation(run, {
+      workerId: hop.workerId,
+      taskId: hop.taskId,
+      promptDigest: hop.promptDigest,
+      reportedUsage: hop.usage,
+      usageSignature: signature,
+      attestation: hop.attestation,
+      now: DEMO_NOW,
+    });
+    signed.push({ hop, signature });
+  }
+
+  // 2. Baseline: the clean ledger verifies, and every signed hop's
+  //    signature is valid.
+  const clean = verifyTelemetryLedger(run);
+  const signaturesValid = signed.filter(
+    (s) =>
+      s.signature &&
+      verifyTelemetryAttestation(s.hop.usage, s.signature, publicKeyPem, { runId, taskId: s.hop.taskId, promptDigest: s.hop.promptDigest }).status === "attested"
+  ).length;
+  const baseline = { ledgerVerified: clean.verified, signaturesValid, records: clean.records.length };
+
+  const layers: TamperDemoLayer[] = [];
+
+  // 3a. LEDGER layer — flip record[1]'s verdict "unattested" -> "attested"
+  //     AND recompute its recordHash to cover the edit, so the per-record
+  //     digest check passes. The chain still catches it: record[2] was
+  //     linked to the ORIGINAL record[1] hash, so chain-link[2] breaks.
+  const ledgerFile = telemetryLedgerPath(run);
+  const ledgerJson = JSON.parse(fs.readFileSync(ledgerFile, "utf8"));
+  ledgerJson.records[1].attestation = "attested";
+  const { recordHash: _stale, ...rest1 } = ledgerJson.records[1];
+  ledgerJson.records[1].recordHash = computeRecordHash(rest1); // attacker re-seals the local hash
+  fs.writeFileSync(ledgerFile, JSON.stringify(ledgerJson, null, 2));
+  const afterLedger = verifyTelemetryLedger(run);
+  layers.push({
+    layer: "ledger",
+    tamper: `forged record[1] verdict "unattested" -> "attested" AND recomputed its recordHash to cover the edit`,
+    before: { verified: clean.verified, detail: `${clean.records.length} records: chain intact, all hashes recompute` },
+    after: { verified: afterLedger.verified, detail: `the hash chain caught it: ${failingChecks(afterLedger.checks).join(", ")}` },
+    failures: failingChecks(afterLedger.checks),
+  });
+
+  // 3b. SIGNATURE layer — inflate hop-0's reported output tokens, keep
+  //     the original signature.
+  const target = signed[0];
+  const inflated = { ...target.hop.usage, output_tokens: (target.hop.usage.output_tokens as number) * 10 };
+  const sigCheck = verifyTelemetryAttestation(inflated, target.signature, publicKeyPem, {
+    runId,
+    taskId: target.hop.taskId,
+    promptDigest: target.hop.promptDigest,
+  });
+  const sigCleanCheck = verifyTelemetryAttestation(target.hop.usage, target.signature, publicKeyPem, {
+    runId,
+    taskId: target.hop.taskId,
+    promptDigest: target.hop.promptDigest,
+  });
+  layers.push({
+    layer: "signature",
+    tamper: `inflated record[0] reported output_tokens ${target.hop.usage.output_tokens} -> ${inflated.output_tokens}, reused the original ed25519 signature`,
+    before: { verified: sigCleanCheck.status === "attested", detail: `signature verifies against the reported usage (${sigCleanCheck.algorithm || "ed25519"})` },
+    after: { verified: sigCheck.status === "attested", detail: sigCheck.reason || sigCheck.status },
+    failures: sigCheck.status === "attested" ? [] : [`signature: ${sigCheck.reason}`],
+  });
+
+  // 3c. RESULT layer — the agent's signed FINDING is edited after
+  //     signing. CW re-derives the digest from the result text at verify
+  //     time, so the edited finding no longer joins the signature.
+  const findingSigned = "Finding: auth bypass in login() — severity HIGH";
+  const findingEdited = findingSigned.replace("HIGH", "LOW");
+  const resultCtx = { runId, taskId: target.hop.taskId, promptDigest: target.hop.promptDigest };
+  const resultSignature = signTelemetry(target.hop.usage, privateKeyPem, { ...resultCtx, resultDigest: sha256(findingSigned) });
+  const resultClean = verifyTelemetryAttestation(target.hop.usage, resultSignature, publicKeyPem, { ...resultCtx, resultDigest: sha256(findingSigned) });
+  const resultCheck = verifyTelemetryAttestation(target.hop.usage, resultSignature, publicKeyPem, { ...resultCtx, resultDigest: sha256(findingEdited) });
+  layers.push({
+    layer: "result",
+    tamper: `edited the agent's signed finding "severity HIGH" -> "severity LOW" after it was signed`,
+    before: {
+      verified: resultClean.status === "attested" && resultClean.coversResult === true,
+      detail: `the signed finding verifies — ed25519 binds usage + sha256(result), result-covering`,
+    },
+    after: { verified: resultCheck.status === "attested", detail: resultCheck.reason || resultCheck.status },
+    failures: resultCheck.status === "attested" ? [] : [`result: ${resultCheck.reason}`],
+  });
+
+  if (!options.keepDir && !options.dir) fs.rmSync(runDir, { recursive: true, force: true });
+
+  const proven =
+    baseline.ledgerVerified &&
+    baseline.signaturesValid === signed.filter((s) => s.signature).length &&
+    layers.every((l) => l.before.verified && !l.after.verified && l.failures.length > 0);
+
+  return { schemaVersion: 1, runId, workers: HOPS.length, trustKey: "ephemeral-ed25519", baseline, layers, proven };
+}

@@ -1104,8 +1104,8 @@ function countByStatus(workers: WorkerScope[]): Record<string, number> {
   return counts;
 }
 
-/** `cw worker summary <run-id>` — the workbench `worker.summary` panel and
- *  report.ts's own worker rollup share this one function. */
+/** `cw worker summary <run-id>` and report.ts's own worker rollup share
+ *  this one function. */
 export function summarizeWorkers(run: WorkflowRun): WorkerSummary {
   const workers = listWorkerScopes(run);
   return {

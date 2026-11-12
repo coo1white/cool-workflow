@@ -116,8 +116,6 @@ export function operatorReportText(runId, args) {
 /** `cw graph <id> [--json]` / `cw operator graph`. */
 export function graphCli(runId, args) {
     const run = loadRunFromCwd(runId, cwdArg(args));
-    if (args.__cwWorkbenchReadOnlyProjection === true)
-        run.__cwWorkbenchReadOnlyProjection = true;
     return buildOperatorGraph(run);
 }
 export function graphText(runId, args) {

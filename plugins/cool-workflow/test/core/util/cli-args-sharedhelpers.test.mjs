@@ -141,10 +141,9 @@ assert.equal(formatCounts({ b: 2, a: 1 }), "a=1, b=2");
 assert.deepEqual(definedIn("req"), []);
 assert.deepEqual(definedIn("optionalStringArg"), []);
 // Kept on purpose: audit-cli.ts reads an array's first string too, and
-// registry-core.ts and orchestrator.ts are capability surface files.
-// scheduler-io.ts's stringOption (`true` is unset, other values String())
-// has its only twin in orchestrator.ts.
+// registry-core.ts is a capability surface file. stringOption went with
+// its two copies (orchestrator.ts and scheduler-io.ts, 2026-11-12).
 assert.deepEqual(definedIn("optionalString"), ["shell/commands/audit-cli.ts", "wiring/capability-table/registry-core.ts"]);
-assert.deepEqual(definedIn("stringOption"), ["shell/orchestrator.ts", "shell/scheduler-io.ts"]);
+assert.deepEqual(definedIn("stringOption"), []);
 
 console.log("cli-args-sharedhelpers: ok");

@@ -193,9 +193,9 @@ export function commitState(run: WorkflowRun, input: string | CommitStateOptions
   // NOT prematurely move the run off "interpret".
   if (gate.verifierGated) run.loopStage = "checkpoint";
   // Only store the commit's own (small, bounded) record: no reader parses
-  // a `run` key back out of a commits/<id>.json file (see
-  // docs/run-retention-reclamation.7.md), and embedding the growing run
-  // would make total commit-dir bytes grow like N^2 in the number of commits.
+  // a `run` key back out of a commits/<id>.json file, and embedding the
+  // growing run would make total commit-dir bytes grow like N^2 in the number
+  // of commits.
   writeJson(snapshotPath, { commit });
   run.commits.push(commit);
   return commit;

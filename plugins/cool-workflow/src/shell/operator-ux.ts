@@ -238,7 +238,7 @@ export function summarizeOperatorRun(run: WorkflowRun): OperatorRunSummary {
   const workers = summarizeOperatorWorkers(run);
   const feedback = summarizeOperatorFeedback(run);
   const commits = summarizeOperatorCommits(run);
-  const trust = summarizeTrustAudit(run, { persist: (run as unknown as Record<string, unknown>).__cwWorkbenchReadOnlyProjection !== true });
+  const trust = summarizeTrustAudit(run);
   const activePhase = phases.find((p) => p.status === "running") || phases.find((p) => p.status === "pending");
   const blockedReasons: string[] = [];
   for (const worker of workers.workers) {

@@ -18,9 +18,5 @@
       "process.env": 3
     }
   },
-  "layerViolations": {
-    "shell/workbench.ts": [
-      "../wiring/capability-table/index.js"
-    ]
-  }
+  "layerViolations": {}
 }

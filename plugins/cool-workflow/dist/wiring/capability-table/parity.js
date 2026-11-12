@@ -39,11 +39,8 @@ const RUN_PAYLOAD_PROBE_CAPABILITIES = [
     "commit.summary",
     "audit.summary",
     "audit.head",
-    "workbench.view",
     "metrics.show",
     "run.drive",
-    "gc.plan",
-    "gc.verify",
 ];
 /** Capabilities that need bespoke scenario setup (extra args, seeded state,
  *  a dispatched worker, ...) beyond a bare `cwd`/`runId` — see
@@ -118,13 +115,13 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
     {
         // The CLI bindings on these rows make each a real both-surface
         // dual-bound capability, so the payload probe sees them. Each needs a
-        // seeded fixture beyond a bare cwd/runId — a scheduled task / routine
-        // trigger / durable queue entry / lease / portable archive on disk, a
-        // target entity id (schedule/lease id), a workflow-app id to scaffold or
-        // drive, or a registry index to refresh — so each is deferred until a
+        // seeded fixture beyond a bare cwd/runId — a durable queue entry /
+        // portable archive on disk, a target entity id, a workflow-app id to
+        // scaffold or drive, or a registry index to refresh — so each is
+        // deferred until a
         // bootstrap fixture is added. `init` also folds into app.init on both
         // surfaces (scaffold), so it defers with the app family.
-        reason: "Not safe for the deterministic bootstrap parity probe yet: this capability needs a seeded fixture beyond cwd/runId (a scheduled task / routine trigger / queue entry / lease / portable archive on disk, a target entity id, or a workflow-app id to scaffold or drive). Both surfaces route through the same shell fn; each defers until a bootstrap fixture seeds its state.",
+        reason: "Not safe for the deterministic bootstrap parity probe yet: this capability needs a seeded fixture beyond cwd/runId (a queue entry / portable archive on disk, a target entity id, or a workflow-app id to scaffold or drive). Both surfaces route through the same shell fn; each defers until a bootstrap fixture seeds its state.",
         capabilities: [
             "app.run",
             "init",
@@ -134,30 +131,6 @@ const PAYLOAD_PROBE_DEFERRED_GROUPS = [
             "queue.list",
             "queue.drain",
             "queue.show",
-            "clones.list",
-            "orphans.list",
-            "schedule.create",
-            "schedule.list",
-            "schedule.delete",
-            "schedule.due",
-            "schedule.complete",
-            "schedule.pause",
-            "schedule.resume",
-            "schedule.run-now",
-            "schedule.history",
-            "routine.create",
-            "routine.list",
-            "routine.delete",
-            "routine.fire",
-            "routine.events",
-            "sched.plan",
-            "sched.lease",
-            "sched.release",
-            "sched.complete",
-            "sched.reclaim",
-            "sched.reset",
-            "sched.policy.show",
-            "sched.policy.set",
             "run.export",
             "run.import",
             "run.verify-import",
@@ -204,7 +177,7 @@ export function declaredCliHelpTokens() {
     // `search` is likewise help-index-only: its row is hiddenFromHelp (it
     // never had its own `cw help search` row — only the frozen "More
     // commands" index line, which this function does not build), and unlike
-    // a family such as `clones` it has no visible sibling row sharing the
+    // a family such as `run` it has no visible sibling row sharing the
     // "search" first token to contribute it independently. Mirrors the
     // parity smoke's HELP_INDEX_ONLY_TOKENS set so the help-token parity
     // stays balanced.

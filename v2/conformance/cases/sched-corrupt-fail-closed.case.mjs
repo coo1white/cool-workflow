@@ -21,9 +21,9 @@ caseMain(() => {
   // Discover repos.json's real path the black-box way: registry refresh's
   // own report names the repo root; repos.json lives beside the home index
   // under the shared CW_HOME every run() call in this case uses. We locate
-  // CW_HOME via clones list's clonesDir sibling, never by reading source.
-  const clonesProbe = run(["clones", "list", "--json"], { cwd: repo });
-  const cwHome = path.dirname(JSON.parse(clonesProbe.stdout).clonesDir);
+  // CW_HOME via the home-scope registry's own root, never by reading source.
+  const homeProbe = run(["registry", "show", "--scope", "home", "--json"], { cwd: repo });
+  const cwHome = JSON.parse(homeProbe.stdout).root;
   const reposPath = path.join(cwHome, "registry", "repos.json");
   assert.ok(fs.existsSync(reposPath), "registry refresh must have created repos.json");
 
@@ -32,10 +32,6 @@ caseMain(() => {
   assert.equal(corruptRefresh.status, 1, "a corrupt repos.json must fail closed");
   assert.equal(corruptRefresh.stdout, "");
   assert.match(corruptRefresh.stderr, /^cw: Invalid JSON in .*repos\.json: /);
-
-  const corruptOrphans = run(["orphans", "list", "--json"], { cwd: repo });
-  assert.equal(corruptOrphans.status, 1, "orphans list also depends on repos.json and must fail closed too");
-  assert.match(corruptOrphans.stderr, /^cw: Invalid JSON in .*repos\.json: /);
 
   // Repair repos.json so the rest of the case can proceed cleanly.
   fs.rmSync(reposPath);
@@ -60,9 +56,4 @@ caseMain(() => {
   assert.equal(corruptQueue.status, 1, "a corrupt queue.json must fail closed, not silently reset");
   assert.equal(corruptQueue.stdout, "");
   assert.match(corruptQueue.stderr, /^cw: Invalid JSON in .*queue\.json: /);
-
-  // sched plan reads the SAME queue file and must also fail closed.
-  const corruptSchedPlan = run(["sched", "plan", "--json"], { cwd: repo });
-  assert.equal(corruptSchedPlan.status, 1);
-  assert.match(corruptSchedPlan.stderr, /^cw: Invalid JSON in .*queue\.json: /);
 });

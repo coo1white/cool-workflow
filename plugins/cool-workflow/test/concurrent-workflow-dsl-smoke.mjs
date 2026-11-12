@@ -40,7 +40,6 @@ import { loadRunFromCwd } from "../dist/shell/run-store.js";
 // and returns its steps. See driveOneConcurrentRound() below.
 import { drive, driveStep } from "../dist/shell/drive.js";
 import { createWorkflowApi } from "../dist/core/workflow-apps/app-schema.js";
-import { DEFAULT_SCHEDULING_POLICY, normalizeSchedulingPolicy } from "../dist/shell/scheduling-io.js";
 import { tmpWorkspace } from "./helpers/workspace.mjs";
 import { clearAgentEnv } from "./helpers/env.mjs";
 
@@ -80,11 +79,8 @@ function agentConfig(stub) {
 }
 // v2 DriveContext (src/shell/drive.ts interface DriveContext): { runId, cwd,
 // now, config, attempts, incremental, depth, visitedAppIds } — cwd-based, NO
-// runner and NO policy (the old build's per-runner policy is gone; drive
-// hard-codes DEFAULT_SCHEDULING_POLICY internally). The smoke chdir's into the
-// workspace, so ctx.cwd = process.cwd(). normalizeSchedulingPolicy /
-// DEFAULT_SCHEDULING_POLICY are still exercised below to prove the scheduling
-// module ports; they no longer belong in the ctx.
+// runner and NO policy (the old build's per-runner policy is gone). The smoke
+// chdir's into the workspace, so ctx.cwd = process.cwd().
 function makeCtx(runner, runId, stub) {
   void runner;
   return {
@@ -130,14 +126,6 @@ function main() {
   assert.equal(ag.model, "claude-x", "agent() carries model");
   assert.equal(ag.agentType, "agent", "agent() carries agentType");
   assert.equal(ag.label, "Reviewer", "agent() carries label");
-
-  // The scheduling policy module still ports (v2: dist/shell/scheduling-io):
-  // normalizeSchedulingPolicy over the fail-closed DEFAULT is a stable,
-  // serial-by-default policy. drive() applies this policy internally; here we
-  // just prove the primitive the old ctx carried is still reachable.
-  const policy = normalizeSchedulingPolicy(DEFAULT_SCHEDULING_POLICY);
-  assert.equal(policy.maxConcurrent, 1, "default scheduling policy is serial (fail-closed)");
-  assert.equal(policy.maxAttempts, DEFAULT_SCHEDULING_POLICY.maxAttempts, "normalize preserves the default retry bound");
 
   const cwd0 = process.cwd();
 

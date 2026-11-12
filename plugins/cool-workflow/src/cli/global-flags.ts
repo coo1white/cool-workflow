@@ -12,9 +12,8 @@
 //     a row earns that mark only after its handler's option reads have
 //     been checked against source, one by one;
 //   - the warning is ONE line to stderr, printed ONLY when stderr is a
-//     real interactive terminal (same injectable-stream gate as
-//     shell/workbench-host.ts's printServeHint) — a piped, scripted, or
-//     conformance run can never see it;
+//     real interactive terminal (an injectable-stream gate) — a piped,
+//     scripted, or conformance run can never see it;
 //   - stdout bytes and the exit code never change.
 
 import type { CliBinding } from "../core/capability-data.js";

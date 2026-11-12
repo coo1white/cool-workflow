@@ -99,12 +99,11 @@ export function auditRepairCli(runId, args) {
     const result = repairTrustAuditTornTail(run, { write, anchor });
     return { schemaVersion: 1, runId: run.id, write, ...result };
 }
-/** `cw audit summary` (also the workbench audit panel). This reads the
- *  same trust-audit summary function the report.md writer builds, so panel
- *  data can never drift from the standalone command's output. */
+/** `cw audit summary`. This reads the same trust-audit summary function
+ *  the report.md writer builds, so the two can never drift apart. */
 export function auditSummaryCli(runId, args) {
     const run = loadRunFromCwd(runId, cwdArg(args));
-    return summarizeTrustAudit(run, { persist: args.__cwWorkbenchReadOnlyProjection !== true });
+    return summarizeTrustAudit(run);
 }
 // ---------------------------------------------------------------------------
 // The audit worker/provenance/attest/decision verbs: thin loadRun ->

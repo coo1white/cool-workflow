@@ -11,13 +11,15 @@
 import { run, caseMain, assert } from "../lib.mjs";
 
 caseMain(() => {
-  // gc verify: a run that was never reclaimed is NOT a failure — exit 0,
-  // reclaimed:false. (Rebuild risk: treating "not reclaimed" as an error.)
-  const gcVerify = run(["gc", "verify", "no-such-run", "--json"]);
-  assert.equal(gcVerify.status, 0);
-  const gcPayload = JSON.parse(gcVerify.stdout);
-  assert.equal(gcPayload.reclaimed, false);
-  assert.equal(gcPayload.verified, false);
+  // The verbs deleted with the frozen surfaces (scheduling, workbench,
+  // reclamation) are unknown commands now: exit 1, the plain
+  // unknown-command lines on stderr, nothing on stdout.
+  for (const verb of ["loop", "schedule", "routine", "sched", "gc", "clones", "orphans", "workbench"]) {
+    const gone = run([verb, "list"]);
+    assert.equal(gone.status, 1, `${verb}: exit 1`);
+    assert.equal(gone.stdout, "", `${verb}: nothing on stdout`);
+    assert.equal(gone.stderr, `cw: Unknown command: ${verb}\n  Try: cw help\n`, `${verb}: unknown command`);
+  }
 
   // run inspect-archive: read-only integrity check on a missing archive
   // path — exits 1, but still prints a clean JSON report (ok:false), never
@@ -81,7 +83,7 @@ caseMain(() => {
 
   // Top-level catch never leaks anything to stdout on error, across every
   // failure mode above and this one more (search with no keyword).
-  for (const r of [gcVerify, inspect, restore, sandbox, plan, next]) {
+  for (const r of [inspect, restore, sandbox, plan, next]) {
     if (r.status === 1 && r.stdout === "") {
       assert.equal(r.stdout, "");
     }

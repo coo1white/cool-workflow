@@ -3,23 +3,19 @@
 // Output: CSV line to stdout; all human progress to stderr.
 //
 // Portable: node only (the old run.sh needed bash + perl + python3; the timing
-// and JSON extraction those provided are native here). k6 stays optional — the
-// load phase is skipped when k6 is not installed or the workbench probe fails.
+// and JSON extraction those provided are native here).
 //
 // Usage: node run.mjs --arch <name> --agent <name> --conc <N> [--runs <N>]
-//        [--delay-ms <N>] [--skip-workbench] [--json-report <path>]
+//        [--delay-ms <N>] [--json-report <path>]
 //        [--trace-report <path>]
 
 import fs from "node:fs";
 import path from "node:path";
-import http from "node:http";
-import { spawn, spawnSync } from "node:child_process";
-import { setTimeout as sleep } from "node:timers/promises";
+import { spawnSync } from "node:child_process";
 
 const SCRIPT_DIR = import.meta.dirname;
 const PLUGIN_DIR = path.resolve(SCRIPT_DIR, "..", "..");
 const STUB = path.join(SCRIPT_DIR, "agent-stub.mjs");
-const K6_SCRIPT = path.join(SCRIPT_DIR, "bench-k6.js");
 const BENCH_WORK = path.join("/tmp", `cw-bench-work-${process.pid}`);
 
 let ARCH = "ARM64";
@@ -28,7 +24,6 @@ let RUNS = 3;
 let CONC = 4;
 let DOCKER = ""; // docker image tag, e.g. "18" or "22" (recorded only)
 let DELAY_OVERRIDE;
-let SKIP_WORKBENCH = false;
 let JSON_REPORT = "";
 let TRACE_REPORT = "";
 
@@ -52,9 +47,6 @@ for (let i = 0; i < argv.length; i++) {
       break;
     case "--delay-ms":
       DELAY_OVERRIDE = nonNegativeSafeInt(argv[++i], "--delay-ms");
-      break;
-    case "--skip-workbench":
-      SKIP_WORKBENCH = true;
       break;
     case "--json-report":
       JSON_REPORT = argv[++i] || "";
@@ -150,60 +142,12 @@ function summarizeTrace(runs) {
   });
 }
 
-function hasK6() {
-  const res = spawnSync("k6", ["version"], { stdio: "ignore" });
-  return !res.error && res.status === 0;
-}
-
-// `curl -sf <url>` equivalent: resolves true on a 2xx response.
-function probe(url) {
-  return new Promise((resolve) => {
-    const req = http.get(url, { timeout: 2000 }, (res) => {
-      res.resume();
-      resolve(res.statusCode !== undefined && res.statusCode >= 200 && res.statusCode < 300);
-    });
-    req.on("timeout", () => req.destroy());
-    req.on("error", () => resolve(false));
-  });
-}
-
 async function main() {
   log(`=== ${ARCH} / conc=${CONC} / ${AGENT} (delay=${DELAY_MS}ms, runs=${RUNS}) ===`);
 
   fs.rmSync(BENCH_WORK, { recursive: true, force: true });
   fs.mkdirSync(BENCH_WORK, { recursive: true });
   fs.writeFileSync(path.join(BENCH_WORK, "README.md"), "# benchmark target repo\n");
-
-  // ---- k6 ----
-  let k6Rps = "N/A";
-  let k6P95 = "N/A";
-  if (SKIP_WORKBENCH) {
-    k6Rps = "SKIPPED";
-    k6P95 = "SKIPPED";
-    log("  k6: skipped");
-  } else {
-    log("  k6: starting workbench...");
-    const wb = spawn("node", ["dist/cli.js", "workbench", "serve", "--port", "7717"], {
-      cwd: PLUGIN_DIR,
-      stdio: "ignore",
-    });
-    await sleep(3000);
-    if (hasK6() && (await probe("http://127.0.0.1:7717/api/serve"))) {
-      const k6 = run("k6", ["run", "--quiet", K6_SCRIPT], { cwd: PLUGIN_DIR });
-      const rpsLine = k6.out.split("\n").find((l) => l.includes("http_reqs"));
-      const rps = rpsLine && rpsLine.match(/[0-9.]+\/s/);
-      if (rps) k6Rps = rps[0].replace(/\/s$/, "");
-      const durLine = k6.out.split("\n").find((l) => l.includes("http_req_duration"));
-      const p95 = durLine && durLine.match(/p\(95\)=([0-9.]+)[a-z]*/);
-      if (p95) k6P95 = p95[1];
-      log(`  k6: rps=${k6Rps} p95=${k6P95}ms`);
-    }
-    wb.kill();
-    await new Promise((resolve) => {
-      wb.once("exit", resolve);
-      wb.once("error", resolve);
-    });
-  }
 
   // ---- CW plan + drive ----
   log(`  cw: ${RUNS} runs...`);
@@ -277,7 +221,6 @@ async function main() {
       concurrency: CONC,
       agent: AGENT,
       delayMs: DELAY_MS,
-      skipWorkbench: SKIP_WORKBENCH,
       runs: runMetrics,
       medianPlanMs: median(runMetrics.map((run) => run.planMs)),
       medianDriveMs: median(runMetrics.map((run) => run.driveMs)),
@@ -301,7 +244,7 @@ async function main() {
   fs.rmSync(BENCH_WORK, { recursive: true, force: true });
 
   process.stdout.write(
-    [ARCH, "22", CONC, AGENT, meanPlanMs, overheadMs, meanMs, k6Rps, k6P95, DELAY_MS].join(",") + "\n",
+    [ARCH, "22", CONC, AGENT, meanPlanMs, overheadMs, meanMs, DELAY_MS].join(",") + "\n",
   );
 }
 

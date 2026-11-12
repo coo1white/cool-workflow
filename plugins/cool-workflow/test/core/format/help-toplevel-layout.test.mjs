@@ -48,10 +48,9 @@ import { formatHelp } from "../../../dist/core/format/help.js";
     "",
     "More commands",
     "  list|search|info|init|plan|status|next|dispatch|result|state|commit|report",
-    "  app|sandbox|backend|contract|node|feedback|worker|audit|loop|schedule",
-    "  routine|registry|run|queue|clones|orphans|history|quickstart|audit-run",
-    "  metrics|operator|sched|gc|telemetry|migration|demo|workbench|ledger|graph",
-    "  man|completion|check",
+    "  app|sandbox|backend|contract|node|feedback|worker|audit|registry|run|queue",
+    "  history|quickstart|audit-run|metrics|operator|telemetry|migration|demo",
+    "  ledger|graph|man|completion|check",
     "",
     "    Run  cw help <command>  for one command's subcommands and descriptions.",
   ].join("\n") + "\n";

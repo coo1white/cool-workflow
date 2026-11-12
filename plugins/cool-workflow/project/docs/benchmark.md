@@ -3,7 +3,7 @@
 > Generated: 2026-06-28  
 > CW version: 0.1.95  
 > Test machine: macOS 15, Apple M-series (ARM64), 8 cores  
-> Methodology: stub agent with configurable delay, `hyperfine`-style 2-run mean, k6 10s light workload
+> Methodology: stub agent with configurable delay, `hyperfine`-style 2-run mean, k6 10s light workload (the k6 probe measured the Workbench, removed 2026-11-12)
 
 ## Methodology
 
@@ -36,11 +36,13 @@ A configurable stub agent (`scripts/bench/agent-stub.mjs`) that simulates LLM la
 | `plan_ms` | Time to plan (create tasks, write state) |
 | `overhead_ms` | `total - plan - expected_agent_time`. CW framework overhead per run |
 | `total_ms` | Wall-clock time for plan + drive |
-| `k6_rps` | Workbench HTTP requests/sec under 10s light load |
-| `k6_p95` | Workbench HTTP p95 latency |
 | `delay_ms` | Agent stub delay per task |
 
 ## Results
+
+The `k6_rps` and `k6_p95` columns below measured the Workbench HTTP host. The
+Workbench was removed on 2026-11-12, and `scripts/bench/run.mjs` no longer
+prints those two columns; the rows are kept as they were measured.
 
 | arch | node | conc | agent | plan_ms | overhead_ms | total_ms | k6_rps | k6_p95 | delay_ms |
 |------|------|------|-------|---------|-------------|----------|--------|--------|----------|
@@ -64,15 +66,14 @@ A configurable stub agent (`scripts/bench/agent-stub.mjs`) that simulates LLM la
 ## Workflow Overhead Baseline
 
 The old rows above use long stub waits. Use the opt-in low-delay form below to
-look at the Track A path without model, network, or Workbench time:
+look at the Track A path without model or network time:
 
 ```text
 node scripts/bench/run.mjs --arch portable --agent codex --conc 4 --runs 5 \
-  --delay-ms 0 --skip-workbench --json-report /tmp/cw-workflow-overhead.json
+  --delay-ms 0 --json-report /tmp/cw-workflow-overhead.json
 ```
 
-`--delay-ms 0` is a real zero wait. `--skip-workbench` keeps the Workbench
-test out of this run. Old calls keep their same defaults and one CSV line on
+`--delay-ms 0` is a real zero wait. Old calls keep their same defaults and one CSV line on
 stdout. The opt-in JSON report has one plan, drive, and total time for every
 run, plus the three medians.
 
@@ -105,7 +106,7 @@ MCP work, CSV stdout, or the old JSON report.
 
 ```text
 node scripts/bench/run.mjs --arch portable --agent codex --conc 4 --runs 5 \
-  --delay-ms 0 --skip-workbench --json-report /tmp/cw-workflow-overhead.json \
+  --delay-ms 0 --json-report /tmp/cw-workflow-overhead.json \
   --trace-report /tmp/cw-cold-path.json
 ```
 
@@ -134,18 +135,6 @@ the product owner changes the execution or durable-state contract.
   claude   45s conc=4      186      2488     182674     45000
 ```
 
-### Workbench Performance
-
-k6 light load: **25 rps**, p95 **3-7ms**. The workbench is not performance-optimized and uses synchronous disk I/O — under heavy load it degrades. This benchmark uses a light workload (25 rps) where the server handles all requests without error.
-
-For a release proof, run `npm --prefix plugins/cool-workflow run build`, then
-`npm --prefix plugins/cool-workflow run bench:workbench:deep -- --report /tmp/cw-workbench-load.json`.
-It makes a temporary run and checks all Workbench GET routes. The fixed load is
-25 RPS for 30 seconds, 100 RPS for five minutes, then 150, 200, and 250 RPS
-for one minute each. There must be no error or dropped work, p95 at or under
-100ms, p99 at or under 250ms, no `.cw/` write, and one good read after load.
-`k6` is optional and is not a runtime part or CI gate.
-
 ## Test Coverage
 
 | metric | value |
@@ -160,7 +149,7 @@ for one minute each. There must be no error or dropped work, p95 at or under
 1. **ARM64 only**: Docker x86_64 and Node 18 benchmarks could not run (Docker image pull timed out). These rows are left for future runs.
 2. **Stub agents**: results measure CW's orchestration overhead, not real LLM API performance. Agent delay is synthetic.
 3. **Single concurrency level**: `autoWidth` = 2 restricts the concurrency comparison. A 6-task phase would show a meaningful speedup.
-4. **Light k6 workload**: 25 rps, no backpressure. Heavy-load tests would show queuing behavior.
+4. **Light k6 workload** (the Workbench probe, removed 2026-11-12): 25 rps, no backpressure.
 
 ## The perf ratchet (in CI)
 

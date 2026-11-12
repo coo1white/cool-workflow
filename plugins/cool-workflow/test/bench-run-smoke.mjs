@@ -28,18 +28,17 @@ assert.equal(res.status, 1, "unknown agent must exit 1");
 assert.match(res.stderr, /Unknown agent: nope/);
 assert.equal(res.stdout, "", "no CSV on the failure path");
 
-// 3. The agent->delay table and the 10-field CSV emit are pinned in source, so
+// 3. The agent->delay table and the 8-field CSV emit are pinned in source, so
 //    a rename/reshape shows up here before it silently breaks the
 //    benchmark doc's consumers of the CSV columns.
 const source = fs.readFileSync(script, "utf8");
 assert.match(source, /claude: 45000, gemini: 30000, deepseek: 20000, codex: 25000/, "agent delay table unchanged");
-assert.match(source, /\[ARCH, "22", CONC, AGENT, meanPlanMs, overheadMs, meanMs, k6Rps, k6P95, DELAY_MS\]/, "CSV column order unchanged");
+assert.match(source, /\[ARCH, "22", CONC, AGENT, meanPlanMs, overheadMs, meanMs, DELAY_MS\]/, "CSV column order unchanged");
 
 // 4. The low-delay Track A baseline is opt-in. It must accept a REAL zero
-// delay, skip the unrelated Workbench probe, and write a portable JSON report
+// delay and write a portable JSON report
 // without changing the old CSV stdout path.
 assert.match(source, /case "--delay-ms":/, "benchmark accepts an opt-in delay override");
-assert.match(source, /case "--skip-workbench":/, "benchmark can skip the Workbench probe");
 assert.match(source, /case "--json-report":/, "benchmark accepts an opt-in JSON report path");
 assert.match(source, /case "--trace-report":/, "benchmark accepts an opt-in trace report path");
 assert.match(source, /medianPlanMs/, "benchmark report carries the plan median");
@@ -51,7 +50,7 @@ assert.match(source, /medianTotalMs/, "benchmark report carries the total median
 const reportDir = fs.mkdtempSync(path.join(osModule.tmpdir(), "cw-bench-report-"));
 const report = path.join(reportDir, "report.json");
 const trace = path.join(reportDir, "trace.json");
-res = cp.spawnSync(process.execPath, [script, "--agent", "codex", "--runs", "1", "--delay-ms", "0", "--skip-workbench", "--json-report", report, "--trace-report", trace], {
+res = cp.spawnSync(process.execPath, [script, "--agent", "codex", "--runs", "1", "--delay-ms", "0", "--json-report", report, "--trace-report", trace], {
   encoding: "utf8",
   timeout: 15000,
 });
@@ -60,7 +59,6 @@ assert.match(res.stdout, /^[^\n]+\n$/, "zero-delay benchmark keeps one CSV line 
 const reportValue = JSON.parse(fs.readFileSync(report, "utf8"));
 assert.equal(reportValue.schemaVersion, 1);
 assert.equal(reportValue.delayMs, 0, "zero is a real delay override");
-assert.equal(reportValue.skipWorkbench, true);
 assert.equal(reportValue.runs.length, 1);
 assert.equal(reportValue.runs[0].status, "complete");
 assert.equal(reportValue.runs[0].completedWorkers, "6");

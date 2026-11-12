@@ -18,8 +18,7 @@ import { loadWorkflowApp, showWorkflowApp, loadWorkflowAppRecordById, isTrustedA
 import { driveAsync, drivePreview } from "../drive.js";
 import { createDispatchManifest } from "../dispatch.js";
 import { commitState } from "../commit.js";
-import { recordWorkerOutput, showWorkerManifest, getWorkerScope } from "../worker-isolation.js";
-import { parseUsageFromArgs } from "../observability.js";
+import { recordWorkerOutput, showWorkerManifest } from "../worker-isolation.js";
 import { validateSandboxWrite } from "../sandbox-profile.js";
 import { loadRunFromCwd, sameRealLocation, saveCheckpoint, withRunStateLock } from "../run-store.js";
 import { writeReport } from "../report.js";
@@ -736,20 +735,6 @@ export function recordResultRun(args) {
             requireAttestedTelemetry: resolveAgentConfig(args).requireAttestedTelemetry,
             allowUnattested: Boolean(args.allowUnattested ?? args["allow-unattested"]),
         });
-        // Host-attested token usage: record it verbatim as provenance when the
-        // operator supplied `--usage-*` flags; CW never synthesizes usage.
-        // recordWorkerOutput gives the worker an `output` record, so the
-        // observability usage UNIT is the WORKER (deriveUsageTotals reads
-        // worker.usage for workers with output, and EXCLUDES that task). Attach
-        // the usage to the worker scope so the report counts it as an attested
-        // unit; task.usage is stamped too, as the task-level record carries it.
-        const usage = parseUsageFromArgs(args, new Date().toISOString());
-        if (usage) {
-            task.usage = usage;
-            const scope = getWorkerScope(run, workerId);
-            if (scope)
-                scope.usage = usage;
-        }
         // An accepted result is its own checkpoint commit, not just a bare
         // saveCheckpoint (SPEC/pipeline-run.md's persist-ordering rule).
         commitState(run, `worker:${workerId}:result`);

@@ -44,11 +44,13 @@ function moreCommandsLines() {
   // candidate review multi-agent topology summary blackboard coordinator
   // approve reject comment handoff eval went with the multi-agent family
   // (slim-and-esm step 2). version and fix are on the front page only (0.4.3).
+  // loop schedule routine sched gc clones orphans workbench went with the
+  // frozen surfaces (2026-11-12).
   const SPEC_TOKENS = (
     "list search info init plan status next dispatch result state commit report app sandbox backend " +
-    "contract node feedback worker audit loop schedule routine registry run queue clones " +
-    "orphans history quickstart audit-run metrics " +
-    "operator sched gc telemetry migration demo workbench ledger graph " +
+    "contract node feedback worker audit registry run queue " +
+    "history quickstart audit-run metrics " +
+    "operator telemetry migration demo ledger graph " +
     "man completion check"
   ).split(" ");
   const rejoined = moreCommandsLines()

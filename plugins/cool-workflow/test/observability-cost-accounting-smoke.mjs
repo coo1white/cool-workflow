@@ -5,12 +5,12 @@
 //  - durations are DERIVED from recorded timestamps (not report time);
 //  - failure / verifier-pass / candidate-acceptance rates are correct WITH
 //    sample counts, and `n/a` (never 0%/100%) over zero samples;
-//  - attested vs estimated cost are kept SEPARATE; `unreported` usage is
-//    surfaced with coverage, never folded into 0;
+//  - CW never prices usage: cost is `unreported` with no usage and
+//    `unpriced` with attested usage; `unreported` usage is surfaced with
+//    coverage, never folded into 0;
 //  - the report is DETERMINISTIC over a fixed snapshot + injected now;
 //  - `cw metrics show --json` === `cw_metrics_show` and
-//    `cw metrics summary --json` === `cw_metrics_summary` (parity);
-//  - host-attested usage intake flows through `cw result` onto the report.
+//    `cw metrics summary --json` === `cw_metrics_summary` (parity).
 
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
@@ -23,8 +23,8 @@ const node = process.execPath;
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const mcpServer = path.join(pluginRoot, "dist", "mcp-server.js");
 // v2: flat dist/observability.js moved to dist/shell/observability.js.
-// deriveMetricsReport/deriveMetricsSummary keep their old {now,policy,scope}
-// options shape (shell/ layer, not pure core/), so no signature change.
+// deriveMetricsReport/deriveMetricsSummary take {now,scope} options
+// (shell/ layer, not pure core/).
 import * as obs from "../dist/shell/observability.js";
 import { tmpDir } from "./helpers/workspace.mjs";
 
@@ -63,7 +63,7 @@ function fixtureRun() {
       { id: "t-pending", status: "pending" }
     ],
     workers: [
-      // completed worker WITH output + attested usage (default-priced model)
+      // completed worker WITH output + attested usage (a second model)
       {
         id: "w-estimated",
         status: "completed",
@@ -130,21 +130,6 @@ function emptyRun() {
   };
 }
 
-const EXACT_POLICY = {
-  schemaVersion: 1,
-  id: "test-exact",
-  currency: "USD",
-  models: [{ model: "claude-opus-4-8", inputPerMillion: 15, outputPerMillion: 75 }]
-  // NO defaultPrice ⇒ unmatched models are unpriced, never estimated.
-};
-const POLICY_WITH_DEFAULT = {
-  schemaVersion: 1,
-  id: "test-default",
-  currency: "USD",
-  models: [{ model: "claude-opus-4-8", inputPerMillion: 15, outputPerMillion: 75 }],
-  defaultPrice: { inputPerMillion: 3, outputPerMillion: 15 }
-};
-
 function main() {
   // ---- 1. durations from recorded timestamps -----------------------------
   const report = obs.deriveMetricsReport(fixtureRun(), { now: FIXED_NOW });
@@ -199,56 +184,37 @@ function main() {
   assert.equal(report.usage.inputTokens, 1500, "summed attested input tokens (1000+500)");
   assert.equal(report.usage.outputTokens, 300);
 
-  // ---- 5. cost: unreported / unpriced / attested / estimated separation --
+  // ---- 5. cost: unreported / unpriced, never a guessed number ------------
   // No usage at all ⇒ unreported, never 0.
   assert.equal(empty.cost.state, "unreported");
   assert.equal(empty.cost.attestedUsd, null);
   assert.equal(empty.cost.estimatedUsd, null);
 
-  // Attested usage but NO policy ⇒ unpriced (not guessed, not 0).
+  // Attested usage ⇒ unpriced (CW does not price it; not guessed, not 0).
   assert.equal(report.cost.state, "unpriced");
   assert.equal(report.cost.attestedUsd, null);
-
-  // Exact policy (no default): opus exact-priced ⇒ attested; mystery-model has
-  // no entry and no default ⇒ unpriced portion, kept out of attestedUsd.
-  const exact = obs.deriveMetricsReport(fixtureRun(), { now: FIXED_NOW, policy: EXACT_POLICY });
-  assert.equal(exact.cost.state, "attested", "exact-match priced ⇒ attested");
-  // opus: 1000/1e6*15 + 200/1e6*75 = 0.015 + 0.015 = 0.03
-  assert.equal(exact.cost.attestedUsd, 0.03, "attested USD from exact policy");
-  assert.equal(exact.cost.estimatedUsd, null, "no estimated figure when no default used");
-  assert.deepEqual(exact.cost.unpricedModels, ["mystery-model-x"], "unmatched model surfaced");
-  assert.ok(exact.cost.pricedCoverage < 1, "priced coverage < 1 when a model is unpriced");
-
-  // Policy WITH default: mystery-model priced by default ⇒ estimated figure
-  // SEPARATE from attested; state is `estimated` (attested+estimated never one).
-  const mixed = obs.deriveMetricsReport(fixtureRun(), { now: FIXED_NOW, policy: POLICY_WITH_DEFAULT });
-  assert.equal(mixed.cost.state, "estimated", "any default-priced portion ⇒ estimated state");
-  assert.equal(mixed.cost.attestedUsd, 0.03, "exact-priced portion stays attested");
-  // mystery default: 500/1e6*3 + 100/1e6*15 = 0.0015 + 0.0015 = 0.003
-  assert.equal(mixed.cost.estimatedUsd, 0.003, "default-priced portion is a separate estimated figure");
+  assert.equal(report.cost.estimatedUsd, null);
 
   // ---- 6. determinism over a fixed snapshot ------------------------------
-  const a = obs.deriveMetricsReport(fixtureRun(), { now: FIXED_NOW, policy: POLICY_WITH_DEFAULT });
-  const b = obs.deriveMetricsReport(fixtureRun(), { now: FIXED_NOW, policy: POLICY_WITH_DEFAULT });
+  const a = obs.deriveMetricsReport(fixtureRun(), { now: FIXED_NOW });
+  const b = obs.deriveMetricsReport(fixtureRun(), { now: FIXED_NOW });
   assert.equal(JSON.stringify(a), JSON.stringify(b), "byte-identical over a fixed snapshot");
   assert.ok(a.sourceFingerprint.startsWith("sha256:"), "carries a source fingerprint");
 
-  // ---- 7. cross-repo summary pools samples, separates cost ---------------
+  // ---- 7. cross-repo summary pools samples -------------------------------
   const summary = obs.deriveMetricsSummary(
     [{ run: fixtureRun(), repo: "/repoA" }, { run: emptyRun(), repo: "/repoB" }],
-    { now: FIXED_NOW, scope: "home", policy: POLICY_WITH_DEFAULT }
+    { now: FIXED_NOW, scope: "home" }
   );
   assert.equal(summary.runCount, 2);
   assert.equal(summary.rates.verifierPass.total, 3, "pooled verifier samples");
   assert.equal(summary.usage.attestedUnits, 2, "pooled attested units");
-  assert.equal(summary.cost.state, "estimated");
-  assert.equal(summary.cost.attestedUsd, 0.03);
-  assert.equal(summary.cost.estimatedUsd, 0.003);
+  assert.equal(summary.cost.state, "unpriced");
   assert.ok(summary.byApp.some((g) => g.key === "architecture-review"), "per-app rollup present");
   assert.ok(summary.byBackend.some((g) => g.key === "node") && summary.byBackend.some((g) => g.key === "shell"), "per-backend rollup present");
   const s2 = obs.deriveMetricsSummary(
     [{ run: fixtureRun(), repo: "/repoA" }, { run: emptyRun(), repo: "/repoB" }],
-    { now: FIXED_NOW, scope: "home", policy: POLICY_WITH_DEFAULT }
+    { now: FIXED_NOW, scope: "home" }
   );
   assert.equal(JSON.stringify(summary), JSON.stringify(s2), "summary deterministic over fixed snapshot");
 
@@ -256,8 +222,8 @@ function main() {
 }
 
 // ---------------------------------------------------------------------------
-// Live parity + intake: plan a real run, record a result WITH attested usage,
-// and prove CLI --json == MCP for both metrics views.
+// Live parity: plan a real run, record a result, and prove CLI --json == MCP
+// for both metrics views.
 // ---------------------------------------------------------------------------
 async function liveParity() {
   const workspace = tmpDir("cw-metrics-");
@@ -269,8 +235,7 @@ async function liveParity() {
   );
   const runId = plan.runId;
 
-  // Dispatch + record a result with host-attested usage through the real
-  // intake: `cw result <run> <task> <file>` must accept an operator result
+  // Dispatch + record a result: `cw result <run> <task> <file>` must accept an operator result
   // file living outside the worker's sandbox dir and copy it in.
   const dispatch = JSON.parse(execFileSync(node, [cli, "dispatch", runId], { cwd: workspace, encoding: "utf8" }));
   const taskId = dispatch.tasks[0].id;
@@ -278,15 +243,14 @@ async function liveParity() {
   fs.writeFileSync(resultFile, '# r\n\n```cw:result\n{"summary":"mapped","findings":[],"evidence":["x"]}\n```\n');
   execFileSync(
     node,
-    [cli, "result", runId, taskId, resultFile, "--usage-input-tokens", "1000", "--usage-output-tokens", "200", "--usage-model", "claude-opus-4-8", "--usage-source", "host-attested"],
+    [cli, "result", runId, taskId, resultFile],
     { cwd: workspace, encoding: "utf8" }
   );
 
-  // Usage intake landed on the report (coverage > 0, attested tokens summed).
+  // An operator result carries no usage: unreported, never a made-up 0.
   const showJson = JSON.parse(execFileSync(node, [cli, "metrics", "show", runId, "--json"], { cwd: workspace, encoding: "utf8" }));
-  assert.ok(showJson.usage.attestedUnits >= 1, "host-attested usage flowed through cw result intake");
-  assert.equal(showJson.usage.inputTokens, 1000, "attested input tokens recorded verbatim");
-  assert.equal(showJson.cost.state, "unpriced", "no policy ⇒ unpriced (not 0)");
+  assert.equal(showJson.usage.attestedUnits, 0, "no usage was reported");
+  assert.equal(showJson.cost.state, "unreported", "no usage ⇒ unreported (not 0)");
 
   const server = spawn(node, [mcpServer], { cwd: workspace, stdio: ["pipe", "pipe", "pipe"] });
   const lines = readline.createInterface({ input: server.stdout });
@@ -327,7 +291,7 @@ async function liveParity() {
   }
 
   fs.rmSync(workspace, { recursive: true, force: true });
-  process.stdout.write("observability-cost-accounting-smoke: live parity + intake ok\n");
+  process.stdout.write("observability-cost-accounting-smoke: live parity ok\n");
 }
 
 function round6(value) {

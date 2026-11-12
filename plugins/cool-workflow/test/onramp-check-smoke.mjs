@@ -131,21 +131,13 @@ function contract(files) {
   assert.equal(report.ok, false, "mcp/dispatch.ts");
   assert.ok(codes(report).includes("surface-docs-required"), codes(report).join(", "));
 }
-{
-  const report = contract([
-    "plugins/cool-workflow/src/shell/orchestrator.ts",
-    "plugins/cool-workflow/test/cli-mcp-parity-smoke.mjs"
-  ]);
-  assert.equal(report.ok, false, "shell/orchestrator.ts");
-  assert.ok(codes(report).includes("surface-docs-required"), codes(report).join(", "));
-}
 
 // The intended onramp-risk batch shape passes: runtime + smoke + docs.
 {
   const report = contract([
     "plugins/cool-workflow/src/doctor.ts",
     "plugins/cool-workflow/src/onramp.ts",
-    "plugins/cool-workflow/src/shell/orchestrator.ts",
+    "plugins/cool-workflow/src/mcp/server.ts",
     "plugins/cool-workflow/test/doctor-smoke.mjs",
     "plugins/cool-workflow/test/onramp-check-smoke.mjs",
     "plugins/cool-workflow/docs/getting-started.md",
@@ -177,7 +169,7 @@ function contract(files) {
 {
   const smokes = recommendSmokeTests([
     "plugins/cool-workflow/src/shell/onramp.ts",
-    "plugins/cool-workflow/src/shell/orchestrator.ts"
+    "plugins/cool-workflow/src/mcp/server.ts"
   ], pluginRoot);
   assert.ok(smokes.includes("doctor-smoke.mjs"), "onramp work keeps the doctor smoke");
   assert.ok(smokes.includes("onramp-check-smoke.mjs"), "onramp work keeps the contract smoke");
@@ -187,20 +179,9 @@ function contract(files) {
   assert.ok(!smokes.includes("cli-jsonmode-parity-smoke.mjs"), "JSON-mode smoke is not recommended for help text");
 }
 
-// unify-js-architecture packet 3 moved the seven Workbench smokes out of
-// test/ into ui/workbench/tests/ (renamed *.test.js so bun test's default
-// discovery picks them up) and they now run under `bun test`, not
-// `node test/<name>`. CURATED_SMOKE_MAP (src/shell/onramp.ts, frozen —
-// out of that packet's scope) still names the pre-move test/ path for the
-// one row that survived the move ("ui/workbench/" -> web-desktop-workbench-\n// smoke.mjs); resolve it here instead of failing the gate on a config file
-// this packet cannot touch.
-const RELOCATED_SMOKES = {
-  "web-desktop-workbench-smoke.mjs": "ui/workbench/tests/web-desktop-workbench-smoke.test.js"
-};
-
 // Every CURATED_SMOKE_MAP pattern must name a real file (or a real file's
 // prefix), and every smoke it names must exist under test/ (#598, one layer
-// up) or at its RELOCATED_SMOKES path above.
+// up).
 {
   const skip = new Set(["node_modules", "dist", ".git"]);
   const files = [];
@@ -215,7 +196,7 @@ const RELOCATED_SMOKES = {
   for (const { patterns, smokes } of CURATED_SMOKE_MAP) {
     for (const p of patterns) assert.ok(files.some((f) => f === p || f.startsWith(p)), `dead onramp pattern: ${p}`);
     for (const s of smokes) {
-      const real = path.join(pluginRoot, RELOCATED_SMOKES[s] || path.join("test", s));
+      const real = path.join(pluginRoot, "test", s);
       assert.ok(fs.existsSync(real), `missing onramp smoke: ${s}`);
     }
   }

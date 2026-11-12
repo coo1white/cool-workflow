@@ -1,17 +1,13 @@
-// shell/commands/demo-cli.ts — CLI-reachable bodies for `cw demo tamper|bundle`.
+// shell/commands/demo-cli.ts — CLI-reachable body for `cw demo tamper`.
 // CLI-only per SPEC/ledger-trust.md ("`demo` is CLI-only").
 //
-// Both simply call the hermetic demo runners with no argument-derived
+// It simply calls the hermetic demo runner with no argument-derived
 // behavior.
 //
-// Evidence: SPEC/ledger-trust.md "`cw demo tamper|bundle [--json]`".
+// Evidence: SPEC/ledger-trust.md "`cw demo tamper [--json]`".
 
-import { runBundleDemo, runTamperDemo } from "../telemetry-demo.js";
+import { runTamperDemo } from "../tamper-demo.js";
 
 export function demoTamperCli(): ReturnType<typeof runTamperDemo> {
   return runTamperDemo();
-}
-
-export function demoBundleCli(): ReturnType<typeof runBundleDemo> {
-  return runBundleDemo();
 }

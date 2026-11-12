@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // cw metrics show / summary — derived, honest metrics. Rates over zero
-// samples are n/a (never 0%/100%), cost defaults to unpriced with no
-// pricing policy, the snapshot file is written under metrics/, and
+// samples are n/a (never 0%/100%), cost is unpriced (CW never prices
+// usage), the snapshot file is written under metrics/, and
 // --now only ever touches generatedAt (the payload is otherwise stable).
 
 import path from "node:path";
@@ -43,7 +43,7 @@ caseMain(() => {
   assert.equal(report.rates.candidateAcceptance.count, null);
   assert.equal(report.rates.candidateAcceptance.rate, null);
 
-  // No pricing policy was given: cost is unpriced, not a fabricated number.
+  // CW never prices usage: cost is unpriced, not a fabricated number.
   assert.equal(report.cost.state, "unpriced");
   assert.equal(report.cost.attestedUsd, null);
   assert.equal(report.cost.estimatedUsd, null);

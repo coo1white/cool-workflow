@@ -95,10 +95,6 @@ export const CURATED_SMOKE_MAP: Array<{ patterns: string[]; smokes: string[] }> 
     smokes: ["cli-command-surface-smoke.mjs", "cli-jsonmode-parity-smoke.mjs", "cli-mcp-parity-smoke.mjs"]
   },
   {
-    patterns: ["src/shell/orchestrator.ts"],
-    smokes: ["cli-mcp-parity-smoke.mjs"]
-  },
-  {
     patterns: ["src/core/capability-data.ts", "src/wiring/capability-table/", "scripts/parity-check.mjs"],
     smokes: ["cli-mcp-parity-smoke.mjs", "cli-jsonmode-parity-smoke.mjs", "parity-doc-sync-smoke.mjs"]
   },
@@ -117,14 +113,6 @@ export const CURATED_SMOKE_MAP: Array<{ patterns: string[]; smokes: string[] }> 
   {
     patterns: ["src/shell/telemetry-", "src/core/trust/telemetry-"],
     smokes: ["telemetry-ledger-smoke.mjs", "telemetry-attestation-smoke.mjs", "telemetry-verify-signatures-smoke.mjs"]
-  },
-  {
-    patterns: ["src/shell/workbench", "ui/workbench/"],
-    smokes: ["web-desktop-workbench-smoke.mjs"]
-  },
-  {
-    patterns: ["src/shell/scheduler-io.ts", "src/shell/scheduling-io.ts"],
-    smokes: ["schedule-routine-daemon-smoke.mjs", "sched-policy-validation-smoke.mjs"]
   }
 ];
 
@@ -188,12 +176,6 @@ export function buildDoctorOnramp(options: BuildDoctorOnrampOptions = {}): Docto
             title: "Prove tamper checks",
             command: "cw demo tamper",
             reason: "Shows the core trust check without an agent or a repo."
-          },
-          {
-            id: "demo-bundle",
-            title: "Prove portable checks",
-            command: "cw demo bundle",
-            reason: "Shows the bundle proof in one step — create, check, forge, detect. No agent needed."
           },
           {
             id: "setup",
@@ -643,7 +625,6 @@ function isSurfaceFile(file: string): boolean {
     pluginPath.startsWith("src/mcp/") ||
     pluginPath === "src/core/capability-data.ts" ||
     pluginPath.startsWith("src/wiring/capability-table/") ||
-    pluginPath === "src/shell/orchestrator.ts" ||
     pluginPath === "scripts/parity-check.mjs"
   );
 }

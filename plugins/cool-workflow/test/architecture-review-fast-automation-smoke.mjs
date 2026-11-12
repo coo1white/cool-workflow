@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpDir } from "./helpers/workspace.mjs";
@@ -89,8 +89,6 @@ function main() {
     "--ref", "HEAD",
     "--agent-command", agentCommand,
     "--once",
-    "--schedule-full",
-    "--full-delay-minutes", "10",
     "--fast-model", "smoke-fast-model",
     "--strong-model", "smoke-strong-model",
     "--metrics"
@@ -103,13 +101,7 @@ function main() {
   assert.equal(first.fastReview.status, "in-progress");
   assert.equal(first.fastReview.completedWorkers, 2, "launcher advances the parallel Map round");
   assert.deepEqual(first.modelPolicy, { fastModel: "smoke-fast-model", strongModel: "smoke-strong-model" });
-  assert.equal(first.fullReviewSchedule.workflowId, "architecture-review");
-  assert.equal(first.fullReviewSchedule.kind, "reminder");
-  assert.equal(first.fullReviewSchedule.maxRuns, 1);
-  assert.match(first.fullReviewSchedule.prompt, new RegExp(first.fastReview.runId), "full schedule prompt carries the fast run id");
-  assert.match(first.fullReviewSchedule.prompt, new RegExp(escapeRegExp(first.fastReview.reportPath)), "full schedule prompt carries the fast report path");
-  assert.match(first.fullReviewSchedule.prompt, new RegExp(escapeRegExp(first.sourceContext.digest)), "full schedule prompt carries the source context digest");
-  assert.match(first.fullReviewSchedule.prompt, /write the full review report path and digest/, "full schedule prompt asks for durable completion output");
+  assert.equal(first.fullReviewSchedule, undefined, "no full-review schedule: cw schedule is gone");
   assert.ok(first.metrics.totalElapsedMs >= 0, "metrics include total elapsed time");
   assert.ok(first.metrics.sourceContext.bytes > 0, "metrics include context byte size");
   assert.equal(first.metrics.sourceContext.digest, first.sourceContext.digest, "metrics include the source context digest");
@@ -131,7 +123,6 @@ function main() {
     "metrics include per-task spawn/cache rows"
   );
   assert.ok(first.metrics.fastReview.taskMetrics.every((task) => task.taskId && Number.isInteger(task.elapsedMs)), "task metrics include task ids and elapsedMs");
-  assert.ok(first.metrics.fullReviewSchedule.elapsedMs >= 0, "metrics include schedule elapsed time");
   assert.equal(spawnLines(countFile), 2, "first run spawns two Map workers");
   assert.deepEqual(
     fs.readFileSync(modelFile, "utf8").trim().split(/\n/),
@@ -164,7 +155,7 @@ function main() {
 
   // --changed-from incremental overlay: a second commit changes only the
   // repo's one source file (below); the overlay must scope the exported context to the changed file, record the
-  // base, and tell the scheduled full review to still do a complete audit.
+  // base.
   fs.writeFileSync(path.join(repo, "src", "app.js"), "module.exports = () => 'ok2';\n", "utf8");
   git(repo, ["add", "."]);
   git(repo, ["-c", "user.name=CW", "-c", "user.email=cw@example.invalid", "commit", "-m", "change app"]);
@@ -178,8 +169,6 @@ function main() {
     "--changed-from", "HEAD~1",
     "--agent-command", agentCommand,
     "--once",
-    "--schedule-full",
-    "--full-delay-minutes", "10",
     "--metrics"
   ]);
   assert.equal(incremental.sourceContext.changedFrom, "HEAD~1", "wrapper records the incremental overlay base");
@@ -187,11 +176,16 @@ function main() {
   const incrementalRecords = readJsonl(incremental.sourceContext.path);
   assert.ok(incrementalRecords.some((record) => record.path === "src/app.js"), "overlay includes the changed file");
   assert.ok(!incrementalRecords.some((record) => record.path === "README.md"), "overlay excludes files unchanged since the base");
-  assert.match(incremental.fullReviewSchedule.prompt, /incremental overlay \(changed-from HEAD~1\)/, "full schedule prompt notes the overlay so the background review audits the complete source");
-  assert.match(incremental.fullReviewSchedule.prompt, /audit the complete source, not only the changed files/, "full schedule prompt requires a complete audit");
+
+  // --schedule-full went with cw schedule: the old flag is refused, never
+  // dropped without a word.
+  const refused = spawnSync(node, [script, "--repo", repo, "--question", "q", "--schedule-full"], { cwd: pluginRoot, encoding: "utf8" });
+  assert.equal(refused.status, 1, "--schedule-full is refused");
+  assert.match(refused.stderr, /--schedule-full is gone with cw schedule/);
+  assert.equal(refused.stdout, "", "a refusal writes no JSON");
 
   fs.rmSync(tmp, { recursive: true, force: true });
-  process.stdout.write("architecture-review-fast-automation-smoke: ok (context export, fast once, result cache, full schedule, changed-from overlay)\n");
+  process.stdout.write("architecture-review-fast-automation-smoke: ok (context export, fast once, result cache, changed-from overlay)\n");
 }
 
 function runJson(args) {
@@ -208,10 +202,6 @@ function spawnLines(file) {
 
 function readJsonl(file) {
   return fs.readFileSync(file, "utf8").trim().split(/\n/).filter(Boolean).map((line) => JSON.parse(line));
-}
-
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 main();

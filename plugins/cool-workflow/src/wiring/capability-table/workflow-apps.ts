@@ -187,13 +187,13 @@ addCliOnlyCapability(
 
 addCliOnlyCapability(
   "demo.usage",
-  "cw demo tamper|bundle [--json]",
+  "cw demo tamper [--json]",
   {
     path: ["demo"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-      throw new Error("Usage: cw demo tamper|bundle [--json]");
+      throw new Error("Usage: cw demo tamper [--json]");
     },
   },
   "demo.usage exists only to own the fixed usage-error text for an unrecognized demo subcommand; every real demo.* action is its own capability row above."
@@ -271,13 +271,13 @@ addCliOnlyCapability(
 
 addCliOnlyCapability(
   "metrics.usage",
-  "cw metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--limit N] [--json]",
+  "cw metrics show <run-id> | metrics summary [--scope repo|home] [--limit N] [--json]",
   {
     path: ["metrics"],
     jsonMode: "default",
     hiddenFromHelp: true,
     handler: () => {
-      throw new Error("Usage: cw metrics show <run-id> | metrics summary [--scope repo|home] [--pricing <path>|default] [--limit N] [--json]");
+      throw new Error("Usage: cw metrics show <run-id> | metrics summary [--scope repo|home] [--limit N] [--json]");
     },
   },
   "metrics.usage exists only to own the fixed usage-error text for an unrecognized metrics subcommand; every real metrics.* action is its own capability row above."
@@ -295,20 +295,6 @@ addCliOnlyCapability(
     },
   },
   "operator.usage exists only to own the fixed usage-error text for an unrecognized operator subcommand; every real operator.* action is its own capability row above."
-);
-
-addCliOnlyCapability(
-  "workbench.usage",
-  "cw workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]",
-  {
-    path: ["workbench"],
-    jsonMode: "default",
-    hiddenFromHelp: true,
-    handler: () => {
-      throw new Error("Usage: cw workbench serve [--port N] [--once] [--require-token] | view <run-id> [--json]");
-    },
-  },
-  "workbench.usage exists only to own the fixed usage-error text for an unrecognized workbench subcommand; every real workbench.* action is its own capability row above."
 );
 
 addCliOnlyCapability(
@@ -332,8 +318,7 @@ addCliOnlyCapability(
 // always appends "\n" to `result.text` when it is missing one, which
 // would violate "no added trailing newline" for any manual page that
 // does not already end in one. A handler performing its own stdout write
-// and returning `{}` is the established escape hatch (see
-// workbench.serve's handler above for the same pattern/reasoning).
+// and returning `{}` is the established escape hatch.
 addCliOnlyCapability(
   "man",
   "cw man <topic> — read a manual page from docs/ (raw bytes, no added newline).",

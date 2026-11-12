@@ -8,25 +8,20 @@
 //   B. A registry overlay that is valid JSON but the wrong SHAPE (null/array/
 //      scalar) fails closed with a clear "Corrupt overlay" error instead of a
 //      cryptic TypeError or a silent empty read.
-//   C. Concurrent scheduler writers do not lose tasks — the store's
-//      read-modify-write is serialized by a file lock.
-//   D. Scheduler core ops still work under the lock.
 //
 // Included in `npm test`.
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-// v2 dist layout: old flat dist/{state,worker-isolation,run-registry,scheduler}.js
+// v2 dist layout: old flat dist/{state,worker-isolation,run-registry}.js
 // split into dist/shell/*. createRunPaths/ensureRunDirs/saveCheckpoint moved to
-// the run-store shell module; RunRegistry/Scheduler to their *-io shell modules.
+// the run-store shell module; RunRegistry to its *-io shell module.
 import { createRunPaths, ensureRunDirs, saveCheckpoint } from "../dist/shell/run-store.js";
 import { allocateWorkerScope, listWorkerScopes, getWorkerScope } from "../dist/shell/worker-isolation.js";
 import { RunRegistry } from "../dist/shell/run-registry-io.js";
-import { Scheduler } from "../dist/shell/scheduler-io.js";
 import { tmpDir } from "./helpers/workspace.mjs";
 
 function makeRun(tmp, id) {
@@ -99,46 +94,10 @@ function wrongShapeOverlay() {
   }
 }
 
-// ---- C. concurrent scheduler writers do not lose tasks ------------------------
-async function concurrentSchedulerWrites() {
-  const tmp = tmpDir("cw-rob-sched-");
-  const N = 16;
-  const child = path.join(tmp, "create-one.js");
-  fs.writeFileSync(child, `
-    const { Scheduler } = require(${JSON.stringify(path.join(pluginRoot, "dist", "shell", "scheduler-io.js"))});
-    new Scheduler(${JSON.stringify(tmp)}).create({ prompt: "task " + process.argv[2], intervalMinutes: 5 });
-  `, "utf8");
-
-  // Start all creators truly in parallel so they race the store's read-modify-write.
-  const procs = [];
-  for (let i = 0; i < N; i++) procs.push(spawn(process.execPath, [child, "p" + i], { stdio: "ignore" }));
-  await Promise.all(procs.map((p) => new Promise((res, rej) => {
-    p.on("exit", (code) => (code === 0 ? res() : rej(new Error(`creator exited ${code}`))));
-    p.on("error", rej);
-  })));
-
-  const all = new Scheduler(tmp).list();
-  assert.equal(all.length, N, `all concurrent creates survived (expected ${N}, got ${all.length}) — no lost read-modify-write`);
-}
-
-// ---- D. scheduler core ops still work under the lock --------------------------
-function schedulerStillWorks() {
-  const tmp = tmpDir("cw-rob-sched2-");
-  const s = new Scheduler(tmp);
-  const t = s.create({ prompt: "p", intervalMinutes: 1 });
-  assert.equal(s.list().length, 1, "create persists");
-  s.complete(t.id);
-  assert.ok(s.list().find((x) => x.id === t.id), "complete keeps the task");
-  assert.equal(s.delete(t.id).deleted, true, "delete removes the task");
-  assert.equal(s.list().length, 0, "store is empty after delete");
-}
-
 (async () => {
   corruptWorkerScope();
   wrongShapeOverlay();
-  await concurrentSchedulerWrites();
-  schedulerStillWorks();
-  process.stdout.write("robustness-failclosed-smoke: ok (corrupt worker skip + fail-closed lookup; wrong-shape overlay fail-closed; concurrent scheduler writers lose nothing; core ops intact)\n");
+  process.stdout.write("robustness-failclosed-smoke: ok (corrupt worker skip + fail-closed lookup; wrong-shape overlay fail-closed)\n");
 })().catch((error) => {
   process.stderr.write(`robustness-failclosed-smoke: FAIL ${error && error.stack ? error.stack : error}\n`);
   process.exit(1);

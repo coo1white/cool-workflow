@@ -5,8 +5,8 @@ not need this page — start at [Getting Started](Getting-Started.md).*
 
 CW is built like a small operating system: a base system plus userland apps.
 The runtime (the base system) owns the machinery for planning, dispatch,
-state, verification, and reporting. Workflow apps, model choice, pricing
-policy, and vendor wrappers live outside that core.
+state, verification, and reporting. Workflow apps, model choice, and vendor
+wrappers live outside that core.
 
 ```text
 workflow app -> runner -> dispatch -> isolated workers
@@ -110,7 +110,7 @@ A run is stored as plain files:
 ```
 
 The per-run `state.json` is the source of truth. Everything else — registry
-indexes, summaries, reasoning views, workbench panels — is a view worked out
+indexes, summaries, reasoning views, reports — is a view worked out
 from it, and can be rebuilt from it.
 
 ## CLI And MCP
@@ -124,9 +124,6 @@ Examples:
 - `cw report --json` and `cw_report`
 - `cw run import` and `cw_run_import`
 - `cw telemetry verify` and `cw_telemetry_verify`
-
-The Workbench is a read-only localhost view over the same run files and
-capability payloads. It does not own authoritative state.
 
 For more on vendor manifests and MCP boot checks, see
 [MCP And Manifests](MCP-And-Manifests.md).

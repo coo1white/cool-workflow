@@ -26,8 +26,7 @@ function firstPositional(args, index = 0) {
  *  run — stays byte-identical JSON. Deliberately does NOT read
  *  FORCE_COLOR/NO_COLOR: color env vars style output, they never pick
  *  the output mode (cli-color-env pipes with FORCE_COLOR=1 and must stay
- *  JSON). Pure of the injectable `stream` (default process.stdout),
- *  following shell/workbench-host.ts's printServeHint pattern. */
+ *  JSON). Pure of the injectable `stream` (default process.stdout). */
 export function shouldRenderHuman(jsonMode, options, hasHumanRender, stream = process.stdout) {
     return jsonMode === "default" && !wantsJson(options) && hasHumanRender && Boolean(stream.isTTY);
 }

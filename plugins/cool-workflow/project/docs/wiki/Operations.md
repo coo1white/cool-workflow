@@ -163,9 +163,9 @@ Every number is worked out from the run's own state — times from saved
 times, rates from saved results. There is no metrics database. A rate with
 no samples is `n/a`, never a made-up 0% or 100%. Token use is what the agent
 reported (and signed, where keys are set); if it reported nothing, it is
-`unreported`, never 0. Money cost is worked out only from that reported use
-and a price list you give (`--pricing <path>`); a guessed price is kept apart
-as `estimated`. Full rules: `cw man observability-cost-accounting`.
+`unreported`, never 0. CW puts no price on that use: cost is `unpriced`
+when use was reported and `unreported` when it was not. Full rules:
+`cw man observability-cost-accounting`.
 
 ## Old Run State
 
@@ -184,20 +184,6 @@ CW cannot make sense of, is refused, never quietly loaded. Fields of the
 removed multi-agent family (`multiAgent`, `blackboard`, `candidates`) are kept
 as data. Full rules: `cw man release-and-migration` and
 `cw man contract-migration-tooling`.
-
-## Workbench
-
-The Workbench is optional, localhost-only, and read-only. It is a frozen part
-of CW (fixes only). Its run view has the graph, worker, metrics, and audit
-panels:
-
-```bash
-cw workbench serve --port 8787
-cw workbench serve --once --json
-```
-
-It renders existing `.cw/` run state and capability payloads. It is not a
-dashboard database and does not own state.
 
 ## Release Flow
 

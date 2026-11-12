@@ -8,7 +8,6 @@
 
 ```text
 node dist/cli.js demo tamper [--json]
-node dist/cli.js demo bundle [--json]
 ```
 
 ## DESCRIPTION
@@ -19,7 +18,7 @@ without an agent and without a network connection. Every run is hermetic
 ways, and checks that the tampering is caught. Nothing is read from or
 written to the real file system outside a short-term temp directory.
 
-No agent is needed; both demos work when the setup has no agent at all.
+No agent is needed; the demo works when the setup has no agent at all.
 
 ## DEMO TAMPER
 
@@ -42,23 +41,9 @@ If all three forgeries are caught, the proof holds and the demo exits 0.
 If any tamper goes undetected, the demo exits 1 — this is a regression in
 the integrity guarantee.
 
-## DEMO BUNDLE
-
-`cw demo bundle` proves that exported report bundles are verifiable offline. It:
-
-1. Builds a full telemetry chain, signs it, and exports a sealed portable
-   bundle (archive bytes + telemetry chain + trust-audit chain + embedded
-   public key).
-2. Tampers with the bundle in two ways:
-   - **Telemetry chain**: Forges a record in the chain. The archive's file
-     digests stay valid (the archive was built from the tampered bytes), but
-     `report verify-bundle` re-checks the chain and catches it.
-   - **Signature + usage**: Inflates token counts and reseals. The signature
-     check and hash chain both break.
-3. Verifies each tampered bundle with `report verify-bundle`.
-
-If all forgeries are caught with only the bundle's own public key, the proof
-holds. No repo, no server, no key handed over.
+`cw demo bundle` went with the telemetry demo module (2026-11-12). The
+bundle guarantee itself stays: `cw report verify-bundle` checks a real
+bundle offline (see report-verifiable-bundle.7.md).
 
 ## EXIT CODES
 
@@ -70,7 +55,7 @@ holds. No repo, no server, no key handed over.
 ## FILES
 
 ```text
-src/shell/telemetry-demo.ts
+src/shell/tamper-demo.ts
 ```
 
 ## SEE ALSO
