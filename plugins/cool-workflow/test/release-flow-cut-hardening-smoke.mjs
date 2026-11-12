@@ -92,7 +92,7 @@ function baseEnv(dir, extra = {}) {
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true", // stub the deterministic gate
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0", // stub the deterministic gate
     CW_NO_AUTO_AGENT: "1",
     CW_HOME: home,
     XDG_STATE_HOME: home
@@ -155,7 +155,7 @@ function baseEnv(dir, extra = {}) {
     "---\nname: release-reviewer\n---\n\nReview the release candidate with zero trust.\n");
   // No-op bump/sync so cut() reaches the git add calls without a real bump.
   fs.writeFileSync(path.join(dir, "package.json"),
-    JSON.stringify({ name: "fixture", version: "0.0.0", scripts: { "bump:version": "true" } }, null, 2) + "\n");
+    JSON.stringify({ name: "fixture", version: "0.0.0", scripts: { "bump:version": "node -e 0" } }, null, 2) + "\n");
   // A minimal dist agent-config so delegateReview resolves the stub agent.
   fs.mkdirSync(path.join(dir, "dist", "shell"), { recursive: true });
   fs.writeFileSync(path.join(dir, "dist", "shell", "agent-config.js"),
@@ -223,7 +223,7 @@ function prepareCutFixture(dir, agentBody) {
   fs.writeFileSync(path.join(dir, "agents", "release-reviewer.md"),
     "---\nname: release-reviewer\n---\n\nReview the release candidate with zero trust.\n");
   fs.writeFileSync(path.join(dir, "package.json"),
-    JSON.stringify({ name: "fixture", version: "0.0.0", scripts: { "bump:version": "true" } }, null, 2) + "\n");
+    JSON.stringify({ name: "fixture", version: "0.0.0", scripts: { "bump:version": "node -e 0" } }, null, 2) + "\n");
   fs.mkdirSync(path.join(dir, "dist", "shell"), { recursive: true });
   fs.writeFileSync(path.join(dir, "dist", "shell", "agent-config.js"),
     "\"use strict\";\n" +

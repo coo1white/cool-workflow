@@ -204,7 +204,7 @@ function buildFixture({ committedPubkey = false, sigFor, tamperAfterSigning = fa
   // without needing the real repo's full canonical-apps/manifest/apps
   // structure. bump-version.mjs's own correctness is verified separately,
   // directly against real repo history (see the header comment above).
-  const pkg = { name: "fixture", version: "1.0.0", scripts: { "bump:version": "true" } };
+  const pkg = { name: "fixture", version: "1.0.0", scripts: { "bump:version": "node -e 0" } };
   // breakParentInstall: an unresolvable dependency baked into R (the approved
   // parent, checked out fresh into the scratch worktree) so `bun install`
   // itself fails during REPRODUCTION — standing in for a transient registry
