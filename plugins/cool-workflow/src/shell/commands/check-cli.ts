@@ -1,5 +1,6 @@
 // shell/commands/check-cli.ts — `cw check -- <command>`, `check list`, `check show <id>` (docs/reference.md, "Check: cw check").
 
+import * as os from "node:os";
 import * as path from "node:path";
 import type { CommandResult } from "../../core/command.js";
 import { CheckReceipt, judgeReceipt, receiptOutcome } from "../../core/trust/receipt.js";
@@ -30,7 +31,8 @@ const USAGE = "Usage: cw check -- <command> [args...]  (for one: cw check -- npm
 export async function checkRunCli(positionals: string[], options: Record<string, unknown>): Promise<CommandResult> {
   if (!positionals.length) throw new Error(USAGE);
   const repo = cwdArg(options, ["repo", "cwd"]);
-  const receipt = await runCheck(positionals, { repo, echo: !options.quiet && Boolean(process.stderr.isTTY) });
+  const tee = Boolean(options.tee);
+  const receipt = await runCheck(positionals, { repo, tee, echo: !tee && !options.quiet && Boolean(process.stderr.isTTY) });
   const file = saveReceipt(repo, receipt);
   const verdict = judgeReceipt(receipt.id, receipt, readCodeState(repo), checkPublicKey());
   const passed = receipt.exitCode === 0;
@@ -51,7 +53,12 @@ export async function checkRunCli(positionals: string[], options: Record<string,
     reason: verdict.reason,
     next: passed && verdict.ok ? `cw check show ${receipt.id}` : verdict.next,
   };
-  return { json: result, exitCode: passed ? undefined : 1 };
+  if (!tee) return { json: result, exitCode: passed ? undefined : 1 };
+  // --tee: stdout held the command's own output, so the receipt line goes to
+  // stderr and the command's exit code comes back unchanged (a signal: 128+n).
+  process.stderr.write(`${formatCheckRun(result)}\n`);
+  const signalled = receipt.signal ? 128 + (os.constants.signals[receipt.signal as NodeJS.Signals] || 0) : 1;
+  return { exitCode: receipt.exitCode ?? signalled };
 }
 
 /** The one TTY line for `cw check` (piped output stays JSON). */

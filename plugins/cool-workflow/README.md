@@ -84,6 +84,9 @@ on every push: **[coo1white.github.io/cool-workflow](https://coo1white.github.io
 has only said it. `cw check -- npm test` runs the command (never a model)
 and keeps a receipt: the commit, the exit code, a digest of the output. A
 result that cites `receipt:rc-…` is checked again before it counts.
+In Claude Code, with CW installed as a plugin and `cw` on your `PATH`, the
+agent's test runs (`npm test`, `pytest`, `go test`, …) get receipts by
+themselves; set `CW_AUTO_RECEIPT=off` to stop that.
 
 **4 · Hand the run to someone else.** `cw report bundle <run-id>` seals it
 into one file; `cw report verify-bundle <run-id>.cwrun.json` checks it

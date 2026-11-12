@@ -118,6 +118,7 @@ export const COMMANDS = [
         helpPath: ["check", "--", "<command>"],
         summary: "Run a command and keep a receipt a result can cite",
         jsonMode: "default",
+        flags: [{ name: "--tee", summary: "Pass the output and exit code through; the receipt line goes to stderr" }],
         handler: ({ positionals, options }) => check().checkRunCli(positionals, options),
         humanRender: (json) => check().formatCheckRun(json),
     },
