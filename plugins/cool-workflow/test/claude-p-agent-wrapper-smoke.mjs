@@ -31,6 +31,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { writeProgram } from "./helpers/program.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
@@ -42,7 +43,6 @@ import * as agentConfigModule from "../dist/shell/agent-config.js";
 
 function shimDir(behavior) {
   const dir = tmpDir("cw-claude-shim-");
-  const shim = path.join(dir, "claude");
   const lines = ["#!/usr/bin/env node"];
   if (behavior === "crash") {
     lines.push('process.stderr.write("shim boom"); process.exit(3);');
@@ -79,8 +79,7 @@ function shimDir(behavior) {
       "emit({ type: 'result', subtype: 'success', is_error: false, result: '# Analysis\\n\\nstub markdown answer', usage: { input_tokens: 11, output_tokens: 7 } });"
     );
   }
-  fs.writeFileSync(shim, lines.join("\n"), "utf8");
-  fs.chmodSync(shim, 0o755);
+  writeProgram(dir, "claude", lines.join("\n"));
   return dir;
 }
 

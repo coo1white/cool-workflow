@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { hostSpawnArgv } from "../../dist/shell/fs-atomic.js";
 
 const RESULT_CONTRACT = `
 === HOW TO RETURN YOUR ANSWER (overrides any 'write to result.md' instruction above) ===
@@ -568,9 +569,13 @@ function recordVendorPid(child, env = process.env) {
 // logs/agent-stderr.log like any other spawn failure, then the wrapper exits 1
 // (a failed hop, never a fabricated one). `cleanup` runs first (restore the
 // terminal, remove a prompt file).
+// On Windows the vendor CLI is most often an npm .cmd shim (claude.cmd,
+// codex.cmd), which Node will not start with no shell; hostSpawnArgv runs the
+// script the shim names with node instead. Elsewhere argv is as given.
 function spawnVendor(label, command, args, options, resultPath, cleanup) {
   try {
-    return spawn(command, args, options);
+    const start = hostSpawnArgv(command, args, (options && options.env) || process.env);
+    return spawn(start.binary, start.args, options);
   } catch (error) {
     if (typeof cleanup === "function") cleanup();
     let message = `${label} spawn failed: ${error && error.message}`;
@@ -631,6 +636,7 @@ export {
   flushJsonLines,
   writeResult,
   emitReport,
+  hostSpawnArgv, // argv Node can start with no shell (a Windows .cmd shim runs as node <script>)
   spawnVendor, // spawn a vendor CLI; a spawn that throws (E2BIG) is logged like any spawn failure
   persistStderr, // save a failed agent's stderr to <workerDir>/logs/agent-stderr.log (shared by all wrappers)
   buildFailureDetail // fold in parsed partial stdout text when real stderr is empty (shared by all wrappers)
