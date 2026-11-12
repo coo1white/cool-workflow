@@ -32,6 +32,7 @@ import { AGENT_FIX, agentConfigured, resolveAgentConfig } from "../agent-config.
 import { materializeRemote, isRemoteUrl, validateRemoteUrl, gitAvailable, RemoteSource } from "../remote-source.js";
 import { isGitWorkTree } from "../onramp.js";
 import { recordTrustAuditEvent } from "../trust-audit.js";
+import { safeFileName } from "../fs-atomic.js";
 import { reportBundleCli, ReportBundleResult } from "./report-cli.js";
 
 const QUICKSTART_DEFAULT_APP = "architecture-review";
@@ -641,7 +642,7 @@ function stopLog(r: Record<string, unknown>): { text: string; shown: string } | 
   if (!stop || typeof stop.taskId !== "string" || typeof r.statePath !== "string") return undefined;
   try {
     const workersDir = path.join(path.dirname(r.statePath), "workers");
-    const prefix = `worker-${stop.taskId}-`;
+    const prefix = `worker-${safeFileName(stop.taskId)}-`;
     const workerId = typeof stop.workerId === "string" ? stop.workerId : fs.readdirSync(workersDir).filter((name) => name.startsWith(prefix)).sort().pop();
     if (!workerId) return undefined;
     const file = path.join(workersDir, workerId, "logs", "agent-stderr.log");
