@@ -298,6 +298,10 @@ Piped, or with `--json`, it prints one JSON object: `schemaVersion`, `ok`,
 - A command that does not exit 0 makes `cw check` exit 1. The receipt of
   the failure is still kept.
 - A program that is not on `PATH` is an error and leaves no receipt.
+- On Windows the program is found with `PATHEXT`, as `cmd` would. Node
+  will not start a `.cmd` file with no shell, so for an npm-style shim
+  (`npm.cmd`, `claude.cmd`) CW runs the script the shim names with node.
+  The receipt keeps `argv` as you typed it.
 - `cw check list` and `cw check show` print JSON when piped. `show` exits
   1 when the receipt cannot be cited now.
 - `list` and `show` are words of `cw check`. To run a program named
