@@ -650,8 +650,9 @@ bundle is kept. CW cannot make that party itself.
 ### What an agent gets
 
 CW starts the agent argv-style (`shell: false`), in the repository folder,
-with stdin closed and a short, fixed env: `PATH`, `HOME`, `USER`,
-provider-key names (`CW_`, `ANTHROPIC_`, `CLAUDE_`, `OPENAI_`, `GEMINI_`,
+with stdin closed and a short, fixed env: `PATH`, `HOME`, `USER`
+(on Windows also the system folders a program needs: `SystemRoot`,
+`TEMP`, `USERPROFILE`, `APPDATA` and the like), provider-key names (`CW_`, `ANTHROPIC_`, `CLAUDE_`, `OPENAI_`, `GEMINI_`,
 ...) and the proxy and CA settings. These are never passed on, whatever
 their prefix (`CW_NEVER_FORWARD_ENV` in
 `src/shell/execution-backend/local.ts`):
