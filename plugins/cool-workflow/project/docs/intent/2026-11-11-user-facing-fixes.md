@@ -478,8 +478,45 @@ Man pages that say the new text: `docs/worker-isolation.7.md`,
 
 ## What this spec got wrong
 
-(Filled at close.)
+Recorded at close (#893, 2026-11-12).
+
+1. **Batch A, the pins.** The first draft said none of the twelve texts
+   was held by a pinned fixture. Three were: the `cw help` front page
+   (rows 7 to 9), the `report.md` part order (row 12) and the `cw doctor`
+   check names (row 10, whose names did not change). The search had looked
+   under `plugins/cool-workflow/`; `v2/conformance/` is at the repo root.
+   Found before the code, so the version raise and the line-by-line record
+   went into #891.
+2. **Batch A, the old tests.** The spec named each row's code files, not
+   the tests that held the old behavior. The first full run after the
+   change had 5 smokes and `growth:check` red, 3 of them still asking exit
+   0 of a stopped run.
+3. **Batch B, one promise line.** One of the seven 0.4.3 promise lines
+   quoted the phase `Verify`; the test that holds it says `Verdict`. B1
+   found it on its first run; the line now says `<phase>`.
+4. **Batch C, the sweep came late.** The plan put the line check at
+   accept time only. The sweep the first working rule asks for was run
+   only after the owner asked (2026-11-12), and found the same gap in the
+   final commit gate, fixed in the same PR.
+5. **How the work is split, not followed in batch C.** Batch C was built
+   and pushed with no separate checker agent, and the stop-log fault found
+   during it got its ledger row late; both were put right on 2026-11-12,
+   when the owner asked. The checker then ran 13 checks, all passing.
+6. **The model-choice article** was never read (host not reachable), so
+   the split stayed this file's default the whole program.
 
 ## Architecture snapshot diff
 
-(Filled by the closing PR.)
+Live claims this program made old, and where each was fixed:
+
+| Claim | Where | Fixed in |
+|---|---|---|
+| a stopped `cw -q` run reports `✓` and exits 0 | `docs/operator-ux.7.md`, `docs/agent-delegation-drive.7.md` | #891 |
+| `pola:check` holds no text asserted in a `test/*.mjs` smoke | `scripts/pola-check.mjs` header | #893 (a promise line, #892, is held by one) |
+| a reviewer rejection is read only in its plain shape | `docs/release-tooling.7.md` | #892 |
+| a result is checked at accept for evidence form, receipts, the off-target ratio and (verdicts) files on disk | `docs/worker-isolation.7.md` | #893: also a P0-P2 finding's own evidence, and a cited line past the end |
+| the final commit asks only that a verdict's cited file is on disk | `docs/verifier-gated-commit.7.md`, `docs/agent-delegation-drive.7.md` | #893: `commit-verifier-evidence-past-end` |
+| `validateResultEnvelope` "throws on violation (fail-closed — the drive parks the hop)" | `src/shell/verifier.ts` | #893: true now; before, nothing called it |
+
+Left open: C3, in `BACKLOG.md`. This file joins
+`intent/2026-11-archive.md` in the PR after #893 merges.
