@@ -22,7 +22,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "./spawn-argv.mjs";
 import { queryRequiredChecks } from "./release-ci-checks.mjs";
 import { resolvePrevReleaseTag } from "./release-tags.mjs";
 

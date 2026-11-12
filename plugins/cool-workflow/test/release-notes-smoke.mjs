@@ -15,6 +15,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { writeProgram } from "./helpers/program.mjs";
 
 const SCRIPTS = path.resolve(import.meta.dirname, "..", "scripts");
 const FLOW = path.join(SCRIPTS, "release-flow.mjs");
@@ -111,15 +112,13 @@ function fixture(withPrevTag) {
   fs.writeFileSync(path.join(dir, ".cw-release", `review-${contentSha}.verdict`), `APPROVED ${contentSha}\nStub capability.\n`);
   commit(dir, "z.txt", "chore(release): record verdict");
   run("git", ["tag", "-a", "v9.9.9", "-m", "v9.9.9"], dir);
-  const stub = path.join(dir, "gh-stub.mjs");
-  fs.writeFileSync(stub, `#!/usr/bin/env node
-import fs from "node:fs";
+  const stub = writeProgram(dir, "gh-stub", `#!/usr/bin/env node
+const fs = require("node:fs");
 const a = process.argv.slice(2);
 if (a[0] === "release" && a[1] === "view") process.exit(1);
 if (a[0] === "release" && a[1] === "create") fs.writeFileSync(process.env.GH_STUB_NOTES_OUT, fs.readFileSync(a[a.indexOf("--notes-file") + 1]));
 process.exit(0);
 `);
-  fs.chmodSync(stub, 0o755);
   const notesOut = path.join(dir, "notes.md");
   const r = run("node", [FLOW, "--release", "--version", "9.9.9"], dir,
     { ...process.env, CW_RELEASE_FLOW_GH_CMD: stub, GH_STUB_NOTES_OUT: notesOut });

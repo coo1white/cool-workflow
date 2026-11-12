@@ -49,6 +49,7 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
   fs.mkdirSync(path.join(fixPlugin, "apps"), { recursive: true });
   fs.mkdirSync(path.join(fixPlugin, "docs"), { recursive: true });
   fs.copyFileSync(bump, path.join(fixPlugin, "scripts", "bump-version.mjs"));
+  fs.copyFileSync(path.join(pluginRoot, "scripts", "spawn-argv.mjs"), path.join(fixPlugin, "scripts", "spawn-argv.mjs"));
   fs.copyFileSync(
     path.join(pluginRoot, "scripts", "canonical-apps-list.mjs"),
     path.join(fixPlugin, "scripts", "canonical-apps-list.mjs")

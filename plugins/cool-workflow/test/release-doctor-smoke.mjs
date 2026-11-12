@@ -85,6 +85,8 @@ function world() {
   fs.writeFileSync(path.join(pkgDir, "package.json"), JSON.stringify({ name: "fixture", version: VERSION }, null, 2) + "\n");
   fs.copyFileSync(ONECLICK, path.join(pkgDir, "scripts", "release-oneclick.mjs"));
   fs.copyFileSync(PREFLIGHT, path.join(pkgDir, "scripts", "release-preflight.mjs"));
+  // Every script that runs npm/gh starts it through spawn-argv.mjs (Windows .cmd shims).
+  fs.copyFileSync(path.join(pluginRoot, "scripts", "spawn-argv.mjs"), path.join(pkgDir, "scripts", "spawn-argv.mjs"));
   // release-oneclick.mjs also requires the required-CI-checks reader (its cut
   // stage waits on those checks).
   fs.copyFileSync(path.join(pluginRoot, "scripts", "release-ci-checks.mjs"), path.join(pkgDir, "scripts", "release-ci-checks.mjs"));

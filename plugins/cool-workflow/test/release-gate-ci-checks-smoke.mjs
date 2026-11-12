@@ -25,6 +25,7 @@ const GATE = path.join(pluginRoot, "scripts", "release-gate.mjs");
 const FLOW = path.join(pluginRoot, "scripts", "release-flow.mjs");
 const REVIEWER = path.join(pluginRoot, "test", "fixtures", "release-rehearsal-reviewer.mjs");
 import { REQUIRED_CHECKS, evaluateCheckRuns } from "../scripts/release-ci-checks.mjs";
+import { writeProgram } from "./helpers/program.mjs";
 
 assert.deepEqual([...REQUIRED_CHECKS], ["check (22)", "check (24)"], "the required list names the two ubuntu legs main's branch protection requires");
 
@@ -72,8 +73,7 @@ function fixture({ origin = "https://github.com/acme/widget.git" } = {}) {
 
   const stubDir = path.join(dir, ".stub");
   fs.mkdirSync(stubDir, { recursive: true });
-  const gh = path.join(stubDir, "gh");
-  fs.writeFileSync(gh, `#!/usr/bin/env node
+  const gh = writeProgram(stubDir, "gh", `#!/usr/bin/env node
 "use strict";
 const fs = require("node:fs");
 fs.appendFileSync(process.env.GH_STUB_LOG, process.argv.slice(2).join(" ") + "\\n");
@@ -98,7 +98,6 @@ else if (mode === "error") { process.stderr.write("HTTP 401: Bad credentials\\n"
 else { process.stderr.write("unknown stub mode\\n"); process.exit(2); }
 process.stdout.write(JSON.stringify({ total_count: runs.length, check_runs: runs }));
 `);
-  fs.chmodSync(gh, 0o755);
   return { dir, sha, gh, log: path.join(stubDir, "gh.log"), marker: path.join(stubDir, "suite-ran") };
 }
 
