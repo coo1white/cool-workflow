@@ -40,8 +40,8 @@ The runtime lives under `plugins/cool-workflow/src/`. It provides:
 | `run-registry` | Indexes, resumes, archives, exports, and imports runs. |
 | `telemetry` and `trust-audit` | Record usage attestations, hash chains, and decisions. |
 
-The project index in the source repo is generated from code and is the best
-maintainer map when module ownership matters.
+The source tree itself (`plugins/cool-workflow/src/`, one folder per layer)
+is the best maintainer map when module ownership matters.
 
 ## Delegation Boundary
 

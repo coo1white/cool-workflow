@@ -14,13 +14,12 @@ To find the page for one command, see [Find by command](#find-by-command).
 
 ## Developer Loop
 
-1. [Project Index](project-index.md) - code-derived map of source modules, workflow apps, docs, tests, and sync targets.
-2. [Workflow App framework](workflow-app-framework.7.md) - userland app manifests, entrypoints, compatibility, and validation.
-3. [Sandbox Profiles](sandbox-profiles.7.md) - named worker policy contracts for read/write/execute/network/env handling.
-4. [CLI <-> MCP Parity](cli-mcp-parity.7.md) - the capability registry and fail-closed gate proving the CLI and MCP surfaces render one data source.
-5. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
-6. [Release Tooling](release-tooling.7.md) - version bump, feature scaffold, forward-reference docs, and release gates.
-7. [Cool Workflow Release History](release-history.md) - long capability notes moved out of the README.
+1. [Workflow App framework](workflow-app-framework.7.md) - userland app manifests, entrypoints, compatibility, and validation.
+2. [Sandbox Profiles](sandbox-profiles.7.md) - named worker policy contracts for read/write/execute/network/env handling.
+3. [CLI <-> MCP Parity](cli-mcp-parity.7.md) - the capability registry and fail-closed gate proving the CLI and MCP surfaces render one data source.
+4. [Release And Migration](release-and-migration.7.md) - release and migration discipline for durable run state.
+5. [Release Tooling](release-tooling.7.md) - version bump and release gates.
+6. [Cool Workflow Release History](release-history.md) - long capability notes moved out of the README.
 
 ## Advanced
 

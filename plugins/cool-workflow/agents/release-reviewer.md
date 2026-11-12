@@ -40,13 +40,12 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
    - Test quality: open the new/changed tests. Confirm each would FAIL if
      the implementation were reverted. Trivial assertions (typeof checks,
      "is defined", snapshot-only) do not count.
-   - Direction: the change must plausibly serve one of the North Star
-     tracks in AGENTS.md (A: 5-minute resumable-pipeline demo; B: failure
-     recovery proven by integration test; C: manifests loaded by >=2 real
-     LLM clients). "Infrastructure for future work" is not a track.
+   - Direction: the change must plausibly help a user get, read, or check
+     a receipt for agent work (the aim in AGENTS.md). "Infrastructure for
+     future work" is not enough.
    - Tag message answers "what can a user do now that they couldn't
      before?" in one concrete sentence.
-   - FreeBSD discipline (binding — AGENTS.md hard constraints;
+   - FreeBSD discipline (binding — the floor in AGENTS.md;
      docs/unix-principles.md §7): POLA (no default-behavior or byte change
      to existing outputs/layouts/flags), mechanism-not-policy (no
      vendor-specific logic in src/ core; wrappers only — core forwards
@@ -59,7 +58,7 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
    - Operator-approved breaking change (the ONE exception, and to POLA
      only): a default-behavior or byte change is not a POLA violation
      when ALL three of these hold, each checked by you in this range:
-     1. a file under `plugins/cool-workflow/project/docs/intent/` records
+     1. a merged PR's text (its commit message in this range) records
         the operator's own yes to that exact change: their quoted words
         and a date, not an agent's summary of what they might want;
      2. the matching `plugins/cool-workflow/docs/*.7.md` says what the new

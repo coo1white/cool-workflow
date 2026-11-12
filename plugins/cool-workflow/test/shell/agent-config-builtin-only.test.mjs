@@ -3,8 +3,7 @@
 // whose binary is named like a builtinOnly template's CLI (grok, copilot, agy) stays a
 // custom command, as in 0.4.0: no `--version` probe (so `cw doctor` does not
 // change its exit code) and no sandbox hosts. The builtin:<name> path still
-// probes and gets its hosts (project/docs/intent/2026-10-16-release-gate-ci.md,
-// second 0.4.1 rejection).
+// probes and gets its hosts (second 0.4.1 rejection).
 
 import assert from "node:assert/strict";
 import path from "node:path";

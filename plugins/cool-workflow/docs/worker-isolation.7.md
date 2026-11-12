@@ -156,8 +156,8 @@ failure that can be retried, `verdict-evidence-unresolvable`: the reason is put 
 the top of `input.md` and the result is not taken in. Under `--drive` the hop is
 tried again, then parked (see agent-delegation-drive(7)).
 
-Two more checks are made when any result is accepted (from 2026-11-11, intent
-`2026-11-archive.md` batch C). Each turns the result down as a
+Two more checks are made when any result is accepted (from 2026-11-11).
+Each turns the result down as a
 worker failure that can be retried, the reason at the top of `input.md`:
 
 - `result-contract-violation`: a P0, P1 or P2 finding has no grounded evidence

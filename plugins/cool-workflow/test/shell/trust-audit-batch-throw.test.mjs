@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// trust-audit-batch-throw — audit-batches program, PR 1
-// (project/docs/intent/2026-09-archive.md, the audit-batches part). A
+// trust-audit-batch-throw — audit-batches program, PR 1. A
 // withTrustAuditBatch body that records events and then throws must leave
 // those events on disk, chained exactly as one-at-a-time appends would have
 // chained them, and the body's own error must be the one that comes out.

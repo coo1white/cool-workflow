@@ -154,7 +154,7 @@ for (const [verb, re] of [
 }
 
 // `report` no longer fails closed with no id ("open the report in one
-// step", project/docs/intent/2026-09-archive.md): it resolves
+// step"): it resolves
 // the newest run under `.cw/runs/` — here, the one run plan() made above.
 const bareReport = runText(["report"], tmp);
 assert.match(bareReport, /report\.md\s*$/, "cw report with no id resolves the newest run");

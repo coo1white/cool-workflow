@@ -16,7 +16,7 @@
 //                    failure to get one — fails the gate. The evidence is
 //                    written to .cw-release/gate-ci-<HEAD-sha>.json for
 //                    release-flow.mjs. `release-flow.mjs` passes this flag by
-//                    default (project/docs/intent/2026-10-16-release-gate-ci.md).
+//                    default (since 2026-10-16).
 //   Test seam: CW_RELEASE_GATE_GH_CMD overrides the `gh` binary (single
 //   executable token, spawned shell:false) so a smoke can stub GitHub.
 

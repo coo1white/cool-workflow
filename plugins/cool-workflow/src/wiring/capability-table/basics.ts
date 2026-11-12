@@ -60,10 +60,9 @@ addCliOnlyCapability(
 );
 
 /** `cw search <keyword>` — filters the SAME real app discovery `cw list`
- *  shows, by id/title/summary. It has its own `cw help search` row
- *  (`plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/search.txt`).
- *  The summary text below is intentionally NOT byte-matched to that
- *  capture: it says "description," but the filter below matches `summary`
+ *  shows, by id/title/summary. It has its own `cw help search` row.
+ *  The summary text below is intentionally NOT byte-matched to the old
+ *  help capture: it says "description," but the filter below matches `summary`
  *  (there is no `description` field), so the summary stays accurate to
  *  current fields. */
 addCliOnlyCapability(

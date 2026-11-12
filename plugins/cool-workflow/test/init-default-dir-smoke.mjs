@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // init-default-dir-smoke — `cw init <id>` writes the new app to ./apps/<id>
 // in the folder it runs in (a changed default in 0.3.3, the operator's yes
-// of 2026-11-02 in project/docs/intent/2026-10-16-release-gate-ci.md;
-// docs/init.7.md).
+// of 2026-11-02; docs/init.7.md).
 //
 // Up to 0.3.2 the default was the `apps/` folder of the CW package that was
 // running, which for an installed CW is inside node_modules: maybe not

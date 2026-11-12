@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // statecore-snapshot-raw-vs-normalized (milestone 3) — pins the RAW vs
-// NORMALIZED fingerprint split, project/docs/rebuild/PLAN.md byte-compat item 8 / rebuild
-// risk #5: "NodeSnapshot.sourceFingerprint is RAW (includes updatedAt,
+// NORMALIZED fingerprint split, rebuild risk: "NodeSnapshot.sourceFingerprint is RAW (includes updatedAt,
 // real paths) so any transition invalidates it; the snapshot body and
 // outputFingerprint are NORMALIZED (no timestamps, scrubbed paths) so
 // replay output is byte-stable. These two code paths must stay visibly

@@ -53,7 +53,7 @@ const canonicalResearchPlan = run([
 ]);
 assert.equal(canonicalResearchPlan.workflowId, "research-synthesis");
 // `cw plan --json` carries the canonical `pendingTasks` key (the workflow-apps
-// SPEC doc under project/docs/rebuild/SPEC mandates it).
+// SPEC mandated it).
 assert.equal(canonicalResearchPlan.pendingTasks, 6);
 const canonicalResearchState = JSON.parse(fs.readFileSync(canonicalResearchPlan.statePath, "utf8"));
 assert.equal(canonicalResearchState.workflow.app.id, "research-synthesis");

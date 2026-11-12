@@ -72,7 +72,7 @@ function fakeStream(isTTY) {
   console.log("cli-list-tty-human: the list row declares formatWorkflowList as its humanRender ok");
 }
 
-// ===== 4. `cw app list` gets the same TTY view (0.4.3, intent 2026-11-archive.md row 6) =====
+// ===== 4. `cw app list` gets the same TTY view (0.4.3) =====
 {
   const appListRow = REGISTRY.find((row) => row.capability === "app.list");
   assert.ok(appListRow && appListRow.cli, "the app.list row must exist with a cli binding");

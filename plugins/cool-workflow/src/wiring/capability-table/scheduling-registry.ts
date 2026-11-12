@@ -424,8 +424,7 @@ REGISTRY_BY_CAPABILITY.get("gc.run")!.reason =
 // — not the "gc" capability's combined switch — serve `cw gc plan`/`cw gc
 // verify`, making both real both-surface, dual-bound capabilities for the
 // payload-identity probe. `hiddenFromHelp` keeps `cw help gc`'s rows
-// coming from the single literal COMMAND_HELP_ROWS.gc entries (as
-// `plugins/cool-workflow/project/docs/rebuild/SPEC/cli-help/gc.txt` shows),
+// coming from the single literal COMMAND_HELP_ROWS.gc entries,
 // same as `gc.run` below — without it these rows double-print.
 attachCliBinding("gc.plan", {
   path: ["gc", "plan"],

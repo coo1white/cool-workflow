@@ -1,6 +1,5 @@
 #!/usr/bin/env node
-// agent-placeholders-smoke — 0.4.2 (operator's named yes, intent
-// 2026-10-16-release-gate-ci.md, "Operator decisions for 0.4.2"): an agent
+// agent-placeholders-smoke — 0.4.2 (operator's named yes): an agent
 // command can name {{phase}}, {{taskId}}, {{workerId}} and {{priorResults}}.
 // {{priorResults}} is the path of <workerDir>/prior-results.json, which lists
 // the earlier phases' result files; it is written only for a command that names

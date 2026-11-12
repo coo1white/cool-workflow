@@ -2,8 +2,7 @@
 // schema-validation-smoke (Track 3) — the output-schema validator and the
 // validateResultEnvelope gate, tested as functions. NOTE (2026-11-04): no code
 // path calls validateResultEnvelope when a result is accepted, and pipeline.ts
-// drops a task's `schema`; wiring it in waits for the operator (intent
-// 2026-10-16-release-gate-ci.md, "Four agent placeholders"). Proves:
+// drops a task's `schema`; wiring it in waits for the operator. Proves:
 //   VALIDATOR (dependency-free subset):
 //     type (incl. integer/null/type-arrays), enum, const, required, properties
 //     (nested), additionalProperties:false, items; unknown keywords ignored

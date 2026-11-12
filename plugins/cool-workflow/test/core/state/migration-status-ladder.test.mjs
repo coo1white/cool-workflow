@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // statecore-migration-status-ladder (milestone 3) — pins the four-way
 // status ladder: unsupported beats migrated beats normalized beats current.
-// project/docs/rebuild/PLAN.md byte-compat item 10 / SPEC/state-core.md "Migration status
+// SPEC/state-core.md "Migration status
 // ladder + write gate", "Final status" invariant.
 
 import assert from "node:assert/strict";

@@ -5,14 +5,14 @@
 //
 // WHY a runtime-level override, not an application-level env var: the
 // scratch worktree checks out the APPROVED PARENT commit and runs ITS OWN
-// copy of bump-version.mjs/sync-project-index.mjs — which, for every commit
+// copy of the bump scripts — which, for every commit
 // that predates this mechanism (i.e. every real release ever cut so far),
 // has no idea any such override exists. An app-level env var a script has to
 // explicitly read is a no-op against code that doesn't know to read it — it
 // can only ever help releases cut AFTER the mechanism itself lands, making
 // "reproduce a past release" true only by calendar coincidence (confirmed:
 // re-running v0.2.0's real approved-parent/tagged pair on a day other than
-// its actual cut day fails with a date-only diff in project-index.md).
+// its actual cut day fails with a date-only diff in its project index).
 // Intercepting the Date GLOBAL, before any application code runs, works
 // identically regardless of which script version executes — old or new.
 //

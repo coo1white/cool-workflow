@@ -36,7 +36,7 @@ function fakeStream(isTTY) {
   assert.equal(term.phaseProgressLine("Map", 6, 6, plain), "==> Map ✓ (6/6)", "finished phase => ✓ + N/N");
   assert.equal(term.phaseProgressLine("Assess", 3, 6, plain), "==> Assess » (3/6)", "a phase not yet done => »");
   assert.ok(!term.phaseProgressLine("Assess", 3, 6, plain).includes("⇉"), "0.3.3: no ⇉, which some terminal fonts do not have");
-  // 0.4.3 (intent 2026-11-archive.md, row 3): one mark for "not yet done", no … for a phase that runs in order.
+  // 0.4.3: one mark for "not yet done", no … for a phase that runs in order.
   assert.equal(term.phaseProgressLine("Verdict", 0, 1, plain), "==> Verdict » (0/1)", "every phase not yet done => »");
   console.log("summary: phaseProgressLine renders ==> Phase glyph (done/total) ok");
 }

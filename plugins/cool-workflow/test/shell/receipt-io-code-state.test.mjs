@@ -3,7 +3,7 @@
 // git diff fails, or an untracked file cannot be read, the code state is
 // unknown (treeDigest null), never a digest of a fixed word. Two trees that
 // could not be read must not match, so a receipt tied to one is refused
-// (project/docs/intent/2026-10-16-release-gate-ci.md, third review of 0.4.0).
+// (third review of 0.4.0).
 
 import assert from "node:assert/strict";
 import { readCodeState } from "../../dist/shell/receipt-io.js";

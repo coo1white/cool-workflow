@@ -83,7 +83,7 @@ export interface SourceCheckout {
 
 export const CURATED_SMOKE_MAP: Array<{ patterns: string[]; smokes: string[] }> = [
   {
-    patterns: ["src/shell/doctor.ts", "src/shell/onramp.ts", "scripts/onramp-check.mjs"],
+    patterns: ["src/shell/doctor.ts", "src/shell/onramp.ts"],
     smokes: ["doctor-smoke.mjs", "onramp-check-smoke.mjs"]
   },
   {
@@ -521,7 +521,7 @@ function resolveBaseRef(root: string, changedFrom: string | undefined, env: Node
   // resolve there (a shallow clone that never fetched the base, a missing
   // origin ref), we must NOT quietly degrade to HEAD -- a HEAD..HEAD diff on a
   // clean, already-committed tree is empty, and an empty change set has no
-  // issues, so onramp:check would report ok:true on an unseen change. Fail closed.
+  // issues, so the contract would report ok:true on an unseen change. Fail closed.
   if (env.GITHUB_BASE_REF) {
     const baseBranch = `origin/${env.GITHUB_BASE_REF}`;
     const mergeBase = gitOne(root, ["merge-base", "HEAD", baseBranch]);

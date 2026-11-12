@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // no-unused-locals-smoke — dead code cannot land again. `tsconfig.json`
-// turns on `noUnusedLocals` (project/docs/intent/2026-09-archive.md, the
-// dead-code part), so `npm run build` refuses an import, a local or a
+// turns on `noUnusedLocals`, so `npm run build` refuses an import, a local or a
 // function no line reads. This smoke proves the gate has teeth: a fixture
 // compiled with the project's own setting fails with TS6133 when it holds an
 // unused import, and compiles once that import is used. It also checks that

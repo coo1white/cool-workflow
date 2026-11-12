@@ -132,9 +132,9 @@ try {
 const source = fs.readFileSync(script, "utf8");
 assert.ok(!/child_process/.test(source), "wiki-sync.mjs starts no child process");
 
-// The script is named by its consumer.
-const agents = fs.readFileSync(path.join(pluginRoot, "..", "..", "AGENTS.md"), "utf8");
-assert.ok(agents.includes("scripts/wiki-sync.mjs"), "AGENTS.md names wiki-sync.mjs (its consumer)");
+// The script is named by its consumer, the release runbook.
+const runbook = fs.readFileSync(path.join(pluginRoot, "docs", "release-tooling.7.md"), "utf8");
+assert.ok(runbook.includes("scripts/wiki-sync.mjs"), "release-tooling.7.md names wiki-sync.mjs (its consumer)");
 
 // Every mirror page on disk is tracked by git, so nothing is published from
 // an untracked draft.

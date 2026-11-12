@@ -24,8 +24,8 @@
 //   2. Wording: a timed-out or whole-batch failure is not "failed to spawn".
 //   3. Drive: a timed-out task parks after ONE round, its reason says
 //      "not tried again: raise CW_AGENT_TIMEOUT_MS ...", and no "trying
-//      again" line prints for it (operator decision for 0.3.3,
-//      project/docs/intent/2026-10-16-release-gate-ci.md). A failure that is
+//      again" line prints for it (operator decision for 0.3.3). A failure
+//      that is
 //      not a timeout still prints `[drive] ✗ <task> (<phase>) — <why>;
 //      trying again (2/3)` and keeps three tries. A `==> <Phase>` line ends
 //      every round; a piped run prints nothing new.

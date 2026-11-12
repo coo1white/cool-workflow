@@ -1,18 +1,12 @@
 # Repo Map
 
 What every top-level folder and file is for, one line each — most are fixed
-by a tool, a test, or the release chain. `test/root-layout-smoke.mjs` holds
-this list: a new root entry is named there with its reason in the same diff.
-
-For the files inside the product — every source module, workflow app, man
-page, and test — see the
-[project index](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/project-index.md),
-which `npm run sync:project-index` makes from the code.
+by a tool, a test, or the release chain.
 
 | Place | What it is |
 |---|---|
 | [`plugins/cool-workflow/`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/) | The product itself: TypeScript source (`src/`), committed build (`dist/`), tests, scripts, man-page docs, manifests |
-| [`plugins/cool-workflow/project/docs/`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/project/docs/) | Repo-level docs: wiki source, audits, benchmark notes, the v2 rebuild SPEC, architecture plans. Outside the npm `files` allowlist and the man-page index — never shipped |
+| [`plugins/cool-workflow/project/docs/`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/project/docs/) | Repo-level docs: wiki source, audits, benchmark notes, the architecture plan. Outside the npm `files` allowlist and the man-page index — never shipped |
 | [`v2/conformance/`](https://github.com/coo1white/cool-workflow/blob/main/v2/conformance/) | Black-box conformance suite — pins the shipping CLI's observable behavior byte for byte; CI runs it on every PR. Stays at the repo root deliberately: an arm's-length judge of `plugins/cool-workflow/`, not a part of it |
 | [`plugins/cool-workflow/project/examples/`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/project/examples/) | Worked examples, e.g. a real published self-audit with line-cited findings |
 | [`plugins/cool-workflow/scripts/bench/`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/scripts/bench/) | The benchmark runner (see [docs/benchmark.md](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/project/docs/benchmark.md)) |

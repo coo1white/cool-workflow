@@ -40,14 +40,14 @@ assert.ok(fs.existsSync(REVIEWER_PROMPT), "release reviewer prompt must exist");
   assert.match(prompt, /kind: semantic-review/, "reviewer rejections require a semantic-review kind");
   assert.doesNotMatch(prompt, /Run the deterministic gate yourself/i, "reviewer must not repeat the control-plane gate");
   // The gate's test step may stand on the green required CI checks on the
-  // exact reviewed sha (2026-10-16 intent: release-gate-ci); the reviewer is
+  // exact reviewed sha; the reviewer is
   // told so, and how to confirm it.
   assert.match(prompt, /satisfied by the green required CI checks[\s\S]*exact reviewed\s+SHA/, "step 2: the gate may take the green required CI checks on the reviewed sha");
   assert.match(prompt, /gh api repos\/\{owner\}\/\{repo\}\/commits\/<HEAD>\/check-runs/, "step 2: the reviewer may confirm the checks itself");
   // The one POLA exception: an operator-chosen default change, taken only
   // with all three checks; one missing is still a POLA break.
   assert.match(prompt, /Operator-approved breaking change \(the ONE exception, and to POLA\s+only\)/, "the POLA exception is named and scoped to POLA");
-  assert.match(prompt, /project\/docs\/intent\/[\s\S]*operator's own yes[\s\S]*quoted words\s+and a date/, "check 1: the operator's own words in an intent file");
+  assert.match(prompt, /merged PR's text[\s\S]*operator's own yes[\s\S]*quoted words\s+and a date/, "check 1: the operator's own words in a merged PR's text");
   assert.match(prompt, /docs\/\*\.7\.md[\s\S]*new\s+default is, changed in this same range/, "check 2: the man page for the new default");
   assert.match(prompt, /raises the version from the previous tag[\s\S]*0\.x[\s\S]*a patch raise included/, "check 3: a version raise; on 0.x a patch raise is enough");
   assert.match(prompt, /If any one is missing, it is a POLA violation → REJECT/, "a missing check is still a REJECT");
@@ -264,7 +264,7 @@ process.exit(0);
 // ---- Case 2d: reviewer output shapes, as one table -----------------------
 // Two cuts stopped on a real verdict read wrong (0.3.0: REJECTED at the end of
 // prose; 0.4.1: a locator with a leading dot), each fixed for one shape. This
-// table holds the class (intent 2026-11-archive.md, batch B3).
+// table holds the class.
 // The rule: decoration a model puts round a REJECTION is taken off, so a real
 // rejection is read as one; an APPROVAL stays strict, and every shape that is
 // not a real verdict stays fail closed. No row is ever signed or tagged.
@@ -312,43 +312,6 @@ process.exit(0);
     assert.ok(!fs.existsSync(path.join(dir, ".cw-release", `review-${sha}.verdict.sig`)), `${name}: never signed`);
     assert.equal(run("git", ["tag"], dir).out.trim(), "", `${name}: never tagged`);
   }
-}
-
-// ---- Case 2e: the reviewer's input carries the change sheet (batch B2) ----
-// Each string literal changed since the last tag (pola-check.mjs --sheet), so
-// the reviewer reads a list of changed text. With no tag the sheet cannot be
-// made: the input says why, and the review still runs.
-{
-  const dir = fixture();
-  const stub = path.join(dir, "input-stub.js");
-  fs.writeFileSync(stub, `
-const fs = require("node:fs");
-fs.copyFileSync(process.argv[2], process.env.INPUT_COPY);
-fs.writeFileSync(process.argv[3], "APPROVED " + process.env.STUB_SHA + "\\nstub: capability sentence.\\n");
-`);
-  const copy = path.join(dir, "input-copy.md");
-  const noTag = runFlow(dir, { agentCmd: `node ${stub} {{input}} {{result}}`, extraEnv: { INPUT_COPY: copy } });
-  assert.equal(noTag.code, 0, `the review runs without a sheet:\n${noTag.err}`);
-  const before = fs.readFileSync(copy, "utf8");
-  assert.match(before, /## Change sheet \(string literals changed since the last tag\)/);
-  assert.match(before, /\(unavailable: pola:check: refused: no vX\.Y\.Z release tag found/);
-
-  // A tag whose reviewed commit has the old text, then a change: the sheet
-  // in the input names the file, the line and both texts.
-  const src = "plugins/cool-workflow/src/shell/a.ts";
-  fs.mkdirSync(path.join(dir, path.dirname(src)), { recursive: true });
-  fs.writeFileSync(path.join(dir, src), 'export const a = "old text";\n');
-  run("git", ["add", src], dir);
-  run("git", ["commit", "-q", "-m", "reviewed"], dir);
-  run("git", ["commit", "-q", "--allow-empty", "-m", "verdict leaf"], dir);
-  run("git", ["tag", "v0.0.1"], dir);
-  fs.writeFileSync(path.join(dir, src), 'export const a = "new text";\n');
-  run("git", ["add", src], dir);
-  run("git", ["commit", "-q", "-m", "change"], dir);
-  const withTag = runFlow(dir, { agentCmd: `node ${stub} {{input}} {{result}}`, extraEnv: { INPUT_COPY: copy } });
-  assert.equal(withTag.code, 0, `the review runs with a sheet:\n${withTag.err}`);
-  const after = fs.readFileSync(copy, "utf8");
-  assert.match(after, /```text\npola:check sheet: string literals changed since v0\.0\.1\^1 \(1 file\(s\)\)\.\nplugins\/cool-workflow\/src\/shell\/a\.ts:1\n {2}- "old text"\n {2}\+ "new text"\n```/);
 }
 
 // ---- Case 3: stub writes nothing → fail closed (missing verdict) ----
@@ -868,7 +831,7 @@ function releaseFixtureNonAncestorPrevTag() {
 // ---- Verdict signing (opt-in — see scripts/verdict-keygen.mjs) --------------
 // NOTE: every case here uses --check (or --cut --dry-run, which signs BEFORE
 // cut()'s dry-run short-circuit) — never a real --cut. A non-dry-run --cut
-// runs `npm run bump:version`/`sync:project-index` against pluginRoot (the
+// runs `npm run bump:version` against pluginRoot (the
 // REAL plugins/cool-workflow checkout, resolved from release-flow.mjs's own
 // __dirname, not the fixture), which would mutate this actual working tree.
 // Every existing --cut case in this file is --dry-run for the same reason;

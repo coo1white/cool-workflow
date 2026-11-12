@@ -157,9 +157,7 @@ cw: Refusing to load run <run-id>: the folder <copy>/.cw/runs/<run-id> is a copy
 [run-registry-control-plane.7.md](run-registry-control-plane.7.md)).
 Read-only listings (`cw run list`, `cw run show`, `cw doctor`) and
 `cw state check` do not do a full load and are not changed. This is a
-change of default the operator said yes to on 2026-10-17: see the part
-"Operator decisions for 0.3.2 (2026-10-17)" in
-`project/docs/intent/2026-10-16-release-gate-ci.md`.
+change of default the operator said yes to on 2026-10-17, for 0.3.2.
 
 ## Reclamation durability (the write-ahead seam, v0.1.40)
 

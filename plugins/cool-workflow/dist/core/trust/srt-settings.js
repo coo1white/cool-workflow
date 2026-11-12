@@ -1,5 +1,5 @@
 // core/trust/srt-settings.ts — CW_AGENT_SANDBOX=srt (0.3.3, opt-in): the mode, and a sandbox profile as
-// srt settings. Pure. Spec: project/docs/intent/2026-11-02-agent-sandbox-srt.md.
+// srt settings. Pure.
 /** The one srt version CW runs; a new one is a reviewed change. */
 export const SRT_VERSION = "0.0.81";
 /** Folders under $HOME an agent never needs and must not read (secrets and

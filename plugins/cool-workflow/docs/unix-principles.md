@@ -205,7 +205,7 @@ behavior comes out behind a new verb/flag or an env toggle, with the earlier
 behavior byte-identical by default. (Example: live drive output is added on top —
 stderr only, TTY-gated, `CW_NO_STREAM=1` opt-out; the stdout payload and
 evidence digest are not changed.) One exception: a default the operator
-chooses to change. Three things must all be true. An intent file keeps the
+chooses to change. Three things must all be true. A merged PR's text keeps the
 operator's own yes, in their words, with a date. The matching `docs/*.7.md`
 says what the new default is, in the same release. The release puts up the
 version (on 0.x a patch step is enough, 0.3.0 to 0.3.1; from 1.0, the major
@@ -282,7 +282,7 @@ Every state has one screen. Each ends with one next command.
 | 1 | First use: bare `cw`, `cw help` | the short front page, exit 0 | yes |
 | 2 | No agent set | `blocked`, `Try: cw doctor`; JSON names `CW_AGENT_COMMAND` | yes; the phase line counts the phase (`Map (0/6)`), the end line the run (`0/14 workers`) |
 | 3 | Empty: `cw report` with no run | `No run yet. Try: cw -q "<question>"` | yes |
-| 4 | Loading | a line when each worker starts and ends, and a line at least every 10 s between | yes: since 0.3.2 a concurrent round, too, prints each worker’s `spawning agent` line when the round starts, not after it ends (`project/docs/intent/2026-10-16-release-gate-ci.md`, “Operator decisions for 0.3.2”); since 0.4.3 the “may take minutes…” note is said once in a run, not on every line |
+| 4 | Loading | a line when each worker starts and ends, and a line at least every 10 s between | yes: since 0.3.2 a concurrent round, too, prints each worker’s `spawning agent` line when the round starts, not after it ends (an operator decision for 0.3.2); since 0.4.3 the “may take minutes…” note is said once in a run, not on every line |
 | 5 | Success | report path, status, one `Next:` line | yes |
 | 6 | A worker fails | why (the agent's own words), and `Next: cw --resume --run <id>` | yes: `Why:` gives the reason and the agent’s last stderr line; the last line is `Next: cw --resume --run <id>` |
 | 7 | Offline | as 6, with the network error named | as 6 |

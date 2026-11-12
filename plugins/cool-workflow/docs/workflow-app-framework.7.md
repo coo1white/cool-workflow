@@ -29,7 +29,7 @@ cw plan my-app --question "What should happen?"
 a blank line, then `Use cw app show <id> for full details.`, the same view
 as `cw list`. Piped, or with `--json`, it prints the JSON array as before,
 byte for byte. Up to 0.4.2 a terminal got the JSON too (changed in 0.4.3
-with the operator's dated yes: `project/docs/intent/2026-11-archive.md`, "Operator decisions for 0.4.3").
+with the operator's dated yes).
 
 ## Description
 

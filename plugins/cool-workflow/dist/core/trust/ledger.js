@@ -6,7 +6,7 @@
 // here — this file touches no fs.
 //
 // Uses core/hash.ts's `ledgerStableStringify` (byte-identical to
-// `stableStringify`, kept as its own named export per PLAN.md's Hash
+// `stableStringify`, kept as its own named export per the Hash
 // dedup rule) rather than reimplementing a private copy.
 //
 // Evidence: SPEC/ledger-trust.md "Handoff ledger entry", "Exported

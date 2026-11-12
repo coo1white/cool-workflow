@@ -49,7 +49,7 @@ for (const { mod, dead, live } of cases) {
 // (src, scripts, apps, test, v2/conformance) is a door no one uses; drop
 // the `export` (or the code, if nothing calls it). Kept on purpose:
 // *_SCHEMA_VERSION constants, and compactCheckpoint (named in the rebuild
-// SPEC, project/docs/rebuild/SPEC/state-core.md).
+// SPEC).
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 // deferredPayloadProbeCapabilities sits in a capability-table file, where
 // the onramp contract asks for a public doc change with any edit; it goes

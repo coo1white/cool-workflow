@@ -119,7 +119,6 @@ Run the smallest check that fits the change:
 npm run check
 npm run build
 node test/<nearest>-smoke.mjs
-npm run onramp:check
 npm run test:fast
 npm test                    # a fast sample of 35 smokes (npm run test:gate runs them all)
 npm run canonical-apps

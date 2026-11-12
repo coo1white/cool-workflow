@@ -4,8 +4,8 @@
 // Math.random(). Every input (a run id, a content object, a list of
 // strings) comes in as a plain function argument.
 //
-// Per project/docs/rebuild/PLAN.md's byte-compat section ("Hash dedup — three shapes, not one
-// edge case"), this file must keep THREE things separate, each with its own
+// Per the byte-compat rule "Hash dedup — three shapes, not one
+// edge case", this file must keep THREE things separate, each with its own
 // name, never collapsed into a single flagged helper:
 //
 //   1. Three hash SPELLINGS: `sha256` (prefixed, 64 hex), `fingerprintStrings`

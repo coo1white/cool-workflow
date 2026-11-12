@@ -11,8 +11,8 @@
 // genuinely-approved parent (a real signature on a REPLAYED verdict).
 //
 // This script independently reproduces the bump: checks out the approved
-// parent into a scratch worktree, runs the SAME bump:version/sync:project-index
-// steps cut() runs, stages the SAME way cut() stages (git add -u + the
+// parent into a scratch worktree, runs the SAME bump steps that parent's
+// cut() runs, stages the SAME way cut() stages (git add -u + the
 // explicit verdict/.sig paths, never -A), and requires the resulting tree to
 // match the ACTUAL tagged commit's tree byte-for-byte. Any difference —
 // anywhere, including a single added file — fails closed.
@@ -23,7 +23,7 @@
 // Usage: verify-bump-reproduction.mjs <approved-parent-sha> <tagged-sha> <verdict-repo-relative-path> [sig-repo-relative-path]
 //
 // Exit 0: the tagged commit's tree matches the reproduced bump exactly.
-// Exit 1: mismatch, or any step failed (install, bump, sync, worktree, etc).
+// Exit 1: mismatch, or any step failed (install, bump, worktree, etc).
 
 import fs from "node:fs";
 import os from "node:os";
@@ -91,11 +91,12 @@ function main() {
     return 1;
   }
 
-  // sync-project-index.mjs embeds a wall-clock "Generated on <date>" line. Pin it
+  // A bump step that writes a wall-clock date (the legacy project-index step
+  // below does) would differ by day. Pin the clock
   // to the TAGGED commit's own committer date (UTC) via a Node --require preload
   // that overrides the global Date constructor (fake-date-for-reproduction.mjs),
   // NOT an application-level env var: the scratch worktree runs the APPROVED
-  // PARENT's OWN checked-out copy of sync-project-index.mjs, which for every
+  // PARENT's OWN checked-out copy of the bump scripts, which for every
   // release cut before this mechanism existed has no idea any such env var is
   // meant to be read — an app-level opt-in is a no-op against code that doesn't
   // know to opt in, so it can only ever "work" for releases cut after the
@@ -140,6 +141,19 @@ function main() {
     return true;
   }
 
+  // A parent cut before 2026-11-12 also regenerated a project index after the
+  // bump, and its own package.json still names that script: run it the same
+  // way, so an older release still reproduces. A parent without the script
+  // never ran it. An unreadable package.json fails closed.
+  const LEGACY_INDEX_STEP = "sync:project-index";
+  let parentScripts;
+  try {
+    parentScripts = JSON.parse(fs.readFileSync(path.join(stepCwd, "package.json"), "utf8")).scripts || {};
+  } catch {
+    err(`verify-bump-reproduction: could not read the approved parent's package.json at ${PARENT}`);
+    return 1;
+  }
+
   // No existence check for bun.lock here: unlike `npm ci`, `bun install
   // --frozen-lockfile` does not error when a lockfile is absent (it just
   // writes one) — the fail-closed cases this guards against (a missing or
@@ -147,7 +161,8 @@ function main() {
   const bumpOk =
     runStep("bun install", "bun", ["install", "--frozen-lockfile"]) &&
     runStep("bump:version", "npm", ["run", "bump:version", "--", VERSION]) &&
-    runStep("sync:project-index", "npm", ["run", "sync:project-index", "--", "--repo-only"]);
+    (!Object.hasOwn(parentScripts, LEGACY_INDEX_STEP) ||
+      runStep(LEGACY_INDEX_STEP, "npm", ["run", LEGACY_INDEX_STEP, "--", "--repo-only"]));
   if (!bumpOk) {
     err(`verify-bump-reproduction: reproducing the bump for ${PARENT} -> v${VERSION} failed`);
     return 1;

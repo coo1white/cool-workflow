@@ -32,7 +32,7 @@
     }
   },
   "sandbox": {
-    "comment": "Used only with CW_AGENT_SANDBOX=srt (0.3.3, opt-in): per template, the hosts the vendor CLI must reach and its own state paths it writes. Data, not kernel code (policy in userland). Best effort until checked on a real login with `cw doctor --conformance`; a host missing here shows as a refused connection, and CW_AGENT_SANDBOX_HOSTS adds more. Spec: project/docs/intent/2026-11-02-agent-sandbox-srt.md. The copilot, antigravity and grok rows (beta, 2026-11-04) are unverified: hosts read from each vendor CLI docs, not yet seen on a real login; antigravity takes the gemini-cli hosts, as agy is Gemini-based.",
+    "comment": "Used only with CW_AGENT_SANDBOX=srt (0.3.3, opt-in): per template, the hosts the vendor CLI must reach and its own state paths it writes. Data, not kernel code (policy in userland). Best effort until checked on a real login with `cw doctor --conformance`; a host missing here shows as a refused connection, and CW_AGENT_SANDBOX_HOSTS adds more. The copilot, antigravity and grok rows (beta, 2026-11-04) are unverified: hosts read from each vendor CLI docs, not yet seen on a real login; antigravity takes the gemini-cli hosts, as agy is Gemini-based.",
     "vendors": {
       "claude": {
         "hosts": [

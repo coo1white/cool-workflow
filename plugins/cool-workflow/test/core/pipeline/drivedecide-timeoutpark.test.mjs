@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // pipelinecore-drivedecide-timeoutpark — retryOrPark's timeout rule (new in
-// 0.3.3, operator decision of 2026-10-17 in
-// project/docs/intent/2026-10-16-release-gate-ci.md): a hop that ran past
+// 0.3.3, operator decision of 2026-10-17): a hop that ran past
 // its time limit parks on its first try, with a next step in plain words;
 // any other failure keeps the maxAttempts budget. An explicit
 // maxTimeoutAttempts in the policy wins, but never goes above maxAttempts.

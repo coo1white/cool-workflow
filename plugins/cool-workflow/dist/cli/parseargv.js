@@ -1,6 +1,6 @@
 // cli/parseargv.ts — parseArgv, KNOWN_COMMANDS, suggestCommand.
 //
-// Pure. See plugins/cool-workflow/project/docs/rebuild/PLAN.md byte-compat item 15 and SPEC/cli-surface.md "Argument
+// Pure. See SPEC/cli-surface.md "Argument
 // parsing (parseArgv)" / SPEC/orchestrator.md "Module-level exports".
 //
 // Rules (do not "clean up" — every one of these is pinned by a conformance
@@ -97,7 +97,7 @@ export function parseArgv(argv) {
 /** Every top-level command name, used for "did you mean". NOTE: this
  *  deliberately does NOT include "ledger" even though the dispatcher
  *  handles it and formatHelp lists it — a known, intentionally-preserved
- *  wart (see plugins/cool-workflow/project/docs/rebuild/PLAN.md "Kept byte-for-byte").
+ *  wart, kept byte-for-byte.
  *  "update" is not here: no code is behind the verb, so having it here
  *  would make `cw update` say "Did you mean: update?". */
 export const KNOWN_COMMANDS = new Set([

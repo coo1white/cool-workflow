@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // agent-sandbox-srt-smoke — CW_AGENT_SANDBOX=srt (opt-in, 0.3.3): the agent
 // runs inside Anthropic's sandbox runtime, `srt`, as an outside program
-// (project/docs/intent/2026-11-02-agent-sandbox-srt.md; sandbox-profiles(7)).
+// (sandbox-profiles(7)).
 //
 // A stand-in `srt` (a node script) answers `--version` and, for a run,
 // records its argv and settings file, then runs the agent it was given.

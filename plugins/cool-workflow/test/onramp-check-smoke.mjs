@@ -25,6 +25,7 @@ import {
   recommendSmokeTests,
   isCommentOnlyPatch,
   isDeleteOnlyPatch,
+  resolveChangedFiles,
   CURATED_SMOKE_MAP,
 } from "../dist/shell/onramp.js";
 
@@ -139,13 +140,12 @@ function contract(files) {
   assert.ok(codes(report).includes("surface-docs-required"), codes(report).join(", "));
 }
 
-// The intended onramp-risk batch shape passes: runtime + script + smoke + docs.
+// The intended onramp-risk batch shape passes: runtime + smoke + docs.
 {
   const report = contract([
     "plugins/cool-workflow/src/doctor.ts",
     "plugins/cool-workflow/src/onramp.ts",
     "plugins/cool-workflow/src/shell/orchestrator.ts",
-    "plugins/cool-workflow/scripts/onramp-check.mjs",
     "plugins/cool-workflow/test/doctor-smoke.mjs",
     "plugins/cool-workflow/test/onramp-check-smoke.mjs",
     "plugins/cool-workflow/docs/getting-started.md",
@@ -240,37 +240,25 @@ const RELOCATED_SMOKES = {
 // the index), but `git diff --name-only HEAD --` needs the index, so pointing
 // GIT_INDEX_FILE at a broken file makes ref resolution pass and the diff step
 // fail on its own -- this is the exact path that used to turn a real git
-// error into a false "ok:true" (2026-07-12 security audit finding). Before
-// the fix, onramp-check.mjs printed changedFiles: [] and ok:true here and
-// exited 0; after the fix it must exit non-zero with a clear message.
+// error into a false "ok:true" (2026-07-12 security audit finding). The git
+// children inherit this process's env, so the broken index is set here.
 {
   const badIndex = path.join(os.tmpdir(), `onramp-check-smoke-bad-index-${process.pid}`);
   fs.writeFileSync(badIndex, "not a real git index\n");
-  let threw = false;
-  let combinedOutput = "";
+  const saved = process.env.GIT_INDEX_FILE;
+  let message = "";
   try {
-    execFileSync(process.execPath, [
-      path.join(pluginRoot, "scripts", "onramp-check.mjs"),
-      "--changed-from",
-      "HEAD",
-      "--check"
-    ], {
-      cwd: pluginRoot,
-      encoding: "utf8",
-      env: { ...process.env, GIT_INDEX_FILE: badIndex },
-      stdio: ["ignore", "pipe", "pipe"]
-    });
+    process.env.GIT_INDEX_FILE = badIndex;
+    resolveChangedFiles({ cwd: pluginRoot, changedFrom: "HEAD" });
   } catch (error) {
-    threw = true;
-    combinedOutput = `${error.stdout || ""}${error.stderr || ""}`;
+    message = String(error && error.message);
   } finally {
+    if (saved === undefined) delete process.env.GIT_INDEX_FILE;
+    else process.env.GIT_INDEX_FILE = saved;
     fs.rmSync(badIndex, { force: true });
   }
-  assert.ok(threw, "onramp-check must fail closed (non-zero exit) when a git command it needs cannot run, not report ok:true on an empty change set");
-  assert.ok(
-    /cannot resolve changed files/.test(combinedOutput),
-    `error should explain the git command failed, got: ${combinedOutput}`
-  );
+  assert.ok(message, "resolveChangedFiles must fail closed (throw) when a git command it needs cannot run, not report an empty change set");
+  assert.ok(/cannot resolve changed files/.test(message), `error should explain the git command failed, got: ${message}`);
 }
 
 // commentOnly: a src/shell/*.ts change with no test change fails

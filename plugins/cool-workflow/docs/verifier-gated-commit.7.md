@@ -183,9 +183,7 @@ fail with `receipt-tampered:<id>` or `receipt-failed:<id>` in
 
 Where a new user finds it (new in 0.4.0): `cw doctor --onramp` has one
 more quick-start line, a change to existing default output made with the
-operator's named yes of 2026-11-03 in
-`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions
-for 0.4.0":
+operator's named yes of 2026-11-03, for 0.4.0:
 
 ```text
 cw check -- npm test   — keep a receipt that your tests passed; a result can cite it (no agent needed)
@@ -193,8 +191,7 @@ cw check -- npm test   — keep a receipt that your tests passed; a result can c
 
 `cw help check` gives its words. The `cw help` front page is not
 changed: it keeps the five entries of 0.3.3 (unix-principles(7)). Two more
-outputs change, with the operator's named yes of 2026-11-03 in the same
-file, "Operator decisions for 0.4.0, third review":
+outputs change, with the operator's named yes of 2026-11-03:
 
 - `cw help`, the "More commands" list: its last line goes from
   `  man|version|fix|completion` to `  man|version|fix|completion|check`
@@ -237,8 +234,7 @@ commit-rationale-empty-capture
 commit-verifier-receipt-refused
 ```
 
-`commit-verifier-evidence-past-end` (from 2026-11-12, intent
-`2026-11-archive.md` batch C): under the same rule as
+`commit-verifier-evidence-past-end` (from 2026-11-12): under the same rule as
 `commit-verifier-evidence-unresolvable` (`CW_REQUIRE_RESOLVABLE_EVIDENCE`, on by
 default), a `path:line` or `path:a-b` locator in the verifier node's evidence
 names a line past the end of a file that is on disk, for one when the file got

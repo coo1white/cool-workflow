@@ -30,9 +30,8 @@ is set, and else `./apps/<app-id>` in the folder you run the command in
 (new in 0.3.3, a changed default). Up to 0.3.2 the default was the `apps/`
 folder of the CW checkout or installed package that was running; for an
 installed CW that is inside the package, where it may not be writable and
-the next upgrade wipes it. The operator's yes:
-`project/docs/intent/2026-10-16-release-gate-ci.md`, "`cw init` writes to
-./apps by default (2026-11-02)".
+the next upgrade wipes it. The operator said yes to `./apps` as the
+default on 2026-11-02.
 
 Run from that same folder, `cw plan <app-id>` finds the new app, and
 `cw app list` (and `cw list`) show it next to the bundled apps (also new in
@@ -45,9 +44,8 @@ its `workflow.js`, so in `cw app list --json` their `phases` and `taskCount`
 are `null`; `cw app show <app-id>` (or `cw plan <app-id>`) loads the app and
 runs its code. An `app.json` there that is not a CW manifest (no
 `"schemaVersion": 1`, such as the one an Expo app keeps in its own folder) is skipped; a
-CW manifest that is not valid is still refused. The operator's choice:
-`project/docs/intent/2026-10-16-release-gate-ci.md`, "Operator decisions for
-0.3.3, fourth set".
+CW manifest that is not valid is still refused (the operator's choice for
+0.3.3).
 
 If `app.json` or `workflow.js` is already in that folder, the command
 refuses to overwrite it unless you pass `--force`. A system folder (such as

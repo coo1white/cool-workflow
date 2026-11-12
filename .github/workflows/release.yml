@@ -5,9 +5,9 @@ name: release
 # so a red run blocks the release from being treated as published.
 #
 # The gate job re-checks the release; the release job (needs: gate) makes
-# the GitHub Release. Folded from release-gate.yml + github-release.yml
-# (project/docs/sdlc/unify-ci-cd/plan.md packet C1). npm-publish.yml runs on
-# the same tag push beside this one and re-runs the gate itself.
+# the GitHub Release. Folded from release-gate.yml + github-release.yml.
+# npm-publish.yml runs on the same tag push beside this one and re-runs the
+# gate itself.
 on:
   push:
     tags:

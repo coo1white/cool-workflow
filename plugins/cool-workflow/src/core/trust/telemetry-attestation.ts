@@ -4,9 +4,8 @@
 // PUBLIC key — CW holds no private key, ever. Uses node:crypto's built-in
 // ed25519 sign/verify (no npm dependency).
 //
-// `crypto.verify`/`crypto.createPublicKey` are allowed here per
-// project/docs/rebuild/PLAN.md's lint carve-out for this exact file (Target
-// shape, core/trust/telemetry-attestation.ts comment) — this remains
+// `crypto.verify`/`crypto.createPublicKey` are allowed here by a lint
+// carve-out for this exact file — this remains
 // otherwise pure (no fs, no process.env, no clock; `resolveTrustPublicKey`'s
 // lazy `process.getBuiltinModule("node:fs")` is the one exception, so a bundle that never
 // resolves a key path pays no fs cost).
@@ -42,8 +41,8 @@ export interface TelemetryVerification {
 /** `telemetry-attestation module`'s `stableStringify` — sorts keys
  *  recursively, AND maps a top-level `undefined` input to the literal
  *  string `"null"`. Divergent from `core/hash.ts`'s
- *  `ledgerStableStringify` exactly at the top-level-undefined edge (see
- *  project/docs/rebuild/PLAN.md byte-compat item 2). Re-exported under this file's own
+ *  `ledgerStableStringify` exactly at the top-level-undefined edge.
+ *  Re-exported under this file's own
  *  name (rather than importing `telemetryStableStringify` from
  *  core/hash.ts) because SPEC/ledger-trust.md's "Exported functions"
  *  list names `stableStringify` as a real export of THIS module — the
@@ -101,7 +100,7 @@ export function normalizeReportedUsage(
 }
 
 /** Verify the agent's signed usage against the operator-provisioned
- *  public key. Two-arm check (project/docs/rebuild/PLAN.md byte-compat item 11): try the
+ *  public key. Two-arm check: try the
  *  5-field payload (with resultDigest) first; on a miss, retry the
  *  4-field payload (old signers still verify). `coversResult` is set
  *  ONLY on a first-arm match — a 4-field fallback match never covers the
