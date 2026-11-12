@@ -4,7 +4,7 @@
 // `cw version` output does not change bytes just because the code under it
 // was rebuilt. See SPEC/cli-surface.md "Exact outputs > Version" and
 // conformance/cases/version-basic.case.mjs (regex `/^\d+\.\d+\.\d+\n$/`).
-export const CURRENT_COOL_WORKFLOW_VERSION = "0.4.4";
+export const CURRENT_COOL_WORKFLOW_VERSION = "0.4.6";
 
 // State-kernel schema version constants (SPEC/state-core.md "Version
 // constants"), pinned.

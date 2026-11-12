@@ -14,7 +14,7 @@ import { auditAttestCli, auditDecisionCli, auditProvenanceCli, auditSummaryCli }
 import { reportWriteCli } from "../dist/shell/commands/report-view-cli.js";
 import { pathToFileURL } from "node:url";
 
-const TARGET_VERSION = "0.4.4";
+const TARGET_VERSION = "0.4.6";
 const PREVIOUS_VERSION = "0.1.31";
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(pluginRoot, "..", "..");
