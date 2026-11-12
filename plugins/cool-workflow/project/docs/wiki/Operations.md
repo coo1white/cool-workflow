@@ -97,7 +97,7 @@ proxy URL may have a password in it. `node`, `bun`, `shell`, and `container`
 tasks get them too, but only under a sandbox profile that lets the network
 through. For CW's own HTTP calls (an HTTP agent endpoint, the `remote` and
 `ci` backends), CW sets `NODE_USE_ENV_PROXY=1` when a proxy is set. Full
-rules: `cw man sandbox-profiles`.
+rules: `plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man sandbox-profiles` was removed in batch 5).
 
 ### Run the agent in a sandbox
 
@@ -118,7 +118,7 @@ not read `~/.ssh`, `~/.aws`, `~/.gnupg`, and other secret folders; and it may
 reach only its vendor's API hosts (add more with `CW_AGENT_SANDBOX_HOSTS`, a
 comma list). If `srt` is missing, is a different version, or cannot start
 its sandbox, the agent is not run at all — never run without the sandbox it
-was asked to have. Full rules: `cw man sandbox-profiles`.
+was asked to have. Full rules: `plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man sandbox-profiles` was removed in batch 5).
 
 ## Restore And Recovery
 
@@ -165,7 +165,7 @@ no samples is `n/a`, never a made-up 0% or 100%. Token use is what the agent
 reported (and signed, where keys are set); if it reported nothing, it is
 `unreported`, never 0. CW puts no price on that use: cost is `unpriced`
 when use was reported and `unreported` when it was not. Full rules:
-`cw man observability-cost-accounting`.
+`plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man observability-cost-accounting` was removed in batch 5).
 
 ## Old Run State
 
@@ -182,8 +182,8 @@ cw migration prove <run-id>              # move it there and back, and see nothi
 Nothing is written unless you say `--write`. State from a newer CW, or state
 CW cannot make sense of, is refused, never quietly loaded. Fields of the
 removed multi-agent family (`multiAgent`, `blackboard`, `candidates`) are kept
-as data. Full rules: `cw man release-and-migration` and
-`cw man contract-migration-tooling`.
+as data. Full rules: `plugins/cool-workflow/docs/reference.md`, "Removed surfaces" and
+`plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man contract-migration-tooling` was removed in batch 5).
 
 ## Release Flow
 

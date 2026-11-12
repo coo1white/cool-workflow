@@ -2,7 +2,7 @@
 
 // cw fix — same checks as doctor, but prints ONLY the fix commands (or
 // "No fixes needed.").  The code has no --json branch for fix — this case
-// pins that ACTUAL behavior. (docs/fix.7.md used to promise --json; the
+// pins that ACTUAL behavior. (the old fix man page used to promise --json; the
 // doc was fixed 2026-07-13 to match the code.)
 
 import fs from "node:fs";

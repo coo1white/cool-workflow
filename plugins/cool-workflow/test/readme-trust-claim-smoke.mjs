@@ -41,16 +41,14 @@ assert.match(flat, /no private key/i, "states CW holds no private key");
 assert.match(flat, /not that the report holds nothing else|not that nothing else was added|check the findings .* against the signed results/i, "keeps the honest forward-scope caveat");
 // The caveat must close BOTH directions. The forward check proves each *present*
 // signed finding is unaltered, but a re-chainer can OMIT a signed finding (the
-// dropped converse — see report-verifiable-bundle.7.md / run-export.ts scope note).
+// dropped converse — see docs/reference.md, "Trust model", and the run-export.ts scope note).
 // "every signed finding is in the report" must NOT read as a completeness guarantee,
 // so the section must also state the omission limit.
 assert.match(flat, /none were left out|left out|re-chainer can (drop|omit|leave)|drop a signed finding/i, "keeps the omission carve-out (a re-chainer can drop a signed finding — not a completeness guarantee)");
-assert.match(section, /\[Trust Model\]\(plugins\/cool-workflow\/docs\/trust-model\.md\)/, "links to the Trust Model doc");
+assert.match(section, /\[Trust Model\]\(plugins\/cool-workflow\/docs\/reference\.md#trust-model\)/, "links to the Trust Model part of the reference");
 
-// And that linked doc exists.
-assert.ok(
-  fs.existsSync(path.join(repoRoot, "plugins", "cool-workflow", "docs", "trust-model.md")),
-  "the linked Trust Model doc exists"
-);
+// And the linked part exists.
+const reference = fs.readFileSync(path.join(repoRoot, "plugins", "cool-workflow", "docs", "reference.md"), "utf8");
+assert.match(reference, /^## Trust model$/m, "the reference has the linked Trust model part");
 
 process.stdout.write("readme-trust-claim-smoke: ok\n");

@@ -13,15 +13,8 @@ const checks = [
     run: () => {
       for (const file of [
         "README.md",
-        "docs/index.md",
-        "docs/getting-started.md",
-        "docs/release-history.md",
-        "docs/release-and-migration.7.md",
-        "docs/report-verifiable-bundle.7.md",
-        "docs/release-tooling.7.md",
-        "docs/agent-delegation-drive.7.md",
-        "docs/durable-state-and-locking.7.md",
-        "docs/security-trust-hardening.7.md"
+        "docs/reference.md",
+        "docs/release-history.md"
       ]) {
         const absolute = path.resolve(pluginRoot, file);
         if (!fs.existsSync(absolute)) throw new Error(`missing ${path.relative(repoRoot, absolute)}`);

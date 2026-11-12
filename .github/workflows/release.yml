@@ -9,7 +9,7 @@ name: release
 # npm-publish.yml runs on the same tag push beside this one and re-runs the
 # gate itself.
 #
-# The auto-patch job is the automatic patch release (release-tooling(7),
+# The auto-patch job is the automatic patch release (docs/reference.md,
 # "Automatic patch releases"): after a push to main whose CI run concluded
 # success, it tags the next patch on a bump commit made on top of that run's
 # commit, pushes only the tag, starts npm-publish.yml on it and makes the

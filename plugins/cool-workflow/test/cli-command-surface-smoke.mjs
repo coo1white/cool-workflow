@@ -8,7 +8,7 @@
 //   - the top-level keys of each kept verb's --json output;
 //   - the exit codes: 0 ok, 1 refused or failed, 2 a run that stopped short.
 // Human text may change; these may not without a breaking-change note in
-// docs/release-and-migration.7.md.
+// docs/reference.md, "Removed surfaces".
 
 import assert from "node:assert/strict";
 import fs from "node:fs";

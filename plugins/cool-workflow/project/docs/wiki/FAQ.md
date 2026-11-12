@@ -66,7 +66,7 @@ lies can still sign a lie; CW can prove who signed it, and whether the saved
 record changed after that.
 
 Read the full limit statement in
-`plugins/cool-workflow/docs/trust-model.md` before you put weight on a green
+`plugins/cool-workflow/docs/reference.md` ("Trust model") before you put weight on a green
 verdict. The Wiki summary is [Trust And Audit](Trust-And-Audit.md).
 
 ## Can A Local Writer Re-Chain A Whole Log?

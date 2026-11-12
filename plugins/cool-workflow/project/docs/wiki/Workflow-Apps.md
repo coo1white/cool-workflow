@@ -76,7 +76,7 @@ wrote into CW's own install folder, where the next upgrade wiped it. Run
 `cw app list` and `cw plan` from that same folder, and they find the new
 app. An app id that is also a bundled app's id is refused. Edit the two
 files to give the app its own phases and tasks; `cw app validate my-app`
-checks them. Full rules: `cw man init`.
+checks them. Full rules: `plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man init` was removed in batch 5).
 
 **Get agents working together.** There is no separate multi-agent layer
 (the blackboard, the coordinator, and topologies were taken out in 0.3.1).
@@ -153,6 +153,4 @@ apps, an installed package, `CW_APPS_DIR`, or the current directory's own
 
 In the repository, see:
 
-- `plugins/cool-workflow/docs/workflow-app-framework.7.md`
-- `plugins/cool-workflow/docs/canonical-workflow-apps.7.md`
-- `plugins/cool-workflow/docs/agent-delegation-drive.7.md`
+- `plugins/cool-workflow/docs/reference.md` ("Ask: `cw -q`" and "Agents and wrappers")

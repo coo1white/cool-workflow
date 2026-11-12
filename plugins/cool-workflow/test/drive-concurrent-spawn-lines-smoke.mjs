@@ -2,8 +2,8 @@
 // drive-concurrent-spawn-lines-smoke — in a concurrent drive round, each
 // worker's `[drive] → <label> (<phase>) — spawning agent, may take minutes…`
 // line is printed when the round starts, while its agent runs, not after
-// the whole round ends (D1 row 4 in docs/unix-principles.md §8; new in
-// 0.3.2, an operator decision).
+// the whole round ends (docs/reference.md, "Live output"; new in 0.3.2,
+// an operator decision).
 //
 // Black box through scripts/cw.js. The stub agent writes a start mark and
 // then waits until the test makes a release file. With [drive] progress on,

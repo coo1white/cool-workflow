@@ -1,8 +1,8 @@
 # project/docs — the map
 
 The engineering docs of CW: plans, records, audits, and the wiki copy. They
-never ship (they are outside the npm `files` list). The man pages that do
-ship, the contract for users, are in [`../../docs/`](../../docs/).
+never ship (they are outside the npm `files` list). The reference that does
+ship, the contract for users, is [`../../docs/reference.md`](../../docs/reference.md).
 
 Every entry in this folder has one line below.
 

@@ -46,13 +46,13 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
    - Tag message answers "what can a user do now that they couldn't
      before?" in one concrete sentence.
    - FreeBSD discipline (binding — the floor in AGENTS.md;
-     docs/unix-principles.md §7): POLA (no default-behavior or byte change
+     docs/reference.md, "Output rules" and "Changing a default"): POLA (no default-behavior or byte change
      to existing outputs/layouts/flags), mechanism-not-policy (no
      vendor-specific logic in src/ core; wrappers only — core forwards
      streams, never parses them), Rule of Silence (stdout data-only,
      diagnostics on stderr, human niceties TTY-gated with opt-out),
-     fail-closed (no fabricated success, no silent fallback), man-page sync
-     (shipped behavior changes update docs/*.7.md in the same diff), and
+     fail-closed (no fabricated success, no silent fallback), doc sync
+     (shipped behavior changes update docs/reference.md in the same diff), and
      style(9) spirit (no reformatting of untouched code). Any violation →
      REJECT regardless of capability.
    - Operator-approved breaking change (the ONE exception, and to POLA
@@ -61,7 +61,7 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
      1. a merged PR's text (its commit message in this range) records
         the operator's own yes to that exact change: their quoted words
         and a date, not an agent's summary of what they might want;
-     2. the matching `plugins/cool-workflow/docs/*.7.md` says what the new
+     2. `plugins/cool-workflow/docs/reference.md` says what the new
         default is, changed in this same range;
      3. the release raises the version from the previous tag: while the
         version is 0.x, any raise, a patch raise included (0.3.0 → 0.3.1,

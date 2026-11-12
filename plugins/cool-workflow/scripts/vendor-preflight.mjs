@@ -2,7 +2,7 @@
 
 // vendor-preflight.mjs — opt-in live check of the builtin agent vendors.
 //
-// Support tiers (agent-delegation-drive(7)): a release is checked live only
+// Support tiers (docs/reference.md, "Agents and wrappers"): a release is checked live only
 // through its reviewer, which is whatever agent the operator configures (any
 // vendor); every builtin has a wrapper and an offline smoke, with no other live
 // check a release waits on. Run this script when you want live numbers: it runs

@@ -13,15 +13,15 @@ middle; the right column says where to go next.
 
 | You want to | Start here | Then |
 |---|---|---|
-| Install from a clone | `bun install --frozen-lockfile && npm run build && npm link` | [`docs/getting-started.md`](../plugins/cool-workflow/docs/getting-started.md) — why bun, and what not to run |
-| Do a first run | `cw doctor`, then `cw demo tamper` | [`docs/getting-started.md`](../plugins/cool-workflow/docs/getting-started.md#one-run-end-to-end) — one run, end to end |
+| Install from a clone | `bun install --frozen-lockfile && npm run build && npm link` | [`docs/reference.md`](../plugins/cool-workflow/docs/reference.md#install) — why bun, and what not to run |
+| Do a first run | `cw doctor`, then `cw demo tamper` | [`docs/reference.md`](../plugins/cool-workflow/docs/reference.md) — the loop at the top, then one part per step |
 | Run the tests | `npm run test:fast` (quick) or `npm test` | [`test/README.md`](../plugins/cool-workflow/test/README.md#running) — every way to run them |
 | Add a test | [`test/README.md`](../plugins/cool-workflow/test/README.md) | Unit test: `test/<the src/ folder>/<module>-<behavior>.test.mjs`. Smoke: `test/<name>-smoke.mjs` (found by itself). Shared set-up: [`test/helpers/`](../plugins/cool-workflow/test/helpers/) |
-| Find what a command does | `cw help <command>` | [`docs/index.md`](../plugins/cool-workflow/docs/index.md#find-by-command) — "Find by command", one row per verb |
+| Find what a command does | `cw help <command>` | [`docs/reference.md`](../plugins/cool-workflow/docs/reference.md) — one part per command, organized by what you do |
 | See how the code is laid out | [`project/docs/README.md`](../plugins/cool-workflow/project/docs/README.md#the-layer-stack) | The layer stack, one command walked from end to end, and the decision records |
-| Add a command | One row in [`src/wiring/commands.ts`](../plugins/cool-workflow/src/wiring/commands.ts) | The body in `src/shell/`; a section in a `docs/*.7.md` man page; a `--json` shape pinned in `test/cli-command-surface-smoke.mjs`. `src/` stays at 10,000 lines or fewer (`npm run check`) |
-| Fix a doc | The page itself | Man pages that go to users: [`docs/`](../plugins/cool-workflow/docs/index.md). Engineering docs that never ship: [`project/docs/`](../plugins/cool-workflow/project/docs/README.md). The README: edit the root copy only; CI makes the npm copy |
-| Cut a release | Not yours: the operator runs `npm run release -- X.Y.Z` | An agent only gets the version-bump PR ready: [`docs/release-tooling.7.md`](../plugins/cool-workflow/docs/release-tooling.7.md) and "Shipping a release" in [`AGENTS.md`](../AGENTS.md) |
+| Add a command | One row in [`src/wiring/commands.ts`](../plugins/cool-workflow/src/wiring/commands.ts) | The body in `src/shell/`; a part in [`docs/reference.md`](../plugins/cool-workflow/docs/reference.md); a `--json` shape pinned in `test/cli-command-surface-smoke.mjs`. `src/` stays at 10,000 lines or fewer (`npm run check`) |
+| Fix a doc | The page itself | The user reference: [`docs/reference.md`](../plugins/cool-workflow/docs/reference.md). Engineering docs that never ship: [`project/docs/`](../plugins/cool-workflow/project/docs/README.md). The README: edit the root copy only; CI makes the npm copy |
+| Cut a release | Not yours: the operator runs `npm run release -- X.Y.Z` | An agent only gets the version-bump PR ready: [`docs/reference.md`](../plugins/cool-workflow/docs/reference.md#release-operator-runbook) and "How work moves" in [`AGENTS.md`](../AGENTS.md) |
 | Report a security problem | [`.github/SECURITY.md`](SECURITY.md#reporting-issues) | Do not put it in a public issue |
 | Know the rules | [`AGENTS.md`](../AGENTS.md) | [`REVIEW.md`](../REVIEW.md) — what a reviewer looks at |
 

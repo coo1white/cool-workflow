@@ -6,10 +6,9 @@ CW offers the same runtime through CLI commands and MCP tools. Use `--json`
 or `--format json` when a script needs to read a CLI command's output.
 
 This page lists the common, stable command shapes — not the whole surface.
-The full list of every capability and its MCP tool is generated straight from
-the code and lives in
-[`docs/cli-mcp-parity.7.md`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/cli-mcp-parity.7.md).
-Read the exact counts there, so this page never drifts from the code.
+The full command list is `cw help`, and each command is described in
+[`docs/reference.md`](https://github.com/coo1white/cool-workflow/blob/main/plugins/cool-workflow/docs/reference.md).
+Read it there, so this page never drifts from the code.
 
 Use `cw help`, the top-level `cw --help` / `cw -h` flags, or `cw <command>
 --help` for help on one command.
@@ -110,7 +109,7 @@ repo. Every entry is checked, and a changed entry fails the whole read.
 | `cw ledger verify --file <file>` | Check one entry. |
 
 CW holds no git logic here: you `git add`, commit, and push the files.
-Full rules: `cw man cross-agent-ledger`. (The older approve, comment, and
+Full rules: `plugins/cool-workflow/docs/reference.md`, "Removed surfaces" (`cw man cross-agent-ledger` was removed in batch 5). (The older approve, comment, and
 handoff commands went in 0.3.1 with the multi-agent family.)
 
 ## MCP

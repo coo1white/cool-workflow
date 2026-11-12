@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// help-front-page-cap — unix-principles(7) rule 7: `cw help` gives at most
+// help-front-page-cap — docs/reference.md, "Output rules" rule 8: `cw help` gives at most
 // five entries before "More commands"; a new one goes on only when an old
 // one comes off. The 0.4.0 cut was turned back once for a sixth row; this
 // test makes that a failing unit test, not a review note.
@@ -27,7 +27,7 @@ function frontPageEntries(text) {
   assert.ok(entries.length > 0, "the front page must have at least one entry");
   assert.ok(
     entries.length <= MAX_FRONT_PAGE_ENTRIES,
-    `cw help front page has ${entries.length} entries; unix-principles(7) rule 7 allows ${MAX_FRONT_PAGE_ENTRIES}. ` +
+    `cw help front page has ${entries.length} entries; docs/reference.md "Output rules" allows ${MAX_FRONT_PAGE_ENTRIES}. ` +
       `Take one off before a new one goes on:\n${entries.join("\n")}`
   );
   // The block after the front page is "Flags", then "More commands": the

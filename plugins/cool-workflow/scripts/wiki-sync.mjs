@@ -2,9 +2,8 @@
 // wiki-sync — put the wiki copy in project/docs/wiki/ into a checkout of the
 // GitHub wiki.
 //
-// Consumer: AGENTS.md, "Shipping a release", step 2, and
-// docs/release-tooling.7.md, "Wiki publish" (the wiki publish after
-// a release); test/wiki-sync-smoke.mjs holds it.
+// Consumer: docs/reference.md, "Wiki publish" (the wiki publish after a
+// release); test/wiki-sync-smoke.mjs holds it.
 //
 //   node scripts/wiki-sync.mjs --to <wiki checkout dir>
 //

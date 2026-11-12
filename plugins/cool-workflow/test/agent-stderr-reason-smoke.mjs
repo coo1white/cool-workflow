@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // agent-stderr-reason-smoke — a failed agent's own words reach the person
-// (D1 state 6 in docs/unix-principles.md §8).
+// (docs/reference.md, "Resume a run").
 //
 // Any CW_AGENT_COMMAND that exits non-zero has the tail of its stderr kept
 // at <workerDir>/logs/agent-stderr.log, on the concurrent (batch) path and

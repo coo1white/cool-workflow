@@ -2,7 +2,7 @@
 description: Prepare a release (step 1 of 2) — version bump and PR. Cutting the tag is a separate operator-only step.
 ---
 
-A release is TWO steps (see `docs/release-tooling.7.md`, "Shipping a release"). This
+A release is TWO steps (see `docs/reference.md`, "Release (operator runbook)"). This
 command does ONLY step 1, the agent-prep half. Step 2 — running the gate,
 the independent reviewer, signing the verdict, creating the tag, and
 publishing — is the OPERATOR's own command, `npm run release -- X.Y.Z`, run
