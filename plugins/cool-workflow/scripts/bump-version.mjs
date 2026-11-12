@@ -218,7 +218,17 @@ function main() {
 
 // ---- Content-surface handling (v0.1.52) -----------------------------------
 
+// The man-page footer line a release needs: the version itself for a minor
+// or major (X.Y.0), and that same X.Y.0 line for a patch. Patches ship
+// automatically on green main (release-auto-patch.mjs) and add no man-page
+// lines; version-sync-check.mjs asks for the same line (manPageVersionLine).
+function contentNeedle(next) {
+  const [major, minor, patch] = next.split(".");
+  return patch === "0" ? next : `${major}.${minor}.0`;
+}
+
 function contentSurfaceFiles(next) {
+  const line = contentNeedle(next);
   // All files the version-sync-check script validates for VERSION or vX.Y.Z.
   // Keep in sync with scripts/version-sync-check.mjs.
   return [
@@ -226,21 +236,21 @@ function contentSurfaceFiles(next) {
     // README.md by scripts/sync-readme.mjs and shows the version via the live npm/release shields
     // badges, not a hand-maintained literal — so it is NOT a version-bump surface. After a bump,
     // `npm run sync:readme` keeps it byte-identical to the GitHub README (guarded by readme:check).
-    { path: "plugins/cool-workflow/docs/cli-mcp-parity.7.md",                needle: next, desc: "CLI/MCP parity doc" },
-    { path: "plugins/cool-workflow/docs/run-registry-control-plane.7.md",    needle: next, desc: "run registry doc" },
-    { path: "plugins/cool-workflow/docs/execution-backends.7.md",            needle: next, desc: "execution backends doc" },
-    { path: "plugins/cool-workflow/docs/web-desktop-workbench.7.md",         needle: next, desc: "workbench doc" },
-    { path: "plugins/cool-workflow/docs/observability-cost-accounting.7.md", needle: next, desc: "observability doc" },
-    { path: "plugins/cool-workflow/docs/release-tooling.7.md",               needle: next, desc: "release tooling doc" },
-    { path: "plugins/cool-workflow/docs/real-execution-backends.7.md",       needle: next, desc: "real execution backends doc" },
-    { path: "plugins/cool-workflow/docs/node-snapshot-diff-replay.7.md",     needle: next, desc: "node snapshot doc" },
-    { path: "plugins/cool-workflow/docs/contract-migration-tooling.7.md",    needle: next, desc: "contract migration doc" },
-    { path: "plugins/cool-workflow/docs/control-plane-scheduling.7.md",      needle: next, desc: "control-plane scheduling doc" },
-    { path: "plugins/cool-workflow/docs/agent-delegation-drive.7.md",        needle: next, desc: "agent delegation doc" },
-    { path: "plugins/cool-workflow/docs/run-retention-reclamation.7.md",     needle: next, desc: "run retention doc" },
-    { path: "plugins/cool-workflow/docs/durable-state-and-locking.7.md",     needle: next, desc: "durable state doc" },
-    { path: "plugins/cool-workflow/docs/release-and-migration.7.md",         needle: next, desc: "release & migration doc" },
-    { path: "plugins/cool-workflow/docs/trust-audit-anchor.7.md",           needle: next, desc: "trust audit anchor doc" },
+    { path: "plugins/cool-workflow/docs/cli-mcp-parity.7.md",                needle: line, desc: "CLI/MCP parity doc" },
+    { path: "plugins/cool-workflow/docs/run-registry-control-plane.7.md",    needle: line, desc: "run registry doc" },
+    { path: "plugins/cool-workflow/docs/execution-backends.7.md",            needle: line, desc: "execution backends doc" },
+    { path: "plugins/cool-workflow/docs/web-desktop-workbench.7.md",         needle: line, desc: "workbench doc" },
+    { path: "plugins/cool-workflow/docs/observability-cost-accounting.7.md", needle: line, desc: "observability doc" },
+    { path: "plugins/cool-workflow/docs/release-tooling.7.md",               needle: line, desc: "release tooling doc" },
+    { path: "plugins/cool-workflow/docs/real-execution-backends.7.md",       needle: line, desc: "real execution backends doc" },
+    { path: "plugins/cool-workflow/docs/node-snapshot-diff-replay.7.md",     needle: line, desc: "node snapshot doc" },
+    { path: "plugins/cool-workflow/docs/contract-migration-tooling.7.md",    needle: line, desc: "contract migration doc" },
+    { path: "plugins/cool-workflow/docs/control-plane-scheduling.7.md",      needle: line, desc: "control-plane scheduling doc" },
+    { path: "plugins/cool-workflow/docs/agent-delegation-drive.7.md",        needle: line, desc: "agent delegation doc" },
+    { path: "plugins/cool-workflow/docs/run-retention-reclamation.7.md",     needle: line, desc: "run retention doc" },
+    { path: "plugins/cool-workflow/docs/durable-state-and-locking.7.md",     needle: line, desc: "durable state doc" },
+    { path: "plugins/cool-workflow/docs/release-and-migration.7.md",         needle: line, desc: "release & migration doc" },
+    { path: "plugins/cool-workflow/docs/trust-audit-anchor.7.md",           needle: line, desc: "trust audit anchor doc" },
   ];
 }
 
@@ -250,7 +260,7 @@ function handleContentSurfaces(current, next) {
   const missing = [];
   for (const { path: rel, needle } of allFiles) {
     const abs = path.join(repoRoot, rel);
-    if (!fs.existsSync(abs)) { missing.push({ rel, reason: "file missing" }); continue; }
+    if (!fs.existsSync(abs)) { missing.push({ rel, needle, reason: "file missing" }); continue; }
     const text = fs.readFileSync(abs, "utf8");
     // Own-line match, not a plain substring: every entry here is a line this
     // function itself appends (`\n${needle}\n`) when missing, and a bare
@@ -265,7 +275,7 @@ function handleContentSurfaces(current, next) {
   }
 
   if (missing.length === 0) {
-    process.stdout.write(`\nContent surfaces PASS — every file includes ${next}.\n`);
+    process.stdout.write(`\nContent surfaces PASS — every file includes ${contentNeedle(next)}.\n`);
     return { ok: true };
   }
 
@@ -291,7 +301,7 @@ function handleContentSurfaces(current, next) {
   }
 
   // GATE mode (default): fail with precise missing-file list.
-  const lines = [`\n${missing.length} content surface(s) missing version ${next}:`];
+  const lines = [`\n${missing.length} content surface(s) missing version ${contentNeedle(next)}:`];
   for (const { rel, needle } of missing) {
     lines.push(`  ${rel}  — must contain "${needle}"`);
   }

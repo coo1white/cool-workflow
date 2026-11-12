@@ -8,10 +8,22 @@ name: release
 # the GitHub Release. Folded from release-gate.yml + github-release.yml.
 # npm-publish.yml runs on the same tag push beside this one and re-runs the
 # gate itself.
+#
+# The auto-patch job is the automatic patch release (release-tooling(7),
+# "Automatic patch releases"): after a push to main whose CI run concluded
+# success, it tags the next patch on a bump commit made on top of that run's
+# commit, pushes only the tag, starts npm-publish.yml on it and makes the
+# GitHub Release. A tag pushed with GITHUB_TOKEN starts no `push: tags` run,
+# so this job runs the gate itself before the push and dispatches the
+# publish. Minor and major releases stay the operator's signed cut.
 on:
   push:
     tags:
       - "v*"
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
@@ -24,6 +36,12 @@ concurrency:
 
 jobs:
   gate:
+    if: github.event_name == 'push'
+    # actions: read lets the verifier ask whether CI was green on the parent
+    # of an automatic patch tag (verify-release-verdict.mjs, checkAutoPatch).
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -91,8 +109,11 @@ jobs:
         # fail text out of the log of a green run (Actions prints a run:
         # step's full source before executing it).
         run: node "$RUNNER_TEMP/cw-release-verifier/verify-release-verdict.mjs" --context "The release flow was bypassed."
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
   release:
+    if: github.event_name == 'push'
     needs: gate
     permissions:
       contents: write
@@ -126,3 +147,110 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REF_NAME: ${{ github.ref_name }}
+
+  auto-patch:
+    # Only a push to main in this repository whose whole CI run concluded
+    # success (a fork's pull request from a branch named main has event
+    # pull_request, and another head repository).
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    # The one job here that may write: it pushes one tag (contents), starts
+    # npm-publish.yml and reads CI results (actions).
+    permissions:
+      contents: write
+      actions: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The commit CI judged, never main's head at this moment.
+          ref: ${{ github.event.workflow_run.head_sha }}
+          # Full history and tags: the plan reads the last release tag.
+          fetch-depth: 0
+          # The token is not left in .git/config: the gate below runs the
+          # test suite, and only the tag push step is given the token.
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.1
+
+      - name: Plan the patch release
+        # Skips with one line (CW_AUTO_RELEASE=off, release bookkeeping,
+        # already released, nothing shipped changed); fails when an operator
+        # minor or major is pending. See scripts/release-auto-patch.mjs.
+        id: plan
+        run: node plugins/cool-workflow/scripts/release-auto-patch.mjs plan --sha "$HEAD_SHA"
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CW_AUTO_RELEASE: ${{ vars.CW_AUTO_RELEASE }}
+
+      - name: Install
+        if: steps.plan.outputs.release == 'true'
+        run: bun install --frozen-lockfile --ignore-scripts --cwd plugins/cool-workflow
+
+      - name: Make the bump commit and tag (local only)
+        if: steps.plan.outputs.release == 'true'
+        run: node plugins/cool-workflow/scripts/release-auto-patch.mjs bump --sha "$HEAD_SHA" --version "$VERSION"
+        env:
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          VERSION: ${{ steps.plan.outputs.version }}
+
+      - name: Run deterministic release gate on the tag commit
+        # The gate release.yml's gate job runs on a tag push, run here
+        # BEFORE the tag is pushed: a red gate leaves no tag behind.
+        if: steps.plan.outputs.release == 'true'
+        run: node plugins/cool-workflow/scripts/release-gate.mjs
+
+      - name: Verify the tag as npm-publish.yml will
+        # The same verifier, the same automatic patch rule (bump
+        # reproduction, CI green on the parent): a tag it would refuse is
+        # never pushed.
+        if: steps.plan.outputs.release == 'true'
+        run: node plugins/cool-workflow/scripts/verify-release-verdict.mjs --context "The automatic patch release would not pass its own check."
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Push only the tag
+        # Never a branch: main is protected, and the bump commit lives only
+        # on the tag (main lags behind npm on version surfaces).
+        if: steps.plan.outputs.release == 'true'
+        run: |
+          AUTH="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 | tr -d '\n')"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $AUTH" push origin "refs/tags/$TAG"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.plan.outputs.tag }}
+
+      - name: Start npm-publish on the tag
+        # A tag pushed with GITHUB_TOKEN starts no tag-push run; a
+        # workflow_dispatch does. The publish still waits for the operator's
+        # approval in the protected `npm` environment.
+        if: steps.plan.outputs.release == 'true'
+        run: gh workflow run npm-publish.yml --ref "$TAG"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.plan.outputs.tag }}
+
+      - name: Create GitHub Release
+        if: steps.plan.outputs.release == 'true'
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — nothing to do."
+          else
+            gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.plan.outputs.tag }}

@@ -47,6 +47,13 @@ function readReleaseSource(relativePath) {
 // Read it from the released commit so the asserted-against version is itself
 // taken from HEAD, not a half-written working copy.
 const VERSION = JSON.parse(readReleaseSource("plugins/cool-workflow/package.json").text).version;
+// The man-page footer line: VERSION for a minor or major (X.Y.0), X.Y.0 for a
+// patch. Patches ship automatically on green main and add no man-page lines;
+// bump-version.mjs's contentNeedle() appends the same line.
+const MAN_PAGE_LINE = (() => {
+  const [major, minor, patch] = VERSION.split(".");
+  return patch === "0" ? VERSION : `${major}.${minor}.0`;
+})();
 // Canonical app ids are DERIVED from apps/ (excluding metadata.example demos) by
 // scripts/canonical-apps-list.mjs — the single source bump-version.mjs bumps and
 // canonical-apps.mjs smoke-tests. No hand-copied list to drift (audit M5).
@@ -93,55 +100,55 @@ function main() {
   // above (version.ts/dist/package.json/manifests/docs) still pin the release.
   checkIncludes("plugins/cool-workflow/docs/index.md", "release and migration", checks);
   checkIncludes("plugins/cool-workflow/docs/cli-mcp-parity.7.md", "CLI", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/cli-mcp-parity.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/cli-mcp-parity.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "cli-mcp-parity.7.md", checks);
   checkIncludes("plugins/cool-workflow/docs/run-registry-control-plane.7.md", "Run Registry / Control Plane", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/run-registry-control-plane.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/run-registry-control-plane.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "run-registry-control-plane.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/run-registry-control-plane-smoke.mjs", "run-registry-control-plane-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/execution-backends.7.md", "Execution Backends", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/execution-backends.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/execution-backends.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "execution-backends.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/execution-backends-smoke.mjs", "execution-backends-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/web-desktop-workbench.7.md", "Web / Desktop Workbench", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/web-desktop-workbench.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/web-desktop-workbench.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "web-desktop-workbench.7.md", checks);
   checkIncludes("plugins/cool-workflow/ui/workbench/tests/web-desktop-workbench-smoke.test.js", "web-desktop-workbench-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/observability-cost-accounting.7.md", "Observability + Cost Accounting", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/observability-cost-accounting.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/observability-cost-accounting.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "observability-cost-accounting.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/observability-cost-accounting-smoke.mjs", "observability-cost-accounting-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/release-tooling.7.md", "Release Tooling", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/release-tooling.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/release-tooling.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "release-tooling.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/release-tooling-smoke.mjs", "release-tooling-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/real-execution-backends.7.md", "Real Execution Backend Integrations", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/real-execution-backends.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/real-execution-backends.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "real-execution-backends.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/real-execution-backends-smoke.mjs", "real-execution-backends-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/node-snapshot-diff-replay.7.md", "Node Snapshot / Diff / Replay", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/node-snapshot-diff-replay.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/node-snapshot-diff-replay.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "node-snapshot-diff-replay.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/node-snapshot-diff-replay-smoke.mjs", "node-snapshot-diff-replay-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/contract-migration-tooling.7.md", "Contract Migration Tooling", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/contract-migration-tooling.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/contract-migration-tooling.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "contract-migration-tooling.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/contract-migration-tooling-smoke.mjs", "contract-migration-tooling-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/control-plane-scheduling.7.md", "Control-Plane Scheduling", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/control-plane-scheduling.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/control-plane-scheduling.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "control-plane-scheduling.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/control-plane-scheduling-smoke.mjs", "control-plane-scheduling-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/agent-delegation-drive.7.md", "Agent Delegation Drive", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/agent-delegation-drive.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/agent-delegation-drive.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "agent-delegation-drive.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/agent-delegation-drive-smoke.mjs", "agent-delegation-drive-smoke", checks);
   checkIncludes("plugins/cool-workflow/docs/run-retention-reclamation.7.md", "Run Retention & Provable Reclamation", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/run-retention-reclamation.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/run-retention-reclamation.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "run-retention-reclamation.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/run-retention-reclamation-smoke.mjs", "run-retention-reclamation-smoke", checks);
   checkIncludes("plugins/cool-workflow/src/wiring/capability-table/scheduling-registry.ts", "gc.plan", checks);
   checkIncludes("plugins/cool-workflow/docs/durable-state-and-locking.7.md", "Durable State & Locking", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/durable-state-and-locking.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/durable-state-and-locking.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "durable-state-and-locking.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/durable-atomic-write-smoke.mjs", "durable-atomic-write-smoke", checks);
   checkIncludes("plugins/cool-workflow/src/shell/fs-atomic.ts", "withFileLock", checks);
@@ -170,10 +177,10 @@ function main() {
   checkIncludes("plugins/cool-workflow/docs/dogfood-one-real-repo.7.md", "Dogfood One Real Repo", checks);
   checkIncludes("plugins/cool-workflow/docs/getting-started.md", "npm run release:check", checks);
   checkIncludes("plugins/cool-workflow/docs/trust-audit-anchor.7.md", "Trust Audit Anchor", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/trust-audit-anchor.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/trust-audit-anchor.7.md", MAN_PAGE_LINE, checks);
   checkIncludes("plugins/cool-workflow/docs/index.md", "trust-audit-anchor.7.md", checks);
   checkIncludes("plugins/cool-workflow/test/trust-audit-anchor-smoke.mjs", "trust-audit-anchor-smoke", checks);
-  checkIncludesOwnLine("plugins/cool-workflow/docs/release-and-migration.7.md", VERSION, checks);
+  checkIncludesOwnLine("plugins/cool-workflow/docs/release-and-migration.7.md", MAN_PAGE_LINE, checks);
   // Homebrew formula (repo root): git-tag formula. Homebrew scans the version
   // from the tag, so the tag is the single version surface to gate (an explicit
   // `version` line would be redundant and brew audit rejects it). bump-version.mjs

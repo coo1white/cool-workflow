@@ -20,6 +20,13 @@ name: npm-publish
 # deterministic release gate, and requires the tag to match the committed
 # package version. Publishes through npm Trusted Publishing with provenance;
 # no long-lived npm publish token is used.
+#
+# Automatic patch releases: release.yml's auto-patch job pushes the tag with
+# GITHUB_TOKEN (which starts no tag-push run) and then dispatches this
+# workflow on that tag ref, so GITHUB_SHA is still the tag commit. The tag
+# carries no verdict; the verifier accepts it only by its automatic patch
+# rule (a patch, the exact bump of a main commit CI passed), which asks the
+# GitHub API for that CI result, hence `actions: read` below.
 
 on:
   push:
@@ -31,6 +38,7 @@ on:
 
 permissions:
   contents: read
+  actions: read # the verifier reads the CI result for an automatic patch tag
   id-token: write # required for npm Trusted Publishing / provenance
 
 # Queue, never cancel: a duplicate trigger for the same tag must queue behind
@@ -151,6 +159,7 @@ jobs:
           node "$RUNNER_TEMP/cw-release-verifier/verify-release-verdict.mjs" --context "Publishing cannot be used to skip the gated release flow."
         env:
           TAG_REF: ${{ steps.tagref.outputs.ref }}
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Verify committed dist/ matches source (fail closed on drift)
         run: |
           # bun install --frozen-lockfile (not a plain `bun install`): this job

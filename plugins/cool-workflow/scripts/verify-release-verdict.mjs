@@ -39,14 +39,35 @@
 // `git rev-parse --show-toplevel`, and the two helper scripts are loaded
 // from this script's own directory (never from the repo under test).
 //
+// AUTOMATIC PATCH RULE (owner's decision 2026-11-12: patches ship on green
+// main; the signing key is kept for minor and major releases). When no
+// signed verdict is found, a tag is still accepted with NO verdict only if
+// every check in checkAutoPatch() below holds — it is the commit
+// release-auto-patch.mjs makes, and nothing else:
+//   (a) the version (HEAD's package.json) is X.Y.Z with Z > 0, a v<version>
+//       tag points at HEAD, and the highest OTHER tag below it is X.Y.(Z-1);
+//   (b) HEAD has exactly one parent, that parent is an ancestor of
+//       origin/main, and the parent of that previous tag is an ancestor of
+//       it (no re-release of older main code under a new number);
+//   (c) HEAD's tree is byte for byte the deterministic bump of that parent
+//       (verify-bump-reproduction.mjs --no-verdict);
+//   (d) the `CI` workflow (.github/workflows/ci.yml) concluded success on a
+//       push to main at that parent — asked of the GitHub API with
+//       GITHUB_TOKEN; any API error, or no token, refuses.
+// A minor or major (Z == 0) never takes this path: it always needs the
+// signed verdict above. The GitHub query is a parameter of checkAutoPatch(),
+// so release-auto-patch-smoke.mjs drives it with a stub; there is no env
+// switch that could swap it in CI.
+//
 // Usage: verify-release-verdict.mjs [--context "<one sentence for the fail message>"]
-// Exit 0: a valid verdict was found. Exit 1: none found — the two
-// "::error::" lines are printed here and nowhere else.
+// Exit 0: a valid verdict was found, or the automatic patch rule holds.
+// Exit 1: neither — the two "::error::" lines are printed here and nowhere else.
 
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 // Where THIS SCRIPT lives — the helper scripts are siblings of the installed
 // script, never files of the (possibly throwaway) repo being checked. Same
@@ -54,12 +75,140 @@ import { spawnSync } from "node:child_process";
 const VERIFY_SIG = path.join(import.meta.dirname, "verify-verdict-signature.mjs");
 const VERIFY_BUMP = path.join(import.meta.dirname, "verify-bump-reproduction.mjs");
 
+// The one workflow whose success on main lets a patch ship.
+const CI_WORKFLOW_PATH = ".github/workflows/ci.yml";
+
 function git(args) {
   const r = spawnSync("git", args, { encoding: "utf8" });
   return r.status === 0 ? r.stdout.trim() : "";
 }
 
-function main() {
+function gitOk(args) {
+  return spawnSync("git", args, { encoding: "utf8" }).status === 0;
+}
+
+function parseVersion(v) {
+  const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(v || "");
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+function compareVersion(a, b) {
+  for (let i = 0; i < 3; i++) if (a[i] !== b[i]) return a[i] - b[i];
+  return 0;
+}
+
+/** Asks GitHub whether the `CI` workflow concluded success on a push to main
+ *  at `sha`. Fails closed: no token, no repo, a non-200 answer, a body that is
+ *  not the expected shape, or a network error all give ok:false. */
+async function queryCiSuccess(sha, { env = process.env } = {}) {
+  const token = env.GITHUB_TOKEN || env.GH_TOKEN || "";
+  const repo = env.GITHUB_REPOSITORY || "";
+  if (!token) return { ok: false, reason: "no GITHUB_TOKEN to ask GitHub for the CI result" };
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repo)) return { ok: false, reason: "GITHUB_REPOSITORY is not set to owner/repo" };
+  const url = `https://api.github.com/repos/${repo}/actions/runs?head_sha=${sha}&event=push&branch=main&per_page=100`;
+  let body;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Accept: "application/vnd.github+json",
+        Authorization: `Bearer ${token}`,
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "cool-workflow-release-verifier"
+      },
+      signal: AbortSignal.timeout(30000)
+    });
+    if (res.status !== 200) return { ok: false, reason: `GitHub answered HTTP ${res.status} for the CI runs of ${sha}` };
+    body = await res.json();
+  } catch (e) {
+    return { ok: false, reason: `could not ask GitHub for the CI runs of ${sha}: ${e && e.message ? e.message : e}` };
+  }
+  return ciRunsSayGreen(body, sha);
+}
+
+/** Pure: does a GET /actions/runs answer hold a completed, successful `CI`
+ *  (ci.yml) run for a push to main at `sha`? */
+function ciRunsSayGreen(body, sha) {
+  const runs = body && Array.isArray(body.workflow_runs) ? body.workflow_runs : null;
+  if (!runs) return { ok: false, reason: "GitHub's answer has no workflow_runs list" };
+  const green = runs.some(
+    (r) =>
+      r &&
+      r.head_sha === sha &&
+      r.event === "push" &&
+      r.head_branch === "main" &&
+      typeof r.path === "string" &&
+      r.path.split("@")[0] === CI_WORKFLOW_PATH &&
+      r.status === "completed" &&
+      r.conclusion === "success"
+  );
+  return green
+    ? { ok: true, reason: `${CI_WORKFLOW_PATH} concluded success on main at ${sha}` }
+    : { ok: false, reason: `no successful ${CI_WORKFLOW_PATH} run for a push to main at ${sha}` };
+}
+
+/** The automatic patch rule (see the header). `ciCheck(parentSha)` resolves
+ *  to { ok, reason }; production passes queryCiSuccess. Cheap local checks
+ *  run first, so a refusal never reaches the network. Never throws. */
+async function checkAutoPatch({ repoRoot, ciCheck, verifyBump = VERIFY_BUMP }) {
+  const g = (args) => git(["-C", repoRoot, ...args]);
+  const refuse = (reason) => ({ ok: false, reason });
+
+  const SHA = g(["rev-parse", "HEAD^{commit}"]);
+  if (!SHA) return refuse("could not resolve HEAD");
+  let version = "";
+  try {
+    version = JSON.parse(g(["show", "HEAD:plugins/cool-workflow/package.json"])).version || "";
+  } catch {
+    return refuse("could not read plugins/cool-workflow/package.json at HEAD");
+  }
+  const v = parseVersion(version);
+  if (!v) return refuse(`package version "${version}" is not X.Y.Z`);
+  // (a) a patch only; a minor or major always needs the signed verdict.
+  if (v[2] === 0) return refuse(`v${version} is a minor or major release: it needs the signed verdict`);
+  const headTags = g(["tag", "--points-at", "HEAD"]).split("\n").filter(Boolean);
+  if (!headTags.includes(`v${version}`)) return refuse(`no v${version} tag points at HEAD`);
+  const lower = g(["tag", "-l", "v*"])
+    .split("\n")
+    .map((t) => ({ t, s: parseVersion(t.slice(1)) }))
+    .filter((x) => x.t.startsWith("v") && x.s && compareVersion(x.s, v) < 0)
+    .sort((a, b) => compareVersion(b.s, a.s));
+  const prev = lower[0];
+  if (!prev) return refuse(`no release tag below v${version}`);
+  if (prev.s[0] !== v[0] || prev.s[1] !== v[1] || prev.s[2] !== v[2] - 1) {
+    return refuse(`v${version} is not the next patch after ${prev.t}`);
+  }
+  // (b) one parent, on main, and newer than the previous release's parent.
+  const parents = g(["rev-list", "--parents", "-n", "1", SHA]).split(" ").slice(1).filter(Boolean);
+  if (parents.length !== 1) return refuse(`the tag commit has ${parents.length} parents, not exactly one`);
+  const PARENT = parents[0];
+  if (!gitOk(["-C", repoRoot, "rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"])) {
+    return refuse("origin/main is not fetched");
+  }
+  if (!gitOk(["-C", repoRoot, "merge-base", "--is-ancestor", PARENT, "refs/remotes/origin/main"])) {
+    return refuse(`the parent ${PARENT} is not on origin/main`);
+  }
+  const prevParent = g(["rev-parse", `${prev.t}^{commit}^`]);
+  if (!prevParent || !gitOk(["-C", repoRoot, "merge-base", "--is-ancestor", prevParent, PARENT])) {
+    return refuse(`the parent ${PARENT} is not newer than ${prev.t}'s parent: older main code cannot ship as v${version}`);
+  }
+  // (c) the tree is exactly the deterministic bump of the parent.
+  const bump = spawnSync(process.execPath, [verifyBump, "--no-verdict", PARENT, SHA], {
+    cwd: repoRoot,
+    stdio: ["ignore", "inherit", "inherit"]
+  });
+  if (bump.status !== 0) return refuse(`the tag commit is not the deterministic bump of ${PARENT}`);
+  // (d) CI was green on main at the parent.
+  let ci;
+  try {
+    ci = await ciCheck(PARENT);
+  } catch (e) {
+    ci = { ok: false, reason: `the CI check failed: ${e && e.message ? e.message : e}` };
+  }
+  if (!ci || ci.ok !== true) return refuse((ci && ci.reason) || "the CI check gave no answer");
+  return { ok: true, reason: `automatic patch v${version}: the bump of ${PARENT} (on main, after ${prev.t}); ${ci.reason}` };
+}
+
+async function main() {
   let context = "The release flow was bypassed.";
   const argv = process.argv.slice(2);
   for (let i = 0; i < argv.length; i++) {
@@ -129,6 +278,14 @@ function main() {
     return 0;
   }
 
+  // No signed verdict: the one other way in is the automatic patch rule.
+  const auto = await checkAutoPatch({ repoRoot: REPO_ROOT, ciCheck: (sha) => queryCiSuccess(sha) });
+  if (auto.ok) {
+    console.log(`no signed verdict needed — ${auto.reason}`);
+    return 0;
+  }
+  console.log(`not an automatic patch release: ${auto.reason}`);
+
   console.log(
     `::error::No committed APPROVED verdict for this tag (with a valid signature, if .cw-release/verdict-signing.pub is committed). ${context}`
   );
@@ -138,4 +295,22 @@ function main() {
   return 1;
 }
 
-process.exit(main());
+export { checkAutoPatch, ciRunsSayGreen, queryCiSuccess };
+
+// Run only as a script; release-auto-patch-smoke.mjs imports checkAutoPatch.
+// Fail closed: the exit code is 1 until main() itself sets it, so if this
+// "am I the script?" test ever misfired in CI, the step would go red, never
+// green with no check done. (An importer sets process.exitCode itself.)
+process.exitCode = 1;
+let isScript = false;
+try {
+  isScript = Boolean(process.argv[1]) && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url));
+} catch {
+  isScript = false;
+}
+if (isScript) {
+  main().then((code) => process.exit(code), (e) => {
+    process.stderr.write(`verify-release-verdict: ${e && e.stack ? e.stack : e}\n`);
+    process.exit(1);
+  });
+}
