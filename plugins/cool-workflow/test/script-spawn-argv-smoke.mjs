@@ -48,4 +48,11 @@ for (const name of ["bump-version", "dist-drift-check", "release-auto-patch", "r
   assert.doesNotMatch(text, /from "node:child_process"/, `${name}.mjs must not start children with the bare node:child_process spawnSync`);
 }
 
+// verify-bump-reproduction.mjs is copied alone into the release verifier
+// folder, so it carries its own Windows npm start instead of the helper.
+const repro = fs.readFileSync(path.join(pluginRoot, "scripts", "verify-bump-reproduction.mjs"), "utf8");
+assert.match(repro, /"npm", "bin", "npm-cli\.js"/, "verify-bump-reproduction.mjs must know node's own npm-cli.js");
+assert.match(repro, /process\.platform === "win32" && cmd === "npm"/, "verify-bump-reproduction.mjs must start npm as node npm-cli.js on Windows");
+assert.doesNotMatch(repro, /from "\.\/spawn-argv\.mjs"/, "verify-bump-reproduction.mjs must stay standalone");
+
 console.log("script-spawn-argv-smoke: ok");
