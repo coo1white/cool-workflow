@@ -32,13 +32,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import { tmpDir } from "./helpers/workspace.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const VERIFIER = path.join(pluginRoot, "scripts", "verify-release-verdict.mjs");
 const AUTO = path.join(pluginRoot, "scripts", "release-auto-patch.mjs");
 const TAGS = path.join(pluginRoot, "scripts", "release-tags.mjs");
-const { checkAutoPatch, ciRunsSayGreen, queryCiSuccess } = await import(VERIFIER);
+const { checkAutoPatch, ciRunsSayGreen, queryCiSuccess } = await import(pathToFileURL(VERIFIER).href);
 
 function git(dir, args) {
   const r = spawnSync("git", args, { cwd: dir, encoding: "utf8" });

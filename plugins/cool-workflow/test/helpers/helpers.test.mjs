@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import { tmpDir, tmpWorkspace } from "./workspace.mjs";
 import { cw, CLI } from "./cw.mjs";
 import { writeStubAgent } from "./stub-agent.mjs";
@@ -18,7 +19,7 @@ const work = tmpWorkspace("cw-helpers-test-");
 assert.equal(work, fs.realpathSync(work));
 assert.equal(fs.readFileSync(path.join(work, "README.md"), "utf8"), "# target\n");
 const child = spawnSync(process.execPath, ["--input-type=module", "-e",
-  `import { tmpDir } from ${JSON.stringify(path.join(import.meta.dirname, "workspace.mjs"))}; process.stdout.write(tmpDir("cw-helpers-exit-"));`], { encoding: "utf8" });
+  `import { tmpDir } from ${JSON.stringify(pathToFileURL(path.join(import.meta.dirname, "workspace.mjs")).href)}; process.stdout.write(tmpDir("cw-helpers-exit-"));`], { encoding: "utf8" });
 assert.equal(child.status, 0, child.stderr);
 assert.ok(child.stdout.length > 0 && !fs.existsSync(child.stdout), "tmpDir folder is removed at exit");
 
