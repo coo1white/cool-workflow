@@ -1,4 +1,0 @@
-# exit: 0
-cw list
-
-  cw list  List bundled CW workflows.

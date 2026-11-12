@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 // cw-help-per-command-smoke: `cw help <verb>` and `cw <verb> --help` render the
-// verb's CLI subcommands + one-line summaries derived from CAPABILITY_REGISTRY
-// (the same table the dispatcher and CLI/MCP parity check use). Additive: the
-// bare `cw help` general output is unchanged except a 4-space discoverability note.
+// verb's subcommands + one-line summaries from the command table
+// (src/wiring/commands.ts, the same rows the dispatcher runs), plus each
+// row's flags.
 //
-// `cw help commit` lists `cw commit summary`; `cw help worker` lists
-// worker list/show/manifest/output/fail/validate/summary — each verb's
-// registry subcommands, not just the verb itself.
+// `cw help check` lists `cw check list` and `cw check show`; `cw help report`
+// lists bundle and verify-bundle — each verb's rows, not just the verb itself.
 
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -21,16 +20,17 @@ function run(args) {
 }
 
 // `cw help <verb>` lists subcommands + registry summaries.
-const commit = run(["help", "commit"]);
-assert.match(commit, /^cw commit/m, "per-command help headers the verb");
-assert.match(commit, /cw commit summary/, "per-command help lists subcommands from the registry");
-assert.match(commit, /commit summary for a run/i, "per-command help shows registry summaries");
+const check = run(["help", "check"]);
+assert.match(check, /^cw check/m, "per-command help headers the verb");
+assert.match(check, /cw check show <receipt-id>/, "per-command help lists subcommands from the table");
+assert.match(check, /List the receipts in this folder/, "per-command help shows the row summaries");
 
 // `cw <verb> --help` is an alias for `cw help <verb>` (byte-identical).
-const workerFlag = run(["worker", "--help"]);
-const workerPositional = run(["help", "worker"]);
-assert.equal(workerFlag, workerPositional, "`cw worker --help` === `cw help worker`");
-assert.match(workerFlag, /cw worker list/, "verb --help renders the verb's subcommands");
+const reportFlag = run(["report", "--help"]);
+const reportPositional = run(["help", "report"]);
+assert.equal(reportFlag, reportPositional, "`cw report --help` === `cw help report`");
+assert.match(reportFlag, /cw report verify-bundle <bundle>/, "verb --help renders the verb's subcommands");
+assert.match(reportFlag, /--require-signatures/, "verb --help renders each row's flags");
 
 // Unknown verb fails SOFT (exit 0, no throw) with a recovery hint back to full help.
 const unknown = run(["help", "definitely-not-a-cmd"]);

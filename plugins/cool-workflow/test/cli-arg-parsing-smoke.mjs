@@ -14,30 +14,29 @@ import * as parseargvModule from "../dist/cli/parseargv.js";
 import * as helpModule from "../dist/core/format/help.js";
 import childProcessModule from "node:child_process";
 import fsModule from "node:fs";
-import osModule from "node:os";
 import { tmpDir } from "./helpers/workspace.mjs";
 
-// 1. The regression: `--drive` (boolean) must NOT consume the following `-dir` flag.
+// 1. The regression: `--quiet` (boolean) must NOT consume the following `-dir` flag.
 {
-  const a = parseArgv(["run", "architecture-review", "--drive", "-dir", "/p"]);
-  assert.equal(a.command, "run");
-  assert.deepEqual(a.positionals, ["architecture-review"]);
-  assert.equal(a.options.drive, true, "--drive stays a boolean flag (must not swallow -dir)");
+  const a = parseArgv(["report", "some-run", "--quiet", "-dir", "/p"]);
+  assert.equal(a.command, "report");
+  assert.deepEqual(a.positionals, ["some-run"]);
+  assert.equal(a.options.quiet, true, "--quiet stays a boolean flag (must not swallow -dir)");
   assert.equal(a.options.dir, "/p", "-dir is parsed as its own flag with its value");
-  console.log("argparse: a boolean --drive does not swallow a trailing -dir ok");
+  console.log("argparse: a boolean --quiet does not swallow a trailing -dir ok");
 }
 
 // 2. Same for every single-dash alias trailing a boolean flag (-d, -r, -q -> dir/repo/question).
 for (const [flag, key] of [["-d", "dir"], ["-r", "repo"], ["-q", "question"]]) {
-  const a = parseArgv(["run", "app", "--drive", flag, "value"]);
-  assert.equal(a.options.drive, true, `--drive stays boolean before ${flag}`);
+  const a = parseArgv(["report", "--quiet", flag, "value"]);
+  assert.equal(a.options.quiet, true, `--quiet stays boolean before ${flag}`);
   assert.equal(a.options[key], "value", `${flag} -> options.${key}=value even after a boolean flag`);
 }
 console.log("argparse: a boolean flag never swallows a trailing -d/-r/-q ok");
 
 // 3. A double-dash flag with a real (non-dash) value still consumes it (no over-correction).
 {
-  const a = parseArgv(["quickstart", "--repo", "/x", "--question", "hello"]);
+  const a = parseArgv(["report", "--repo", "/x", "--question", "hello"]);
   assert.equal(a.options.repo, "/x", "--repo still consumes its path value");
   assert.equal(a.options.question, "hello", "--question still consumes its value");
 }
@@ -45,9 +44,9 @@ console.log("argparse: --flag still consumes a normal (non-dash) value ok");
 
 // 4. Escape hatches for a value that legitimately starts with `-`.
 {
-  const eq = parseArgv(["quickstart", "--question=-weird"]);
+  const eq = parseArgv(["report", "--question=-weird"]);
   assert.equal(eq.options.question, "-weird", "--key=-value preserves a dash-leading value");
-  const dd = parseArgv(["quickstart", "--", "-weird"]);
+  const dd = parseArgv(["check", "--", "-weird"]);
   assert.ok(dd.positionals.includes("-weird"), "`--` end-of-options passes a dash-leading token through as a positional");
 }
 console.log("argparse: --key=-value and -- escape hatches keep dash-leading values usable ok");
@@ -87,33 +86,37 @@ console.log("argparse: no dead verb in KNOWN_COMMANDS or cw help (update stays g
   }
   // The near-typo path is untouched: a close misspelling still gets its hint.
   assert.equal(suggestCommand("versio"), "version", "a near-typo still gets its suggestion");
-  assert.equal(suggestCommand("workr"), "worker", "a near-typo still gets its suggestion");
-  // audit-run has no close non-self neighbor within the distance cap.
-  assert.equal(suggestCommand("audit-run"), undefined, "audit-run gets no suggestion instead of itself");
+  assert.equal(suggestCommand("repot"), "report", "a near-typo still gets its suggestion");
+  // A word far from every verb gets no suggestion.
+  assert.equal(suggestCommand("audit-run"), undefined, "audit-run gets no suggestion");
 }
 console.log("argparse: suggestCommand never points at its own input ok");
 
 // 7. Help says `cw --resume --run <id>` — the line must be accepted as typed
-// (not "Unknown command: --resume"), and `cw run resume <id> --repo <path>`
-// must find the run from a different folder (README's troubleshooting row).
+// (not "Unknown command: --resume"), and `--resume --run <id> --repo <path>`
+// must find the run from a different folder.
 {
   const { spawnSync } = childProcessModule;
   const fs = fsModule;
-  const os = osModule;
   const cli = path.resolve(import.meta.dirname, "..", "dist", "cli.js");
   const env = { ...process.env, CW_NO_AUTO_AGENT: "1" };
+  delete env.CW_AGENT_COMMAND;
+  delete env.CW_AGENT_ENDPOINT;
   const repo = tmpDir("cw-resume-flag-");
   fs.writeFileSync(path.join(repo, "README.md"), "# t\n", "utf8");
-  const planned = spawnSync(process.execPath, [cli, "run", "architecture-review", "--drive", "--once", "--repo", repo, "--question", "q", "--json"], { encoding: "utf8", env });
+  spawnSync("git", ["init", "-q"], { cwd: repo });
+  // No agent: the run is planned, then stops blocked (exit 2).
+  const planned = spawnSync(process.execPath, [cli, "-q", "q", "--json"], { cwd: repo, encoding: "utf8", env });
+  assert.equal(planned.status, 2, planned.stderr);
   const runId = JSON.parse(planned.stdout).runId;
   const resumed = spawnSync(process.execPath, [cli, "--resume", "--run", runId, "--json"], { cwd: repo, encoding: "utf8", env });
   assert.doesNotMatch(resumed.stderr || "", /Unknown command/, "cw --resume --run <id> is accepted as the help says");
   assert.equal(JSON.parse(resumed.stdout).runId, runId, "--resume --run <id> reaches the same run");
   const elsewhere = tmpDir("cw-resume-elsewhere-");
-  const found = spawnSync(process.execPath, [cli, "run", "resume", runId, "--repo", repo, "--json"], { cwd: elsewhere, encoding: "utf8", env });
-  assert.doesNotMatch(found.stderr || "", /not found in source state/, "cw run resume <id> --repo <path> finds the run from another folder");
-  assert.equal(JSON.parse(found.stdout).runId, runId, "run resume --repo <path> reaches the same run");
+  const found = spawnSync(process.execPath, [cli, "--resume", "--run", runId, "--repo", repo, "--json"], { cwd: elsewhere, encoding: "utf8", env });
+  assert.doesNotMatch(found.stderr || "", /not found/, "--resume --run <id> --repo <path> finds the run from another folder");
+  assert.equal(JSON.parse(found.stdout).runId, runId, "--resume --repo <path> reaches the same run");
 }
-console.log("argparse: --resume redirect and run resume --repo lookup ok");
+console.log("argparse: --resume and --resume --repo lookup ok");
 
 console.log("cli-arg-parsing-smoke: ok");

@@ -22,6 +22,6 @@ body:
     attributes:
       label: What a good answer might look like (not required)
       description: |
-        A command, a flag, an MCP tool — only if you have a clear picture.
+        A command or a flag — only if you have a clear picture.
         Note: CW never runs a model itself and takes on no runtime
         dependency; a request that needs one of those will not go in.

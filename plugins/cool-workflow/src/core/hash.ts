@@ -54,14 +54,6 @@ export function fingerprintStrings(values: string[]): string {
   return `sha256:${hash.digest("hex").slice(0, 32)}`;
 }
 
-/** Maps each record to `"<id>:<status or empty>"`, sorts, then fingerprints.
- *  `updatedAt` is accepted in the record shape but NEVER used. */
-export function fingerprintRecords(
-  records: Array<{ id: string; status?: string; updatedAt?: string }>
-): string {
-  return fingerprintStrings(records.map((r) => `${r.id}:${r.status || ""}`).sort());
-}
-
 /** Prefixed `sha256:` + all 64 hex chars, over recursively KEY-SORTED JSON
  *  (not normalized — used to prove a source snapshot was not mutated). Used
  *  by the contract-migration prover. */

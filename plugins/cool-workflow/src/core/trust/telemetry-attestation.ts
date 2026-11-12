@@ -74,31 +74,6 @@ export function canonicalTelemetryPayload(
   });
 }
 
-function numberAt(usage: Record<string, unknown>, ...keys: string[]): number | undefined {
-  for (const key of keys) {
-    const value = usage[key];
-    const num = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
-    if (Number.isFinite(num)) return num;
-  }
-  return undefined;
-}
-
-/** Map the agent's free-form usage report onto token buckets, tolerating
- *  snake_case / camelCase variants. CW never invents a number — an
- *  unreported bucket stays `undefined`, never 0. */
-export function normalizeReportedUsage(
-  usage: Record<string, unknown> | undefined
-): { inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheWriteTokens?: number; totalTokens?: number } {
-  if (!usage) return {};
-  return {
-    inputTokens: numberAt(usage, "inputTokens", "input_tokens", "promptTokens", "prompt_tokens"),
-    outputTokens: numberAt(usage, "outputTokens", "output_tokens", "completionTokens", "completion_tokens"),
-    cacheReadTokens: numberAt(usage, "cacheReadTokens", "cache_read_tokens", "cacheReadInputTokens", "cache_read_input_tokens"),
-    cacheWriteTokens: numberAt(usage, "cacheWriteTokens", "cache_write_tokens", "cacheCreationInputTokens", "cache_creation_input_tokens"),
-    totalTokens: numberAt(usage, "totalTokens", "total_tokens"),
-  };
-}
-
 /** Verify the agent's signed usage against the operator-provisioned
  *  public key. Two-arm check: try the
  *  5-field payload (with resultDigest) first; on a miss, retry the

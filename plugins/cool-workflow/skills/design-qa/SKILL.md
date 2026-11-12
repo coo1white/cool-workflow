@@ -2,7 +2,7 @@
 name: design-qa
 description: >-
   Evaluate Cool Workflow architecture, product design, operator UX,
-  context-pack, workflow-app, MCP/CLI, or release-process proposals. Use when
+  context-pack, workflow-app, CLI, or release-process proposals. Use when
   Codex must decide whether a design respects FreeBSD/POLA,
   mechanism-not-policy, stable JSON surfaces, evidence, and verifier boundaries
   before implementation.
@@ -18,7 +18,7 @@ userland, a manifest, a wrapper, a routine, or an eval before implementation.
 ## Workflow
 
 1. State the user capability in one sentence.
-2. Identify the contract surface: CLI, MCP, `.cw/` state, file layout, docs,
+2. Identify the contract surface: CLI, `.cw/` state, file layout, docs,
    package contents, or external wrapper.
 3. Separate mechanism from policy. Move policy into data, apps, wrappers, env,
    or docs.

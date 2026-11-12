@@ -17,18 +17,11 @@ const checks = [
         "docs/getting-started.md",
         "docs/release-history.md",
         "docs/release-and-migration.7.md",
-        "docs/cli-mcp-parity.7.md",
-        "docs/run-registry-control-plane.7.md",
-        "docs/execution-backends.7.md",
-        "docs/observability-cost-accounting.7.md",
+        "docs/report-verifiable-bundle.7.md",
         "docs/release-tooling.7.md",
-        "docs/real-execution-backends.7.md",
-        "docs/node-snapshot-diff-replay.7.md",
-        "docs/contract-migration-tooling.7.md",
         "docs/agent-delegation-drive.7.md",
         "docs/durable-state-and-locking.7.md",
-        "docs/security-trust-hardening.7.md",
-        "docs/trust-audit-anchor.7.md"
+        "docs/security-trust-hardening.7.md"
       ]) {
         const absolute = path.resolve(pluginRoot, file);
         if (!fs.existsSync(absolute)) throw new Error(`missing ${path.relative(repoRoot, absolute)}`);
@@ -38,18 +31,14 @@ const checks = [
   // NOTE: the individual `node test/<x>-smoke.mjs` steps were removed — every one
   // is already run by `npm test` below (proven by set intersection). Re-running
   // them here doubled wall time (~86s -> ~25s) without adding coverage. The steps
-  // kept below are the ones NOT covered by `npm test`: the build/typecheck, the
-  // app/script runners (canonical-apps, golden-path), and the dedicated gates
-  // (parity, manifest drift, version sync). `npm test` already runs every smoke,
-  // including fixture-compat, dogfood, security, and the
-  // per-feature smokes.
+  // kept below are the ones NOT covered by `npm test`: the build/typecheck
+  // and size gate, and the dedicated gates (manifest drift, version sync).
   // `dist:check` builds from src/ AND fails closed if the committed dist/ drifted
   // from that fresh build — strictly stronger than a bare `npm run build`.
   { name: "dist freshness", command: ["npm", "run", "dist:check"] },
   { name: "core/shell purity", command: ["npm", "run", "purity:check"] },
   { name: "language policy (JS/TS only)", command: ["npm", "run", "lang:check"] },
-  { name: "type check", command: ["npm", "run", "check"] },
-  { name: "run-state schema consistency", command: ["node", "scripts/validate-run-state-schema.mjs"] },
+  { name: "type check and size", command: ["npm", "run", "check"] },
   // Every test path uses --concurrency auto by default (parallel, race-free:
   // each smoke runs in a private cwd + state roots). The release tag-gate
   // (release-gate.mjs) forces CW_TEST_CONCURRENCY=1 to stay sequential as the
@@ -60,9 +49,6 @@ const checks = [
   // this one, matching "tests": ci.yml runs test:unit directly, so this
   // entry would just repeat it a second time in the release-check pass.
   { name: "unit tests", command: ["npm", "run", "test:unit"] },
-  { name: "canonical apps", command: ["npm", "run", "canonical-apps"] },
-  { name: "golden path", command: ["npm", "run", "golden-path"] },
-  { name: "CLI MCP parity", command: ["npm", "run", "parity:check"] },
   { name: "vendor manifest synchronization", command: ["npm", "run", "gen:manifests", "--", "--check"] },
   { name: "version synchronization", command: ["npm", "run", "version:sync"] },
   // Fail closed if the npm README (plugins/cool-workflow/README.md) has drifted

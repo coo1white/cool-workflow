@@ -2,11 +2,10 @@
 
 // cli-unknown-command-suggestion — suggestCommand's exact threshold rule
 // (SPEC/cli-surface.md: distance <= 3 AND distance <= input.length/2;
-// inputs under 2 chars get nothing) plus the KNOWN_COMMANDS gap: "ledger"
-// is dispatched and listed in formatHelp, but is NOT in the KNOWN_COMMANDS
-// list suggestCommand searches, so a typo of "ledger" gets no suggestion
-// at all. This case extends version-basic.case.mjs's single unknown-command
-// pin (nosuchcommand -> no suggestion) — do not duplicate that check here.
+// inputs under 2 chars get nothing), and that a verb removed in batch 5
+// (2026-11-12) is now an unknown command. This case extends
+// version-basic.case.mjs's single unknown-command pin (nosuchcommand -> no
+// suggestion) — do not duplicate that check here.
 
 import { run, caseMain, assert } from "../lib.mjs";
 
@@ -39,23 +38,18 @@ caseMain(() => {
   assert.equal(farVersion.status, 1);
   assert.doesNotMatch(farVersion.stderr, /Did you mean/);
 
-  // The KNOWN_COMMANDS gap: "ledger" is a real, working, documented command
-  // (cw help ledger works; formatHelp lists it) but close typos of it get
-  // NO suggestion, because suggestCommand's candidate list does not
-  // include "ledger" at all.
-  const ledgerTypo1 = run(["ledgr"]);
-  assert.equal(ledgerTypo1.status, 1);
-  assert.equal(ledgerTypo1.stderr, "cw: Unknown command: ledgr\n  Try: cw help\n");
+  // Every kept verb is in the suggestion list.
+  for (const [typo, verb] of [["reprot", "report"], ["chek", "check"], ["doctr", "doctor"]]) {
+    const r = run([typo]);
+    assert.equal(r.status, 1);
+    assert.equal(r.stderr, `cw: Unknown command: ${typo}. Did you mean: ${verb}?\n  Try: cw help\n`);
+  }
 
-  const ledgerTypo2 = run(["ledge"]);
-  assert.equal(ledgerTypo2.status, 1);
-  assert.equal(ledgerTypo2.stderr, "cw: Unknown command: ledge\n  Try: cw help\n");
-
-  // Yet "ledger" itself dispatches fine and is a real command (usage error
-  // when bare, not "unknown command") — proving the gap is specifically in
-  // the suggestion list, not in dispatch.
-  const ledgerBare = run(["ledger"]);
-  assert.equal(ledgerBare.status, 1);
-  assert.equal(ledgerBare.stderr, "cw: Usage: cw ledger propose|review|verify|apply|list [options]\n");
-  assert.doesNotMatch(ledgerBare.stderr, /Unknown command/);
+  // A verb removed in batch 5 fails closed as unknown, exit 1, stdout empty.
+  for (const removed of ["ledger", "run", "quickstart", "audit", "telemetry"]) {
+    const r = run([removed]);
+    assert.equal(r.status, 1, `cw ${removed}`);
+    assert.equal(r.stdout, "");
+    assert.match(r.stderr, new RegExp(`^cw: Unknown command: ${removed}`));
+  }
 });

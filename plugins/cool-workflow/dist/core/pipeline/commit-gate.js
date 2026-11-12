@@ -1,144 +1,45 @@
-// core/pipeline/commit-gate.ts — commitState's gate resolution + the
-// ~25 error codes.
-//
-// The DECISION half of the commit gate (calls into core/state/
-// state-node.ts's transition matrix + commit-without-verifier gate). The
-// actual snapshot/audit writes are shell/drive.ts + shell/report.ts.
-//
-// Evidence: SPEC/pipeline-run.md "Commit gate — commit module",
-// "Commit-gate error codes (fixed strings)".
-import { hasGroundedEvidence, receiptIdsIn } from "../trust/evidence-grounding.js";
+// core/pipeline/commit-gate.ts — the final commit's gate. The verdict task's
+// accepted result must carry evidence that is grounded, resolves on disk, cites
+// no line past a file's end, and cites only receipts CW accepts. Pure: the
+// shell hands in the disk checks.
+import { hasGroundedEvidence, isVerdictTaskId, receiptIdsIn } from "../trust/evidence-grounding.js";
 import { isEmptyCapture } from "./result-normalize.js";
-function error(code, message, options = {}, now) {
-    return { code, message, at: now, retryable: false, ...options };
+/** The completed verdict/synthesis task that gates the final commit. */
+export function verdictTask(run) {
+    return run.tasks.find((task) => isVerdictTaskId(task.id) && task.status === "completed");
 }
-/** Whether the reason has the form `result:<task-id>` and that task has a
- *  verifierNodeId (auto-gate). */
-function taskVerifierFromReason(run, reason) {
-    const taskId = reason.startsWith("result:") ? reason.slice("result:".length) : "";
-    if (!taskId)
-        return undefined;
-    return run.tasks.find((t) => t.id === taskId)?.verifierNodeId || undefined;
-}
-function findNode(run, nodeId) {
-    return (run.nodes || []).find((n) => n.id === nodeId);
-}
-function evidenceLocatorString(entry) {
-    const ref = entry.locator || entry.path || entry.summary || entry.id;
-    return ref ? String(ref) : undefined;
-}
-/** The node must be kind verifier and status verified and have evidence.
- *  The HARD no-false-green gate: a verifier whose backing result was an
- *  empty capture fails with commit-rationale-empty-capture. `backingResult`
- *  is the parsed cw:result envelope of the task the verifier node backs
- *  (undefined when no 1:1 task backs the verifier). */
-export function emptyCaptureWarning(backingResult) {
-    if (!backingResult)
-        return undefined;
-    return isEmptyCapture(backingResult) ? "no findings or evidence captured from result.md" : undefined;
-}
-/** Whether a verifier node is held to the grounded-evidence bar: its
- *  backing task requires evidence, or there is no 1:1 task (always
- *  enforced). */
-export function verifierNodeRequiresEvidence(taskRequiresEvidence) {
-    return taskRequiresEvidence === undefined ? true : taskRequiresEvidence;
-}
-/** commitState's gate resolution. Pure decision function; the caller
- *  (shell/) performs the actual snapshot/audit writes on success and the
- *  error-node/feedback write on failure. Error order is pinned. */
-export function resolveCommitGate(run, options, deps) {
-    const metadata = { verifierGated: false, checkpoint: true };
+export function commitGateErrors(task, result, deps) {
     const errors = [];
-    const now = deps.now;
-    const taskVerifierNodeId = taskVerifierFromReason(run, options.reason);
-    const explicitGate = Boolean(options.verifierNodeId || options.verifierGated);
-    const verifierGated = explicitGate || Boolean(taskVerifierNodeId);
-    if (!verifierGated) {
-        return { verifierGated: false, evidence: [], errors, metadata };
+    const name = `Verifier task ${task.id}`;
+    if (!result || isEmptyCapture(result)) {
+        errors.push({ code: "commit-rationale-empty-capture", message: `${name} cannot back a commit: its result has no findings and no evidence` });
+        return errors;
     }
-    metadata.verifierGated = true;
-    metadata.checkpoint = false;
-    const verifierNodeId = options.verifierNodeId || taskVerifierNodeId;
-    if (!verifierNodeId) {
-        errors.push(error("commit-verifier-required", "Verifier-gated commit requires --verifier", {
-            details: { hint: "Use --allow-unverified-checkpoint to write a non-gated checkpoint." },
-        }, now));
+    const evidence = result.evidence.map(String);
+    if (!evidence.length) {
+        errors.push({ code: "commit-verifier-missing-evidence", message: `${name} has no evidence` });
     }
-    const verifierNode = verifierNodeId ? findNode(run, verifierNodeId) : undefined;
-    if (verifierNodeId && !verifierNode) {
-        errors.push(error("commit-verifier-not-found", `Verifier node not found: ${verifierNodeId}`, { details: { verifierNodeId } }, now));
-    }
-    if (verifierNode) {
-        groundVerifierEvidence(run, verifierNode, errors, deps, now);
-    }
-    return {
-        verifierGated: true,
-        verifierNodeId,
-        evidence: verifierNode?.evidence || [],
-        errors,
-        metadata: { ...metadata, verifierNodeId },
-    };
-}
-function groundVerifierEvidence(run, verifierNode, errors, deps, now) {
-    if (verifierNode.kind !== "verifier") {
-        errors.push(error("commit-verifier-wrong-kind", `Node ${verifierNode.id} is not a verifier node`, { nodeId: verifierNode.id, details: { verifierNodeId: verifierNode.id, kind: verifierNode.kind } }, now));
-    }
-    if (verifierNode.status !== "verified") {
-        errors.push(error("commit-verifier-not-verified", `Verifier node ${verifierNode.id} is ${verifierNode.status}`, { nodeId: verifierNode.id, details: { verifierNodeId: verifierNode.id, status: verifierNode.status } }, now));
-    }
-    const captureWarning = emptyCaptureWarning(deps.backingResult);
-    if (captureWarning) {
-        errors.push(error("commit-rationale-empty-capture", `Verifier node ${verifierNode.id} cannot back a commit: ${captureWarning}`, {
-            nodeId: verifierNode.id,
-            details: { verifierNodeId: verifierNode.id, reason: captureWarning },
-        }, now));
-    }
-    if (!verifierNode.evidence.length) {
-        errors.push(error("commit-verifier-missing-evidence", `Verifier node ${verifierNode.id} has no evidence`, { nodeId: verifierNode.id, details: { verifierNodeId: verifierNode.id } }, now));
-    }
-    else if (verifierNodeRequiresEvidence(deps.taskRequiresEvidence)) {
-        const locators = verifierNode.evidence.map(evidenceLocatorString).filter(Boolean);
-        if (!hasGroundedEvidence(locators)) {
-            errors.push(error("commit-verifier-evidence-ungrounded", `Verifier node ${verifierNode.id} evidence is not grounded (needs a path-like locator, URL, or namespace:value token)`, {
-                nodeId: verifierNode.id,
-                details: { verifierNodeId: verifierNode.id, evidence: locators },
-            }, now));
+    else if (task.requiresEvidence) {
+        if (!hasGroundedEvidence(evidence)) {
+            errors.push({ code: "commit-verifier-evidence-ungrounded", message: `${name} evidence is not grounded (needs a path-like locator, URL, or namespace:value token)` });
         }
-        if (deps.unresolvedFileEvidence) {
-            const unresolved = deps.unresolvedFileEvidence(locators);
-            if (unresolved.length) {
-                errors.push(error("commit-verifier-evidence-unresolvable", `Verifier node ${verifierNode.id} cites file evidence that does not resolve on disk: ${unresolved.join(", ")}`, {
-                    nodeId: verifierNode.id,
-                    details: { verifierNodeId: verifierNode.id, unresolved },
-                }, now));
-            }
+        const unresolved = deps.unresolvedFileEvidence(evidence);
+        if (unresolved.length) {
+            errors.push({ code: "commit-verifier-evidence-unresolvable", message: `${name} cites file evidence that does not resolve on disk: ${unresolved.join(", ")}` });
         }
-        const pastEnd = deps.linePastEnd ? deps.linePastEnd(locators) : null;
+        const pastEnd = deps.linePastEnd(evidence);
         if (pastEnd) {
-            errors.push(error("commit-verifier-evidence-past-end", `Verifier node ${verifierNode.id} cites a line past the end of its file: ${pastEnd.path}:${pastEnd.line} (${pastEnd.path} has ${pastEnd.lines} lines)`, {
-                nodeId: verifierNode.id,
-                details: { verifierNodeId: verifierNode.id, ...pastEnd },
-            }, now));
+            errors.push({ code: "commit-verifier-evidence-past-end", message: `${name} cites a line past the end of its file: ${pastEnd.path}:${pastEnd.line} (${pastEnd.path} has ${pastEnd.lines} lines)` });
         }
     }
-    const receiptIds = receiptIdsIn(verifierNode.evidence.map(evidenceLocatorString));
-    const refused = !receiptIds.length ? [] : deps.refusedReceipts ? deps.refusedReceipts(receiptIds) : receiptIds.map((id) => ({ id, reason: "no receipt check is wired here", next: "cw check list" }));
+    const receipts = receiptIdsIn(evidence);
+    const refused = receipts.length ? deps.refusedReceipts(receipts) : [];
     if (refused.length) {
-        errors.push(error("commit-verifier-receipt-refused", `Verifier node ${verifierNode.id} cites a receipt CW cannot accept: ${refused[0].reason}. Next: ${refused[0].next}`, {
-            nodeId: verifierNode.id,
-            details: { verifierNodeId: verifierNode.id, receipts: refused },
-        }, now));
+        errors.push({ code: "commit-verifier-receipt-refused", message: `${name} cites a receipt CW cannot accept: ${refused[0].reason}. Next: ${refused[0].next}` });
     }
+    return errors;
 }
-/** Deterministic commit id: position in the run's append-only commit log
- *  (1-based), 4 digits. */
+/** Position in the run's append-only commit log, 1-based, 4 digits. */
 export function formatCommitId(seq) {
     return `state-${String(seq).padStart(4, "0")}`;
-}
-/** Deterministic blocked-commit node id sequence: counts the
- *  commit-gate-failed nodes already recorded on the run. */
-export function gateFailureSeq(run) {
-    const marker = ":commit-gate-failed:";
-    const seq = (run.nodes || []).filter((n) => n.id.includes(marker)).length + 1;
-    return String(seq).padStart(4, "0");
 }

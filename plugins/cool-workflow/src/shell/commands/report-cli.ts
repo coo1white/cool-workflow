@@ -1,13 +1,9 @@
-// shell/commands/report-cli.ts — CLI/MCP-reachable bodies for `cw report bundle`
-// and `cw report verify-bundle`.
-//
-// Evidence: SPEC/ledger-trust.md "CLI: `cw report verify-bundle` and `cw
-// report bundle`".
+// shell/commands/report-cli.ts — `cw report bundle` and `cw report verify-bundle`.
 
 import * as path from "node:path";
 import { cwdArg, optionalArg } from "../../core/util/cli-args.js";
 import { exportRun, verifyReportBundle, ReportBundleVerification } from "../run-export.js";
-import { loadRunFromCwd } from "../run-store.js";
+import { loadRun } from "../run-store.js";
 import { bold, doctorGlyph } from "../term.js";
 
 export interface ReportBundleResult {
@@ -25,7 +21,7 @@ const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|p
 export function reportBundleCli(runId: string, args: Record<string, unknown>): ReportBundleResult {
   if (!runId) throw new Error("report bundle requires a run id (cw report bundle <run-id>)");
   const base = cwdArg(args);
-  const run = loadRunFromCwd(runId, base);
+  const run = loadRun(runId, base);
   const output = optionalArg(args.output || args.path || args.archive) || `${runId}.cwrun.json`;
   const outputPath = path.resolve(base, output);
   if (SYSTEM_DIRS.test(outputPath)) {
@@ -78,7 +74,6 @@ export function formatReportVerifyBundle(r: ReportBundleVerification): string {
   const checks: Array<[boolean, string]> = [
     [r.archiveOk, "archive intact — file digests match, no tamper"],
     [r.telemetryVerified, "telemetry hash chain verifies"],
-    [r.trustAuditVerified, "trust-audit chain verifies"],
     [r.reportFindingsVerified, "report.md matches every signed result"],
   ];
   for (const [ok, label] of checks) lines.push(`  ${doctorGlyph(ok ? "ok" : "fail")} ${label}`);
@@ -104,7 +99,7 @@ export function formatReportVerifyBundle(r: ReportBundleVerification): string {
 }
 
 /** `cw report bundle` on a TTY: the check, then where the file went and how
- *  to put it elsewhere. A pipe keeps the JSON (cli/dispatch.ts). */
+ *  to put it elsewhere. A pipe keeps the JSON. */
 export function formatReportBundle(json: unknown): string {
   const r = json as ReportBundleResult;
   const rel = path.relative(process.cwd(), r.archivePath);

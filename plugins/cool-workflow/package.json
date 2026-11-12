@@ -14,7 +14,7 @@
   "bugs": {
     "url": "https://github.com/coo1white/cool-workflow/issues"
   },
-  "description": "A workflow control plane and run-time you are able to check: it sends out jobs in TypeScript, makes certain of work against facts before it goes through, puts state into fixed records, and talks MCP. It gives the doing of the work to outside agents — it never runs the models itself.",
+  "description": "Keeps the books for AI work: an outside agent does the work, CW records each claim with the lines it rests on, gates the result on evidence, and writes a report you can verify offline. It never runs a model itself.",
   "type": "module",
   "engines": {
     "node": ">=22.13.0"
@@ -29,7 +29,6 @@
     ".codex-plugin/",
     ".gemini-plugin/",
     ".opencode-plugin/",
-    ".mcp.json",
     "manifest/",
     "README.md",
     "apps/",
@@ -37,28 +36,20 @@
     "docs/",
     "scripts/",
     "skills/",
-    "workflows/",
     "package.json",
     "tsconfig.json"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "tsc -p tsconfig.json --noEmit",
+    "check": "tsc -p tsconfig.json --noEmit && node scripts/size-check.mjs",
     "dist:check": "node scripts/dist-drift-check.mjs",
     "purity:check": "node scripts/purity-gate.mjs",
     "lang:check": "node scripts/lang-policy-check.mjs",
     "fails-before:check": "node scripts/fails-before-check.mjs",
-    "golden-path": "node scripts/golden-path.mjs",
-    "dogfood:release": "node scripts/dogfood-release.mjs",
-    "canonical-apps": "node scripts/canonical-apps.mjs",
-    "fixture-compat": "node test/run-fixture-compat-smoke.mjs",
     "sync:readme": "node scripts/sync-readme.mjs",
     "readme:check": "node scripts/sync-readme.mjs --check",
     "bump:version": "node scripts/bump-version.mjs",
     "gen:manifests": "node scripts/gen-manifests.mjs",
-    "gen:parity": "node scripts/gen-parity-doc.mjs",
-    "manifest:load-check": "node test/vendor-manifest-load-smoke.mjs",
-    "parity:check": "node scripts/parity-check.mjs --check",
     "version:sync": "node scripts/version-sync-check.mjs",
     "release:check": "node scripts/release-check.mjs",
     "release": "node scripts/release-oneclick.mjs",
@@ -71,7 +62,6 @@
     "test:coverage": "node dist/cli.js version > /dev/null && node scripts/coverage-gate.mjs --concurrency auto",
     "test:unit": "node dist/cli.js version > /dev/null && node test/run-unit.mjs",
     "ci": "npm run build && npm run check && npm run test && npm run release:check",
-    "validate:schema": "node scripts/validate-run-state-schema.mjs",
     "build:css": "node scripts/build-css.mjs"
   },
   "devDependencies": {
@@ -89,7 +79,6 @@
     "agent",
     "workflow",
     "control-plane",
-    "mcp",
     "multi-agent",
     "orchestration",
     "audit",
@@ -113,6 +102,5 @@
     "github-copilot",
     "antigravity",
     "grok"
-  ],
-  "mcpName": "io.github.coo1white/cool-workflow"
+  ]
 }

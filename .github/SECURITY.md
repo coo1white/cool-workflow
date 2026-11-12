@@ -1,7 +1,7 @@
 # Security
 
 Cool Workflow coordinates agent work and records workflow state. It does not
-grant permissions beyond the normal approval, sandbox, MCP, and package controls
+grant permissions beyond the normal approval, sandbox, and package controls
 in the user's environment.
 
 ## Security Model
@@ -21,7 +21,7 @@ controls round CW.
 
 ### Input Which Is Not Trusted
 
-- CLI and MCP arguments
+- CLI arguments
 - run archives and report bundles
 - workflow app files outside the package roots
 - agent, worker, and operator text kept in run state
@@ -30,18 +30,15 @@ controls round CW.
 
 ### Trust Boundaries
 
-- The MCP control process owns JSON-RPC work. The tool process owns file and
-  process work. A tool result is data, not a new control message.
 - `core` makes decisions. `shell` does file and process work. `wiring` joins
-  CLI and MCP names to those mechanisms.
-- A run archive is checked before restore work. Restore state is not trusted
-  until file, telemetry, and trust-audit checks pass.
+  CLI names to those mechanisms.
+- A report bundle is checked before anything in it is trusted: file hashes,
+  telemetry signatures, and the report's cited lines (`cw report
+  verify-bundle`).
 - An agent process is outside the CW kernel. The host gives it sandbox and
-  approval controls. CW checks the result path and keeps an attestation of the
-  controls the backend says it has.
-- A remote endpoint is an operator choice. CW sends only the environment which
-  the sandbox profile lets through and fails closed when the endpoint gives no
-  checkable result.
+  approval controls. CW hands it a fixed short list of env vars (`PATH`,
+  `HOME`, `USER`, provider keys and proxy settings), checks the result
+  path, and gates what it gives back on evidence.
 - The release reviewer is separate from the release gate. The signing key stays
   with the operator and is not part of agent work.
 
@@ -55,8 +52,7 @@ record.
 
 ### What CW Does Not Promise
 
-- A `readonly` CW profile does not by itself give OS read isolation.
-- Local stdio MCP is not a network auth service.
+- CW gives no OS isolation; that is the host's job.
 - A hash proves that bytes did not change; it does not prove that the first
   writer told the truth.
 - Text from an agent or an outside file may contain bad instructions. Treat it
@@ -70,12 +66,11 @@ workflow state, or bypass evidence gates.
 
 ## Safety Notes
 
-- Review subagent dispatch manifests before running sensitive work.
+- Review a worker's `input.md` before running sensitive work.
 - Do not place secrets in workflow prompts, state files, result Markdown, or
   `.cw/` run directories.
-- Treat external workflow definitions and MCP endpoints as untrusted until you
-  inspect them.
+- Treat external workflow definitions as untrusted until you inspect them.
 - Keep approvals and sandbox settings aligned with the repository you are
   working in.
-- Use `cw run restore` for the checked move of a run. `cw run import` is the
-  lower-level file mechanism.
+- Use `cw report bundle` and `cw report verify-bundle` to move a run's report
+  and check it on another machine.

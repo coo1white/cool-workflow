@@ -15,7 +15,7 @@ const out = path.resolve(process.argv[2] || "site");
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const repoRoot = path.resolve(process.argv[3] || path.resolve(pluginRoot, "..", ".."));
 
-const runId = resolveReportRunId({ cwd: repoRoot });
+const runId = resolveReportRunId(undefined, { cwd: repoRoot });
 const md = runId ? path.join(repoRoot, ".cw", "runs", runId, "report.md") : undefined;
 if (!md || !fs.existsSync(md)) {
   process.stderr.write(`site-snapshot: no run with a report.md under ${path.join(repoRoot, ".cw", "runs")}\n`);

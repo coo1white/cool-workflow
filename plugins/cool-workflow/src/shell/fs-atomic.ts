@@ -1,611 +1,142 @@
-// shell/fs-atomic.ts — atomic/durable JSON file IO and the cross-process
-// advisory file lock. Impure by nature (fs calls); this is the shell layer,
-// not core. Every writer in core/+shell/ that touches disk goes through
-// `writeJson` here, so the write bytes stay exactly one place.
+// shell/fs-atomic.ts — atomic JSON writes and small file locks.
 //
-// Evidence: SPEC/state-core.md "Write ordering and atomic rules", "Lock
-// protocol".
+// A write goes to a temp file in the same dir, then rename(2) puts it in
+// place, so a reader never sees half a file. A lock is a `<target>.lock` file
+// made with link(2): link is single-winner where open(O_EXCL) was seen not to
+// be on some Node versions under load.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { recordPerfDurableWrite } from "./perf-trace.js";
 
-// ---------------------------------------------------------------------------
-// writeJson — the ONE JSON-on-disk byte format: JSON.stringify(value, null, 2)
-// + "\n", written via temp-file + optional fsync + rename (atomic).
-// ---------------------------------------------------------------------------
-
-let atomicWriteCounter = 0;
-
-export interface WriteJsonOptions {
-  /** fsync the file (and best-effort the parent dir) so bytes survive a
-   *  crash/power loss. Used for AUTHORITATIVE state (state.json, registry
-   *  overlays, reclaimed.json). Skipped for high-frequency derived/
-   *  rebuildable writes so the atomic rename itself stays cheap. */
-  durable?: boolean;
+export function writeJson(file: string, value: unknown, options: { durable?: boolean } = {}): void {
+  writeFileAtomic(file, `${JSON.stringify(value, null, 2)}\n`, options);
 }
 
-/** Shared core of `writeJson`/`writeTextDurable`: write `contents` to a
- *  unique temp file, optionally fsync it, close, then rename over `file`.
- *  ORDER IS THE SAFETY PROPERTY — `rename(2)` is atomic on POSIX, so a
- *  reader always sees either the old bytes or the new bytes, never a torn
- *  file. On a rename failure the temp file is removed (best-effort) and
- *  the error is rethrown — the old bytes at `file` are never touched. */
-function writeBytesAtomic(file: string, contents: string | readonly Buffer[], durable: boolean): void {
+export function writeFileAtomic(file: string, text: string, options: { durable?: boolean } = {}): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const tmp = `${file}.tmp.${process.pid}.${atomicWriteCounter++}`;
-  // 0o600: this is run/ledger/registry state, not a file meant to be shared
-  // with other local users. rename(2) preserves the mode set at creation, so
-  // this covers the final file too.
-  const fd = fs.openSync(tmp, "w", 0o600);
+  const tmp = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+  const fd = fs.openSync(tmp, "w");
   try {
-    if (typeof contents === "string") fs.writeFileSync(fd, contents, "utf8");
-    else writeAllParts(fd, contents);
-    if (durable) fs.fsyncSync(fd);
+    fs.writeSync(fd, text);
+    if (options.durable) fs.fsyncSync(fd);
   } finally {
     fs.closeSync(fd);
   }
-  try {
-    fs.renameSync(tmp, file);
-  } catch (error) {
-    try {
-      fs.rmSync(tmp, { force: true });
-    } catch {
-      /* best-effort temp cleanup */
-    }
-    throw error;
-  }
-  if (durable) {
-    try {
-      const dirFd = fs.openSync(path.dirname(file), "r");
-      try {
-        fs.fsyncSync(dirFd);
-      } finally {
-        fs.closeSync(dirFd);
-      }
-    } catch {
-      /* directory fsync is best-effort (not supported on every platform) */
-    }
-    recordPerfDurableWrite(typeof contents === "string" ? Buffer.byteLength(contents, "utf8") : contents.reduce((sum, part) => sum + part.length, 0));
-  }
+  fs.renameSync(tmp, file);
 }
 
-/** Writes every byte of `parts`, in order, with as few writev calls as the
- *  kernel allows (a short write resumes where it stopped). */
-function writeAllParts(fd: number, parts: readonly Buffer[]): void {
-  let queue = parts.filter((part) => part.length > 0);
-  while (queue.length > 0) {
-    const batch = queue.slice(0, 1024);
-    let written = fs.writevSync(fd, batch);
-    let used = 0;
-    while (used < batch.length && written >= batch[used].length) written -= batch[used++].length;
-    queue = used < batch.length ? [batch[used].subarray(written), ...batch.slice(used + 1), ...queue.slice(batch.length)] : queue.slice(batch.length);
-  }
-}
-
-/** Atomic, optionally-durable JSON write — see `writeBytesAtomic`. */
-export function writeJson(file: string, value: unknown, options: WriteJsonOptions = {}): void {
-  writeBytesAtomic(file, `${JSON.stringify(value, null, 2)}\n`, Boolean(options.durable));
-}
-
-/** Same atomic-write contract as `writeJson` (temp file + optional fsync +
- *  rename), but for exact pre-built text instead of a value to serialize —
- *  used by callers replacing an NDJSON-style file (e.g. a repaired
- *  trust-audit event log) where the caller already has the final bytes. */
-export function writeTextDurable(file: string, text: string, options: WriteJsonOptions = {}): void {
-  writeBytesAtomic(file, text, Boolean(options.durable));
-}
-
-/** Same contract again, for bytes already cut into parts (written in order
- *  with writev, never joined into one string first). */
-export function writePartsDurable(file: string, parts: readonly Buffer[], options: WriteJsonOptions = {}): void {
-  writeBytesAtomic(file, parts, Boolean(options.durable));
-}
-
-/** Read + JSON.parse a file. Throws `File not found: <file>` when absent,
- *  `Invalid JSON in <file>: <message>` on a parse error. */
-export function readJson(file: string): unknown {
-  if (!fs.existsSync(file)) throw new Error(`File not found: ${file}`);
-  try {
-    return JSON.parse(fs.readFileSync(file, "utf8")) as unknown;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Invalid JSON in ${file}: ${message}`);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Safe ids / names
-// ---------------------------------------------------------------------------
-
-/** Replaces every run of chars outside `[a-zA-Z0-9_.:-]` with a single `_`. */
 export function safeFileName(value: string): string {
   return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");
 }
 
-/** Refuse a run id that is not a single safe path segment, so an id taken
- *  from an untrusted source (an imported run archive/bundle) can never
- *  escape the runs directory via a separator or a `..`/`.` component. The
- *  charset already forbids any separator, so the whole id is ONE path
- *  component; only the exact components `.` and `..` are refused — an
- *  EMBEDDED `..` (e.g. `v1..2`) is a safe directory name and is allowed. */
+/** A run id names one folder under .cw/runs: one safe segment, never `.`/`..`. */
 export function assertSafeRunId(value: unknown, context = "run id"): string {
-  if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Invalid ${context}: expected a non-empty string`);
-  }
+  if (typeof value !== "string" || value.length === 0) throw new Error(`Invalid ${context}: expected a non-empty string`);
   if (!/^[A-Za-z0-9._:-]+$/.test(value) || value === "." || value === "..") {
-    throw new Error(
-      `Unsafe ${context}: ${JSON.stringify(value)} must be a single path segment ([A-Za-z0-9._:-], not '.' or '..')`
-    );
+    throw new Error(`Unsafe ${context}: ${JSON.stringify(value)} must be a single path segment ([A-Za-z0-9._:-], not '.' or '..')`);
   }
   return value;
 }
 
-// ---------------------------------------------------------------------------
-// Symlink-hardened path containment
-// ---------------------------------------------------------------------------
-
-/** Realpath the deepest EXISTING ancestor (follows symlinks), then re-join
- *  the not-yet-created tail. If nothing exists up to the root, returns
- *  plain `path.resolve(target)`. */
-export function realResolve(target: string): string {
-  let current = path.resolve(target);
-  const tail: string[] = [];
-  for (;;) {
-    try {
-      const real = fs.realpathSync.native ? fs.realpathSync.native(current) : fs.realpathSync(current);
-      return tail.length ? path.join(real, ...tail.reverse()) : real;
-    } catch {
-      const parent = path.dirname(current);
-      if (parent === current) return path.resolve(target);
-      tail.push(path.basename(current));
-      current = parent;
-    }
-  }
-}
-
-/** True when `realResolve(candidate)` equals `realResolve(allowed)` or
- *  starts with it plus `path.sep`. Realpaths BOTH sides so a symlinked temp
- *  root (macOS `/tmp` -> `/private/tmp`) compares right. */
-export function isContainedPath(candidate: string, allowed: string): boolean {
-  const realCandidate = realResolve(candidate);
-  const realAllowed = realResolve(allowed);
-  return realCandidate === realAllowed || realCandidate.startsWith(realAllowed + path.sep);
-}
-
-// ---------------------------------------------------------------------------
-// durableAppendFileSync — append a line and fsync it before returning. Used
-// by the trust-audit event log, whose loss breaks audit-completeness.
-// ---------------------------------------------------------------------------
-
-export function durableAppendFileSync(file: string, data: string): void {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const fd = fs.openSync(file, "a", 0o600);
+function realResolve(p: string): string {
+  const abs = path.resolve(p);
   try {
-    fs.writeFileSync(fd, data, "utf8");
-    fs.fsyncSync(fd);
-  } finally {
-    fs.closeSync(fd);
-  }
-  recordPerfDurableWrite(Buffer.byteLength(data, "utf8"));
-}
-
-/** True when `file`'s final byte is "\n", given its already-known `size`.
- *  A COMPLETED `durableAppendFileSync` always leaves the file ending in
- *  "\n" (every append is `<line>\n`), so a non-newline last byte means the
- *  previous append was torn by a crash — its bytes were never a confirmed
- *  record. Reads ONLY the last byte at `size-1`, so callers on an append
- *  hot path stay O(1) and never re-read the whole file. A read failure
- *  returns false (treat as "not newline-terminated") — the safe side: an
- *  extra leading newline is harmless for an NDJSON reader that skips blank
- *  lines, while a MISSED torn boundary would merge two records into one
- *  unparseable line. Used by trust-audit's events.jsonl append path. */
-export function logEndsWithNewline(file: string, size: number): boolean {
-  if (size <= 0) return false;
-  let fd: number | undefined;
-  try {
-    fd = fs.openSync(file, "r");
-    const buf = Buffer.alloc(1);
-    fs.readSync(fd, buf, 0, 1, size - 1);
-    return buf[0] === 0x0a; // "\n"
+    return fs.realpathSync(abs);
   } catch {
-    return false;
-  } finally {
-    if (fd !== undefined) fs.closeSync(fd);
+    const parent = path.dirname(abs);
+    return parent === abs ? abs : path.join(realResolve(parent), path.basename(abs));
   }
 }
 
-// ---------------------------------------------------------------------------
-// withFileLock — portable advisory cross-process lock.
-//
-// Lock file: `<targetPath>.lock`, created by hard-linking a per-attempt temp
-// file onto the lock path (single-winner `link(2)`), body `"<pid>@<ISO>\n"`.
-// On EEXIST, a lock whose mtime is older than FILE_LOCK_STALE_MS (30_000) is
-// stolen — judged and deleted only while holding the single-winner
-// `<lock>.steal` guard (see stealStaleLockUnderGuard) — and retried AT ONCE
-// (so is a lock that vanished between the EEXIST and the stat). Otherwise the
-// thread sleeps a short, growing backoff (Atomics.wait busy-safe sleep:
-// FILE_LOCK_BACKOFF_BASE_MS doubling toward FILE_LOCK_BACKOFF_MAX_MS, with
-// jitter so many processes contending on ONE lock do not retry in lock-step)
-// and tries again. The WHOLE acquire is bounded by wall-clock, not a try
-// count: after FILE_LOCK_ACQUIRE_BUDGET_MS (~6s, kept well under the 30s steal
-// window so a fresh orphan lock fails fast rather than being waited out) with
-// no lock, it throws `could not acquire file lock for <targetPath>`. The tiny
-// early sleeps re-grab a briefly-held lock in a few ms; the wall-clock bound
-// (not the try count) is what keeps the worst case at ~6s. Any non-EEXIST
-// link error is rethrown.
-//
-// Right before fn() the lock mtime is refreshed (utimesSync, best-effort).
-// After fn() returns, the lock body is re-read: if it no longer starts with
-// "<pid>@", the lock was stolen mid-operation -> throw the "stolen" error and
-// do NOT delete the thief's lock. On the release path the lock is removed
-// only when still owned by this pid.
-// ---------------------------------------------------------------------------
-
-const FILE_LOCK_STALE_MS = 30_000;
-
-// A lock stale for this long is stolen regardless of what `isLockOwnerAlive`
-// says — the fallback for the one case a liveness check cannot resolve: the
-// recorded pid has been recycled by an unrelated live process, which would
-// otherwise make a dead owner's pid look "alive" forever and wedge the lock
-// permanently. 10x the normal window keeps this astronomically unlikely to
-// fire against a genuinely still-working holder.
-const FILE_LOCK_FORCE_STALE_MS = FILE_LOCK_STALE_MS * 10;
-
-// A steal guard older than this belongs to a stealer that crashed inside the
-// guarded window (which is a handful of syscalls, microseconds for any live
-// process) — remove it so stealing cannot wedge forever.
-const FILE_LOCK_STEAL_GUARD_STALE_MS = FILE_LOCK_STALE_MS;
-
-// Acquire-retry pacing (all internal to withFileLock — no wire/protocol
-// meaning). The wall-clock BUDGET, not a fixed try count, bounds how long a
-// contended acquire blocks the calling thread; kept at ~6s so it stays well
-// under the 30s steal window (a fresh orphan lock is failed fast, not waited
-// out — a later command past 30s steals it). Between misses the thread sleeps
-// a backoff that starts at BASE and doubles to MAX, so a briefly-held lock is
-// re-grabbed in a few ms while a genuinely busy one is not hot-spun. Jitter on
-// each sleep (applied at the call site) de-syncs many contenders on one lock.
-// MAX_ATTEMPTS is only a loop-termination backstop for the (never-observed)
-// case of a clock that fails to advance; the budget is the real bound.
-const FILE_LOCK_ACQUIRE_BUDGET_MS = 6_000;
-const FILE_LOCK_BACKOFF_BASE_MS = 1;
-const FILE_LOCK_BACKOFF_MAX_MS = 50;
-const FILE_LOCK_MAX_ATTEMPTS = 10_000;
-
-// Lock paths this process holds right now. A nested withFileLock on the
-// SAME target runs its fn directly (re-entrant) instead of waiting on its
-// own lock file until the acquire budget runs out — that lets a whole
-// load -> change -> save cycle hold one lock while the save path inside
-// it keeps its own withFileLock call unchanged.
-const HELD_LOCKS = new Set<string>();
-
-function sleepSync(ms: number): void {
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+/** True when `candidate` is `allowed` or inside it, after symlinks. */
+export function isContainedPath(candidate: string, allowed: string): boolean {
+  const c = realResolve(candidate);
+  const a = realResolve(allowed);
+  return c === a || c.startsWith(a + path.sep);
 }
 
-/** Next backoff ceiling (ms) given the previous one: double it, capped at
- *  FILE_LOCK_BACKOFF_MAX_MS. Pure and deterministic (the per-sleep jitter is
- *  applied separately at the call site), so the retry schedule is
- *  unit-testable without any timing. Exported for that test only — fs-atomic
- *  is not part of the public index.ts surface. */
-export function nextBackoffMs(previous: number): number {
-  return Math.min(previous * 2, FILE_LOCK_BACKOFF_MAX_MS);
-}
-
-/** Whether the pid recorded in a lock body ("<pid>@<ISO>\n") is still a
- *  live process on this machine. Locks here are local-advisory only (no
- *  network-shared run directories in this tool's model), so
- *  `process.kill(pid, 0)` — signal 0 delivers nothing, it just probes
- *  existence/permission — gives a direct, same-instant answer, unlike
- *  mtime, which is a snapshot a caller can act on after it is already
- *  outdated. This is the property that actually closes the steal race: a
- *  lock belonging to a currently running process can never pass this
- *  check, no matter how a mtime-based timing window lines up, because its
- *  owner really is alive right now. Malformed content or a missing pid is
- *  treated as "not verifiably alive" so the mtime-only path still applies.
- *  `EPERM` (a process with that pid exists but this process cannot signal
- *  it) is treated as alive — the conservative, never-wrongly-steal
- *  direction. */
-function isLockOwnerAlive(lockBody: string): boolean {
-  return isPidAlive(lockBodyPid(lockBody));
-}
-
-/** The pid at the front of a lock body ("<pid>@<ISO>\n"), or 0 when the
- *  body names none (0 is never a live owner). */
-function lockBodyPid(lockBody: string): number {
-  const match = /^(\d+)@/.exec(lockBody);
-  return match ? Number(match[1]) : 0;
-}
-
-/** True when `pid` names a live process on this machine (see
- *  isLockOwnerAlive). `EPERM` counts as ALIVE; a malformed/absent pid is
- *  "not alive". */
-function isPidAlive(pid: number): boolean {
+function pidAlive(pid: number): boolean {
   if (!Number.isInteger(pid) || pid <= 0) return false;
   try {
     process.kill(pid, 0);
     return true;
   } catch (error) {
-    return Boolean(error && typeof error === "object" && (error as { code?: string }).code === "EPERM");
+    return (error as NodeJS.ErrnoException).code === "EPERM";
   }
 }
 
-/** One single-winner acquire try: write `body` to the per-attempt `tmp`
- *  file and `link(2)` it onto `lock` (see withFileLock for why link and not
- *  `open(wx)`). Returns true when this process now owns `lock`, false on
- *  EEXIST (another owner has it); any other error is rethrown. `tmp` is
- *  always removed. The ONE acquire step every lock in this file uses. */
-function tryLinkLock(lock: string, tmp: string, body: string): boolean {
+/** Take `lock` once; a lock whose holder pid is gone is taken over. */
+export function tryLock(lock: string): boolean {
+  fs.mkdirSync(path.dirname(lock), { recursive: true });
+  const tmp = `${lock}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+  fs.writeFileSync(tmp, `${process.pid}\n`);
   try {
-    fs.writeFileSync(tmp, body, { mode: 0o600 });
     fs.linkSync(tmp, lock);
     return true;
   } catch (error) {
-    if (error && typeof error === "object" && (error as { code?: string }).code === "EEXIST") return false;
-    throw error;
-  } finally {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    const holder = lockPid(lock);
+    if (Number.isNaN(holder) || pidAlive(holder)) return false;
+    // A dead holder: one stealer at a time (a guard taken by link), so two
+    // processes can never both remove the stale lock and both win.
+    const guard = `${lock}.steal`;
     try {
-      fs.unlinkSync(tmp);
+      fs.linkSync(tmp, guard);
     } catch {
-      /* already gone, or the link consumed it — either is fine */
-    }
-  }
-}
-
-/** Remove `lock` only while its body still names `pid` as the owner — a
- *  lock stolen by a later process must not be removed by us. A missing
- *  lock is fine. The ONE release step every lock in this file uses. */
-function releaseOwnedLock(lock: string, pid: string): void {
-  try {
-    const current = fs.readFileSync(lock, "utf8");
-    if (current.startsWith(pid + "@")) fs.rmSync(lock, { force: true });
-  } catch {
-    /* releasing a missing lock is fine */
-  }
-}
-
-/** Steal a stale lock, serialized through a single-winner guard file.
- *
- *  Judging a lock and then deleting it are two separate steps, and under
- *  load the judging process can be preempted between its last read and
- *  its unlink: a concurrent stealer completes the whole steal-and-
- *  reacquire in that gap, and the sleeper's unlink then removes the NEW
- *  owner's lock — two processes end up inside the critical section. The
- *  gap cannot be closed from the judging side; POSIX has no
- *  compare-and-delete.
- *
- *  So close it by exclusion instead: only the holder of `<lock>.steal`
- *  (acquired with the same single-winner linkSync used for the lock
- *  itself) may judge and delete. While the judged lock file still
- *  exists, no waiter can link-acquire the lock path, so nothing can
- *  replace the lock between a guard-held verdict and the unlink; and no
- *  second stealer exists to double-delete. Before the unlink, the
- *  verdict is additionally pinned to the exact file it judged (same
- *  inode, same mtime) — insurance for the force-stale path, where an
- *  owner release + fresh re-acquire between the guard's stat and read
- *  could otherwise slip through.
- *
- *  A guard whose holder crashed inside the guarded window (microseconds
- *  of syscalls for any live process) is removed after
- *  FILE_LOCK_STEAL_GUARD_STALE_MS so stealing cannot wedge; that cleanup
- *  is itself a plain stat-and-unlink, but reintroducing the original
- *  race through it needs a crashed stealer AND two cleaners AND a fresh
- *  guard all colliding inside one syscall-wide window — compounded odds
- *  the hot path never sees.
- *
- *  Returns true when this process held the guard and rendered a verdict
- *  (steal done or judged-not-stale) — the caller should retry the
- *  acquire at once. Returns false when the guard was busy — the caller
- *  should back off like ordinary contention. */
-function stealStaleLockUnderGuard(lock: string, pid: string, attempt: number): boolean {
-  const guard = `${lock}.steal`;
-  try {
-    const guardAge = Date.now() - fs.statSync(guard).mtimeMs;
-    if (guardAge > FILE_LOCK_STEAL_GUARD_STALE_MS) fs.unlinkSync(guard);
-  } catch {
-    /* no guard, or another cleaner beat us to it */
-  }
-
-  let haveGuard = false;
-  try {
-    haveGuard = tryLinkLock(guard, `${guard}.${pid}.${attempt}.tmp`, `${pid}@${new Date().toISOString()}\n`);
-  } catch {
-    /* the guard could not be written — back off as for a busy guard */
-  }
-  if (!haveGuard) return false;
-
-  try {
-    // Re-judge INSIDE the guard: only what is verified here counts.
-    const judged = fs.statSync(lock);
-    const age = Date.now() - judged.mtimeMs;
-    if (age <= FILE_LOCK_STALE_MS) return true;
-    const body = fs.readFileSync(lock, "utf8");
-    if (!(age > FILE_LOCK_FORCE_STALE_MS || !isLockOwnerAlive(body))) return true;
-    // Pin the verdict to the exact file it judged: a lock re-acquired in
-    // the stat->read gap is a NEW inode (every acquire links a fresh tmp
-    // file) with a fresh mtime, so either check catches it.
-    const current = fs.statSync(lock);
-    if (current.ino === judged.ino && current.mtimeMs === judged.mtimeMs) {
-      fs.unlinkSync(lock);
-    }
-  } catch {
-    /* lock vanished — nothing left to steal */
-  } finally {
-    try {
-      fs.unlinkSync(guard);
-    } catch {
-      /* guard already cleaned up */
-    }
-  }
-  return true;
-}
-
-/** Run `fn` while holding an advisory lock for `targetPath`; always released
- *  (unless the lock was stolen mid-operation, in which case releasing would
- *  corrupt the thief's critical section, so it is deliberately NOT released).
- *  Re-entrant inside one process: a nested call on the same target runs
- *  `fn` under the already-held lock. */
-export function withFileLock<T>(targetPath: string, fn: () => T): T {
-  const lock = `${targetPath}.lock`;
-  const heldKey = path.resolve(lock);
-  if (HELD_LOCKS.has(heldKey)) return fn();
-  fs.mkdirSync(path.dirname(lock), { recursive: true });
-  const pid = String(process.pid);
-  let acquired = false;
-  const deadline = Date.now() + FILE_LOCK_ACQUIRE_BUDGET_MS;
-  let backoff = FILE_LOCK_BACKOFF_BASE_MS;
-  for (let attempt = 0; attempt < FILE_LOCK_MAX_ATTEMPTS && !acquired; attempt++) {
-    // Acquire via `linkSync`, not `open(lock, "wx")`: directly testing the
-    // retry loop under contention showed `open(O_CREAT|O_EXCL)` is NOT
-    // reliably single-winner on every Node version this runs on — under
-    // CI load (reproduced on Node 18, both x64 and arm64), two separate
-    // processes could each `open(wx)` + write + read back and each see
-    // ONLY ITS OWN content, meaning the OS was not actually serializing
-    // the two creates against each other (see
-    // test/fs-atomic-lock-steal-race-smoke.mjs for the reproduction). A
-    // readback-verification pass added on top of `open(wx)` still could
-    // not close this, because the underlying create itself was the
-    // unreliable step, not just the later unlink. `link(2)`'s exclusivity
-    // guarantee is the older, more battle-tested primitive precisely for
-    // this class of lockfile race (classic Unix "lock via link" idiom) —
-    // stress-tested directly (24-process contention, 15/15 trials) with
-    // zero double-winners where the same rig reproduced `open(wx)`
-    // double-winners within a handful of trials.
-    acquired = tryLinkLock(lock, `${lock}.${pid}.${attempt}.tmp`, `${pid}@${new Date().toISOString()}\n`);
-    if (acquired) break;
-    try {
-      const age = Date.now() - fs.statSync(lock).mtimeMs;
-      if (age > FILE_LOCK_STALE_MS) {
-        // The steal itself runs under a single-winner guard lock — see
-        // stealStaleLockUnderGuard for why judging staleness and deleting
-        // the lock without one can never be made safe from here.
-        if (stealStaleLockUnderGuard(lock, pid, attempt)) {
-          // Verdict rendered and the lock likely just freed — retry AT ONCE
-          // and reset the backoff so we grab it before another waiter does.
-          backoff = FILE_LOCK_BACKOFF_BASE_MS;
-          continue;
-        }
-        // Guard was busy — another process is mid-steal. Back off like
-        // ordinary contention instead of hot-spinning.
-      }
-    } catch {
-      // The lock vanished between the EEXIST and the stat — it is likely free
-      // now, so retry AT ONCE (no sleep) with a reset backoff.
-      backoff = FILE_LOCK_BACKOFF_BASE_MS;
-      continue;
-    }
-    // Give up on wall-clock, never on a raw try count: this keeps the worst-
-    // case block at ~6s even though the per-sleep backoff grows.
-    if (Date.now() >= deadline) break;
-    // Sleep a jittered span in [BASE, backoff] — never 0, so never a busy
-    // spin — then grow the backoff toward the cap. The jitter de-syncs many
-    // processes contending on the SAME lock so they do not retry in lock-step.
-    const span = backoff - FILE_LOCK_BACKOFF_BASE_MS;
-    sleepSync(FILE_LOCK_BACKOFF_BASE_MS + Math.floor(Math.random() * (span + 1)));
-    backoff = nextBackoffMs(backoff);
-  }
-  if (!acquired) throw new Error(`could not acquire file lock for ${targetPath}`);
-  HELD_LOCKS.add(heldKey);
-
-  // Refresh mtime right before the critical section.
-  try {
-    fs.utimesSync(lock, new Date(), new Date());
-  } catch {
-    /* best-effort */
-  }
-
-  try {
-    const result = fn();
-    // Verify the lock was not stolen during fn(). If our pid is no longer at
-    // the front of the lock body, another process's stale-steal fired mid-
-    // operation and now owns the lock — do NOT release it (that would corrupt
-    // the thief's critical section).
-    try {
-      const current = fs.readFileSync(lock, "utf8");
-      if (!current.startsWith(pid + "@")) {
-        throw new Error(
-          `File lock for ${targetPath} was stolen during the critical section ` +
-            `(lock now owned by another process). The operation may have lost ` +
-            `cross-process isolation — increase FILE_LOCK_STALE_MS or split the work.`
-        );
-      }
-    } catch (checkError) {
-      if (checkError instanceof Error && checkError.message.includes("stolen")) throw checkError;
-      /* lock vanished — another process already released it, nothing to clean up */
-    }
-    return result;
-  } finally {
-    HELD_LOCKS.delete(heldKey);
-    // Only release if we still own the lock.
-    releaseOwnedLock(lock, pid);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// acquireOwnerLock — the same lock file body, acquire step and release as
-// withFileLock, for a lock held far longer than withFileLock's 30s stale
-// window (run-store.ts's drive mutex holds one across a whole drive).
-//
-// So it is NEVER time-stale-stolen and NEVER waits: a lock whose recorded pid
-// is a LIVE process refuses at once with `refuse(ownerPid)` (fail closed —
-// the caller words the refusal); a lock whose owner is GONE, or this
-// process's own leaked lock, is removed and re-tried (3 tries in all) so a
-// crash can never wedge it. Re-entrant in-process: acquiring a lock this
-// process already holds returns a no-op release.
-// ---------------------------------------------------------------------------
-
-/** Owner-lock paths this process holds right now (kept apart from
- *  HELD_LOCKS: the two lock kinds never re-enter each other). */
-const HELD_OWNER_LOCKS = new Set<string>();
-
-/** The pid recorded in the lock file `lock`, or 0 when it is missing,
- *  unreadable, or names no pid. */
-export function readLockOwnerPid(lock: string): number {
-  try {
-    return lockBodyPid(fs.readFileSync(lock, "utf8"));
-  } catch {
-    return 0; // vanished or unreadable — treat as no owner
-  }
-}
-
-/** Acquire the owner lock at `lock` (see the block comment above). Returns
- *  a release function (a no-op when this call re-entered a lock already
- *  held in-process). Throws `refuse(ownerPid)` when another LIVE process
- *  holds it, or when 3 tries could not take it. */
-export function acquireOwnerLock(lock: string, refuse: (ownerPid: number) => Error): () => void {
-  const key = path.resolve(lock);
-  if (HELD_OWNER_LOCKS.has(key)) return () => {};
-  fs.mkdirSync(path.dirname(lock), { recursive: true });
-  const pid = process.pid;
-  const body = `${pid}@${new Date().toISOString()}\n`;
-
-  let acquired = false;
-  // A live owner refuses at once; only a stealable (dead-owner / own-leak) lock
-  // loops to re-acquire, so this never hot-spins for a genuinely busy lock.
-  for (let attempt = 0; attempt < 3 && !acquired; attempt++) {
-    if (tryLinkLock(lock, `${lock}.${pid}.${attempt}.tmp`, body)) {
-      acquired = true;
-      continue;
-    }
-    const ownerPid = readLockOwnerPid(lock);
-    // Stealable: our own leaked lock, or an owner that is no longer alive.
-    if (ownerPid === pid || !isPidAlive(ownerPid)) {
       try {
-        fs.unlinkSync(lock);
+        if (Date.now() - fs.statSync(guard).mtimeMs > 10_000) fs.rmSync(guard, { force: true });
       } catch {
-        /* another process took it first — the next attempt re-judges */
+        /* gone */
       }
-      continue;
+      return false;
     }
-    throw refuse(ownerPid);
+    try {
+      if (lockPid(lock) !== holder) return false;
+      fs.renameSync(tmp, lock);
+      return true;
+    } finally {
+      fs.rmSync(guard, { force: true });
+    }
+  } finally {
+    fs.rmSync(tmp, { force: true });
   }
-  if (!acquired) throw refuse(readLockOwnerPid(lock));
+}
 
-  HELD_OWNER_LOCKS.add(key);
-  return () => {
-    HELD_OWNER_LOCKS.delete(key);
-    // Release only while we still own it (a force-stale steal by a later
-    // process must not have its lock removed by us).
-    releaseOwnedLock(lock, String(pid));
-  };
+function lockPid(lock: string): number {
+  try {
+    return Number(fs.readFileSync(lock, "utf8").trim());
+  } catch {
+    return NaN;
+  }
+}
+
+export function lockHolder(lock: string): number | undefined {
+  const pid = lockPid(lock);
+  return pidAlive(pid) ? pid : undefined;
+}
+
+export function unlock(lock: string): void {
+  if (lockPid(lock) === process.pid) fs.rmSync(lock, { force: true });
+}
+
+const HELD = new Set<string>();
+
+/** Run `fn` under `<target>.lock`, waiting up to ~6s. Re-entrant in-process. */
+export function withFileLock<T>(target: string, fn: () => T): T {
+  const lock = path.resolve(`${target}.lock`);
+  if (HELD.has(lock)) return fn();
+  const deadline = Date.now() + 6000;
+  let wait = 5;
+  while (!tryLock(lock)) {
+    if (Date.now() >= deadline) throw new Error(`could not acquire file lock for ${target}`);
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, wait + Math.floor(Math.random() * wait));
+    wait = Math.min(wait * 2, 200);
+  }
+  HELD.add(lock);
+  try {
+    return fn();
+  } finally {
+    HELD.delete(lock);
+    unlock(lock);
+  }
 }

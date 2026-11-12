@@ -40,8 +40,9 @@ man-page lines, so the automatic patch bump below needs no `--content`.
 tests again one by one (plus extra `eval:replay`/`fixture-compat` re-runs). Every
 single step is already covered by `npm test`, so they were taken out — the gate
 keeps full coverage while cutting the doubled wall time. The steps that stay
-are the ones NOT covered by `npm test`: build, type check, `npm test`,
-canonical-apps, golden-path, parity, vendor-manifest drift, and `version:sync`.
+are: docs presence, build, `dist:check`, purity, language policy, type check
+and size (`npm run check`), `test:ci`, `test:unit`, vendor-manifest drift,
+`version:sync`, and `readme:check`.
 
 The drift gate `readme:check` (`plugins/cool-workflow/README.md`) also runs
 here. The npm package README is
@@ -61,10 +62,6 @@ npm run test:ci -- --json-summary /tmp/cw-test-summary.json
 
 The file lists wall time, total child time, and the slowest smokes. Use it to
 pick one speed cycle at a time; it is diagnostic, not a hard release threshold.
-
-The dogfood release smoke and the architecture-review dogfood smoke are separate
-test files. The split keeps the same release and agent-drive proof, but lets
-`test:ci` schedule the two long checks in parallel.
 
 ## fails-before:check
 
@@ -167,8 +164,8 @@ repository and concluded success, and it works on that run's commit
    tag's parent on `main`. "Shipped" is the `SHIPPED` list in the script:
    `src/`, `dist/`, `apps/`, `workflows/`, `skills/`, `agents/`,
    `commands/`, `hooks/`, `manifest/`, `ui/`, the runtime scripts
-   (`scripts/cw.js`, `scripts/mcp-server.js`, `scripts/agents/`,
-   `scripts/children/`, ...), `package.json`, `server.json` and the vendor
+   (`scripts/cw.js`, `scripts/agents/`,
+   `scripts/children/`, ...), `package.json`, `server.json` (gone since batch 5) and the vendor
    plugin manifests; test folders inside them do not count. A change to
    tests, docs, CI files or release tooling alone does not release. The
    next version is the highest `vX.Y.Z` tag plus one patch. The job FAILS
@@ -219,7 +216,7 @@ variable (or set any other value) to start them again.
 
 **`main` lags behind npm.** The bump commit lives only on the tag, so
 after an automatic patch `main`'s `package.json`, `src/core/version.ts`,
-the vendor manifests, `server.json` and `Formula/cool-workflow.rb` still
+the vendor manifests and `Formula/cool-workflow.rb` still
 name the last version an operator cut landed on `main`. Nothing on `main`
 or in CI compares that version with the tags (`version:sync` checks that
 `main`'s surfaces agree with each other). The next patch number always
@@ -258,8 +255,7 @@ Do not work around them by hand:
   sandbox to workspace-write).
 
 What the gate does not run: `release-gate.mjs` does NOT run
-`readme:check` or the dogfood release-cut — those live only in the
-broader `release:check`.
+`readme:check` — that lives only in the broader `release:check`.
 
 ### Dry-run gate
 
@@ -269,38 +265,27 @@ Start from a fresh checkout:
 cd plugins/cool-workflow
 npm install
 npm run release:check
-npm run dogfood:release
 ```
 
 `npm run release:check` does no harm. It does not tag, push, publish, or
-rewrite fixture files. It checks docs presence, build, type check, default
-tests, canonical apps, golden path, fixture compatibility, dogfood smoke, and
-version synchronization.
-
-`npm run dogfood:release` also does no harm by default. It runs the
-canonical `release-cut` workflow against the real repository and writes
-`.cw/runs/<run-id>/dogfood-summary.json` with the run id, report path, audit
-paths, the verifier node id the commit is gated on, commit/checkpoint id,
-command logs, and release verdict.
+rewrite fixture files. It runs the steps listed under "De-duplicated
+release:check" above. (`npm run dogfood:release` was removed in batch 5; the
+Pages job now publishes a stub-agent `cw -q` report instead.)
 
 ### Required manual review
 
-1. Make sure `plugins/cool-workflow/docs/release-and-migration.7.md` gives
-   an account of migration compatibility and cases that are not supported.
-2. Make sure `node scripts/cw.js state check <run-id>` reports the
-   looked-for migration status for any release-candidate run state worth
-   keeping (the load order and `--write` rule are in
-   release-and-migration(7), "State Policy" and "Dry Run").
-3. Make sure `npm run version:sync` passes after `npm run build`. This also
+1. Make sure `plugins/cool-workflow/docs/release-and-migration.7.md` names
+   every removed or changed surface (CW refuses old run state; it never
+   migrates it).
+2. Make sure `npm run version:sync` passes after `npm run build`. This also
    gates `Formula/cool-workflow.rb` (the Homebrew formula):
    `bump-version.mjs` auto-moves its `tag:`/`version` to the target, so no
    manual edit or checksum step is needed — it is a git-tag formula with no
    sha256.
-4. Make sure generated `plugins/cool-workflow/dist/` output is committed.
-5. Make sure `npm run dogfood:release` reports `ready-dry-run` and have a
-   look at the run with `status`, `graph`, `report --show`, `commit
-   summary`, `audit summary`, and `audit provenance`.
-6. Make sure the reviewer verdict is committed:
+3. Make sure generated `plugins/cool-workflow/dist/` output is committed.
+4. Run one `cw -q` on a real repository and read it with `cw report --show`
+   and `cw report bundle` / `cw report verify-bundle`.
+5. Make sure the reviewer verdict is committed:
    `.cw-release/review-<FULLSHA>.verdict` must exist in the tag's commit
    history and its first line must be `APPROVED <FULLSHA>`. Run `node
    scripts/release-flow.mjs --cut --version x.y.z` to auto-create it and
@@ -314,10 +299,7 @@ The version synchronization check takes in:
 - `plugins/cool-workflow/package.json`
 - `plugins/cool-workflow/.codex-plugin/plugin.json`
 - `plugins/cool-workflow/src/core/version.ts`
-- framework and MCP server version use
-- canonical workflow app manifests
-- golden path and MCP smoke expectations
-- dogfood release smoke expectations
+- the canonical workflow app manifest
 - README and man-page docs
 - generated `dist/` output
 
@@ -325,8 +307,7 @@ Two traps in a version bump:
 
 - If a bump leaves `dist/core/version.js` stale, it is the tsc
   incremental cache. `rm -f .cache/tsconfig.tsbuildinfo && npm run build`
-  makes it again; otherwise `mcp-app-surface-smoke` fails on a version
-  mismatch.
+  makes it again; otherwise `version:sync` fails on a version mismatch.
 - `bump:version` has two modes. Gate-mode stamps structured surfaces but
   skips docs; `--content` also stamps docs/man-pages. If gate-mode ran
   first, `--content` reports "already at X" — revert the structured files
@@ -405,13 +386,13 @@ again.
 ## Boundary
 
 Release Tooling touches only the build/release surfaces. It adds no runtime
-capability, no CLI/MCP verb, and no run-state schema change; the kernel is
+capability, no CLI verb, and no run-state schema change; the kernel is
 unchanged. Older releases cut by hand are still good — the scripts only make
 the mechanical surfaces a tag must update the same each time.
 
 ## See Also
 
-cli-mcp-parity(7), release-and-migration(7), dogfood-one-real-repo(7)
+release-and-migration(7), verifier-gated-commit(7)
 
 ## Real Execution Backend Integrations (v0.1.34)
 
@@ -746,9 +727,7 @@ operator's own words and a date for that change; the matching `docs/*.7.md` says
 the same range; and the release raises the version (on 0.x a patch raise is
 enough, 0.3.0 to 0.3.1; from 1.0, the major version). If one is missing, the verdict is REJECTED.
 
-`{{input}}` is put in place of the reviewer prompt file path. Gemini and OpenCode
-also get generated MCP manifests (`.gemini-plugin/`, `.opencode-plugin/`) so the
-`cw_*` tools are there as MCP tools in those hosts. The verdict path
+`{{input}}` is put in place of the reviewer prompt file path. The verdict path
 (`.cw-release/review-<sha>.verdict`) and the tag-push CI backstop are unchanged.
 
 ### GitHub Release finishing step
@@ -802,7 +781,7 @@ binary (spawned `shell:false`) so the smoke runs it offline.
 
 The `release-rehearsal` job in `.github/workflows/ci.yml` goes through the
 release flow on every PR that changes release tooling (`scripts/release-*.js`,
-`scripts/verify-*.js`, `scripts/dogfood-release.mjs`, `scripts/bump-version.mjs`,
+`scripts/verify-*.js`, `scripts/bump-version.mjs`,
 `test/run-all.mjs`, `package.json`, `.cw-release/`, `release.yml`,
 `npm-publish.yml`, `ci.yml`, `agents/release-reviewer.md`, or its stub
 reviewer), on a PR or on a push to `main`, so a break comes to light in CI, not
@@ -816,7 +795,6 @@ npm run build
 npm run version:sync
 CW_AGENT_COMMAND="node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.mjs {{input}}" \
   node scripts/release-flow.mjs --check --local-tests
-node scripts/dogfood-release.mjs --smoke
 ```
 
 `--check --local-tests` runs the full deterministic gate (build, `test:gate`, substance,

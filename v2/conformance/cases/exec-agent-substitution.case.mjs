@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
-// CW_AGENT_COMMAND {{token}} substitution — the single-worker golden-path
-// app gives one deterministic worker, so every {{manifest}} {{input}}
-// {{result}} {{workerDir}} {{model}} {{prompt}} token can be checked as a
-// real, existing, discrete argv element (never shell-joined: an unknown
-// {{unknown}} token must stay literal, never substituted or dropped).
+// CW_AGENT_COMMAND {{token}} substitution — every {{manifest}} {{input}}
+// {{result}} {{workerDir}} {{model}} {{prompt}} {{phase}} {{taskId}}
+// {{workerId}} token is checked as a real, discrete argv element (never
+// shell-joined: an unknown {{unknown}} token must stay literal, never
+// substituted or dropped). The echo agent writes its argv next to each
+// worker's result.md; this case reads the verdict worker's copy.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -14,28 +15,27 @@ const ECHO_AGENT = path.join(import.meta.dirname, "fixtures", "echo-argv-agent.m
 
 caseMain(() => {
   const repo = gitRepo({ "a.txt": "hello\n" });
-  const argvOut = path.join(path.dirname(repo), "argv-out.json");
 
-  const r = run(["quickstart", "--app", "end-to-end-golden-path", "--question", "Prove it works"], {
+  const r = run(["-q", "Prove it works", "--json"], {
     cwd: repo,
     env: {
-      CW_AGENT_COMMAND: `node ${ECHO_AGENT} {{manifest}} {{input}} {{result}} {{workerDir}} {{model}} {{prompt}} {{unknown}}`,
+      CW_AGENT_COMMAND: `node ${ECHO_AGENT} {{manifest}} {{input}} {{result}} {{workerDir}} {{model}} {{prompt}} {{phase}} {{taskId}} {{workerId}} {{unknown}}`,
       CW_AGENT_MODEL: "my-test-model",
-      CW_ECHO_ARGV_OUT: argvOut,
     },
   });
   assert.equal(r.status, 0);
   const payload = JSON.parse(r.stdout);
   assert.equal(payload.status, "complete");
-  assert.equal(payload.plannedWorkers, 1);
-  assert.equal(payload.completedWorkers, 1);
+  assert.equal(payload.completedWorkers, payload.plannedWorkers);
 
-  assert.ok(fs.existsSync(argvOut), "the agent must have run and recorded its argv");
-  const argv = readJson(argvOut);
-  assert.equal(argv.length, 7, "7 substituted/literal argv elements");
-  const [manifestArg, inputArg, resultArg, workerDirArg, modelArg, promptArg, unknownArg] = argv;
+  const workersDir = path.join(path.dirname(payload.statePath), "workers");
+  const verdictDir = fs.readdirSync(workersDir).find((d) => d.startsWith("worker-verdict:"));
+  assert.ok(verdictDir, "a verdict worker folder must exist");
+  const argv = readJson(path.join(workersDir, verdictDir, "argv.json"));
+  assert.equal(argv.length, 10, "10 substituted/literal argv elements");
+  const [manifestArg, inputArg, resultArg, workerDirArg, modelArg, promptArg, phaseArg, taskIdArg, workerIdArg, unknownArg] = argv;
 
-  // {{manifest}}, {{input}}, {{result}} — real files the CLI itself wrote.
+  // {{manifest}}, {{input}}, {{result}} — real files.
   assert.ok(fs.existsSync(manifestArg), `{{manifest}} must be a real file: ${manifestArg}`);
   assert.match(manifestArg, /manifest\.json$/);
   assert.ok(fs.existsSync(inputArg), `{{input}} must be a real file: ${inputArg}`);
@@ -43,27 +43,25 @@ caseMain(() => {
   assert.ok(fs.existsSync(resultArg), `{{result}} must be a real file (the agent wrote it): ${resultArg}`);
   assert.match(resultArg, /result\.md$/);
 
-  // {{workerDir}} — a real directory that is the parent of the three files above.
+  // {{workerDir}} — the real directory that holds the three files above.
   assert.ok(fs.existsSync(workerDirArg) && fs.statSync(workerDirArg).isDirectory());
   assert.equal(path.dirname(manifestArg), workerDirArg);
   assert.equal(path.dirname(inputArg), workerDirArg);
   assert.equal(path.dirname(resultArg), workerDirArg);
+  assert.equal(path.basename(workerDirArg), verdictDir);
 
   // {{model}} — the CW_AGENT_MODEL policy value, substituted verbatim.
   assert.equal(modelArg, "my-test-model");
 
-  // {{prompt}} — non-empty task prompt text, matches input.md's own "## Task" body.
+  // {{prompt}} — non-empty task prompt text, found in input.md.
   assert.ok(promptArg.length > 0);
-  const inputText = fs.readFileSync(inputArg, "utf8");
-  assert.ok(inputText.includes(promptArg), "the substituted {{prompt}} must equal the task text embedded in input.md");
+  assert.ok(fs.readFileSync(inputArg, "utf8").includes(promptArg), "{{prompt}} must be the task text in input.md");
 
-  // {{unknown}} is not a known substitution key — it must stay LITERAL, never
-  // dropped and never throwing.
+  // {{phase}}, {{taskId}}, {{workerId}}.
+  assert.equal(phaseArg, "Verdict");
+  assert.match(taskIdArg, /^verdict:/);
+  assert.equal(workerIdArg, verdictDir);
+
+  // {{unknown}} is not a known key: it stays LITERAL.
   assert.equal(unknownArg, "{{unknown}}");
-
-  // manifest.json itself must be valid JSON that agrees with the paths above.
-  const manifest = readJson(manifestArg);
-  assert.equal(manifest.inputPath, inputArg);
-  assert.equal(manifest.resultPath, resultArg);
-  assert.equal(manifest.workerDir, workerDirArg);
 });

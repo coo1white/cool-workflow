@@ -2,19 +2,15 @@
 // quickstart-no-agent-smoke — Track A first-run acceptance.
 //
 // Proves the no-agent user path: demo tamper works without an agent,
-// `cw doctor` clearly reports agent status, `cw doctor --onramp` includes the
-// "No Agent?" section, and blocked quickstart output is actionable (not a
-// mysterious error). A user who starts cold (no agent installed) can:
+// `cw doctor` clearly reports agent status and names an install command, and
+// a blocked `cw -q` is actionable (not a mysterious error). A user who starts
+// cold (no agent installed) can:
 //   1. Run `demo tamper` and see trust holds
-//   2. Run `cw doctor` and see exactly what's missing
-//   3. Read the onramp and find a concrete install command
+//   2. Run `cw doctor` and see exactly what's missing, with the fix
+//   3. Run `cw -q` and get a blocked run with a hint, never a fake answer
 //
-// Hermetic: no agent binary, no network, no shared state.
-//
-// This is a black-box CLI smoke: it only spawns dist/cli.js and asserts on
-// stdout/JSON. `cw doctor --onramp` (src/shell/doctor.ts, buildDoctorOnramp
-// in src/shell/onramp.ts) must print the "Quick start (3 steps)" block and
-// the "No Agent?" section, and `--json` must carry an `onramp` field.
+// Hermetic: no agent binary, no network, no shared state. Black box: it only
+// spawns dist/cli.js and asserts on stdout/JSON.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -26,6 +22,7 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 const cwd = tmpDir("cw-no-agent-smoke-");
 const env = { ...process.env, CW_HOME: cwd, XDG_STATE_HOME: cwd, HOME: cwd, TMPDIR: cwd };
+spawnSync("git", ["init", "-q"], { cwd });
 
 function runCw(args, extraEnv = {}) {
   return spawnSync(process.execPath, [cli, ...args], { cwd, env: { ...env, ...extraEnv }, encoding: "utf8" });
@@ -57,51 +54,26 @@ try {
     assert.ok(doct.checks.some((c) => c.name === "node" && c.status === "ok"), "doctor checks node runtime");
   }
 
-  // ---- 3. cw doctor --onramp includes the 3-step quickstart + No Agent? section -
+  // ---- 3. with no agent, cw doctor names the fix and the no-agent first steps -
   {
-    const result = runCw(["doctor", "--onramp"], { CW_AGENT_COMMAND: "" });
+    const result = runCw(["doctor"], { CW_AGENT_COMMAND: "", CW_NO_AUTO_AGENT: "1" });
     const out = result.stdout;
-    assert.ok(out.includes("Quick start (3 steps)"), "doctor --onramp prints the quick start block");
+    assert.equal(result.status, 0, "no agent is a warning, not a failure");
+    assert.match(out, /! agent: No agent backend configured/, "doctor says the agent is missing");
+    assert.match(out, /fix: Install an agent CLI such as Claude Code, then add -claude/, "doctor gives the fix");
     assert.ok(out.includes("cw demo tamper") && out.includes("cw check -- npm test"), "doctor lists the no-agent steps");
-    assert.ok(!out.includes("cw demo bundle"), "doctor names no retired demo");
-    assert.ok(out.includes("No Agent?"), "doctor --onramp includes the No Agent? section");
-    assert.ok(out.includes("npm install -g @anthropic-ai/claude-code"), "doctor --onramp gives an install command");
   }
 
-  // ---- 4. cw doctor --json onramp has the sections we added -------------------
+  // ---- 4. cw -q with no agent: blocked, actionable, never fabricated -----------
   {
-    const doct = json(["doctor", "--onramp"], { CW_AGENT_COMMAND: "" });
-    assert.ok(doct.onramp, "doctor --onramp json carries onramp");
-    const sections = doct.onramp.sections.map((s) => s.id);
-    assert.ok(sections.includes("first-run"), "onramp has first-run section");
-    assert.ok(sections.includes("no-agent"), "onramp has no-agent section");
-    assert.ok(!sections.includes("change-loop"), "onramp hides change-loop outside the source checkout");
-    const noAgentSection = doct.onramp.sections.find((s) => s.id === "no-agent");
-    assert.ok(noAgentSection.actions.some((a) => a.id === "agent-claude"), "no-agent section lists claude install");
-    assert.ok(noAgentSection.actions.some((a) => a.id === "agent-check"), "no-agent section points to cw doctor");
-    const firstRun = doct.onramp.sections.find((s) => s.id === "first-run");
-    assert.ok(firstRun.actions.some((a) => a.id === "demo"), "first-run section includes demo tamper");
-    assert.ok(!firstRun.actions.some((a) => a.id === "demo-bundle"), "first-run section names no retired demo");
-  }
-
-  // ---- 5. quickstart with no explicit agent config (auto-detect may or may not work) --
-  {
-    // Without CW_AGENT_COMMAND set, the quickstart may auto-detect an agent (complete)
-    // or find none (blocked). Either is correct — we verify the response is well-formed
-    // and the correct fields are present.
-    const result = runCw(["quickstart", "end-to-end-golden-path", "--repo", cwd, "--question", "test?"], { CW_AGENT_COMMAND: "", CW_NO_AUTO_AGENT: "1" });
+    const result = runCw(["-q", "test?", "--repo", cwd, "--json"], { CW_AGENT_COMMAND: "", CW_NO_AUTO_AGENT: "1" });
+    assert.equal(result.status, 2, "a blocked run exits 2");
     const payload = JSON.parse(result.stdout.trim());
-    assert.ok(payload.status === "complete" || payload.status === "blocked", `quickstart resolved status is complete or blocked (got: ${payload.status})`);
-    assert.ok(typeof payload.runId === "string" || payload.status === "blocked", "payload carries runId or blocked status");
-    if (payload.status === "blocked") {
-      assert.ok(payload.hint, "blocked payload has a hint");
-      assert.equal(payload.completedWorkers, 0, "blocked quickstart completed zero workers");
-      assert.ok(!payload.commitId, "blocked quickstart has no commit (never fabricated)");
-    }
-    if (payload.status === "complete") {
-      assert.ok(payload.commitId, "completed quickstart has a commit");
-      assert.ok(fs.existsSync(path.join(cwd, ".cw", "runs", payload.runId, "state.json")), "run state written");
-    }
+    assert.equal(payload.status, "blocked");
+    assert.ok(payload.hint, "blocked payload has a hint");
+    assert.equal(payload.completedWorkers, 0, "blocked run completed zero workers");
+    assert.ok(!payload.commitId, "blocked run has no commit (never fabricated)");
+    assert.ok(fs.existsSync(payload.reportPath), "the report still says why");
   }
 
   process.stdout.write("quickstart-no-agent-smoke: ok (demo runs without agent + doctor guides setup + blocked is actionable)\n");

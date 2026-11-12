@@ -10,17 +10,12 @@
 // check, e.g.:
 //   CW_AGENT_COMMAND = "node <this file> {{manifest}} {{input}} {{result}}
 //     {{workerDir}} {{model}} {{prompt}} {{unknown}}"
-// and env CW_ECHO_ARGV_OUT = a file path this script writes its argv JSON
-// array to (so the case can read it back after the run).
+// It writes its argv JSON array to <workerDir>/argv.json, next to the
+// result.md it writes, so the case can read it back after the run.
 
 import fs from "node:fs";
+import path from "node:path";
 
-const outPath = process.env.CW_ECHO_ARGV_OUT;
-if (!outPath) {
-  process.stderr.write("echo-argv-agent: CW_ECHO_ARGV_OUT not set\n");
-  process.exit(1);
-}
-fs.writeFileSync(outPath, JSON.stringify(process.argv.slice(2), null, 2));
 
 // The result path is a positional slot in the caller's own template; find
 // it by matching the one argv element that looks like a result.md path
@@ -30,6 +25,10 @@ if (!resultPath) {
   process.stderr.write("echo-argv-agent: no ...result.md argv element found\n");
   process.exit(1);
 }
+
+// Each worker writes its argv next to its own result.md (workers run in
+// parallel, so one shared file would race).
+fs.writeFileSync(path.join(path.dirname(resultPath), "argv.json"), JSON.stringify(process.argv.slice(2), null, 2));
 
 const evidence = process.env.CW_STUB_EVIDENCE || "a.txt:1";
 const body = `Stub finding for a conformance case.

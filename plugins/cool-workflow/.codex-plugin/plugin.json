@@ -1,7 +1,7 @@
 {
   "name": "cool-workflow",
   "version": "0.4.4",
-  "description": "A workflow control plane and run-time you are able to check: it sends out jobs in TypeScript, makes certain of work against facts before it goes through, puts state into fixed records, and talks MCP. It gives the doing of the work to outside agents — it never runs the models itself.",
+  "description": "Keeps the books for AI work: an outside agent does the work, CW records each claim with the lines it rests on, gates the result on evidence, and writes a report you can verify offline. It never runs a model itself.",
   "author": {
     "name": "COOLWHITE LLC"
   },
@@ -13,14 +13,14 @@
     "orchestration",
     "agents",
     "multi-agent",
-    "mcp"
+    "receipts",
+    "evidence"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.codex-plugin/mcp.json",
   "interface": {
     "displayName": "Cool Workflow",
-    "shortDescription": "A workflow control plane you are able to check.",
-    "longDescription": "Cool Workflow (CW) is a workflow control plane and run-time you are able to check. It gives you: a TypeScript COL run-time, Workflow App framework agreements, a Router and Orchestrator, Subagent Dispatch, a same-every-time Harness, a hard-questioning Verifier, Git and State Commit, Sandbox Profiles, time-ordered jobs, jobs that come round again, a high-level Multi-Agent CLI and MCP host face, and an MCP JSON-RPC 2.0 bridge. Builders make workflow apps they are able to use again; CW gives the doing of the work to an outside agent host and keeps a checked, play-again record of state — it never puts a model API inside itself.",
+    "shortDescription": "Receipts for AI work you can check.",
+    "longDescription": "Cool Workflow (CW) keeps the books for AI work. Ask a question with cw -q; CW plans the review, hands each step to an outside agent CLI, accepts only results whose evidence resolves to real lines, commits the run, and writes report.md and report.html. cw check keeps a receipt that a command passed; cw report bundle seals a run into one file that cw report verify-bundle checks offline and fails closed. CW never runs a model, never holds a key, and never uploads code.",
     "developerName": "COOLWHITE LLC",
     "category": "Productivity",
     "capabilities": [

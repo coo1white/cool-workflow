@@ -5,17 +5,8 @@
     ]
   },
   "clockEnvCounts": {
-    "core/pipeline/runner.ts": {
-      "new Date()": 1
-    },
-    "core/state/migrations.ts": {
-      "process.cwd()": 1
-    },
-    "core/state/state-node.ts": {
-      "new Date()": 5
-    },
     "core/trust/evidence-grounding.ts": {
-      "process.env": 3
+      "process.env": 2
     }
   },
   "layerViolations": {}

@@ -77,7 +77,7 @@ Upgrade later with `brew update && brew upgrade cool-workflow`.
 | Muse Code | `-muse` | ✅ works | — |
 | OpenCode | `-opencode` | ✅ works | [install](https://opencode.ai/) |
 | Gemini | `-gemini` | ✅ through opencode | [install OpenCode](https://opencode.ai/) |
-| DeepSeek | `-deepseek` | ✅ through opencode or an HTTP endpoint | [install OpenCode](https://opencode.ai/) |
+| DeepSeek | `-deepseek` | ✅ through opencode | [install OpenCode](https://opencode.ai/) |
 | GitHub Copilot CLI | `-copilot` | 🧪 beta | [install](https://github.com/github/copilot-cli) |
 | Antigravity | `-antigravity` | 🧪 beta | [install](https://antigravity.google/) |
 | Grok | `-grok` | ✅ works (add `-grok`) | [install](https://docs.x.ai/build/cli) |
@@ -87,8 +87,7 @@ Upgrade later with `brew update && brew upgrade cool-workflow`.
 | Kimi | — | ⬜ not yet | |
 
 🧪 beta: CW has a wrapper and an offline test for it, but no real login has
-passed `cw doctor --conformance` yet, and `cw` never picks it by itself: add
-its flag.
+been checked with it yet, and `cw` never picks it by itself: add its flag.
 
 Log in to your agent once on its own (run it, for one `claude`, and follow
 its steps) before you use it with CW: CW uses your agent as it is set up,
@@ -114,7 +113,7 @@ cw -q "How does auth work end-to-end here?"
 
 CW uses the current repo and the first agent it finds on your `PATH`. Want a specific agent? Add a flag from the table above, such as `-claude`.
 
-A full review takes about 4 minutes on a real repo (14 workers; the Map and Assess stages run at the same time). One focused question? Add `--fast`: 6 workers in place of 14, the same cited answer for fewer agent calls.
+A full review takes about 4 minutes on a real repo (14 workers; the Map and Assess stages run at the same time).
 
 ### 3 · Open the report
 
@@ -137,7 +136,7 @@ cw check -- npm test
 
 CW runs your command (never a model) and saves what happened: the commit, the exit code, a digest of the output. A result that cites `receipt:rc-…` is checked again before it counts: a failed run, a missing receipt, or code that changed since the run is turned down, with the one command to fix it. `cw check list` shows your receipts.
 
-These steps are the core path. Everything else is kept working, not grown.
+These steps are the whole tool: CW does nothing else.
 
 ## Words you will see
 
@@ -165,7 +164,8 @@ CW does not run the model — it keeps the books. Your agent signs its findings 
 | `Missing required input: question` | Add `-q "<question>"` |
 | Run stopped before the end | Fix the cause, then `cw --resume --run <id>` takes it to the end; a worker that stopped gets fresh tries (inside the project, or add `--repo <path>`) |
 | `... is not a git project` | Run it inside the project, or pass `--repo` |
-| `Run <id> was made for <folder>` | The run belongs to another folder (a copied or moved repo): pass `--repo <that folder>`, or move it with `cw run export` and `cw run import` |
+| `Run <id> was made for <folder>` | The run belongs to another folder (a copied or moved repo): pass `--repo <that folder>` |
+| `Run <id> was made by an older cw` | This cw cannot read runs made before batch 5 of 2026-11-12; start a new one with `cw -q "<question>"` |
 
 Something else wrong? **[Open an issue](https://github.com/coo1white/cool-workflow/issues/new/choose)** — one line on what happened is enough. A report gets a reply within a day, and the fix names you.
 
@@ -175,13 +175,10 @@ Something else wrong? **[Open an issue](https://github.com/coo1white/cool-workfl
 - **[Why Cool Workflow](https://github.com/coo1white/cool-workflow/wiki/Mental-Model)**
 - **[How it works](https://github.com/coo1white/cool-workflow/wiki/Architecture)**
 - **[What you can run](https://github.com/coo1white/cool-workflow/wiki/Workflow-Apps)**
-- **[From your editor](https://github.com/coo1white/cool-workflow/wiki/MCP-And-Manifests#from-your-editor)**
 - **[Trust & Audit](https://github.com/coo1white/cool-workflow/wiki/Trust-And-Audit)**
 - **[Repo Map](https://github.com/coo1white/cool-workflow/wiki/Repo-Map)**
 - **[Wiki home](https://github.com/coo1white/cool-workflow/wiki)**
 - **[Contributing](.github/CONTRIBUTING.md)** — to change CW itself: where to start for each job, the rules, and how to report a security problem
-
-CW dogfoods its own release: every cut runs `release-cut` against this repo.
 
 ## License
 

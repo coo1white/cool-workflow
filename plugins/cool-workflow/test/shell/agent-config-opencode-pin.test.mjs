@@ -5,11 +5,10 @@
 // opencode-only user had no short flag to pin their agent.
 //
 // The redirect line lives inside runCli() (not a pure export), so the
-// black-box seam is the real CLI: `cw quickstart --check --json` reports
-// the "agent" preflight check from the SAME resolved agent config the
-// drive would use. With auto-detect off (CW_NO_AUTO_AGENT=1), no
-// CW_AGENT_COMMAND, and an empty CW_HOME, the agent check is "blocked"
-// unless a pin flag maps to a builtin template.
+// black-box seam is the real CLI: `cw doctor --json` reports the "agent"
+// check from the SAME resolved agent config the drive would use. With
+// auto-detect off (CW_NO_AUTO_AGENT=1), no CW_AGENT_COMMAND, and an empty
+// CW_HOME, the agent check warns unless a pin flag maps to a builtin template.
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -30,33 +29,28 @@ function checkAgent(extraArgs) {
   delete env.CW_AGENT_COMMAND;
   const r = spawnSync(
     process.execPath,
-    [cli, "quickstart", "-q", "x", "--check", "--json", "--repo", tmp, ...extraArgs],
-    { encoding: "utf8", env }
+    [cli, "doctor", "--json", ...extraArgs],
+    { encoding: "utf8", env, cwd: tmp }
   );
-  // Note: --check exits non-zero when any check is blocked, so the exit
-  // code is asserted per case below, not here.
   const payload = JSON.parse(r.stdout);
   const agent = payload.checks.find((c) => c.name === "agent");
-  assert.ok(agent, "the --check payload must have an 'agent' check");
-  return { agent, status: r.status };
+  assert.ok(agent, "the doctor payload must have an 'agent' check");
+  return { agent };
 }
 
 try {
-  // Control: with auto-detect off and no pin flag, the agent check is
-  // blocked (and the whole --check exits non-zero). This proves the "ok"
-  // below comes from the flag, not the env.
+  // Control: with auto-detect off and no pin flag, the agent check warns.
+  // This proves the "ok" below comes from the flag, not the env.
   {
-    const { agent, status } = checkAgent([]);
-    assert.equal(agent.status, "blocked", "no pin flag + no auto-detect must leave the agent check blocked");
-    assert.notEqual(status, 0, "a blocked --check must exit non-zero");
+    const { agent } = checkAgent([]);
+    assert.equal(agent.status, "warn", "no pin flag + no auto-detect must leave the agent check unconfigured");
   }
 
   // The new redirect: `-opencode` maps to --agent-command builtin:opencode,
   // so the same invocation now reports the agent as configured.
   {
-    const { agent, status } = checkAgent(["-opencode"]);
+    const { agent } = checkAgent(["-opencode"]);
     assert.equal(agent.status, "ok", "-opencode must pin the agent (builtin:opencode), like -claude/-codex/-gemini/-deepseek");
-    assert.equal(status, 0, "an all-ok --check must exit 0");
   }
 
   // The template behind the pin: builtin:opencode must resolve to the

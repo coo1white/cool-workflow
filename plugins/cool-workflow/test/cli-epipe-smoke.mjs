@@ -52,7 +52,7 @@ async function main() {
   // One --json verb (printJson path) and one human-text verb (raw help
   // write) — the two output shapes a downstream `head` cuts short.
   const cases = [
-    ["list", "--json"],
+    ["check", "list", "--json"],
     ["help"],
   ];
   for (const args of cases) {

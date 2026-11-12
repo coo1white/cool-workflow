@@ -1,148 +1,62 @@
 # Security / Trust Hardening
 
-CW v0.1.15 adds a local trust audit layer for worker sandbox decisions,
-evidence provenance, and verifier-gated commits. The multi-agent audit views
-(role policy, blackboard write audit, judge rationale) went with the
-multi-agent family; see release-and-migration(7), "Removed Surfaces". Audit
-events an older CW wrote for them stay in `events.jsonl` and still count in
-the chain check.
+What CW refuses, and why. CW is not an OS sandbox: the agent host must still
+give OS-level read and write isolation, process and network limits. CW keeps
+the books, and its gates fail closed.
 
-## Audit Records
+## What an agent gets
 
-Every run has an audit directory of its own:
+CW starts the agent argv-style (`shell: false`), in the repository folder,
+with a short, fixed env: `PATH`, `HOME`, `USER`, provider-key names
+(`CW_`, `ANTHROPIC_`, `CLAUDE_`, `OPENAI_`, `GEMINI_`, ...) and the proxy and
+CA settings. Four names are never passed on, whatever their prefix:
 
-```text
-.cw/runs/<run-id>/audit/
-  events.jsonl
-  index.json
-  summary.json
-```
+- `CW_RELEASE_VERDICT_PRIVKEY` — the release verdict signing key;
+- `CW_CHECK_PRIVKEY` — the done-receipt signing key (an agent holding it
+  could forge receipts);
+- `CW_WORKBENCH_TOKEN`, `CW_BENCH_TRACE_FILE`.
 
-`events.jsonl` is made so you can add to the end. `index.json` and `summary.json` are
-fixed, repeatable look files that CW commands make again.
+Secret-looking arguments (the value after `--api-key`, `--token`, ...; `sk-`
+and `ghp_` tokens; long opaque strings) are written as `<redacted>` wherever
+CW records the command it ran.
 
-Each event keeps a record of:
+## What CW takes back
 
-- schema version, event id, timestamp, run id, kind, decision, and source
-- actor, worker id, task id, node id, candidate id, score id, selection id, or commit id when it has a part to play
-- sandbox profile id and policy snapshot/reference
-- normalized path, command, network target, or env variable names when they have a part to play
-- evidence references and parent audit event ids
-- feedback ids for denied or failed decisions
+A worker's `result.md` is data. CW refuses it, retries the worker with the
+reason at the top of its next `input.md`, and parks it after three tries,
+when:
 
-Event sources are clear:
+- `result.md` is a symlink or resolves outside the worker's folder;
+- a task that needs evidence cites none that is grounded (a `path:line`
+  locator, URL, or `namespace:value` token — not free text);
+- a P0, P1 or P2 finding has no grounded evidence of its own;
+- a repository review cites mostly CW's own `.cw/` run files;
+- a cited `cw check` receipt is missing, edited, unsigned when a key is
+  set, from a failed command, or stale (the code changed since);
+- the verdict cites a file that is not on disk, or a line past its end.
 
-- `cw-validated`: CW checked a policy or gate on the local machine.
-- `host-attested`: the agent host or operator put down a record of what the host made certain.
-- `operator-recorded`: a person or caller gave the record.
-- `runtime-derived`: CW got the event from run state.
+The final commit checks the verdict's evidence once more (see
+verifier-gated-commit(7)); a refused commit leaves the run `blocked` with the
+reason, and `report.md` is still written.
 
-CW does not keep secrets or raw environment values. Environment audit records
-keep names only — for example, `worker.agent-env` records which provider-namespace
-env var NAMES (`CW_`, `ANTHROPIC_`, `OPENAI_`, and similar) were forwarded from
-the host process to a delegated agent child, queryable via `cw audit summary`/`cw audit`.
-From 0.3.3 the list may also name the proxy, trust, and `CLAUDE_*` vars
-the agent child now gets (see `docs/sandbox-profiles.7.md`); their values
-are not kept.
+## Run state
 
-## Enforcement Boundary
+A run's `state.json` is data, not a list of places to write: each load makes
+the run's paths again from the folder it was found in. A run id must be one
+safe path segment. A `state.json` from before batch 5 is refused with one
+line; CW never migrates or repairs state. See durable-state-and-locking(7).
 
-CW checks sandbox profiles, normalizes paths, checks worker output
-acceptance, checks command/network/env decisions when asked, and keeps
-lasting feedback for denied worker decisions.
+## Telemetry
 
-The agent host must still make certain of OS-level read isolation, write isolation,
-limits on process execution, limits on network, and environment filtering.
-The audit layer lets you look at that boundary; it is not a kernel.
+CW holds only the operator's PUBLIC key. An agent wrapper signs its usage
+report and the digest of the result it wrote; CW verifies the
+signature on accept and again in `cw report verify-bundle`, and records
+`attested`, `unattested` or `absent`. It never measures usage itself. See
+trust-model.
 
-A run's `state.json` is data, not a list of places to write: each load
-makes the run's `paths` and audit paths again from the run folder it was
-found in, and the report head turns control characters in stored values
-into spaces. An injected run id must be one safe path segment. See
-`docs/durable-state-and-locking.7.md`, "Run paths come from where the run
-is".
+## Removed in batch 5
 
-## Requiring Attested Telemetry
-
-`CW_REQUIRE_ATTESTED_TELEMETRY=1` (or `--require-attested-telemetry`, or a
-durable `agent-config.json` field) is an opt-in, off-by-default gate: once
-on, CW refuses to accept ANY worker result whose usage telemetry is not
-cryptographically `attested` — a delegated hop whose signature does not
-verify, and now also a MANUAL accept (`cw worker output`, `cw result`) that
-carries no delegation telemetry at all. The manual shape used to slip past
-the gate silently; it is now blocked the same way, with its own code
-(`telemetry-missing-blocked`, distinct from a present-but-unverified hop's
-`telemetry-unattested-blocked`).
-
-An operator who genuinely needs to accept an unattested manual result under
-the require flag passes `--allow-unattested` (MCP: `allowUnattested`). This
-is never silent: it writes a `telemetry.gate-override` trust-audit event
-(`decision: "allowed"`, `source: "operator"`) into the same hash-chained log
-every other audit decision goes through, so the override itself is part of
-the auditable record, not a hole in it.
-
-A result-cache hit (the drive loop replaying a previously accepted result) is
-never re-blocked by this gate — the underlying result was already gated (or
-overridden) at its first acceptance. When the require flag is on, a cache
-accept still records a `telemetry.cache-accept` event, so the audit trail
-shows which accepts came from a fresh hop and which from the cache.
-
-With the require flag off (the default), none of this changes: a plain
-`cw worker output` / `cw result` behaves exactly as before.
-
-## CLI
-
-```bash
-cw audit summary <run-id>
-cw audit worker <run-id> <worker-id>
-cw audit provenance <run-id> [--worker ID|--candidate ID|--commit ID]
-cw audit attest <run-id> --worker <worker-id> --hostEnforced true
-cw audit decision <run-id> <worker-id> --path <path>
-cw audit decision <run-id> <worker-id> --command "npm test"
-cw audit decision <run-id> <worker-id> --network example.com
-cw audit decision <run-id> <worker-id> --env SECRET_NAME
-cw worker output <run-id> <worker-id> <result-file> [--allow-unattested]
-cw result <run-id> <task-id> <result-file> [--allow-unattested]
-```
-
-Denied audit decisions are put into audit files and joined to feedback/error
-records. Environment values are cut back to names.
-
-`--candidate` on `cw audit provenance` stays so a run an older CW wrote with
-candidates can still be read.
-
-## Evidence Provenance
-
-`StateEvidence` still works with older versions. v0.1.15 adds optional
-`provenance` metadata that can point from:
-
-```text
-worker result -> result node -> verifier node -> commit
-```
-
-Verifier-gated commits keep provenance links in place of only copying
-evidence arrays.
-
-## Why Accepted
-
-A verifier-gated commit names its verifier node and copies that node's
-evidence; the `commit.gate` audit event points back at both. The commit gate
-fails closed when the evidence is missing, not grounded, or (in strict mode)
-not found on disk.
-
-The `acceptanceRationale` record (selected candidate, score, worker, sandbox
-profile) was made only for a candidate selection commit, so it went with
-the candidate verbs. A commit an older CW wrote with one keeps it as data.
-
-## MCP
-
-The MCP server gives these like tools:
-
-- `cw_audit_summary`
-- `cw_audit_worker`
-- `cw_audit_provenance`
-- `cw_audit_attest`
-- `cw_audit_decision`
-
-MCP tool names that are already there do not change.
-0.1.51
+The trust-audit chain (`.cw/runs/<id>/audit/`, `cw audit ...`), sandbox
+profiles, worker audit decisions and their MCP tools were removed on
+2026-11-12; the signed telemetry ledger is the one chain that stays. See
+release-and-migration(7), "Removed in batch 5".

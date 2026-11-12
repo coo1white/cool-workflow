@@ -4,8 +4,7 @@
 // the reason at the top of input.md, then parked; a resume after the agent
 // is fixed completes.
 //
-// 1. C1: a P0/P1/P2 finding with no grounded evidence of its own
-//    (validateResultEnvelope was written but never called on intake).
+// 1. C1: a P0/P1/P2 finding with no grounded evidence of its own.
 // 2. C2: a verdict that cites a line past the end of a file that is on
 //    disk (only the file's being there was checked).
 //
@@ -66,19 +65,18 @@ function state(dir, runId) {
   return JSON.parse(fs.readFileSync(path.join(dir, ".cw", "runs", runId, "state.json"), "utf8"));
 }
 
-function parkedWorker(dir, out, reason, code, fix) {
+function parkedWorker(dir, out, reason) {
   assert.equal(out.status, "parked", "the drive parks, it does not throw");
   const park = out.steps.filter((step) => step.status === "parked").pop();
   assert.match(park.reason, reason, "the park names the reason");
-  assert.match(park.reason, /\(attempt 3\/3\)$/, "tried again before the park");
+  assert.equal(park.attempts, 3, "tried again before the park");
   const s = state(dir, out.runId);
   assert.ok(fs.existsSync(s.paths.report), "report.md is written");
   const task = s.tasks.find((t) => t.id === park.taskId);
-  const worker = s.workers.find((w) => w.id === task.workerId);
-  assert.ok(worker.errors.some((e) => e.code === code), `the worker failure is ${code}`);
-  const input = fs.readFileSync(worker.inputPath, "utf8");
-  assert.ok(input.startsWith("Your last result was rejected: "), "the next try is told why");
-  assert.ok(input.split("\n")[0].endsWith(fix), `the fix is named: ${fix}`);
+  assert.ok(task.errors.some((e) => e.code === "agent-delegation-retry" && reason.test(e.message)), "each try records why it was turned down");
+  const input = fs.readFileSync(path.join(s.paths.workersDir, task.workerId, "input.md"), "utf8");
+  const told = input.split("## Previous Attempt")[1] || "";
+  assert.match(told, reason, "the next try is told why");
   return park;
 }
 
@@ -86,11 +84,11 @@ try {
   // 1. C1: a P1 finding with only free text as evidence.
   {
     const dir = repo("ungrounded");
-    const parked = cw(["-q", "How does it work?", "--fast"], dir, "ungrounded");
-    const park = parkedWorker(dir, parked, /Task \S+ finding f1 severity P1 requires grounded evidence \(a path-like locator, URL, or namespace:value token\)/, "result-contract-violation", "Give each P0, P1 or P2 finding its own evidence: a path-like locator, URL, or namespace:value token.");
+    const parked = cw(["-q", "How does it work?"], dir, "ungrounded");
+    const park = parkedWorker(dir, parked, /Task \S+ finding f1 severity P1 requires grounded evidence \(a path-like locator, URL, or namespace:value token\)/);
     const done = cw(["--resume", "--run", parked.runId], dir, "");
     assert.equal(done.status, "complete", "a resume after the agent is fixed completes");
-    assert.ok(done.reopenedWorkers.includes(park.taskId), "the parked worker is opened again");
+    assert.ok(done.steps.some((step) => step.action === "accept" && step.taskId === park.taskId), "the parked task is run again");
     assert.ok(done.commitId, "the run commits");
     console.log("result-intake-contract: ungrounded P1 finding — turned down, parked, resumed OK");
   }
@@ -98,9 +96,9 @@ try {
   // 2. C2: the verdict cites README.md:7; README.md has 1 line.
   {
     const dir = repo("past-end");
-    const parked = cw(["-q", "How does it work?", "--fast"], dir, "past-end");
-    const park = parkedWorker(dir, parked, /Task verdict:fast-synthesis cites a line past the end of its file: README\.md:7 \(README\.md has 1 lines\)/, "verdict-evidence-past-end", "Cite only lines that are in the file.");
-    assert.equal(park.taskId, "verdict:fast-synthesis");
+    const parked = cw(["-q", "How does it work?"], dir, "past-end");
+    const park = parkedWorker(dir, parked, /Task verdict:synthesis cites a line past the end of its file: README\.md:7 \(README\.md has 1 lines\)/);
+    assert.equal(park.taskId, "verdict:synthesis");
     assert.equal(parked.completedWorkers, parked.plannedWorkers - 1, "every worker but the verdict completes");
     const done = cw(["--resume", "--run", parked.runId], dir, "");
     assert.equal(done.status, "complete");

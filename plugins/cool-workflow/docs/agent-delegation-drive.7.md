@@ -1,837 +1,167 @@
 # Agent Delegation Drive
 
-CW v0.1.38 adds Agent Delegation Drive: a way to run a natural-language-prompt
-workflow **end-to-end by DELEGATING each worker to an EXTERNAL agent process**
-(`claude -p` headless, `codex exec`, or a configured HTTP agent endpoint). It
-keeps each worker's `result.md` plus a record of which agent/model made it. It
-turns the `architecture-review` app into CW's first ready-to-use,
-evidence-audited product: point CW at a repo, get an audited risk report — with
-no person hand-writing any `result.md`.
-
-Before v0.1.38, CW could `plan` a workflow, keep workers apart, and take in their
-output, but **nothing spawned the agent that wrote each `result.md`**. To run
-`architecture-review` end-to-end, an operator had to hand-write all 14 worker
-result files outside the loop, with no kept record of which agent/model made
-each. The new `agent` backend + `run --drive` loop close that last gap.
+`cw -q "<question>"` runs the `architecture-review` workflow end to end by
+handing each worker to an EXTERNAL agent process (`claude -p`, `codex exec`,
+`opencode run`, ...). CW keeps each worker's `result.md`, checks it, and ends
+the run in one verifier-gated commit and a `report.md`. No person writes a
+`result.md` by hand.
 
 ## The red line — delegate, do not internalize
 
-CW **DELEGATES, IT DOES NOT BECOME THE EXECUTOR.** The `agent` backend does the
-same thing the `container`/`remote`/`ci` backends do: it `spawnSync`s an
-out-of-process child (the agent CLI, argv-style, `shell:false`) or POSTs to a
-configured endpoint, then keeps a record of a `BackendExecutionHandle`
-(`kind: "process"`) + a `SandboxAttestation` + the canonical result envelope.
-**The model runs in the agent's process, never inside CW.** CW brings in no model
-SDK, holds no API key, builds no chat/completions request, and calls no model
-HTTP API. Any API key comes from the agent's *own* inherited env; CW never reads
-or keeps a record of it. Adding a provider SDK to `package.json` would lose the
-neutral-audit moat and is the red line.
+CW **delegates; it does not become the executor.** It starts the agent as a
+child process (argv-style, `shell:false`) and reads back what the agent wrote.
+**The model runs in the agent's process, never inside CW.** CW brings in no
+model SDK, holds no API key, builds no chat request, and calls no model HTTP
+API. Any API key comes from the agent's own env; CW never reads or records it.
+Adding a provider SDK to `package.json` is the red line.
 
-## Architecture — the boundary (core ↔ agent backend ↔ wrappers)
+## The boundary — core, agent driver, wrappers
 
-The core gives only an INTERFACE: the `agent` execution backend plus a small
-text/process contract. The vendors (claude / codex / gemini / deepseek /
-muse / grok, and in beta copilot / antigravity) live OUTSIDE the core as out-of-process wrapper scripts in
-`scripts/agents/` — pure config, never imported by `src/`, behind the same seam.
+The vendors live OUTSIDE the core, as wrapper scripts in `scripts/agents/`:
+config, never imported by `src/`.
 
 ```text
-                       user
-                       │  cw -q "…" -codex   (headline shortcut; also -claude/-gemini/-deepseek/-muse)
-                       ▼
-┌──────────── CW core  (src/ — zero runtime deps, imports NO model SDK, holds NO key) ───────────┐
-│                                                                                                │
-│  src/cli/entry.ts          agent-config.ts                 execution-backend  ("agent" driver) │
-│  -codex → builtin:codex ─► builtin:<name> ─►               runAgentProcess:                     │
-│                            node <dir>/<name>-agent.js       spawnSync(binary, args, shell:false)│
-│                            {{input}} {{result}}            · inherits env  · captures stdout    │
-│                            (builtin-templates.json: DATA)  · records handle{process}+attestation│
-└───────────────────────────────────────┬───────────────────────────────────────────────────────┘
-     THE SEAM  (text / process contract) │
-       in : argv  {{input}}=worker input.md   {{result}}=worker result.md
-       out: wrapper writes result.md + ONE stdout JSON line {model,usage,result} → parseAgentReport
-                                         │
-   ── red line ──  core never reads a key; each wrapper resolves its OWN key from inherited env
-                                         │
-┌─── external wrappers  (scripts/agents/*.js — "CONFIG, not a CW runtime dependency") ───────────────────────────────────────┐
-│   claude-p-agent.js        codex-agent.js        muse-agent.js              gemini-opencode-agent.js  deepseek-agent.js    │
-│           │                       │                    │                                 └──────┬──────┘                   │
-│           ▼                       ▼                    ▼                                       ▼  (3-line shims)           │
-│   claude -p                codex exec            muse exec                  opencode-agent.js                              │
-│   (Anthropic CLI)          (-c effort, sandbox)  (--json, --prompt-file)    opencode run --model …                         │
-│                                                                             (deepseek + gemini keys live here)             │
-└────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-   Add a vendor = drop a wrapper script + one line in builtin-templates.json — NO core edit.
+cw -q "..." -codex
+  src/cli/entry.ts           -codex -> builtin:codex
+  src/shell/agent-config.ts  builtin:<name> -> node <dir>/<name>-agent.js {{input}} {{result}}
+                             (scripts/agents/builtin-templates.json is DATA)
+  src/shell/execution-backend/agent.ts
+                             runAgent: spawn(binary, args, shell:false), read stdout
+  ---- the seam: argv in, result.md + one stdout JSON line out ----
+  scripts/agents/claude-p-agent.js, codex-agent.js, muse-agent.js,
+  opencode-agent.js (gemini, deepseek), copilot-agent.js,
+  antigravity-agent.js, grok-agent.js
 ```
 
-Each box maps to one source seam: the flag map lives in `src/cli/entry.ts`
-(`-codex` → `builtin:codex`); `agent-config.ts` expands `builtin:<name>` into
-`node <dir>/<name>-agent.js {{input}} {{result}}` by reading
-`builtin-templates.json` (the registry is DATA, not a kernel literal); the
-`agent` driver's `runAgentProcess` does the `spawnSync` and reads back the one
-stdout JSON line via `parseAgentReport`. So the four vendors are **delegated
-agent wrappers, not an event-"hook" system**. The seam is generic: any
-`CW_AGENT_COMMAND="node my-agent.js {{input}} {{result}}"` or a configured HTTP
-endpoint plugs in the same way — the four builtins are just bundled examples.
+Add a vendor: drop a wrapper script and one line in `builtin-templates.json`.
+No core edit. Any `CW_AGENT_COMMAND="node my-agent.js {{input}} {{result}}"`
+plugs in the same way; the builtins are bundled examples.
 
 ## The agent contract (cw-agent/1)
 
-This is all that CW asks of an agent command. It has the name `cw-agent/1`
-(new in 0.3.3 as a name; the rules are the ones CW has kept since the agent
-driver came in), so a wrapper can say which contract it keeps, and a later
-change to the contract gets a new number. `cw doctor --conformance` checks a
-configured agent against it (see doctor(7)).
-
 - **How it is started.** CW runs the command with no shell, as separate argv
-  words. In each word it puts `{{input}}` (the worker's `input.md`: the task),
-  `{{result}}` (the `result.md` path to write), `{{manifest}}`
-  (`manifest.json`), `{{workerDir}}`, `{{model}}` and `{{prompt}}`; from
-  0.4.2 also `{{phase}}` (the task's phase, as `Verify`), `{{taskId}}` (as
-  `verdict:fast-synthesis`), `{{workerId}}` (the worker folder's name) and
+  words, in the target repository. In each word it puts `{{input}}` (the
+  worker's `input.md`: the task), `{{result}}` (the `result.md` path to
+  write), `{{manifest}}` (`manifest.json`), `{{workerDir}}`, `{{model}}`,
+  `{{prompt}}`, `{{phase}}`, `{{taskId}}`, `{{workerId}}` and
   `{{priorResults}}`. `{{priorResults}}` is the path of
   `<workerDir>/prior-results.json`, `{"schemaVersion": 1, "taskId", "phase",
-  "priorResults": [{"taskId", "phase", "resultPath"}]}`: the accepted result
-  file of every task in an earlier phase, by task id, as absolute paths. It
-  is an empty list in the first phase, and also when any earlier task has no
-  accepted result or a path falls outside the run's own folders (fail
-  closed). The file is written only for a command that names
-  `{{priorResults}}`; a command that names none of the four gets the same
-  argv and files as before (up to 0.4.1 they were passed as written). Its
-  stdin is closed. It gets the sandbox profile's env, with what the profile lets
-  through (proxy and CA vars, its own provider keys), never CW's keys.
+  "priorResults": [...]}`: the accepted result of each task in an earlier
+  phase. The file is written only for a command that names it. Stdin is
+  closed. The env is short and fixed (see security-trust-hardening(7)); CW's
+  own signing keys are never in it.
 - **What it has to do.** Write the answer to `{{result}}` and exit 0. CW reads
   `result.md` the same way on every accept: a fenced `cw:result` JSON block
   (`{"summary": ..., "findings": [...], "evidence": [...]}`), or else plain
-  Markdown, whose first line is taken as the summary. A `cw:result` block that
-  is not valid JSON is refused.
+  Markdown, whose first line is the summary. A `cw:result` block that is not
+  valid JSON is refused.
 - **What it may say.** One JSON line on stdout with `"model"` (and
   `"usage"`), which CW records as the reported model; without it, the run
-  records say `unreported`. Its stderr is for people: CW keeps the last part
-  of it, keys hidden, in `<workerDir>/logs/agent-stderr.log` when it fails.
+  records `unreported`. Its stderr is for people: on a failure CW keeps the
+  last part, keys hidden, in `<workerDir>/logs/agent-stderr.log`.
 - **How it ends.** Exit 0 with a `result.md` is done. Any other exit, no exit
-  code, or no `result.md` is a failed hop (tried again, then parked). Past
-  `CW_AGENT_TIMEOUT_MS` (10 minutes by default), or past
-  `CW_AGENT_IDLE_TIMEOUT_MS` with no output when that is set, its whole process
-  group is stopped and the worker parks at once.
-- **An HTTP agent** (`CW_AGENT_ENDPOINT`) gets the same facts as one POST body
-  (`manifest`, `prompt`, `model`, `resultPath`, `sandboxProfileId`) and the
-  same rules for `result.md`.
+  code, or no `result.md` is a failed hop: tried again, then parked after 3
+  tries. Past `CW_AGENT_TIMEOUT_MS` (or `--agent-timeout-ms`, or `timeoutMs`
+  in `$CW_HOME/agent-config.json`; 10 minutes by default) the agent is
+  killed and the worker parks at once: an agent that hung for the full limit
+  would most likely hang again.
 
-## Operator-chosen model is policy; agent-reported model is the attestation
+The model CW passes in (`--agent-model`, `CW_AGENT_MODEL`, `{{model}}`) is the
+operator's policy. The recorded model comes only from what the agent reports;
+CW never fills it in from the policy and never checks the claim.
 
-Any model id CW passes **into** the agent invocation (`CW_AGENT_MODEL`
-interpolated into `{{model}}`) is **policy-as-data the operator chose**. It is
-kept only as part of the secret-stripped command-template/args provenance and is
-**never** the source of the attested `UsageRecord.model`. The recorded/attested
-model id comes only from what the external agent reports back in its output. If
-the agent reports no model, CW writes down `unreported` — it never fills in from
-`CW_AGENT_MODEL`. A configured `CW_AGENT_MODEL` that is not the same as the
-agent's reported model does not overwrite the host-reported model id.
+## The drive
 
-The record now says this out loud with a `modelProvenance` label on the
-accepted worker's usage record (and on the `agentDelegation` result-node
-metadata):
-
-- `agent-self-reported` — the agent named a model itself in its output.
-- `absent` — the agent named no model (the pinned `unreported` value), so
-  there is no model identity on record.
-
-CW never checks the model claim — it can not, by design (the red line: no
-model SDK, no API key). The label makes the source of every recorded model
-id plain on the user surfaces: report.md's Workers/Trust Audit sections and
-`cw telemetry verify` (the `model:` line; `modelSelfReported`/`modelAbsent`
-in `--json`).
-
-## Two layers, never conflated
-
-1. **Backend evidence triple.** `runAgentProcess` keeps a record of the agent
-   CHILD's `command` + `exitCode` + `sha256(stdout)` — the same mechanism
-   `runContainer`/`runHttpDelegation` use. This triple has the same byte-stable
-   SHAPE across `node`/`container`/`remote`/`ci`/`agent`. It NEVER reads, parses,
-   or hashes a `result.md`.
-2. **`result.md` acceptance.** The worker's `result.md` `cw:result` envelope is
-   taken in a SEPARATE layer (`recordWorkerOutput`), which checks it, copies it
-   into `resultsDir`, runs the verifier gate, and keeps a record of trust-audit +
-   provenance — unchanged by this feature.
-
-The agent handle (`kind: "process"`), the agent-reported model id, the prompt
-digest, the secret-stripped args, and the result digest live in `provenance` and
-the `worker.agent-delegation` trust-audit event — **never in `evidence`**.
-
-## The drive lifecycle
-
-`run --drive` is a thin orchestrator over the EXISTING verbs + the v0.1.37
-scheduler. For each worker the planner sends out, in fixed phase/dispatch
-order:
-
-```
-plan -> dispatch -> agent-fulfill (agent backend) -> recordWorkerOutput/verify -> commit
+```text
+plan -> delegate (each phase; a parallel phase runs up to maxConcurrentAgents at once)
+     -> collect result.md -> accept gates -> one verifier-gated commit -> report.md
 ```
 
-- **dispatch** sets up the worker scope (`input.md` + manifest; the worker's own
-  sandbox profile, e.g. `readonly`).
-- **agent-fulfill** hands the worker to the `agent` backend out-of-process; the
-  agent reads the input/manifest and writes `result.md`; CW takes in the child's
-  evidence triple + reported model.
-- **accept** keeps + checks `result.md`; the agent-hop attestation is folded into
-  the result node's metadata (so the v0.1.35 replay engine covers it).
-- **commit** is verifier-gated on the Verdict node once every worker is done.
+- Each worker gets `.cw/runs/<run-id>/workers/worker-<task>-0001/` with
+  `input.md` and `manifest.json`; a refused result's reason goes at the top of
+  the next `input.md`, under "## Previous Attempt".
+- The accept gates (security-trust-hardening(7)) run on each result. A worker
+  that fails them 3 times is parked and the drive stops `blocked`; `report.md`
+  is still written.
+- When every worker is accepted, the commit is gated on the verdict task
+  (verifier-gated-commit(7)). A refused commit leaves the run `blocked` on a
+  `commit` step whose reason starts `final commit refused:`.
+- `cw --resume --run <id>` runs the parked workers again, each with a fresh
+  budget, and tries the commit again. Ctrl-C stops after the current step and
+  prints that resume line; a second Ctrl-C exits at once.
+- One drive per run: the drive holds `.cw/runs/<id>/drive.lock`
+  (durable-state-and-locking(7)).
 
-The Verdict `artifact` node is fulfilled through the SAME agent backend — it is a
-worker scope with a `result.md` like any other. `--drive --once` moves on by
-exactly one fixed step (injected `now`); bare `--drive` runs to the end or to a
-parked/blocked stop. `run drive <run-id>` (no `--step`) is the read-only, fixed
-preview of the next step.
+## Live output
 
-## Concurrent rounds (`--concurrency N`)
+Everything goes to stderr; stdout carries only data (`--json`).
 
-`--drive --concurrency N` (or an auto-width parallel phase) runs a whole round's
-tasks in ONE window instead of one at a time. CW dispatches the round's tasks,
-collects every agent outcome concurrently, then settles + accepts them in
-DETERMINISTIC batch (task-id) order — so the wall-clock drops but the recorded
-state, reports, and exit codes are byte-identical to a serial run. Both agent
-shapes get real concurrency: a **CLI-binary** agent (`CW_AGENT_COMMAND`) runs
-all children at once through the batch delegate child, and an **HTTP-endpoint**
-agent (`CW_AGENT_ENDPOINT`) POSTs all N delegations at once through the HTTP
-batch delegate child. A cache-hit task still settles on the serial path inside
-the same round. An unconfigured agent still refuses (it is never a fake pass).
+- On a TTY, `[drive]` lines name each phase and each spawned agent; the
+  wrapper draws the agent's live view. Piped, nothing is shown unless
+  `CW_DRIVE_PROGRESS=1` (`[drive]` lines) or `CW_AGENT_STREAM=1` (the
+  wrapper's plain trace). `--quiet` turns the `[drive]` lines off.
+- While a round waits, one `[drive]   … <Phase> still working — 20s` line is
+  added every `CW_DRIVE_TICK_MS` (10 s by default; `0` turns it off).
+- A failed hop with tries left says why: `[drive] ✗ <task> (<phase>) — agent
+  hop failed: ...; trying again (2/3)`.
+- `--verbose` (`CW_VERBOSE=1`) shows the agent's full narration. The wrapper
+  always writes it all to `transcript.md` next to the worker's `result.md`.
+- `NO_COLOR` / `CW_NO_COLOR` (`--no-color`) turn color off; `FORCE_COLOR`
+  forces it.
 
-**Time limit in a concurrent round (new in 0.3.3).** Each agent of a round has
-its own time limit (`CW_AGENT_TIMEOUT_MS`, 600000 ms = 10 minutes by default).
-At the limit the batch delegate child sends SIGTERM, and SIGKILL 5 s later, to
-the agent's whole process group (POSIX; on Windows to the agent process only),
-so a wrapper script and every process it started are stopped together. The
-agent's outcome then settles at once as a timeout, and the hop is refused with
-`agent process timed out after <ms>ms and was killed`, the same words as a
-serial run, and the worker parks at once (see "A timeout parks at once"
-below). If some process outside the group still keeps the agent's output
-open after the agent itself has ended, the child waits 2 s
-(`CW_BATCH_EXIT_GRACE_MS`), then settles the agent with what it has. Before
-0.3.3 only the agent's top process was stopped: a child of a wrapper script
-kept the output open, the whole round waited for the outer backstop (the
-largest limit + 30 s), and each agent whose output was kept open was refused
-as `agent process failed to spawn: batch delegate failed: ... ETIMEDOUT`.
-Agents of the same round that ended in time kept their results then, and
-still do (each writes its own line the moment it ends). When the whole batch
-child does go past that backstop, the refusal now reads
-`agent delegation failed: batch delegate failed: timed out after <ms>ms (...)`.
+## Vendors
 
-**Idle limit (new in 0.3.3, opt-in).** A time limit cannot tell an agent that
-works for 10 minutes from one that went silent after 20 seconds. Set
-`CW_AGENT_IDLE_TIMEOUT_MS` to a positive number of ms to stop an agent once it
-has written nothing, on stdout or stderr, for that long. The stop is the same
-as at the time limit: SIGTERM to the agent's whole process group, SIGKILL 5 s
-later. The hop is refused with
-`agent process produced no output for <ms>ms and was killed`, and the worker
-parks on its first try, like a timeout, with
-`(attempt 1/1; no output for <time>) — not tried again: the agent stopped
-writing output; check the agent command, or raise or unset
-CW_AGENT_IDLE_TIMEOUT_MS`. An agent that keeps writing is never stopped by
-it; the overall time limit still holds. Unset, empty, `0` or a value that is
-not a positive number means off, and then nothing changes. CW's bundled
-agent wrappers write nothing on a stderr that is not a terminal, so with the
-idle limit on (and while the ticker's quiet note is on, see "Live output")
-the agent is started with `CW_AGENT_STREAM=1`, which makes them write one
-plain progress line per step; a `CW_AGENT_STREAM` you set yourself is kept.
-An agent that ends by itself is never an idle stop, even when a process it
-left behind keeps its output open for a moment. Choose a value well above
-the longest quiet stretch your agent has: a model may think for minutes
-between two steps, and a CLI of your own that writes nothing until it ends
-needs the idle limit off. With the idle
-limit on, a one-agent (serial) run goes through the batch delegate child too,
-since a blocking spawn cannot see output as it comes; its stderr is then kept
-(the last 8 KB on failure) and not shown live.
+```text
+-claude       builtin:claude       claude -p (native)
+-codex        builtin:codex        codex exec (native)
+-gemini       builtin:gemini       Gemini via opencode (CW_GEMINI_MODEL)
+-opencode     builtin:opencode     opencode (its configured default model)
+-deepseek     builtin:deepseek     DeepSeek via opencode (CW_DEEPSEEK_MODEL)
+-muse         builtin:muse         muse exec (CW_MUSE_MODEL)
+-copilot      builtin:copilot      copilot -p (beta)
+-antigravity  builtin:antigravity  agy -p (beta)
+-grok         builtin:grok         grok -p (CW_GROK_MODEL)
+```
 
-A job the batch delegate child stopped by the idle limit is reported with
-`idleTimedOutMs` in place of `timedOutMs` (new in 0.3.3, an added key).
-
-## Overlapping phases (`overlapPrevious`)
-
-Phases run one after another: a phase starts only when every task of the
-phase before it is completed. A phase that reads nothing the phase before it
-writes may say so with `overlapPrevious: true`
-(`parallel("Assess", [...], { overlapPrevious: true })`). Its tasks are then
-dispatched in the same round as the tasks of the phase before it, up to
-`limits.maxConcurrentAgents`. The phases, their task ids, and the order of
-settlement stay as declared. A failed task in the earlier phase still blocks
-every phase after it, and a phase without the option keeps its old start, so
-an app that does not use it runs byte-for-byte as before.
-
-`cw app validate` refuses the option (issue `workflow-phase-overlap`) on the
-first phase, on a `loop()` phase, when it is not a boolean, and on a phase
-with a task that reads earlier results
-(`resultCache.includeCompletedResults: "previous-phases"`), since those
-results do not exist yet when the phase starts.
-
-The default `architecture-review` app uses it: its Assess workers read the
-repository, not the Map results (only Verify and Verdict read those), so the 6
-Map and 6 Assess workers run at the same time, 12 in one round.
-
-## Fail closed — probe vs refusal vs park
-
-- **Probe.** `backend probe agent` reports `readiness: "ready"` iff a
-  command-template/endpoint is configured; if not, `readiness: "unverified"`,
-  `ready: false`, with a reason that is not empty — byte-identical in shape to
-  `backend probe remote` unconfigured. It is NEVER a hard `refused`/`unavailable`.
-- **runBackend.** Unconfigured execution (no command-template AND no endpoint)
-  returns a `delegation-target-missing` refusal — never a made-up `completed`.
-- **Failed hop.** A spawned agent that exits non-zero, returns no exit code,
-  makes no `result.md`, or makes a `result.md` that fails the check gives back a
-  `refused`/`failed` envelope (or a turned-down accept) — never a made-up
-  completion.
-- **Park.** In the drive loop, a worker whose agent hop keeps failing uses up its
-  scheduling retry budget and lands **parked** (reuse v0.1.37 `retryOrPark`) — the
-  drive stops; it is never quietly re-driven forever. Only a resume runs it
-  again, with one fresh budget each time (see `--resume` below).
-- **A timeout parks at once (new in 0.3.3, a changed default).** When the
-  agent runs past its time limit (serial or concurrent round), the worker is
-  not tried again: it parks on the first try, and the reason ends with
-  `(attempt 1/1; limit 10m) — not tried again: raise CW_AGENT_TIMEOUT_MS
-  (or --agent-timeout-ms) or check the agent command`.
-  An agent that hung for the full limit will most likely hang again, so the
-  old 3 tries were up to 30 minutes of the same wait. Every other failure
-  still gets 3 tries. The time limit is set by `--agent-timeout-ms`,
-  `CW_AGENT_TIMEOUT_MS`, or `timeoutMs` in the agent config file (in that
-  order), 600000 ms by default. A caller of `drive()` may give
-  `policy.maxTimeoutAttempts` to allow more tries for a timeout; it is never
-  more than `policy.maxAttempts`, and raising `maxAttempts` alone does not
-  change it. The operator said yes to it for 0.3.3.
-- **Verdict evidence that is not on disk.** The final commit takes the
-  verdict only when every file its evidence names is on disk
-  (`CW_REQUIRE_RESOLVABLE_EVIDENCE`, on by default). The same check is made
-  when the verdict/synthesis result (a task that requires evidence) is
-  accepted: a result that cites a file that is not there is turned down
-  (`verdict-evidence-unresolvable`), the reason goes at the top of the
-  worker's `input.md`, and the hop is tried again, then parked. So the drive
-  does not throw, `report.md` is written, and after the agent is fixed a
-  resume runs the verdict again and the run commits. If a cited file goes
-  away after the accept, the final commit is still refused, never made: the
-  drive stops `blocked` on a `commit` step whose reason starts
-  `final commit blocked:` and names the files, saves state and `report.md`,
-  and keeps one gate-failed node and one open feedback record — a second
-  drive of the same blocked commit adds no more. Put the file back (or run
-  the verdict again) and drive the run once more to commit it.
-- **A finding without evidence, or a line past the end.** A result whose
-  P0, P1 or P2 finding has no grounded evidence of its own
-  (`result-contract-violation`), or a verdict/synthesis result that cites a
-  line past the end of a file on disk (`verdict-evidence-past-end`), is
-  turned down in the same way: the reason at the top of `input.md`, tried
-  again, then parked; a resume after the agent is fixed runs it again. See
-  worker-isolation(7). If the cited file gets shorter after the accept, the
-  final commit is refused (`commit-verifier-evidence-past-end`) and the drive
-  stops `blocked`, as for a file that goes away; put the line back and drive
-  the run once more.
-
-## Replay determinism (bound to node-snapshot)
-
-The attested record (model id, prompt digest, args, result digest, exit) is plain
-data folded into the snapshotted node body. Replaying a recorded drive run via
-`snapshotNode`/`replayNodeSnapshot`/`verifyNodeReplay` makes the SAME
-audit/provenance graph again and the same recorded digests, **without re-spawning
-the agent or re-reading the live `result.md`** — even with the agent binary not
-on hand. Two replays with different injected `now` are byte-identical in body
-+ `sourceFingerprint`/`outputFingerprint`.
-
-## Vendor neutrality + durable config
-
-WHICH agent (claude / codex / ollama / an HTTP endpoint) is **policy put as
-DATA** — a command-template and/or endpoint worked out from flags > env
-(`CW_AGENT_COMMAND` / `CW_AGENT_ENDPOINT` / `CW_AGENT_MODEL`) > a durable
-`$CW_HOME/agent-config.json`. The command and its args are one unit: both
-come from the first layer that sets a command. Args from a lower layer are
-never put on a higher layer's command (a one-word `CW_AGENT_COMMAND`, or
-`-codex`, does not take the args a config file stored for another command).
-When auto-detect picks the command, no layer's args are used.
-The file keeps the same rule. `backend agent-config set --agent-command <new>`
-with a command that is not the stored one takes only the args given with it
-(in the command string or with `--agent-args`); with none given, the stored
-args are cleared, never kept for the new command. Setting the same command
-again with no args, or setting another field with no `--agent-command`, keeps
-the stored args. Other stored fields (endpoint, model, timeout) are kept.
-(New default in 0.3.1; before, a new command with no args kept the old
-command's args.)
-A command of more than one word is split on white space when it runs: its
-first word is the program, its other words come first, then the explicit
-args. So command `claude -p` with args `["x"]` runs `claude -p x`, the same
-argv the release reviewer builds. (Before, drive tried to run a program named
-`claude -p` and failed.)
-claude / codex / ollama are CONFIGS, never CW dependencies. No secrets are written into the config or `.cw/`: it holds a
-command-template + endpoint + operator-chosen model only; recorded command/args
-are secret-stripped.
+With no flag and no `CW_AGENT_COMMAND`, CW picks the first of claude, codex,
+gemini, opencode, muse found on `PATH` (`CW_NO_AUTO_AGENT=1` turns this off).
+Copilot, antigravity and grok are used only when asked for. Support tiers: a
+release checks live only the vendors with a real-login receipt; a beta vendor
+has a wrapper and an offline smoke only.
 
 ## CLI
 
 ```text
-# configure the agent (policy as data; no API key is ever written)
-# the bundled wrapper feeds input.md to headless claude READ-ONLY, persists
-# result.md itself, and forwards claude's JSON (model+usage) for provenance.
-# A bare "claude -p" or "claude -p {{input}}" does NOT complete a worker:
-# headless claude gets no prompt content / cannot write result.md without it.
-node dist/cli.js backend agent config set --agent-command "node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}" --agent-model claude-opus-4-8
-node dist/cli.js backend agent config            # show the effective config (secret-stripped)
-node dist/cli.js backend probe agent --json      # ready iff configured, else unverified
-
-# drive a real repo end-to-end (zero hand-written result.md)
-node dist/cli.js quickstart architecture-review --check --repo /path/to/repo --question "Is the design sound?" --agent-command "node $(pwd)/scripts/agents/claude-p-agent.js {{input}} {{result}}"
-node dist/cli.js run architecture-review --drive --repo /path/to/repo --question "Is the design sound?"
-node dist/cli.js run architecture-review --drive --once --repo /path/to/repo --question "..."   # one step
-node dist/cli.js run drive <run-id> --json       # read-only preview of the next step
-
-# quickstart --resume: a guided stop-then-resume a newcomer can WITNESS in <5 min
-node dist/cli.js quickstart --resume --repo /path/to/repo --question "..."   # advances ONE step, prints a continue line
-node dist/cli.js quickstart --run <run-id> --resume                          # continues that run to completion
-node dist/cli.js quickstart --run <run-id> --resume --bundle                  # continues, then seals a completed run
-node dist/cli.js --resume --run <run-id>                                      # bare form of the same continue command
+cw -q "Is the design sound?" -claude --repo <path>       # drive a repo end to end
+cw -q "..." --agent-command "node <path>/scripts/agents/claude-p-agent.js {{input}} {{result}}"
+cw --resume --run <run-id>                               # go on after a stop
+cw report <run-id> --show                                # read the report
 ```
 
-`quickstart --check` is a zero-write preflight. It does not make a run, write
-`.cw/`, call the agent, write a report, or commit. It checks the app id, repo,
-question, agent config, and (with `--bundle`) the trust-key shape, then gives the
-next command to run. A blocked check exits non-zero, so scripts may use it as a
-gate before a real run.
+The bundled `claude-p-agent.js` wrapper feeds `input.md` to headless claude
+read-only, writes `result.md` itself, and passes on claude's JSON
+(model and usage). A bare `claude -p {{input}}` does NOT complete a worker:
+headless claude gets no prompt content and cannot write `result.md`.
 
-A fresh `quickstart` (so `cw -q`) with a local `--repo` or `-dir` that names
-no folder, or names a file, is refused before it plans: exit 1, nothing
-written, and the path is not made
-(`<path> is missing: there is no such folder. Pass --repo <path> to a project folder.`).
+A `--repo` or `-d` that names no folder, or names a file, is refused before
+anything is planned: exit 1, nothing written.
 
-`quickstart --resume` with no `--run` drives a single step and prints a
-copy-pasteable `cw --resume --run <id>` continue line; run it to finish. The continuing invocation echoes `resumedFrom: <id>`,
-and its `appId` is the app the run was planned with (so a continued
-`architecture-review-fast` run says so, and is not told to add `--fast`).
-Bare `quickstart` (no `--resume`) is unchanged — it drives straight to the end.
-When `--bundle` is present on the fresh resume step, no bundle is sealed until
-the run is complete; the continue line keeps `--bundle` so the second command
-finishes and seals the report. The bare `--resume --run <run-id>` form above
-needs the cwd inside the project, or `--repo <path>`, since it looks up the
-run under `.cw/runs/<run-id>/` from there.
-
-The folder named there (`--cwd`, then `--repo`, then the cwd) has to be the
-folder the run was made for (the `cwd` kept in its `state.json`). They are
-compared as real paths, so a symlink, or macOS `/var` against `/private/var`,
-is the same folder and works as before. When they are different folders (for
-example a copied or moved repo), `--resume --run <run-id>`,
-`run resume <run-id> --drive` (or `--once`) and `run --drive --run <run-id>`
-are refused before anything is written: exit 1, and the error names the two
-folders (`Run <run-id> was made for <stored>, not <given>; refusing to resume
-it from here (fail closed). ...`). The flag is never quietly used, and the
-stored folder's run is never quietly driven in its place. To take a run to a
-new place, use `cw run export` and `cw run import`, which keep the stored
-folder true. From 0.3.2, when the run folder itself was copied by hand and
-the original run folder is still there, the load refuses first, with the
-error `Refusing to load run <run-id>: the folder <copy> is a copy of
-<original>, ...` and the export and import commands to use; see
-[durable-state-and-locking.7.md](durable-state-and-locking.7.md).
-
-When the folder named with `--repo` or `--cwd` does not hold the run at all,
-`run resume <run-id>` (with or without `--drive`/`--once`) is refused too:
-exit 1, nothing is written, and the error names the folder the registry
-finds the run in (`Cannot resume: run <run-id> is not in <named> (the folder
-named by --repo); the registry finds it in <owner> (fail closed; nothing was
-resumed). ...`). Before 0.3.1 it quietly drove the run in that other folder.
-Add `--scope home` to look across the registry on purpose; see
-`run-registry-control-plane(7)`.
-
-A resume also takes on a **parked** worker. `--resume --run <run-id>` and
-`run resume <run-id> --drive` (or `--once`) first put each worker parked past
-its retry budget back to where it was between two tries: the task and worker
-are `running` again, on the same dispatch and the same `input.md`, with a
-fresh retry budget (3 more tries by default; a worker that times out again
-parks again after that one try, as above). The payload then lists those
-task ids in `reopenedWorkers` (the key is absent when there were none). Fix
-the cause first (a wrong agent command, a lost login, a prompt too large);
-if the agent still fails, the worker parks again after the fresh budget, so a
-resume never loops. Only the retry-budget park (`agent-delegation-parked`) is
-reopened: a worker stopped by a sandbox or boundary violation or a turned-down
-result stays failed. Nothing of the park is lost: its failure node, feedback
-and audit events stay, and each reopen adds a `worker.reopen` audit event.
-When the worker's new result is verified, its open park feedback is resolved
-by that verifier node, so the run's verdict can be PASS. Plain
-`run --drive --run <run-id>` does not reopen: a parked run stays blocked there.
-
-For one focused question, add `--fast` to the one command:
-
-```text
-cw -q "How does routing work end-to-end here?" --fast
-```
-
-`--fast` runs `architecture-review-fast` (six workers) in place of the default
-`architecture-review` (fourteen). On a real repository with the real claude CLI
-(2026-09-27, Express, that question) the default took 409 and 412 s and `--fast`
-230 s, with the same answer and citations. Without `--fast`, `cw -q` is the full
-review, as before; `--fast` next to another named app is refused. A finished
-default review's terminal summary names `--fast` once; `--json` and piped
-output do not change.
-
-For faster first results with a pinned source context and model routing, use
-the fast app's wrapper in place of changing the full review contract:
-
-```text
-node scripts/architecture-review-fast.js --repo /path/to/repo --question "Is the design sound?" --fast-model gpt-5.5-high --strong-model gpt-5.5-extra-high --metrics
-```
-
-`architecture-review-fast` has six workers: two Map and two Assess workers at the
-same time, then Verify and Verdict workers one after the other. The original
-`architecture-review` app stays the full 14-worker review and is the right target
-for background routines when a deep audit can finish outside the user's
-foreground wait.
-
-The model flags are policy, not attestation: they set task-level `{{model}}`
-hints for the delegated agent process. The recorded model still comes only from
-the agent-reported output.
-
-The wrapper works out the source-context digest and gives it to the fast app. For
-external repositories, the documented no-profile command makes a repo-local
-default `repo` profile over common tracked text surfaces. If the chosen profile
-exports zero records, the wrapper refuses rather than handing the app an empty
-context digest. Every run also writes the profile it actually used to
-`.cw/context/repo-source-profile.json` next to the exported context — the default
-profile in the no-profile case, or the single profile a `--profile-file` run
-selected — so that snapshot always matches this run's context and never carries a
-stale profile from an earlier run.
-The two Map workers opt in to result caching keyed by source-context digest plus
-prompt digest. The two Assess workers also opt in, but their cache key takes in
-the completed previous-phase result digests so stale Map outputs do not count as
-an Assess cache hit. A cache hit still goes through `recordWorkerOutput`
-validation; a corrupt cached result parks/fails closed rather than spawning a
-quiet fallback.
-
-Verify and Verdict also get the source-context instruction so they do not have to
-start by scanning the repo again. They still have to cite evidence and make the
-final check from the accepted Map and Assess work. Both opt in to
-`includeCompletedResults: "previous-phases"`, so their `input.md` carries a
-`## Prior Findings` section with the completed upstream result text. This is what
-lets Verdict reconcile against the Verify-confirmed risks: every confirmed P0/P1/P2
-must appear in the verdict, upheld or downgraded-with-a-reason, never silently
-dropped.
-
-`--metrics` is diagnostic and opt-in. It adds elapsed milliseconds, step counts,
-agent-spawn counts, `result-cache` hit counts, source-context bytes/digest, and
-one row per driven task with phase, task id, elapsed time, and spawn/cache state
-to the wrapper JSON payload; without it, the wrapper's default output shape stays
-unchanged.
-
-`{{manifest}}`, `{{input}}`, `{{result}}`, `{{workerDir}}`, `{{model}}`,
-`{{prompt}}`, `{{phase}}`, `{{taskId}}`, `{{workerId}}` and `{{priorResults}}`
-are put into DISCRETE argv elements (never a shell-interpreted
-string). Each verb is declared once in `src/core/capability-data.ts`, so `cw <cmd>
---json` is byte-identical to the matching `cw_<tool>` MCP tool for the read-only
-preview/config-show verbs.
-
-## Live output — a calm live view, on stderr, Unix-clean
-
-A drive shows the agent's activity live without ever touching the evidence
-contract. The async per-vendor wrapper owns the live region (it parses
-`--output-format stream-json` and its event loop is free); cw renders the calm
-orchestration between agents plus the end-of-run summary. **Everything goes to
-stderr — stdout stays the byte-exact data channel** (the `cw:result` fence, the
-wrapper's `{model, usage, result}` JSON, cw's `--json` payload), so a pipe is
-never polluted.
-
-- **Interactive (TTY).** The wrapper draws a small block in place: the last few
-  finished steps as `● Read(app.js)` rows (with a dim `⎿ 245 lines` result
-  under each), and one live row, a glyph + the current action + whole seconds
-  (e.g. `✳ Reading app.js… (4s)`). At the end the block folds to one summary
-  line, `● claude · 6 steps · 41.2s`. The glyph grows and shrinks
-  (`· ✢ ✳ ✶ ✻ ✽ ✻ ✶ ✳ ✢` on macOS; `· ✢ * ✶ ✻ ✽ ✻ ✶ * ✢` on Linux, WSL
-  and Windows, from 0.4.2, since ✳ is an emoji that Windows Terminal draws
-  as a wide box), one frame every 150 ms; each frame is one write
-  that goes back up and draws over the old rows, inside the terminal's
-  synchronized-output marks (`ESC[?2026h` … `ESC[?2026l`, which a terminal
-  that does not know them ignores), so the block does not flash; a
-  `CW_VERBOSE=1` narration row goes in the same write, above the block. Up to 0.4.0
-  the glyphs were `✶ ✸ ✹ ✺` at 90 ms, the live row showed tenths of a second,
-  and each frame first wiped the block, which looked like flicker. Changed in
-  0.4.1 with the operator's named yes; the `*` off macOS in 0.4.2, with
-  another.
-  The cursor is hidden while the block runs and **ALWAYS
-  restored** on exit / Ctrl-C / SIGTERM (Ctrl-C exits non-zero, leaving a
-  clean terminal).
-- **Non-TTY stays SILENT by default** (the Rule of Silence). `CW_AGENT_STREAM=1`
-  opts a CI/piped run into a **plain append-only** trace (`→ …` / `✓ … (Xs)`
-  lines, zero ANSI/cursor bytes) for debuggability — mirroring `CW_DRIVE_PROGRESS=1`.
-- **A sign of life while a round waits.** Every 10 s that a drive round waits
-  on its agents, one line is added to stderr:
-  `[drive]   … <Phase> still working — 20s`. This happens only when `[drive]`
-  progress is on (a TTY, or `CW_DRIVE_PROGRESS=1`), so a piped run's bytes do
-  not change, and `--quiet` turns it off with the other `[drive]` lines.
-  `CW_DRIVE_TICK_MS` sets the time between lines; `0` turns them off.
-- **How long the agents have been quiet (new in 0.3.3, a changed default on
-  the TTY).** In a concurrent round the line also says when the running
-  agents last wrote anything (stdout or stderr):
-  `[drive]   … Map still working — 4m 10s (last output 3m 50s ago)` for one
-  agent, and
-  `[drive]   … Map still working — 4m 10s (3 agents running, longest without output 3m 50s)`
-  for more. A quiet agent may be thinking, or may be stuck; the number lets
-  you tell a long quiet from a normal one, and `CW_AGENT_IDLE_TIMEOUT_MS`
-  (see "Idle limit" above) stops one that stays quiet. The batch delegate
-  child keeps the times in a temp file (`cw-drive-alive-<pid>.json` in the
-  temp folder, at most one write a second) only while the ticker runs, and
-  cw removes it when the round ends. A serial hop, and any tick before the
-  first write, prints the line as before. The agents of such a round are
-  started with `CW_AGENT_STREAM=1` (unless you set it), so CW's bundled
-  wrappers write a progress line per step and the number means something; those lines also land in `<workerDir>/logs/agent-stderr.log` when such an agent fails. Up to 0.3.2 the line had no such
-  note, so ten minutes of a stuck agent looked the same as ten minutes of
-  work. Only the bytes on a TTY, or with `CW_DRIVE_PROGRESS=1`, change; a
-  piped run prints no ticker and writes no such file. The operator said yes
-  to it on 2026-11-02.
-- **One writer at a time on the terminal (new in 0.3.3).** In a serial hop
-  (Verify, Verdict) the agent's stderr is the terminal itself, and a shipped
-  wrapper's live view redraws its rows in place. Before 0.3.3 the
-  `still working` line was written into that view: it was joined to the
-  end of the spinner row, and every tick left one more
-  `● claude: reading the repo (read-only)…` row behind. Now, while it is
-  drawing, the live view puts a claim file at the path cw gives it in
-  `CW_DRIVE_TTY_CLAIM`, and the ticker writes no line while that file is
-  there; the view's own changing time is the sign of life. A wrapper of your
-  own that writes nothing never makes the file, so it still gets the
-  `still working` line. A concurrent round is as before: its agents' stderr
-  is not the terminal, and only the ticker writes. cw takes the file away
-  after each hop, even after a timeout. Only the bytes on a TTY, or with
-  `CW_DRIVE_PROGRESS=1`, are changed; a piped run's bytes are the same
-  (an operator decision for 0.3.3).
-- **» marks a concurrent round (new in 0.3.3).** The concurrent round line
-  and the active phase line use `»` (U+00BB). Before 0.3.3 they
-  used `⇉` (U+21C9), which is not in some terminal fonts and came out as a
-  box (Windows Terminal on WSL). The rest of each line is the same. Since
-  0.4.3 every phase not yet done has this one mark, `[drive] ==> Verify » (0/1)`;
-  up to 0.4.2 a phase that runs in order had `…` in its place.
-- **Each worker's start line, in a concurrent round.** A round that runs
-  agents side by side prints
-  `[drive] » concurrent round: N agents spawning in parallel`
-  and then, at once, one
-  `[drive] → <label> (<phase>) — spawning agent` line for
-  each worker, in task order, while the agents run. Before 0.3.2 these lines
-  came only after the whole round ended (an operator decision for 0.3.2). The note `, may take minutes…` is on the
-  end of the first such line of one cw command only (a round line, or a
-  worker line when workers run one at a time); a later `cw --resume` is a
-  new command and shows it once again. Up to 0.4.2 it was on every round line and
-  every worker line, and a worker line could say `dispatched, spawning
-  agent`; since 0.4.3 it is `spawning agent` in every case
-  (an operator decision for 0.4.3). Like every `[drive]` line they go to
-  stderr only when progress is on, so a piped run's bytes do not change.
-- **Why a step is tried again (new in 0.3.3).** When an agent hop fails and
-  the worker has tries left, one line says why and which try comes next:
-  `[drive] ✗ <label> (<phase>) — agent hop failed: <task>: failed (exit 3); trying again (2/3)`.
-  The reason is the text after the first ` — ` of the hop's reason (or all
-  of it when there is none), cut to 120 characters. A
-  timeout gets no such line by default, since it parks at once (see "A
-  timeout parks at once" above); when a caller's `maxTimeoutAttempts` allows
-  another try, its time limit is given short: `timed out after 10m`. After every
-  concurrent round the active phase line (`[drive] ==> Map » (0/6)`) prints
-  again, so each round has its own end line; before 0.3.3 it printed only
-  after the first round of a phase. Same rules as every `[drive]` line:
-  stderr only, progress on only.
-- **Verbosity.** Default is compact: the current action + folded tool lines, with
-  the model's narration/reasoning HIDDEN. `--verbose` (sets `CW_VERBOSE=1`)
-  surfaces the full narration inline. (`--full` was taken out on 2026-09-28: it
-  never printed the report inline as its help said. `cw report --show` prints
-  the report.)
-- **Transcript always on disk.** Regardless of verbosity — even when the screen
-  view is silent or compact — the wrapper writes the COMPLETE narration + tool I/O
-  to `transcript.md` next to that worker's `result.md`. The end-of-run summary
-  prints the report path, inside the run dir where the transcripts live, so nothing is ever lost to a
-  compact view.
-- **Color control.** `NO_COLOR` / `CW_NO_COLOR` (the `--no-color` flag sets the
-  latter) disable ANSI; `FORCE_COLOR` forces it even when piped; `TERM=dumb`
-  turns it off; otherwise color follows isTTY. Honored identically by cw (`term.ts`) and every wrapper.
-- **End-of-run summary (cw side).** The report path, the status with the
-  run's worker count, and the next command. NOT the full prose (that stays in
-  `report.md` + the transcript; `cw report --show` prints it).
-- **Determinism intact.** The backend evidence triple hashes stdout only, so the
-  live stderr view never changes recorded evidence or replay.
-
-The built-in templates are:
-
-```text
---agent-command builtin:claude       # claude -p (native)
---agent-command builtin:codex        # codex exec (native)
---agent-command builtin:gemini       # Gemini via opencode (google/gemini-3.7-flash)
---agent-command builtin:gemini-cli   # native gemini CLI (needs GEMINI_API_KEY)
---agent-command builtin:opencode     # opencode (its configured default model)
---agent-command builtin:deepseek     # DeepSeek via opencode (deepseek/deepseek-v4-flash)
---agent-command builtin:muse         # muse exec (native, default model "muse-spark-1.3-contributor")
---agent-command builtin:copilot      # copilot -p (beta, GitHub Copilot CLI)
---agent-command builtin:antigravity  # agy -p (beta, Google Antigravity CLI)
---agent-command builtin:grok         # grok -p (xAI Grok Build CLI; out of beta in 0.4.2)
-```
-
-claude, codex, and muse run their own CLIs; gemini and deepseek route through
-opencode (where their keys live), each proven by a local, deterministic wrapper
-smoke (override the model with CW_GEMINI_MODEL / CW_DEEPSEEK_MODEL / CW_MUSE_MODEL).
-GLM stays an external agent command or HTTP endpoint. CW still imports no model
-SDK. The same headline shortcuts pick these builtins on the top-level CLI:
-`cw -q "..." -claude` / `-codex` / `-gemini` / `-deepseek` / `-muse` / `-grok`,
-and the beta `-copilot` / `-antigravity`.
-
-### Copilot, Antigravity (beta) and Grok
-
-GitHub Copilot CLI (`copilot`), Google Antigravity CLI (`agy`) and xAI Grok
-Build CLI (`grok`) were added in 0.4.1 as beta builtins: each has a wrapper
-and an offline smoke (`test/agent-copilot-antigravity-grok-smoke.mjs`). One
-stays beta until a real login passes `cw doctor --conformance` with no
-warning. Grok has: on 2026-11-04 a real login (grok 1.0.70, cw 0.4.1) gave
-`✓ agent-conformance: cw-agent/1: ran in 30.0s, exit 0, result.md read,
-model grok-4.6-build.`, so it is out of beta from 0.4.2
-(`project/docs/audits/grok-conformance-receipt-2026-11-04.json`). An
-earlier login that day had one warning, no model reported; the JSON reading
-below is the change that answered it. Copilot and Antigravity are still beta.
-
-- All three are used only when you ask for them: `-copilot`, `-antigravity`,
-  `-grok`, or `CW_AGENT_COMMAND=builtin:copilot` (`antigravity`, `grok`).
-  Auto-detect does not pick them, even when the CLI is on `PATH` (the
-  owner's choice of 2026-11-04).
-- Each wrapper runs the CLI with only the flags its maker's own docs name:
-  `copilot -p <prompt> --allow-all-tools` (plus `--model <m>` when
-  `CW_COPILOT_MODEL` is set), `agy -p <prompt>`, and `grok -p <prompt>
-  --output-format json --no-auto-update` (plus `-m <m>` when `CW_GROK_MODEL`
-  is set). With no model set, the CLI's own default model is used; copilot
-  and antigravity then report no model.
-  `--allow-all-tools` is there because stdin is closed: an approval prompt
-  would wait for ever.
-- For copilot and antigravity the answer is the CLI's whole plain stdout: it
-  goes to `result.md` and the one stdout report. Grok prints one JSON record
-  (`text`, `usage`, `modelUsage`, ...): the answer is `text`, the model is the
-  key of `modelUsage` (the one that ran; more than one are joined with `,`),
-  else `CW_GROK_MODEL`, and `usage` is passed on as grok gave it. Stdout that
-  is not that record is a failed hop. A non-zero exit, or an empty answer, is
-  a failed hop with no `result.md`, and the CLI's stderr goes to
-  `agent-stderr.log`.
-- `cw doctor` runs `copilot --version`, `agy --version` or `grok --version`
-  for `builtin:copilot`, `builtin:antigravity` or `builtin:grok`. These
-  three are on the `builtinOnly` list in `scripts/agents/builtin-templates.json`
-  (Grok too, after beta): a custom `CW_AGENT_COMMAND` whose program is named
-  `copilot`, `agy` or `grok` stays a custom command, as in 0.4.0: no
-  `--version` probe and no `CW_AGENT_SANDBOX=srt` hosts.
-- `cw help` lists them under Flags, below `-muse` (new in 0.4.1, with the
-  owner's named yes of 2026-11-04):
-
-  ```text
-    -copilot               Use GitHub Copilot CLI agent
-    -antigravity           Use Antigravity agent
-    -grok                  Use Grok agent
-  ```
-
-  An unknown `builtin:<name>` now ends its `available:` list with
-  `muse, copilot, antigravity, grok` (the list is the templates file, in
-  order).
-- With `CW_AGENT_SANDBOX=srt`, the hosts are a best guess, not yet seen on a
-  real login: copilot `api.githubcopilot.com`, `*.githubcopilot.com`,
-  `github.com`, `api.github.com` (writes `~/.copilot`); grok `api.x.ai`,
-  `*.x.ai` (writes `~/.grok`); antigravity the Google API hosts of
-  `gemini-cli` (writes `~/.gemini`). `CW_AGENT_SANDBOX_HOSTS` adds more.
-- The prompt is given as an argument to `-p`, not on stdin (see below), so a
-  prompt past the system's limit for one argument fails at the spawn with
-  `E2BIG`, written to `agent-stderr.log`: a failed hop, never a cut prompt.
-
-Support tiers. A release is reviewed through whatever agent the operator
-configures (`CW_AGENT_COMMAND` or `CW_AGENT_ENDPOINT`, any vendor), so that one
-is proven live by the release. Every builtin has a wrapper and an offline
-smoke that checks the wrapper's shape with stand-in commands, but no release
-waits on a live call to any other vendor, and a change in a vendor's own CLI
-can break its wrapper before a smoke sees it. To check vendors live, run
-`node scripts/vendor-preflight.mjs --vendors codex,gemini` (it spends tokens on
-each), or set `CW_PREFLIGHT_VENDORS` for a release cut, where a failure is a
-warning, not a stop. Reports of a broken wrapper are welcome.
-
-The codex wrapper caps codex's reasoning effort for CW runs so a heavy
-`model_reasoning_effort = "high"` in the user's `~/.codex/config.toml` does not
-make every read/grep turn slow. It passes `codex exec -c
-model_reasoning_effort=<effort>` (default `low`) for THAT run only — the user's
-interactive codex is untouched. Raise it with `CW_CODEX_REASONING_EFFORT`
-(`low` | `medium` | `high`).
-
-When an agent hop fails, CW core keeps only the child's stdout + exit code, so a
-bare `failed (exit 1)` hid the real cause (a relay 5xx, an auth error, a killed
-run). Each wrapper now also drops the failed child's stderr to
-`<run>/workers/<worker>/logs/agent-stderr.log`, so the reason is readable after
-the fact without changing the recorded, byte-stable evidence. For any other
-`CW_AGENT_COMMAND` that exits non-zero, CW writes the same file itself, from the
-last 4096 bytes of the command's stderr, with the same secret redaction. This
-works on both the serial and the concurrent path, and a log the wrapper wrote is
-never replaced. The recorded `reason` and the `--json` payload do not change.
-
-opencode can give a failed run as a `{ "type": "error" }` event on stdout and
-still exit 0, at times after some mid-run text. The opencode wrapper (and
-deepseek and gemini through opencode, which use it) takes such an event as a
-failed hop: it exits 1, puts the event's reason on stderr and in
-`agent-stderr.log`, and writes no `result.md` and no stdout report. The text
-before the event is never taken as a result.
-
-On a terminal, a `cw -q` run that parks or blocks with an agent set ends like
-this:
-
-```text
-  ! Status: parked — 0/6 workers
-  Why: agent hop failed: map:runtime-surface: failed (exit 3) (attempt 3/3)
-       ENOTFOUND api.example.test
-       All of it: .cw/runs/<run-id>/workers/<worker-id>/logs/agent-stderr.log
-  Try: cw report --open
-  Next: cw --resume --run <run-id>
-```
-
-`Why:` gives the stop reason, the last line of that worker's
-`agent-stderr.log`, then where the whole log is. A piped or `--json` run
-keeps its payload but for the `hint` text: on a park whose worker has an
-`agent-stderr.log`, the hint names that file:
-
-```text
-a worker failed and stopped after its retries. What the agent said is in .cw/runs/<run-id>/workers/<worker-id>/logs/agent-stderr.log — fix the cause, then run: cw --resume --run <run-id>
-```
-
-The path is relative to where `cw` ran when the log is under it, and whole
-when not. The agent's own words stay in the log only, never in the payload.
-A park with no such log keeps the old hint, `a worker parked past its retry
-budget — inspect: cw run show <run-id>; fix the cause, then: cw --resume
---run <run-id>`.
-
-With no agent at all, `cw doctor`, `cw quickstart --check` and the `cw -q`
-hint give one fix, a form that completes a worker (a bare `claude -p` does
-not, see above):
-
-```text
-Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude (or set CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work too.
-```
-
-These texts are new in 0.4.0, and they change the bytes
-of existing output. The owner's yes, 2026-11-03: "修卡点 + 收据 (推荐)"
-(to a question that named these first-run points), and "新手用户也能 流畅易用"
-(a new user must find it smooth and easy). Before, the fix was `Pass
---agent-command "claude -p", set $CW_AGENT_COMMAND, or use --agent-command
-builtin:claude.`, the no-agent hint began `agent backend not configured —
-set CW_AGENT_COMMAND (e.g. "claude -p") or pass --agent-command, then
-re-run.`, and every park gave the old hint above.
-
-The prompt is the worker's input.md plus the result contract, and a later
-phase's input carries every earlier result: a Verdict prompt can pass 128 KB
-on a small repo. Linux takes at most 131072 bytes in one argument (macOS about
-1 MB for all of them), so a prompt passed as an argument can make the spawn
-fail with `E2BIG`. So every bundled wrapper but these three gives the prompt on stdin,
-which has no such limit: claude (`claude -p`), gemini (no `-p`), opencode
-and the wrappers built on it (deepseek, gemini through opencode, no
-positional message), and codex; muse reads a prompt file. The
-copilot, antigravity and grok wrappers give it after `-p`, the one way their
-docs name, so a prompt too long for one argument fails closed there. gemini reads at most
-8 MiB of stdin and cuts the rest with only a warning, so its wrapper refuses a
-longer prompt before the spawn, with the reason in `agent-stderr.log` and exit
-1: never a silent half prompt. A spawn
-that fails this way, or any other way that throws before a process exists, is
-written to `agent-stderr.log` like any other spawn failure, with the reason in
-plain words, and the hop fails closed with exit 1.
+A run with no agent configured is still made, ends `blocked`, exits 2, and
+prints how to set one.
 
 ## Compatibility
 
-Agent Delegation Drive comes in first in CW v0.1.38. Adding the `agent` row leaves
-`node`/`bun`/`shell`/`container`/`remote`/`ci` byte-identical; `backendIds()`
-just grows by one to the sorted 7-row set
-`["agent","bun","ci","container","node","remote","shell"]`. A run driven by hand
-(plan → dispatch → `worker output` → commit) still works unchanged. Fields are
-added on and optional; older run state loads unchanged. No `.cw/` layout change.
+Agent Delegation Drive came in with CW v0.1.38. Batch 5 (2026-11-12) removed
+the step verbs (`cw run`, `run --drive --once`, `run drive`, `quickstart`), the
+execution backends other than the agent driver, the HTTP agent endpoint,
+`--concurrency`, `--fast`, `--incremental`, `cw doctor --conformance`, and
+replay through node snapshots. See release-and-migration(7), "Removed in
+batch 5".
 
 ## See Also
 
-execution-backends(7), real-execution-backends(7), node-snapshot-diff-replay(7),
-dogfood-one-real-repo(7), cli-mcp-parity(7),
-observability-cost-accounting(7)
+verifier-gated-commit(7), security-trust-hardening(7),
+durable-state-and-locking(7), doctor(7)
 
 ## Run Retention & Provable Reclamation (v0.1.39, removed)
 

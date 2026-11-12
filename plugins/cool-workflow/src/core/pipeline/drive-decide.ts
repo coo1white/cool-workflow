@@ -1,24 +1,7 @@
-// core/pipeline/drive-decide.ts — driveStep/driveConcurrentRound's PURE
-// decision core: task selection, terminal/gate logic, token-budget check,
-// retry/park math, cache-key formulas.
-//
-// Every branch here is a pure function of already-loaded run state; it
-// does not itself spawn a process or touch disk. shell/drive.ts is the
-// thin imperative loop that calls these functions once per step and
-// performs the actual spawn/commit/cache-write IO the decision names.
-//
-// Evidence: SPEC/pipeline-run.md "Drive loop — drive module", "Drive
-// internals a rebuild must copy", "`--incremental` and the result
-// cache".
+// core/pipeline/drive-decide.ts — the drive's pure decisions: which tasks may
+// run, retry or park, what the final status is. shell/drive.ts does the I/O.
 
-import { RunTask, WorkflowRun } from "../state/types.js";
-import { AgentDelegationConfig } from "../types/execution-backend.js";
-import { firstRunnablePhase, runnableTaskIds } from "./dispatch.js";
-import { stableStringify, sha256 } from "../hash.js";
-import { isVerdictTaskId } from "../trust/evidence-grounding.js";
-
-export const DRIVE_SCHEMA_VERSION = 1;
-export const MAX_SUB_WORKFLOW_DEPTH = 4;
+import { RunPhase, RunTask, WorkflowRun } from "../state/types.js";
 
 export type DriveStepAction = "dispatch" | "fulfill" | "accept" | "commit" | "park" | "blocked" | "complete";
 export type DriveStepStatus = "ok" | "parked" | "blocked" | "failed" | "complete";
@@ -31,7 +14,7 @@ export interface DriveStep {
   taskId?: string;
   workerId?: string;
   phase?: string;
-  backendId?: "agent";
+  backendId?: string;
   attempts?: number;
   handleKind?: string;
   reportedModel?: string;
@@ -42,14 +25,54 @@ export function makeStep(action: DriveStepAction, status: DriveStepStatus, field
   return { schemaVersion: 1, action, status, ...fields };
 }
 
-/** The task the next drive step would advance: a running task first,
- *  else the next pending task of the first runnable phase (and of any
- *  phase that overlaps it). */
-export function selectDriveTask(run: WorkflowRun): RunTask | undefined {
-  const taskIds = runnableTaskIds(run);
-  if (!taskIds.size) return undefined;
-  const phaseTasks = run.tasks.filter((task) => taskIds.has(task.id));
-  return phaseTasks.find((task) => task.status === "running") || phaseTasks.find((task) => task.status === "pending");
+function tasksOf(run: WorkflowRun, phase: RunPhase): RunTask[] {
+  const ids = new Set(phase.taskIds);
+  return run.tasks.filter((task) => ids.has(task.id));
+}
+
+/** The first phase with work left; a phase that is not complete and has
+ *  nothing pending or running blocks every phase after it (null). */
+export function firstRunnablePhase(run: WorkflowRun): RunPhase | null {
+  for (const phase of run.phases) {
+    const tasks = tasksOf(run, phase);
+    if (tasks.some((task) => task.status === "running" || task.status === "pending")) return phase;
+    if (!tasks.every((task) => task.status === "completed")) return null;
+  }
+  return null;
+}
+
+/** The first runnable phase's tasks, plus each next phase marked overlapPrevious. */
+export function runnableTaskIds(run: WorkflowRun): Set<string> {
+  const first = firstRunnablePhase(run);
+  if (!first) return new Set();
+  const ids = new Set(first.taskIds);
+  for (let i = run.phases.indexOf(first) + 1; i < run.phases.length && run.phases[i].overlapPrevious; i += 1) {
+    for (const id of run.phases[i].taskIds) ids.add(id);
+  }
+  return ids;
+}
+
+export function updatePhaseStatuses(run: WorkflowRun): void {
+  for (const phase of run.phases) {
+    const tasks = tasksOf(run, phase);
+    if (tasks.length > 0 && tasks.every((task) => task.status === "completed")) phase.status = "completed";
+    else if (tasks.some((task) => task.status === "running" || task.status === "completed")) phase.status = "running";
+    else phase.status = "pending";
+  }
+}
+
+/** The tasks the next round may start, in plan order, at most `width`. */
+export function selectRoundTasks(run: WorkflowRun, width: number): RunTask[] {
+  const ids = runnableTaskIds(run);
+  return run.tasks.filter((task) => ids.has(task.id) && (task.status === "pending" || task.status === "running")).slice(0, Math.max(1, width));
+}
+
+/** Round width: a parallel phase runs up to maxConcurrentAgents at once. */
+export function autoWidth(run: WorkflowRun): number {
+  const phase = firstRunnablePhase(run);
+  if (!phase || phase.mode !== "parallel") return 1;
+  const cap = Math.max(1, Math.floor(run.workflow.limits?.maxConcurrentAgents || 1));
+  return Math.max(1, Math.min(cap, runnableTaskIds(run).size));
 }
 
 export function countCompleted(run: WorkflowRun): number {
@@ -60,128 +83,43 @@ export function countParked(run: WorkflowRun): number {
   return run.tasks.filter((task) => task.status === "failed").length;
 }
 
-/** The error code handleHop records when a worker's agent hop fails past
- *  its retry budget. */
 export const AGENT_PARKED_CODE = "agent-delegation-parked";
 
-/** The tasks a resume may run again: failed tasks whose worker's LAST
- *  error is the retry-budget park. A worker stopped for any other reason
- *  (a sandbox or boundary violation, a rejected result) stays failed. */
+/** Tasks the drive parked after their retries; `--resume --run` opens them again. */
 export function reopenableParkedTaskIds(run: WorkflowRun): string[] {
-  const workers = (run.workers as Array<{ id?: string; errors?: Array<{ code?: string }> }> | undefined) || [];
   return run.tasks
-    .filter((task) => {
-      if (task.status !== "failed" || !task.workerId) return false;
-      const errors = workers.find((worker) => worker.id === task.workerId)?.errors || [];
-      return errors.length > 0 && errors[errors.length - 1].code === AGENT_PARKED_CODE;
-    })
+    .filter((task) => task.status === "failed" && task.errors?.length && task.errors[task.errors.length - 1].code === AGENT_PARKED_CODE)
     .map((task) => task.id);
 }
 
-/** The completed verdict/synthesis task's verifierNodeId, if any. */
-export function verdictVerifierNodeId(run: WorkflowRun): string | undefined {
-  const verdict = run.tasks.find((task) => isVerdictTaskId(task.id) && task.status === "completed");
-  return verdict?.verifierNodeId as string | undefined;
-}
+export const TERMINAL_COMMIT_REASON = "agent-delegation-drive";
 
-export function exitCodeFromEvidence(evidence: string[]): number | null {
-  const entry = evidence.find((line) => line.startsWith("exitCode:"));
-  if (!entry) return null;
-  const raw = entry.slice("exitCode:".length);
-  return raw === "null" ? null : Number(raw);
-}
-
-/** Whether a commit already exists whose reason starts with
- *  "agent-delegation-drive" (the once-only terminal-commit check). */
 export function hasTerminalCommit(run: WorkflowRun): boolean {
-  return (run.commits || []).some((commit) => commit.reason && commit.reason.startsWith("agent-delegation-drive"));
+  return run.commits.some((commit) => commit.reason.startsWith(TERMINAL_COMMIT_REASON));
 }
 
-export interface TerminalGateResult {
-  /** "commit" -> the caller should perform the terminal commit now.
-   *  "complete" -> already committed, nothing more to do.
-   *  "blocked" -> either the phase gate or token budget or unconfigured
-   *  agent blocked progress.
-   *  undefined -> there IS a ready task; proceed to process it. */
-  kind: "commit" | "complete" | "blocked" | undefined;
-  step?: DriveStep;
-  /** Only set when kind === "commit": whether the terminal commit should
-   *  be verifier-gated (a verdict task's verifierNodeId exists) or an
-   *  unverified checkpoint. */
-  verifierNodeId?: string;
+export const BLOCKED_PHASE_GATE = "no eligible worker (a parked/failed worker blocks the phase gate)";
+export const BLOCKED_NO_AGENT =
+  "agent backend not configured (set CW_AGENT_COMMAND or pass --agent-command) — refusing rather than fabricating a completion";
+
+/** Nothing left to start: commit, complete, or blocked by a parked task. */
+export function terminalStep(run: WorkflowRun): { kind: "commit" } | { kind: "complete" | "blocked"; step: DriveStep } {
+  if (run.tasks.every((task) => task.status === "completed")) {
+    if (!hasTerminalCommit(run)) return { kind: "commit" };
+    return { kind: "complete", step: makeStep("complete", "complete", { runId: run.id }) };
+  }
+  return { kind: "blocked", step: makeStep("blocked", "blocked", { runId: run.id, reason: BLOCKED_PHASE_GATE }) };
 }
-
-/** terminalOrConfigStep's pure decision half. Returns a DriveStep only
- *  for the non-advancing outcomes (terminal commit/complete, blocked
- *  phase, blocked token budget, blocked unconfigured agent); returns
- *  `{kind: undefined}` when there is a ready task to actually process. */
-export function terminalOrConfigStep(
-  run: WorkflowRun,
-  selected: RunTask | undefined,
-  agentConfigured: boolean,
-  tokenBudget: { spent: number; budget: number } | undefined
-): TerminalGateResult {
-  if (!selected) {
-    const allComplete = run.tasks.every((task) => task.status === "completed");
-    if (allComplete) {
-      if (!hasTerminalCommit(run)) {
-        return { kind: "commit", verifierNodeId: verdictVerifierNodeId(run) };
-      }
-      return { kind: "complete", step: makeStep("complete", "complete", { runId: run.id }) };
-    }
-    return {
-      kind: "blocked",
-      step: makeStep("blocked", "blocked", { runId: run.id, reason: "no eligible worker (a parked/failed worker blocks the phase gate)" }),
-    };
-  }
-
-  if (tokenBudget && tokenBudget.budget > 0 && tokenBudget.spent >= tokenBudget.budget) {
-    return {
-      kind: "blocked",
-      step: makeStep("blocked", "blocked", {
-        runId: run.id,
-        taskId: selected.id,
-        phase: selected.phase,
-        reason: `token budget exhausted: ${tokenBudget.spent} recorded tokens >= budget ${tokenBudget.budget} — refusing to spawn further agents`,
-      }),
-    };
-  }
-
-  if (!agentConfigured) {
-    return {
-      kind: "blocked",
-      step: makeStep("blocked", "blocked", {
-        runId: run.id,
-        taskId: selected.id,
-        phase: selected.phase,
-        reason:
-          "agent backend not configured (set CW_AGENT_COMMAND/CW_AGENT_ENDPOINT or pass --agent-command/--agent-endpoint) — refusing rather than fabricating a completion",
-      }),
-    };
-  }
-
-  return { kind: undefined };
-}
-
-// ---------------------------------------------------------------------------
-// Retry / park math (handleHop).
-// ---------------------------------------------------------------------------
 
 export interface SchedulingPolicy {
   maxAttempts: number;
-  /** Tries for a hop that ran past its time limit (0.3.3; unset = 1, never above maxAttempts). */
   maxTimeoutAttempts?: number;
 }
 
 export const DEFAULT_SCHEDULING_POLICY: SchedulingPolicy = { maxAttempts: 3 };
 
-/** What a timeout park tells the person to do (0.3.3). */
 export const TIMEOUT_PARK_NEXT_STEP = "raise CW_AGENT_TIMEOUT_MS (or --agent-timeout-ms) or check the agent command";
 
-/** What an idle-timeout park tells the person to do (opt-in, 0.3.3). */
-export const IDLE_PARK_NEXT_STEP = "the agent stopped writing output; check the agent command, or raise or unset CW_AGENT_IDLE_TIMEOUT_MS";
-
-/** The try count a timed-out hop gets: maxTimeoutAttempts (default 1), at least 1, never above maxAttempts. */
 export function timeoutAttemptLimit(policy: SchedulingPolicy): number {
   const raw = Number(policy.maxTimeoutAttempts ?? 1);
   return Math.max(1, Math.min(Number.isFinite(raw) ? Math.floor(raw) : 1, policy.maxAttempts));
@@ -193,17 +131,14 @@ export interface RetryOrParkDecision {
   parkedReason?: string;
 }
 
-/** `retryOrPark` — adds one attempt; at `attempts >= maxAttempts` parks
- *  with `parkedReason = "<reason> (attempt <n>/<max>)"`. A timed-out hop
- *  (`timedOutMs` set; `idle` for the 0.3.3 idle limit) parks at min(maxTimeoutAttempts ?? 1, maxAttempts). */
-export function retryOrPark(priorAttempts: number, policy: SchedulingPolicy, reason: string, timedOutMs?: number, idle = false): RetryOrParkDecision {
+/** A timeout parks at once (a second wait would cost the same again). */
+export function retryOrPark(priorAttempts: number, policy: SchedulingPolicy, reason: string, timedOutMs?: number): RetryOrParkDecision {
   const attempts = priorAttempts + 1;
   if (timedOutMs && timedOutMs > 0) {
     const limit = timeoutAttemptLimit(policy);
     if (attempts >= limit) {
       const tries = attempts > limit ? String(attempts) : `${attempts}/${limit}`;
-      const what = idle ? `no output for ${shortDuration(timedOutMs)}` : `limit ${shortDuration(timedOutMs)}`;
-      return { status: "parked", attempts, parkedReason: `${reason} (attempt ${tries}; ${what}) — not tried again: ${idle ? IDLE_PARK_NEXT_STEP : TIMEOUT_PARK_NEXT_STEP}` };
+      return { status: "parked", attempts, parkedReason: `${reason} (attempt ${tries}; limit ${shortDuration(timedOutMs)}) — not tried again: ${TIMEOUT_PARK_NEXT_STEP}` };
     }
     return { status: "retryable", attempts };
   }
@@ -213,7 +148,6 @@ export function retryOrPark(priorAttempts: number, policy: SchedulingPolicy, rea
   return { status: "retryable", attempts };
 }
 
-/** A time limit in ms as short text: `10m`, `1m 30s`, `45s`, `500ms`. */
 export function shortDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   const total = Math.round(ms / 1000);
@@ -222,195 +156,59 @@ export function shortDuration(ms: number): string {
   return seconds ? `${Math.floor(total / 60)}m ${seconds}s` : `${Math.floor(total / 60)}m`;
 }
 
-/** The short "why" for the `[drive] ✗` retry line: a timeout becomes
- *  `timed out after 10m`; any other reason keeps the text after its first
- *  ` — ` (the part past the task label and refusal kind), cut to 120
- *  characters. New in 0.3.3. */
 export function shortHopReason(reason: string): string {
   const timeout = /timed out after (\d+)ms/.exec(reason);
   if (timeout) return `timed out after ${shortDuration(Number(timeout[1]))}`;
-  const idle = /produced no output for (\d+)ms/.exec(reason);
-  if (idle) return `no output for ${shortDuration(Number(idle[1]))}`;
   const dash = reason.indexOf(" — ");
   const tail = (dash >= 0 ? reason.slice(dash + 3) : reason).trim();
   return tail.length > 120 ? `${tail.slice(0, 119)}…` : tail;
 }
 
-/** `handleHop`'s retry progress line, without the `[drive] ` lead:
- *  `✗ <label> (<phase>) — <why>; trying again (<next>/<max>)`, where
- *  `attempts` is the count of tries so far. New in 0.3.3. */
 export function hopRetryLine(label: string, phase: string, reason: string, attempts: number, policy: SchedulingPolicy, timedOutMs?: number): string {
   const max = timedOutMs ? timeoutAttemptLimit(policy) : policy.maxAttempts;
   return `✗ ${label} (${phase}) — ${shortHopReason(reason)}; trying again (${attempts + 1}/${max})`;
 }
 
-/** `handleHop`'s attempt-accounting rule: prior attempts = max(in-memory
- *  count, the worker scope's persisted retryCount). */
-export function priorAttempts(inMemoryAttempts: number, persistedRetryCount: number): number {
-  return Math.max(inMemoryAttempts, persistedRetryCount);
+export const WAIT_NOTE = ", may take minutes…";
+
+/** ", may take minutes…" goes on a process's first spawn or round line only. */
+export function spawningAgentLine(task: { id: string; phase: string }, waitNote: boolean): string {
+  return `→ ${task.id} (${task.phase}) — spawning agent${waitNote ? WAIT_NOTE : ""}`;
 }
 
-// ---------------------------------------------------------------------------
-// Loop iteration bound.
-// ---------------------------------------------------------------------------
-
-/** `maxIterations = (plannedWorkers + maxLoopExpansion) * (maxAttempts +
- *  1) + 5`. */
-export function maxIterations(plannedWorkers: number, loopExpansion: number, policy: SchedulingPolicy): number {
-  return (plannedWorkers + loopExpansion) * (policy.maxAttempts + 1) + 5;
+/** "20s" or "4m 10s". */
+export function sinceText(ms: number): string {
+  const total = Math.round(ms / 1000);
+  return total < 60 ? `${total}s` : `${Math.floor(total / 60)}m ${total % 60}s`;
 }
 
-/** Round width per iteration: an explicit concurrency > 1 wins; else
- *  autoWidth for a first-runnable parallel phase. */
-export function autoWidth(run: WorkflowRun): number {
-  const phase = firstRunnablePhase(run);
-  if (!phase || phase.mode !== "parallel") return 1;
-  const cap = Math.max(1, Math.floor(run.workflow.limits?.maxConcurrentAgents || 1));
-  return Math.max(1, Math.min(cap, runnableTaskIds(run).size));
+export interface AliveJob {
+  lastOutputAt: number;
+  done: boolean;
 }
 
-export function roundWidth(run: WorkflowRun, concurrency: number | undefined): number {
-  return concurrency && concurrency > 1 ? concurrency : autoWidth(run);
+/** The still-working line's note on how long the running agents have been
+ *  quiet; "" when none is running. */
+export function quietNote(jobs: readonly AliveJob[], now: number): string {
+  const running = jobs.filter((job) => !job.done && Number.isFinite(job.lastOutputAt));
+  if (!running.length) return "";
+  const quiet = sinceText(Math.max(0, now - Math.min(...running.map((job) => job.lastOutputAt))));
+  return running.length === 1 ? ` (last output ${quiet} ago)` : ` (${running.length} agents running, longest without output ${quiet})`;
 }
 
-// ---------------------------------------------------------------------------
-// Final DriveResult.status.
-// ---------------------------------------------------------------------------
+export function concurrentRoundLine(agents: number, waitNote: boolean): string {
+  return `» concurrent round: ${agents} agent${agents > 1 ? "s" : ""} spawning in parallel${waitNote ? WAIT_NOTE : ""}`;
+}
 
 export interface DriveResultStatusInputs {
-  once: boolean;
   completedWorkers: number;
   plannedWorkers: number;
-  committed: boolean;
   lastStepStatus: DriveStepStatus | undefined;
-  exhaustedMaxIterations: boolean;
   parkedWorkers: number;
 }
 
-export function finalDriveStatus(inputs: DriveResultStatusInputs): "complete" | "parked" | "blocked" | "in-progress" {
-  if (inputs.once) {
-    if (inputs.completedWorkers === inputs.plannedWorkers && inputs.committed) return "complete";
-    if (inputs.lastStepStatus === "parked" || inputs.lastStepStatus === "blocked") return inputs.lastStepStatus;
-    return "in-progress";
-  }
-  if (inputs.exhaustedMaxIterations) return "blocked";
+export function finalDriveStatus(inputs: DriveResultStatusInputs): "complete" | "parked" | "blocked" {
   if (inputs.parkedWorkers > 0 || inputs.lastStepStatus === "parked") return "parked";
   if (inputs.lastStepStatus === "blocked") return "blocked";
-  return "complete";
-}
-
-// ---------------------------------------------------------------------------
-// Result cache key formulas.
-// ---------------------------------------------------------------------------
-
-/** Cache file path (relative to `<run.cwd>/.cw/cache/worker-results/`).
- *  Actual path join / atomic write is shell-side. */
-export function cacheFileName(taskId: string, digest: string): string {
-  return `${safeFileNamePart(taskId)}-${digest.replace(/^sha256:/, "").slice(0, 32)}.md`;
-}
-
-/** Kept in sync with shell/fs-atomic.ts's `safeFileName` by the same
- *  regex (this pure module cannot import the shell-side impure copy);
- *  both are pinned by SPEC/pipeline-run.md's cache-file-path line, which
- *  names it `safeFileName` explicitly — the charset MUST include `:` so
- *  a task id like `golden:path` keeps its colon in the cache filename. */
-function safeFileNamePart(value: string): string {
-  return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");
-}
-
-/** Default (no `--incremental`) cache key. `undefined` disables caching
- *  for this call (no keyInput, empty keyValue, or an unavailable
- *  completedResultsDigest upstream). */
-export function defaultCacheKey(
-  workflowId: string,
-  taskId: string,
-  keyInput: string | undefined,
-  keyValue: string | undefined,
-  promptDigest: string,
-  completedResultsDigest: string | undefined
-): string | undefined {
-  if (!keyInput || !keyValue || !keyValue.trim()) return undefined;
-  if (completedResultsDigest === undefined) return undefined;
-  return sha256(
-    JSON.stringify({
-      schemaVersion: 1,
-      workflowId,
-      taskId,
-      keyInput,
-      keyValue: keyValue.trim(),
-      promptDigest,
-      completedResultsDigest,
-    })
-  );
-}
-
-/** `--incremental` cache key (schemaVersion 2 — never collides with
- *  schemaVersion 1). `undefined` disables caching (an upstream result is
- *  unavailable). */
-export function incrementalCacheKey(
-  workflowId: string,
-  taskId: string,
-  promptDigest: string,
-  runInputsDigest: string,
-  delegationDigest: string,
-  upstreamResultsDigest: string | undefined
-): string | undefined {
-  if (upstreamResultsDigest === undefined) return undefined;
-  return sha256(
-    stableStringify({
-      schemaVersion: 2,
-      workflowId,
-      taskId,
-      promptDigest,
-      runInputsDigest,
-      delegationDigest,
-      upstreamResultsDigest,
-    })
-  );
-}
-
-/** The delegation digest folded into the incremental cache key. */
-export function incrementalDelegationDigest(
-  model: string,
-  agentType: string,
-  sandboxProfileId: string,
-  command: string,
-  strippedArgs: string[],
-  endpoint: string
-): string {
-  return sha256(
-    stableStringify({
-      model,
-      agentType,
-      sandboxProfileId,
-      command,
-      args: strippedArgs,
-      endpoint,
-    })
-  );
-}
-
-export const WAIT_NOTE = ", may take minutes…";
-
-export function agentConfigured(config: AgentDelegationConfig): boolean {
-  return Boolean(config.command || config.endpoint);
-}
-
-/** `waitNote` adds ", may take minutes…"; the caller gives it once for a run. */
-export function spawningAgentLine(task: { id: string; label?: unknown; phase: string }, waitNote: boolean): string {
-  return `→ ${task.label || task.id} (${task.phase}) — spawning agent${waitNote ? WAIT_NOTE : ""}`;
-}
-
-export function renderSubInputs(spec: { inputs?: Record<string, string> }, parentInputs: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, template] of Object.entries(spec.inputs || {})) {
-    out[key] = String(template).replace(/\{\{(\w+)\}\}/g, (_, name) => String(parentInputs[name] ?? ""));
-  }
-  return out;
-}
-
-export function roundPhaseLabel(run: WorkflowRun): string {
-  const phase = firstRunnablePhase(run);
-  const name = phase ? phase.name || phase.id : "";
-  return name ? name.charAt(0).toUpperCase() + name.slice(1) : "";
+  return inputs.plannedWorkers > 0 && inputs.completedWorkers === inputs.plannedWorkers ? "complete" : "blocked";
 }

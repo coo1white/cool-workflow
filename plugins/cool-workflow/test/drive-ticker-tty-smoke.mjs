@@ -80,7 +80,7 @@ function cw(dir, agent, extraEnv) {
   for (const key of ["CW_AGENT_ENDPOINT", "CW_AGENT_STREAM", "CW_DRIVE_PROGRESS", "CW_DRIVE_TICK_MS", "CW_NO_STREAM", "CW_DRIVE_TTY_CLAIM"]) {
     if (!(key in extraEnv)) delete env[key];
   }
-  const child = spawnSync(process.execPath, [cwBin, "-q", "How does routing work?", "--fast", "--json"], { cwd: dir, env, encoding: "utf8", timeout: 180000 });
+  const child = spawnSync(process.execPath, [cwBin, "-q", "How does routing work?", "--json"], { cwd: dir, env, encoding: "utf8", timeout: 180000 });
   assert.equal(child.status, 0, `cw -q exits 0 (stderr: ${child.stderr})`);
   assert.equal(JSON.parse(child.stdout).status, "complete", "the run completes");
   return child;
@@ -97,9 +97,9 @@ try {
     const rows = stderr.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").split(/[\r\n]/);
     const glued = rows.filter((row) => row.indexOf("[drive]") > 0);
     assert.deepEqual(glued, [], "no [drive] line lands inside the live view's line");
-    assert.match(stderr, /^\[drive\] {3}… Map still working — \d+s$/m, "the concurrent round keeps its ticker line");
-    assert.match(stderr, /^\[drive\] » concurrent round: 2 agents spawning in parallel, may take minutes…$/m, "the round line uses »");
-    assert.match(stderr, /^\[drive\] ==> Assess » \(0\/2\)$/m, "the parallel phase line uses »");
+    assert.match(stderr, /^\[drive\] {3}… Map still working — \d+s(?: \([^)]*\))?$/m, "the concurrent round keeps its ticker line");
+    assert.match(stderr, /^\[drive\] » concurrent round: 12 agents spawning in parallel, may take minutes…$/m, "the round line uses »");
+    assert.match(stderr, /^\[drive\] ==> Verify » \(0\/1\)$/m, "the phase line uses »");
     assert.ok(!stderr.includes("⇉"), "no ⇉ in the progress lines");
     console.log("drive-ticker-tty: the live view and the ticker keep to their own lines OK");
   }

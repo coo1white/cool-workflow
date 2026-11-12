@@ -1,4 +1,4 @@
 # exit: 0
 cw demo
 
-  cw demo tamper  Prove tamper-evidence: build a signed telemetry ledger, forge it, watch verification fail offline.
+  cw demo tamper  Edit a sealed run and watch verify catch it

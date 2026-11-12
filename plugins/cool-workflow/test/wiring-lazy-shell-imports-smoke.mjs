@@ -1,17 +1,10 @@
 #!/usr/bin/env node
 // wiring-lazy-shell-imports-smoke — perf cycle P1-4.
 //
-// Every wiring/capability-table/*.ts slice is required unconditionally at
-// CLI/MCP startup for EVERY command (index.ts's whole job is to populate
-// REGISTRY before dispatch can look anything up). Each slice used to have
-// top-level `import { someHandler } from "../../shell/some-module"`
-// statements, even though `someHandler` is only ever called inside ONE
-// specific capability's handler body. That meant loading a shell module's
-// full dependency tree happened on every invocation, whether or not that
-// invocation's command ever touched it -- measured live: `cw --version`
-// went from ~70-110ms to a consistent ~40ms after converting every slice's
-// shell-module imports to lazy (`require()`d only inside the handler that
-// actually uses them, not at file-import time).
+// The command table (src/wiring/commands.ts) is loaded for EVERY command.
+// Each row loads its shell module only inside its own handler, so a command
+// that never touches a module never pays to load it: `cw --version` is a
+// pure constant and must stay lean.
 //
 // Proven deterministically (not by timing -- see cycle P1-2's own note on
 // why wall-clock assertions are flaky under this repo's concurrent test
@@ -82,83 +75,28 @@ function loadedShellModule(loaded, relativeShellPath) {
   return false;
 }
 
+const HEAVY = ["commands/pipeline-cli.js", "commands/report-cli.js", "commands/report-view-cli.js", "commands/check-cli.js", "doctor.js", "drive.js", "run-store.js", "tamper-demo.js"];
+
 try {
-  // ---------------------------------------------------------------------
-  // 1. `cw --version`: needs nothing but a pure constant. Must load NONE
-  //    of these heavy, multi-capability shell modules -- before this fix,
-  //    ALL of them loaded unconditionally via registry-core.ts alone or
-  //    one of the 8 domain slices' own top-level imports.
-  // ---------------------------------------------------------------------
+  // 1. `cw --version`: needs nothing but a pure constant.
   {
     const loaded = loadedModulesFor(["--version"]);
-    const mustNotLoad = [
-      "multi-agent-cli.js",
-      "commands/registry-cli.js",
-      "commands/report-view-cli.js",
-      "commands/worker-cli.js",
-      "commands/feedback-cli.js",
-      "commands/audit-cli.js",
-      "run-store.js",
-      "workflow-app-loader.js",
-      "doctor.js",
-      "commands/exec-backend-cli.js",
-      "commands/ledger-cli.js",
-    ];
-    for (const mod of mustNotLoad) {
+    for (const mod of HEAVY) {
       assert.equal(loadedShellModule(loaded, mod), false, `cw --version must not load shell/${mod} -- it doesn't need it`);
     }
-    assert.ok(loaded.size < 60, `cw --version loaded ${loaded.size} modules total, expected a lean startup (was ~90+ before this fix across the 9 slices' combined eager imports)`);
+    assert.ok(loaded.size < 30, `cw --version loaded ${loaded.size} modules total, expected a lean startup`);
   }
 
-  // ---------------------------------------------------------------------
-  // 2. `cw list`: DOES need shell/workflow-app-loader.js (registry-core's
-  //    listBundledWorkflows), but must still skip unrelated heavy modules
-  //    like multi-agent-cli.js/registry-cli.js/worker-cli.js.
-  // ---------------------------------------------------------------------
-  {
-    const loaded = loadedModulesFor(["list"]);
-    assert.ok(loadedShellModule(loaded, "workflow-app-loader.js"), "cw list must load shell/workflow-app-loader.js -- it's what actually lists the apps");
-    for (const mod of ["multi-agent-cli.js", "commands/registry-cli.js", "commands/worker-cli.js", "doctor.js"]) {
-      assert.equal(loadedShellModule(loaded, mod), false, `cw list must not load shell/${mod} -- unrelated to listing apps`);
-    }
-  }
-
-  // ---------------------------------------------------------------------
-  // 3. `cw status <id>`: DOES need shell/run-store.js (registry-core's
-  //    statusPayload, given a real run id argument) -- proven even though
-  //    the id is fake and the command itself errors out, since the module
-  //    load happens on the way to that error, before the lookup fails.
-  // ---------------------------------------------------------------------
-  {
-    const loaded = loadedModulesFor(["status", "definitely-not-a-real-run-id"]);
-    assert.ok(loadedShellModule(loaded, "run-store.js"), "cw status <id> must load shell/run-store.js to attempt the lookup");
-  }
-
-  // ---------------------------------------------------------------------
-  // 4. `cw sandbox list`: a pure static array (listBundledSandboxProfiles),
-  //    no unrelated shell module should load for it. It DOES need
-  //    shell/commands/exec-backend-cli.js itself (listSandboxProfilesCli lives
-  //    there) -- pin that on-demand load positively, not just the negative
-  //    "unrelated modules stay absent" side.
-  // ---------------------------------------------------------------------
-  {
-    const loaded = loadedModulesFor(["sandbox", "list"]);
-    for (const mod of ["multi-agent-cli.js", "commands/registry-cli.js", "commands/worker-cli.js", "run-store.js", "workflow-app-loader.js"]) {
-      assert.equal(loadedShellModule(loaded, mod), false, `cw sandbox list must not load shell/${mod} -- it returns a static array`);
-    }
-    assert.ok(loadedShellModule(loaded, "commands/exec-backend-cli.js"), "cw sandbox list must load shell/commands/exec-backend-cli.js -- it's what actually lists the profiles");
-  }
-
-  // ---------------------------------------------------------------------
-  // 5. `cw ledger list`: needs shell/commands/ledger-cli.js (ledgerListCli), the
-  //    other lazy shell holdout fixed by this cycle. Pins the on-demand
-  //    load side for ledger, mirroring case 4 for exec-backend.
-  // ---------------------------------------------------------------------
-  {
-    const loaded = loadedModulesFor(["ledger", "list"]);
-    assert.ok(loadedShellModule(loaded, "commands/ledger-cli.js"), "cw ledger list must load shell/commands/ledger-cli.js -- it's what actually lists the ledger entries");
-    for (const mod of ["multi-agent-cli.js", "commands/registry-cli.js", "commands/worker-cli.js", "commands/exec-backend-cli.js"]) {
-      assert.equal(loadedShellModule(loaded, mod), false, `cw ledger list must not load shell/${mod} -- unrelated to the ledger`);
+  // 2. Each command loads its own shell module, and not the drive or the others.
+  for (const [args, needs, skips] of [
+    [["doctor", "--json"], "doctor.js", ["commands/pipeline-cli.js", "commands/report-cli.js", "commands/check-cli.js", "drive.js", "tamper-demo.js"]],
+    [["check", "list", "--json"], "commands/check-cli.js", ["commands/pipeline-cli.js", "commands/report-cli.js", "doctor.js", "drive.js", "tamper-demo.js"]],
+    [["report", "definitely-not-a-real-run-id"], "commands/report-view-cli.js", ["commands/pipeline-cli.js", "commands/check-cli.js", "doctor.js", "drive.js", "tamper-demo.js"]],
+  ]) {
+    const loaded = loadedModulesFor(args, hookDir);
+    assert.ok(loadedShellModule(loaded, needs), `cw ${args.join(" ")} must load shell/${needs} -- it is what does the work`);
+    for (const mod of skips) {
+      assert.equal(loadedShellModule(loaded, mod), false, `cw ${args.join(" ")} must not load shell/${mod} -- unrelated`);
     }
   }
 } finally {

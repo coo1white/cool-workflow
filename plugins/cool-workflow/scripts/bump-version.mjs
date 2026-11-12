@@ -2,7 +2,7 @@
 
 // One-shot version bump across every STRUCTURED surface, then gate or auto-fix
 // the CONTENT surfaces (the docs/*.7.md man pages) that must mention the
-// new version for version-sync-check and dogfood-release to pass.
+// new version for version-sync-check to pass.
 //
 //   node scripts/bump-version.mjs <new-version>           # gate (fail if content missing)
 //   node scripts/bump-version.mjs <new-version> --content # auto-append version placeholders
@@ -105,16 +105,6 @@ function main() {
   const lock = path.join(pluginRoot, "package-lock.json");
   if (fs.existsSync(lock) && replaceLockfileVersions(lock, next)) note("package-lock.json");
 
-  // 2b. Official MCP Registry server metadata (top-level server version + npm package version).
-  const serverJson = path.join(pluginRoot, "server.json");
-  if (fs.existsSync(serverJson)) {
-    const json = JSON.parse(fs.readFileSync(serverJson, "utf8"));
-    json.version = next;
-    if (json.packages && json.packages[0]) json.packages[0].version = next;
-    fs.writeFileSync(serverJson, `${JSON.stringify(json, null, 2)}\n`);
-    note("server.json");
-  }
-
   // 3. src/core/version.ts runtime constant (v2 moved it from the old flat
   //    version module into the core state layer)
   const versionTs = path.join(pluginRoot, "src", "core", "version.ts");
@@ -129,7 +119,7 @@ function main() {
   }
 
   // 4. manifest/plugin.manifest.json (identity.version) — gen:manifests then
-  //    propagates to .claude-plugin / .codex-plugin / .agents / .mcp.json
+  //    propagates to .claude-plugin / .codex-plugin / .gemini-plugin / .opencode-plugin / .agents
   setNestedVersion(path.join(pluginRoot, "manifest", "plugin.manifest.json"), next);
   note("manifest/plugin.manifest.json");
 
@@ -143,43 +133,6 @@ function main() {
     if (fs.existsSync(appJson) && replaceFirstVersionField(appJson, next)) {
       note(`apps/${appId}/app.json`);
     }
-  }
-
-  // 5b. Scripts + test assertions that hard-code the CURRENT version as a
-  //     current-version reference. A TARGETED `current -> next` replace is safe:
-  //     it only swaps the exact old version string, leaving historical refs
-  //     (minVersion, "pre-vX", fixed demo versions) untouched. This is the
-  //     surface that caused the stale `@0.1.31` failure. Docs and CHANGELOG are
-  //     intentionally excluded — their version labels are historical feature tags.
-  const targeted = [
-    "scripts/golden-path.mjs",
-    "scripts/canonical-apps.mjs",
-    "scripts/dogfood-release.mjs",
-    "test/dogfood-release-smoke.mjs",
-    "test/mcp-app-surface-smoke.mjs",
-    "test/canonical-workflow-apps-smoke.mjs",
-    "test/workflow-app-framework-smoke.mjs",
-    "test/operator-ux-smoke.mjs"
-  ];
-  // The version appears in THREE forms across scripts/tests: plain (`0.1.32`),
-  // a regex literal (`0\.1\.32`, from `assert.match(report, /...@0\.1\.32/)`),
-  // and a RegExp string (`0\\.1\\.32`, from `new RegExp(\`...@0\\.1\\.32\`)`).
-  // A plain replace silently misses the escaped forms — the exact "escaped-dot"
-  // surface that fails version:sync mid-release. Replace all three, most-escaped
-  // first so the forms can never overlap. No regex is ever built from these —
-  // the forms feed the plain split/join TEXT replacement below (which is also
-  // why split/join, not a regex-escape-shaped replace, builds them).
-  const esc1 = (v) => v.split(".").join("\\.");
-  const esc2 = (v) => v.split(".").join("\\\\.");
-  const forms = [[esc2(current), esc2(next)], [esc1(current), esc1(next)], [current, next]];
-  for (const rel of targeted) {
-    const abs = path.join(pluginRoot, rel);
-    if (!fs.existsSync(abs)) continue;
-    let text = fs.readFileSync(abs, "utf8");
-    if (!forms.some(([from]) => text.includes(from))) continue;
-    for (const [from, to] of forms) text = text.split(from).join(to);
-    fs.writeFileSync(abs, text);
-    note(rel);
   }
 
   // 5c. Homebrew formula (repo root, not under pluginRoot). Structured surface:
@@ -236,18 +189,10 @@ function contentSurfaceFiles(next) {
     // README.md by scripts/sync-readme.mjs and shows the version via the live npm/release shields
     // badges, not a hand-maintained literal — so it is NOT a version-bump surface. After a bump,
     // `npm run sync:readme` keeps it byte-identical to the GitHub README (guarded by readme:check).
-    { path: "plugins/cool-workflow/docs/cli-mcp-parity.7.md",                needle: line, desc: "CLI/MCP parity doc" },
-    { path: "plugins/cool-workflow/docs/run-registry-control-plane.7.md",    needle: line, desc: "run registry doc" },
-    { path: "plugins/cool-workflow/docs/execution-backends.7.md",            needle: line, desc: "execution backends doc" },
-    { path: "plugins/cool-workflow/docs/observability-cost-accounting.7.md", needle: line, desc: "observability doc" },
     { path: "plugins/cool-workflow/docs/release-tooling.7.md",               needle: line, desc: "release tooling doc" },
-    { path: "plugins/cool-workflow/docs/real-execution-backends.7.md",       needle: line, desc: "real execution backends doc" },
-    { path: "plugins/cool-workflow/docs/node-snapshot-diff-replay.7.md",     needle: line, desc: "node snapshot doc" },
-    { path: "plugins/cool-workflow/docs/contract-migration-tooling.7.md",    needle: line, desc: "contract migration doc" },
     { path: "plugins/cool-workflow/docs/agent-delegation-drive.7.md",        needle: line, desc: "agent delegation doc" },
     { path: "plugins/cool-workflow/docs/durable-state-and-locking.7.md",     needle: line, desc: "durable state doc" },
     { path: "plugins/cool-workflow/docs/release-and-migration.7.md",         needle: line, desc: "release & migration doc" },
-    { path: "plugins/cool-workflow/docs/trust-audit-anchor.7.md",           needle: line, desc: "trust audit anchor doc" },
   ];
 }
 

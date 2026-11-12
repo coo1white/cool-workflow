@@ -2,7 +2,7 @@
 // stopped-run-summary-exit-smoke — a run that stopped does not look like a
 // good one.
 //
-//   1. `cw quickstart` that ends blocked (no agent) exits 2, and its JSON
+//   1. `cw -q` that ends blocked (no agent) exits 2, and its JSON
 //      is still on stdout; a finished run exits 0.
 //   2. The terminal summary of a stopped run starts `! Report:`, not
 //      `✓ Report:`; a finished run keeps `✓ Report:`.
@@ -13,6 +13,7 @@
 
 import assert from "node:assert/strict";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { cw } from "./helpers/cw.mjs";
 import { tmpWorkspace } from "./helpers/workspace.mjs";
 import { writeStubAgent } from "./helpers/stub-agent.mjs";
@@ -21,7 +22,8 @@ import { formatQuickstartSummary } from "../dist/shell/reporter.js";
 const plain = (text) => text.replace(/\x1b\[[0-9;]*m/g, "");
 const repo = tmpWorkspace("cw-stopped-run-");
 const base = { ...process.env, CW_HOME: repo, XDG_STATE_HOME: repo, HOME: repo, TMPDIR: repo, CW_NO_AUTO_AGENT: "1" };
-const args = ["quickstart", "end-to-end-golden-path", "--repo", repo, "--question", "test?"];
+spawnSync("git", ["init", "-q"], { cwd: repo });
+const args = ["-q", "test?", "--repo", repo, "--json"];
 
 // 1. Exit code: blocked is 2 with the JSON kept; complete is 0.
 {

@@ -40,7 +40,7 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
 // A same-version re-run with a MISSING content surface must FAIL (gate mode).
 // Fixture: a minimal <root>/plugins/cool-workflow layout (bump-version resolves
 // repoRoot from its own __dirname) whose package.json is already at the target
-// version but whose trust-audit-anchor.7.md lacks any mention of it. The
+// version but whose durable-state-and-locking.7.md lacks any mention of it. The
 // pre-fix code early-exited 0 here without ever looking at content surfaces.
 {
   const root = tmpDir("cw-bump-gate-");
@@ -54,15 +54,15 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
     path.join(fixPlugin, "scripts", "canonical-apps-list.mjs")
   );
   fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify({ name: "x", version: "9.9.0", scripts: {} }, null, 2)}\n`);
-  const surfacePath = path.join(fixPlugin, "docs", "trust-audit-anchor.7.md");
-  fs.writeFileSync(surfacePath, "# Trust Audit Anchor\n\nno version mention here\n");
+  const surfacePath = path.join(fixPlugin, "docs", "durable-state-and-locking.7.md");
+  fs.writeFileSync(surfacePath, "# Durable State & Locking\n\nno version mention here\n");
 
   const gate = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.mjs"), "9.9.0"], {
     cwd: fixPlugin,
     encoding: "utf8"
   });
   assert.notEqual(gate.status, 0, "same-version re-run must still FAIL the content gate when a surface is missing (pre-fix: silent exit 0)");
-  assert.match(`${gate.stdout}${gate.stderr}`, /trust-audit-anchor\.7\.md/, "the failure must name the missing surface");
+  assert.match(`${gate.stdout}${gate.stderr}`, /durable-state-and-locking\.7\.md/, "the failure must name the missing surface");
 
   // And --content on the same-version re-run must actually FILL the missing
   // surface — the exact v0.2.3 incident: `bump:version -- 0.2.3 --content`
@@ -104,7 +104,7 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
   assert.equal(patch.status, 0, `a patch must pass the content gate on its minor's line (pre-fix: it asked for 9.9.1):\n${patch.stdout}${patch.stderr}`);
   assert.equal(fs.readFileSync(surfacePath, "utf8"), before, "a patch adds no man-page line");
   // And without the minor's line the patch still fails closed, naming it.
-  fs.writeFileSync(surfacePath, "# Trust Audit Anchor\n\nno version mention here\n");
+  fs.writeFileSync(surfacePath, "# Durable State & Locking\n\nno version mention here\n");
   const patchGate = spawnSync(process.execPath, [path.join(fixPlugin, "scripts", "bump-version.mjs"), "9.9.1"], {
     cwd: fixPlugin,
     encoding: "utf8"

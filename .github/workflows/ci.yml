@@ -55,14 +55,14 @@ jobs:
             exit 1
           fi
       - run: bun run check
-      - run: node scripts/cw.js list
+      - run: node scripts/cw.js version
       # Black-box regression net: the shipping cli.js must stay byte-identical
       # in observable behavior. The v0.2.0 GitHub Release notes make this
       # promise; it must run in CI or that promise is false.
       - run: node ../../v2/conformance/run.mjs --bin dist/cli.js
       # `test:coverage` already runs the full smoke suite; keep release:check for
-      # the remaining parity, manifest, version-sync, golden-path, canonical-apps,
-      # and eval gates without running the same suite a second time.
+      # the remaining manifest, version-sync and docs gates without running the
+      # same suite a second time.
       - run: bun run test:coverage
       # Pure core/ unit tests (test/**/*.test.mjs), separate from the smoke suite
       # above — see test/run-unit.mjs's header. release:check --skip-tests also
@@ -225,8 +225,7 @@ jobs:
   # sets an output; later steps run only when it says yes. It runs the real
   # flow in check mode: version sync, release-flow.mjs --check --local-tests
   # (the deterministic gate: build, full test:gate, substance, test evidence,
-  # branch naming; then the reviewer spawn and verdict check), and
-  # dogfood-release --smoke (npm pack --dry-run --json). --local-tests is
+  # branch naming; then the reviewer spawn and verdict check). --local-tests is
   # needed here: by default the gate's test step reads the required `check`
   # runs on the commit, and this job runs beside them, so it cannot wait on
   # them. The reviewer is a
@@ -257,7 +256,7 @@ jobs:
           if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
             base="$(git rev-list --max-parents=0 HEAD)"
           fi
-          if git diff --name-only "$base" "${{ github.sha }}" | grep -qE '^(plugins/cool-workflow/scripts/(release-[^/]*|verify-[^/]*|dogfood-release|bump-version)\.mjs|plugins/cool-workflow/test/(run-all|fixtures/release-rehearsal-reviewer)\.mjs|plugins/cool-workflow/package\.json|plugins/cool-workflow/agents/release-reviewer\.md|\.cw-release/.*|\.github/workflows/(ci|release|npm-publish)\.yml)$'; then
+          if git diff --name-only "$base" "${{ github.sha }}" | grep -qE '^(plugins/cool-workflow/scripts/(release-[^/]*|verify-[^/]*|bump-version)\.mjs|plugins/cool-workflow/test/(run-all|fixtures/release-rehearsal-reviewer)\.mjs|plugins/cool-workflow/package\.json|plugins/cool-workflow/agents/release-reviewer\.md|\.cw-release/.*|\.github/workflows/(ci|release|npm-publish)\.yml)$'; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -287,5 +286,3 @@ jobs:
         if: steps.changed.outputs.run == 'true'
         env:
           CW_AGENT_COMMAND: node plugins/cool-workflow/test/fixtures/release-rehearsal-reviewer.mjs {{input}}
-      - run: node scripts/dogfood-release.mjs --smoke
-        if: steps.changed.outputs.run == 'true'

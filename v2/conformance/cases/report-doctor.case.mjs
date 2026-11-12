@@ -1,107 +1,77 @@
 #!/usr/bin/env node
 
-// cw doctor — read-only host checks. Fixed check order (node, agent,
-// sandbox-enforceability, git, home-registry, repo-state — agent-binary only
-// fires for a command agent), fixed glyphs and summary strings, --json shape,
-// fail-closed exit code, and the read-only invariant (it never creates
-// $CW_HOME or <cwd>/.cw). sandbox-enforceability is always "ok" (a fixed
-// architectural fact, not a per-host problem) so it never contaminates the
-// warning count or blocks the "ready — all checks passed" summary.
+// cw doctor — read-only host checks. Fixed check order (node, agent, git,
+// repo-state, run-state-integrity — agent-binary / agent-runs only fire
+// for a configured or detected agent), fixed glyphs and summary strings,
+// --json shape, and the read-only invariant (it never creates <cwd>/.cw).
+// The sandbox-enforceability, home-registry and audit-integrity checks went
+// with their surfaces in batch 5 (2026-11-12).
 
 import fs from "node:fs";
 import path from "node:path";
-import { run, freshDir, readJson, caseMain, assert } from "../lib.mjs";
+import { run, freshDir, caseMain, assert } from "../lib.mjs";
 
-// A PATH with only node on it (no git, no claude) forces deterministic
-// agent=warn + git=warn checks, so the whole report is stable.
-function nodeOnlyPath() {
-  return path.dirname(process.execPath);
-}
+// A PATH with only node's folder on it (no git) and auto-detect off (no
+// agent) forces deterministic agent=warn + git=warn checks.
+const ENV = { PATH: path.dirname(process.execPath), CW_NO_AUTO_AGENT: "1" };
 
 caseMain(() => {
   const cwd = freshDir("cwd");
 
   // --- human text, warn path (no agent, no git) ---
-  const human = run(["doctor"], { cwd, env: { PATH: nodeOnlyPath() } });
+  const human = run(["doctor"], { cwd, env: ENV });
   assert.equal(human.status, 0, "warnings alone must not fail the exit code");
   assert.equal(human.stderr, "");
   assert.match(human.stdout, /^cw doctor\n/);
-  assert.match(human.stdout, /  ✓ node: Node v\d+\.\d+\.\d+ \(>= 22\.13\)\.\n/);
+  assert.match(human.stdout, / {2}✓ node: Node v\d+\.\d+\.\d+ \(>= 22\.13\)\.\n/);
   assert.match(
     human.stdout,
-    /  ! agent: No agent backend configured — `demo` and `--preview` work, but a real run reports status: blocked\.\n/
+    / {2}! agent: No agent backend configured — `cw demo tamper` and `cw check` work, but a real run reports status: blocked\.\n/
   );
   assert.match(
     human.stdout,
-    /      fix: Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude \(or set CW_AGENT_COMMAND=builtin:claude\)\. -codex, -gemini and -opencode work too\.\n/
+    / {6}fix: Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude \(or set CW_AGENT_COMMAND=builtin:claude\)\. -codex, -gemini and -opencode work too\.\n/
   );
-  assert.match(human.stdout, /  ! git: git is not available/);
-  assert.match(human.stdout, /  ✓ home-registry: Home registry location is writable \(.*\)\.\n/);
-  assert.match(human.stdout, /  ✓ repo-state: Run state location is writable \(.*\)\.\n/);
+  assert.match(human.stdout, / {2}! git: git is not available/);
+  assert.match(human.stdout, / {2}✓ repo-state: Run state location is writable \(.*\)\.\n/);
+  assert.match(human.stdout, / {2}✓ run-state-integrity: No runs under \.cw\/runs yet\.\n/);
   assert.match(human.stdout, /\n✓ ready, with 2 warnings\n/);
-  // A bare (non-`--onramp`) doctor now ends with a pointer to the richer
-  // onramp content, which otherwise only ever renders behind that flag.
-  assert.match(human.stdout, /\n {2}Next: cw doctor --onramp for the 3-step quick start\n$/);
+  assert.match(human.stdout, /\nQuick start:\n {2}1\. cw demo tamper .*\n {2}2\. cw check -- npm test .*\n {2}3\. cw -q "what risks\?" .*\n$/);
 
   // --- --json, same warn scenario ---
-  const json = run(["doctor", "--json"], { cwd, env: { PATH: nodeOnlyPath() } });
+  const json = run(["doctor", "--json"], { cwd, env: ENV });
   assert.equal(json.status, 0);
   assert.equal(json.stderr, "");
   const report = JSON.parse(json.stdout);
+  assert.deepEqual(Object.keys(report), ["schemaVersion", "ok", "checks", "summary"]);
   assert.equal(report.schemaVersion, 1);
   assert.equal(report.ok, true);
   assert.equal(report.summary, "ready, with 2 warnings");
-  assert.deepEqual(
-    report.checks.map((c) => c.name),
-    ["node", "agent", "sandbox-enforceability", "git", "home-registry", "repo-state", "run-state-integrity", "audit-integrity"]
-  );
+  assert.deepEqual(report.checks.map((c) => c.name), ["node", "agent", "git", "repo-state", "run-state-integrity"]);
   const byName = Object.fromEntries(report.checks.map((c) => [c.name, c]));
   assert.equal(byName.node.status, "ok");
+  assert.equal(byName.node.fix, undefined, "an ok check must not carry a fix line");
   assert.equal(byName.agent.status, "warn");
   assert.ok(byName.agent.fix, "a non-ok check must carry a fix line");
-  assert.equal(byName["sandbox-enforceability"].status, "ok", "sandbox-enforceability is a fixed fact, always ok, never warn");
-  assert.equal(byName["sandbox-enforceability"].fix, undefined, "an ok check must not carry a fix line");
   assert.equal(byName.git.status, "warn");
-  // A fresh cwd has no runs at all -- both new integrity checks are "ok"
-  // ("nothing to check yet"), never contributing a warning of their own.
-  assert.equal(byName["run-state-integrity"].status, "ok", "no runs yet: run-state-integrity is ok, not a warning");
-  assert.equal(byName["audit-integrity"].status, "ok", "no runs yet: audit-integrity is ok, not a warning");
-  assert.equal(byName.node.fix, undefined, "an ok check must not carry a fix line");
-  assert.equal(report.onramp, undefined, "no --onramp means no onramp block");
+  assert.equal(byName["run-state-integrity"].status, "ok", "no runs yet: ok, not a warning");
 
   // --json never carries ANSI, even when FORCE_COLOR asks for color.
-  const jsonForced = run(["doctor", "--json"], { cwd, env: { PATH: nodeOnlyPath(), FORCE_COLOR: "1" } });
+  const jsonForced = run(["doctor", "--json"], { cwd, env: { ...ENV, FORCE_COLOR: "1" } });
   assert.equal(jsonForced.stdout, json.stdout, "machine payload is never styled");
 
-  // --- all-ok scenario (only on a host where every check is clean — git,
-  // an agent backend, and a writable home registry all present; CI hosts
-  // commonly lack an agent backend, so this only fires on some dev boxes) ---
-  const ok = run(["doctor", "--json"], { cwd });
-  const okReport = JSON.parse(ok.stdout);
-  if (okReport.checks.every((c) => c.status === "ok")) {
-    assert.equal(okReport.summary, "ready — all checks passed");
-  }
+  // --- a broken state.json is a warning that names the run ---
+  const broken = freshDir("broken");
+  fs.mkdirSync(path.join(broken, ".cw", "runs", "r1"), { recursive: true });
+  fs.writeFileSync(path.join(broken, ".cw", "runs", "r1", "state.json"), "{bad");
+  const warned = JSON.parse(run(["doctor", "--json"], { cwd: broken, env: ENV }).stdout);
+  const integrity = warned.checks.find((c) => c.name === "run-state-integrity");
+  assert.equal(integrity.status, "warn");
+  assert.match(integrity.detail, /^1 of 1 run\(s\) have a state\.json problem: r1: /);
+  assert.ok(integrity.fix);
 
-  // --- fail-closed: home-registry parent is a FILE, not a dir ---
-  const blockerDir = freshDir("blocker-parent");
-  const blockerFile = path.join(blockerDir, "blocker");
-  fs.writeFileSync(blockerFile, "not a directory\n");
-  const badHome = path.join(blockerFile, "cw-home");
-  const failing = run(["doctor", "--json"], { cwd, env: { PATH: nodeOnlyPath(), CW_HOME: badHome } });
-  assert.equal(failing.status, 1, "any fail check must exit 1");
-  const failReport = JSON.parse(failing.stdout);
-  assert.equal(failReport.ok, false);
-  assert.equal(failReport.summary, "1 blocking problem found");
-  const homeCheck = failReport.checks.find((c) => c.name === "home-registry");
-  assert.equal(homeCheck.status, "fail");
-  assert.ok(homeCheck.fix);
-  // Read-only: doctor must never create the directory it only probed.
-  assert.ok(!fs.existsSync(badHome), "doctor must not create $CW_HOME");
-  assert.ok(fs.existsSync(blockerFile), "doctor must not touch the blocking file either");
-
-  // --- doctor never writes anything under the checked repo cwd ---
+  // --- doctor never writes anything under the checked cwd ---
   const beforeEntries = fs.readdirSync(cwd);
-  run(["doctor", "--json"], { cwd, env: { PATH: nodeOnlyPath() } });
-  const afterEntries = fs.readdirSync(cwd);
-  assert.deepEqual(afterEntries, beforeEntries, "doctor is read-only over the repo cwd too");
+  run(["doctor", "--json"], { cwd, env: ENV });
+  assert.deepEqual(fs.readdirSync(cwd), beforeEntries, "doctor is read-only over the cwd");
 });

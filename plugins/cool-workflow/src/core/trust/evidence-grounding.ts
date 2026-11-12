@@ -137,17 +137,6 @@ export function lineCitedPastEnd(evidence: unknown, baseDirs: string[], ops: Pat
   return null;
 }
 
-/** Compute the confidence tier for a single evidence string. */
-export function computeEvidenceConfidence(raw: unknown, baseDirs: string[] | undefined, ops: PathOps | undefined, env: NodeJS.ProcessEnv = process.env): EvidenceConfidence {
-  if (!isGroundedEvidence(raw)) return "ungrounded";
-  if (!baseDirs || !baseDirs.length || !ops || !requireResolvableEvidence(env)) return "grounded";
-  const value = String(raw).trim();
-  const shape = classify(value);
-  if (shape.kind !== "file") return "grounded";
-  const resolution = resolveEvidenceLocator(value, baseDirs, ops.exists, ops.isAbsolute, ops.resolve);
-  return resolution === "resolved" ? "resolvable" : "grounded";
-}
-
 /** Extract actual content from a file-style evidence locator. Never
  *  fabricates: returns undefined when the file doesn't exist or the
  *  locator is not file-style. Lines are 1-indexed. `readFile` is

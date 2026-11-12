@@ -7,7 +7,7 @@
 // report-cli.ts), `--json` still prints the exact same ReportBundleVerification
 // payload as before (report-bundle.case.mjs/state-report-bundle.case.mjs pin
 // that shape). Also pins the "Run not found: <id>" error `cw report
-// <bad-id>` now gives instead of a raw internal state.json path.
+// <bad-id>` gives.
 
 import path from "node:path";
 import { run, gitRepo, caseMain, assert, stubAgentEnv } from "../lib.mjs";
@@ -15,7 +15,7 @@ import { run, gitRepo, caseMain, assert, stubAgentEnv } from "../lib.mjs";
 caseMain(() => {
   const repo = gitRepo({ "a.txt": "hello\n" });
   const drive = run(
-    ["run", "end-to-end-golden-path", "--drive", "--question", "prove it", "--repo", repo, "--json"],
+    ["-q", "prove it", "--repo", repo, "--json"],
     { env: stubAgentEnv("a.txt:1") }
   );
   const payload = JSON.parse(drive.stdout);
@@ -32,7 +32,7 @@ caseMain(() => {
   assert.match(human.stdout, new RegExp(`^cw report verify-bundle ${bundleResult.archivePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n`));
   assert.match(human.stdout, /archive intact/);
   assert.match(human.stdout, /telemetry hash chain verifies/);
-  assert.match(human.stdout, /trust-audit chain verifies/);
+  assert.doesNotMatch(human.stdout, /trust-audit/);
   assert.match(human.stdout, /report\.md matches every signed result/);
   assert.match(human.stdout, /^✓ bundle verifies$/m);
   assert.doesNotMatch(human.stdout, /"schemaVersion"/, "bare call must not print raw JSON");
@@ -59,6 +59,6 @@ caseMain(() => {
   // state.json path (shell/run-store.ts's loadRunFromCwd) ---
   const badReport = run(["report", "no-such-run-id"], { cwd: repo });
   assert.equal(badReport.status, 1);
-  assert.equal(badReport.stderr, "cw: Run not found: no-such-run-id\n  Try: cw run list\n");
+  assert.match(badReport.stderr, /^cw: Run not found: no-such-run-id \(no \.cw\/runs\/no-such-run-id\/state\.json under .*\)\n {2}Try: cw -q "<question>"\n$/);
   assert.equal(badReport.stdout, "");
 });

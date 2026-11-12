@@ -10,9 +10,6 @@
 node dist/cli.js doctor
 node dist/cli.js doctor --json
 node dist/cli.js doctor --fix
-node dist/cli.js doctor --onramp
-node dist/cli.js doctor --conformance
-node dist/cli.js doctor --onramp --changed-from origin/main
 ```
 
 ## DESCRIPTION
@@ -29,7 +26,7 @@ It gives back a report with one line for every check. Each check has a status
 `fix` line with the right command or step to put things right.
 
 If any check has status `fail`, the command exits with code 1 (non-zero). A
-`warn` (for example, no agent yet — demos and previews still work) does not
+`warn` (for example, no agent yet — `cw demo tamper` and `cw check` still work) does not
 make the exit fail.
 
 ## CHECKS
@@ -48,7 +45,7 @@ said `(>= 18)` and `v18` (changed in 0.3.2 with the operator's dated yes of
 OpenCode, Muse) or take one from `CW_AGENT_COMMAND` / `--agent-command`. The
 builtins `copilot`, `antigravity` (both beta) and `grok` are never auto-detected; pick
 them with `-copilot`, `-antigravity` or `-grok` (agent-delegation-drive(7)). Without one,
-real runs report `status: blocked`, but `demo` and `--preview` still work.
+real runs report `status: blocked`, but `cw demo tamper` and `cw check` still work.
 The fix then says to install an agent CLI and add `-claude` (or set
 `CW_AGENT_COMMAND=builtin:claude`); `-codex`, `-gemini` and `-opencode` work
 too. (Before 0.4.0 it named a bare `--agent-command "claude -p"`, which does
@@ -86,33 +83,22 @@ start (for example, npm stopped its postinstall) still said `ready`. Changed
 in 0.3.3 with the operator's dated yes of 2026-10-17. In `--json` it is one more entry in `checks`, in the same
 shape as the others; the other checks do not change.
 
-**agent-sandbox** (new in 0.3.3)
-: Only while `CW_AGENT_SANDBOX` is set (see sandbox-profiles(7)). `ok` when
-`srt` 0.0.81 is found (`CW_SRT_BIN` or `PATH`) and, on Linux, `bwrap` and
-`socat` are on `PATH`; `fail` (doctor is then not ready) with how to install
-what is missing, or for a value other than `srt`/`off`.
-
-**sandbox-enforceability**
-: A fixed fact, always `ok`: CW checks sandbox policy and gates what a worker
-gives back; OS isolation is the work of the host (sandbox-profiles(7)). The
-text view says it in one short line:
-`✓ sandbox-enforceability: policy is checked by CW; OS isolation is the host's job (docs/sandbox-profiles.7.md).`
-`--json` keeps the long `detail` text, byte for byte. Up to 0.4.2 the text
-view printed the long text too, about 250 characters (changed in 0.4.3 with
-the operator's dated yes).
-
 **git**
 : The `git` command. CW uses it for commit place of origin. A `warn` here means
 commit roots will be recorded as absent; no other part of a run needs git.
 
-**home-registry**
-: The cross-repo run index at `$CW_HOME` (default `$HOME/.local/state/cool-workflow`).
-This location must be writable. A `fail` here blocks discovery across repos.
-
 **repo-state**
 : The per-repo run store under `<cwd>/.cw`. Must be writable. A `warn` here
-means runs stay in-memory only — you can use `--cwd PATH` to point at another
-writable root.
+means a run cannot save its state — run from a writable folder.
+
+**run-state-integrity**
+: Every run under `<cwd>/.cw/runs` must have a `state.json` that loads. A
+`warn` names each run that does not (corrupt JSON, or an old run from before
+batch 5, which CW refuses with one line) and says to remove that run folder.
+
+Removed in batch 5 (2026-11-12): the `home-registry`, `agent-sandbox` and
+`sandbox-enforceability` checks, with the run registry and the sandbox
+profiles they checked.
 
 ## OPTIONS
 
@@ -123,47 +109,14 @@ writable root.
 : Give back only the fix commands for every non-ok check. Same as running `cw fix`
 by itself.
 
-`--onramp`
-: Add a quick-start guide to the human output, with recommended checks and a
-three-step path to your first report. Since 0.4.3 the three steps put their
-dash at one column (two more spaces in rows 1 and 2; the same yes as the
-sandbox line above).
-In a CW checkout, the checks it names are the `.mjs` test and script paths
-(for example `test/doctor-smoke.mjs` and `test/onramp-check-smoke.mjs`). Up to
-0.3.1 they ended in `.js` (changed in 0.3.2 with the operator's dated yes of
-2026-10-17). Since 0.4.0 the guide also names `cw check -- npm
-test`, the done receipt (see verifier-gated-commit(7), DONE RECEIPTS), with
-the operator's dated yes of 2026-11-03.
-
-`--conformance` (new in 0.3.3)
-: Run the configured agent one time on a small fixed task, and check that it
-keeps the agent contract, `cw-agent/1` (see agent-delegation-drive(7), "The
-agent contract"). It goes the same way a real run goes (`runBackend`), in a
-temp folder that is removed after, so it never writes `.cw/` or `$CW_HOME`.
-It adds one check, `agent-conformance`:
-- `ok` when the agent ends in time, exits 0, writes a `result.md` CW can
-  read, and reports a model:
-  `✓ agent-conformance: cw-agent/1: ran in 8.2s, exit 0, result.md read, model <model>.`
-- `warn` when all of that holds but no model is reported (run records would say
-  `unreported`), or when no agent is configured (nothing is run).
-- `fail` (doctor is then not ready and exits 1) when it fails, times out,
-  writes no `result.md`, or writes one CW cannot read. The detail gives the
-  agent's own last lines of stderr, keys hidden.
-This one runs a custom command too (the `agent-runs` check never does), so
-it uses one short model call, which may cost money. That is why it is only
-run when asked. The time limit is 180 seconds
-(`CW_DOCTOR_CONFORMANCE_TIMEOUT_MS` makes it different).
-
-`--changed-from <ref>`
-: When used with `--onramp`, make the quick-start checks cover only files changed
-since `<ref>` (a Git branch, tag, or commit). Good for CI and code reading.
+The `--onramp`, `--conformance` and `--changed-from` options were removed in
+batch 5 (2026-11-12). `cw doctor` prints the three quick-start steps at the
+end of the human report.
 
 ## FILES
 
 ```text
 src/shell/doctor.ts
-src/shell/doctor-conformance.ts
-src/shell/execution-backend/agent-sandbox.ts
 dist/shell/doctor.js
 ```
 

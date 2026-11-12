@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 // safe-json-output-cap (robustness) — safeJsonStringify, the shared
-// byte-capped JSON.stringify behind both cli/io.ts's printJson and
-// mcp/server.ts's tools/call content[0]. A result under the cap must be
+// byte-capped JSON.stringify behind cli/io.ts's printJson. A result under the cap must be
 // byte-identical to plain JSON.stringify(value, null, 2); a result over the
 // cap (or one that throws while stringifying at all) must become a small,
 // valid JSON overflow notice instead.
@@ -96,14 +95,11 @@ const pluginRoot = path.resolve(import.meta.dirname, "..", "..", "..");
   assert.ok(Buffer.byteLength(out, "utf8") < 2000, `the whole notice must stay small regardless of the 5MB input message, got ${out.length} bytes`);
 }
 
-// Both real outbound surfaces actually route through safeJsonStringify —
-// not just this unit's own direct calls. MCP now renders in its private tool
-// process before the control process writes the JSON-RPC reply.
+// The real outbound surface actually routes through safeJsonStringify —
+// not just this unit's own direct calls.
 {
   const ioSrc = fs.readFileSync(path.join(pluginRoot, "dist", "cli", "io.js"), "utf8");
   assert.match(ioSrc, /\bsafeJsonStringify\(value\)/, "cli/io.js's printJson must call safeJsonStringify");
-  const toolProcessSrc = fs.readFileSync(path.join(pluginRoot, "dist", "mcp", "tool-process.js"), "utf8");
-  assert.match(toolProcessSrc, /\bsafeJsonStringify\(result\)/, "mcp/tool-process.js must call safeJsonStringify before IPC");
 }
 
 process.stdout.write("safe-json-output-cap: ok\n");

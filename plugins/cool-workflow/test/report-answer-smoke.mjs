@@ -40,8 +40,8 @@ function repo(name) {
   return dir;
 }
 
-function cw(args, cwd) {
-  const env = { ...process.env, CW_AGENT_COMMAND: `node ${agent} {{input}} {{result}}`, CW_NO_AUTO_AGENT: "1", CW_NO_OPEN: "1" };
+function cw(args, cwd, extraEnv = {}) {
+  const env = { ...process.env, CW_AGENT_COMMAND: `node ${agent} {{input}} {{result}}`, CW_NO_AUTO_AGENT: "1", CW_NO_OPEN: "1", ...extraEnv };
   delete env.CW_AGENT_ENDPOINT;
   delete env.CW_AGENT_STREAM;
   return spawnSync(process.execPath, [cwBin, ...args], { cwd, env, encoding: "utf8", timeout: 120000 });
@@ -56,20 +56,20 @@ function readReport(reportPath) {
   return fs.readFileSync(reportPath, "utf8");
 }
 
-const VERDICT_TASK_ID = "verdict:fast-synthesis";
+const VERDICT_TASK_ID = "verdict:synthesis";
 const EXPECTED_ANSWER_BLOCK =
-  "## Answer\n\nstub answer\n\nEvidence:\n\n- README.md:1\n\nFull result: ## Results, ### verdict:fast-synthesis\n\n";
+  "## Answer\n\nstub answer\n\nEvidence:\n\n- README.md:1\n\nFull result: ## Results, ### verdict:synthesis\n\n";
 
 try {
-  // a. `cw -q "q" --fast --json` -> a completed verdict:fast-synthesis task
+  // a. `cw -q "q" --json` -> a completed verdict:synthesis task
   // with a readable result and a non-empty summary+evidence: `## Answer`
   // appears exactly once, right after the Verdict line and before
   // `## Phase Status`, with the exact rendered block, and `## Results`
   // still carries the full result under its own `### <taskId>` heading.
   {
     const dir = repo("a-fast");
-    const r = json(cw(["-q", "q", "--fast", "--json"], dir), "cw -q --fast --json");
-    assert.equal(r.status, "complete", "the fast app drives to completion");
+    const r = json(cw(["-q", "q", "--json"], dir), "cw -q --json");
+    assert.equal(r.status, "complete", "the app drives to completion");
 
     const report = readReport(r.reportPath);
     const answerMatches = report.match(/## Answer\n/g) || [];
@@ -85,7 +85,7 @@ try {
     const between = report.slice(answerIdx, phaseIdx);
     assert.equal(between, EXPECTED_ANSWER_BLOCK, "the ## Answer block is rendered exactly");
 
-    assert.match(report, /### verdict:fast-synthesis\n\nResult: /, "## Results still carries the verdict task's own section");
+    assert.match(report, /### verdict:synthesis\n\nResult: /, "## Results still carries the verdict task's own section");
 
     console.log("report-answer: ## Answer renders exactly once, in place, for a completed verdict task ok");
 
@@ -111,7 +111,7 @@ try {
   // file:line-shaped tokens for normalizeResultEnvelope to harvest.
   {
     const dir = repo("d-no-evidence");
-    const r = json(cw(["-q", "q", "--fast", "--json"], dir), "cw -q --fast --json (fresh run for case d)");
+    const r = json(cw(["-q", "q", "--json"], dir), "cw -q --json (fresh run for case d)");
     assert.equal(r.status, "complete");
 
     const state = JSON.parse(fs.readFileSync(r.statePath, "utf8"));
@@ -130,25 +130,27 @@ try {
     const between = report.slice(answerIdx, phaseIdx);
     assert.equal(
       between,
-      "## Answer\n\nstub answer no evidence\n\nFull result: ## Results, ### verdict:fast-synthesis\n\n",
+      "## Answer\n\nstub answer no evidence\n\nFull result: ## Results, ### verdict:synthesis\n\n",
       "no Evidence: line when evidence is empty and nothing grounded is harvested from the body"
     );
     assert.doesNotMatch(between, /Evidence:/, "no Evidence: line at all");
     console.log("report-answer: empty evidence drops the Evidence: line but keeps the summary+pointer ok");
   }
 
-  // b. A run with no verdict/synthesis task (end-to-end-golden-path's only
-  // task id is "golden:path"): no ## Answer section anywhere, and the line
-  // right after the Verdict line + blank line is ## Phase Status.
+  // b. A run whose verdict task never completed (no agent: the drive
+  // stops before any worker runs): no ## Answer section anywhere, and the
+  // line right after the Verdict line + blank line is ## Phase Status.
   {
     const dir = repo("b-no-verdict");
-    const r = json(cw(["run", "end-to-end-golden-path", "--drive", "--question", "q", "--repo", dir, "--json"], dir), "cw run end-to-end-golden-path --drive --json");
-    assert.equal(r.status, "complete", "the golden path app drives to completion");
+    const child = cw(["-q", "q", "--json"], dir, { CW_AGENT_COMMAND: "" });
+    assert.equal(child.status, 2, `a run with no agent stops short (exit 2): ${child.stderr}`);
+    const r = JSON.parse(child.stdout);
+    assert.equal(r.status, "blocked");
 
     const report = readReport(r.reportPath);
-    assert.doesNotMatch(report, /## Answer/, "no verdict/synthesis task -> no ## Answer section");
+    assert.doesNotMatch(report, /## Answer/, "no completed verdict task -> no ## Answer section");
     assert.match(report, /\n\n## Phase Status/, "the Verdict line's blank line is followed straight by ## Phase Status");
-    console.log("report-answer: a run with no verdict task gets no ## Answer section ok");
+    console.log("report-answer: a run with no completed verdict task gets no ## Answer section ok");
   }
 
   console.log("report-answer-smoke: ok");

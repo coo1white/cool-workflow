@@ -18,9 +18,9 @@ honest limit.
 - CW's ed25519 signature + hash-chained ledger prove **integrity and
   attribution**: a recorded usage number was signed by the keyholder and has not
   been changed since it was recorded. Both check again **offline** — the recorded
-  ledger's integrity with **no key at all** (`cw telemetry verify`), and each
-  `attested` signature with the **public key by itself** (`cw telemetry verify
-  --pubkey <public.pem>`; also done again by `cw demo tamper`).
+  ledger's integrity with **no key at all** (`cw report verify-bundle`), and
+  each `attested` signature with the **public key by itself** (`cw report
+  verify-bundle --pubkey <public.pem>`; also done again by `cw demo tamper`).
 - They do **not** prove the first number was **true**. A signer who is not honest can
   sign a false number; the false number is then bound by cryptography to its signer, but it is
   still false.
@@ -74,19 +74,17 @@ Defaults are honest: no signature ⇒ `unattested`; no usage ⇒ `absent`. **Usa
 is never quietly recorded as trusted.** The opt-in `require-attested-telemetry`
 policy fails the run closed on anything other than `attested`.
 
-### 2. The hash-chained ledgers — tamper-evidence of the recorded log
+### 2. The hash-chained ledger — tamper-evidence of the recorded log
 
 A signature proves the agent *said* a number while running. By itself it does not
 prove that **CW recorded exactly that** and that **nobody changed the record
-after**. That is the job of the append-only, hash-chained ledgers:
-
-- **Telemetry ledger** (`telemetry.json`, one entry per agent hop): each entry
-  chains to the one before through `prevHash`, and `recordHash = sha256(canonical
-  entry)`. Flip a recorded verdict (`unattested` → `attested`) or change a recorded
-  usage digest, and the chain no longer comes out the same.
-- **Trust-audit event log** (`events.jsonl`): the same care put on
-  every recorded decision — sandbox path allow/deny, policy snapshots,
-  verifier-gated commits, collaboration approvals.
+after**. That is the job of the append-only, hash-chained telemetry ledger
+(`telemetry.json`, one entry per agent hop): each entry chains to the one
+before through `prevHash`, and `recordHash = sha256(canonical entry)`. Flip a
+recorded verdict (`unattested` → `attested`) or change a recorded usage
+digest, and the chain no longer comes out the same. (The trust-audit event
+log, `events.jsonl`, was removed in batch 5; the telemetry ledger is the one
+chain that stays.)
 
 Verification **works out every hash on its own and never trusts the stored
 value**, so a changed, reordered, removed, or cut-short entry flips
@@ -99,22 +97,12 @@ stored raw usage for every `attested` record. There is no telemetry service to
 trust or break into — the record proves its own integrity, and a third-party auditor
 can re-run both checks on their own machine.
 
-### 3. Enforce vs attest — the sandbox guarantee labels
+### 3. What CW does not box in
 
-The sandbox attestation on every worker now names, per dimension, exactly
-which sort of guarantee you are holding. The three labels, and what each is
-worth:
-
-| Label | What it proves |
-|---|---|
-| `enforced` | CW itself makes the limit true. On the default drive path this is **only `write`**: worker-output acceptance keeps writes inside the accepted paths. |
-| `attested` | The backend/host *says* the limit holds. CW records the claim; it does not make it true. Worth exactly as much as your trust in that host. |
-| `absent` | No guarantee at all: the profile puts no limit on that dimension, or the backend has no support for it. |
-
-So on the default path the honest reading is: `write` enforced, everything
-else attested or absent. A backend that truly boxes a dimension in (the
-`container` backend's network namespace, for example) may label more
-dimensions `enforced` — the label follows the mechanism, never the wish.
+CW makes one limit true itself: a worker's `result.md` must stay inside its
+worker folder and may not be a symlink. Reads, network, and processes are the
+agent host's sandbox's job; CW records no claim about them. (The per-worker
+sandbox labels went with sandbox profiles in batch 5.)
 
 The same honesty covers the **model identity**: the recorded model id is
 labeled `agent-self-reported` (the agent named it itself) or `absent` (it
@@ -126,21 +114,21 @@ of a claim, not a measurement.
 
 ## What this DOES prove
 
-For telemetry, if `cw telemetry verify <run> --pubkey <public.pem>` reports green,
+For telemetry, if `cw report verify-bundle <bundle> --pubkey <public.pem>` reports green,
 you can put trust in **all** of the following, and only these:
 
 1. **Attribution.** Each `attested` usage number was signed by the holder of the
    set private key, over a payload bound to that one run, task, and
    prompt. It is **non-repudiable**: the signer can not later say it is not theirs, and it
    could not have been used again from a different hop.
-2. **Tamper-evidence of the record.** The recorded ledger — verdicts, usage
-   digests, audit decisions — has not been changed, reordered, cut short, or had
+2. **Tamper-evidence of the record.** The recorded ledger — verdicts and usage
+   digests — has not been changed, reordered, cut short, or had
    entries taken out since it was written, *as far as a self-recomputable chain
    can see* (see the threat-model note below). Light or part tampering,
    damage by chance, cutting short, and faked unchained lines are all caught.
 3. **Offline, independent re-verification.** Re-proving the recorded ledger needs
-   no network, no CW service, and no trust in our setup — `cw telemetry
-   verify` works out the chain again on your machine (and needs no key to do it). With
+   no network, no CW service, and no trust in our setup — `cw report
+   verify-bundle` works out the chain again on your machine (and needs no key to do it). With
    `--pubkey`, the ed25519 **attribution** is checked again on its own with the
    **public key by itself**; `cw demo tamper` does that sign-and-catch again
    end-to-end, offline. The integrity claim does not rest on trusting us.
@@ -177,24 +165,21 @@ not give any other idea:
    genesis is `sha256(runId)` — a value the local writer knows. So the chain
    sees changes to *part* of a log, but a writer who changes an entry and then
    **works out every later hash** with CW's own sha256 makes a log that
-   verifies green again. From `trust-audit.ts`:
-
-   > THREAT MODEL (be honest about the limit): the genesis is sha256(runId), so
-   > this detects casual/partial tampering, accidental corruption, truncation,
-   > removal, and forged-unchained lines — but NOT a determined local writer who
-   > re-chains the WHOLE log with this module's own sha256 after an edit.
+   verifies green again: the chain catches casual or part tampering,
+   damage by chance, cutting short, removal, and faked unchained lines — but
+   NOT a set local writer who re-chains the WHOLE log after an edit.
 
    This is **built in** to any local, self-recomputable chain. To close it needs an
    anchor the writer can not make again. CW **can not make that anchor itself** —
    because by design it holds no private key. The one cryptographic anchor that
    is there is the **agent's** telemetry signature, which covers agent-reported
-   *usage* — it does **not** cover CW-only decisions (sandbox / policy /
-   commit-gate), which have no outside signer.
+   *usage* and the result digest — it does **not** cover CW-only decisions
+   (the evidence gate, the commit gate), which have no outside signer.
 
    For those CW-only decisions, the only stronger guarantee we have today is
-   **operational**, not cryptographic: commit `events.jsonl` to an outside
-   append-only medium (git history, a remote append-only log) that the local
-   writer can not rewrite. The chain is a **clear step up** over a bare
+   **operational**, not cryptographic: commit the run folder, or a report
+   bundle, to an outside append-only medium (git history, a remote
+   append-only log) that the local writer can not rewrite. The chain is a **clear step up** over a bare
    append-only log — not a thing to use in place of an outside anchor.
 
 4. **It says nothing about the quality, safety, or correctness of the work.**
@@ -263,14 +248,14 @@ than the math will back up.
 
 ## How to verify for yourself
 
-- `cw telemetry verify <run>` — proves the telemetry ledger's **integrity** again:
+- `cw report verify-bundle <bundle>` — proves the telemetry ledger's **integrity** again:
   chain linkage + a per-record hash worked out on its own, so any change to a
   recorded verdict or usage digest since record time flips it red. It needs **no
   key** (it proves the *recording* again). Add `--pubkey <pem-or-path>` to re-run the
   ed25519 **signature** check for every `attested` record against the stored raw
   usage; keys that can not be read, missing raw usage, digest mismatches, wrong keys, and
-  signature mismatches fail closed. Mirrored as `cw_telemetry_verify` on the MCP
-  surface.
+  signature mismatches fail closed. It also checks the bundle's file hashes
+  and that each line the report cites is still there (report-verifiable-bundle(7)).
 - `cw demo tamper` — a sealed, offline, one-command proof: it builds a real
   ed25519-signed ledger and then fakes it three ways — flips a recorded verdict and
   works out the *local* record hash again (the chain still breaks), uses a

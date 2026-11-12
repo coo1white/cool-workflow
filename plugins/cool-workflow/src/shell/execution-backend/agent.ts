@@ -1,193 +1,54 @@
-// shell/execution-backend/agent.ts — agent-delegation pure helpers +
-// concurrent batch fulfillment.
-//
-// It holds the PURE data-transform helpers (invocation resolution, arg
-// substitution, secret redaction, report parsing) plus the batch
-// delegate-child spawn — both the CLI-binary batch (runAgentBatchOutcomes)
-// and its HTTP-endpoint sibling (runEndpointBatchOutcomes), so
-// `--concurrency N` gives endpoint-mode agents real concurrency instead of
-// a serial per-task spawn.
-//
-// THE RED LINE: CW spawns the agent and records its attested output. It
-// NEVER imports a model SDK, holds an API key, or constructs a model API
-// request. Any API key flows from the agent's OWN inherited env; CW never
-// reads or records it. The operator-chosen CW_AGENT_MODEL is interpolated
-// into `{{model}}` as policy and recorded ONLY in secret-stripped args — it
-// is NEVER the attested model id.
-//
-// Evidence: SPEC/execution-backend.md "agent driver", "Concurrent batch".
+// shell/execution-backend/agent.ts — runs the operator's agent CLI for one
+// worker. CW never calls a model itself: it spawns the configured command
+// argv-style (shell: false), waits, and reads what the agent wrote.
 
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
-import * as path from "node:path";
 import * as os from "node:os";
-import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
-import {
-  AgentChildOutcome,
-  BackendDescriptor,
-  BackendExecutionHandle,
-  ExecutionRequest,
-  ExecutionResultEnvelope,
-  ResolvedSandboxPolicy,
-  SandboxAttestation,
-} from "./types.js";
+import * as path from "node:path";
+import { agentCommandArgv, messageOf, NETWORK_ENV_NAMES, substituteAgentArg } from "../../core/util/cli-args.js";
 import { buildChildEnv, CW_NEVER_FORWARD_ENV } from "./local.js";
-import { delegatedEnvelope, refusedEnvelope } from "./envelopes.js";
-import { writeJson } from "../fs-atomic.js";
-import { withPerfTraceGroup } from "../perf-trace.js";
-import { agentCommandArgv, splitAgentCommandLine, substituteAgentArg, messageOf, NETWORK_ENV_NAMES, fetchChildEnv, FETCH_CHILD_NODE_ARGS } from "../../core/util/cli-args.js";
+import type { AssertTrue, IsOneWayData } from "../../core/types/boundary.js";
 
-const AGENT_PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|CLAUDE_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i;
-// Proxy + TLS trust: the vendor CLI reaches its API through these (0.3.3).
-const AGENT_NETWORK_ENV = NETWORK_ENV_NAMES;
-
-/** Build the env for a REAL spawned agent child under a sandbox policy: the
- *  policy's own PATH+HOME+expose/deny base (buildChildEnv), plus provider-key
- *  vars (the CW_, ANTHROPIC_, etc. prefixes), plus USER. USER is not a provider key, but a
- *  real vendor CLI (claude, at least) reads it to resolve its own OS-level
- *  login/keychain credential in headless mode -- buildChildEnv alone keeps
- *  only PATH+HOME under the readonly policy, so a spawned agent that IS
- *  logged in interactively reported "Not logged in" here. Found live: PATH+
- *  HOME alone reproduces it, adding USER back fixes it, LOGNAME alone does
- *  not. This is the ONE place that builds this env -- the single-request
- *  (runAgentProcess) and concurrent-batch (shell/drive.ts) spawn paths both
- *  call it, so the allowlist cannot drift into a second silent copy again.
- *  Returns the forwarded var NAMES too (never values) for the
- *  worker.agent-env trust-audit event. */
-/** A unique sidecar path a shipped wrapper writes its vendor child's PID to
- *  (via the env CW_AGENT_VENDOR_PIDFILE we set below), so cw can reap the
- *  vendor if it has to SIGKILL the wrapper on a timeout. */
-function vendorPidFilePath(): string {
-  return path.join(os.tmpdir(), `cw-agent-vendor-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.pid`);
+export interface AgentDelegationConfig {
+  command?: string;
+  args?: string[];
+  model?: string;
+  timeoutMs?: number;
+  attestPublicKey?: string;
+  source: "flag" | "env" | "file" | "auto" | "none";
 }
 
-/** 0.3.3: a live agent view holds this file (CW_DRIVE_TTY_CLAIM); drive's ticker keeps quiet then. */
-export function driveTtyClaimPath(): string {
-  return path.join(os.tmpdir(), `cw-drive-tty-${process.pid}.claim`);
-}
+const PROVIDER_KEY_ENV_RE = /^(CW_|ANTHROPIC_|CLAUDE_|OPENAI_|GEMINI_|DEEPSEEK_|CODEX_|GOOGLE_|COHERE_|MISTRAL_|OLLAMA_|AZURE_|AWS_)/i;
 
-/** Where a concurrent round's batch child keeps each agent's last-output time for the drive ticker (0.3.3). */
-export function driveAlivePath(): string {
-  return path.join(os.tmpdir(), `cw-drive-alive-${process.pid}.json`);
-}
-
-/** Reap the vendor process a shipped wrapper recorded, then remove the sidecar.
- *  A wrapper that exited cleanly already removed the file, so this is a no-op
- *  then; only a wrapper cw SIGKILLed on a timeout leaves a live vendor PID
- *  here. Best-effort and race-tolerant: a missing file, an unparseable/too-low
- *  PID, or an already-gone process are all silently fine. Scope: kills the
- *  vendor process itself (the token spender), not a deeper grandchild tree,
- *  and only for the shipped vendor wrappers (claude, codex, gemini, and
- *  opencode/deepseek) -- an arbitrary CW_AGENT_COMMAND records no PID and is
- *  not covered. Returns true only if it
- *  actually signalled a process. Exported for tests; agent.ts is not part of
- *  the package public surface (index.ts). */
-export function reapRecordedVendor(pidFile: string): boolean {
-  let raw: string;
-  try {
-    raw = fs.readFileSync(pidFile, "utf8");
-  } catch {
-    return false; // no sidecar => the wrapper cleaned up (or never recorded one)
-  }
-  try { fs.unlinkSync(pidFile); } catch { /* already gone */ }
-  const pid = Number(raw.trim());
-  if (!Number.isInteger(pid) || pid <= 1) return false;
-  try {
-    process.kill(pid, "SIGKILL");
-    return true;
-  } catch {
-    return false; // already exited, or a pid we may not signal
-  }
-}
-
-export function buildAgentChildEnv(
-  policy: Pick<ResolvedSandboxPolicy, "env">,
-  baseEnv: NodeJS.ProcessEnv = process.env
-): { env: NodeJS.ProcessEnv; forwarded: string[] } {
-  const env = buildChildEnv(policy, baseEnv);
-  // deny must win here too: buildChildEnv already applied it above, but the
-  // provider-key/USER re-add below exists specifically to put vars BACK
-  // that buildChildEnv's readonly/locked-down defaults strip — so check it,
-  // or an explicit deny (e.g. deny:["AWS_SECRET_ACCESS_KEY"], which matches
-  // AGENT_PROVIDER_KEY_ENV_RE's AWS_ arm) would still be forwarded.
-  const denied = new Set(policy.env.deny || []);
+/** PATH and HOME, provider-key and proxy env, and USER (a vendor CLI reads it
+ *  to find its own login in headless mode). Never a CW secret. */
+export function buildAgentChildEnv(baseEnv: NodeJS.ProcessEnv = process.env): { env: NodeJS.ProcessEnv; forwarded: string[] } {
+  const env = buildChildEnv(baseEnv);
   const forwarded: string[] = [];
   for (const key of Object.keys(baseEnv)) {
-    if (denied.has(key)) continue;
-    // Parent-only CW secrets are never re-added, even though they match the
-    // CW_ arm of AGENT_PROVIDER_KEY_ENV_RE and even if the operator forgot to
-    // deny them. buildChildEnv already stripped them above; this keeps the
-    // re-add loop from putting them back (and out of the trust-audit
-    // `forwarded` list). CW_AGENT_ATTEST_PRIVKEY is intentionally NOT in that
-    // set, so the attest wrapper still gets its signing key.
     if (CW_NEVER_FORWARD_ENV.has(key)) continue;
-    if (AGENT_PROVIDER_KEY_ENV_RE.test(key) || AGENT_NETWORK_ENV.has(key)) {
+    if (PROVIDER_KEY_ENV_RE.test(key) || NETWORK_ENV_NAMES.has(key)) {
       env[key] = baseEnv[key];
       forwarded.push(key);
     }
   }
-  if (!denied.has("USER") && baseEnv.USER !== undefined && env.USER === undefined) {
+  if (baseEnv.USER !== undefined && env.USER === undefined) {
     env.USER = baseEnv.USER;
     forwarded.push("USER");
   }
   return { env, forwarded };
 }
 
-export interface AgentInvocation {
-  binary?: string;
-  rawArgs: string[];
-  endpoint?: string;
-  model?: string;
-  timeoutMs?: number;
-}
+const SECRET_FLAGS = new Set(["--api-key", "--apikey", "--token", "--key", "--secret", "--password", "--auth", "--bearer"]);
 
-/** Resolve the agent invocation from the request delegation > env.
- *  Vendor-neutral; the durable file config is folded in by the drive layer
- *  before this point (see shell/agent-config.ts's resolveAgentConfig). */
-export function resolveAgentInvocation(
-  request: ExecutionRequest,
-  env: NodeJS.ProcessEnv = process.env
-): AgentInvocation {
-  const delegation = request.delegation || {};
-  const envCommand = (env.CW_AGENT_COMMAND || "").trim();
-  const endpoint = delegation.endpoint || (env.CW_AGENT_ENDPOINT || "").trim() || undefined;
-  const model = delegation.model || (env.CW_AGENT_MODEL || "").trim() || undefined;
-  let binary = delegation.command || request.command || undefined;
-  let rawArgs = delegation.args ? [...delegation.args] : request.args ? [...request.args] : [];
-  if (!binary && envCommand) {
-    const parts = splitAgentCommandLine(envCommand);
-    binary = parts[0];
-    if (!delegation.args) rawArgs = parts.slice(1);
-  } else if (binary && /\s/.test(binary)) {
-    // A command of more than one word ("claude -p") is never a binary name;
-    // its first word is. The other words go first, then any explicit
-    // delegation args: the same argv the release reviewer builds.
-    const argv = agentCommandArgv(binary, delegation.args);
-    binary = argv.binary;
-    rawArgs = argv.args;
-  }
-  return { binary, rawArgs, endpoint, model, timeoutMs: request.timeoutMs };
-}
-
-const AGENT_SECRET_FLAGS = new Set([
-  "--api-key",
-  "--apikey",
-  "--token",
-  "--key",
-  "--secret",
-  "--password",
-  "--auth",
-  "--bearer",
-]);
-
-/** Redact secrets from recorded agent args: a value FOLLOWING a known secret
- *  flag, an `--x-key=...` inline value, or a token that LOOKS like a
- *  credential. Never record a raw secret in provenance/evidence. */
+/** Redact secrets from recorded args: the value after a secret flag, an
+ *  inline `--x-key=...`, or a token that looks like a credential. */
 export function stripSecretArgs(args: string[]): string[] {
   const out: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const arg = String(args[i]);
-    if (AGENT_SECRET_FLAGS.has(arg.toLowerCase())) {
+    if (SECRET_FLAGS.has(arg.toLowerCase())) {
       out.push(arg);
       if (i + 1 < args.length) {
         out.push("<redacted>");
@@ -196,707 +57,194 @@ export function stripSecretArgs(args: string[]): string[] {
       continue;
     }
     const inline = arg.match(/^(--?[A-Za-z][\w-]*(?:key|token|secret|password|auth|bearer)[\w-]*)=.*/i);
-    if (inline) {
-      out.push(`${inline[1]}=<redacted>`);
-      continue;
-    }
-    if (
-      /^(sk-|ghp_|gho_|github_pat_|xox[abpr]-|Bearer\s)/.test(arg) ||
-      (arg.length >= 32 && /^[A-Za-z0-9_-]{32,}$/.test(arg))
-    ) {
-      out.push("<redacted>");
-      continue;
-    }
-    out.push(arg);
+    if (inline) out.push(`${inline[1]}=<redacted>`);
+    else if (/^(sk-|ghp_|gho_|github_pat_|xox[abpr]-|Bearer\s)/.test(arg) || (arg.length >= 32 && /^[A-Za-z0-9_-]{32,}$/.test(arg))) out.push("<redacted>");
+    else out.push(arg);
   }
   return out;
 }
 
-/** Best-effort parse of the AGENT-reported model id from its stdout. SOLELY
- *  the agent's own report — `unreported` when absent. Never CW_AGENT_MODEL. */
-export function parseAgentReport(
-  stdout: string
-): { model?: string; usage?: Record<string, unknown>; usageSignature?: string } {
+/** The agent's own report on its last JSON stdout line: model, usage, and a
+ *  usage signature. Only what the agent says; "unreported" is the caller's. */
+export interface AgentReport {
+  model?: string;
+  usage?: Record<string, unknown>;
+  usageSignature?: string;
+}
+
+/** Weld: the agent's report is plain data. */
+export type AgentReportBoundaryWeld = AssertTrue<IsOneWayData<AgentReport>>;
+
+export function parseAgentReport(stdout: string): AgentReport {
   const text = String(stdout || "").trim();
   if (!text) return {};
   const tryObj = (value: string): Record<string, unknown> | undefined => {
     try {
       const parsed = JSON.parse(value);
-      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : undefined;
     } catch {
       return undefined;
     }
   };
-  let obj = tryObj(text);
-  if (!obj) {
-    const line = text
-      .split(/\r?\n/)
-      .reverse()
-      .find((entry) => entry.trim().startsWith("{") && entry.trim().endsWith("}"));
-    if (line) obj = tryObj(line.trim());
-  }
+  const lastLine = text.split(/\r?\n/).reverse().find((line) => line.trim().startsWith("{") && line.trim().endsWith("}"));
+  const obj = tryObj(text) || (lastLine ? tryObj(lastLine.trim()) : undefined);
   if (!obj) return {};
   const usage = obj.usage && typeof obj.usage === "object" ? (obj.usage as Record<string, unknown>) : undefined;
-  let model =
-    typeof obj.model === "string"
-      ? obj.model
-      : usage && typeof usage.model === "string"
-        ? (usage.model as string)
-        : typeof obj.modelId === "string"
-          ? obj.modelId
-          : undefined;
+  let model = typeof obj.model === "string" ? obj.model : usage && typeof usage.model === "string" ? usage.model : typeof obj.modelId === "string" ? obj.modelId : undefined;
   if (!model && obj.modelUsage && typeof obj.modelUsage === "object" && !Array.isArray(obj.modelUsage)) {
-    const entries = Object.entries(obj.modelUsage as Record<string, unknown>);
-    if (entries.length) {
-      const tokensOf = (value: unknown): number => {
-        const record = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
-        const input = Number((record as Record<string, unknown>).inputTokens ?? (record as Record<string, unknown>).input_tokens ?? 0);
-        return Number.isFinite(input) ? input : 0;
-      };
-      entries.sort((left, right) => tokensOf(right[1]) - tokensOf(left[1]));
-      model = entries[0][0];
-    }
+    const tokens = (value: unknown): number => {
+      const r = (value && typeof value === "object" ? value : {}) as Record<string, unknown>;
+      const n = Number(r.inputTokens ?? r.input_tokens ?? 0);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const entries = Object.entries(obj.modelUsage as Record<string, unknown>).sort((a, b) => tokens(b[1]) - tokens(a[1]));
+    if (entries.length) model = entries[0][0];
   }
-  const usageSignature =
-    typeof obj.usageSignature === "string"
-      ? obj.usageSignature
-      : typeof obj.usage_signature === "string"
-        ? (obj.usage_signature as string)
-        : undefined;
+  const usageSignature = typeof obj.usageSignature === "string" ? obj.usageSignature : typeof obj.usage_signature === "string" ? obj.usage_signature : undefined;
   return { model, usage, usageSignature };
 }
 
-function agentSubstitutions(request: ExecutionRequest, model: string | undefined, rawArgs: string[]): Record<string, string> {
-  const manifest = request.manifest;
-  const workerDir = manifest?.workerDir || request.cwd || "";
-  const subst: Record<string, string> = {
-    manifest: manifest?.manifestPath || (workerDir ? path.join(workerDir, "manifest.json") : ""),
-    input: manifest?.inputPath || "",
-    result: manifest?.resultPath || "",
-    workerDir,
-    model: model || "",
-    prompt: manifest?.prompt || "",
-    phase: manifest?.phase || "",
-    taskId: request.taskId || "",
-    workerId: manifest?.workerDir ? path.basename(manifest.workerDir) : "",
-  };
-  // 0.4.2: prior-results.json is written only for a command that names {{priorResults}}.
-  if (manifest?.workerDir && rawArgs.some((arg) => arg.includes("{{priorResults}}"))) {
-    const file = path.join(manifest.workerDir, "prior-results.json");
-    writeJson(file, { schemaVersion: 1, taskId: request.taskId || "", phase: manifest.phase || "", priorResults: manifest.priorResults || [] });
-    subst.priorResults = file;
-  }
-  return subst;
-}
-
-export { substituteAgentArg };
-
-/** Build the recorded process handle for the envelope — secret-stripped +
- *  the agent-reported model. Same SHAPE that lands in provenance, never in
- *  evidence. */
-export function recordedAgentHandle(
-  binary: string | undefined,
-  endpoint: string | undefined,
-  recordedArgs: string[],
-  model: string | undefined,
-  reportedModel: string,
-  reportedUsage?: Record<string, unknown>,
-  usageSignature?: string,
-  forwardedEnvVars?: string[],
-  sandboxEnforcedBy?: string
-): BackendExecutionHandle {
-  const ref = binary ? [binary, ...recordedArgs].join(" ") : endpoint || "";
-  return {
-    kind: "process",
-    ref,
-    endpoint,
-    metadata: {
-      mode: binary ? "command" : "endpoint",
-      command: binary,
-      args: recordedArgs,
-      model,
-      reportedModel,
-      ...(reportedUsage ? { reportedUsage } : {}),
-      ...(usageSignature ? { usageSignature } : {}),
-      ...(forwardedEnvVars && forwardedEnvVars.length ? { forwardedEnvVars } : {}),
-      ...(sandboxEnforcedBy ? { sandboxEnforcedBy } : {}),
-    },
-  };
-}
-
-function extractEndpointResult(stdout: string): string | undefined {
-  const text = String(stdout || "").trim();
-  if (!text) return undefined;
+/** Kill the vendor process a shipped wrapper recorded (CW_AGENT_VENDOR_PIDFILE)
+ *  after CW killed the wrapper on a timeout. Best effort. */
+export function reapRecordedVendor(pidFile: string): boolean {
+  let raw: string;
   try {
-    const parsed = JSON.parse(text);
-    if (parsed && typeof parsed === "object") {
-      if (typeof (parsed as Record<string, unknown>).result === "string") return (parsed as Record<string, unknown>).result as string;
-      if (typeof (parsed as Record<string, unknown>).resultMarkdown === "string") {
-        return (parsed as Record<string, unknown>).resultMarkdown as string;
-      }
-    }
+    raw = fs.readFileSync(pidFile, "utf8");
   } catch {
-    return text;
+    return false;
   }
-  return undefined;
-}
-
-export function agentHandle(
-  request: ExecutionRequest,
-  env: NodeJS.ProcessEnv = process.env
-): BackendExecutionHandle | undefined {
-  const resolved = resolveAgentInvocation(request, env);
-  if (!resolved.binary && !resolved.endpoint) return undefined;
-  const strippedArgs = stripSecretArgs(resolved.rawArgs);
-  const ref = resolved.binary ? [resolved.binary, ...strippedArgs].join(" ") : resolved.endpoint || "";
-  return {
-    kind: "process",
-    ref,
-    endpoint: resolved.endpoint,
-    metadata: {
-      mode: resolved.binary ? "command" : "endpoint",
-      command: resolved.binary,
-      args: strippedArgs,
-      model: resolved.model,
-    },
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Concurrent batch fulfillment (Track 2). See SPEC/execution-backend.md
-// "Concurrent batch (Track 2)".
-// ---------------------------------------------------------------------------
-
-export interface AgentSpawnJob {
-  binary: string;
-  args: string[];
-  cwd: string;
-  timeoutMs: number;
-  /** Opt-in (0.3.3): stop the job once it has written nothing for this long. */
-  idleTimeoutMs?: number;
-  env?: NodeJS.ProcessEnv;
-  /** Set when the job runs inside srt: what enforces it, and the settings file to remove once it ends. */
-  sandbox?: { enforcedBy: string; settingsFile: string };
-}
-
-/** CW_AGENT_IDLE_TIMEOUT_MS in ms when a positive number, else undefined (off). Opt-in, 0.3.3. */
-export function agentIdleTimeoutMs(env: NodeJS.ProcessEnv = process.env): number | undefined {
-  const raw = Number(String(env.CW_AGENT_IDLE_TIMEOUT_MS ?? "").trim() || NaN);
-  return Number.isFinite(raw) && raw > 0 ? Math.floor(raw) : undefined;
-}
-
-/** CW_AGENT_SANDBOX=srt (opt-in, 0.3.3): undefined when off, so nothing extra loads; else the srt argv or a refusal. */
-function agentSandboxWrap(binary: string, rawArgs: string[], realArgs: string[], request: ExecutionRequest): import("./agent-sandbox.js").AgentSandboxWrap {
-  const raw = String(process.env.CW_AGENT_SANDBOX ?? "").trim().toLowerCase();
-  if (!raw || raw === "off") return undefined;
-  const load = createRequire(import.meta.url);
-  const { wrapAgentForSandbox } = load("./agent-sandbox.js") as typeof import("./agent-sandbox.js");
-  const { agentSandboxVendor } = load("../agent-config.js") as typeof import("../agent-config.js");
-  // The worker writes its own folder (result.md, logs/): a profile's writePaths can be empty (readonly).
-  const policy = request.sandboxPolicy;
-  const workerDir = request.manifest?.workerDir || (request.manifest?.resultPath ? path.dirname(request.manifest.resultPath) : undefined);
-  const writePaths = [...(policy.writePaths || []), ...(workerDir ? [workerDir] : [])];
-  return wrapAgentForSandbox(binary, realArgs, { readPaths: policy.readPaths, writePaths }, agentSandboxVendor(binary, rawArgs));
-}
-
-/** Resolve a request to a spawn-style (CLI-binary) batch job, or undefined when
- *  the agent is endpoint-configured (see prepareEndpointJob) or unconfigured
- *  (those settle through the serial path). */
-export function prepareAgentSpawn(request: ExecutionRequest): AgentSpawnJob | undefined {
-  const resolved = resolveAgentInvocation(request);
-  if (!resolved.binary) return undefined;
-  const subst = agentSubstitutions(request, resolved.model, resolved.rawArgs);
-  const args = resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst));
-  const sandbox = agentSandboxWrap(resolved.binary, resolved.rawArgs, args, request);
-  // A refusal is not a job: the hop settles on the serial path, which refuses with the reason.
-  if (sandbox && "refusal" in sandbox) return undefined;
-  return {
-    binary: sandbox ? sandbox.binary : resolved.binary,
-    args: sandbox ? sandbox.args : args,
-    cwd: request.cwd,
-    timeoutMs: resolved.timeoutMs || 600000,
-    ...(agentIdleTimeoutMs() ? { idleTimeoutMs: agentIdleTimeoutMs() } : {}),
-    ...(sandbox ? { sandbox: { enforcedBy: sandbox.enforcedBy, settingsFile: sandbox.settingsFile } } : {}),
-  };
-}
-
-export interface AgentEndpointJob {
-  endpoint: string;
-  /** The ALREADY-serialized POST body — byte-identical to the string the serial
-   *  runAgentEndpoint builds, so the concurrent path posts the same bytes. */
-  job: string;
-  timeoutMs: number;
-}
-
-/** Resolve a request to an endpoint (HTTP-delegate) batch job, or undefined when
- *  the agent has a CLI binary (see prepareAgentSpawn) or is unconfigured. The
- *  POST body mirrors runAgentEndpoint's exactly: {manifest, prompt, model,
- *  resultPath, sandboxProfileId} — sandboxProfileId comes from
- *  request.sandboxPolicy.id, which runBackend sets to the same policy the serial
- *  path passes (registry.ts: `const policy = request.sandboxPolicy`), so the two
- *  paths post identical bytes. */
-export function prepareEndpointJob(request: ExecutionRequest): AgentEndpointJob | undefined {
-  const resolved = resolveAgentInvocation(request);
-  if (resolved.binary || !resolved.endpoint) return undefined;
-  const manifest = request.manifest;
-  const job = JSON.stringify({
-    manifest,
-    prompt: manifest?.prompt,
-    model: resolved.model,
-    resultPath: manifest?.resultPath,
-    sandboxProfileId: request.sandboxPolicy.id,
-  });
-  return { endpoint: resolved.endpoint, job, timeoutMs: resolved.timeoutMs || 600000 };
-}
-
-// import.meta.dirname is dist/shell/execution-backend at runtime — THREE levels up
-// (execution-backend -> shell -> dist -> package root) reaches scripts/,
-// a sibling of dist/, not two (dist/scripts/... is never compiled/copied).
-const BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "batch-delegate-child.mjs");
-
-interface BatchDelegateLine {
-  i?: unknown;
-  spawnError?: string;
-  exitCode?: number | null;
-  stdout?: string;
-  stderr?: string;
-  timedOutMs?: unknown;
-  idleTimedOutMs?: unknown;
-}
-
-/** Parse the delegate child's NDJSON stdout and reconcile it against `jobs`
- *  by index. See SPEC/execution-backend.md "Concurrent batch" for the
- *  byte-boundary rationale (split on the raw newline byte, one line at a
- *  time, never decode the whole combined buffer as one string). */
-export function reconcileBatchOutcomes(
-  jobs: readonly unknown[],
-  child: { error?: Error | null; status: number | null; stdout?: string | Buffer | null },
-  limitMs?: number
-): AgentChildOutcome[] {
-  const buf = Buffer.isBuffer(child.stdout) ? child.stdout : Buffer.from(String(child.stdout || ""), "utf8");
-  const byIndex = new Map<number, AgentChildOutcome>();
-  let lineStart = 0;
-  for (let i = 0; i < buf.length; i++) {
-    if (buf[i] !== 0x0a) continue;
-    const lineBuf = buf.subarray(lineStart, i);
-    lineStart = i + 1;
-    if (lineBuf.length === 0) continue;
-    let parsed: BatchDelegateLine;
-    try {
-      parsed = JSON.parse(lineBuf.toString("utf8"));
-    } catch {
-      continue;
-    }
-    if (typeof parsed.i !== "number" || parsed.i < 0 || parsed.i >= jobs.length) continue;
-    byIndex.set(parsed.i, {
-      ...(parsed.spawnError ? { spawnError: parsed.spawnError } : {}),
-      exitCode: typeof parsed.exitCode === "number" ? parsed.exitCode : null,
-      ...(typeof parsed.stderr === "string" && parsed.stderr ? { stderr: parsed.stderr } : {}),
-      stdout: String(parsed.stdout || ""),
-      ...(typeof parsed.timedOutMs === "number" && parsed.timedOutMs > 0 ? { timedOutMs: parsed.timedOutMs } : {}),
-      ...(typeof parsed.idleTimedOutMs === "number" && parsed.idleTimedOutMs > 0 ? { idleTimedOutMs: parsed.idleTimedOutMs } : {}),
-    });
-  }
-  // 0.3.3: a whole-batch ETIMEDOUT says it timed out, and after how long.
-  const timedOut = child.error && (child.error as NodeJS.ErrnoException).code === "ETIMEDOUT" && typeof limitMs === "number";
-  const reason = child.error
-    ? timedOut
-      ? `timed out after ${limitMs}ms (${messageOf(child.error)})`
-      : messageOf(child.error)
-    : typeof child.status === "number" && child.status !== 0
-      ? `batch delegate exited with ${child.status}`
-      : "batch delegate produced no outcome for this job";
-  return jobs.map((_, index) => byIndex.get(index) || { spawnError: `batch delegate failed: ${reason}`, exitCode: null, stdout: "" });
-}
-
-/** Run a batch of agent spawns concurrently; outcomes index-align with
- *  jobs. See SPEC/execution-backend.md's rebuild-risk note on maxBuffer
- *  scaling with job count and the no-`encoding` (raw Buffer) requirement. */
-export function runAgentBatchOutcomes(jobs: AgentSpawnJob[], aliveFile?: string): AgentChildOutcome[] {
-  if (!jobs.length) return [];
-  return withPerfTraceGroup("agent-wait", () => {
-    const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
-    let child: { error?: Error | null; status: number | null; stdout?: Buffer | null };
-    try {
-      child = spawnSync(process.execPath, [BATCH_DELEGATE_CHILD_SCRIPT], {
-        input: JSON.stringify(jobs.map(({ sandbox: _sandbox, ...job }) => job)),
-        maxBuffer: 34 * 1024 * 1024 * jobs.length,
-        timeout: maxTimeout + 30000,
-        ...(aliveFile ? { env: { ...process.env, CW_BATCH_ALIVE_FILE: aliveFile } } : {}),
-      });
-    } catch (error) {
-      child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
-    }
-    const outcomes = reconcileBatchOutcomes(jobs, child, maxTimeout + 30000);
-    return outcomes.map((outcome, i) => {
-      const sandbox = jobs[i].sandbox;
-      if (!sandbox) return outcome;
-      removeSandboxSettings(sandbox.settingsFile);
-      return { ...outcome, sandboxEnforcedBy: sandbox.enforcedBy };
-    });
-  });
-}
-
-function removeSandboxSettings(file: string): void {
-  try { fs.unlinkSync(file); } catch { /* already gone */ }
-}
-
-// Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
-const HTTP_BATCH_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-batch-delegate-child.mjs");
-
-/** Run a batch of ENDPOINT (HTTP-delegate) jobs concurrently; outcomes
- *  index-align with jobs. The endpoint sibling of runAgentBatchOutcomes: one
- *  spawnSync of http-batch-delegate-child.mjs POSTs all N at once from a single
- *  process, so `--concurrency N` with an endpoint agent runs N delegations in
- *  parallel instead of serially. The child streams the SAME NDJSON line shape as
- *  batch-delegate-child.mjs — `{i, spawnError?, exitCode, stdout}` — so the same
- *  reconcileBatchOutcomes reads it (byte-boundary split on a Buffer, index-aligned,
- *  every job that produced no full line failed closed). Env is inherited (the
- *  serial runAgentEndpoint likewise runs the child with the full process env for
- *  any endpoint auth); no sandbox child-env is built here, matching the serial
- *  endpoint path. */
-export function runEndpointBatchOutcomes(jobs: AgentEndpointJob[]): AgentChildOutcome[] {
-  if (!jobs.length) return [];
-  const maxTimeout = Math.max(...jobs.map((job) => job.timeoutMs));
-  let child: { error?: Error | null; status: number | null; stdout?: Buffer | null };
+  fs.rmSync(pidFile, { force: true });
+  const pid = Number(raw.trim());
+  if (!Number.isInteger(pid) || pid <= 1) return false;
   try {
-    child = spawnSync(process.execPath, [...FETCH_CHILD_NODE_ARGS, HTTP_BATCH_DELEGATE_CHILD_SCRIPT], {
-      env: fetchChildEnv(process.env),
-      input: JSON.stringify(jobs),
-      maxBuffer: 34 * 1024 * 1024 * jobs.length,
-      timeout: maxTimeout + 30000,
-    });
-  } catch (error) {
-    child = { error: error instanceof Error ? error : new Error(String(error)), status: null, stdout: null };
+    process.kill(pid, "SIGKILL");
+    return true;
+  } catch {
+    return false;
   }
-  return reconcileBatchOutcomes(jobs, child, maxTimeout + 30000);
 }
 
-// ---------------------------------------------------------------------------
-// The stateful agent runners (spawn + settle): runAgentProcess,
-// runAgentEndpoint and shouldStreamAgentStderr.
-// ---------------------------------------------------------------------------
-
-/** Decide whether cw FORWARDS the agent wrapper's live stderr view (stdio
- *  "inherit") or captures it ("pipe"). CW_NO_STREAM=1 wins over everything;
- *  CW_AGENT_STREAM=0/1 are explicit off/on; else follow isTTY. */
-export function shouldStreamAgentStderr(env: NodeJS.ProcessEnv, isTTY: boolean): boolean {
-  if (env.CW_NO_STREAM === "1") return false;
-  if (env.CW_AGENT_STREAM === "0") return false;
-  if (env.CW_AGENT_STREAM === "1") return true;
-  return isTTY;
-}
-
-// Same package-root depth as BATCH_DELEGATE_CHILD_SCRIPT above.
-const HTTP_DELEGATE_CHILD_SCRIPT = path.resolve(import.meta.dirname, "..", "..", "..", "scripts", "children", "http-delegate-child.js");
-
-/** Keep a failed agent's own stderr beside its result.md, at
- *  <workerDir>/logs/agent-stderr.log, so the reason is readable after the
- *  fact (the shipped wrappers already do this themselves through
- *  agent-adapter-core's persistStderr; this covers any other
- *  CW_AGENT_COMMAND). A log the wrapper wrote wins: it is never replaced.
- *  Same redaction and 4096-byte cap as the wrappers'. Advisory only: never
- *  throws, never touches the recorded evidence. */
-function persistAgentStderr(resultPath: string, stderr: string): void {
+/** Keep a failed agent's stderr at <workerDir>/logs/agent-stderr.log
+ *  (redacted, last 4096 bytes). A log the wrapper wrote itself wins. */
+function persistAgentStderr(workerDir: string, stderr: string): void {
   let text = stderr.trim();
-  if (!text || !resultPath) return;
+  if (!text) return;
   try {
-    const dir = path.join(path.dirname(resultPath), "logs");
-    const file = path.join(dir, "agent-stderr.log");
+    const file = path.join(workerDir, "logs", "agent-stderr.log");
     if (fs.existsSync(file)) return;
-    text = text.replace(/\b(sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|xox[bprs]-[A-Za-z0-9-]{20,}|Bearer\s+\S+|Authorization:\s*\S+|api[_-]?key[=:]\s*\S+|token[=:]\s*\S+)/gi, (match) => match.slice(0, 4) + "***[REDACTED]");
+    text = text.replace(/\b(sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|xox[bprs]-[A-Za-z0-9-]{20,}|Bearer\s+\S+|Authorization:\s*\S+|api[_-]?key[=:]\s*\S+|token[=:]\s*\S+)/gi, (m) => m.slice(0, 4) + "***[REDACTED]");
     const cap = 4096;
     if (text.length > cap) text = text.slice(text.length - cap) + `\n  [cut to the last ${cap} of ${text.length} bytes]`;
-    fs.mkdirSync(dir, { recursive: true });
+    fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, `${text}\n`, "utf8");
   } catch {
-    /* advisory only — diagnostics must never break the run */
+    /* diagnostics never break the run */
   }
 }
 
-/** agent — spawns an EXTERNAL agent process per worker argv-style
- *  (shell:false), or POSTs the manifest to a configured HTTP agent
- *  endpoint. */
-export function runAgentProcess(
-  descriptor: BackendDescriptor,
-  policy: ResolvedSandboxPolicy,
-  request: ExecutionRequest,
-  label: string,
-  attestation: SandboxAttestation
-): ExecutionResultEnvelope {
-  const resolved = resolveAgentInvocation(request);
-  const subst = agentSubstitutions(request, resolved.model, resolved.rawArgs);
+export interface AgentJob {
+  runId: string;
+  taskId: string;
+  phase: string;
+  workerId: string;
+  workerDir: string;
+  inputPath: string;
+  resultPath: string;
+  prompt: string;
+  cwd: string;
+  priorResults: Array<{ taskId: string; phase: string; resultPath: string }>;
+  streamStderr: boolean;
+  /** Called on each chunk the agent writes (the still-working note). */
+  onOutput?: () => void;
+}
 
-  if (resolved.binary) {
-    const realArgs = resolved.rawArgs.map((arg) => substituteAgentArg(arg, subst));
-    const recordedArgs = stripSecretArgs(realArgs);
-    const sandbox = request.preparedAgentOutcome ? undefined : agentSandboxWrap(resolved.binary, resolved.rawArgs, realArgs, request);
-    if (sandbox && "refusal" in sandbox) {
-      return refusedEnvelope(descriptor, policy, label, "delegation-failed", sandbox.refusal, {
-        ...attestation,
-        handle: recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported"),
-      });
+export interface AgentOutcome {
+  ok: boolean;
+  reason?: string;
+  timedOutMs?: number;
+  exitCode: number | null;
+  stdout: string;
+  command: string;
+  args: string[];
+}
+
+/** Weld: what CW gets back from the agent process is plain data. */
+export type AgentOutcomeBoundaryWeld = AssertTrue<IsOneWayData<AgentOutcome>>;
+
+const STDOUT_CAP = 32 * 1024 * 1024;
+
+/** A wrapper that streams its agent's live view to the terminal holds this
+ *  file (CW_DRIVE_TTY_CLAIM); the drive's still-working line keeps quiet then. */
+export function driveTtyClaimPath(): string {
+  return path.join(os.tmpdir(), `cw-drive-tty-${process.pid}.claim`);
+}
+
+export function runAgent(config: AgentDelegationConfig, job: AgentJob): Promise<AgentOutcome> {
+  const { binary, args: rawArgs } = agentCommandArgv(String(config.command), config.args);
+  const subst: Record<string, string> = {
+    manifest: path.join(job.workerDir, "manifest.json"),
+    input: job.inputPath,
+    result: job.resultPath,
+    workerDir: job.workerDir,
+    model: config.model || "",
+    prompt: job.prompt,
+    phase: job.phase,
+    taskId: job.taskId,
+    workerId: job.workerId,
+  };
+  if (rawArgs.some((arg) => arg.includes("{{priorResults}}"))) {
+    subst.priorResults = path.join(job.workerDir, "prior-results.json");
+    fs.writeFileSync(subst.priorResults, `${JSON.stringify({ schemaVersion: 1, taskId: job.taskId, phase: job.phase, priorResults: job.priorResults }, null, 2)}\n`);
+  }
+  const args = rawArgs.map((arg) => substituteAgentArg(arg, subst));
+  const recorded = stripSecretArgs(args);
+  const timeoutMs = config.timeoutMs && config.timeoutMs > 0 ? config.timeoutMs : 600000;
+  const pidFile = path.join(os.tmpdir(), `cw-agent-vendor-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.pid`);
+  const env = { ...buildAgentChildEnv().env, CW_AGENT_VENDOR_PIDFILE: pidFile, ...(job.streamStderr ? { CW_DRIVE_TTY_CLAIM: driveTtyClaimPath() } : {}) };
+  const done = (fields: Partial<AgentOutcome> & { ok: boolean; stdout?: string }): AgentOutcome => ({ exitCode: null, stdout: "", command: binary, args: recorded, ...fields });
+
+  return new Promise((resolve) => {
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(binary, args, { cwd: job.cwd, env, shell: false, stdio: ["ignore", "pipe", job.streamStderr ? "inherit" : "pipe"], windowsHide: true });
+    } catch (error) {
+      resolve(done({ ok: false, reason: `agent process failed to spawn: ${messageOf(error)}` }));
+      return;
     }
-    const spawnBinary = sandbox ? sandbox.binary : resolved.binary;
-    const spawnArgs = sandbox ? sandbox.args : realArgs;
-    const enforcedBy = sandbox ? sandbox.enforcedBy : request.preparedAgentOutcome?.sandboxEnforcedBy;
-    let outcome: AgentChildOutcome;
-    // Names only, never values — for the worker.agent-env trust-audit event
-    // below. Stays empty for a preparedAgentOutcome (a batch-delegated child
-    // that already ran elsewhere; this code path forwards nothing itself).
-    let forwardedEnvVars: string[] = [];
-    const idleTimeoutMs = agentIdleTimeoutMs();
-    if (request.preparedAgentOutcome) {
-      outcome = request.preparedAgentOutcome;
-    } else if (idleTimeoutMs) {
-      // Opt-in idle limit (0.3.3): spawnSync cannot see output as it comes; the batch child can.
-      const built = buildAgentChildEnv(policy);
-      forwardedEnvVars = built.forwarded;
-      outcome = runAgentBatchOutcomes([{
-        binary: spawnBinary,
-        args: spawnArgs,
-        cwd: request.cwd,
-        timeoutMs: resolved.timeoutMs || 600000,
-        idleTimeoutMs,
-        env: built.env,
-        ...(sandbox ? { sandbox: { enforcedBy: sandbox.enforcedBy, settingsFile: sandbox.settingsFile } } : {}),
-      }])[0];
-    } else {
-      const streamStderr = shouldStreamAgentStderr(process.env, Boolean(process.stderr.isTTY));
-      const built = buildAgentChildEnv(policy);
-      forwardedEnvVars = built.forwarded;
-      const timeoutMs = resolved.timeoutMs || 600000;
-      // A shipped wrapper (claude/codex/gemini) records its vendor child's PID
-      // here so we can reap the vendor if the timeout below SIGKILLs the
-      // wrapper -- a SIGKILL is uncatchable, so the wrapper cannot forward the
-      // stop itself. Not a forwarded secret; it is cw plumbing, so it stays out
-      // of `built.forwarded` / the trust-audit forwarded list.
-      const vendorPidFile = vendorPidFilePath();
-      const childEnv = { ...built.env, CW_AGENT_VENDOR_PIDFILE: vendorPidFile, ...(streamStderr ? { CW_DRIVE_TTY_CLAIM: driveTtyClaimPath() } : {}) };
-      const child = withPerfTraceGroup("agent-wait", () =>
-        spawnSync(spawnBinary, spawnArgs, {
-          cwd: request.cwd,
-          env: childEnv,
-          encoding: "utf8",
-          timeout: timeoutMs,
-          maxBuffer: 32 * 1024 * 1024,
-          shell: false,
-          // SIGKILL, not the default SIGTERM: an agent wrapper that ignores
-          // SIGTERM would leave this blocking spawnSync waiting forever (no
-          // second-stage escalation is possible from inside a sync call), and
-          // a timed-out agent's output is discarded by the refusal below
-          // anyway — so a hard kill loses nothing and cannot wedge cw.
-          killSignal: "SIGKILL",
-          stdio: ["ignore", "pipe", streamStderr ? "inherit" : "pipe"],
-        })
-      );
-      if (streamStderr) try { fs.unlinkSync(driveTtyClaimPath()); } catch { /* not claimed */ }
-      if (sandbox) removeSandboxSettings(sandbox.settingsFile);
-      // A timeout surfaces as child.error with code ETIMEDOUT (status null,
-      // signal set). Classify it FIRST, or the generic spawnError branch
-      // below would report it as "agent process failed to spawn".
-      if (child.error && (child.error as NodeJS.ErrnoException).code === "ETIMEDOUT") {
-        // spawnSync SIGKILLed the wrapper (uncatchable, so the wrapper could
-        // not forward the stop to its vendor child). Reap the vendor a shipped
-        // wrapper recorded, so a timed-out agent's vendor process does not live
-        // on as an orphan and keep spending. Scoped: reaps the vendor process
-        // itself for the shipped wrappers (claude, codex, gemini, opencode/
-        // deepseek), not a deeper grandchild tree nor an arbitrary
-        // CW_AGENT_COMMAND (which records no PID). We do
-        // NOT use `detached:true` -- that would make the wrapper its own group
-        // leader, so an interactive Ctrl-C / a group SIGINT to cw would no
-        // longer reach it (strictly worse); reaping from the recorded PID keeps
-        // the wrapper in cw's group.
-        reapRecordedVendor(vendorPidFile);
-        const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
-        return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, {
-          ...attestation,
-          handle: handleOut,
-        }), timedOutMs: timeoutMs };
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+    child.stdout?.on("data", (chunk: Buffer) => {
+      job.onOutput?.();
+      if (stdout.length < STDOUT_CAP) stdout += chunk.toString("utf8");
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      job.onOutput?.();
+      stderr = (stderr + chunk.toString("utf8")).slice(-65536);
+    });
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGKILL");
+    }, timeoutMs);
+    child.on("error", (error) => {
+      clearTimeout(timer);
+      resolve(done({ ok: false, reason: `agent process failed to spawn: ${messageOf(error)}` }));
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      if (timedOut) {
+        reapRecordedVendor(pidFile);
+        persistAgentStderr(job.workerDir, stderr);
+        resolve(done({ ok: false, reason: `agent process timed out after ${timeoutMs}ms and was killed (SIGKILL)`, timedOutMs: timeoutMs, stdout }));
+        return;
       }
-      // Other ends: the wrapper removed its own sidecar; clear any stray one so tmp cannot grow.
-      try { fs.unlinkSync(vendorPidFile); } catch { /* usually already gone */ }
-      outcome = {
-        ...(child.error ? { spawnError: messageOf(child.error) } : {}),
-        exitCode: typeof child.status === "number" ? child.status : null,
-        stdout: String(child.stdout || ""),
-        ...(typeof child.status === "number" && child.status !== 0 && typeof child.stderr === "string" && child.stderr.trim() ? { stderr: child.stderr } : {}),
-      };
-    }
-    if (outcome.exitCode !== 0 && outcome.stderr) persistAgentStderr(subst.result, outcome.stderr);
-    if (outcome.idleTimedOutMs) {
-      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
-      return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process produced no output for ${outcome.idleTimedOutMs}ms and was killed`, {
-        ...attestation,
-        handle: handleOut,
-      }), idleTimedOutMs: outcome.idleTimedOutMs };
-    }
-    // 0.3.3: a batch job stopped at its limit uses the serial timeout words.
-    if (outcome.timedOutMs) {
-      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
-      return { ...refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent process timed out after ${outcome.timedOutMs}ms and was killed`, {
-        ...attestation,
-        handle: handleOut,
-      }), timedOutMs: outcome.timedOutMs };
-    }
-    if (outcome.spawnError) {
-      const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, "unreported", undefined, undefined, forwardedEnvVars, enforcedBy);
-      // 0.3.3: a whole-batch failure is not a spawn failure; the agent did start.
-      const summary = outcome.spawnError.startsWith("batch delegate failed:")
-        ? `agent delegation failed: ${outcome.spawnError}`
-        : `agent process failed to spawn: ${outcome.spawnError}`;
-      return refusedEnvelope(descriptor, policy, label, "delegation-failed", summary, {
-        ...attestation,
-        handle: handleOut,
-      });
-    }
-    const exitCode = outcome.exitCode;
-    const stdout = outcome.stdout;
-    const report = parseAgentReport(stdout);
-    const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
-    const handleOut = recordedAgentHandle(resolved.binary, undefined, recordedArgs, resolved.model, reportedModel, report.usage, report.usageSignature, forwardedEnvVars, enforcedBy);
-    if (exitCode === null) {
-      return refusedEnvelope(
-        descriptor,
-        policy,
-        label,
-        "delegation-failed",
-        `agent process returned no exit code (timed out or killed)`,
-        { ...attestation, handle: handleOut }
-      );
-    }
-    return delegatedEnvelope(descriptor, label, handleOut, { ...attestation, handle: handleOut }, resolved.binary, recordedArgs, exitCode, stdout);
-  }
-
-  if (resolved.endpoint) {
-    return runAgentEndpoint(descriptor, policy, request, label, resolved, attestation);
-  }
-
-  return refusedEnvelope(
-    descriptor,
-    policy,
-    label,
-    "delegation-target-missing",
-    `Backend ${descriptor.id} has no command-template or endpoint configured`,
-    attestation
-  );
-}
-
-/** Settle a completed endpoint delegation (a numeric exitCode + stdout) into
- *  its envelope: parse the agent report, write result.md as transport when the
- *  runner returned a body and none exists yet, record the handle. Shared by the
- *  serial spawn path and the concurrent prepared-outcome path so the two never
- *  drift. The result-write stays HERE (the cw shell process), never in the batch
- *  child, so the child does no filesystem writes into the run dir. */
-function settleEndpointResult(
-  descriptor: BackendDescriptor,
-  label: string,
-  endpoint: string,
-  resolvedModel: string | undefined,
-  manifest: ExecutionRequest["manifest"],
-  attestation: SandboxAttestation,
-  exitCode: number,
-  stdout: string
-): ExecutionResultEnvelope {
-  const report = parseAgentReport(stdout);
-  if (manifest?.resultPath && report.usage === undefined) {
-    const body = extractEndpointResult(stdout);
-    if (body && !fs.existsSync(manifest.resultPath)) {
-      try {
-        fs.writeFileSync(manifest.resultPath, body, "utf8");
-      } catch {
-        /* the accept layer will fail closed on a missing result.md */
+      fs.rmSync(pidFile, { force: true });
+      if (code !== 0) {
+        persistAgentStderr(job.workerDir, stderr);
+        resolve(done({ ok: false, exitCode: code, stdout, reason: code === null ? "agent process returned no exit code (killed)" : `${job.taskId}: failed (exit ${code})` }));
+        return;
       }
-    }
-  }
-  const reportedModel = report.model && report.model.trim() ? report.model.trim() : "unreported";
-  const handleOut = recordedAgentHandle(undefined, endpoint, [], resolvedModel, reportedModel, report.usage, report.usageSignature);
-  return delegatedEnvelope(descriptor, label, handleOut, { ...attestation, handle: handleOut }, "agent-endpoint", [endpoint], exitCode, stdout);
-}
-
-/** Agent HTTP endpoint variant — POSTs the worker manifest/prompt to a
- *  configured agent endpoint via the shared Node delegate child. In a
- *  concurrent round the POST already ran in the batch child
- *  (runEndpointBatchOutcomes), so settle that pre-collected outcome instead
- *  of spawning again. */
-function runAgentEndpoint(
-  descriptor: BackendDescriptor,
-  policy: ResolvedSandboxPolicy,
-  request: ExecutionRequest,
-  label: string,
-  resolved: AgentInvocation,
-  attestation: SandboxAttestation
-): ExecutionResultEnvelope {
-  const endpoint = resolved.endpoint as string;
-  const manifest = request.manifest;
-  const baseHandle = recordedAgentHandle(undefined, endpoint, [], resolved.model, "unreported");
-
-  // Concurrent round: the batch child already POSTed and settled this job. Any
-  // failure (network, non-2xx, poll, unparseable, timeout, no exitCode) is a
-  // spawnError; a success carries a numeric exitCode + stdout.
-  if (request.preparedAgentOutcome) {
-    const prep = request.preparedAgentOutcome;
-    if (prep.spawnError) {
-      // Match the SERIAL path's refusal wording so a concurrent round records the
-      // same reason bytes as a serial one. A per-job HTTP failure (non-2xx, poll,
-      // timeout, no exitCode) is the serial `{error}` branch — `agent endpoint
-      // error:`. A whole-batch-child process failure surfaces as
-      // reconcileBatchOutcomes' `batch delegate failed:` fallback — the serial
-      // analog is `child.error` — `agent endpoint delegation failed:`.
-      const summary = prep.spawnError.startsWith("batch delegate failed:")
-        ? `agent endpoint delegation failed: ${prep.spawnError}`
-        : `agent endpoint error: ${prep.spawnError}`;
-      return refusedEnvelope(descriptor, policy, label, "delegation-failed", summary, {
-        ...attestation,
-        handle: baseHandle,
-      });
-    }
-    // Defensive: the batch child always pairs a null exitCode with a spawnError,
-    // so this is unreachable in practice — kept as a fail-closed backstop with
-    // the same wording the serial no-exitCode refusal uses.
-    if (typeof prep.exitCode !== "number") {
-      return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint error: no exitCode reported`, {
-        ...attestation,
-        handle: baseHandle,
-      });
-    }
-    return settleEndpointResult(descriptor, label, endpoint, resolved.model, manifest, attestation, prep.exitCode, prep.stdout);
-  }
-
-  const job = JSON.stringify({
-    manifest,
-    prompt: manifest?.prompt,
-    model: resolved.model,
-    resultPath: manifest?.resultPath,
-    sandboxProfileId: policy.id,
+      resolve(done({ ok: true, exitCode: 0, stdout }));
+    });
   });
-  const child = spawnSync(process.execPath, [...FETCH_CHILD_NODE_ARGS, HTTP_DELEGATE_CHILD_SCRIPT], {
-    input: job,
-    env: fetchChildEnv({ ...process.env, CW_DELEGATE_ENDPOINT: endpoint }),
-    encoding: "utf8",
-    timeout: resolved.timeoutMs || 600000,
-    maxBuffer: 32 * 1024 * 1024,
-  });
-  if (child.error) {
-    return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint delegation failed: ${messageOf(child.error)}`, {
-      ...attestation,
-      handle: baseHandle,
-    });
-  }
-  let parsed: { exitCode?: number; stdout?: string; error?: string };
-  try {
-    parsed = JSON.parse(String(child.stdout || "").trim() || "{}");
-  } catch {
-    return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint returned an unparseable response`, {
-      ...attestation,
-      handle: baseHandle,
-    });
-  }
-  if (parsed.error || typeof parsed.exitCode !== "number") {
-    return refusedEnvelope(descriptor, policy, label, "delegation-failed", `agent endpoint error: ${parsed.error || "no exitCode reported"}`, {
-      ...attestation,
-      handle: baseHandle,
-    });
-  }
-  return settleEndpointResult(descriptor, label, endpoint, resolved.model, manifest, attestation, parsed.exitCode, String(parsed.stdout || ""));
 }

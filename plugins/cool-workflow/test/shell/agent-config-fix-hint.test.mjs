@@ -19,7 +19,7 @@ import { tmpDir } from "../helpers/workspace.mjs";
 const tmp = tmpDir("cw-agent-fix-hint-");
 try {
   const env = { ...process.env, CW_HOME: path.join(tmp, "home"), CW_NO_AUTO_AGENT: "1", CW_NO_OPEN: "1" };
-  for (const key of ["CW_AGENT_COMMAND", "CW_AGENT_ENDPOINT", "CW_AGENT_MODEL", "CW_BACKEND"]) delete env[key];
+  for (const key of ["CW_AGENT_COMMAND", "CW_AGENT_MODEL"]) delete env[key];
   const repo = path.join(tmp, "repo");
   fs.mkdirSync(repo);
   fs.writeFileSync(path.join(repo, "README.md"), "# target\n");
@@ -47,14 +47,8 @@ try {
   assert.equal(agent.status, "warn");
   assert.equal(agent.fix, AGENT_FIX, "cw doctor's fix");
 
-  // 4. cw quickstart --check gives it.
-  const check = cw(["quickstart", "--check", "--repo", repo, "--question", "q"], { cwd: repo, env });
-  const blocked = JSON.parse(check.stdout).checks.find((c) => c.name === "agent");
-  assert.equal(blocked.status, "blocked");
-  assert.equal(blocked.fix, AGENT_FIX, "quickstart --check's fix");
-
-  // 5. The cw -q hint gives it, and keeps the DELEGATES line.
-  const ask = cw(["-q", "How does it work?", "--fast", "--json"], { cwd: repo, env });
+  // 4. The cw -q hint gives it, and keeps the DELEGATES line.
+  const ask = cw(["-q", "How does it work?", "--json"], { cwd: repo, env });
   const result = JSON.parse(ask.stdout);
   assert.equal(result.status, "blocked");
   assert.equal(result.hint, `agent backend not configured — ${AGENT_FIX} The one command DELEGATES worker execution to YOUR agent; it never executes a model itself.`);

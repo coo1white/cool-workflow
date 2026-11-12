@@ -1,449 +1,89 @@
-// shell/run-export.ts — portable run archive format: exportRun,
-// importRun, inspectArchive, verifyImportedRun, verifyReportBundle.
-//
-// Impure (fs, tmpdir, os) by nature — the archive/bundle mechanism.
-//
-// Evidence: SPEC/ledger-trust.md "`cw report verify-bundle` JSON", "Files
-// on disk" (bundle shape), invariants 16-17, rebuild risk 8.
+// shell/run-export.ts — the portable run bundle: `cw report bundle` writes
+// it, `cw report verify-bundle` checks it offline and fail-closed. The check
+// never trusts the bundle's own claims: it recomputes every file digest, the
+// telemetry hash chain, the ed25519 signatures, and that report.md embeds
+// each signed result byte for byte.
 
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
-import { createRequire } from "node:module";
 import { sha256, sha256Bytes } from "../core/hash.js";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version.js";
 import { WorkflowRun } from "../core/state/types.js";
-import { assertSafeRunId, isContainedPath, readJson, writeJson } from "./fs-atomic.js";
-import { createRunPaths } from "../core/state/run-paths.js";
-import { checkRunStateFile, ensureRunDirs, saveCheckpoint } from "./run-store.js";
-import { verifyTelemetryLedger } from "./telemetry-ledger-io.js";
+import { assertSafeRunId, isContainedPath, safeFileName, writeJson } from "./fs-atomic.js";
 import { resolveTrustPublicKey, verifyTelemetrySignatures } from "../core/trust/telemetry-attestation.js";
-import { verifyTrustAudit } from "./trust-audit.js";
-import { messageOf } from "../core/util/cli-args.js";
+import { TelemetryAttestationRecord, verifyTelemetryLedgerRecords } from "../core/trust/telemetry-ledger.js";
+import { receiptIntact } from "../core/trust/receipt.js";
 
-export type ArchiveFileRole = "artifact" | "audit" | "telemetry" | "run-file";
+export const BUNDLE_SCHEMA_VERSION = 2;
 export type TrustKeySource = "bundle" | "argument" | "environment" | "none";
+type FileRole = "telemetry" | "receipt" | "result" | "report" | "run-file";
 
-interface ArchiveFileEntry {
+interface BundleFile {
   relativePath: string;
-  role: ArchiveFileRole;
+  role: FileRole;
   contentBase64: string;
   sha256: string;
   sizeBytes: number;
-  sourcePath?: string;
 }
 
-export interface RunExport {
-  schemaVersion: 1;
+export interface RunBundle {
+  schemaVersion: typeof BUNDLE_SCHEMA_VERSION;
   exportedAt: string;
   sourceVersion: string;
-  run: WorkflowRun;
-  files: ArchiveFileEntry[];
-  integrity?: { fileCount: number; manifestSha256: string };
+  run: { id: string; workflowId: string; title: string; createdAt: string };
+  files: BundleFile[];
+  integrity: { fileCount: number; manifestSha256: string };
   trust?: { publicKeyPem: string; algorithm: "ed25519" };
-  artifacts?: Array<{ path: string; contentBase64: string; sha256: string; sizeBytes: number }>;
-  audit?: string[];
 }
 
-export interface ExportResult {
-  runId: string;
-  exportedAt: string;
-  path: string;
-  taskCount: number;
-  commitCount: number;
-  fileCount: number;
-  artifactCount: number;
-  auditFileCount: number;
-  telemetryIncluded: boolean;
-  trustKeyEmbedded: boolean;
-  manifestSha256: string;
-  archiveSha256: string;
+function walkFiles(root: string): string[] {
+  if (!fs.existsSync(root)) return [];
+  const found: string[] = [];
+  for (const name of fs.readdirSync(root)) {
+    const file = path.join(root, name);
+    const stat = fs.lstatSync(file);
+    if (stat.isDirectory()) found.push(...walkFiles(file));
+    else if (stat.isFile()) found.push(file);
+  }
+  return found;
 }
 
-export interface ImportResult {
-  run: WorkflowRun;
-  runDir: string;
-  statePath: string;
-  manifestPath: string;
-  verifyCommand: string;
-  verification: RestoreVerificationResult;
+function roleOf(relativePath: string): FileRole {
+  if (relativePath === "telemetry.json") return "telemetry";
+  if (relativePath === "report.md" || relativePath === "report.html") return "report";
+  if (relativePath.startsWith("receipts/")) return "receipt";
+  if (relativePath.startsWith("results/")) return "result";
+  return "run-file";
 }
 
-export interface AtomicRestoreResult {
-  imported: ImportResult | null;
-  verification: RestoreVerificationResult;
+function digestManifest(files: BundleFile[]): string {
+  const rows = files.map((f) => ({ relativePath: f.relativePath, role: f.role, sha256: f.sha256, sizeBytes: f.sizeBytes }));
+  rows.sort((a, b) => (a.relativePath < b.relativePath ? -1 : a.relativePath > b.relativePath ? 1 : 0));
+  return sha256Bytes(Buffer.from(JSON.stringify(rows), "utf8"));
 }
 
-export interface RestoreVerificationCheck {
-  name: string;
-  pass: boolean;
-  code?: string;
-  path?: string;
-  expected?: string;
-  actual?: string;
-}
-
-export interface RestoreVerificationResult {
-  runId: string;
-  ok: boolean;
-  manifestPath: string;
-  checkedFiles: number;
-  checks: RestoreVerificationCheck[];
-}
-
-export interface ArchiveInspectResult {
-  schemaVersion: number;
-  archivePath: string;
-  ok: boolean;
-  schemaSupported: boolean;
-  runId: string | null;
-  fileCount: number;
-  manifestSha256: string | null;
-  archiveSha256: string | null;
-  checks: RestoreVerificationCheck[];
-}
-
-interface ArchiveIntakeLimits {
-  rawBytes?: number;
-  fileCount?: number;
-  contentBytes?: number;
-}
-
-interface ImportManifest {
-  schemaVersion: 1;
-  runId: string;
-  importedAt: string;
-  sourceVersion: string;
-  archiveSha256: string;
-  manifestSha256: string;
-  files: Array<Omit<ArchiveFileEntry, "contentBase64">>;
-}
-
-export interface ExportRunOptions {
-  /** An ed25519 PUBLIC key (inline PEM or a path to a .pem file) to embed
-   *  in the archive so a recipient can re-verify signed telemetry
-   *  OFFLINE without being handed the key separately. */
-  trustPublicKey?: string;
-}
-
-/** Export a run to a portable JSON archive with run-local bytes and
- *  digests. */
-export function exportRun(run: WorkflowRun, outputPath: string, options: ExportRunOptions = {}): ExportResult {
-  const exportedAt = new Date().toISOString();
-  const files = collectArchiveFiles(run);
-  const manifestSha256 = digestManifest(files);
-  const trustPublicKeyPem = resolveTrustPublicKey(options.trustPublicKey);
-  const exported: RunExport = {
-    schemaVersion: 1,
-    exportedAt,
+/** Write the run folder (minus state.json and locks) as one JSON bundle. */
+export function exportRun(run: WorkflowRun, outputPath: string, options: { trustPublicKey?: string } = {}): { path: string; trustKeyEmbedded: boolean } {
+  const files: BundleFile[] = walkFiles(run.paths.runDir)
+    .map((file) => ({ file, relativePath: path.relative(run.paths.runDir, file).split(path.sep).join("/") }))
+    .filter(({ relativePath }) => relativePath !== "state.json" && !relativePath.endsWith(".lock") && !relativePath.endsWith(".tmp"))
+    .map(({ file, relativePath }) => {
+      const bytes = fs.readFileSync(file);
+      return { relativePath, role: roleOf(relativePath), contentBase64: bytes.toString("base64"), sha256: sha256Bytes(bytes), sizeBytes: bytes.length };
+    })
+    .sort((a, b) => (a.relativePath < b.relativePath ? -1 : 1));
+  const publicKeyPem = resolveTrustPublicKey(options.trustPublicKey);
+  const bundle: RunBundle = {
+    schemaVersion: BUNDLE_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
     sourceVersion: CURRENT_COOL_WORKFLOW_VERSION,
-    run,
+    run: { id: run.id, workflowId: run.workflow.id, title: run.workflow.title, createdAt: run.createdAt },
     files,
-    integrity: { fileCount: files.length, manifestSha256 },
-    ...(trustPublicKeyPem ? { trust: { publicKeyPem: trustPublicKeyPem, algorithm: "ed25519" as const } } : {}),
-    artifacts: files
-      .filter((file) => file.role === "artifact")
-      .map((file) => ({ path: file.relativePath, contentBase64: file.contentBase64, sha256: file.sha256, sizeBytes: file.sizeBytes })),
-    audit: files.filter((file) => file.role === "audit").map((file) => file.relativePath),
+    integrity: { fileCount: files.length, manifestSha256: digestManifest(files) },
+    ...(publicKeyPem ? { trust: { publicKeyPem, algorithm: "ed25519" as const } } : {}),
   };
-  writeJson(outputPath, exported);
-  const archiveSha256 = sha256Bytes(fs.readFileSync(outputPath));
-  return {
-    runId: run.id,
-    exportedAt,
-    path: outputPath,
-    taskCount: run.tasks.length,
-    commitCount: run.commits.length,
-    fileCount: files.length,
-    artifactCount: files.filter((file) => file.role === "artifact").length,
-    auditFileCount: files.filter((file) => file.role === "audit").length,
-    telemetryIncluded: files.some((file) => file.role === "telemetry"),
-    trustKeyEmbedded: Boolean(trustPublicKeyPem),
-    manifestSha256,
-    archiveSha256,
-  };
-}
-
-/** Import a run from a portable JSON file into a target directory. */
-export function importRun(exportPath: string, targetDir: string): ImportResult {
-  const limits = archiveIntakeLimits();
-  const archiveBytes = readArchiveBytes(exportPath, limits);
-  const raw = JSON.parse(archiveBytes.toString("utf8")) as RunExport;
-  if (raw.schemaVersion !== 1) throw new Error(`Unsupported export schema version: ${raw.schemaVersion}`);
-  const archiveSha256 = sha256Bytes(archiveBytes);
-  const files = normalizeArchiveFiles(raw);
-  validateArchiveIntake(files, limits);
-  verifyArchiveFileDigests(files, raw.integrity, limits);
-  if (!raw.run || typeof raw.run !== "object") {
-    throw new Error("Invalid run export: missing run object");
-  }
-  const runId = assertSafeRunId(raw.run.id);
-  const runsRoot = path.join(targetDir, ".cw", "runs");
-  const runDir = path.join(runsRoot, runId);
-  if (!isContainedPath(runDir, runsRoot)) {
-    throw new Error(`Run id escapes the runs directory: ${JSON.stringify(raw.run.id)}`);
-  }
-  // Validate the run shape BEFORE the deref and before any dir/file is written.
-  // A truncated archive can be missing run.paths (or carry non-string
-  // runDir/cwd); without this guard the deref throws a raw TypeError, or a
-  // present-but-shapeless paths half-restores the run dir with a broken rebase.
-  // Fail closed as an invalid archive instead.
-  if (
-    !raw.run.paths ||
-    typeof raw.run.paths !== "object" ||
-    typeof raw.run.paths.runDir !== "string" ||
-    typeof raw.run.cwd !== "string"
-  ) {
-    throw new Error("Invalid run export: run.paths.runDir and run.cwd must be strings");
-  }
-  const oldRunDir = raw.run.paths.runDir;
-  const oldCwd = raw.run.cwd;
-  const paths = createRunPaths(runDir);
-  ensureRunDirs(paths);
-
-  for (const file of files) {
-    const destination = path.join(runDir, file.relativePath);
-    if (!isContainedPath(destination, runDir)) {
-      throw new Error(`Archive file escapes restore directory: ${file.relativePath}`);
-    }
-    fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.writeFileSync(destination, decodeBase64Strict(file.contentBase64, file.relativePath));
-  }
-
-  const externalPathMap = new Map<string, string>();
-  for (const file of files) {
-    if (file.sourcePath) externalPathMap.set(file.sourcePath, path.join(runDir, file.relativePath));
-  }
-
-  const run = rebaseRun(raw.run, { oldRunDir, newRunDir: runDir, oldCwd, newCwd: targetDir, paths, externalPathMap });
-  saveCheckpoint(run);
-  const manifest: ImportManifest = {
-    schemaVersion: 1,
-    runId: run.id,
-    importedAt: new Date().toISOString(),
-    sourceVersion: raw.sourceVersion,
-    archiveSha256,
-    manifestSha256: digestManifest(files),
-    files: files.map(({ contentBase64: _contentBase64, ...file }) => file),
-  };
-  const manifestPath = importManifestPath(run);
-  writeJson(manifestPath, manifest, { durable: true });
-  const verification = verifyImportedRun(run);
-  return {
-    run,
-    runDir,
-    statePath: paths.state,
-    manifestPath,
-    verifyCommand: `cw run verify-import ${run.id} --cwd ${targetDir} --json`,
-    verification,
-  };
-}
-
-/** Restore through a same-disk staging tree, then publish the checked run with
- *  one rename. Low-level import keeps its old report-only chain behavior. */
-export function restoreRunAtomically(exportPath: string, targetDir: string): AtomicRestoreResult {
-  const physicalTarget = path.resolve(targetDir);
-  fs.mkdirSync(physicalTarget, { recursive: true });
-  const stageRoot = fs.mkdtempSync(path.join(physicalTarget, ".cw-restore-"));
-  let publishedRunDir: string | undefined;
-  try {
-    const staged = importRun(exportPath, stageRoot);
-    const finalRunDir = path.join(targetDir, ".cw", "runs", staged.run.id);
-    const physicalFinalRunDir = path.resolve(finalRunDir);
-    const stagedVerification = rebaseVerificationPaths(staged.verification, staged.run.paths.runDir, finalRunDir);
-    if (!staged.verification.ok) return { imported: null, verification: stagedVerification };
-    if (fs.existsSync(physicalFinalRunDir)) {
-      throw new Error(`Refusing to overwrite existing restored run: ${staged.run.id}`);
-    }
-
-    const finalPaths = createRunPaths(finalRunDir);
-    const finalRun = rebaseRun(staged.run, {
-      oldRunDir: staged.run.paths.runDir,
-      newRunDir: finalRunDir,
-      oldCwd: stageRoot,
-      newCwd: targetDir,
-      paths: finalPaths,
-    });
-    writeJson(staged.run.paths.state, finalRun, { durable: true });
-    const stateCheck = checkRunStateFile(staged.run.paths.state);
-    if (stateCheck.report.status === "unsupported") {
-      throw new Error(`Restore state validation failed: ${stateCheck.report.errors.join("; ") || "unsupported run state"}`);
-    }
-    fs.mkdirSync(path.dirname(physicalFinalRunDir), { recursive: true });
-    fs.renameSync(path.resolve(staged.run.paths.runDir), physicalFinalRunDir);
-    publishedRunDir = physicalFinalRunDir;
-
-    const verification = verifyImportedRun(finalRun);
-    if (!verification.ok) {
-      fs.rmSync(physicalFinalRunDir, { recursive: true, force: true });
-      publishedRunDir = undefined;
-      return { imported: null, verification };
-    }
-    return {
-      imported: {
-        run: finalRun,
-        runDir: finalRunDir,
-        statePath: finalPaths.state,
-        manifestPath: importManifestPath(finalRun),
-        verifyCommand: `cw run verify-import ${finalRun.id} --cwd ${targetDir} --json`,
-        verification,
-      },
-      verification,
-    };
-  } catch (error) {
-    if (publishedRunDir) fs.rmSync(publishedRunDir, { recursive: true, force: true });
-    throw error;
-  } finally {
-    fs.rmSync(stageRoot, { recursive: true, force: true });
-  }
-}
-
-/** Verify an imported run against its restore manifest and telemetry
- *  chain. */
-export function verifyImportedRun(run: WorkflowRun): RestoreVerificationResult {
-  const manifestPath = importManifestPath(run);
-  const checks: RestoreVerificationCheck[] = [];
-  if (!fs.existsSync(manifestPath)) {
-    return {
-      runId: run.id,
-      ok: false,
-      manifestPath,
-      checkedFiles: 0,
-      checks: [{ name: "import-manifest", pass: false, code: "missing-import-manifest", path: manifestPath }],
-    };
-  }
-  let manifest: ImportManifest;
-  try {
-    manifest = readJson(manifestPath) as ImportManifest;
-  } catch (error) {
-    return {
-      runId: run.id,
-      ok: false,
-      manifestPath,
-      checkedFiles: 0,
-      checks: [{ name: "import-manifest", pass: false, code: "invalid-import-manifest", path: manifestPath, actual: messageOf(error) }],
-    };
-  }
-
-  const currentManifestDigest = digestManifest(manifest.files.map((file) => ({ ...file, contentBase64: "" })));
-  checks.push({
-    name: "import-manifest",
-    pass: manifest.runId === run.id && manifest.manifestSha256 === currentManifestDigest,
-    code: manifest.runId !== run.id ? "run-id-mismatch" : manifest.manifestSha256 === currentManifestDigest ? undefined : "manifest-digest-mismatch",
-    expected: manifest.manifestSha256,
-    actual: currentManifestDigest,
-  });
-
-  let filesOk = true;
-  for (const file of manifest.files) {
-    const restoredPath = path.join(run.paths.runDir, file.relativePath);
-    if (!isContainedPath(restoredPath, run.paths.runDir)) {
-      filesOk = false;
-      checks.push({ name: "archive-file", pass: false, code: "path-escape", path: file.relativePath });
-      continue;
-    }
-    if (!fs.existsSync(restoredPath)) {
-      filesOk = false;
-      checks.push({ name: "archive-file", pass: false, code: "missing-file", path: file.relativePath, expected: file.sha256 });
-      continue;
-    }
-    const actual = sha256Bytes(fs.readFileSync(restoredPath));
-    const pass = actual === file.sha256;
-    if (!pass) filesOk = false;
-    checks.push({ name: "archive-file", pass, code: pass ? undefined : "digest-mismatch", path: file.relativePath, expected: file.sha256, actual });
-  }
-  checks.push({ name: "archive-files", pass: filesOk, code: filesOk ? undefined : "archive-files-invalid" });
-
-  const telemetry = verifyTelemetryLedger(run);
-  checks.push({ name: "telemetry-ledger", pass: telemetry.verified, code: telemetry.verified ? undefined : "telemetry-ledger-invalid" });
-
-  const audit = verifyTrustAudit(run);
-  checks.push({ name: "trust-audit", pass: audit.verified, code: audit.verified ? undefined : "trust-audit-invalid" });
-
-  return { runId: run.id, ok: checks.every((check) => check.pass), manifestPath, checkedFiles: manifest.files.length, checks };
-}
-
-/** Read-only integrity inspection of a portable archive WITHOUT
- *  importing it. Never throws. */
-export function inspectArchive(archivePath: string): ArchiveInspectResult {
-  const base: ArchiveInspectResult = {
-    schemaVersion: 1,
-    archivePath,
-    ok: false,
-    schemaSupported: false,
-    runId: null,
-    fileCount: 0,
-    manifestSha256: null,
-    archiveSha256: null,
-    checks: [],
-  };
-  let limits: ArchiveIntakeLimits;
-  try {
-    limits = archiveIntakeLimits();
-  } catch (error) {
-    return { ...base, checks: [{ name: "archive-limit", pass: false, code: "archive-limit-invalid", actual: messageOf(error) }] };
-  }
-  let bytes: Buffer;
-  try {
-    bytes = readArchiveBytes(archivePath, limits);
-  } catch (error) {
-    const message = messageOf(error);
-    const limited = message.startsWith("Archive raw byte limit exceeded:");
-    return { ...base, checks: [{ name: limited ? "archive-limit" : "archive", pass: false, code: limited ? "archive-limit-raw-bytes" : "archive-unreadable", path: archivePath, actual: message }] };
-  }
-  base.archiveSha256 = sha256Bytes(bytes);
-  let raw: RunExport;
-  try {
-    raw = JSON.parse(bytes.toString("utf8")) as RunExport;
-  } catch (error) {
-    return { ...base, checks: [{ name: "archive", pass: false, code: "archive-invalid-json", path: archivePath, actual: messageOf(error) }] };
-  }
-  if (raw.schemaVersion !== 1) {
-    return {
-      ...base,
-      schemaVersion: typeof raw.schemaVersion === "number" ? raw.schemaVersion : base.schemaVersion,
-      checks: [{ name: "schema", pass: false, code: "unsupported-schema", expected: "1", actual: String(raw.schemaVersion) }],
-    };
-  }
-  try {
-    const files = normalizeArchiveFiles(raw);
-    try {
-      validateArchiveIntake(files, limits);
-    } catch (error) {
-      return {
-        schemaVersion: 1,
-        archivePath,
-        ok: false,
-        schemaSupported: true,
-        runId: raw.run && raw.run.id ? raw.run.id : null,
-        fileCount: files.length,
-        manifestSha256: raw.integrity ? digestManifest(files) : null,
-        archiveSha256: base.archiveSha256,
-        checks: [archiveLimitCheck(error)],
-      };
-    }
-    const checks = collectArchiveDigestChecks(files, raw.integrity, limits).checks;
-    if (!raw.integrity && /^(1|true|yes|on)$/i.test(process.env.CW_REQUIRE_ARCHIVE_INTEGRITY || "")) {
-      checks.push({ name: "archive-integrity", pass: false, code: "archive-integrity-required" });
-    }
-    return {
-      schemaVersion: 1,
-      archivePath,
-      ok: checks.every((c) => c.pass),
-      schemaSupported: true,
-      runId: raw.run && raw.run.id ? raw.run.id : null,
-      fileCount: files.length,
-      manifestSha256: raw.integrity ? digestManifest(files) : null,
-      archiveSha256: base.archiveSha256,
-      checks,
-    };
-  } catch (error) {
-    return { ...base, schemaSupported: true, checks: [{ name: "archive", pass: false, code: "archive-malformed", path: archivePath, actual: messageOf(error) }] };
-  }
-}
-
-export function importManifestPath(run: WorkflowRun): string {
-  return path.join(run.paths.runDir, "import-manifest.json");
+  writeJson(outputPath, bundle);
+  return { path: outputPath, trustKeyEmbedded: Boolean(publicKeyPem) };
 }
 
 export interface VerifyReportBundleOptions {
@@ -461,7 +101,6 @@ export interface ReportBundleVerification {
   ok: boolean;
   archiveOk: boolean;
   telemetryVerified: boolean;
-  trustAuditVerified: boolean;
   trustKeySource: TrustKeySource;
   signatureKeyProvided: boolean;
   signaturesChecked: number;
@@ -473,9 +112,8 @@ export interface ReportBundleVerification {
   failedChecks: Array<{ name: string; code?: string }>;
 }
 
-/** True when report.md embeds `expected` (the trimmed result) at the
- *  task's OWN section: a `### <taskId>` heading, a `Result: <path>`
- *  line, then the result body — and the body STARTS WITH `expected`. */
+/** report.md embeds `expected` at the task's own section:
+ *  `### <taskId>`, a `Result: <path>` line, then a body starting with it. */
 function reportSectionEmbedsResult(reportMd: string, taskId: string, expected: string): boolean {
   const needle = `### ${taskId}\n`;
   for (let from = reportMd.indexOf(needle); from >= 0; from = reportMd.indexOf(needle, from + 1)) {
@@ -486,24 +124,127 @@ function reportSectionEmbedsResult(reportMd: string, taskId: string, expected: s
   return false;
 }
 
-/** Verify a portable run bundle OFFLINE and SELF-CONTAINED: prove the
- *  archive bytes, the telemetry hash chain, the trust-audit chain, and
- *  (with the bundle's embedded public key) the ed25519 signatures.
- *  Never throws — every failure is a structured check and a false `ok`.
- *
- *  Key precedence is argument > bundle > environment. */
-export function verifyReportBundle(archivePath: string, options: VerifyReportBundleOptions = {}): ReportBundleVerification {
-  const inspect = inspectArchive(archivePath);
-  const failedChecks: Array<{ name: string; code?: string }> = inspect.checks.filter((check) => !check.pass).map((check) => ({ name: check.name, code: check.code }));
+function limitFromEnv(name: string): number | undefined {
+  const value = process.env[name];
+  if (value === undefined) return undefined;
+  if (!/^[1-9][0-9]*$/.test(value) || !Number.isSafeInteger(Number(value))) throw new Error(`Invalid ${name}: expected a positive safe integer`);
+  return Number(value);
+}
 
-  const base: ReportBundleVerification = {
+function cleanRelativePath(value: unknown): string {
+  const portable = String(value).replace(/\\/g, "/");
+  const cleaned = path.posix.normalize(portable);
+  if (typeof value !== "string" || portable.startsWith("/") || /^[A-Za-z]:\//.test(portable) || /(^|\/)\.\.(\/|$)/.test(portable) || /[\u0000-\u001f\u007f]/.test(portable) || !cleaned || cleaned === ".") {
+    throw new Error(`Invalid archive relative path: ${String(value)}`);
+  }
+  return cleaned;
+}
+
+function strictBase64(value: unknown): Buffer | undefined {
+  if (typeof value !== "string") return undefined;
+  const compact = value.replace(/\s+/g, "");
+  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(compact)) return undefined;
+  const bytes = Buffer.from(compact, "base64");
+  return bytes.toString("base64").replace(/=+$/, "") === compact.replace(/=+$/, "") ? bytes : undefined;
+}
+
+/** Read and check the bundle's file table: limits, shape, safe unique
+ *  paths, base64, digests, sizes, count and manifest digest. */
+function readBundle(archivePath: string, fail: (name: string, code: string) => void): { bundle?: RunBundle; contents: Map<string, Buffer>; archiveOk: boolean; fatal: boolean } {
+  const contents = new Map<string, Buffer>();
+  let bundle: RunBundle;
+  try {
+    const rawLimit = limitFromEnv("CW_MAX_RUN_ARCHIVE_BYTES");
+    if (rawLimit !== undefined && fs.statSync(archivePath).size > rawLimit) {
+      fail("archive-limit", "archive-limit-raw-bytes");
+      return { contents, archiveOk: false, fatal: true };
+    }
+    bundle = JSON.parse(fs.readFileSync(archivePath, "utf8")) as RunBundle;
+  } catch (error) {
+    fail("archive", error instanceof SyntaxError ? "archive-invalid-json" : "archive-unreadable");
+    return { contents, archiveOk: false, fatal: true };
+  }
+  if (!bundle || bundle.schemaVersion !== BUNDLE_SCHEMA_VERSION || !Array.isArray(bundle.files) || !bundle.run || typeof bundle.run.id !== "string") {
+    fail("archive-schema", "archive-schema-unsupported");
+    return { contents, archiveOk: false, fatal: true };
+  }
+  try {
+    assertSafeRunId(bundle.run.id);
+  } catch {
+    fail("archive-schema", "archive-run-id-unsafe");
+    return { contents, archiveOk: false, fatal: true };
+  }
+  const fileLimit = limitFromEnv("CW_MAX_RUN_ARCHIVE_FILES");
+  const contentLimit = limitFromEnv("CW_MAX_RUN_ARCHIVE_CONTENT_BYTES");
+  if (fileLimit !== undefined && bundle.files.length > fileLimit) {
+    fail("archive-limit", "archive-limit-file-count");
+    return { bundle, contents, archiveOk: false, fatal: true };
+  }
+  let ok = true;
+  let total = 0;
+  for (const file of bundle.files) {
+    let rel: string;
+    try {
+      rel = cleanRelativePath(file?.relativePath);
+    } catch {
+      fail("archive-file", "path-escape");
+      ok = false;
+      continue;
+    }
+    if (contents.has(rel) || rel === "state.json" || rel.endsWith(".lock")) {
+      fail("archive-file", "archive-reserved-or-duplicate-path");
+      ok = false;
+      continue;
+    }
+    const bytes = strictBase64(file.contentBase64);
+    if (!bytes) {
+      fail("archive-file", "archive-bad-base64");
+      ok = false;
+      continue;
+    }
+    total += bytes.length;
+    if (contentLimit !== undefined && total > contentLimit) {
+      fail("archive-limit", "archive-limit-content-bytes");
+      return { bundle, contents, archiveOk: false, fatal: true };
+    }
+    if (sha256Bytes(bytes) !== file.sha256) {
+      fail("archive-file", "digest-mismatch");
+      ok = false;
+    }
+    if (bytes.length !== file.sizeBytes) {
+      fail("archive-file", "size-mismatch");
+      ok = false;
+    }
+    contents.set(rel, bytes);
+  }
+  if (!bundle.integrity || bundle.integrity.fileCount !== bundle.files.length) {
+    fail("archive-file-count", "file-count-mismatch");
+    ok = false;
+  }
+  if (!bundle.integrity || bundle.integrity.manifestSha256 !== digestManifest(bundle.files)) {
+    fail("archive-manifest", "manifest-digest-mismatch");
+    ok = false;
+  }
+  return { bundle, contents, archiveOk: ok, fatal: false };
+}
+
+
+/** Verify a bundle offline. Never throws: each failure is a failed check
+ *  and a false `ok`. Key precedence: argument > bundle > environment; an
+ *  argument key that differs from the bundle's own fails closed. */
+export function verifyReportBundle(archivePath: string, options: VerifyReportBundleOptions = {}): ReportBundleVerification {
+  const failedChecks: Array<{ name: string; code?: string }> = [];
+  const fail = (name: string, code: string): void => {
+    failedChecks.push({ name, code });
+  };
+  const { bundle, contents, archiveOk, fatal } = readBundle(archivePath, fail);
+  const result: ReportBundleVerification = {
     schemaVersion: 1,
     archivePath,
-    runId: inspect.runId,
+    runId: bundle?.run?.id ?? null,
     ok: false,
-    archiveOk: inspect.ok,
+    archiveOk,
     telemetryVerified: false,
-    trustAuditVerified: false,
     trustKeySource: "none",
     signatureKeyProvided: false,
     signaturesChecked: 0,
@@ -513,534 +254,92 @@ export function verifyReportBundle(archivePath: string, options: VerifyReportBun
     reportFindingsVerified: false,
     failedChecks,
   };
+  if (fatal || !bundle) return result;
+  const runId = bundle.run.id;
 
-  if (!inspect.schemaSupported || inspect.checks.some((check) => check.code?.startsWith("archive-limit-"))) return base;
-
-  let bundleKey: string | undefined;
-  let reportContent: string | undefined;
-  try {
-    const raw = JSON.parse(readArchiveBytes(archivePath, archiveIntakeLimits()).toString("utf8")) as RunExport;
-    bundleKey = raw.trust?.publicKeyPem;
-    if (options.extractReportTo) {
-      const reportFile = (raw.files || []).find((file) => file.relativePath === "report.md");
-      if (reportFile) {
-        const decoded = decodeBase64StrictResult(reportFile.contentBase64, reportFile.relativePath);
-        if (decoded.ok) reportContent = decoded.bytes.toString("utf8");
-      }
-    }
-  } catch {
-    /* inspect already recorded the parse failure; treat key as absent */
-  }
-
-  // Key precedence: an explicit operator --pubkey/options.pubkey WINS over a
-  // bundle-embedded key. A bundle carries its own key so it verifies OFFLINE,
-  // but that key must never OVERRIDE a key the operator pinned by hand — else a
-  // bundle re-signed with an attacker's OWN key (and embedding that key) would
-  // verify green against itself. When the operator pins a key AND the bundle
-  // embeds a DIFFERENT one, fail closed with a clear trust-key-mismatch rather
-  // than silently trusting the bundle's own key.
-  const resolvedArg = resolveTrustPublicKey(options.pubkey);
-  const resolvedBundle = resolveTrustPublicKey(bundleKey);
-  const resolvedEnv = resolveTrustPublicKey(process.env.CW_AGENT_ATTEST_PUBKEY);
+  const pem = (k?: string): string => (k || "").replace(/\s+/g, "");
+  const bundleKey = resolveTrustPublicKey(bundle.trust?.publicKeyPem);
   let trustKey: string | undefined;
-  let trustKeySource: TrustKeySource;
-  let trustKeyConflict = false;
   if (options.pubkey) {
-    trustKey = resolvedArg;
-    trustKeySource = "argument";
-    if (resolvedArg && resolvedBundle && normalizePem(resolvedArg) !== normalizePem(resolvedBundle)) {
-      trustKeyConflict = true;
-      failedChecks.push({ name: "trust-key", code: "trust-key-mismatch" });
-    }
-  } else if (bundleKey) {
-    trustKey = resolvedBundle;
-    trustKeySource = "bundle";
+    trustKey = resolveTrustPublicKey(options.pubkey);
+    result.trustKeySource = "argument";
+    if (trustKey && bundleKey && pem(trustKey) !== pem(bundleKey)) fail("trust-key", "trust-key-mismatch");
+  } else if (bundle.trust?.publicKeyPem) {
+    trustKey = bundleKey;
+    result.trustKeySource = "bundle";
   } else if (process.env.CW_AGENT_ATTEST_PUBKEY) {
-    trustKey = resolvedEnv;
-    trustKeySource = "environment";
+    trustKey = resolveTrustPublicKey(process.env.CW_AGENT_ATTEST_PUBKEY);
+    result.trustKeySource = "environment";
+  }
+  result.signatureKeyProvided = Boolean(trustKey);
+
+  // Telemetry chain: absent verifies clean; present but unreadable fails.
+  let records: TelemetryAttestationRecord[] = [];
+  const telemetry = contents.get("telemetry.json");
+  if (telemetry) {
+    try {
+      const parsed = JSON.parse(telemetry.toString("utf8"));
+      if (!Array.isArray(parsed?.records)) throw new Error("no records");
+      records = parsed.records;
+      const chain = verifyTelemetryLedgerRecords(runId, records);
+      result.telemetryVerified = chain.verified;
+      for (const check of chain.checks) if (!check.pass) fail("telemetry-ledger", check.code || check.name);
+    } catch {
+      fail("telemetry-ledger", "telemetry-ledger-corrupt");
+    }
   } else {
-    trustKey = undefined;
-    trustKeySource = "none";
+    result.telemetryVerified = true;
   }
 
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "cw-verify-bundle-"));
-  let telemetryVerified = false;
-  let trustAuditVerified = false;
-  let signaturesChecked = 0;
-  let signaturesReverified = 0;
-  let signaturesFailed = 0;
-  let signaturesResultBound = 0;
-  let reportFindingsOk = true;
-  let reportExtractedTo: string | undefined;
-  try {
-    const imported = importRun(archivePath, tmpDir);
-    for (const check of imported.verification.checks) {
-      if (check.name === "telemetry-ledger") telemetryVerified = check.pass;
-      if (check.name === "trust-audit") trustAuditVerified = check.pass;
-      if (!check.pass) failedChecks.push({ name: check.name, code: check.code });
-    }
-    const ledger = verifyTelemetryLedger(imported.run);
-    const sig = verifyTelemetrySignatures(ledger.records, trustKey);
-    signaturesChecked = sig.checked;
-    signaturesReverified = sig.reverified;
-    signaturesFailed = sig.failed;
-    signaturesResultBound = sig.resultBound.length;
-    for (const check of sig.checks) if (!check.pass) failedChecks.push({ name: check.name, code: check.code });
+  const sig = verifyTelemetrySignatures(records, trustKey);
+  result.signaturesChecked = sig.checked;
+  result.signaturesReverified = sig.reverified;
+  result.signaturesFailed = sig.failed;
+  for (const check of sig.checks) if (!check.pass) fail(check.name, check.code || "signature-failed");
 
-    // Report ⇄ result ⇄ signature cross-check — driven by sig.resultBound
-    // (records whose signature actually COVERED the result), NEVER
-    // run.tasks (unbound data an attacker can edit).
-    const reportPath = imported.run.paths.report;
-    const reportMd = reportPath && fs.existsSync(reportPath) ? fs.readFileSync(reportPath, "utf8") : "";
-    const completedById = new Map(imported.run.tasks.filter((task) => task.status === "completed").map((task) => [task.id, task]));
-    for (const bound of sig.resultBound) {
-      const failBound = (code: string): void => {
-        reportFindingsOk = false;
-        failedChecks.push({ name: "report-findings", code: `${code}:${bound.taskId}` });
-      };
-      const task = completedById.get(bound.taskId);
-      if (!task || !task.resultPath || !fs.existsSync(task.resultPath)) {
-        failBound("result-missing");
-        continue;
-      }
-      const resultRaw = fs.readFileSync(task.resultPath, "utf8");
-      if (sha256(resultRaw) !== bound.resultDigest) {
-        failBound("result-digest-mismatch");
-        continue;
-      }
-      if (!reportSectionEmbedsResult(reportMd, bound.taskId, resultRaw.trim())) {
-        failBound("report-result-mismatch");
-      }
+  // report.md ⇄ result ⇄ signature: driven only by records whose signature
+  // covered the result, never by unsigned data in the bundle.
+  let findingsOk = true;
+  const reportMd = contents.get("report.md")?.toString("utf8") ?? "";
+  for (const bound of sig.resultBound) {
+    const raw = contents.get(`results/${safeFileName(bound.taskId)}.md`)?.toString("utf8");
+    const code = raw === undefined ? "result-missing" : sha256(raw) !== bound.resultDigest ? "result-digest-mismatch" : !reportSectionEmbedsResult(reportMd, bound.taskId, raw.trim()) ? "report-result-mismatch" : undefined;
+    if (code) {
+      findingsOk = false;
+      fail("report-findings", `${code}:${bound.taskId}`);
     }
-    for (const failed of pinnedReceiptFailures(imported.run.paths.runDir)) {
-      reportFindingsOk = false;
-      failedChecks.push({ name: "receipt", code: failed });
-    }
-    if (options.extractReportTo && reportContent !== undefined) {
-      reportExtractedTo = path.resolve(options.extractReportTo);
-      if (options.cwd) {
-        const baseCwd = path.resolve(options.cwd);
-        if (!isContainedPath(reportExtractedTo, baseCwd)) {
-          failedChecks.push({ name: "extract-report", code: "path-outside-working-directory" });
-          reportExtractedTo = undefined;
-        }
-      }
-      if (reportExtractedTo) fs.writeFileSync(reportExtractedTo, reportContent);
-    }
-  } catch (error) {
-    failedChecks.push({ name: "restore", code: messageOf(error) });
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
-
-  const strictShortfall = Boolean(options.strictSignatures) && signaturesChecked > 0 && !trustKey;
-  if (strictShortfall) failedChecks.push({ name: "signatures", code: "signature-key-required" });
-
-  const trustLevel: "signed" | "unsigned" = signaturesResultBound > 0 && signaturesFailed === 0 && reportFindingsOk ? "signed" : "unsigned";
-  const unsignedShortfall = Boolean(options.requireSignatures) && trustLevel === "unsigned";
-  if (unsignedShortfall) failedChecks.push({ name: "signatures", code: "signatures-required" });
-
-  const extractShortfall = Boolean(options.extractReportTo) && !reportExtractedTo;
-  if (extractShortfall) failedChecks.push({ name: "extract-report", code: "report-md-unavailable" });
-
-  return {
-    schemaVersion: 1,
-    archivePath,
-    runId: inspect.runId,
-    ok: inspect.ok && telemetryVerified && trustAuditVerified && signaturesFailed === 0 && reportFindingsOk && !strictShortfall && !extractShortfall && !unsignedShortfall && !trustKeyConflict,
-    archiveOk: inspect.ok,
-    telemetryVerified,
-    trustAuditVerified,
-    trustKeySource,
-    signatureKeyProvided: Boolean(trustKey),
-    signaturesChecked,
-    signaturesReverified,
-    signaturesFailed,
-    trustLevel,
-    reportFindingsVerified: reportFindingsOk,
-    reportExtractedTo,
-    failedChecks,
-  };
-}
-
-/** `receipt-tampered:<id>` / `receipt-failed:<id>` for each done receipt the run pinned that is not intact and passed. */
-function pinnedReceiptFailures(runDir: string): string[] {
-  const dir = path.join(runDir, "receipts");
-  if (!fs.existsSync(dir)) return [];
-  const receipt = createRequire(import.meta.url)("../core/trust/receipt.js") as typeof import("../core/trust/receipt.js");
-  return fs.readdirSync(dir).filter((name) => name.endsWith(".json")).sort().flatMap((name) => {
-    const id = name.slice(0, -".json".length);
+  for (const [rel, bytes] of contents) {
+    const m = rel.match(/^receipts\/(.+)\.json$/);
+    if (!m) continue;
     let raw: unknown;
     try {
-      raw = JSON.parse(fs.readFileSync(path.join(dir, name), "utf8"));
+      raw = JSON.parse(bytes.toString("utf8"));
     } catch {
       raw = undefined;
     }
-    if (!receipt.receiptIntact(raw) || raw.id !== id) return [`receipt-tampered:${id}`];
-    return raw.exitCode === 0 ? [] : [`receipt-failed:${id}`];
-  });
-}
-
-function collectArchiveFiles(run: WorkflowRun): ArchiveFileEntry[] {
-  const entries = new Map<string, ArchiveFileEntry>();
-  for (const file of walkFiles(run.paths.runDir)) {
-    const relativePath = toArchivePath(path.relative(run.paths.runDir, file));
-    if (!relativePath || relativePath === "state.json" || relativePath === "import-manifest.json" || relativePath.endsWith(".lock")) continue;
-    addFile(entries, file, roleForRelativePath(relativePath), run.paths.runDir);
-  }
-  for (const artifactPath of collectReferencedArtifactPaths(run)) {
-    if (!artifactPath || !fs.existsSync(artifactPath) || !fs.statSync(artifactPath).isFile()) continue;
-    if (isContainedPath(artifactPath, run.paths.runDir)) {
-      addFile(entries, artifactPath, "artifact", run.paths.runDir);
-      continue;
+    const code = !receiptIntact(raw) || raw.id !== m[1] ? `receipt-tampered:${m[1]}` : raw.exitCode !== 0 ? `receipt-failed:${m[1]}` : undefined;
+    if (code) {
+      findingsOk = false;
+      fail("receipt", code);
     }
-    if (isContainedPath(artifactPath, run.cwd)) addExternalArtifactFile(entries, artifactPath);
   }
-  return [...entries.values()].sort((left, right) => (left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0));
-}
+  result.reportFindingsVerified = findingsOk;
 
-function addFile(entries: Map<string, ArchiveFileEntry>, file: string, role: ArchiveFileRole, runDir: string): void {
-  const relativePath = toArchivePath(path.relative(runDir, file));
-  if (relativePath === "state.json" || relativePath === "import-manifest.json") return;
-  if (!relativePath || relativePath.startsWith("../")) return;
-  const bytes = fs.readFileSync(file);
-  entries.set(relativePath, { relativePath, role, contentBase64: bytes.toString("base64"), sha256: sha256Bytes(bytes), sizeBytes: bytes.length });
-}
+  if (options.strictSignatures && sig.checked > 0 && !trustKey) fail("signatures", "signature-key-required");
+  result.trustLevel = sig.resultBound.length > 0 && sig.failed === 0 && findingsOk ? "signed" : "unsigned";
+  if (options.requireSignatures && result.trustLevel === "unsigned") fail("signatures", "signatures-required");
 
-function addExternalArtifactFile(entries: Map<string, ArchiveFileEntry>, file: string): void {
-  const sourcePath = path.resolve(file);
-  const bytes = fs.readFileSync(sourcePath);
-  const relativePath = `external-artifacts/${sha256Bytes(Buffer.from(sourcePath, "utf8")).slice(0, 16)}-${safeArchiveBasename(path.basename(sourcePath))}`;
-  entries.set(relativePath, { relativePath, role: "artifact", contentBase64: bytes.toString("base64"), sha256: sha256Bytes(bytes), sizeBytes: bytes.length, sourcePath });
-}
-
-function collectReferencedArtifactPaths(run: WorkflowRun): string[] {
-  const paths = new Set<string>();
-  for (const node of run.nodes || []) {
-    for (const artifact of node.artifacts || []) addArtifactPath(paths, run, artifact.path);
-  }
-  const candidates = (run.candidates || []) as Array<{ artifacts?: Array<{ path?: string }> }>;
-  for (const candidate of candidates) {
-    for (const artifact of candidate.artifacts || []) addArtifactPath(paths, run, artifact.path);
-  }
-  const selections = (run.candidateSelections || []) as Array<{ artifacts?: Array<{ path?: string }> }>;
-  for (const selection of selections) {
-    for (const artifact of selection.artifacts || []) addArtifactPath(paths, run, artifact.path);
-  }
-  const bbArtifacts = (run.blackboard?.artifacts || []) as Array<{ path?: string }>;
-  for (const artifact of bbArtifacts) addArtifactPath(paths, run, artifact.path);
-  return [...paths].sort();
-}
-
-function addArtifactPath(paths: Set<string>, run: WorkflowRun, value?: string): void {
-  if (!value) return;
-  paths.add(path.isAbsolute(value) ? value : path.resolve(run.cwd, value));
-}
-
-function walkFiles(root: string): string[] {
-  if (!fs.existsSync(root)) return [];
-  const found: string[] = [];
-  for (const name of fs.readdirSync(root)) {
-    const file = path.join(root, name);
-    const stat = fs.lstatSync(file);
-    if (stat.isSymbolicLink()) continue;
-    if (stat.isDirectory()) found.push(...walkFiles(file));
-    else if (stat.isFile()) found.push(file);
-  }
-  return found;
-}
-
-function roleForRelativePath(relativePath: string): ArchiveFileRole {
-  if (relativePath === "telemetry.json") return "telemetry";
-  if (relativePath === "audit" || relativePath.startsWith("audit/")) return "audit";
-  if (relativePath === "artifacts" || relativePath.startsWith("artifacts/")) return "artifact";
-  return "run-file";
-}
-
-function normalizeArchiveFiles(raw: RunExport): ArchiveFileEntry[] {
-  const modernValue = (raw as unknown as Record<string, unknown>).files;
-  if (modernValue !== undefined && !Array.isArray(modernValue)) {
-    throw new Error("Invalid run export: files must be an array");
-  }
-  const modern = (modernValue || []) as unknown[];
-  if (modern.length) {
-    return validateArchiveFileTable(modern.map(normalizeModernArchiveFile));
-  }
-  const legacyValue = (raw as unknown as Record<string, unknown>).artifacts;
-  if (legacyValue !== undefined && !Array.isArray(legacyValue)) {
-    throw new Error("Invalid run export: artifacts must be an array");
-  }
-  const legacy = ((legacyValue || []) as unknown[]).map((value) => {
-    if (!value || typeof value !== "object" || Array.isArray(value)) {
-      throw new Error("Invalid run export: every artifact must be an object");
+  if (options.extractReportTo) {
+    const target = path.resolve(options.extractReportTo);
+    const report = contents.get("report.md");
+    if (options.cwd && !isContainedPath(target, path.resolve(options.cwd))) fail("extract-report", "path-outside-working-directory");
+    else if (!report) fail("extract-report", "report-md-unavailable");
+    else {
+      fs.writeFileSync(target, report);
+      result.reportExtractedTo = target;
     }
-    const artifact = value as Record<string, unknown>;
-    if (typeof artifact.path !== "string") throw new Error("Invalid run export: artifact path must be a string");
-    const contentBase64 = artifact.contentBase64 || Buffer.from("", "utf8").toString("base64");
-    if (typeof contentBase64 !== "string") throw new Error(`Invalid run export: contentBase64 must be a string for ${artifact.path}`);
-    const bytes = Buffer.from(contentBase64, "base64");
-    return {
-      relativePath: cleanArchiveRelativePath(artifact.path),
-      role: "artifact" as ArchiveFileRole,
-      contentBase64,
-      sha256: typeof artifact.sha256 === "string" ? artifact.sha256 : sha256Bytes(bytes),
-      sizeBytes: artifact.sizeBytes === undefined ? bytes.length : artifact.sizeBytes as number,
-    };
-  });
-  return validateArchiveFileTable(legacy);
-}
-
-function archiveIntakeLimits(): ArchiveIntakeLimits {
-  return {
-    rawBytes: archiveLimitFromEnvironment("CW_MAX_RUN_ARCHIVE_BYTES"),
-    fileCount: archiveLimitFromEnvironment("CW_MAX_RUN_ARCHIVE_FILES"),
-    contentBytes: archiveLimitFromEnvironment("CW_MAX_RUN_ARCHIVE_CONTENT_BYTES"),
-  };
-}
-
-function archiveLimitFromEnvironment(name: string): number | undefined {
-  const value = process.env[name];
-  if (value === undefined) return undefined;
-  if (!/^[1-9][0-9]*$/.test(value)) throw new Error(`Invalid ${name}: expected a positive safe integer`);
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed)) throw new Error(`Invalid ${name}: expected a positive safe integer`);
-  return parsed;
-}
-
-/** Read the archive only after its operator-set raw-byte limit has passed. */
-function readArchiveBytes(archivePath: string, limits: ArchiveIntakeLimits): Buffer {
-  if (limits.rawBytes !== undefined) {
-    const size = fs.statSync(archivePath).size;
-    if (size > limits.rawBytes) throw new Error(`Archive raw byte limit exceeded: max ${limits.rawBytes}, got ${size}`);
   }
-  return fs.readFileSync(archivePath);
-}
-
-function validateArchiveIntake(files: ArchiveFileEntry[], limits: ArchiveIntakeLimits): void {
-  if (limits.fileCount !== undefined && files.length > limits.fileCount) {
-    throw new Error(`Archive file count limit exceeded: max ${limits.fileCount}, got ${files.length}`);
-  }
-  if (limits.contentBytes === undefined) return;
-  let total = 0;
-  for (const file of files) {
-    if (file.sizeBytes > limits.contentBytes - total) {
-      throw new Error(`Archive content byte limit exceeded: max ${limits.contentBytes}, got more than ${limits.contentBytes}`);
-    }
-    total += file.sizeBytes;
-  }
-}
-
-function archiveLimitCheck(error: unknown): RestoreVerificationCheck {
-  const actual = messageOf(error);
-  const code = actual.startsWith("Archive file count limit exceeded:")
-    ? "archive-limit-file-count"
-    : actual.startsWith("Archive content byte limit exceeded:")
-      ? "archive-limit-content-bytes"
-      : "archive-limit-invalid";
-  return { name: "archive-limit", pass: false, code, actual };
-}
-
-function normalizeModernArchiveFile(value: unknown): ArchiveFileEntry {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Invalid run export: every file entry must be an object");
-  }
-  const file = value as Record<string, unknown>;
-  if (typeof file.relativePath !== "string") throw new Error("Invalid run export: file relativePath must be a string");
-  if (typeof file.contentBase64 !== "string") throw new Error(`Invalid run export: contentBase64 must be a string for ${file.relativePath}`);
-  if (typeof file.sha256 !== "string") throw new Error(`Invalid run export: sha256 must be a string for ${file.relativePath}`);
-  if (file.sourcePath !== undefined && typeof file.sourcePath !== "string") {
-    throw new Error(`Invalid run export: sourcePath must be a string for ${file.relativePath}`);
-  }
-  return {
-    relativePath: cleanArchiveRelativePath(file.relativePath),
-    role: file.role as ArchiveFileRole,
-    contentBase64: file.contentBase64,
-    sha256: file.sha256,
-    sizeBytes: file.sizeBytes as number,
-    sourcePath: file.sourcePath as string | undefined,
-  };
-}
-
-/** Make one canonical, unique archive file table before any caller writes.
- *  Digest and base64 checks run next, but shape and path faults stop here. */
-function validateArchiveFileTable(files: ArchiveFileEntry[]): ArchiveFileEntry[] {
-  const roles = new Set<ArchiveFileRole>(["artifact", "audit", "telemetry", "run-file"]);
-  const seen = new Set<string>();
-  for (const file of files) {
-    if (!roles.has(file.role)) throw new Error(`Invalid archive file role for ${file.relativePath}: ${String(file.role)}`);
-    if (!/^[a-f0-9]{64}$/.test(file.sha256)) throw new Error(`Invalid archive sha256 for ${file.relativePath}`);
-    if (!Number.isSafeInteger(file.sizeBytes) || file.sizeBytes < 0) {
-      throw new Error(`Invalid archive size for ${file.relativePath}: ${String(file.sizeBytes)}`);
-    }
-    if (file.relativePath === "state.json" || file.relativePath === "import-manifest.json" || file.relativePath.endsWith(".lock")) {
-      throw new Error(`Reserved archive relative path: ${file.relativePath}`);
-    }
-    if (seen.has(file.relativePath)) throw new Error(`Duplicate archive relative path: ${file.relativePath}`);
-    seen.add(file.relativePath);
-  }
-  return files;
-}
-
-function decodeBase64StrictResult(value: unknown, relativePath: string): { ok: true; bytes: Buffer } | { ok: false; check: RestoreVerificationCheck } {
-  if (typeof value !== "string") {
-    return { ok: false, check: { name: "archive-file", pass: false, code: "archive-bad-base64", path: relativePath, actual: "contentBase64 is not a string" } };
-  }
-  const compact = value.replace(/\s+/g, "");
-  if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(compact)) {
-    return { ok: false, check: { name: "archive-file", pass: false, code: "archive-bad-base64", path: relativePath, actual: "invalid base64 encoding" } };
-  }
-  const bytes = Buffer.from(compact, "base64");
-  const expected = compact.replace(/=+$/, "");
-  const actual = bytes.toString("base64").replace(/=+$/, "");
-  if (actual !== expected) {
-    return { ok: false, check: { name: "archive-file", pass: false, code: "archive-bad-base64", path: relativePath, actual: "non-canonical base64 encoding" } };
-  }
-  return { ok: true, bytes };
-}
-
-function decodeBase64Strict(value: unknown, relativePath: string): Buffer {
-  const decoded = decodeBase64StrictResult(value, relativePath);
-  if (!decoded.ok) throw new Error(archiveCheckMessage(decoded.check));
-  return decoded.bytes;
-}
-
-function collectArchiveDigestChecks(files: ArchiveFileEntry[], integrity?: RunExport["integrity"], limits: ArchiveIntakeLimits = {}): { checks: RestoreVerificationCheck[]; ok: boolean } {
-  const checks: RestoreVerificationCheck[] = [];
-  let decodedTotal = 0;
-  for (const file of files) {
-    const decoded = decodeBase64StrictResult(file.contentBase64, file.relativePath);
-    if (!decoded.ok) {
-      checks.push(decoded.check);
-      continue;
-    }
-    const bytes = decoded.bytes;
-    if (limits.contentBytes !== undefined && bytes.length > limits.contentBytes - decodedTotal) {
-      checks.push({ name: "archive-limit", pass: false, code: "archive-limit-content-bytes", path: file.relativePath, expected: String(limits.contentBytes), actual: `more than ${limits.contentBytes}` });
-    } else {
-      decodedTotal += bytes.length;
-    }
-    const actual = sha256Bytes(bytes);
-    const digestOk = actual === file.sha256;
-    checks.push(digestOk ? { name: "archive-file", pass: true, path: file.relativePath } : { name: "archive-file", pass: false, code: "digest-mismatch", path: file.relativePath, expected: file.sha256, actual });
-    const sizeOk = bytes.length === file.sizeBytes;
-    checks.push(sizeOk ? { name: "archive-file", pass: true, path: file.relativePath } : { name: "archive-file", pass: false, code: "size-mismatch", path: file.relativePath, expected: String(file.sizeBytes), actual: String(bytes.length) });
-  }
-  if (integrity) {
-    const countOk = integrity.fileCount === files.length;
-    checks.push(countOk ? { name: "archive-file-count", pass: true } : { name: "archive-file-count", pass: false, code: "file-count-mismatch", expected: String(integrity.fileCount), actual: String(files.length) });
-    const actualManifest = digestManifest(files);
-    const manifestOk = integrity.manifestSha256 === actualManifest;
-    checks.push(manifestOk ? { name: "archive-manifest", pass: true } : { name: "archive-manifest", pass: false, code: "manifest-digest-mismatch", expected: integrity.manifestSha256, actual: actualManifest });
-  }
-  return { checks, ok: checks.every((c) => c.pass) };
-}
-
-function archiveCheckMessage(check: RestoreVerificationCheck): string {
-  switch (check.code) {
-    case "digest-mismatch":
-      return `Archive digest mismatch for ${check.path}: expected ${check.expected}, got ${check.actual}`;
-    case "size-mismatch":
-      return `Archive size mismatch for ${check.path}: expected ${check.expected}, got ${check.actual}`;
-    case "file-count-mismatch":
-      return `Archive file count mismatch: expected ${check.expected}, got ${check.actual}`;
-    case "manifest-digest-mismatch":
-      return `Archive manifest digest mismatch: expected ${check.expected}, got ${check.actual}`;
-    case "archive-bad-base64":
-      return `Archive base64 invalid for ${check.path}: ${check.actual}`;
-    default:
-      return `Archive verification failed: ${check.name}`;
-  }
-}
-
-function verifyArchiveFileDigests(files: ArchiveFileEntry[], integrity?: RunExport["integrity"], limits: ArchiveIntakeLimits = {}): void {
-  if (!integrity && /^(1|true|yes|on)$/i.test(process.env.CW_REQUIRE_ARCHIVE_INTEGRITY || "")) {
-    throw new Error("Archive integrity block required but absent (CW_REQUIRE_ARCHIVE_INTEGRITY=1)");
-  }
-  const failed = collectArchiveDigestChecks(files, integrity, limits).checks.find((c) => !c.pass);
-  if (failed) throw new Error(archiveCheckMessage(failed));
-}
-
-function digestManifest(files: Array<Omit<ArchiveFileEntry, "contentBase64"> | ArchiveFileEntry>): string {
-  const manifest = files
-    .map((file) => ({ relativePath: file.relativePath, role: file.role, sha256: file.sha256, sizeBytes: file.sizeBytes }))
-    .sort((left, right) => (left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0));
-  return sha256Bytes(Buffer.from(JSON.stringify(manifest), "utf8"));
-}
-
-function rebaseRun(
-  source: WorkflowRun,
-  context: { oldRunDir: string; newRunDir: string; oldCwd: string; newCwd: string; paths: WorkflowRun["paths"]; externalPathMap?: Map<string, string> }
-): WorkflowRun {
-  const cloned = deepRebase(JSON.parse(JSON.stringify(source)), context) as WorkflowRun;
-  cloned.cwd = context.newCwd;
-  cloned.paths = context.paths;
-  cloned.updatedAt = new Date().toISOString();
-  cloned.audit = cloned.audit
-    ? {
-        schemaVersion: 1,
-        eventLogPath: path.join(context.paths.auditDir || path.join(context.paths.runDir, "audit"), "events.jsonl"),
-        summaryPath: path.join(context.paths.auditDir || path.join(context.paths.runDir, "audit"), "summary.json"),
-        indexPath: path.join(context.paths.auditDir || path.join(context.paths.runDir, "audit"), "index.json"),
-      }
-    : cloned.audit;
-  return cloned;
-}
-
-function rebaseVerificationPaths(result: RestoreVerificationResult, oldRunDir: string, newRunDir: string): RestoreVerificationResult {
-  const replace = (value: string): string => value === oldRunDir || value.startsWith(oldRunDir + path.sep)
-    ? newRunDir + value.slice(oldRunDir.length)
-    : value;
-  return {
-    ...result,
-    manifestPath: replace(result.manifestPath),
-    checks: result.checks.map((check) => ({ ...check, ...(check.path ? { path: replace(check.path) } : {}) })),
-  };
-}
-
-function deepRebase(value: unknown, context: { oldRunDir: string; newRunDir: string; oldCwd: string; newCwd: string; externalPathMap?: Map<string, string> }): unknown {
-  if (typeof value === "string") return rebaseString(value, context);
-  if (Array.isArray(value)) return value.map((entry) => deepRebase(entry, context));
-  if (value && typeof value === "object") {
-    const out: Record<string, unknown> = {};
-    for (const [key, entry] of Object.entries(value)) out[key] = deepRebase(entry, context);
-    return out;
-  }
-  return value;
-}
-
-function rebaseString(value: string, context: { oldRunDir: string; newRunDir: string; oldCwd: string; newCwd: string; externalPathMap?: Map<string, string> }): string {
-  const archivedExternal = context.externalPathMap?.get(value);
-  if (archivedExternal) return archivedExternal;
-  if (value === context.oldRunDir || value.startsWith(context.oldRunDir + path.sep)) {
-    return context.newRunDir + value.slice(context.oldRunDir.length);
-  }
-  if (value === context.oldCwd || value.startsWith(context.oldCwd + path.sep)) {
-    return context.newCwd + value.slice(context.oldCwd.length);
-  }
-  return value;
-}
-
-function cleanArchiveRelativePath(value: string): string {
-  const portable = value.replace(/\\/g, "/");
-  if (portable.startsWith("/") || /^[A-Za-z]:\//.test(portable) || /(^|\/)\.\.(\/|$)/.test(portable) || /[\u0000-\u001f\u007f]/.test(portable)) {
-    throw new Error(`Invalid archive relative path: ${value}`);
-  }
-  const cleaned = path.posix.normalize(portable);
-  if (!cleaned || cleaned === "." || cleaned.startsWith("../") || cleaned.includes("/../")) throw new Error(`Invalid archive relative path: ${value}`);
-  return cleaned;
-}
-
-function toArchivePath(value: string): string {
-  return value.split(path.sep).join("/");
-}
-
-function safeArchiveBasename(value: string): string {
-  return value.replace(/[^A-Za-z0-9._-]/g, "_") || "artifact";
-}
-
-/** Compare two PEM public keys byte-for-byte after dropping whitespace, so a
- *  benign line-wrap or trailing-newline difference does not read as a key
- *  change, but a truly different key (different base64 body) does. */
-function normalizePem(pem: string | undefined): string {
-  return (pem || "").replace(/\s+/g, "");
+  result.ok = archiveOk && failedChecks.length === 0;
+  return result;
 }

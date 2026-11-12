@@ -24,9 +24,9 @@ receipt for agent work. Anything else is cut, not frozen.
 | Never push to `main`. Branch, PR, green CI, merge. | branch protection |
 | A fix comes with a test that fails before it. | `scripts/fails-before-check.mjs` |
 | Zero runtime dependencies in the CLI. | reviewer |
+| `src/` stays at 10,000 lines or fewer. | `scripts/size-check.mjs` |
 | core decides, shell does I/O, wiring joins; imports point one way. | `scripts/purity-gate.mjs` |
 | Data crossing the executor boundary holds no callable. | `test/one-way-boundary-smoke.mjs` |
-| CLI and MCP are two views of one capability table. | `scripts/parity-check.mjs` |
 | No `shell: true` in src/; children are spawned argv-style. | `test/architecture-smoke.mjs` |
 | Private keys never live in src/ or reach a child process. | `test/architecture-smoke.mjs` |
 | Committed `dist/` is exactly the build of `src/`. | `scripts/dist-drift-check.mjs` |

@@ -3,8 +3,7 @@
 // Pins: the report shape; that it is READ-ONLY (creates no .cw/$CW_HOME); that a
 // missing agent is a WARN (exit 0, not a hard fail); that an unwritable home
 // registry is a FAIL with non-zero exit; that --json is parseable while the
-// default human rendering is not JSON; and that --onramp returns the short safe
-// first-run / change-loop / release-gate path without changing default JSON.
+// default human rendering is not JSON; and that --fix prints the fix commands.
 //
 // Included in `npm test`.
 
@@ -14,7 +13,6 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
-const repoRoot = path.resolve(pluginRoot, "..", "..");
 const cli = path.join(pluginRoot, "dist", "cli.js");
 import { runDoctor } from "../dist/shell/doctor.js";
 import { tmpDir } from "./helpers/workspace.mjs";
@@ -36,17 +34,12 @@ function run(args, env, cwd) {
   assert.equal(report.schemaVersion, 1);
   assert.ok(Array.isArray(report.checks) && report.checks.length >= 4, "has checks");
   const names = report.checks.map((c) => c.name);
-  for (const n of ["node", "agent", "sandbox-enforceability", "home-registry", "repo-state"]) assert.ok(names.includes(n), `check ${n} present`);
+  // agent-binary / agent-runs show only when an agent is configured or found.
+  assert.deepEqual(names.filter((n) => !n.startsWith("agent-")), ["node", "agent", "git", "repo-state", "run-state-integrity"], "the checks, in order");
   for (const c of report.checks) assert.ok(["ok", "warn", "fail"].includes(c.status), `valid status for ${c.name}`);
-  assert.equal(report.onramp, undefined, "onramp is opt-in");
+  for (const c of report.checks) if (c.status === "ok") assert.equal(c.fix, undefined, `an ok check (${c.name}) carries no fix line`);
   // node check must pass (the test runs on Node 22.13+).
   assert.equal(report.checks.find((c) => c.name === "node").status, "ok", "node check ok");
-  // sandbox-enforceability is a fixed architectural fact, not a per-host
-  // problem: always "ok", never "warn"/"fail", so it can never contaminate
-  // the warning count or block "ready — all checks passed".
-  const sandboxCheck = report.checks.find((c) => c.name === "sandbox-enforceability");
-  assert.equal(sandboxCheck.status, "ok", "sandbox-enforceability is always ok");
-  assert.equal(sandboxCheck.fix, undefined, "an ok check must not carry a fix line");
 })();
 
 // ---- 2. READ-ONLY: doctor creates neither $CW_HOME nor <cwd>/.cw --------------
@@ -78,18 +71,18 @@ function run(args, env, cwd) {
   assert.equal(report.checks.find((c) => c.name === "agent").status, "warn", "agent is a warn");
 })();
 
-// ---- 4. unwritable home registry => FAIL, exit 1 ------------------------------
-(function unwritableHomeFails() {
-  // Point $CW_HOME under a regular FILE so no ancestor dir can be created/written.
+// ---- 4. a run whose state.json does not load => run-state-integrity WARN --------
+(function corruptRunStateWarns() {
   const base = tmpDir("cw-doctor-bad-");
-  const file = path.join(base, "afile");
-  fs.writeFileSync(file, "x");
-  const badHome = path.join(file, "registry"); // a path UNDER a file → unwritable
-  const r = run(["--json"], { ...process.env, CW_HOME: badHome }, base);
-  assert.equal(r.code, 1, "unwritable home registry is a blocking failure (exit 1)");
+  const runDir = path.join(base, ".cw", "runs", "broken-run");
+  fs.mkdirSync(runDir, { recursive: true });
+  fs.writeFileSync(path.join(runDir, "state.json"), "{ not json");
+  const r = run(["--json"], { ...process.env, CW_HOME: base }, base);
   const report = JSON.parse(r.stdout);
-  assert.equal(report.ok, false);
-  assert.equal(report.checks.find((c) => c.name === "home-registry").status, "fail");
+  const check = report.checks.find((c) => c.name === "run-state-integrity");
+  assert.equal(check.status, "warn", "a corrupt state.json is named, not hidden");
+  assert.match(check.detail, /broken-run/);
+  assert.ok(check.fix, "and comes with a fix");
 })();
 
 // ---- 5. jsonMode "flag": --json is JSON, default human output is NOT JSON ------
@@ -100,63 +93,6 @@ function run(args, env, cwd) {
   assert.throws(() => JSON.parse(human), "default rendering is not canonical JSON");
   const json = run(["--json"], { ...process.env, CW_HOME: home }, home).stdout;
   assert.doesNotThrow(() => JSON.parse(json), "--json is parseable");
-})();
-
-// ---- 6. --onramp is opt-in and gives the short, safe path --------------------
-(function onramp() {
-  const home = tmpDir("cw-doctor-onramp-");
-  const env = { ...process.env, CW_HOME: home };
-  delete env.CW_AGENT_COMMAND;
-  delete env.CW_AGENT_ENDPOINT;
-  const json = run(["--onramp", "--json"], env, pluginRoot);
-  assert.equal(json.code, 0);
-  const report = JSON.parse(json.stdout);
-  assert.equal(report.schemaVersion, 1);
-  assert.equal(report.onramp.schemaVersion, 1);
-  const sectionIds = report.onramp.sections.map((section) => section.id);
-  for (const id of ["first-run", "change-loop", "surface-guard", "release-gate"]) {
-    assert.ok(sectionIds.includes(id), `onramp section ${id} present`);
-  }
-  const commands = report.onramp.sections.flatMap((section) => section.actions.map((action) => action.command));
-  assert.ok(commands.includes("cw demo tamper"), "first-run demo is named");
-  assert.ok(commands.some((command) => /quickstart architecture-review .*--bundle/.test(command)), "first-run bundle handoff is named");
-  assert.ok(commands.includes("cw report verify-bundle report.cwrun.json"), "first-run offline bundle verification is named");
-  assert.ok(commands.includes("npm run test:fast"), "fast suite is named");
-  assert.ok(commands.includes("npm run release:check"), "release gate is named");
-  assert.ok(commands.includes("npm run parity:check"), "surface drift guard is named");
-
-  const plain = run(["--onramp"], env, pluginRoot).stdout;
-  assert.ok(plain.includes("Onramp"), "human onramp section is rendered");
-  assert.ok(plain.includes("cw quickstart architecture-review --check"), "human onramp names the zero-write check");
-  assert.ok(plain.includes("--bundle"), "human onramp names the bundle handoff");
-  assert.ok(plain.includes("cw report verify-bundle report.cwrun.json"), "human onramp names offline bundle verification");
-
-  const changedPlain = run(["--onramp", "--changed-from", "HEAD"], env, pluginRoot).stdout;
-  assert.ok(changedPlain.includes("Recommended Checks"), "changed-file onramp renders recommended checks");
-  assert.ok(changedPlain.includes("npm run test:fast"), "changed-file onramp names the fast suite");
-
-  const fromRepoRoot = JSON.parse(run(["--onramp", "--json"], env, repoRoot).stdout);
-  const rootedCommands = fromRepoRoot.onramp.sections.flatMap((section) => section.actions.map((action) => action.command));
-  assert.ok(
-    rootedCommands.includes("cd plugins/cool-workflow && npm run test:fast"),
-    "source checkout commands are rooted when doctor runs from the repo root"
-  );
-
-  const changedFromRepoRoot = JSON.parse(run(["--onramp", "--changed-from", "HEAD", "--json"], env, repoRoot).stdout);
-  assert.ok(
-    changedFromRepoRoot.onramp.recommendedChecks.commands.includes("cd plugins/cool-workflow && npm run test:fast"),
-    "changed-file recommended commands are rooted when doctor runs from the repo root"
-  );
-
-  // Outside a cool-workflow checkout, the contributor sections do not show:
-  // only a new user's own next steps belong in front of a new user.
-  const outsideRepo = tmpDir("cw-doctor-onramp-outside-");
-  const outsideOnramp = JSON.parse(run(["--onramp", "--json"], env, outsideRepo).stdout).onramp;
-  const outsideTitles = outsideOnramp.sections.map((s) => s.title);
-  for (const title of ["Change Loop", "Surface Guard", "Release Gate"]) {
-    assert.ok(!outsideTitles.includes(title), `${title} hidden outside the source checkout`);
-  }
-  assert.ok(!outsideOnramp.summary.includes("gate"), "outside-repo summary uses plain user words, not gate talk");
 })();
 
 // --fix consolidated fix commands
@@ -190,4 +126,4 @@ function run(args, env, cwd) {
     `CW_NO_AUTO_AGENT=1 agent status is warn or ok, got ${agentCheck.status}`);
 })();
 
-process.stdout.write("doctor-smoke: ok (shape; read-only; no-agent warns; unwritable home fails closed; --json flag mode; onramp opt-in; --fix mode; CW_NO_AUTO_AGENT guard)\n");
+process.stdout.write("doctor-smoke: ok (shape; read-only; no-agent warns; corrupt run state warns; --json flag mode; --fix mode; CW_NO_AUTO_AGENT guard)\n");

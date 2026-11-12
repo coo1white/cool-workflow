@@ -1,25 +1,13 @@
-// shell/agent-config.ts — agent delegation config: env/file/flag resolution
-// order, CW_HOME resolution, builtin:<name> expansion, PATH auto-detect.
-//
-// Resolution order per field: flags > env > a durable
-// $CW_HOME/agent-config.json > auto-detect > none. The command and its args
-// are one field: both come from the first layer that sets a command. NO SECRETS IN COMMITTED
-// STATE: the durable config holds a command-TEMPLATE + endpoint + operator-
-// chosen model only; a secret-looking arg is stripped before persisting or
-// showing.
-//
-// Evidence: SPEC/execution-backend.md "Agent delegation config".
+// shell/agent-config.ts — which agent command CW delegates to. Order per
+// field: flags > env > $CW_HOME/agent-config.json > PATH auto-detect > none.
+// The command and its args are one unit: both come from the first layer that
+// sets a command. `builtin:<name>` expands to a bundled wrapper script.
 
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { boolWord, findProgram } from "../core/util/cli-args.js";
-import { writeJson } from "./fs-atomic.js";
-import { agentCommandArgv, splitAgentCommand } from "../core/util/cli-args.js";
-import { stripSecretArgs } from "./execution-backend/agent.js";
-import { AgentDelegationConfig } from "./execution-backend/types.js";
-
-export const AGENT_CONFIG_SCHEMA_VERSION = 1;
+import { agentCommandArgv, findProgram, splitAgentCommand } from "../core/util/cli-args.js";
+import { AgentDelegationConfig } from "./execution-backend/agent.js";
 
 /** CW_HOME resolution: CW_HOME > XDG_STATE_HOME/cool-workflow > ~/.local/state/cool-workflow. */
 export function resolveCwHome(env: NodeJS.ProcessEnv = process.env): string {
@@ -53,20 +41,17 @@ function firstDefined<T>(...values: (T | undefined)[]): T | undefined {
 
 /** Read the durable config FILE (if any). Never throws — a corrupt file is
  *  treated as absent (fail closed). */
-export function loadAgentConfigFile(env: NodeJS.ProcessEnv = process.env): AgentDelegationConfig | undefined {
+function loadAgentConfigFile(env: NodeJS.ProcessEnv): AgentDelegationConfig | undefined {
   const file = agentConfigPath(env);
   if (!fs.existsSync(file)) return undefined;
   try {
     const parsed = JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, unknown>;
     return {
-      schemaVersion: 1,
       command: trimmed(parsed.command),
       args: asStringArray(parsed.args),
-      endpoint: trimmed(parsed.endpoint),
       model: trimmed(parsed.model),
       timeoutMs: typeof parsed.timeoutMs === "number" ? parsed.timeoutMs : undefined,
       attestPublicKey: trimmed(parsed.attestPublicKey),
-      requireAttestedTelemetry: boolWord(parsed.requireAttestedTelemetry),
       source: "file",
     };
   } catch {
@@ -77,14 +62,11 @@ export function loadAgentConfigFile(env: NodeJS.ProcessEnv = process.env): Agent
 function agentConfigFromEnv(env: NodeJS.ProcessEnv): AgentDelegationConfig {
   const split = splitAgentCommand(trimmed(env.CW_AGENT_COMMAND), undefined);
   return {
-    schemaVersion: 1,
     command: split.command,
     args: split.args,
-    endpoint: trimmed(env.CW_AGENT_ENDPOINT),
     model: trimmed(env.CW_AGENT_MODEL),
     timeoutMs: trimmed(env.CW_AGENT_TIMEOUT_MS) ? Number(env.CW_AGENT_TIMEOUT_MS) : undefined,
     attestPublicKey: trimmed(env.CW_AGENT_ATTEST_PUBKEY),
-    requireAttestedTelemetry: boolWord(env.CW_REQUIRE_ATTESTED_TELEMETRY),
     source: "env",
   };
 }
@@ -95,14 +77,11 @@ function agentConfigFromArgs(args: Record<string, unknown>): AgentDelegationConf
   const split = splitAgentCommand(rawCommand, rawArgs);
   const rawTimeout = args.agentTimeoutMs ?? args["agent-timeout-ms"];
   return {
-    schemaVersion: 1,
     command: split.command,
     args: split.args,
-    endpoint: trimmed(args.agentEndpoint ?? args["agent-endpoint"]),
     model: trimmed(args.agentModel ?? args["agent-model"]),
     timeoutMs: rawTimeout !== undefined ? Number(rawTimeout) : undefined,
     attestPublicKey: trimmed(args.agentAttestPublicKey ?? args["agent-attest-public-key"]),
-    requireAttestedTelemetry: boolWord(args.requireAttestedTelemetry ?? args["require-attested-telemetry"]),
     source: "flag",
   };
 }
@@ -118,8 +97,7 @@ function detectAgentFromPath(env: NodeJS.ProcessEnv = process.env): string | und
 
 const AGENTS_DIR = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
 
-type SandboxVendor = { hosts?: string[]; write?: string[] };
-function builtinManifest(): { templates?: Record<string, string>; builtinOnly?: { templates?: string[] }; versionProbe?: { clis?: Record<string, string> }; sandbox?: { vendors?: Record<string, SandboxVendor> } } {
+function builtinManifest(): { templates?: Record<string, string>; builtinOnly?: { templates?: string[] }; versionProbe?: { clis?: Record<string, string> } } {
   return JSON.parse(fs.readFileSync(path.join(AGENTS_DIR, "builtin-templates.json"), "utf8"));
 }
 
@@ -143,25 +121,6 @@ export function agentProbeTarget(command: string | undefined, args?: string[]): 
   }
   const cli = path.basename(bin).replace(/\.(exe|cmd|bat)$/i, "");
   return customMatch(manifest).some(([, value]) => value === cli) ? { cli: bin } : { skip: "custom command" };
-}
-
-/** CW_AGENT_SANDBOX=srt (0.3.3): the hosts and state paths of the bundled agent this command is, from
- *  the templates file's `sandbox.vendors` (data, not kernel code); none for a command of the user's own. */
-export function agentSandboxVendor(command: string | undefined, args?: string[]): { name?: string; hosts: string[]; write: string[] } {
-  if (!command) return { hosts: [], write: [] };
-  const manifest = builtinManifest();
-  const vendors = manifest.sandbox?.vendors || {};
-  const { binary: bin, args: [script] } = agentCommandArgv(command, args);
-  let name: string | undefined;
-  for (const [key, file] of Object.entries(manifest.templates || {})) {
-    if (path.basename(bin) === "node" && script && path.resolve(script) === path.join(AGENTS_DIR, file)) name = key;
-  }
-  if (!name) {
-    const cli = path.basename(bin).replace(/\.(exe|cmd|bat)$/i, "");
-    name = customMatch(manifest).find(([, value]) => value === cli)?.[0];
-  }
-  const vendor = (name && vendors[name]) || {};
-  return { ...(name ? { name } : {}), hosts: [...(vendor.hosts || [])], write: [...(vendor.write || [])] };
 }
 
 function builtinAgentTemplates(): Record<string, string> {
@@ -199,133 +158,22 @@ export function resolveAgentConfig(args: Record<string, unknown> = {}, env: Node
   // higher layer's command (they were written for a different binary).
   const commandLayer = [flagCfg, envCfg, fileCfg].find((layer) => layer && layer.command !== undefined);
   const command = expandBuiltinAgentCommand(commandLayer?.command);
-  let cfgArgs = commandLayer ? commandLayer.args : firstDefined(flagCfg.args, envCfg.args, fileCfg?.args);
-  const endpoint = firstDefined(flagCfg.endpoint, envCfg.endpoint, fileCfg?.endpoint);
+  const cfgArgs = commandLayer ? commandLayer.args : firstDefined(flagCfg.args, envCfg.args, fileCfg?.args);
   const model = firstDefined(flagCfg.model, envCfg.model, fileCfg?.model);
   const timeoutMs = firstDefined(flagCfg.timeoutMs, envCfg.timeoutMs, fileCfg?.timeoutMs);
   const attestPublicKey = firstDefined(flagCfg.attestPublicKey, envCfg.attestPublicKey, fileCfg?.attestPublicKey);
-  const requireAttestedTelemetry = firstDefined(flagCfg.requireAttestedTelemetry, envCfg.requireAttestedTelemetry, fileCfg?.requireAttestedTelemetry);
-  const source: AgentDelegationConfig["source"] =
-    flagCfg.command || flagCfg.endpoint
-      ? "flag"
-      : envCfg.command || envCfg.endpoint
-        ? "env"
-        : fileCfg && (fileCfg.command || fileCfg.endpoint)
-          ? "file"
-          : "none";
-
-  let finalCommand = command;
-  let finalSource: AgentDelegationConfig["source"] = source;
-  let finalModel = model;
-  if (!finalCommand && !endpoint) {
-    const detected = detectAgentFromPath(env);
-    if (detected) {
-      // Detect = use what was found. Auto-detect saw a BINARY on PATH, so it
-      // must resolve to the wrapper that runs THAT binary. For "gemini" the
-      // plain builtin:gemini template goes through opencode instead (a user
-      // choice kept for the explicit -gemini flag, where --help says "via
-      // opencode") — a machine with only the native gemini CLI would be
-      // detected as ready and then fail when the wrapper spawns a missing
-      // opencode. So the auto path maps gemini to builtin:gemini-cli, the
-      // wrapper that spawns the found binary itself.
-      const template = detected === "gemini" ? "gemini-cli" : detected;
-      finalCommand = expandBuiltinAgentCommand(`builtin:${template}`);
-      // The builtin template carries its own argv; no layer's args attach.
-      cfgArgs = undefined;
-      finalSource = "auto";
-      if (!finalModel) finalModel = `builtin:${template}`;
-    }
-  }
-
-  return {
-    schemaVersion: 1,
-    command: finalCommand,
-    args: cfgArgs,
-    endpoint,
-    model: finalModel,
-    timeoutMs,
-    attestPublicKey,
-    requireAttestedTelemetry,
-    source: finalSource,
-  };
+  const base = { model, timeoutMs, attestPublicKey };
+  if (command) return { ...base, command, args: cfgArgs, source: commandLayer!.source };
+  const detected = detectAgentFromPath(env);
+  if (!detected) return { ...base, args: cfgArgs, source: "none" };
+  // Auto-detect saw a binary on PATH, so it must use the wrapper that runs
+  // that binary: a found "gemini" maps to builtin:gemini-cli (builtin:gemini
+  // goes through opencode).
+  const template = detected === "gemini" ? "gemini-cli" : detected;
+  return { ...base, command: expandBuiltinAgentCommand(`builtin:${template}`), model: model || `builtin:${template}`, source: "auto" };
 }
 
-/** True iff a command-template OR endpoint is configured (after resolution). */
+/** True iff an agent command is configured (after resolution). */
 export function agentConfigured(args: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = process.env): boolean {
-  const resolved = resolveAgentConfig(args, env);
-  return Boolean(resolved.command || resolved.endpoint);
-}
-
-/** Secret-stripped copy safe to persist or show — never carries raw
- *  credentials. */
-function redacted(config: AgentDelegationConfig): AgentDelegationConfig {
-  return {
-    ...config,
-    args: config.args ? stripSecretArgs(config.args) : undefined,
-  };
-}
-
-/** Persist the durable config (secret-stripped). Returns the stored,
- *  redacted config. API keys are NEVER written — they come from the
- *  agent's own env. */
-export function setAgentConfigFile(patch: Record<string, unknown>, env: NodeJS.ProcessEnv = process.env): AgentDelegationConfig {
-  const current: AgentDelegationConfig = loadAgentConfigFile(env) || { schemaVersion: 1 };
-  const incoming = agentConfigFromArgs(patch);
-  // The command and its args are one unit: a NEW command takes only the args
-  // given with it, never the args stored for the old one. Re-setting the same
-  // command with no args keeps the stored args. Operator-approved default
-  // change for 0.3.1 (2026-10-16, #784).
-  const commandChanged = incoming.command !== undefined && incoming.command !== current.command;
-  const merged: AgentDelegationConfig = {
-    schemaVersion: 1,
-    command: firstDefined(incoming.command, current.command),
-    args: commandChanged ? incoming.args : firstDefined(incoming.args, current.args),
-    endpoint: firstDefined(incoming.endpoint, current.endpoint),
-    model: firstDefined(incoming.model, current.model),
-    timeoutMs: firstDefined(incoming.timeoutMs, current.timeoutMs),
-    attestPublicKey: firstDefined(incoming.attestPublicKey, current.attestPublicKey),
-    requireAttestedTelemetry: firstDefined(incoming.requireAttestedTelemetry, current.requireAttestedTelemetry),
-    source: "file",
-  };
-  const stored = redacted(merged);
-  const file = agentConfigPath(env);
-  writeJson(file, stored);
-  return stored;
-}
-
-export interface AgentConfigShowResult {
-  schemaVersion: 1;
-  configured: boolean;
-  source: AgentDelegationConfig["source"];
-  config: AgentDelegationConfig;
-  path: string;
-  fileExists: boolean;
-}
-
-/** Read-only, deterministic projection of the effective config
- *  (secret-stripped). No now-derived field — safe for CLI<->MCP payload
- *  parity. */
-export function agentConfigShow(args: Record<string, unknown> = {}, env: NodeJS.ProcessEnv = process.env): AgentConfigShowResult {
-  const resolved = resolveAgentConfig(args, env);
-  return {
-    schemaVersion: 1,
-    configured: Boolean(resolved.command || resolved.endpoint),
-    source: resolved.source,
-    config: redacted(resolved),
-    path: agentConfigPath(env),
-    fileExists: fs.existsSync(agentConfigPath(env)),
-  };
-}
-
-/** Persist the durable agent config (secret-stripped) and return the new
- *  state. */
-export function backendAgentConfigSet(args: Record<string, unknown>, env: NodeJS.ProcessEnv = process.env): AgentConfigShowResult {
-  setAgentConfigFile(args, env);
-  return agentConfigShow(args, env);
-}
-
-/** Read-only, deterministic projection of the effective agent config
- *  (secret-stripped). */
-export function backendAgentConfigShow(args: Record<string, unknown>, env: NodeJS.ProcessEnv = process.env): AgentConfigShowResult {
-  return agentConfigShow(args, env);
+  return Boolean(resolveAgentConfig(args, env).command);
 }

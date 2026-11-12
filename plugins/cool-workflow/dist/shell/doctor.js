@@ -1,8 +1,8 @@
 // shell/doctor.ts — `cw doctor` environment diagnostics, in the spirit of
 // `brew doctor`.
 //
-// Checks: node/agent/agent-binary/agent-runs/git/home-registry/repo-state, plus
-// agent-conformance (`--conformance`) and the `--onramp` section when asked.
+// Checks: node, agent, agent-binary, agent-runs, git,
+// repo-state, run-state-integrity.
 //
 // Discipline:
 //  - READ-ONLY. Never creates .cw/ or $CW_HOME as a side effect.
@@ -14,17 +14,13 @@
 // exec-doctor-agent-config.case.mjs pins the exact text this file must
 // produce.
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { spawnSync } from "node:child_process";
-import { createRequire } from "node:module";
 import { AGENT_FIX, agentProbeTarget, resolveAgentConfig } from "./agent-config.js";
 import { buildAgentChildEnv } from "./execution-backend/agent.js";
 import { findProgram, splitAgentCommandLine } from "../core/util/cli-args.js";
-import { buildDoctorOnramp, optionEnabled } from "./onramp.js";
-import { assertNotSuspectedDataLoss, loadRunStateFile } from "./run-store.js";
-import { verifyTrustAudit } from "./trust-audit.js";
-import { bold, doctorGlyph, green, nextHint, red } from "./term.js";
+import { loadRun } from "./run-store.js";
+import { bold, doctorGlyph, green, red } from "./term.js";
 function whichBinary(bin, env) {
     if (bin.includes("/") || bin.includes("\\")) {
         try {
@@ -72,7 +68,7 @@ function dirWritable(target) {
 function probeAgent(target, env, cwd) {
     const shown = `${target.cli} --version`;
     const timeoutMs = Number(env.CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS) > 0 ? Number(env.CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS) : 15000;
-    const childEnv = buildAgentChildEnv({ env: { inherit: false, expose: [] } }, env).env;
+    const childEnv = buildAgentChildEnv(env).env;
     const r = spawnSync(target.cli, ["--version"], { cwd, env: childEnv, encoding: "utf8", timeout: timeoutMs, killSignal: "SIGKILL", shell: false, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1024 * 1024, windowsHide: true });
     const lines = (text) => text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
     if (!r.error && r.status === 0) {
@@ -88,23 +84,6 @@ function probeAgent(target, env, cwd) {
         detail: `${shown} ${why}${said ? `: ${said}` : "."}`,
         fix: `Make "${shown}" work by hand first (its own message says how, e.g. reinstall it), or pick another agent with --agent-command / $CW_AGENT_COMMAND.`,
     };
-}
-/** CW_AGENT_SANDBOX=srt (0.3.3): can the sandbox run here? Loaded only when asked for. */
-function probeAgentSandbox(env) {
-    const load = createRequire(import.meta.url);
-    const { agentSandboxMode } = load("../core/trust/srt-settings.js");
-    const { resolveSrt, SRT_INSTALL_HINT } = load("./execution-backend/agent-sandbox.js");
-    const mode = agentSandboxMode(env);
-    if ("error" in mode)
-        return { name: "agent-sandbox", status: "fail", detail: mode.error, fix: "Set CW_AGENT_SANDBOX=srt, or unset it." };
-    const srt = resolveSrt(env);
-    if ("error" in srt)
-        return { name: "agent-sandbox", status: "fail", detail: srt.error, fix: SRT_INSTALL_HINT };
-    const missing = process.platform === "linux" ? ["bwrap", "socat"].filter((bin) => !whichBinary(bin, env)) : [];
-    if (missing.length) {
-        return { name: "agent-sandbox", status: "fail", detail: `srt ${srt.version} needs ${missing.join(" and ")}, not found on PATH; every agent hop would be refused.`, fix: "sudo apt-get install bubblewrap socat" };
-    }
-    return { name: "agent-sandbox", status: "ok", detail: `srt ${srt.version} (${srt.bin}) will run each agent; check your agent's hosts with \`cw doctor --conformance\`.` };
 }
 export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
     const checks = [];
@@ -134,7 +113,7 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
         checks.push({
             name: "agent",
             status: "warn",
-            detail: "No agent backend configured — `demo` and `--preview` work, but a real run reports status: blocked.",
+            detail: "No agent backend configured — `cw demo tamper` and `cw check` work, but a real run reports status: blocked.",
             fix: AGENT_FIX,
         });
     }
@@ -143,7 +122,7 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
         checks.push({
             name: "agent",
             status: "ok",
-            detail: `Agent configured from ${cfg.source}${binToken ? `: ${binToken}` : cfg.endpoint ? " (HTTP endpoint)" : ""}.`,
+            detail: `Agent configured from ${cfg.source}${binToken ? `: ${binToken}` : ""}.`,
         });
         if (binToken) {
             const resolved = whichBinary(binToken, env);
@@ -160,21 +139,6 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
     const probe = agentProbeTarget(cfg.command, cfg.args);
     if (probe && !("skip" in probe))
         checks.push(probeAgent(probe, env, cwd));
-    const sandboxAsk = String(env.CW_AGENT_SANDBOX ?? "").trim().toLowerCase();
-    if (sandboxAsk && sandboxAsk !== "off")
-        checks.push(probeAgentSandbox(env));
-    if (optionEnabled(args.conformance)) {
-        const conformance = createRequire(import.meta.url)("./doctor-conformance.js");
-        checks.push(conformance.probeAgentConformance(args, env));
-    }
-    // 3. Sandbox enforcement boundary — a fixed fact, not a host problem, so "ok" (informational):
-    // CW gates policy and accepts; OS-level isolation is the host's job (docs/sandbox-profiles.7.md).
-    // An "ok" check carries no `fix` line, so the docs pointer lives in `detail`.
-    checks.push({
-        name: "sandbox-enforceability",
-        status: "ok",
-        detail: "CW sandbox profiles validate policy and gate worker-output acceptance; OS-level read/write/execute/network/env isolation is the execution host's responsibility (see docs/sandbox-profiles.7.md's ENFORCEMENT section) — this doctor run cannot verify that host enforcement.",
-    });
     // 4. git — only needed for commit provenance; a warn, not a hard fail.
     const git = spawnSync("git", ["--version"], { encoding: "utf8", timeout: 5000 });
     checks.push(!git.error && git.status === 0
@@ -185,17 +149,7 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
             detail: "git is not available — commit provenance (git HEAD) is recorded as absent.",
             fix: "Install git (e.g. `brew install git`) if you want commit provenance.",
         });
-    // 5. Home registry — the cross-repo run index lives here; must be writable.
-    const home = env.CW_HOME && String(env.CW_HOME).trim() ? path.resolve(String(env.CW_HOME)) : path.join(os.homedir(), ".local", "state", "cool-workflow");
-    checks.push(dirWritable(home)
-        ? { name: "home-registry", status: "ok", detail: `Home registry location is writable (${home}).` }
-        : {
-            name: "home-registry",
-            status: "fail",
-            detail: `Home registry location is not writable: ${home}`,
-            fix: "Set $CW_HOME to a writable directory, or fix the permissions.",
-        });
-    // 6. Working-dir state — per-repo runs land under <cwd>/.cw.
+    // 5. Working-dir state — per-repo runs land under <cwd>/.cw.
     const cwState = path.join(path.resolve(cwd), ".cw");
     checks.push(dirWritable(cwState)
         ? { name: "repo-state", status: "ok", detail: `Run state location is writable (${cwState}).` }
@@ -205,11 +159,10 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
             detail: `Cannot write run state under ${cwState}.`,
             fix: "Run from a writable working directory, or pass --cwd PATH.",
         });
-    // 7. Run-state integrity — every run under <cwd>/.cw/runs must have a
+    // 6. Run-state integrity — every run under <cwd>/.cw/runs must have a
     //    LOADABLE state.json: not corrupt, not an unsupported schema, not
-    //    suspected data loss (a wiped state.json next to real task/commit/
-    //    audit content). READ-ONLY: only dry-run loads each run's state,
-    //    same as `cw status`/`cw run show` would — never writes or repairs.
+    //    an old run CW refuses). READ-ONLY: only loads each run's state, the
+    //    way `cw report` would — never writes or repairs.
     const runsDir = path.join(path.resolve(cwd), ".cw", "runs");
     let runDirs = [];
     try {
@@ -220,20 +173,12 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
     }
     const runStateProblems = [];
     let runsScanned = 0;
-    const loadedRuns = [];
     for (const runId of runDirs) {
-        const statePath = path.join(runsDir, runId, "state.json");
-        if (!fs.existsSync(statePath))
+        if (!fs.existsSync(path.join(runsDir, runId, "state.json")))
             continue;
         runsScanned += 1;
         try {
-            const result = loadRunStateFile(statePath, { dryRun: true });
-            if (result.report.status === "unsupported") {
-                runStateProblems.push(`${runId}: ${result.report.errors.join("; ") || "unsupported run state"}`);
-                continue;
-            }
-            assertNotSuspectedDataLoss(runId, result);
-            loadedRuns.push({ runId, run: result.run });
+            loadRun(runId, cwd);
         }
         catch (error) {
             runStateProblems.push(`${runId}: ${error instanceof Error ? error.message : String(error)}`);
@@ -249,30 +194,7 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
             name: "run-state-integrity",
             status: "warn",
             detail: `${runStateProblems.length} of ${runsScanned} run(s) have a state.json problem: ${runStateProblems.slice(0, 3).join(" | ")}${runStateProblems.length > 3 ? ` (+${runStateProblems.length - 3} more)` : ""}`,
-            fix: "Inspect with `cw status <run-id>` for the specific reason; restore state.json from a backup, or remove the run directory to start over.",
-        });
-    // 8. Trust-audit integrity — a torn trailing write from a crash mid-append
-    //    can make a run's audit chain fail verification forever with no
-    //    repair path. Only checked for runs that passed check 7 (a run whose
-    //    state.json itself won't load has no `run` object to check audit for).
-    const auditProblems = [];
-    for (const { runId, run } of loadedRuns) {
-        const integrity = verifyTrustAudit(run);
-        if (integrity.present && !integrity.verified) {
-            auditProblems.push(`${runId}: ${integrity.checks.filter((c) => !c.pass).map((c) => c.code).join(", ")}`);
-        }
-    }
-    checks.push(auditProblems.length === 0
-        ? {
-            name: "audit-integrity",
-            status: "ok",
-            detail: loadedRuns.length > 0 ? `Trust-audit log for all ${loadedRuns.length} loadable run(s) verifies clean.` : "No runs to check.",
-        }
-        : {
-            name: "audit-integrity",
-            status: "warn",
-            detail: `${auditProblems.length} run(s) fail trust-audit verification: ${auditProblems.slice(0, 3).join(" | ")}${auditProblems.length > 3 ? ` (+${auditProblems.length - 3} more)` : ""}`,
-            fix: "Run `cw audit repair <run-id>` to check for a repairable torn trailing write (a crash mid-append); anything else needs manual investigation, not an auto-fix.",
+            fix: "Restore state.json from a backup, or remove the run directory and start a new run.",
         });
     const fails = checks.filter((c) => c.status === "fail").length;
     const warns = checks.filter((c) => c.status === "warn").length;
@@ -287,72 +209,24 @@ export function runDoctor(args = {}, env = process.env, cwd = process.cwd()) {
         ok,
         checks,
         summary,
-        // `--onramp` attaches the onramp block; `--changed-from REF` threads the base ref through.
-        ...(optionEnabled(args.onramp)
-            ? {
-                onramp: buildDoctorOnramp({
-                    cwd,
-                    env,
-                    changedFrom: typeof args["changed-from"] === "string" ? args["changed-from"] : undefined,
-                }),
-            }
-            : {}),
     };
 }
-// The text view's short form of the sandbox-enforceability detail; --json keeps the long one.
-const SANDBOX_BRIEF = "policy is checked by CW; OS isolation is the host's job (docs/sandbox-profiles.7.md).";
 /** Human rendering (TTY/default). `--json` callers use the report object directly. */
 export function formatDoctorReport(report) {
     const lines = [bold("cw doctor")];
     for (const check of report.checks) {
-        lines.push(`  ${doctorGlyph(check.status)} ${check.name}: ${check.name === "sandbox-enforceability" ? SANDBOX_BRIEF : check.detail}`);
+        lines.push(`  ${doctorGlyph(check.status)} ${check.name}: ${check.detail}`);
         if (check.fix && check.status !== "ok")
             lines.push(`      fix: ${check.fix}`);
     }
     lines.push("");
     const summaryGlyph = report.ok ? green("✓") : red("✗");
     lines.push(`${summaryGlyph} ${report.summary}`);
-    if (!report.onramp) {
-        // A first-time (or just not-yet-discovered) `cw doctor` never mentions
-        // the richer onramp content below without this pointer — the "Quick
-        // start (3 steps)"/"Recommended Checks"/per-scenario sections only ever
-        // render behind the `--onramp` opt-in flag, so a user who never reads
-        // `cw help doctor` has no way to find them otherwise.
-        lines.push(`  ${nextHint("cw doctor --onramp")} for the 3-step quick start`);
-    }
-    else {
-        lines.push("");
-        lines.push("Quick start (3 steps):");
-        lines.push("  1. cw demo tamper          — prove trust checks work (30s)");
-        lines.push("  2. cw check -- npm test    — keep a receipt that your tests passed; a result can cite it (no agent needed)");
-        lines.push('  3. cw -q "what risks?"     — your first real report (needs an agent)');
-        lines.push('     cw quickstart research-synthesis --repo <folder> --question "..."  — cited report over a docs/papers folder, not only code');
-        lines.push("");
-        lines.push("Onramp");
-        lines.push(`  ${report.onramp.summary}`);
-        if (report.onramp.recommendedChecks) {
-            lines.push("");
-            lines.push("  Recommended Checks");
-            for (const command of report.onramp.recommendedChecks.commands)
-                lines.push(`    - ${command}`);
-        }
-        if (report.onramp.contract && !report.onramp.contract.ok) {
-            lines.push("");
-            lines.push("  Contract Issues");
-            for (const issue of report.onramp.contract.issues) {
-                lines.push(`    - ${issue.code}: ${issue.detail}`);
-                lines.push(`      fix: ${issue.fix}`);
-            }
-        }
-        for (const section of report.onramp.sections) {
-            lines.push("");
-            lines.push(`  ${section.title}: ${section.summary}`);
-            for (const action of section.actions) {
-                lines.push(`    - ${action.command}`);
-                lines.push(`      ${action.reason}`);
-            }
-        }
-    }
+    lines.push("");
+    lines.push("Quick start:");
+    lines.push("  1. cw demo tamper          — see the trust checks catch an edit (no agent needed)");
+    lines.push("  2. cw check -- npm test    — keep a receipt that your tests passed; a result can cite it");
+    lines.push('  3. cw -q "what risks?"     — your first real report (needs an agent)');
     return lines.join("\n");
 }
 /** `--fix` rendering: consolidates all fix strings into an actionable block. */

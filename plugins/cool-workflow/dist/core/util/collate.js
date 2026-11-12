@@ -18,14 +18,3 @@
 export function stableCompare(a, b) {
     return a.localeCompare(b, "en");
 }
-/** Plain UTF-16 code-unit order, no locale; one home for drive and run-registry-io. */
-export function compareBytes(a, b) {
-    return a < b ? -1 : a > b ? 1 : 0;
-}
-/** `a=1, b=2` in stableCompare order of the keys, or `none`; one home for report, operator-ux-text and worker-isolation. */
-export function formatCounts(counts) {
-    const entries = Object.entries(counts).sort(([a], [b]) => stableCompare(a, b));
-    if (!entries.length)
-        return "none";
-    return entries.map(([k, v]) => `${k}=${v}`).join(", ");
-}
