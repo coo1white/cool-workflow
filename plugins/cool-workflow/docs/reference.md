@@ -125,7 +125,9 @@ question -> plan (the app's phases and tasks)
   task. See [The commit gate](#the-commit-gate).
 - The report is written in every case, also when the run stops.
 - On a TTY, with no `--json`, CW opens `report.html` in your browser at the
-  end. `CW_OPENER` names the program that opens it.
+  end. `CW_OPENER` names the program that opens it; by default `open` on
+  macOS, `xdg-open` on Linux, and `rundll32 url.dll,FileProtocolHandler`
+  on Windows.
 
 ### Exit codes
 
