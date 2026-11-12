@@ -69,6 +69,7 @@ const RULES = [
   ["CI is three workflow files plus four named ones", "CI sprawl no one reads", ["test/ci-shape-gate-smoke.mjs"]],
   ["a release is gated, reviewed and signed; never tag by hand", "an unreviewed tag publishes to npm", ["scripts/release-check.mjs", "scripts/release-gate.mjs", "test/release-gate-smoke.mjs"]],
   ["security paths are documented; private keys stay out of src/ and children", "an agent holding a key forges verdicts or receipts", [ME]],
+  ["at most one release in 7 days; a security or severe fix may go sooner", "4 tags in 9 days, each a signature and an output change a script must follow", ["reviewer"]],
   ["never push to main; merge on green CI", "a push skips review and CI", ["reviewer"]],
 ];
 

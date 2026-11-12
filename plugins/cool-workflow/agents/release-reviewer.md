@@ -46,6 +46,12 @@ Default stance: REJECT until the evidence in the repo proves otherwise.
      LLM clients). "Infrastructure for future work" is not a track.
    - Tag message answers "what can a user do now that they couldn't
      before?" in one concrete sentence.
+   - Cadence (AGENTS.md "RELEASE", the owner's yes of 2026-11-12): from
+     v0.4.4 on, the previous tag's date (`git log -1 --format=%cs
+     <prev-tag>`) is at least 7 days before today, unless the tag
+     message names a security fix or a severe fault (lost data, a
+     fail-closed check that lets bad input through, an install that does
+     not work). Too soon and neither → REJECT.
    - FreeBSD discipline (binding — AGENTS.md hard constraints;
      docs/unix-principles.md §7): POLA (no default-behavior or byte change
      to existing outputs/layouts/flags), mechanism-not-policy (no

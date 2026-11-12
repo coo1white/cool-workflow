@@ -60,6 +60,7 @@ change the two together.
 | CI is three workflow files plus four named ones | CI sprawl no one reads | `test/ci-shape-gate-smoke.mjs` |
 | a release is gated, reviewed and signed; never tag by hand | an unreviewed tag publishes to npm | `scripts/release-check.mjs`, `scripts/release-gate.mjs`, `test/release-gate-smoke.mjs` |
 | security paths are documented; private keys stay out of src/ and children | an agent holding a key forges verdicts or receipts | `test/architecture-smoke.mjs` |
+| at most one release in 7 days; a security or severe fix may go sooner | 4 tags in 9 days, each a signature and an output change a script must follow | reviewer |
 | never push to main; merge on green CI | a push skips review and CI | reviewer |
 
 # Role
@@ -151,11 +152,20 @@ Each cycle MUST follow this sequence. Do not skip steps.
 
 4. RELEASE — Versioning rules (hard constraints):
    - Accumulate cycles on a feature branch; tag only when the batch forms
-     a coherent, describable capability. (There is no cadence rate-limit
-     on tags as of 2026-08-04 — release-gate.mjs's cadence check and
-     ITERATION_LOG.md, its data source, were both removed. Judgment on
-     "is this a coherent, describable capability yet" replaces the
-     mechanical cycle-count/time floor.)
+     a coherent, describable capability. (There is no machine cadence
+     check: release-gate.mjs's cycle-count check and ITERATION_LOG.md, its
+     data source, were both removed on 2026-08-04.)
+   - At most one release in any 7 days, counted from the tag date of
+     v0.4.4 on. A security fix or a severe fault (lost data, a fail-closed
+     check that lets bad input through, an install that does not work)
+     may go out sooner; its tag message says which. The owner's yes,
+     2026-11-12: "同意，开始吧", to "0.4.4 now, then at most one release a
+     week, a security or severe fix excepted". Why: v0.4.0 to v0.4.3 were
+     4 tags in 9 days, with three same-day pairs since 2026-10-16; each
+     cut costs the operator a signature and an npm approval, and several
+     changed default output that a script reading cw must follow. The
+     shape is from magpie's Stable channel (one version a week, an urgent
+     one at once); a two-channel npm set-up is in BACKLOG.md.
    - Tag message must answer: "What can a user do now that they couldn't
      before?" If you cannot answer in one concrete sentence, do not tag.
    - Branch names describe the capability (feat/run-export-restore),
