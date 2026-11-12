@@ -106,7 +106,7 @@ function runFlow(dir, { agentCmd, fileCommand, extraEnv } = {}) {
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
     STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
     CW_NO_AUTO_AGENT: "1",
     CW_HOME: home,
@@ -190,7 +190,7 @@ process.exit(0);
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
     STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
     CW_NO_AUTO_AGENT: "1", CW_HOME: home, XDG_STATE_HOME: home,
     REVIEW_ENV_OUT: envOut,
@@ -770,7 +770,7 @@ function releaseFixtureNonAncestorPrevTag() {
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
     CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // would fail if it ran
     // Cleared, not left to ...process.env: an operator shell may set either.
     CW_SKIP_VENDOR_PREFLIGHT: "",
@@ -793,7 +793,7 @@ function releaseFixtureNonAncestorPrevTag() {
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
     CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // stub: an opted-in vendor is not live
     CW_SKIP_VENDOR_PREFLIGHT: "",
     CW_PREFLIGHT_VENDORS: "codex,gemini",
@@ -815,7 +815,7 @@ function releaseFixtureNonAncestorPrevTag() {
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
     CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // would fail, but the skip wins
     CW_SKIP_VENDOR_PREFLIGHT: "1",
     STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
@@ -915,7 +915,7 @@ function releaseFixtureNonAncestorPrevTag() {
     const home = path.join(dir, ".cw-home");
     const env = {
       ...process.env,
-      CW_RELEASE_FLOW_GATE_CMD: "true",
+      CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
       // --cut runs the LIVE vendor preflight unless skipped; the other --cut
       // cases in this file all stub or skip it the same way.
       CW_SKIP_VENDOR_PREFLIGHT: "1",
@@ -1086,7 +1086,7 @@ function releaseFixtureNonAncestorPrevTag() {
     const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
     const env = {
       ...process.env,
-      CW_RELEASE_FLOW_GATE_CMD: "true",
+      CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
       CW_SKIP_VENDOR_PREFLIGHT: "1",
       STUB_SHA: sha,
       CW_NO_AUTO_AGENT: "1",

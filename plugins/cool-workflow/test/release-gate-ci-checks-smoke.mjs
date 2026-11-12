@@ -55,8 +55,8 @@ function fixture({ origin = "https://github.com/acme/widget.git" } = {}) {
     name: "fixture",
     version: "0.0.0",
     scripts: {
-      build: "true",
-      test: "true",
+      build: "node -e 0",
+      test: "node -e 0",
       "test:gate": "node -e \"require('fs').writeFileSync(process.env.SUITE_MARKER, 'ran')\""
     }
   }));
