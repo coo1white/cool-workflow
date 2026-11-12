@@ -960,3 +960,5 @@ The one-command `cw -q` headline now routes the question and defaults the repo t
 0.4.2
 
 0.4.3
+
+0.4.4
