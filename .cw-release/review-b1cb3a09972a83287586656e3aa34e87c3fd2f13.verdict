@@ -1,0 +1,2 @@
+APPROVED b1cb3a09972a83287586656e3aa34e87c3fd2f13
+A P0, P1 or P2 finding with no evidence of its own, and a verdict that cites a line past the end of a file, are turned down, retried and parked with a reason, and the final commit is refused if that line is gone after the verdict was accepted.
