@@ -114,6 +114,29 @@ export function unresolvedFileEvidence(evidence: unknown, baseDirs: string[], op
   return evidence.map((entry) => String(entry)).filter((entry) => resolveEvidenceLocator(entry, baseDirs, ops.exists, ops.isAbsolute, ops.resolve) === "unresolved");
 }
 
+export interface LinePastEnd {
+  path: string;
+  line: number;
+  lines: number;
+}
+
+export function lineCitedPastEnd(evidence: unknown, baseDirs: string[], ops: PathOps, readFile: (p: string) => string | undefined): LinePastEnd | null {
+  if (!Array.isArray(evidence)) return null;
+  for (const entry of evidence) {
+    const raw = String(entry ?? "").trim();
+    const shape = classify(raw);
+    const lineMatch = raw.match(/:(\d+)(?:-(\d+))?$/);
+    if (shape.kind !== "file" || !shape.pathPart || !lineMatch) continue;
+    const line = Math.max(Number(lineMatch[1]), lineMatch[2] ? Number(lineMatch[2]) : 0);
+    const candidate = ops.isAbsolute(shape.pathPart) ? shape.pathPart : baseDirs.filter(Boolean).map((base) => ops.resolve(base, shape.pathPart as string)).find((p) => ops.exists(p));
+    const content = candidate && ops.exists(candidate) ? readFile(candidate) : undefined;
+    if (content === undefined) continue;
+    const lines = content === "" ? 0 : content.split("\n").length - (content.endsWith("\n") ? 1 : 0);
+    if (line > lines) return { path: shape.pathPart, line, lines };
+  }
+  return null;
+}
+
 /** Compute the confidence tier for a single evidence string. */
 export function computeEvidenceConfidence(raw: unknown, baseDirs: string[] | undefined, ops: PathOps | undefined, env: NodeJS.ProcessEnv = process.env): EvidenceConfidence {
   if (!isGroundedEvidence(raw)) return "ungrounded";

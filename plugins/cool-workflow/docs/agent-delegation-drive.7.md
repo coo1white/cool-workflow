@@ -312,6 +312,16 @@ Map and 6 Assess workers run at the same time, 12 in one round.
   and keeps one gate-failed node and one open feedback record — a second
   drive of the same blocked commit adds no more. Put the file back (or run
   the verdict again) and drive the run once more to commit it.
+- **A finding without evidence, or a line past the end.** A result whose
+  P0, P1 or P2 finding has no grounded evidence of its own
+  (`result-contract-violation`), or a verdict/synthesis result that cites a
+  line past the end of a file on disk (`verdict-evidence-past-end`), is
+  turned down in the same way: the reason at the top of `input.md`, tried
+  again, then parked; a resume after the agent is fixed runs it again. See
+  worker-isolation(7). If the cited file gets shorter after the accept, the
+  final commit is refused (`commit-verifier-evidence-past-end`) and the drive
+  stops `blocked`, as for a file that goes away; put the line back and drive
+  the run once more.
 
 ## Replay determinism (bound to node-snapshot)
 

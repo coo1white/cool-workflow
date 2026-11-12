@@ -28,6 +28,7 @@
 //     moves the state-file compatibility line (a file layout under POLA).
 // Not covered: exact text asserted inside plugins/cool-workflow/test/*.mjs
 // smokes. Those mix pins with new checks line by line; the reviewer reads them.
+// The one exception is a promise line (below): its text must be held there.
 //
 // Line level (added after the 0.4.0 cut was turned back for a changed line
 // no yes had quoted): for a MODIFIED pin that is a captured text file (not

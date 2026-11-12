@@ -29,6 +29,7 @@ import { AGENT_FIX, agentConfigured, resolveAgentConfig } from "../agent-config.
 import { materializeRemote, isRemoteUrl, validateRemoteUrl, gitAvailable } from "../remote-source.js";
 import { isGitWorkTree } from "../onramp.js";
 import { recordTrustAuditEvent } from "../trust-audit.js";
+import { safeFileName } from "../fs-atomic.js";
 import { reportBundleCli } from "./report-cli.js";
 const QUICKSTART_DEFAULT_APP = "architecture-review";
 // `--fast`: the 6-worker review for one focused question (Map and Assess
@@ -623,7 +624,7 @@ function stopLog(r) {
         return undefined;
     try {
         const workersDir = path.join(path.dirname(r.statePath), "workers");
-        const prefix = `worker-${stop.taskId}-`;
+        const prefix = `worker-${safeFileName(stop.taskId)}-`;
         const workerId = typeof stop.workerId === "string" ? stop.workerId : fs.readdirSync(workersDir).filter((name) => name.startsWith(prefix)).sort().pop();
         if (!workerId)
             return undefined;

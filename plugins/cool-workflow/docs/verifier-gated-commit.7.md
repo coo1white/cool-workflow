@@ -232,9 +232,18 @@ commit-verifier-not-verified
 commit-verifier-missing-evidence
 commit-verifier-evidence-ungrounded
 commit-verifier-evidence-unresolvable
+commit-verifier-evidence-past-end
 commit-rationale-empty-capture
 commit-verifier-receipt-refused
 ```
+
+`commit-verifier-evidence-past-end` (from 2026-11-12, intent
+`2026-11-11-user-facing-fixes.md` batch C): under the same rule as
+`commit-verifier-evidence-unresolvable` (`CW_REQUIRE_RESOLVABLE_EVIDENCE`, on by
+default), a `path:line` or `path:a-b` locator in the verifier node's evidence
+names a line past the end of a file that is on disk, for one when the file got
+shorter after the verdict was accepted. The reason reads `Verifier node <id>
+cites a line past the end of its file: <path>:<line> (<path> has <n> lines)`.
 
 Use `cw feedback list <run-id>` and `cw node graph <run-id>` to look at
 the failed transition.

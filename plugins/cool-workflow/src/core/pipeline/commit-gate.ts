@@ -9,7 +9,7 @@
 // "Commit-gate error codes (fixed strings)".
 
 import { StateEvidence, StateNode, StateNodeError, WorkflowRun } from "../state/types.js";
-import { hasGroundedEvidence, receiptIdsIn } from "../trust/evidence-grounding.js";
+import { hasGroundedEvidence, LinePastEnd, receiptIdsIn } from "../trust/evidence-grounding.js";
 import { isEmptyCapture, ResultEnvelope } from "./result-normalize.js";
 
 export interface CommitStateOptions {
@@ -84,6 +84,7 @@ export interface ResolveCommitGateDeps {
   taskRequiresEvidence?: boolean;
   /** Opt-in strict evidence resolution (CW_REQUIRE_RESOLVABLE_EVIDENCE). */
   unresolvedFileEvidence?: (evidence: string[]) => string[];
+  linePastEnd?: (evidence: string[]) => LinePastEnd | null;
   /** The cited `receipt:<id>`s CW refuses (shell/receipt-io.ts); absent = refuse all. */
   refusedReceipts?: (ids: string[]) => Array<{ id: string; code?: string; reason: string; next: string }>;
 }
@@ -171,6 +172,15 @@ function groundVerifierEvidence(run: WorkflowRun, verifierNode: StateNode, error
           }, now)
         );
       }
+    }
+    const pastEnd = deps.linePastEnd ? deps.linePastEnd(locators) : null;
+    if (pastEnd) {
+      errors.push(
+        error("commit-verifier-evidence-past-end", `Verifier node ${verifierNode.id} cites a line past the end of its file: ${pastEnd.path}:${pastEnd.line} (${pastEnd.path} has ${pastEnd.lines} lines)`, {
+          nodeId: verifierNode.id,
+          details: { verifierNodeId: verifierNode.id, ...pastEnd },
+        }, now)
+      );
     }
   }
   const receiptIds = receiptIdsIn(verifierNode.evidence.map(evidenceLocatorString));

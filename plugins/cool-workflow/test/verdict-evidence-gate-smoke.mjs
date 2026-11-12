@@ -15,6 +15,9 @@
 // 2. Commit time (the file goes away after accept): the drive gives back a
 //    blocked step with the reason, writes report.md, and a second drive
 //    adds no second feedback record; with the file back, the run commits.
+// 3. Commit time, the file gets shorter after accept (batch C sweep,
+//    2026-11-12): the cited line is now past the end; the drive stops
+//    blocked with the gate's reason, and with the line back the run commits.
 //
 // Black box: every step goes through scripts/cw.js, as a user would type it.
 
@@ -142,6 +145,35 @@ try {
     assert.equal(done.status, "complete", "with the file back, the run commits");
     assert.ok(done.commitId);
     console.log("verdict-evidence-gate: commit time — blocked with a reason, no duplicate feedback, then committed OK");
+  }
+
+  // 3. Commit time: the cited file gets shorter after the verdict is accepted.
+  {
+    const dir = repo("past-end");
+    const notes = path.join(dir, "NOTES.md");
+    fs.writeFileSync(notes, "one\ntwo\nthree\n", "utf8");
+    const started = cw(["run", "architecture-review-fast", "--drive", "--once", "--question", "q", "--repo", dir], dir, "NOTES.md:3");
+    const runId = started.runId;
+    for (let i = 0; i < 20 && !state(dir, runId).tasks.every((t) => t.status === "completed"); i++) {
+      cw(["run", "--drive", "--once", "--run", runId], dir, "NOTES.md:3");
+    }
+    assert.ok(state(dir, runId).tasks.every((t) => t.status === "completed"), "every worker is accepted while line 3 is there");
+    fs.writeFileSync(notes, "one\n", "utf8");
+
+    const blocked = cw(["run", "--drive", "--run", runId], dir, "NOTES.md:3");
+    assert.equal(blocked.status, "blocked", "the drive stops blocked, it does not throw");
+    const last = blocked.steps[blocked.steps.length - 1];
+    assert.equal(last.action, "commit");
+    assert.match(last.reason, /Verifier node \S+ cites a line past the end of its file: NOTES\.md:3 \(NOTES\.md has 1 lines\)/, "the step names the reason");
+    const s = state(dir, runId);
+    assert.ok(fs.existsSync(s.paths.report), "report.md is written");
+    assert.equal((s.feedback || []).filter((f) => f.code === "commit-verifier-evidence-past-end").length, 1, "one feedback record");
+
+    fs.writeFileSync(notes, "one\ntwo\nthree\n", "utf8");
+    const done = cw(["run", "--drive", "--run", runId], dir, "NOTES.md:3");
+    assert.equal(done.status, "complete", "with the line back, the run commits");
+    assert.ok(done.commitId);
+    console.log("verdict-evidence-gate: commit time — line past the end blocked with a reason, then committed OK");
   }
 
   console.log("verdict-evidence-gate-smoke: ok");

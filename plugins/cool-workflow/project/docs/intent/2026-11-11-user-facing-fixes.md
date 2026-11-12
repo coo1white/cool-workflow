@@ -344,6 +344,98 @@ the 0.4.3 cut) and answered, word for word (2026-11-11): "B1 + B2 + B3
 - Turned down: run the model review in PR CI. CW does not run models,
   and CI holds no reviewer key.
 
+## Spec: batch C, the downstream asks
+
+### Measured facts (2026-11-11)
+
+| Fact | Command | Number |
+|---|---|---|
+| `validateResultEnvelope` (`src/shell/verifier.ts`) is called by nothing | `git grep -n validateResultEnvelope -- src` | 1 line, its own definition |
+| Apps that give a task an output `schema` | `git grep -n '"schema"' -- apps` | 0 of 8 |
+| The accept path checks the result's evidence, not each finding's | `src/shell/worker-isolation.ts`, `recordWorkerOutput` | a P1 finding with only free text as evidence is taken in |
+| The verdict accept check asks only that a cited file is on disk | `resolveEvidenceLocator` in `src/core/trust/evidence-grounding.ts` | `README.md:7` on a 1-line file is taken in |
+| Worker folder names keep `:` (`safeFileName` in `src/shell/fs-atomic.ts` keeps it) | `/[^a-zA-Z0-9_.:-]+/g` | every worker folder, such as `worker-golden:path-0001` |
+
+### Plan
+
+- **C1.** Call `validateResultEnvelope` when a result is accepted. Its one
+  check a result can fail today: a P0, P1 or P2 finding with no grounded
+  evidence of its own. The result is turned down
+  (`result-contract-violation`), tried again with the reason at the top of
+  `input.md`, then parked.
+- **C2.** For a verdict/synthesis task that requires evidence (the same rule
+  as `verdict-evidence-unresolvable`), a `path:line` or `path:a-b` locator in
+  the result's or a finding's evidence that names a line past the end of a
+  file on disk is turned down (`verdict-evidence-past-end`), the same way.
+  The pure check is `lineCitedPastEnd` in `core/trust/evidence-grounding.ts`.
+- **C3, later.** Worker folder names without `:` change the run folder
+  layout (a POLA change of its own), and native Windows is not supported
+  (the README says WSL). It goes to its own program.
+
+The owner was asked which to build (C1 and C2 now with C3 later, all
+three, or C1 only) and answered, word for word (2026-11-11): "C1 + C2 now,
+C3 later (Recommended)".
+
+### Sweep (2026-11-12, the program's first working rule)
+
+Run in `plugins/cool-workflow/`.
+
+- C1, every way a result is taken in:
+  `grep -rn 'recordWorkerOutput(' src | grep -v 'export function'` gives 6
+  callers (drive 3, `pipeline-cli.ts`, `worker-cli.ts`, `orchestrator.ts`),
+  all through the one accept path the check is in. `grep -rn
+  'normalizeResultEnvelope(' src` gives 2 more, `doctor-conformance.ts` and
+  `report.ts`; both only read a result already taken in. 0 more to fix.
+- C2, every check of a cited file that asks only that it is there:
+  `grep -rn 'unresolvedFileEvidence\|unresolvedRunFileEvidence' src` gives 2:
+  the accept check (fixed here) and the final commit gate
+  (`src/core/pipeline/commit-gate.ts`, `commit-verifier-evidence-unresolvable`),
+  which still takes a line past the end if the file got shorter after the
+  accept. 1 more in the class. The owner was asked whether to fix it in
+  the same PR, with its new text, and answered, word for word
+  (2026-11-12): "Yes, add it to #893 (Recommended)". Fixed: the gate
+  turns it down as `commit-verifier-evidence-past-end`; test
+  `test/verdict-evidence-gate-smoke.mjs` case 3.
+
+### Paths weighed (batch C)
+
+- Taken: two refusals on the path that already turns down a bad verdict
+  citation; a result is retried, then parked, and a resume opens it again.
+  Hard: low. Upkeep: two failure codes. Undo: revert one PR.
+- Turned down: a warning in `report.md` in place of a refusal. It keeps a
+  finding no one can check in the run, and a warning is not fail closed.
+
+## Operator decisions for 0.4.4
+
+The owner's yes for batch C, word for word (2026-11-11): "C1 + C2 now, C3
+later (Recommended)". The question quoted the two new reasons, each a
+result that was taken in before and is now turned down:
+
+- 「Task <id> finding <fid> severity <P1> requires grounded evidence (a
+  path-like locator, URL, or namespace:value token)」
+- 「Task <id> cites a line past the end of its file: <path>:<line> (<path>
+  has <n> lines)」
+
+The owner's yes for the one more case the sweep found, word for word
+(2026-11-12): "Yes, add it to #893 (Recommended)". The question quoted
+its new reason:
+
+- 「Verifier node <id> cites a line past the end of its file: <path>:<line>
+  (<path> has <n> lines)」
+
+No pinned output file changes. The promised lines:
+
+```promise
+Task <id> finding <fid> severity <sev> requires grounded evidence (a path-like locator, URL, or namespace:value token)
+Task <id> cites a line past the end of its file: <path>:<line> (<path> has <n> lines)
+Give each P0, P1 or P2 finding its own evidence: a path-like locator, URL, or namespace:value token.
+Cite only lines that are in the file.
+Verifier node <id> cites a line past the end of its file: <path>:<line> (<path> has <n> lines)
+```
+
+Man pages that say the new text: `docs/worker-isolation.7.md`,
+`docs/agent-delegation-drive.7.md`, `docs/verifier-gated-commit.7.md`.
+
 ## Working rules for this program (the answer to "what went wrong before")
 
 | What went wrong | The rule here | What holds it |
@@ -381,12 +473,50 @@ the 0.4.3 cut) and answered, word for word (2026-11-11): "B1 + B2 + B3
 |---|---|
 | A — twelve rows (0.4.3) | built and merged (#891, 2026-11-11); waiting on the operator's release command |
 | B — release flow | the owner chose B1 to B3 (2026-11-11); built: B1 promise lines and B2 the change sheet in `pola:check`, B3 the reviewer output table (7 real rejection shapes were read as invalid output). On its first run B1 held all seven 0.4.3 promise lines, one after a fix to the line: the quote's example phase `Verify` became `<phase>` |
-| C — downstream asks | not started |
+| C — downstream asks | the owner chose C1 and C2, C3 later (2026-11-11); built: C1 the finding evidence check on intake, C2 the line past the end check for verdicts, at accept and (after the sweep) at the final commit; for 0.4.4, so it merges after the 0.4.3 cut |
+| Found later: the parked summary lost the agent's log for a task id that `safeFileName` changes | fixed in #893 (`ea854b70`); sweep `grep -rn 'worker-\${' src \| grep -v safeFileName` found 1; test `test/shell/commands/pipeline-cli-stop-log.test.mjs` |
 
 ## What this spec got wrong
 
-(Filled at close.)
+Recorded at close (#893, 2026-11-12).
+
+1. **Batch A, the pins.** The first draft said none of the twelve texts
+   was held by a pinned fixture. Three were: the `cw help` front page
+   (rows 7 to 9), the `report.md` part order (row 12) and the `cw doctor`
+   check names (row 10, whose names did not change). The search had looked
+   under `plugins/cool-workflow/`; `v2/conformance/` is at the repo root.
+   Found before the code, so the version raise and the line-by-line record
+   went into #891.
+2. **Batch A, the old tests.** The spec named each row's code files, not
+   the tests that held the old behavior. The first full run after the
+   change had 5 smokes and `growth:check` red, 3 of them still asking exit
+   0 of a stopped run.
+3. **Batch B, one promise line.** One of the seven 0.4.3 promise lines
+   quoted the phase `Verify`; the test that holds it says `Verdict`. B1
+   found it on its first run; the line now says `<phase>`.
+4. **Batch C, the sweep came late.** The plan put the line check at
+   accept time only. The sweep the first working rule asks for was run
+   only after the owner asked (2026-11-12), and found the same gap in the
+   final commit gate, fixed in the same PR.
+5. **How the work is split, not followed in batch C.** Batch C was built
+   and pushed with no separate checker agent, and the stop-log fault found
+   during it got its ledger row late; both were put right on 2026-11-12,
+   when the owner asked. The checker then ran 13 checks, all passing.
+6. **The model-choice article** was never read (host not reachable), so
+   the split stayed this file's default the whole program.
 
 ## Architecture snapshot diff
 
-(Filled by the closing PR.)
+Live claims this program made old, and where each was fixed:
+
+| Claim | Where | Fixed in |
+|---|---|---|
+| a stopped `cw -q` run reports `✓` and exits 0 | `docs/operator-ux.7.md`, `docs/agent-delegation-drive.7.md` | #891 |
+| `pola:check` holds no text asserted in a `test/*.mjs` smoke | `scripts/pola-check.mjs` header | #893 (a promise line, #892, is held by one) |
+| a reviewer rejection is read only in its plain shape | `docs/release-tooling.7.md` | #892 |
+| a result is checked at accept for evidence form, receipts, the off-target ratio and (verdicts) files on disk | `docs/worker-isolation.7.md` | #893: also a P0-P2 finding's own evidence, and a cited line past the end |
+| the final commit asks only that a verdict's cited file is on disk | `docs/verifier-gated-commit.7.md`, `docs/agent-delegation-drive.7.md` | #893: `commit-verifier-evidence-past-end` |
+| `validateResultEnvelope` "throws on violation (fail-closed — the drive parks the hop)" | `src/shell/verifier.ts` | #893: true now; before, nothing called it |
+
+Left open: C3, in `BACKLOG.md`. This file joins
+`intent/2026-11-archive.md` in the PR after #893 merges.
