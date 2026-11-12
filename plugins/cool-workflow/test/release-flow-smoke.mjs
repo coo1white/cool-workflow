@@ -264,7 +264,7 @@ process.exit(0);
 // ---- Case 2d: reviewer output shapes, as one table -----------------------
 // Two cuts stopped on a real verdict read wrong (0.3.0: REJECTED at the end of
 // prose; 0.4.1: a locator with a leading dot), each fixed for one shape. This
-// table holds the class (intent 2026-11-11-user-facing-fixes.md, batch B3).
+// table holds the class (intent 2026-11-archive.md, batch B3).
 // The rule: decoration a model puts round a REJECTION is taken off, so a real
 // rejection is read as one; an APPROVAL stays strict, and every shape that is
 // not a real verdict stays fail closed. No row is ever signed or tagged.

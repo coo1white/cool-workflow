@@ -238,7 +238,7 @@ commit-verifier-receipt-refused
 ```
 
 `commit-verifier-evidence-past-end` (from 2026-11-12, intent
-`2026-11-11-user-facing-fixes.md` batch C): under the same rule as
+`2026-11-archive.md` batch C): under the same rule as
 `commit-verifier-evidence-unresolvable` (`CW_REQUIRE_RESOLVABLE_EVIDENCE`, on by
 default), a `path:line` or `path:a-b` locator in the verifier node's evidence
 names a line past the end of a file that is on disk, for one when the file got

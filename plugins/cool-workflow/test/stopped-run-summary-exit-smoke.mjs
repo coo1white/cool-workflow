@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // stopped-run-summary-exit-smoke — a run that stopped does not look like a
-// good one (intent 2026-11-11-user-facing-fixes.md, rows 1 and 2).
+// good one (intent 2026-11-archive.md, rows 1 and 2).
 //
 //   1. `cw quickstart` that ends blocked (no agent) exits 2, and its JSON
 //      is still on stdout; a finished run exits 0.
