@@ -167,6 +167,8 @@ CW does not run the model — it keeps the books. Your agent signs its findings 
 | `... is not a git project` | Run it inside the project, or pass `--repo` |
 | `Run <id> was made for <folder>` | The run belongs to another folder (a copied or moved repo): pass `--repo <that folder>`, or move it with `cw run export` and `cw run import` |
 
+Something else wrong? **[Open an issue](https://github.com/coo1white/cool-workflow/issues/new/choose)** — one line on what happened is enough. A report gets a reply within a day, and the fix names you.
+
 ## Learn more
 
 - **[User Guide](https://github.com/coo1white/cool-workflow/wiki/User-Guide)** — your first ten minutes
