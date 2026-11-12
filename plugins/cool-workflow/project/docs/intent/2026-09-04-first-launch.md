@@ -95,6 +95,37 @@ Files: new `plugins/cool-workflow/project/docs/audits/reach.json`,
 
 Budget: `reach.json` is JSON (no md cost); `AGENTS.md` +3.
 
+## User reports: reply in a day, fix, name the reporter (docs PR)
+
+Source: the operator, 2026-11-12: "整理成具体做法吧", after a look at
+magpie, where most fixes in a day of commits name the person who
+reported the problem. Measured on 2026-11-12: this repo has had 6
+issues, all opened by the owner; 0 from users. The first gap is a way
+in, not the speed of the fix.
+
+1. A way in: the README Troubleshooting part ends with one line to open
+   an issue; the bug form asks for one thing only ("What happened"), the
+   rest is optional, and it puts the `from-user` label on by itself. A
+   problem seen on X is put into an issue by the operator or, on the
+   operator's word, by the agent, with "(<name> on X)" in the title.
+2. A reply within a day: "seen, and here is how it happens again", or
+   the one thing still needed. The reporter's steps become the test that
+   fails before the fix (`fails-before:check` holds it already).
+3. Name the reporter: the fix PR title is `fix(<area>): <what>
+   (#<issue>, reported by @<name>)`, the body says `Fixes #<issue>`, and
+   the PR carries the `from-user` label. `.github/release.yml` puts those
+   PRs first in the release notes, under "Fixed from user reports".
+4. Ship it the same day: a user fix may be a release of its own (the
+   operator runs `npm run release`; no cap on how often). After it, one
+   comment on the issue: "Fixed in vX.Y.Z: `npm i -g
+   cool-workflow@latest`. Thank you." The operator may say thanks on X.
+5. Count it: the Monday entry in `reach.json` adds `userIssues`,
+   `firstReplyHours` (mean) and `fixReleaseHours` (mean, report to the
+   release with the fix).
+
+Not here: a "report a problem" line in `cw` output is a change to
+default output and needs the operator's named yes first (POLA).
+
 ## Closing ledger (docs PR, last)
 
 1. Receipt at `plugins/cool-workflow/project/docs/audits/first-launch-receipt-<date>.json`:
@@ -127,5 +158,6 @@ Budget: `reach.json` is JSON (no md cost); `AGENTS.md` +3.
 |---|---|---|
 | Intent + spec (this file) | open | |
 | One proof page and the story links | | |
+| User reports: reply in a day, fix, name the reporter | landed | (this PR) |
 | The reach receipt | | |
 | Closing ledger | | |

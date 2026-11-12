@@ -1,7 +1,7 @@
 name: Bug report
 description: Something did not work the way the docs say it will.
 title: "bug: "
-labels: ["bug"]
+labels: ["bug", "from-user"]
 body:
   - type: markdown
     attributes:
@@ -9,6 +9,9 @@ body:
         Thank you for the report. CW keeps every run as plain JSON under
         `.cw/` on your disk — that record is the best evidence you can give
         us. Please take out any private text before you paste.
+
+        Only "What happened" is needed; one line is enough. The rest helps
+        us fix it faster, so add what you can.
   - type: textarea
     id: what-happened
     attributes:
@@ -24,7 +27,7 @@ body:
       label: What you were waiting for
       description: What did the docs or the help text say would happen?
     validations:
-      required: true
+      required: false
   - type: textarea
     id: steps
     attributes:
@@ -32,7 +35,7 @@ body:
       description: The exact commands, in order, from a clean start if you can.
       render: shell
     validations:
-      required: true
+      required: false
   - type: textarea
     id: doctor
     attributes:
@@ -40,14 +43,14 @@ body:
       description: These two commands say what CW sees on your machine.
       render: shell
     validations:
-      required: true
+      required: false
   - type: input
     id: os-node
     attributes:
       label: OS and Node version
       placeholder: "macOS 15.6 / Node 22.11"
     validations:
-      required: true
+      required: false
   - type: textarea
     id: run-record
     attributes:

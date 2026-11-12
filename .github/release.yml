@@ -1,0 +1,12 @@
+# Sections of the GitHub Release notes made by `gh release create
+# --generate-notes` (.github/workflows/release.yml). A fix for a problem
+# a user reported carries the `from-user` label and comes first, so the
+# person who reported it sees their name at the top.
+changelog:
+  categories:
+    - title: Fixed from user reports
+      labels:
+        - from-user
+    - title: Other changes
+      labels:
+        - "*"
