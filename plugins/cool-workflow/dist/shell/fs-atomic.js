@@ -23,8 +23,11 @@ export function writeFileAtomic(file, text, options = {}) {
     }
     fs.renameSync(tmp, file);
 }
-export function safeFileName(value) {
-    return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");
+/** One file-name segment from a task id. `:` stays on POSIX (worker-map:x);
+ *  Windows refuses `:` in a name (it marks a data stream), so there it is
+ *  `_` like any other unsafe character. */
+export function safeFileName(value, platform = process.platform) {
+    return String(value).replace(platform === "win32" ? /[^a-zA-Z0-9_.-]+/g : /[^a-zA-Z0-9_.:-]+/g, "_");
 }
 /** A run id names one folder under .cw/runs: one safe segment, never `.`/`..`. */
 export function assertSafeRunId(value, context = "run id") {
