@@ -1,6 +1,6 @@
 {
   "name": "cool-workflow",
-  "version": "0.4.4",
+  "version": "0.4.8",
   "description": "Keeps the books for AI work: an outside agent does the work, CW records each claim with the lines it rests on, gates the result on evidence, and writes a report you can verify offline. It never runs a model itself.",
   "author": {
     "name": "COOLWHITE LLC"
