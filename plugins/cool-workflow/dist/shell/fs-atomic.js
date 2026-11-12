@@ -3,9 +3,11 @@
 // A write goes to a temp file in the same dir, then rename(2) puts it in
 // place, so a reader never sees half a file. A lock is a `<target>.lock` file
 // made with link(2): link is single-winner where open(O_EXCL) was seen not to
-// be on some Node versions under load.
+// be on some Node versions under load. hostSpawnArgv is the file-system end
+// of the win32 program lookup (core/util/cli-args.ts spawnArgv).
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { spawnArgv } from "../core/util/cli-args.js";
 export function writeJson(file, value, options = {}) {
     writeFileAtomic(file, `${JSON.stringify(value, null, 2)}\n`, options);
 }
@@ -22,6 +24,20 @@ export function writeFileAtomic(file, text, options = {}) {
         fs.closeSync(fd);
     }
     fs.renameSync(tmp, file);
+}
+function isFile(file) {
+    try {
+        return fs.statSync(file).isFile();
+    }
+    catch {
+        return false;
+    }
+}
+/** spawnArgv for this host: its platform, its node and its files. Every
+ *  child CW starts by a program name goes through here first, so on Windows
+ *  `npm`, `claude` or `codex` (a .cmd shim) still starts with no shell. */
+export function hostSpawnArgv(binary, args, env) {
+    return spawnArgv(binary, args, env, process.platform, process.execPath, { isFile, readText: (file) => fs.readFileSync(file, "utf8") });
 }
 /** One file-name segment from a task id. `:` stays on POSIX (worker-map:x);
  *  Windows refuses `:` in a name (it marks a data stream), so there it is

@@ -21,6 +21,7 @@ import { AGENT_FIX, agentProbeTarget, AgentProbeTarget, resolveAgentConfig } fro
 import { buildAgentChildEnv } from "./execution-backend/agent.js";
 import { findProgram, splitAgentCommandLine } from "../core/util/cli-args.js";
 import { loadRun } from "./run-store.js";
+import { hostSpawnArgv } from "./fs-atomic.js";
 import { bold, doctorGlyph, green, red } from "./term.js";
 
 export type DoctorStatus = "ok" | "warn" | "fail";
@@ -79,7 +80,8 @@ function probeAgent(target: Exclude<AgentProbeTarget, { skip: string }>, env: No
   const shown = `${target.cli} --version`;
   const timeoutMs = Number(env.CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS) > 0 ? Number(env.CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS) : 15000;
   const childEnv = buildAgentChildEnv(env).env;
-  const r = spawnSync(target.cli, ["--version"], { cwd, env: childEnv, encoding: "utf8", timeout: timeoutMs, killSignal: "SIGKILL", shell: false, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1024 * 1024, windowsHide: true });
+  const start = hostSpawnArgv(target.cli, ["--version"], childEnv);
+  const r = spawnSync(start.binary, start.args, { cwd, env: childEnv, encoding: "utf8", timeout: timeoutMs, killSignal: "SIGKILL", shell: false, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1024 * 1024, windowsHide: true });
   const lines = (text: string) => text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (!r.error && r.status === 0) {
     const first = lines(`${r.stdout || ""}\n${r.stderr || ""}`)[0] || "(no output)";

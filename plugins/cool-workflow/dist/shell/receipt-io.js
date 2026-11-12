@@ -8,7 +8,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { judgeReceipt, RECEIPT_ID_RE, sealReceipt, signReceipt } from "../core/trust/receipt.js";
 import { resolveTrustPublicKey } from "../core/trust/telemetry-attestation.js";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version.js";
-import { writeJson } from "./fs-atomic.js";
+import { hostSpawnArgv, writeJson } from "./fs-atomic.js";
 const TAIL_BYTES = 4096;
 const TAIL_LINES = 20;
 const EXCLUDE_CW = ":(exclude).cw";
@@ -109,7 +109,9 @@ export function runCheck(argv, options) {
     return new Promise((resolve, reject) => {
         const childEnv = { ...env };
         delete childEnv.CW_CHECK_PRIVKEY;
-        const child = spawn(argv[0], argv.slice(1), { cwd: repo, shell: false, stdio: ["ignore", "pipe", "pipe"], env: childEnv });
+        // The receipt keeps argv as typed; on Windows `npm` starts as node npm-cli.js.
+        const start = hostSpawnArgv(argv[0], argv.slice(1), childEnv);
+        const child = spawn(start.binary, start.args, { cwd: repo, shell: false, stdio: ["ignore", "pipe", "pipe"], env: childEnv });
         const copy = (tap, sink) => (chunk) => {
             tap.add(chunk);
             if (sink)
