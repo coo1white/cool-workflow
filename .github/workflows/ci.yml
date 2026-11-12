@@ -131,7 +131,10 @@ jobs:
       - run: node dist/cli.js help > /dev/null
       - run: node ../../v2/conformance/run.mjs --bin dist/cli.js
         continue-on-error: true
-      - run: node test/run-all.mjs --json-summary windows-smokes.json
+      # TEMPORARY (Windows triage): the runner's output is kept in
+      # windows-smokes.log so the summary step can show each failing
+      # smoke's first error lines. Goes when this leg becomes a gate.
+      - run: node test/run-all.mjs --json-summary windows-smokes.json 2>&1 | tee windows-smokes.log
         continue-on-error: true
       - run: bun run test:unit
         continue-on-error: true
@@ -146,6 +149,19 @@ jobs:
               const bad = s.results.filter((r) => !r.ok).map((r) => r.file).sort();
               text += `${s.results.length - bad.length}/${s.results.length} passed, ${bad.length} failed.\n\n`;
               for (const f of bad) text += `- ${f}\n`;
+              // TEMPORARY (Windows triage): the first error lines of each
+              // failing smoke, from the runner output kept above.
+              const log = fs.existsSync("windows-smokes.log") ? fs.readFileSync("windows-smokes.log", "utf8").split(/\r?\n/) : [];
+              for (const f of bad) {
+                const at = log.findIndex((line) => line.startsWith(`--- ${f} (`));
+                if (at < 0) continue;
+                let end = log.findIndex((line, i) => i > at && line.startsWith("--- "));
+                if (end < 0) end = log.length;
+                const block = log.slice(at + 1, end).filter((line) => line.trim() && !/^\[(stderr|stdout)\]$/.test(line));
+                const first = Math.max(0, block.findIndex((line) => /error|assert|expected|ENOENT|EINVAL|EPERM|spawn/i.test(line)));
+                const lines = block.slice(first, first + 12).map((line) => line.slice(0, 300).replace(/`/g, "\u2019"));
+                text += `\n<details><summary>${f}</summary>\n\n\`\`\`\n${lines.join("\n")}\n\`\`\`\n</details>\n`;
+              }
             }
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, text);
             process.stdout.write(text);
