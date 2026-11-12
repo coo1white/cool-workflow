@@ -40,4 +40,20 @@ const later = new Date(Date.now() + 60_000);
 fs.utimesSync(path.join(runsDir(cwd), id, "state.json"), later, later);
 assert.equal(latestRunId(cwd), id, "the newest state.json wins");
 
+// The same folder reached by two spellings (macOS: /var -> /private/var):
+// paths keep the spelling the run was made under, so `cw report` prints the
+// same report path `cw -q` printed. A run.cwd that names another place is
+// ignored: paths still come from the folder.
+const real = tmpDir("cw-run-store-real-");
+const link = path.join(tmpDir("cw-run-store-link-"), "repo");
+fs.symlinkSync(real, link);
+const putAt = (base, rid, extra) => {
+  fs.mkdirSync(path.join(runsDir(base), rid), { recursive: true });
+  fs.writeFileSync(path.join(runsDir(base), rid, "state.json"), JSON.stringify({ schemaVersion: RUN_STATE_SCHEMA_VERSION, id: rid, tasks: [], phases: [], ...extra }));
+};
+putAt(real, "linked", { cwd: link });
+assert.equal(loadRun("linked", real).paths.report, path.join(runsDir(link), "linked", "report.md"), "the spelling the run was made under");
+putAt(real, "moved", { cwd: cwd });
+assert.equal(loadRun("moved", real).paths.report, path.join(runsDir(real), "moved", "report.md"), "a run.cwd elsewhere is ignored");
+
 console.log("run-store: ok");

@@ -48,12 +48,23 @@ export function loadRun(runId, cwd) {
     if (raw.id !== runId || !Array.isArray(raw.tasks) || !Array.isArray(raw.phases))
         throw new Error(`Run ${runId} has a state.json for a different or broken run; refusing to use it`);
     const run = raw;
-    run.paths = runPaths(runDir);
+    // Keep the spelling the run was made under (macOS /var vs /private/var) when
+    // it names this same folder; anything else is ignored.
+    const made = typeof raw.cwd === "string" ? path.join(runsDir(raw.cwd), runId) : "";
+    run.paths = runPaths(made && sameFolder(made, runDir) ? made : runDir);
     if (!Array.isArray(run.commits))
         run.commits = [];
     return run;
 }
 /** The newest run (by id, which starts with a time stamp) under `cwd`. */
+function sameFolder(a, b) {
+    try {
+        return fs.realpathSync(a) === fs.realpathSync(b);
+    }
+    catch {
+        return false;
+    }
+}
 export function latestRunId(cwd) {
     const dir = runsDir(cwd);
     if (!fs.existsSync(dir))
