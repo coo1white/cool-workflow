@@ -53,9 +53,16 @@ const gitOut = (args) => {
 
 /** The compare base the notes start at, or null for hand-written notes. */
 function notesBase(body, tag) {
-  const esc = tag.replace(/[.]/g, "\\.");
-  const m = new RegExp(`/compare/(\\S+?)\\.\\.\\.${esc}(?![0-9A-Za-z.])`).exec(body || "");
-  return m ? m[1] : null;
+  // Plain string search: the tag never becomes a pattern.
+  const text = body || "";
+  const end = `...${tag}`;
+  for (let i = text.indexOf("/compare/"); i !== -1; i = text.indexOf("/compare/", i + 1)) {
+    const start = i + "/compare/".length;
+    const stop = text.slice(start).search(/\s|$/);
+    const link = text.slice(start, start + stop);
+    if (link.endsWith(end) && link.length > end.length) return link.slice(0, -end.length);
+  }
+  return null;
 }
 
 function bodyOf(tag) {
