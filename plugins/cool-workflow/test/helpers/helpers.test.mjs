@@ -64,7 +64,7 @@ writeProgram(bin, "wincli", "process.exit(0);", { platform: "win32" });
 const posix = (file) => file.replace(/\\/g, "/");
 const winIo = { isFile: (file) => fs.existsSync(posix(file)) && fs.statSync(posix(file)).isFile(), readText: (file) => fs.readFileSync(posix(file), "utf8") };
 const started = spawnArgv("wincli", ["x"], { PATH: bin.replace(/\//g, "\\"), PATHEXT: ".exe;.cmd" }, "win32", "NODE", winIo);
-assert.deepEqual({ binary: started.binary, args: [posix(started.args[0]), ...started.args.slice(1)] }, { binary: "NODE", args: [path.join(bin, "wincli"), "x"] });
+assert.deepEqual({ binary: started.binary, args: [posix(started.args[0]), ...started.args.slice(1)] }, { binary: "NODE", args: [posix(path.join(bin, "wincli")), "x"] });
 
 // env: the agent vars and any extras go; CW_NO_AUTO_AGENT only on request.
 for (const v of [...AGENT_ENV_VARS, "CW_APPS_DIR"]) process.env[v] = "x";
