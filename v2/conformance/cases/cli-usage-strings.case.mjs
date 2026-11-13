@@ -4,13 +4,12 @@
 // text, thrown on stderr (as "cw: ...") when it gets a wrong or missing
 // word. Byte-pinned, repo-free, agent-free, and cheap. The ~30 families of
 // the old build went with their verbs in batch 5 (2026-11-12); what is left
-// is demo, check and report.
+// is check and report.
 
 import { run, caseMain, assert } from "../lib.mjs";
 
 caseMain(() => {
   const cases = [
-    [["demo", "bogus-action-word"], "cw: Usage: cw demo tamper [--json]\n"],
     [["check", "show"], "cw: Usage: cw check show <receipt-id>  (see the ids with: cw check list)\n"],
     [["report", "bundle"], "cw: report bundle requires a run id (cw report bundle <run-id>)\n"],
     [["report", "verify-bundle"], "cw: report verify-bundle requires a bundle path (positional, --archive, --path, --file, or --bundle)\n"],

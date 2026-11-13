@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // agent-config-fix-hint — every "no agent" hint names a form that works.
 //
-// The fault this guards (first-run walkthrough, 2026-11-03): `cw doctor`,
-// `cw quickstart --check` and the `cw -q` hint told a new user to pass
+// The fault this guards (first-run walkthrough, 2026-11-03): the setup
+// check, `cw quickstart --check` and the `cw -q` hint told a new user to pass
 // --agent-command "claude -p", but a bare "claude -p" never completes a
 // worker (docs/reference.md, "Agents and wrappers"). Now all of them give the one
 // AGENT_FIX text, which names -claude / builtin:claude, the README's form.
@@ -41,13 +41,7 @@ try {
   const fromEnv = resolveAgentConfig({}, { PATH: "", CW_NO_AUTO_AGENT: "1", CW_HOME: env.CW_HOME, CW_AGENT_COMMAND: "builtin:claude" });
   assert.match(String(fromEnv.command), /claude-p-agent\.js/, "CW_AGENT_COMMAND=builtin:claude is the claude wrapper");
 
-  // 3. cw doctor gives it.
-  const doctor = cw(["doctor", "--json"], { cwd: repo, env });
-  const agent = JSON.parse(doctor.stdout).checks.find((check) => check.name === "agent");
-  assert.equal(agent.status, "warn");
-  assert.equal(agent.fix, AGENT_FIX, "cw doctor's fix");
-
-  // 4. The cw -q hint gives it, and keeps the DELEGATES line.
+  // 3. The cw -q hint gives it, and keeps the DELEGATES line.
   const ask = cw(["-q", "How does it work?", "--json"], { cwd: repo, env });
   const result = JSON.parse(ask.stdout);
   assert.equal(result.status, "blocked");

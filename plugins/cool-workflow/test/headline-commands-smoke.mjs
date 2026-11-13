@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // headline-commands-smoke — exercises the EXACT documented commands a new user types
-// (the `cw -q "question"` shorthand, the vendor flags, demo/doctor/help/version/fix). This is the gate that would have caught v0.1.88's
+// (the `cw -q "question"` shorthand, the vendor flags, help/version). This is the gate that would have caught v0.1.88's
 // headline regressions:
 //   1. `cw -q "question"` routed the question into appId -> "Workflow app not found".
 //   2. the real run demanded --repo instead of defaulting to the caller's cwd.
@@ -48,14 +48,7 @@ for (const question of ["What are the top security risks here?", "list", "report
 }
 console.log("headline: cw -q routes question (even a command name) + auto-detects repo ok");
 
-// ===== 4. vendor flags select an agent interface (vendor-agnostic) =====
-for (const vendor of ["-claude", "-codex", "-gemini", "-deepseek"]) {
-  const work = tmpRepo();
-  const r = run(["doctor", "--json", vendor], work);
-  const p = JSON.parse(r.stdout);
-  assert.equal(p.checks.find((c) => c.name === "agent").status, "ok", `${vendor} configures an agent interface`);
-}
-console.log("headline: vendor flags -claude/-codex/-gemini/-deepseek configure an agent ok");
+// ===== 4. vendor flags: v2/conformance/cases/cli-vendor-flags =====
 
 // ===== 5. no-agent commands work from anywhere, exit 0 =====
 {
@@ -63,21 +56,18 @@ console.log("headline: vendor flags -claude/-codex/-gemini/-deepseek configure a
   for (const [args, needle] of [
     [["version"], /^\d+\.\d+\.\d+/],
     [["help"], /Cool Workflow/],
-    [["doctor"], /(ready|node:)/i],
-    [["fix"], /(No fixes needed|Fix Commands|--agent-command)/],
-    [["demo", "tamper"], /tamper-evidence holds/]
   ]) {
     const r = run(args, anywhere);
     assert.equal(r.status === 0 || r.status === 1, true, `cw ${args.join(" ")} runs (status ${r.status})`);
     assert.match(r.stdout + r.stderr, needle, `cw ${args.join(" ")} output looks right`);
   }
-  console.log("headline: version/help/doctor/fix/demo work anywhere ok");
+  console.log("headline: version/help work anywhere ok");
 }
 
 // ===== 6. output hygiene + clean help: piped stdout has NO escapes; help wraps + ends in \n =====
 {
   const work = tmpRepo();
-  for (const cmd of [["help"], ["doctor"], ["version"]]) {
+  for (const cmd of [["help"], ["version"]]) {
     const r = run(cmd, work);
     assert.ok(!/\x1b/.test(r.stdout), `piped stdout of 'cw ${cmd.join(" ")}' must contain no ANSI/OSC escapes`);
   }

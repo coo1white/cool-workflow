@@ -45,12 +45,9 @@ when the command did not exit 0 (the receipt is still kept).
 `CW_CHECK_PRIVKEY` signs receipts; `CW_CHECK_PUBKEY` makes runs refuse
 unsigned ones.
 
-## Setup and demo
+## Other
 
 ```bash
-cw doctor [--json] [--fix]
-cw fix
-cw demo tamper
 cw version
 cw help [command]
 ```

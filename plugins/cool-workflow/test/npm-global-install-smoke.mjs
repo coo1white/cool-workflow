@@ -59,17 +59,10 @@ function main() {
   assert.equal(askp.appId, "architecture-review", "installed cw resolves the bundled app from the install location");
   assert.equal(fs.realpathSync(path.dirname(askp.statePath)), fs.realpathSync(path.join(project, ".cw", "runs", askp.runId)), "installed cw takes the caller cwd as the repo (no --repo)");
 
-  // `cw version` / `cw demo tamper` / `cw doctor` work from anywhere
+  // `cw version` works from anywhere
   const ver = runFrom(project, ["version"]);
   assert.equal(ver.status, 0, "installed cw version exits 0");
   assert.match(ver.stdout.trim(), /^\d+\.\d+\.\d+$/, "installed cw reports a version");
-
-  const demo = runFrom(project, ["demo", "tamper"]);
-  assert.equal(demo.status, 0, `installed cw demo tamper exits 0: ${demo.stderr}`);
-  assert.match(demo.stdout, /tamper-evidence holds/, "installed cw demo tamper proves the core (no agent, no package cwd)");
-
-  const doctor = runFrom(project, ["doctor"]);
-  assert.match(doctor.stdout + doctor.stderr, /node:/, "installed cw doctor runs from an arbitrary dir");
 
   // 4. a NON-repo / empty dir degrades gracefully (clear message, not a crash/stack)
   const empty = tmp("cw-empty-");

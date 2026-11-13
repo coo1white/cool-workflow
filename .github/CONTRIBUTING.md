@@ -14,7 +14,7 @@ middle; the right column says where to go next.
 | You want to | Start here | Then |
 |---|---|---|
 | Install from a clone | `bun install --frozen-lockfile && npm run build && npm link` | [`docs/reference.md`](../plugins/cool-workflow/docs/reference.md#install) — why bun, and what not to run |
-| Do a first run | `cw doctor`, then `cw demo tamper` | [`docs/reference.md`](../plugins/cool-workflow/docs/reference.md) — the loop at the top, then one part per step |
+| Do a first run | `cw -q "your question" -claude` in a git project | [`docs/reference.md`](../plugins/cool-workflow/docs/reference.md) — the loop at the top, then one part per step |
 | Run the tests | `npm run test:fast` (quick) or `npm test` | [`test/README.md`](../plugins/cool-workflow/test/README.md#running) — every way to run them |
 | Add a test | [`test/README.md`](../plugins/cool-workflow/test/README.md) | Unit test: `test/<the src/ folder>/<module>-<behavior>.test.mjs`. Smoke: `test/<name>-smoke.mjs` (found by itself). Shared set-up: [`test/helpers/`](../plugins/cool-workflow/test/helpers/) |
 | Find what a command does | `cw help <command>` | [`docs/reference.md`](../plugins/cool-workflow/docs/reference.md) — one part per command, organized by what you do |

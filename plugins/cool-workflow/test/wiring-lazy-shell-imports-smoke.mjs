@@ -75,7 +75,7 @@ function loadedShellModule(loaded, relativeShellPath) {
   return false;
 }
 
-const HEAVY = ["commands/pipeline-cli.js", "commands/report-cli.js", "commands/report-view-cli.js", "commands/check-cli.js", "doctor.js", "drive.js", "run-store.js", "tamper-demo.js"];
+const HEAVY = ["commands/pipeline-cli.js", "commands/report-cli.js", "commands/report-view-cli.js", "commands/check-cli.js", "drive.js", "run-store.js"];
 
 try {
   // 1. `cw --version`: needs nothing but a pure constant.
@@ -89,9 +89,8 @@ try {
 
   // 2. Each command loads its own shell module, and not the drive or the others.
   for (const [args, needs, skips] of [
-    [["doctor", "--json"], "doctor.js", ["commands/pipeline-cli.js", "commands/report-cli.js", "commands/check-cli.js", "drive.js", "tamper-demo.js"]],
-    [["check", "list", "--json"], "commands/check-cli.js", ["commands/pipeline-cli.js", "commands/report-cli.js", "doctor.js", "drive.js", "tamper-demo.js"]],
-    [["report", "definitely-not-a-real-run-id"], "commands/report-view-cli.js", ["commands/pipeline-cli.js", "commands/check-cli.js", "doctor.js", "drive.js", "tamper-demo.js"]],
+    [["check", "list", "--json"], "commands/check-cli.js", ["commands/pipeline-cli.js", "commands/report-cli.js", "drive.js"]],
+    [["report", "definitely-not-a-real-run-id"], "commands/report-view-cli.js", ["commands/pipeline-cli.js", "commands/check-cli.js", "drive.js"]],
   ]) {
     const loaded = loadedModulesFor(args, hookDir);
     assert.ok(loadedShellModule(loaded, needs), `cw ${args.join(" ")} must load shell/${needs} -- it is what does the work`);

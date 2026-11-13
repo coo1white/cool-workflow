@@ -107,7 +107,7 @@ export function parseArgv(argv: string[]): ParsedArgv {
 }
 
 /** Every top-level command name, for "did you mean". */
-export const KNOWN_COMMANDS: Set<string> = new Set(["help", "doctor", "fix", "report", "check", "demo", "version"]);
+export const KNOWN_COMMANDS: Set<string> = new Set(["help", "report", "check", "version"]);
 
 /** Levenshtein edit distance between two strings. */
 function levenshtein(a: string, b: string): number {

@@ -229,25 +229,6 @@ function main() {
     console.log("muse: builtin:muse resolution + auto-detect OK");
   }
 
-  {
-    const cli = path.join(pluginRoot, "dist", "cli.js");
-    const tmp = tmpDir("cw-muse-flag-");
-    const cwHome = path.join(tmp, "home");
-    fs.mkdirSync(cwHome, { recursive: true });
-    try {
-      const env = { ...process.env, CW_NO_AUTO_AGENT: "1", CW_HOME: cwHome };
-      delete env.CW_AGENT_COMMAND;
-      const r = spawnSync(process.execPath, [cli, "doctor", "--json", "-muse"], { cwd: tmp, encoding: "utf8", env });
-      const payload = JSON.parse(r.stdout);
-      const agent = payload.checks.find((c) => c.name === "agent");
-      assert.ok(agent, "the doctor payload must have an 'agent' check");
-      assert.equal(agent.status, "ok", "-muse must pin the agent (builtin:muse), like -claude/-codex/-gemini/-deepseek");
-      assert.match(agent.detail, /from flag/, "the agent comes from the -muse flag");
-    } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
-    }
-    console.log("muse: -muse CLI flag pins builtin:muse OK");
-  }
 
   fs.rmSync(work, { recursive: true, force: true });
   console.log("agent-muse-native-smoke: ok");

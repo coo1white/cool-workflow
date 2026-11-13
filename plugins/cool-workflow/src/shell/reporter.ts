@@ -65,7 +65,7 @@ export function formatQuickstartSummary(f: RunSummaryFields, opened: boolean): s
   } else {
     lines.push(`  ${yellow("!", out)} Status: ${f.status}${counts}`);
     if (f.agentConfigured === false) {
-      lines.push(`  ${nextHint("cw doctor", out)}`);
+      lines.push(`  ${nextHint('cw -q "<question>" -claude', out)}`);
       if (opened) lines.push(openedLine);
       lines.push(`  ${dim("Try:", out)} cw report --show`);
       return lines.join("\n");

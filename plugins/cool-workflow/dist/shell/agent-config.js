@@ -5,7 +5,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { agentCommandArgv, findProgram, splitAgentCommand } from "../core/util/cli-args.js";
+import { findProgram, splitAgentCommand } from "../core/util/cli-args.js";
 /** CW_HOME resolution: CW_HOME > XDG_STATE_HOME/cool-workflow > ~/.local/state/cool-workflow. */
 export function resolveCwHome(env = process.env) {
     if (env.CW_HOME && String(env.CW_HOME).trim())
@@ -99,25 +99,6 @@ function detectAgentFromPath(env = process.env) {
 const AGENTS_DIR = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
 function builtinManifest() {
     return JSON.parse(fs.readFileSync(path.join(AGENTS_DIR, "builtin-templates.json"), "utf8"));
-}
-// A custom command is matched by binary name to a template not on builtinOnly.
-function customMatch(manifest) {
-    const only = new Set(manifest.builtinOnly?.templates || []);
-    return Object.entries(manifest.versionProbe?.clis || {}).filter(([name]) => !only.has(name));
-}
-export function agentProbeTarget(command, args) {
-    if (!command)
-        return undefined;
-    const manifest = builtinManifest();
-    const clis = manifest.versionProbe?.clis || {};
-    const { binary: bin, args: [script] } = agentCommandArgv(command, args);
-    for (const [name, file] of Object.entries(manifest.templates || {})) {
-        if (path.basename(bin) === "node" && script && path.resolve(script) === path.join(AGENTS_DIR, file)) {
-            return clis[name] ? { cli: clis[name] } : { skip: `builtin:${name} has no vendor CLI` };
-        }
-    }
-    const cli = path.basename(bin).replace(/\.(exe|cmd|bat)$/i, "");
-    return customMatch(manifest).some(([, value]) => value === cli) ? { cli: bin } : { skip: "custom command" };
 }
 function builtinAgentTemplates() {
     const manifest = builtinManifest();

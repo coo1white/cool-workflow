@@ -16,14 +16,13 @@ import { formatHelp } from "../../../dist/core/format/help.js";
 // -copilot, -antigravity, -grok, 2026-11-04). 0.4.3:
 // the -q rows at column 44, the agent flags in their own "Agents" block, no version|fix in More commands.
 // Batch 5 (2026-11-12): no --link row; More commands is the kept verbs only.
+// 2026-11-13: doctor, fix and demo cut (not on the receipt path).
 {
   const expected = [
     "Cool Workflow",
     "",
     '  -q "question" [-<vendor>]                 Ask a question, get a report',
     "  version                                   Show version",
-    "  doctor                                    Check setup",
-    "  fix                                       Show fix commands for setup issues",
     "",
     "Flags",
     "  -q, --question TEXT    The task or question to answer",
@@ -47,7 +46,7 @@ import { formatHelp } from "../../../dist/core/format/help.js";
     "  -grok                  Use Grok agent",
     "",
     "More commands",
-    "  report|check|demo",
+    "  report|check",
     "",
     "    Run  cw help <command>  for one command's subcommands and descriptions.",
   ].join("\n") + "\n";

@@ -13,26 +13,8 @@
     "antigravity": "antigravity-agent.js",
     "grok": "grok-agent.js"
   },
-  "builtinOnly": {
-    "comment": "Templates matched only through builtin:<name> (added 2026-11-04 with the beta three; grok stays after leaving beta in 0.4.2). A custom CW_AGENT_COMMAND whose binary has the same name (grok, copilot, agy) is still a custom command, as in 0.4.0: no --version probe, no sandbox hosts. Taking a name off this list changes cw doctor for such a command, so it needs the operator's named yes.",
-    "templates": ["copilot", "antigravity", "grok"]
-  },
-  "versionProbe": {
-    "comment": "The vendor CLI each template above runs. `cw doctor` runs `<cli> --version` once to check that it starts. A template with no entry here (deepseek: HTTP, no CLI) is not probed.",
-    "clis": {
-      "claude": "claude",
-      "codex": "codex",
-      "gemini": "opencode",
-      "gemini-cli": "gemini",
-      "opencode": "opencode",
-      "muse": "muse",
-      "copilot": "copilot",
-      "antigravity": "agy",
-      "grok": "grok"
-    }
-  },
   "sandbox": {
-    "comment": "Used only with CW_AGENT_SANDBOX=srt (0.3.3, opt-in): per template, the hosts the vendor CLI must reach and its own state paths it writes. Data, not kernel code (policy in userland). Best effort until checked on a real login with `cw doctor --conformance`; a host missing here shows as a refused connection, and CW_AGENT_SANDBOX_HOSTS adds more. The copilot, antigravity and grok rows (beta, 2026-11-04) are unverified: hosts read from each vendor CLI docs, not yet seen on a real login; antigravity takes the gemini-cli hosts, as agy is Gemini-based.",
+    "comment": "Used only with CW_AGENT_SANDBOX=srt (0.3.3, opt-in): per template, the hosts the vendor CLI must reach and its own state paths it writes. Data, not kernel code (policy in userland). Best effort until checked on a real login; a host missing here shows as a refused connection, and CW_AGENT_SANDBOX_HOSTS adds more. The copilot, antigravity and grok rows (beta, 2026-11-04) are unverified: hosts read from each vendor CLI docs, not yet seen on a real login; antigravity takes the gemini-cli hosts, as agy is Gemini-based.",
     "vendors": {
       "claude": {
         "hosts": [

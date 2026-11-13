@@ -4,7 +4,7 @@
 import type { CommandRow } from "../command.js";
 
 /** The "More commands" line, in this order. */
-export const MORE_COMMANDS_TOKENS: string[] = ["report", "check", "demo"];
+export const MORE_COMMANDS_TOKENS: string[] = ["report", "check"];
 
 export function formatHelp(): string {
   const lines: string[] = [
@@ -12,8 +12,6 @@ export function formatHelp(): string {
     "",
     '  -q "question" [-<vendor>]                 Ask a question, get a report',
     "  version                                   Show version",
-    "  doctor                                    Check setup",
-    "  fix                                       Show fix commands for setup issues",
     "",
     "Flags",
     "  -q, --question TEXT    The task or question to answer",
