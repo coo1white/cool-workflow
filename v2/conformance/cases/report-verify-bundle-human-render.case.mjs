@@ -56,9 +56,10 @@ caseMain(() => {
   assert.match(missingBundle.stdout, /archive-unreadable/);
 
   // --- cw report <bad-run-id>: "Run not found: <id>", not a raw internal
-  // state.json path (shell/run-store.ts's loadRunFromCwd) ---
+  // state.json path (shell/run-store.ts's loadRunFromCwd). The path uses
+  // the host's separator, so a backslash on Windows. ---
   const badReport = run(["report", "no-such-run-id"], { cwd: repo });
   assert.equal(badReport.status, 1);
-  assert.match(badReport.stderr, /^cw: Run not found: no-such-run-id \(no \.cw\/runs\/no-such-run-id\/state\.json under .*\)\n {2}Try: cw -q "<question>"\n$/);
+  assert.match(badReport.stderr, /^cw: Run not found: no-such-run-id \(no \.cw[\\/]runs[\\/]no-such-run-id[\\/]state\.json under .*\)\n {2}Try: cw -q "<question>"\n$/);
   assert.equal(badReport.stdout, "");
 });

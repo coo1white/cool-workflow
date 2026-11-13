@@ -61,7 +61,9 @@ caseMain(() => {
   // --- ## Results result-body shape: "### <taskId>" blank "Result: <path>"
   // blank <trimmed body> — the shape bundle verify anchors on.
   const resultsSection = report.slice(report.indexOf("## Results"));
-  assert.match(resultsSection, /### verdict:synthesis\n\nResult: .*results[\\/]verdict:synthesis\.md\n\n/);
+  // The file name keeps ":" except on Windows, where ":" is not allowed in
+  // a file name and becomes "_" (shell/fs-atomic.ts safeFileName).
+  assert.match(resultsSection, /### verdict:synthesis\n\nResult: .*results[\\/]verdict[:_]synthesis\.md\n\n/);
   assert.ok(resultsSection.includes("stub-agent: deterministic canned result"));
 
   // --- Phase Status table ---
