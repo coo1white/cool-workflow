@@ -30,9 +30,9 @@ const start = (binary, args) => {
 };
 
 // Windows: `gh` on Path is gh.cmd, an npm-style shim; it starts as node <script>.
-assert.deepEqual(start("gh", ["release", "view"]), { binary: process.execPath, args: [gh, "release", "view"] });
+assert.deepEqual(start("gh", ["release", "view"]), { binary: process.execPath, args: [posix(gh), "release", "view"] });
 // Windows: a stub named by path (CW_RELEASE_FLOW_GH_CMD and friends) finds its .cmd too.
-assert.deepEqual(start(gh.replace(/\//g, "\\"), ["auth", "status"]), { binary: process.execPath, args: [gh, "auth", "status"] });
+assert.deepEqual(start(gh.replace(/\//g, "\\"), ["auth", "status"]), { binary: process.execPath, args: [posix(gh), "auth", "status"] });
 // Off Windows the argv is left as typed.
 assert.deepEqual(scriptArgv("gh", ["x"], env, "linux", spawnArgv), { binary: "gh", args: ["x"] });
 
