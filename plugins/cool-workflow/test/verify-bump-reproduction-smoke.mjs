@@ -129,6 +129,7 @@ const REAL_REMOTE_URL = git(["config", "--get", "remote.origin.url"], REAL_REPO_
     const r = runReproduction(clone, REAL_PARENT, forgedSha, REAL_VERDICT_REL);
     assert.notEqual(r.status, 0, `a replayed verdict on a commit with an injected file must be rejected:\n${r.stdout}`);
     assert.match(r.stderr, /does not match the deterministic bump/, "should explain the tree mismatch");
+    assert.match(r.stderr, /^A\tbackdoor\.js$/m, "should name the injected file");
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

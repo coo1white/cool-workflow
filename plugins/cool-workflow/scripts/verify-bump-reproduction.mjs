@@ -218,6 +218,9 @@ function main() {
 
   if (EXPECTED_TREE !== ACTUAL_TREE) {
     err(`verify-bump-reproduction: ${TAGGED}'s tree (${ACTUAL_TREE}) does not match the deterministic bump reproduced from approved parent ${PARENT} (${EXPECTED_TREE}) — refusing`);
+    // Name the paths that differ, so a refusal can be checked by hand.
+    const diff = gitIn(REPO_ROOT, ["diff", "--name-status", EXPECTED_TREE, ACTUAL_TREE]);
+    if (diff.status === 0 && diff.stdout.trim()) err(`verify-bump-reproduction: reproduced vs tagged:\n${diff.stdout.trimEnd()}`);
     return 1;
   }
 
