@@ -22,7 +22,7 @@ import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { tmpDir } from "./helpers/workspace.mjs";
 import { writeProgram } from "./helpers/program.mjs";
-import { runChecks } from "../scripts/release-preflight.mjs";
+import { runChecks, resolveReviewerBinary } from "../scripts/release-preflight.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
 const DOCTOR = path.join(pluginRoot, "scripts", "release-doctor.mjs");
@@ -133,7 +133,9 @@ function world() {
   fs.writeFileSync(path.join(pkgDir, "dist", "core", "util", "cli-args.js"),
     "\"use strict\";\n" +
     "function agentCommandArgv(command, args) { return { binary: command, args: args || [] }; }\n" +
-    "module.exports = { agentCommandArgv };\n");
+    // spawn-argv.mjs starts gh through the real spawnArgv on Windows (gh.cmd).
+    `const { spawnArgv } = require(${JSON.stringify(path.join(pluginRoot, "dist", "core", "util", "cli-args.js"))});\n` +
+    "module.exports = { agentCommandArgv, spawnArgv };\n");
   sh("git", ["add", "-A"], seed, gitEnv);
   sh("git", ["commit", "-q", "-m", "seed"], seed, gitEnv);
   sh("git", ["push", "-q", "origin", "main"], seed, gitEnv);
@@ -148,8 +150,8 @@ function world() {
   const ranMarker = path.join(root, "reviewer-ran");
   // writeProgram adds the gh.cmd that a Windows PATH lookup (PATHEXT) finds.
   writeProgram(bin, "gh", "process.exit(process.env.GH_STUB_FAIL === '1' ? 1 : 0);\n");
-  const reviewer = path.join(bin, "grok-review");
-  fs.writeFileSync(reviewer, `#!/usr/bin/env node\nrequire('node:fs').writeFileSync(${JSON.stringify(ranMarker)}, 'ran');\n`, { mode: 0o755 });
+  // On Windows writeProgram also writes grok-review.cmd, the name release-flow starts.
+  const reviewer = writeProgram(bin, "grok-review", `require('node:fs').writeFileSync(${JSON.stringify(ranMarker)}, 'ran');\n`);
   const keyFile = path.join(root, "verdict-signing.key");
   fs.writeFileSync(keyFile, KEY_TEXT, { mode: 0o600 });
 
@@ -309,14 +311,35 @@ function noSecret(w, r) {
   assert.equal(notOnPath.code, 1);
   assert.match(byId(json(notOnPath), "reviewer").message, /not an executable file on PATH/);
 
-  fs.chmodSync(w.reviewer, 0o644);
+  // A file the OS will not start: no exec bit, or on Windows no PATHEXT
+  // suffix (only the bare file is left; Windows has no exec bit).
+  if (process.platform === "win32") fs.rmSync(`${w.reviewer}.cmd`);
+  else fs.chmodSync(w.reviewer, 0o644);
   const notExec = doctor(w, [VERSION, "--json"]);
-  assert.equal(notExec.code, 1, "a reviewer file without the exec bit must fail");
+  assert.equal(notExec.code, 1, "a reviewer file the OS will not start must fail");
   assert.equal(byId(json(notExec), "reviewer").status, "fail");
 
   const none = doctor(w, [VERSION, "--json"], { CW_AGENT_COMMAND: undefined });
   assert.equal(none.code, 1, "no reviewer configured must fail");
   assert.match(byId(json(none), "reviewer").message, /no reviewer agent configured/);
+}
+
+// ---- Case: on Windows only a PATHEXT name is startable (any OS) -----------
+// Windows starts no file without a PATHEXT suffix and has no exec bit, so the
+// doctor once passed a bare `grok-review` that release-flow could not start.
+{
+  const dir = tmpDir("cw-release-doctor-win-");
+  const env = { PATH: dir, PATHEXT: ".EXE;.CMD" };
+  const bare = path.join(dir, "grok-review");
+  fs.writeFileSync(bare, "", { mode: 0o755 });
+  assert.equal(resolveReviewerBinary("grok-review", dir, env, "win32"), undefined, "a bare name on PATH is not startable on Windows");
+  assert.equal(resolveReviewerBinary(bare, dir, env, "win32"), undefined, "a bare path is not startable on Windows");
+  // A posix PATH (":") cannot hold a Windows dir ("C:\\..."), so this one runs off Windows only.
+  if (process.platform !== "win32") assert.equal(resolveReviewerBinary("grok-review", dir, env, "linux"), bare, "off Windows the exec bit is enough");
+  fs.writeFileSync(`${bare}.cmd`, "");
+  assert.equal(resolveReviewerBinary("grok-review", dir, env, "win32"), `${bare}.cmd`, "grok-review.cmd is found by name");
+  assert.equal(resolveReviewerBinary(bare, dir, env, "win32"), `${bare}.cmd`, "a bare path finds grok-review.cmd");
+  assert.equal(resolveReviewerBinary(`${bare}.cmd`, dir, env, "win32"), `${bare}.cmd`, "a .cmd path is taken as given");
 }
 
 // ---- Case: signing key file missing while the pubkey is committed ----------

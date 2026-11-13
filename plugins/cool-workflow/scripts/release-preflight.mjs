@@ -346,9 +346,22 @@ function checkCutBranch(ctx, version, { mode = "doctor" } = {}) {
 }
 
 // ---- reviewer ----------------------------------------------------------------
-function isExecutableFile(p) {
+// Windows has no exec bit (X_OK there only means the file exists) and starts
+// only a name that ends in a PATHEXT suffix, so a bare `grok-review` passed
+// this check and then could not be started by release-flow. On win32 the
+// names tried are the ones release-flow's spawnArgv tries: the name as given
+// when it already ends in a PATHEXT suffix, else the name plus each suffix.
+function isFile(p) {
   try {
-    if (!fs.statSync(p).isFile()) return false;
+    return fs.statSync(p).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function isExecutableFile(p) {
+  if (!isFile(p)) return false;
+  try {
     fs.accessSync(p, fs.constants.X_OK);
     return true;
   } catch {
@@ -356,14 +369,22 @@ function isExecutableFile(p) {
   }
 }
 
-function resolveOnPath(bin, env) {
-  const dirs = (env.PATH || "").split(path.delimiter).filter(Boolean);
-  const exts = process.platform === "win32" ? (env.PATHEXT || ".EXE;.CMD;.BAT").split(";") : [""];
-  for (const dir of dirs) {
-    for (const ext of exts) {
-      const p = path.join(dir, bin + ext);
-      if (isExecutableFile(p)) return p;
-    }
+function startableNames(name, env, platform) {
+  if (platform !== "win32") return [name];
+  const exts = (env.PATHEXT || ".EXE;.CMD;.BAT").split(";").filter(Boolean).map((ext) => ext.toLowerCase());
+  return exts.some((ext) => name.toLowerCase().endsWith(ext)) ? [name] : exts.map((ext) => name + ext);
+}
+
+/** The file release-flow would start for the reviewer's first argv token
+ *  `bin` (a path, or a name looked up on PATH), or undefined. */
+function resolveReviewerBinary(bin, repoRoot, env, platform = process.platform) {
+  const startable = platform === "win32" ? isFile : isExecutableFile;
+  if (bin.includes("/") || bin.includes("\\")) {
+    return startableNames(path.resolve(repoRoot, bin), env, platform).find(startable);
+  }
+  for (const dir of (env.PATH || "").split(platform === "win32" ? ";" : ":").filter(Boolean)) {
+    const found = startableNames(path.join(dir, bin), env, platform).find(startable);
+    if (found) return found;
   }
   return undefined;
 }
@@ -403,13 +424,7 @@ function checkReviewer(ctx) {
     return finding("reviewer", "ok", "reviewer is an HTTP endpoint (not contacted by the doctor)");
   }
   const { binary: bin, args: rest } = agentCommandArgv(String(cfg.command), cfg.args);
-  let resolved;
-  if (bin.includes("/") || bin.includes(path.sep)) {
-    const abs = path.resolve(ctx.repoRoot, bin);
-    resolved = isExecutableFile(abs) ? abs : undefined;
-  } else {
-    resolved = resolveOnPath(bin, ctx.env);
-  }
+  const resolved = resolveReviewerBinary(bin, ctx.repoRoot, ctx.env);
   if (!resolved) {
     return finding("reviewer", "fail", `reviewer command "${bin}" (from ${from}) is not an executable file${bin.includes("/") ? "" : " on PATH"} — the cut would die with ENOENT after the full gate`, {
       fix: `install it, or ${fixExample}`
@@ -534,6 +549,7 @@ export {
   classifyCutBranch,
   removeCutBranch,
   checkReviewer,
+  resolveReviewerBinary,
   checkGitIdentity,
   checkGh,
   toolVersions,
