@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
 // antigravity-agent.js - Google Antigravity CLI adapter for CW Agent
-// Delegation Drive (beta: no real login has passed `cw doctor --conformance`
-// yet).
+// Delegation Drive (beta: no real login has been checked with it yet).
 //
 // CONFIG wrapper, not a CW runtime dependency: CW spawns this out-of-
 // process; this spawns `agy` out-of-process. argv[2]/argv[3] are the

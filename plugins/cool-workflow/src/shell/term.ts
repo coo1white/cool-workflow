@@ -49,7 +49,7 @@ export function red(text: string, stream?: NodeJS.WriteStream): string {
 }
 
 /** The styled ✓ / ! / ✗ for a check. */
-export function doctorGlyph(status: TermSeverity, stream?: NodeJS.WriteStream): string {
+export function checkGlyph(status: TermSeverity, stream?: NodeJS.WriteStream): string {
   const glyph: Record<TermSeverity, string> = { ok: "✓", warn: "!", fail: "✗" };
   const color: Record<TermSeverity, (t: string, s?: NodeJS.WriteStream) => string> = {
     ok: green,

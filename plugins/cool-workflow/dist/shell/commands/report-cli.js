@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { cwdArg, optionalArg } from "../../core/util/cli-args.js";
 import { exportRun, verifyReportBundle } from "../run-export.js";
 import { loadRun } from "../run-store.js";
-import { bold, doctorGlyph } from "../term.js";
+import { bold, checkGlyph } from "../term.js";
 const SYSTEM_DIRS = /^\/(etc|bin|sbin|usr|Library|System|Applications|boot|dev|proc|sys|root|var\/log|var\/run)\//;
 export function reportBundleCli(runId, args) {
     if (!runId)
@@ -64,7 +64,7 @@ export function formatReportVerifyBundle(r) {
         [r.reportFindingsVerified, "report.md matches every signed result"],
     ];
     for (const [ok, label] of checks)
-        lines.push(`  ${doctorGlyph(ok ? "ok" : "fail")} ${label}`);
+        lines.push(`  ${checkGlyph(ok ? "ok" : "fail")} ${label}`);
     const sigDetail = r.signatureKeyProvided
         ? `${r.signaturesReverified}/${r.signaturesChecked} signature(s) reverified (key source: ${r.trustKeySource})`
         : "no public key available — signatures not checked";
@@ -84,7 +84,7 @@ export function formatReportVerifyBundle(r) {
         }
     }
     lines.push("");
-    lines.push(`${doctorGlyph(r.ok ? "ok" : "fail")} ${r.ok ? "bundle verifies" : "bundle verification FAILED"}`);
+    lines.push(`${checkGlyph(r.ok ? "ok" : "fail")} ${r.ok ? "bundle verifies" : "bundle verification FAILED"}`);
     return lines.join("\n");
 }
 /** `cw report bundle` on a TTY: the check, then where the file went and how

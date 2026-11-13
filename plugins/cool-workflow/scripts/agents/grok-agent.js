@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
 // grok-agent.js - xAI Grok Build CLI adapter for CW Agent Delegation Drive
-// (out of beta from 0.4.2: a real login, grok 1.0.70, passed `cw doctor
-// --conformance` on 2026-11-04 with no warning, model grok-4.6-build; an
+// (out of beta from 0.4.2: a real login, grok 1.0.70, passed the agent
+// conformance check (then `cw doctor --conformance`, since removed) on
+// 2026-11-04 with no warning, model grok-4.6-build; an
 // earlier run had one warning, no model reported, which the JSON record answers).
 //
 // CONFIG wrapper, not a CW runtime dependency: CW spawns this out-of-

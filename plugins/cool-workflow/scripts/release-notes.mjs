@@ -30,7 +30,7 @@ export function titlesFromLog(raw) {
 // "fix(release): the npm check asks the registry (#803)" -> "the npm check asks
 // the registry". Trailing "(...)" groups are taken off: they hold PR numbers
 // and program step names, which say nothing to a user. The words are kept as
-// the author wrote them (no capital is forced: "cw doctor" stays "cw doctor").
+// the author wrote them (no capital is forced: "cw check" stays "cw check").
 function plain(text) {
   let t = text.trim();
   while (/\s*\([^()]*\)$/.test(t)) t = t.replace(/\s*\([^()]*\)$/, "");
