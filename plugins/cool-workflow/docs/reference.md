@@ -1172,3 +1172,5 @@ read the failed step, fix only that, push again.
 line. `npm run bump:version -- X.Y.0 --content` appends the next one.
 
 0.4.0
+
+0.5.0
