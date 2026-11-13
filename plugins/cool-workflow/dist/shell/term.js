@@ -41,7 +41,7 @@ export function red(text, stream) {
     return style(ansi.red, text, stream);
 }
 /** The styled ✓ / ! / ✗ for a check. */
-export function doctorGlyph(status, stream) {
+export function checkGlyph(status, stream) {
     const glyph = { ok: "✓", warn: "!", fail: "✗" };
     const color = {
         ok: green,

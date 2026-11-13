@@ -4,7 +4,7 @@ import * as path from "node:path";
 import { cwdArg, optionalArg } from "../../core/util/cli-args.js";
 import { exportRun, verifyReportBundle, ReportBundleVerification } from "../run-export.js";
 import { loadRun } from "../run-store.js";
-import { bold, doctorGlyph } from "../term.js";
+import { bold, checkGlyph } from "../term.js";
 
 export interface ReportBundleResult {
   schemaVersion: 1;
@@ -76,7 +76,7 @@ export function formatReportVerifyBundle(r: ReportBundleVerification): string {
     [r.telemetryVerified, "telemetry hash chain verifies"],
     [r.reportFindingsVerified, "report.md matches every signed result"],
   ];
-  for (const [ok, label] of checks) lines.push(`  ${doctorGlyph(ok ? "ok" : "fail")} ${label}`);
+  for (const [ok, label] of checks) lines.push(`  ${checkGlyph(ok ? "ok" : "fail")} ${label}`);
   const sigDetail = r.signatureKeyProvided
     ? `${r.signaturesReverified}/${r.signaturesChecked} signature(s) reverified (key source: ${r.trustKeySource})`
     : "no public key available — signatures not checked";
@@ -94,7 +94,7 @@ export function formatReportVerifyBundle(r: ReportBundleVerification): string {
     }
   }
   lines.push("");
-  lines.push(`${doctorGlyph(r.ok ? "ok" : "fail")} ${r.ok ? "bundle verifies" : "bundle verification FAILED"}`);
+  lines.push(`${checkGlyph(r.ok ? "ok" : "fail")} ${r.ok ? "bundle verifies" : "bundle verification FAILED"}`);
   return lines.join("\n");
 }
 
