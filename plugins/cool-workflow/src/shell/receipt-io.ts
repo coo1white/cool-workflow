@@ -36,9 +36,8 @@ export interface CodeStateIo {
 
 const REAL_IO: CodeStateIo = { git, fileDigest: untrackedBytesDigest };
 
-/** HEAD plus a digest of every uncommitted change under the repo folder
- *  (tracked diff + untracked, not ignored, files), leaving out .cw/.
- *  A read that fails gives treeDigest null (unknown), never a made-up digest. */
+/** HEAD plus a digest of uncommitted changes (minus .cw/); a failed read
+ *  gives treeDigest null, never a made-up one. */
 export function readCodeState(repo: string, io: CodeStateIo = REAL_IO): CodeState & { dirty: boolean } {
   const git = io.git;
   const head = git(repo, ["rev-parse", "--verify", "-q", "HEAD"])?.trim();
@@ -226,9 +225,8 @@ export function listReceipts(repo: string): ReceiptListEntry[] {
   return entries.sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)) || a.id.localeCompare(b.id));
 }
 
-/** The gate for a run: judge each cited receipt against the run's code
- *  now. On success the receipts are pinned into <runDir>/receipts/ (so the
- *  report and a bundle carry them). */
+/** Judge each cited receipt against the code now; on success pin them
+ *  into <runDir>/receipts/. */
 export function checkCitedReceipts(run: WorkflowRun, ids: string[]): ReceiptJudgement[] {
   const code = readCodeState(run.cwd);
   const verdicts = ids.map((id) => judgeStoredReceipt(run.cwd, id, code, run.paths.runDir));

@@ -1,8 +1,6 @@
-// shell/run-export.ts — the portable run bundle: `cw report bundle` writes
-// it, `cw report verify-bundle` checks it offline and fail-closed. The check
-// never trusts the bundle's own claims: it recomputes every file digest, the
-// telemetry hash chain, the ed25519 signatures, and that report.md embeds
-// each signed result byte for byte.
+// shell/run-export.ts — the run bundle: `cw report bundle` writes it,
+// `verify-bundle` checks it offline, recomputing every digest, the chain,
+// the signatures, and that report.md embeds each signed result.
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { sha256, sha256Bytes } from "../core/hash.js";
@@ -264,7 +262,6 @@ export function verifyReportBundle(archivePath, options = {}) {
     let findingsOk = true;
     const reportMd = contents.get("report.md")?.toString("utf8") ?? "";
     for (const bound of sig.resultBound) {
-        // A bundle made on either OS verifies on both: look up both spellings.
         const raw = contents.get(`results/${safeFileName(bound.taskId)}.md`)?.toString("utf8");
         const code = raw === undefined ? "result-missing" : sha256(raw) !== bound.resultDigest ? "result-digest-mismatch" : !reportSectionEmbedsResult(reportMd, bound.taskId, raw.trim()) ? "report-result-mismatch" : undefined;
         if (code) {

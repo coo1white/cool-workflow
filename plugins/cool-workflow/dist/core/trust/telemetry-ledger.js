@@ -1,21 +1,9 @@
-// core/trust/telemetry-ledger.ts — the hash-chained telemetry
-// attestation ledger's PURE half: genesisPrevHash, computeRecordHash,
-// reportedUsageDigest, verifyTelemetryLedger. Directory/file IO
-// (telemetryLedgerPath, loadTelemetryLedger, appendTelemetryAttestation)
-// lives in shell/telemetry-ledger-io.ts.
-//
-// Uses core/hash.ts's `sha256`/`telemetryStableStringify` (and its
-// key-omission-vs-null rule).
-//
-// Evidence: SPEC/ledger-trust.md "Telemetry ledger record", byte-compat
-// items 2 and 12.
+// core/trust/telemetry-ledger.ts — the hash-chained telemetry ledger's pure
+// half. Disk IO is in shell/telemetry-ledger-io.ts.
 import { sha256, telemetryStableStringify } from "../hash.js";
 export const TELEMETRY_LEDGER_SCHEMA_VERSION = 1;
-/** A telemetry ledger that EXISTS on disk but cannot be parsed (or whose
- *  shape is not a record array). This is exactly the corruption/
- *  truncation case the hash chain exists to catch — it must fail closed,
- *  never be silently treated as the "empty/absent" chain (which verifies
- *  as clean). */
+/** A ledger that exists but does not parse as records. Fails closed:
+ *  never read as the empty chain, which verifies clean. */
 export class TelemetryLedgerCorruptError extends Error {
     file;
     constructor(file) {
@@ -28,10 +16,9 @@ export class TelemetryLedgerCorruptError extends Error {
 export function genesisPrevHash(runId) {
     return sha256(`cw-telemetry-ledger:${runId}`);
 }
-/** The canonical bytes a recordHash binds — every field except
- *  recordHash itself. `reportedUsage`/`resultDigest` are OMITTED (not
- *  `null`) when absent, so a usage-only record's hash is byte-identical
- *  to a pre-result-coverage one (back-compat with old ledgers). */
+/** The bytes a recordHash binds: every field but itself. Absent
+ *  `reportedUsage`/`resultDigest` are omitted, not null, so old ledgers
+ *  still verify. */
 function recordHashInput(record) {
     return telemetryStableStringify({
         schemaVersion: record.schemaVersion,
@@ -59,16 +46,12 @@ export function computeRecordHash(record) {
 export function reportedUsageDigest(usage) {
     return sha256(telemetryStableStringify(usage ?? null));
 }
-/** Deterministic (chain POSITION, not a process-global counter or
- *  wall-clock stamp): `tel-` + chain position, zero-padded to 3. */
+/** `tel-` + the chain position, zero-padded to 3. */
 export function recordId(seq) {
     return `tel-${String(seq).padStart(3, "0")}`;
 }
-/** Re-prove the whole telemetry chain for a run: prevHash linkage +
- *  per-record hash recompute. Recomputes every hash independently —
- *  never trusts the stored value. An empty ledger verifies as
- *  present:false (nothing to prove), NOT a failure. Pure: takes the
- *  already-loaded record array plus the run id, never touches disk. */
+/** Re-prove a run's chain: linkage, and every hash recomputed. An empty
+ *  ledger is present:false, not a failure. */
 export function verifyTelemetryLedgerRecords(runId, records) {
     const checks = [];
     const tally = { attested: 0, unattested: 0, absent: 0 };
@@ -98,10 +81,7 @@ export function verifyTelemetryLedgerRecords(runId, records) {
     }
     return { present: true, verified: chainOk && digestsOk, records, checks, ...tally };
 }
-/** The corrupt-ledger verification shape (present:true, verified:false,
- *  one `ledger-load`/`telemetry-ledger-corrupt` failed check). Shared
- *  constant so both the CLI-facing shell reader and any pure caller
- *  report the exact same shape for a corrupt file. */
+/** What a corrupt ledger verifies as, the same for every caller. */
 export function corruptTelemetryLedgerVerification() {
     return {
         present: true,

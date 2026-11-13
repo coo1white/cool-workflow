@@ -55,7 +55,7 @@ const RULES = [
   ["--json output, exit codes and flags do not change shape", "scripts that read cw output break silently", ["test/cli-command-surface-smoke.mjs"]],
   ["no unused locals; no barrel files in src/", "dead code hides the real surface; a barrel loads modules no caller needs", ["tsc", ME]],
   ["unit tests mirror src/; smokes stay flat in test/", "a smoke in a sub folder never runs", ["test/test-layout-smoke.mjs"]],
-  ["src/ stays at 10,000 lines or fewer", "src/ grew to 31,802 lines around a small core path (cut in batch 5)", ["scripts/size-check.mjs"]],
+  ["src/ stays at 5,000 lines or fewer", "src/ grew to 31,802 lines around a small core path (cut in batch 5)", ["scripts/size-check.mjs"]],
 ];
 // Guards that are not a file in this package.
 const NON_FILE_GUARDS = new Set(["reviewer", "branch protection", "tsc"]);

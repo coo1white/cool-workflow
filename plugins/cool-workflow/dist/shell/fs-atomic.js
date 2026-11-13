@@ -1,9 +1,5 @@
-// shell/fs-atomic.ts — atomic JSON writes and small file locks.
-//
-// A write goes to a temp file in the same dir, then rename(2) puts it in
-// place, so a reader never sees half a file. A lock is a `<target>.lock` file
-// made with link(2): link is single-winner where open(O_EXCL) was seen not to
-// be on some Node versions under load.
+// shell/fs-atomic.ts — atomic JSON writes (temp file, then rename) and
+// file locks made with link(2), single-winner where O_EXCL was seen not to be.
 import * as fs from "node:fs";
 import * as path from "node:path";
 export function writeJson(file, value, options = {}) {

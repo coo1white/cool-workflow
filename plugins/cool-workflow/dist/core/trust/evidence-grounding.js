@@ -1,22 +1,12 @@
-// core/trust/evidence-grounding.ts — isGroundedEvidence, confidence tiers,
-// extractEvidenceContent's PURE decision half.
-//
-// This file stays pure (no fs):
-// resolution against real disk paths takes a caller-supplied
-// `pathExists`/`readFile`, matching the core/shell split. Real callers
-// (shell/) pass `fs.existsSync`/`fs.readFileSync`.
-//
-// Evidence: SPEC/pipeline-run.md "Result ingest — result-normalize module"
-// (isGroundedEvidence is its evidence-classification primitive).
+// core/trust/evidence-grounding.ts — is a piece of evidence grounded, and
+// what does it cite. Pure: disk reads come in as caller-supplied functions.
 const URL_RE = /^[a-z][a-z0-9+.-]*:\/\//i;
 const PATH_SEP_RE = /[\\/]/;
 const FILE_EXT_RE = /\.[A-Za-z0-9]{1,12}(?::\d+(?:-\d+)?)?$/;
 const NAMESPACE_TOKEN_RE = /^[A-Za-z][A-Za-z0-9_.-]*:\S/;
 const LINE_SUFFIX_RE = /:(\d+(?:-\d+)?)$/;
 const RECEIPT_PREFIX = "receipt:";
-/** A single evidence string is "grounded" if it is machine-shaped — a
- *  URL, a path-like locator, or a `namespace:value` token — rather than
- *  free prose. */
+/** Grounded = machine-shaped (a URL, a path, a `namespace:value`), not prose. */
 export function isGroundedEvidence(raw) {
     const value = String(raw ?? "").trim();
     if (!value)
@@ -41,16 +31,12 @@ export function evidenceFilePath(raw) {
     const shape = classify(String(raw ?? ""));
     return shape.kind === "file" && shape.pathPart ? shape.pathPart : null;
 }
-/** Whether a task id names the verdict/synthesis task whose verifier node
- *  gates a driven run's final commit — the one task whose file evidence is
- *  checked on disk at accept time as well as at the commit. */
+/** The verdict task, whose file evidence is also checked at accept time. */
 export function isVerdictTaskId(taskId) {
     return /^verdict[:/]|^synthesis[:/]/i.test(taskId);
 }
-/** Whether opt-in strict resolution is requested via the environment.
- *  Enabled by DEFAULT: file-style evidence locators MUST exist on disk.
- *  `CW_REQUIRE_RESOLVABLE_EVIDENCE=0` restores the prior shape-only
- *  check. */
+/** On by default: file locators must exist on disk.
+ *  `CW_REQUIRE_RESOLVABLE_EVIDENCE=0` checks shape only. */
 export function requireResolvableEvidence(env = process.env) {
     const raw = env.CW_REQUIRE_RESOLVABLE_EVIDENCE;
     if (raw === undefined || raw === null || raw === "")
@@ -79,10 +65,7 @@ export function receiptIdsIn(evidence) {
     const ids = evidence.map((entry) => classify(String(entry ?? ""))).filter((shape) => shape.kind === "receipt").map((shape) => shape.pathPart || "");
     return [...new Set(ids)];
 }
-/** Resolve one locator against base dirs (used only in strict mode).
- *  `resolve(candidatePath)` is caller-supplied (real fs.existsSync in
- *  shell/), matching the core/shell split — this pure module never
- *  imports fs itself. */
+/** Resolve one locator against base dirs (strict mode only). */
 export function resolveEvidenceLocator(raw, baseDirs, exists, isAbsolute, resolvePath) {
     const shape = classify(raw);
     if (shape.kind === "url")
@@ -96,9 +79,7 @@ export function resolveEvidenceLocator(raw, baseDirs, exists, isAbsolute, resolv
     }
     return "unresolved";
 }
-/** In strict mode, the file-style locators that could NOT be resolved on
- *  disk. Returns [] when strict mode is off or all file locators
- *  resolve. */
+/** In strict mode, the file locators not found on disk. */
 export function unresolvedFileEvidence(evidence, baseDirs, ops, env = process.env) {
     if (!requireResolvableEvidence(env) || !Array.isArray(evidence))
         return [];
@@ -124,17 +105,14 @@ export function lineCitedPastEnd(evidence, baseDirs, ops, readFile) {
     }
     return null;
 }
-/** Extract actual content from a file-style evidence locator. Never
- *  fabricates: returns undefined when the file doesn't exist or the
- *  locator is not file-style. Lines are 1-indexed. `readFile` is
- *  caller-supplied (real fs.readFileSync in shell/). */
+/** The cited lines (1-indexed) of a file locator, or undefined; never
+ *  made up. */
 export function extractEvidenceContent(locator, baseDirs, ops, readFile) {
     const shape = classify(locator);
     if (shape.kind !== "file" || !shape.pathPart)
         return undefined;
-    // Match the same shapes LINE_SUFFIX_RE (classify) accepts: ":<n>" and
-    // ":<n>-<m>", or a range would fall through to the head-of-file slice
-    // below — bytes that have nothing to do with the cited lines.
+    // ":<n>" and ":<n>-<m>", as LINE_SUFFIX_RE accepts; else a range would
+    // fall through to the head of the file.
     const lineMatch = locator.match(/:(\d+)(?:-(\d+))?$/);
     const lineNum = lineMatch ? Number(lineMatch[1]) : undefined;
     const lineEnd = lineMatch && lineMatch[2] ? Number(lineMatch[2]) : undefined;
@@ -149,8 +127,7 @@ export function extractEvidenceContent(locator, baseDirs, ops, readFile) {
     if (lineNum && lineNum > 0) {
         const lines = content.split("\n");
         if (lineEnd !== undefined) {
-            // Range: return exactly the cited lines; a backwards or out-of-range
-            // span returns undefined, never fabricated content.
+            // A backwards or out-of-range span gives undefined.
             if (lineEnd < lineNum || lineNum > lines.length)
                 return undefined;
             return lines.slice(lineNum - 1, Math.min(lineEnd, lines.length)).join("\n") || undefined;

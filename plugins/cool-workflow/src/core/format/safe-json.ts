@@ -1,39 +1,15 @@
-// core/format/safe-json.ts — a byte-capped JSON.stringify for the CLI's
-// `--json` output (cli/io.ts).
-//
-// A result with no size limit can grow to hundreds of MB: a useless dump
-// for a calling agent's context window at best, and at worst a RangeError
-// ("Invalid string length") once the string crosses V8's per-string
-// ceiling (~256M UTF-16 code units). cli/entry.ts's top-level catch already
-// reports a thrown error cleanly, so this is not a crash fix so much as a
-// "return something useful instead of a cryptic RangeError, or an unusable
-// giant payload" fix.
+// core/format/safe-json.ts — a byte-capped JSON.stringify for `--json`, so
+// a huge result gives a small notice, not a giant dump or a RangeError.
 
-/** Generous but bounded: comfortably above any real cw result today, far
- *  below V8's ~256M-UTF-16-code-unit ceiling. */
+/** Far above any real result, far below V8's string ceiling. */
 export const MAX_JSON_OUTPUT_BYTES = 10 * 1024 * 1024;
 
-/** Overflow-notice `detail` (a caught error's message) is truncated to this
- *  many characters — the notice itself must stay small and predictable
- *  regardless of how large the underlying error's message was (e.g. an
- *  error wrapping a huge stored blackboard-message body), both so the
- *  notice can never itself approach any cap, and so JSON.stringify-ing the
- *  notice can never itself throw. */
+/** The notice's `detail` is cut to this, so the notice stays small. */
 const MAX_DETAIL_CHARS = 500;
 
-/** JSON.stringify `value` the same way `JSON.stringify(value, null, 2)`
- *  always has. If that would exceed `maxBytes` (or throws — e.g. a
- *  RangeError from a value so large stringify itself blows V8's string
- *  ceiling), returns a small, valid JSON string describing the overflow
- *  instead of the real payload. Byte-identical to the un-capped form for
- *  every result under the cap — the common case is untouched.
- *
- *  `JSON.stringify` returns the actual value `undefined` (not a string,
- *  despite its `string` return-type declaration) for `undefined`, a
- *  function, or a Symbol — never throws for those. That is passed through
- *  unchanged (matching the un-capped form's pre-existing behavior for this
- *  edge case: `content[0].text`/`printJson`'s `${text}` end up printing
- *  literally `undefined`) rather than measured as a byte length. */
+/** `JSON.stringify(value, null, 2)`, byte for byte, under `maxBytes`.
+ *  Over it, or if stringify throws, a small JSON notice instead. An
+ *  `undefined` result passes through unchanged. */
 export function safeJsonStringify(value: unknown, maxBytes: number = MAX_JSON_OUTPUT_BYTES): string {
   let text: string;
   try {

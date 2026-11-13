@@ -70,7 +70,7 @@ unless they are the evidence.
 
 Run `npm run release:check` (in `plugins/cool-workflow`) before handing a cut
 to the operator. It is a dry-run gate: docs presence, build, `dist:check`,
-purity, language policy, type check and the 10,000-line size gate, tests,
+purity, language policy, type check and the 5,000-line size gate, tests,
 unit tests, vendor-manifest drift, `version:sync` and `readme:check`. It
 never tags, pushes or publishes. Patch releases are tagged by CI; a minor or
 major is the operator's signed cut.

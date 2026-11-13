@@ -70,16 +70,12 @@ function exitQuietOnEpipe(stream: NodeJS.WriteStream): void {
   });
 }
 
-/** Top-level run wrapper matching src/cli.ts's catch shape byte-for-byte:
- *  `cw: <message>\n` then, only when a hint matches, `  Try: <hint>\n` on
- *  stderr; `process.exitCode = 1` (never a hard `process.exit`). */
+/** On a throw: `cw: <message>` and maybe `  Try: <hint>` on stderr, exit 1. */
 export function main(argv: string[] = process.argv.slice(2)): Promise<void> {
   exitQuietOnEpipe(process.stdout);
   exitQuietOnEpipe(process.stderr);
   return runCli(argv).catch((error: unknown) => {
-    // On some platforms a broken-pipe write throws EPIPE in the write call
-    // itself (not as a stream 'error' event) — same broken pipe, same quiet
-    // exit 0, never a `cw: write EPIPE` line.
+    // A broken pipe can also throw EPIPE from write itself: same quiet exit 0.
     if ((error as NodeJS.ErrnoException | null)?.code === "EPIPE") return;
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`${bold("cw:", process.stderr)} ${red(message, process.stderr)}\n`);

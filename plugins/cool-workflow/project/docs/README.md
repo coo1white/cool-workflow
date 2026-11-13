@@ -72,7 +72,7 @@ Three checks keep the rule true:
   are listed in [`scripts/purity-baseline.json`](../../scripts/purity-baseline.json),
   a new break fails, and a fixed break has to come out of the list.
 - [`scripts/size-check.mjs`](../../scripts/size-check.mjs) (`npm run
-  check`): `src/` stays at 10,000 lines or fewer.
+  check`): `src/` stays at 5,000 lines or fewer.
 
 ## Walk one command: `cw -q`
 

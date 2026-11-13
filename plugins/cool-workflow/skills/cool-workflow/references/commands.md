@@ -58,7 +58,7 @@ Run in `plugins/cool-workflow`:
 
 ```bash
 npm run build          # tsc to dist/ (commit dist/)
-npm run check          # type check + the 10,000-line src/ size gate
+npm run check          # type check + the 5,000-line src/ size gate
 npm run test:unit      # unit tests
 npm test               # smoke tests
 npm run version:sync   # version agrees across surfaces

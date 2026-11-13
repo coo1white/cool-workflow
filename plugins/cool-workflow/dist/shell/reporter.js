@@ -1,13 +1,5 @@
-// shell/reporter.ts — the cw-side run reporter: drive progress lines +
-// the end-of-run summary.
-//
-// Everything here goes to
-// STDERR; stdout (the machine payload) carries NO term styling ever, so
-// it stays byte-exact under any color env. The end-of-run summary
-// (formatQuickstartSummary) is printed only on a real terminal.
-//
-// Evidence: SPEC/reporting-ux.md "The Rule of Silence (TTY view vs
-// pipes)".
+// shell/reporter.ts — drive progress lines (stderr) and the end-of-run
+// summary (a real terminal only). stdout never carries styling.
 import { dim, green, yellow, nextHint, tryHint } from "./term.js";
 class StderrReporter {
     s;
@@ -24,18 +16,11 @@ export function createReporter(stream) {
 }
 /** The default reporter writes the orchestration view to stderr. */
 export const reporter = createReporter(process.stderr);
-/** The `cw -q`/`cw quickstart` end-of-run summary: wired in by
- *  shell/commands/pipeline-cli.ts's formatQuickstartHuman, called ONLY on a real
- *  terminal, never for --json or a piped run (the CLI dispatcher's own
- *  TTY gate — cli/dispatch.ts's shouldRenderHuman). Styled against
- *  stdout, since that is the stream this text lands on (unlike the
- *  stderr-only StderrReporter above). `opened` says whether the report
- *  was just opened in the browser, so the hint line matches what really
- *  happened. */
+/** The `cw -q` end-of-run summary, on a terminal only, styled for stdout.
+ *  `opened`: the report was just opened, so the hint says so. */
 export function formatQuickstartSummary(f, opened) {
     const out = process.stdout;
-    // "workers": this is the whole run's count, so it does not read as the
-    // same number as a phase line's "(done/total)" (docs/reference.md, "Live output").
+    // "workers": the whole run's count, not a phase line's (done/total).
     const counts = typeof f.completedWorkers === "number" && typeof f.plannedWorkers === "number" ? ` — ${f.completedWorkers}/${f.plannedWorkers} workers` : "";
     // A stopped run (blocked or parked) does not get a finished run's green mark.
     const stopped = f.status === "parked" || f.status === "blocked";
@@ -54,8 +39,7 @@ export function formatQuickstartSummary(f, opened) {
             return lines.join("\n");
         }
         if (stopped) {
-            // A stop with an agent set: say why, and name the one command that
-            // goes on from here (docs/reference.md, "Output rules").
+            // Say why, and the one command that goes on from here.
             const why = (f.why || []).filter((line) => line.trim());
             why.forEach((line, index) => lines.push(`  ${index === 0 ? `${dim("Why:", out)} ` : "     "}${line}`));
             lines.push(opened ? openedLine : `  ${tryHint("cw report --open", out)}`);
