@@ -332,7 +332,8 @@ function noSecret(w, r) {
   fs.writeFileSync(bare, "", { mode: 0o755 });
   assert.equal(resolveReviewerBinary("grok-review", dir, env, "win32"), undefined, "a bare name on PATH is not startable on Windows");
   assert.equal(resolveReviewerBinary(bare, dir, env, "win32"), undefined, "a bare path is not startable on Windows");
-  assert.equal(resolveReviewerBinary("grok-review", dir, env, "linux"), bare, "off Windows the exec bit is enough");
+  // A posix PATH (":") cannot hold a Windows dir ("C:\\..."), so this one runs off Windows only.
+  if (process.platform !== "win32") assert.equal(resolveReviewerBinary("grok-review", dir, env, "linux"), bare, "off Windows the exec bit is enough");
   fs.writeFileSync(`${bare}.cmd`, "");
   assert.equal(resolveReviewerBinary("grok-review", dir, env, "win32"), `${bare}.cmd`, "grok-review.cmd is found by name");
   assert.equal(resolveReviewerBinary(bare, dir, env, "win32"), `${bare}.cmd`, "a bare path finds grok-review.cmd");
