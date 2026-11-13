@@ -14,14 +14,25 @@
 // A drive that cannot finish stops with exit 2 and a JSON report (batch 5,
 // 2026-11-12: `cw -q` is the one drive entry; the step verbs are gone).
 
-import { run, gitRepo, caseMain, assert } from "../lib.mjs";
+import fs from "node:fs";
+import path from "node:path";
+import { run, gitRepo, freshDir, caseMain, assert } from "../lib.mjs";
 
 // PATH is deliberately narrow so no vendor CLI (claude/codex/opencode/...)
 // and not even `node` can be found on it — this can never reach a network.
-// cw still needs git to see the project.
-const NARROW_PATH = { PATH: "/usr/bin:/bin" };
+// cw still needs git to see the project: a folder holding only a link to
+// the git this suite runs with comes first. On macOS /usr/bin/git is the
+// Xcode shim, which does not work on every runner image.
+function narrowPath() {
+  const git = (process.env.PATH || "").split(path.delimiter).map((d) => path.join(d, "git")).find((f) => fs.existsSync(f));
+  if (!git) throw new Error("cli-vendor-flags: git is not on PATH");
+  const dir = freshDir("cw-vendor-flags-bin-");
+  fs.symlinkSync(fs.realpathSync(git), path.join(dir, "git"));
+  return { PATH: `${dir}:/usr/bin:/bin` };
+}
 
 caseMain(() => {
+  const NARROW_PATH = narrowPath();
   const repo = gitRepo({ "a.txt": "hello\n" });
 
   // No agent backend at all: fails closed. Status "blocked",
@@ -30,7 +41,7 @@ caseMain(() => {
     cwd: repo,
     env: NARROW_PATH,
   });
-  assert.equal(noAgent.status, 2);
+  assert.equal(noAgent.status, 2, `${noAgent.stdout}\n${noAgent.stderr}`);
   const noAgentPayload = JSON.parse(noAgent.stdout);
   assert.equal(noAgentPayload.agentConfigured, false);
   assert.equal(noAgentPayload.status, "blocked");
