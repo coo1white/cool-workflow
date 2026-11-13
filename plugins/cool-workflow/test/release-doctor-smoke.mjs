@@ -21,6 +21,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { writeProgram } from "./helpers/program.mjs";
 import { runChecks } from "../scripts/release-preflight.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
@@ -145,7 +146,8 @@ function world() {
   // Stub gh (auth status ok unless GH_STUB_FAIL=1) and a stub reviewer that
   // records if it is ever run (the doctor must never run it).
   const ranMarker = path.join(root, "reviewer-ran");
-  fs.writeFileSync(path.join(bin, "gh"), "#!/usr/bin/env node\nprocess.exit(process.env.GH_STUB_FAIL === '1' ? 1 : 0);\n", { mode: 0o755 });
+  // writeProgram adds the gh.cmd that a Windows PATH lookup (PATHEXT) finds.
+  writeProgram(bin, "gh", "process.exit(process.env.GH_STUB_FAIL === '1' ? 1 : 0);\n");
   const reviewer = path.join(bin, "grok-review");
   fs.writeFileSync(reviewer, `#!/usr/bin/env node\nrequire('node:fs').writeFileSync(${JSON.stringify(ranMarker)}, 'ran');\n`, { mode: 0o755 });
   const keyFile = path.join(root, "verdict-signing.key");
