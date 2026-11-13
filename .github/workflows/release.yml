@@ -20,6 +20,8 @@ on:
   push:
     tags:
       - "v*"
+  # A manual run checks every past release's notes and fixes a wrong range.
+  workflow_dispatch:
   workflow_run:
     workflows: ["CI"]
     types: [completed]
@@ -152,6 +154,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REF_NAME: ${{ github.ref_name }}
 
+      # Re-read the notes: they must start at the previous release.
+      # A wrong range is regenerated; one that stays wrong fails the job.
+      - name: Check release notes range
+        run: node plugins/cool-workflow/scripts/release-notes-check.mjs --tag "$REF_NAME" --fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REF_NAME: ${{ github.ref_name }}
+
   auto-patch:
     # Only a push to main in this repository whose whole CI run concluded
     # success (a fork's pull request from a branch named main has event
@@ -259,3 +270,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TAG: ${{ steps.plan.outputs.tag }}
+
+      - name: Check release notes range
+        if: steps.plan.outputs.release == 'true'
+        run: node plugins/cool-workflow/scripts/release-notes-check.mjs --tag "$TAG" --fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.plan.outputs.tag }}
+
+  notes-history:
+    # Manual: check every past release's notes and fix a wrong range.
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Check and fix every release's notes
+        run: node plugins/cool-workflow/scripts/release-notes-check.mjs --all --fix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
