@@ -745,6 +745,26 @@ Files only the removed verbs wrote (`.cw/schedules/`, `.cw/routines/`, the
 scheduling policy file under `CW_HOME`) are left on disk and no longer read. Delete
 them by hand if you want the space.
 
+### The operator's yes for 0.5.0
+
+The 0.5.0 review asked for the operator's own dated yes to each change by
+name. On 2026-11-13 the operator was asked, word for word: "For the v0.5.0
+release record (2026-11-13): which of these four breaking changes do you,
+the operator, approve shipping in 0.5.0? Your selection is recorded word
+for word as your yes. Any change you leave unticked gets restored before
+the release." The operator ticked all four:
+
+1. "#903 removals": old `state.json` runs are refused instead of migrated;
+   the MCP server, step verbs, bundled apps except architecture-review,
+   and `cw -q --check` are removed; `trustAuditVerified` is dropped from
+   `--json` bundle output.
+2. "#907 hook on": the auto-receipt PreToolUse hook is on by default;
+   `CW_AUTO_RECEIPT=off` turns it off.
+3. "#928 WSL only": native Windows support is dropped; only WSL is
+   supported.
+4. "#929 cmds removed": `cw doctor`, `cw fix` and `cw demo tamper` are
+   removed and now fail as unknown commands (exit 1).
+
 ## Release (operator runbook)
 
 Every `npm run` command here runs in `plugins/cool-workflow/`. There is no
