@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @cw-smoke: timeout 240
 // release-doctor-smoke — pins `npm run release:doctor` (scripts/release-doctor.mjs)
 // and the shared checks in scripts/release-preflight.mjs, which
 // `npm run release -- X.Y.Z` (scripts/release-oneclick.mjs) now runs FIRST.
@@ -14,6 +15,10 @@
 // never run, and the signing key is a dummy file the doctor must never read.
 //
 // Included in `npm test`.
+//
+// Time limit 240s, not the default 120s: each case starts many processes
+// (git, the doctor, stub gh), which takes ~14s on Linux but 95-115s on the
+// Windows CI leg, where one run hit the 120s limit mid-case.
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
