@@ -30,7 +30,6 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import * as ta from "../../dist/core/trust/telemetry-attestation.js";
-import { hostSpawnArgv } from "../../dist/shell/fs-atomic.js";
 
 function fail(message) {
   process.stderr.write(`cw-attest-wrap: ${message}\n`);
@@ -100,8 +99,7 @@ function main() {
   const { manifestPath, inner } = parseArgs(process.argv.slice(2));
 
   // Run the inner agent: stderr passes through live; stdout is captured to sign.
-  const start = hostSpawnArgv(inner[0], inner.slice(1), process.env);
-  const child = spawnSync(start.binary, start.args, {
+  const child = spawnSync(inner[0], inner.slice(1), {
     encoding: "utf8",
     stdio: ["inherit", "pipe", "inherit"],
     maxBuffer: 64 * 1024 * 1024

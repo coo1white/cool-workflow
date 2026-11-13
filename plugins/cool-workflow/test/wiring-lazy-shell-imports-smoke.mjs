@@ -71,8 +71,7 @@ function loadedModulesFor(args, cwd) {
 
 function loadedShellModule(loaded, relativeShellPath) {
   const suffix = `shell/${relativeShellPath}`;
-  // Loaded paths are in the host's spelling: `\` between parts on Windows.
-  for (const p of loaded) if (p.replace(/\\/g, "/").endsWith(suffix)) return true;
+  for (const p of loaded) if (p.endsWith(suffix)) return true;
   return false;
 }
 

@@ -63,7 +63,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { spawnSync } from "./spawn-argv.mjs";
+import { spawnSync } from "node:child_process";
 import { runChecks, formatFindings, createContext, classifyCutBranch, removeCutBranch } from "./release-preflight.mjs";
 import { queryRequiredChecks, REQUIRED_CHECKS } from "./release-ci-checks.mjs";
 

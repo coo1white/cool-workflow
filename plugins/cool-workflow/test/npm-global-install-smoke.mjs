@@ -9,9 +9,7 @@
 // (no live model). Heavy (pack+install), so it runs in release:check, not every `npm test`.
 
 import assert from "node:assert/strict";
-// npm and the installed cw are .cmd shims on Windows; this spawnSync starts
-// them with no shell there (scripts/spawn-argv.mjs).
-import { spawnSync } from "../scripts/spawn-argv.mjs";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpDir } from "./helpers/workspace.mjs";
@@ -36,8 +34,8 @@ function main() {
   const prefix = tmp("cw-global-");
   const install = spawnSync("npm", ["install", "-g", "--prefix", prefix, tarball], { encoding: "utf8" });
   assert.equal(install.status, 0, `npm install -g into prefix succeeds: ${install.stderr}`);
-  // npm puts a global bin in <prefix>/bin on POSIX, in <prefix> on Windows.
-  const cwBin = process.platform === "win32" ? path.join(prefix, "cw") : path.join(prefix, "bin", "cw");
+  // npm puts a global bin in <prefix>/bin.
+  const cwBin = path.join(prefix, "bin", "cw");
   assert.ok(fs.existsSync(cwBin), `installed cw bin exists at ${cwBin}`);
 
   // Sandbox env (no ambient agent; isolated HOME so the home registry doesn't touch the user's).

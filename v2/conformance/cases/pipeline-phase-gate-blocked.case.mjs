@@ -7,10 +7,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { run, gitRepo, readJson, caseMain, assert, seg } from "../lib.mjs";
+import { run, gitRepo, readJson, caseMain, assert } from "../lib.mjs";
 
 // A selector agent: fails only for the task whose worker input path
-// contains "map:server-api" (map_server-api on Windows); every other task succeeds with a minimal valid
+// contains "map:server-api"; every other task succeeds with a minimal valid
 // cw:result envelope.
 const SELECTOR_SRC = `
 import fs from "node:fs";
@@ -46,5 +46,5 @@ caseMain(() => {
 
   // On disk: no Verify or Verdict worker was ever made.
   const workerDirs = fs.readdirSync(path.join(path.dirname(payload.statePath), "workers"));
-  assert.ok(workerDirs.every((w) => w.startsWith(`worker-${seg("map:")}`) || w.startsWith(`worker-${seg("assess:")}`)), workerDirs.join(","));
+  assert.ok(workerDirs.every((w) => w.startsWith(`worker-map:`) || w.startsWith(`worker-assess:`)), workerDirs.join(","));
 });

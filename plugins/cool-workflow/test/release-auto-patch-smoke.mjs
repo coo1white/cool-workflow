@@ -32,8 +32,6 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-// npm is a .cmd shim on Windows; spawn-argv starts it with no shell.
-import { spawnSync as startProgram } from "../scripts/spawn-argv.mjs";
 import { pathToFileURL } from "node:url";
 import { tmpDir } from "./helpers/workspace.mjs";
 
@@ -83,7 +81,6 @@ function fixture({ pkgAtP = "1.2.2", subject = "fix(core): a shipped fix", file 
   // next to its own scripts/ folder, so the fixture carries its own copy.
   write(dir, "plugins/cool-workflow/scripts/release-auto-patch.mjs", fs.readFileSync(AUTO, "utf8"));
   write(dir, "plugins/cool-workflow/scripts/release-tags.mjs", fs.readFileSync(TAGS, "utf8"));
-  write(dir, "plugins/cool-workflow/scripts/spawn-argv.mjs", fs.readFileSync(path.join(path.dirname(AUTO), "spawn-argv.mjs"), "utf8"));
   const A = commit(dir, "feat: first");
   write(dir, "plugins/cool-workflow/.cw-release-note", "verdict stand-in\n");
   commit(dir, "chore(release): record the v1.2.2 verdict");
@@ -229,7 +226,7 @@ async function refused(dir, re, label, ciCheck) {
 {
   // A minor needs the signed verdict, even when it is otherwise the exact bump.
   const { dir } = fixture();
-  const r = startProgram("npm", ["run", "bump:version", "--", "1.3.0"], { cwd: path.join(dir, "plugins/cool-workflow"), encoding: "utf8" });
+  const r = spawnSync("npm", ["run", "bump:version", "--", "1.3.0"], { cwd: path.join(dir, "plugins/cool-workflow"), encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
   commit(dir, "chore(release): v1.3.0");
   git(dir, ["tag", "-a", "v1.3.0", "-m", "v1.3.0"]);

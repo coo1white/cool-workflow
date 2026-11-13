@@ -19,9 +19,7 @@
 // by a script every user runs. See test/npm-local-install-smoke.mjs.
 // @cw-smoke: tags gate,bun
 import assert from "node:assert";
-// npm and the installed cw are .cmd shims on Windows; this spawnSync starts
-// them with no shell there (scripts/spawn-argv.mjs).
-import { spawnSync } from "../scripts/spawn-argv.mjs";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpDir } from "./helpers/workspace.mjs";

@@ -21,7 +21,6 @@ try {
   }
   fs.mkdirSync(path.join(tmp, "scripts"));
   fs.cpSync(path.join(pluginRoot, "scripts", "dist-drift-check.mjs"), path.join(tmp, "scripts", "dist-drift-check.mjs"));
-  fs.cpSync(path.join(pluginRoot, "scripts", "spawn-argv.mjs"), path.join(tmp, "scripts", "spawn-argv.mjs"));
   fs.symlinkSync(path.join(pluginRoot, "node_modules"), path.join(tmp, "node_modules"));
 
   const script = path.join(tmp, "scripts", "dist-drift-check.mjs");

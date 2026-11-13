@@ -303,7 +303,7 @@ export function verifyReportBundle(archivePath: string, options: VerifyReportBun
   const reportMd = contents.get("report.md")?.toString("utf8") ?? "";
   for (const bound of sig.resultBound) {
     // A bundle made on either OS verifies on both: look up both spellings.
-    const raw = (contents.get(`results/${safeFileName(bound.taskId, "linux")}.md`) ?? contents.get(`results/${safeFileName(bound.taskId, "win32")}.md`))?.toString("utf8");
+    const raw = contents.get(`results/${safeFileName(bound.taskId)}.md`)?.toString("utf8");
     const code = raw === undefined ? "result-missing" : sha256(raw) !== bound.resultDigest ? "result-digest-mismatch" : !reportSectionEmbedsResult(reportMd, bound.taskId, raw.trim()) ? "report-result-mismatch" : undefined;
     if (code) {
       findingsOk = false;

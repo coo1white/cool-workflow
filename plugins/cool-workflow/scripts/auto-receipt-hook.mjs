@@ -15,9 +15,7 @@
 //
 // Off: CW_AUTO_RECEIPT=off. Skipped when `cw` is not on PATH (the rewrite
 // names `cw`, the command the user and their permission rules know; a path
-// into the plugin's versioned cache would change on every update). On
-// Windows `cw` is found as cw.cmd (or another PATHEXT name), and `cw check`
-// starts npm.cmd and the like with no shell.
+// into the plugin's versioned cache would change on every update).
 //
 // The command string is reused only when it is ONE simple command: no
 // pipe, `&`, `;`, redirect, subshell, backtick, `$` or newline. Then the
@@ -36,13 +34,13 @@ const TEST_RE = /^(?:(?:npm|pnpm|yarn|bun) (?:test|run test[\w:.-]*)|npx (?:vite
 // the same way, but no test command needs one here.
 const COMPOUND_RE = /[|&;<>()`$\n\r\\]/;
 
-export function rewrite(input, env = process.env, platform = process.platform) {
+export function rewrite(input, env = process.env) {
   if (/^(?:off|0|false|no)$/i.test(String(env.CW_AUTO_RECEIPT || ""))) return null;
   const toolInput = input && input.tool_name === "Bash" && input.tool_input;
   if (!toolInput || typeof toolInput.command !== "string") return null;
   const command = toolInput.command.trim();
   if (!TEST_RE.test(command) || COMPOUND_RE.test(command)) return null;
-  if (!onPath("cw", env, platform)) return null;
+  if (!onPath("cw", env)) return null;
   return {
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
@@ -51,19 +49,13 @@ export function rewrite(input, env = process.env, platform = process.platform) {
   };
 }
 
-// Windows finds a program by PATHEXT (cw.cmd from an npm install), and its
-// PATH is split on ";".
-function onPath(name, env, platform) {
-  const win = platform === "win32";
-  const exts = win ? String(env.PATHEXT || ".COM;.EXE;.BAT;.CMD").toLowerCase().split(";").filter(Boolean) : [""];
-  for (const dir of String(env.PATH || env.Path || "").split(win ? ";" : ":")) {
+function onPath(name, env) {
+  for (const dir of String(env.PATH || "").split(":")) {
     if (!dir) continue;
-    for (const ext of exts) {
-      try {
-        fs.accessSync(path.join(dir, name + ext), win ? fs.constants.F_OK : fs.constants.X_OK);
-        return true;
-      } catch {}
-    }
+    try {
+      fs.accessSync(path.join(dir, name), fs.constants.X_OK);
+      return true;
+    } catch {}
   }
   return false;
 }

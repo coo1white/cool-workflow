@@ -283,10 +283,8 @@ function testCalmLiveView() {
   // every 150 ms (was 90 ms), the live row counts whole seconds, and a redraw never wipes the
   // block before the new rows are written.
   assert.deepEqual(sparkleFor("darwin"), ["·", "✢", "✳", "✶", "✻", "✽", "✻", "✶", "✳", "✢"], "macOS: the glyphs grow and shrink, Claude-Code style");
-  // 0.4.2 (operator's yes): off macOS, ✳ (an emoji, drawn as a wide box by Windows Terminal) is *.
-  for (const p of ["linux", "win32"]) {
-    assert.deepEqual(sparkleFor(p), ["·", "✢", "*", "✶", "✻", "✽", "✻", "✶", "*", "✢"], `${p}: no emoji glyph`);
-  }
+  // 0.4.2 (operator's yes): off macOS, ✳ (an emoji, drawn as a wide box by some terminals) is *.
+  assert.deepEqual(sparkleFor("linux"), ["·", "✢", "*", "✶", "✻", "✽", "✻", "✶", "*", "✢"], "linux: no emoji glyph");
   assert.deepEqual(SPARKLE, sparkleFor(process.platform), "the live cycle is the one for this platform");
   assert.equal(FRAME_MS, 150, "one frame every 150 ms");
   const s = fakeStream(true);

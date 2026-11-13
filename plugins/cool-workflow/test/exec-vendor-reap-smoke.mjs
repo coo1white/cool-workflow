@@ -52,10 +52,7 @@ const tick = () => new Promise((r) => setImmediate(r));
     const signalled = reapRecordedVendor(pidfile);
     assert.equal(signalled, true, "reap reports it signalled the recorded vendor");
     const { code, signal } = await waitExit(child);
-    // Windows has no signals: process.kill(pid) there is TerminateProcess,
-    // and Node reports the end as an exit code (1), not a signal name.
-    if (process.platform === "win32") assert.ok(code !== 0 && code !== null, `the recorded vendor was terminated (code ${code}, signal ${signal})`);
-    else assert.equal(signal, "SIGKILL", "the recorded vendor was SIGKILLed");
+    assert.equal(signal, "SIGKILL", `the recorded vendor was SIGKILLed (code ${code})`);
     assert.equal(fs.existsSync(pidfile), false, "sidecar removed after reap");
   }
 

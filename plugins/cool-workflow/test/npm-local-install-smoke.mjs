@@ -15,9 +15,7 @@
 // install itself — running them is the point.
 
 import assert from "node:assert/strict";
-// npm and the installed cw are .cmd shims on Windows; this spawnSync starts
-// them with no shell there (scripts/spawn-argv.mjs).
-import { spawnSync } from "../scripts/spawn-argv.mjs";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { tmpDir } from "./helpers/workspace.mjs";

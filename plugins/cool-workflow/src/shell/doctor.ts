@@ -21,7 +21,6 @@ import { AGENT_FIX, agentProbeTarget, AgentProbeTarget, resolveAgentConfig } fro
 import { buildAgentChildEnv } from "./execution-backend/agent.js";
 import { findProgram, splitAgentCommandLine } from "../core/util/cli-args.js";
 import { loadRun } from "./run-store.js";
-import { hostSpawnArgv } from "./fs-atomic.js";
 import { bold, doctorGlyph, green, red } from "./term.js";
 
 export type DoctorStatus = "ok" | "warn" | "fail";
@@ -48,7 +47,7 @@ function whichBinary(bin: string, env: NodeJS.ProcessEnv): string | undefined {
       return undefined;
     }
   }
-  return findProgram(bin, env, process.platform, (file) => { try { return fs.statSync(file).isFile(); } catch { return false; } });
+  return findProgram(bin, env, (file) => { try { return fs.statSync(file).isFile(); } catch { return false; } });
 }
 
 /** True when `target` could be created/written: walk up to the nearest
@@ -80,8 +79,7 @@ function probeAgent(target: Exclude<AgentProbeTarget, { skip: string }>, env: No
   const shown = `${target.cli} --version`;
   const timeoutMs = Number(env.CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS) > 0 ? Number(env.CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS) : 15000;
   const childEnv = buildAgentChildEnv(env).env;
-  const start = hostSpawnArgv(target.cli, ["--version"], childEnv);
-  const r = spawnSync(start.binary, start.args, { cwd, env: childEnv, encoding: "utf8", timeout: timeoutMs, killSignal: "SIGKILL", shell: false, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1024 * 1024, windowsHide: true });
+  const r = spawnSync(target.cli, ["--version"], { cwd, env: childEnv, encoding: "utf8", timeout: timeoutMs, killSignal: "SIGKILL", shell: false, stdio: ["ignore", "pipe", "pipe"], maxBuffer: 1024 * 1024 });
   const lines = (text: string) => text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").replace(/[\x00-\x09\x0b\x0c\x0e-\x1f\x7f]/g, "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (!r.error && r.status === 0) {
     const first = lines(`${r.stdout || ""}\n${r.stderr || ""}`)[0] || "(no output)";

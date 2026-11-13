@@ -52,10 +52,8 @@ function sortInChildProcess(compareRequire, env) {
   const order = (locale) => ["ch", "h", "i"].slice().sort((a, b) => a.localeCompare(b, locale));
   assert.notDeepEqual(order("cs"), order("en"), "sanity: cs and en order ch/h/i differently");
 }
-// And a BARE localeCompare (no locale arg) follows LANG/LC_ALL. Only on
-// POSIX: Windows takes the default locale from the user's OS setting, never
-// from LANG, so there the env cannot move it (stableCompare must hold either way).
-if (process.platform !== "win32") {
+// And a BARE localeCompare (no locale arg) follows LANG/LC_ALL.
+{
   const underEn = sortInChildProcess("(a,b)=>a.localeCompare(b)", EN_ENV);
   const underCz = sortInChildProcess("(a,b)=>a.localeCompare(b)", CZ_ENV);
   assert.notDeepEqual(underCz, underEn, "sanity: a bare localeCompare DOES diverge between en_US and cs_CZ (the bug stableCompare prevents)");

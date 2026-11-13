@@ -22,7 +22,7 @@
 //
 // Zero dependencies: node + git + gh. Every spawn is argv-style, shell:false.
 
-import { spawnSync } from "./spawn-argv.mjs";
+import { spawnSync } from "node:child_process";
 
 const REQUIRED_CHECKS = Object.freeze(["check (22)", "check (24)"]);
 const REQUIRED_APP = "github-actions";

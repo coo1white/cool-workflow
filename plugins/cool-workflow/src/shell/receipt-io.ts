@@ -10,7 +10,7 @@ import { CheckReceipt, CodeState, judgeReceipt, ReceiptJudgement, RECEIPT_ID_RE,
 import { resolveTrustPublicKey } from "../core/trust/telemetry-attestation.js";
 import { CURRENT_COOL_WORKFLOW_VERSION } from "../core/version.js";
 import { WorkflowRun } from "../core/state/types.js";
-import { hostSpawnArgv, writeJson } from "./fs-atomic.js";
+import { writeJson } from "./fs-atomic.js";
 
 const TAIL_BYTES = 4096;
 const TAIL_LINES = 20;
@@ -123,9 +123,7 @@ export function runCheck(argv: string[], options: RunCheckOptions): Promise<Chec
   return new Promise((resolve, reject) => {
     const childEnv = { ...env };
     delete childEnv.CW_CHECK_PRIVKEY;
-    // The receipt keeps argv as typed; on Windows `npm` starts as node npm-cli.js.
-    const start = hostSpawnArgv(argv[0], argv.slice(1), childEnv);
-    const child = spawn(start.binary, start.args, { cwd: repo, shell: false, stdio: ["ignore", "pipe", "pipe"], env: childEnv });
+    const child = spawn(argv[0], argv.slice(1), { cwd: repo, shell: false, stdio: ["ignore", "pipe", "pipe"], env: childEnv });
     const copy = (tap: StreamTap, sink: NodeJS.WriteStream | null) => (chunk: Buffer) => {
       tap.add(chunk);
       if (sink) sink.write(chunk);

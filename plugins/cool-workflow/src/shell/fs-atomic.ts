@@ -3,12 +3,10 @@
 // A write goes to a temp file in the same dir, then rename(2) puts it in
 // place, so a reader never sees half a file. A lock is a `<target>.lock` file
 // made with link(2): link is single-winner where open(O_EXCL) was seen not to
-// be on some Node versions under load. hostSpawnArgv is the file-system end
-// of the win32 program lookup (core/util/cli-args.ts spawnArgv).
+// be on some Node versions under load.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { spawnArgv } from "../core/util/cli-args.js";
 
 export function writeJson(file: string, value: unknown, options: { durable?: boolean } = {}): void {
   writeFileAtomic(file, `${JSON.stringify(value, null, 2)}\n`, options);
@@ -27,26 +25,9 @@ export function writeFileAtomic(file: string, text: string, options: { durable?:
   fs.renameSync(tmp, file);
 }
 
-function isFile(file: string): boolean {
-  try {
-    return fs.statSync(file).isFile();
-  } catch {
-    return false;
-  }
-}
-
-/** spawnArgv for this host: its platform, its node and its files. Every
- *  child CW starts by a program name goes through here first, so on Windows
- *  `npm`, `claude` or `codex` (a .cmd shim) still starts with no shell. */
-export function hostSpawnArgv(binary: string, args: string[], env: NodeJS.ProcessEnv): { binary: string; args: string[] } {
-  return spawnArgv(binary, args, env, process.platform, process.execPath, { isFile, readText: (file) => fs.readFileSync(file, "utf8") });
-}
-
-/** One file-name segment from a task id. `:` stays on POSIX (worker-map:x);
- *  Windows refuses `:` in a name (it marks a data stream), so there it is
- *  `_` like any other unsafe character. */
-export function safeFileName(value: string, platform: string = process.platform): string {
-  return String(value).replace(platform === "win32" ? /[^a-zA-Z0-9_.-]+/g : /[^a-zA-Z0-9_.:-]+/g, "_");
+/** One file-name segment from a task id; `:` stays (worker-map:x). */
+export function safeFileName(value: string): string {
+  return String(value).replace(/[^a-zA-Z0-9_.:-]+/g, "_");
 }
 
 /** A run id names one folder under .cw/runs: one safe segment, never `.`/`..`. */
