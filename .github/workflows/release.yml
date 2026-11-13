@@ -139,9 +139,13 @@ jobs:
           if gh release view "$REF_NAME" >/dev/null 2>&1; then
             echo "Release $REF_NAME already exists — nothing to do."
           else
+            # The notes start at the release before this one by version
+            # order; GitHub's own pick is the last ancestor tag (v0.2.2).
+            PREV="$(node plugins/cool-workflow/scripts/release-tags.mjs previous "$REF_NAME")"
             gh release create "$REF_NAME" \
               --title "$REF_NAME" \
               --generate-notes \
+              ${PREV:+--notes-start-tag "$PREV"} \
               --verify-tag
           fi
         env:
@@ -248,7 +252,8 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists — nothing to do."
           else
-            gh release create "$TAG" --title "$TAG" --generate-notes --verify-tag
+            PREV="$(node plugins/cool-workflow/scripts/release-tags.mjs previous "$TAG")"
+            gh release create "$TAG" --title "$TAG" --generate-notes ${PREV:+--notes-start-tag "$PREV"} --verify-tag
           fi
         env:
           GH_TOKEN: ${{ github.token }}
