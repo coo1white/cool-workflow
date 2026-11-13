@@ -786,6 +786,12 @@ Publishing is tag-driven. `release.yml` and `npm-publish.yml` fire on a
 push of a `v*` tag; the auto-patch job dispatches `npm-publish.yml` on the
 tag it makes. No tag, nothing new on npm. Release notes come from
 `gh release create --generate-notes`; there is no changelog file.
+The notes start at the release before by version order, not GitHub's
+pick. After each release `scripts/release-notes-check.mjs --tag vX.Y.Z
+--fix` re-reads them, regenerates a wrong range, and fails the job if it
+stays wrong. A manual run of `release.yml` (workflow_dispatch) does the
+same for every past release (`--all --fix`). Hand-written notes are left
+alone.
 
 ### Hard rules
 
