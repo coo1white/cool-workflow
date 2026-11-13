@@ -39,14 +39,14 @@ caseMain(() => {
   assert.doesNotMatch(farVersion.stderr, /Did you mean/);
 
   // Every kept verb is in the suggestion list.
-  for (const [typo, verb] of [["reprot", "report"], ["chek", "check"], ["doctr", "doctor"]]) {
+  for (const [typo, verb] of [["reprot", "report"], ["chek", "check"]]) {
     const r = run([typo]);
     assert.equal(r.status, 1);
     assert.equal(r.stderr, `cw: Unknown command: ${typo}. Did you mean: ${verb}?\n  Try: cw help\n`);
   }
 
   // A verb removed in batch 5 fails closed as unknown, exit 1, stdout empty.
-  for (const removed of ["ledger", "run", "quickstart", "audit", "telemetry"]) {
+  for (const removed of ["ledger", "run", "quickstart", "audit", "telemetry", "doctor", "fix", "demo"]) {
     const r = run([removed]);
     assert.equal(r.status, 1, `cw ${removed}`);
     assert.equal(r.stdout, "");

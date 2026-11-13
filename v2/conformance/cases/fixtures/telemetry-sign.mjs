@@ -61,8 +61,8 @@ function computeRecordHash(rec) {
   return sha256(stableStringify(recordHashInput(rec)));
 }
 
-// generateTrustKeypair — a fresh ephemeral ed25519 keypair, PEM-encoded, the
-// same discipline `cw demo tamper` uses (hermetic, never leaves the case).
+// generateTrustKeypair — a fresh ephemeral ed25519 keypair, PEM-encoded
+// (hermetic, never leaves the case).
 function generateTrustKeypair() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync("ed25519");
   return {

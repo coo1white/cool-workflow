@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // node-floor-require-esm-smoke — the Node floor (slim-and-esm step 4, D4).
 // Pins: package.json engines.node is ">=22.13.0"; the Node running the suite
-// is at or above it; `cw doctor`'s node check names the same floor; and, on
+// is at or above it; and, on
 // the Node in use, a CommonJS caller loads an ES module `dist/` with
 // require() — no flag, exit 0, the right exports, and NOTHING on stderr;
 // and this package's own committed dist/ is that ES module, with exports a
@@ -26,16 +26,11 @@ const pluginRoot = path.resolve(import.meta.dirname, "..");
 const pkg = JSON.parse(fs.readFileSync(path.join(pluginRoot, "package.json"), "utf8"));
 const FLOOR = ">=22.13.0";
 
-// ---- 1. one floor: engines, the running Node, doctor ------------------------
+// ---- 1. one floor: engines and the running Node ----------------------------
 assert.equal(pkg.engines && pkg.engines.node, FLOOR, "package.json engines.node is the measured floor");
 const [major, minor] = process.version.slice(1).split(".").map(Number);
 assert.ok(major > 22 || (major === 22 && minor >= 13), `the suite runs on Node ${process.version}, below the floor ${FLOOR}`);
-import { runDoctor } from "../dist/shell/doctor.js";
 import { tmpDir } from "./helpers/workspace.mjs";
-const home = tmpDir("cw-node-floor-home-");
-const nodeCheck = runDoctor({}, { ...process.env, CW_HOME: home }, home).checks.find((c) => c.name === "node");
-assert.equal(nodeCheck.status, "ok");
-assert.equal(nodeCheck.detail, `Node ${process.version} (>= 22.13).`, "doctor names the same floor as engines");
 
 // ---- 2. require() of an ES module dist/, silent ----------------------------
 function esmDist(root) {
@@ -112,7 +107,7 @@ for (const root of [checkout, installed]) {
 // value takes, so each assert below fails.
 {
   const realDist = path.join(pluginRoot, "dist");
-  const targets = [path.join(realDist, "core", "version.js"), path.join(realDist, "shell", "doctor.js")];
+  const targets = [path.join(realDist, "core", "version.js"), path.join(realDist, "shell", "run-store.js")];
   const caller = path.join(base, "real-dist-caller.cjs");
   fs.writeFileSync(caller, [
     "const targets = JSON.parse(process.argv[2]);",
@@ -153,5 +148,4 @@ for (const root of [checkout, installed]) {
 }
 
 fs.rmSync(base, { recursive: true, force: true });
-fs.rmSync(home, { recursive: true, force: true });
 console.log("node-floor-require-esm-smoke: ok");

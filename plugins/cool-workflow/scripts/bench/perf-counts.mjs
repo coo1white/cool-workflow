@@ -33,7 +33,6 @@ const COLD_JOURNEYS = [
   ["version", ["version"]],
   ["help", ["help"]],
   ["report-no-run", ["report"]],
-  ["doctor", ["doctor"]],
   ["check-list", ["check", "list"]],
 ];
 

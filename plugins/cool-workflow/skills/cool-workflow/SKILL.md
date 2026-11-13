@@ -51,8 +51,6 @@ cw report verify-bundle <bundle>   # check it offline; fails closed
 cw check -- npm test               # keep a receipt; cite it as receipt:<id>
 cw check list
 cw check show <receipt-id>
-cw demo tamper                     # watch a changed record get caught
-cw doctor                          # check setup; cw fix prints the fixes
 cw version
 ```
 

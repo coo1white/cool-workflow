@@ -24,7 +24,7 @@ const keys = (o) => Object.keys(o).join(",");
 // The command table: these paths and no others.
 assert.deepEqual(
   COMMANDS.map((r) => r.path.join(" ")).sort(),
-  ["check", "check list", "check show", "demo", "demo tamper", "doctor", "fix", "report", "report bundle", "report verify-bundle", "version"]
+  ["check", "check list", "check show", "report", "report bundle", "report verify-bundle", "version"]
 );
 assert.deepEqual(ASK.path, ["-q"]);
 
@@ -59,7 +59,7 @@ for (const args of [["version"], ["version", "--json"], ["--version"]]) {
   const r = cw(["help"]);
   assert.equal(r.status, 0);
   assert.match(r.stdout, /-q "question"/);
-  assert.match(r.stdout, /report\|check\|demo/);
+  assert.match(r.stdout, /report\|check\n/);
 }
 
 // -q: a full run.
@@ -126,15 +126,6 @@ assert.equal(keys(bundle.verification), VERIFY_KEYS);
   const shown = json(show, "check show");
   assert.equal(keys(shown), "id,cite,usable,code,reason,next,receipt");
   assert.equal(show.status, shown.usable ? 0 : 1);
-}
-
-// doctor, demo tamper
-{
-  const d = cw(["doctor", "--json"]);
-  assert.equal(keys(json(d, "doctor")), "schemaVersion,ok,checks,summary");
-  const t = cw(["demo", "tamper", "--json"]);
-  assert.equal(t.status, 0, t.stderr);
-  assert.equal(keys(json(t, "demo tamper")), "schemaVersion,runId,workers,trustKey,baseline,layers,proven");
 }
 
 console.log("cli-command-surface-smoke: ok");

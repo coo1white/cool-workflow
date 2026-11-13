@@ -4,7 +4,7 @@
 //
 // Asserts the Step-3 constraints directly, deterministically, with NO live model:
 //   * progress() is a thin write — the line is emitted verbatim (already styled by the caller).
-//   * a blocked no-agent run's `cw -q` end summary (formatQuickstartSummary) points at `cw doctor`.
+//   * a blocked no-agent run's `cw -q` end summary (formatQuickstartSummary) points at a run with an agent flag.
 //   * truncate is width-aware; color honors NO_COLOR / CW_NO_COLOR / FORCE_COLOR (the --no-color
 //     flag sets CW_NO_COLOR), independent of isTTY.
 
@@ -161,7 +161,7 @@ function testBlocked() {
     agentConfigured: false
   }, false));
   assert.match(blockedOut, /Status:\s*blocked/, "surfaces the blocked status");
-  assert.match(blockedOut, /Next: cw doctor/, "no-agent blocked run points at the one recovery command");
+  assert.match(blockedOut, /Next: cw -q "<question>" -claude/, "no-agent blocked run points at the one recovery command");
   console.log("cli-render: blocked-no-agent recovery OK");
 }
 

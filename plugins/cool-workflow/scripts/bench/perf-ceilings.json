@@ -2,7 +2,6 @@
   "schemaVersion": 1,
   "ceilings": {
     "check-list.modules": 19,
-    "doctor.modules": 20,
     "drive.fsyncs": 22,
     "drive.gitProcesses": 1,
     "drive.modules": 39,

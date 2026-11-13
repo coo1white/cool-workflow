@@ -25,10 +25,11 @@ import { recoveryHint } from "../../../dist/core/format/recovery-hint.js";
   assert.equal(hint, "cw help", "an 'unknown command' message must point at cw help");
 }
 
-// "not configured" / "agent backend" -> points at `cw doctor`.
+// "not configured" / "agent backend" -> a run with an agent flag (cw doctor
+// is cut).
 {
-  assert.equal(recoveryHint("agent backend not configured"), "cw doctor");
-  assert.equal(recoveryHint("No agent backend is configured."), "cw doctor");
+  assert.equal(recoveryHint("agent backend not configured"), 'cw -q "<question>" -claude');
+  assert.equal(recoveryHint("No agent backend is configured."), 'cw -q "<question>" -claude');
 }
 
 // "missing" + "repo" -> points at the -dir flag form.

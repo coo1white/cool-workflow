@@ -6,7 +6,7 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { agentCommandArgv, findProgram, splitAgentCommand } from "../core/util/cli-args.js";
+import { findProgram, splitAgentCommand } from "../core/util/cli-args.js";
 import { AgentDelegationConfig } from "./execution-backend/agent.js";
 
 /** CW_HOME resolution: CW_HOME > XDG_STATE_HOME/cool-workflow > ~/.local/state/cool-workflow. */
@@ -97,30 +97,8 @@ function detectAgentFromPath(env: NodeJS.ProcessEnv = process.env): string | und
 
 const AGENTS_DIR = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
 
-function builtinManifest(): { templates?: Record<string, string>; builtinOnly?: { templates?: string[] }; versionProbe?: { clis?: Record<string, string> } } {
+function builtinManifest(): { templates?: Record<string, string> } {
   return JSON.parse(fs.readFileSync(path.join(AGENTS_DIR, "builtin-templates.json"), "utf8"));
-}
-
-// A custom command is matched by binary name to a template not on builtinOnly.
-function customMatch(manifest: ReturnType<typeof builtinManifest>): [string, string][] {
-  const only = new Set(manifest.builtinOnly?.templates || []);
-  return Object.entries(manifest.versionProbe?.clis || {}).filter(([name]) => !only.has(name));
-}
-
-export type AgentProbeTarget = { cli: string } | { skip: string };
-
-export function agentProbeTarget(command: string | undefined, args?: string[]): AgentProbeTarget | undefined {
-  if (!command) return undefined;
-  const manifest = builtinManifest();
-  const clis = manifest.versionProbe?.clis || {};
-  const { binary: bin, args: [script] } = agentCommandArgv(command, args);
-  for (const [name, file] of Object.entries(manifest.templates || {})) {
-    if (path.basename(bin) === "node" && script && path.resolve(script) === path.join(AGENTS_DIR, file)) {
-      return clis[name] ? { cli: clis[name] } : { skip: `builtin:${name} has no vendor CLI` };
-    }
-  }
-  const cli = path.basename(bin).replace(/\.(exe|cmd|bat)$/i, "");
-  return customMatch(manifest).some(([, value]) => value === cli) ? { cli: bin } : { skip: "custom command" };
 }
 
 function builtinAgentTemplates(): Record<string, string> {

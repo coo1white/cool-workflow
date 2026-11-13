@@ -6,7 +6,7 @@
 //      is still on stdout; a finished run exits 0.
 //   2. The terminal summary of a stopped run starts `! Report:`, not
 //      `✓ Report:`; a finished run keeps `✓ Report:`.
-//   3. No agent set: `Next: cw doctor`, then `Try: cw report --show`, and
+//   3. No agent set: `Next: cw -q "<question>" -claude`, then `Try: cw report --show`, and
 //      no `cw report --open` line in the middle.
 //
 // Hermetic: no real agent, no network.
@@ -45,7 +45,7 @@ const args = ["-q", "test?", "--repo", repo, "--json"];
   const noAgent = plain(formatQuickstartSummary({ runId: "R1", reportPath: "/tmp/r/report.md", status: "blocked", completedWorkers: 0, plannedWorkers: 14, agentConfigured: false }, false));
   assert.equal(
     noAgent,
-    ["! Report: /tmp/r/report.md", "  ! Status: blocked — 0/14 workers", "  Next: cw doctor", "  Try: cw report --show"].join("\n"),
+    ["! Report: /tmp/r/report.md", "  ! Status: blocked — 0/14 workers", '  Next: cw -q "<question>" -claude', "  Try: cw report --show"].join("\n"),
     "no agent: a ! on the report line, one Next, one Try"
   );
 

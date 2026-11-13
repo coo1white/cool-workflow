@@ -214,7 +214,7 @@ const real = [
   ...checkSource(readTree(path.join(pluginRoot, "src"), ".ts"), BARREL_ALLOW, BARREL_CEILING),
 ];
 assert.equal(real.length, 0, `the real tree breaks ${real.length} architecture rule(s):\n  ${real.join("\n  ")}`);
-assert.deepEqual(verbs, ["check", "demo", "doctor", "fix", "report", "version"], "the path: [...] parse finds the command table's verbs");
+assert.deepEqual(verbs, ["check", "report", "version"], "the path: [...] parse finds the command table's verbs");
 
 // 2. Teeth: one planted fault per rule, each named exactly.
 assert.deepEqual(heads(checkRules(

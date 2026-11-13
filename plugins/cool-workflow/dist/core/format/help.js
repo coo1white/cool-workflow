@@ -1,15 +1,13 @@
 // core/format/help.ts — the `cw help` front page and `cw help <verb>`.
 // Pure text. Command rows use a 2-space indent; notes use 4 spaces.
 /** The "More commands" line, in this order. */
-export const MORE_COMMANDS_TOKENS = ["report", "check", "demo"];
+export const MORE_COMMANDS_TOKENS = ["report", "check"];
 export function formatHelp() {
     const lines = [
         "Cool Workflow",
         "",
         '  -q "question" [-<vendor>]                 Ask a question, get a report',
         "  version                                   Show version",
-        "  doctor                                    Check setup",
-        "  fix                                       Show fix commands for setup issues",
         "",
         "Flags",
         "  -q, --question TEXT    The task or question to answer",

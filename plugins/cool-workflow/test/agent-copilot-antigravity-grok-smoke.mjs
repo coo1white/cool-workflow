@@ -8,8 +8,7 @@
 //      `cw -q ... -grok` run completes on it;
 //   3. a non-zero exit or an empty answer fails closed (no result.md);
 //   4. -copilot / -antigravity / -grok pick builtin:<name>;
-//   5. auto-detect does NOT pick them (owner, 2026-11-04: "先不加，标 beta");
-//   6. `cw doctor` with builtin:<name> runs `<cli> --version`.
+//   5. auto-detect does NOT pick them (owner, 2026-11-04: "先不加，标 beta").
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -64,19 +63,6 @@ function runWrapper(vendor, dir, inputPath, resultPath, extraEnv = {}) {
 }
 
 const invocation = (dir) => JSON.parse(fs.readFileSync(path.join(dir, "invocation.json"), "utf8"));
-
-// `cw doctor --json` with only the vendor shim (and node) on PATH; gives back
-// its agent-runs row, after checking the shim really ran `--version`.
-function doctorProbe(vendor, flags, extraEnv) {
-  const dir = shimDir(vendor.cli);
-  const home = tmpDir(`cw-${vendor.name}-doctor-`);
-  const env = { PATH: [dir, path.dirname(process.execPath)].join(path.delimiter), HOME: home, CW_HOME: home, CW_NO_AUTO_AGENT: "1", ...extraEnv };
-  const r = spawnSync(process.execPath, [cli, "doctor", "--json", ...flags], { cwd: home, env, encoding: "utf8", timeout: 60000 });
-  const probe = JSON.parse(r.stdout).checks.find((c) => c.name === "agent-runs");
-  assert.ok(probe, `doctor ${flags.join(" ")} has an agent-runs row for ${vendor.name}`);
-  assert.ok(fs.existsSync(path.join(dir, "version-ran")), `the ${vendor.cli} shim was run with --version`);
-  return probe;
-}
 
 const work = tmpDir("cw-cag-smoke-");
 const inputPath = path.join(work, "input.md");
@@ -138,13 +124,11 @@ for (const vendor of VENDORS) {
   console.log(`${vendor.name}: argv, result, report, fail closed OK`);
 }
 
-// 4. The flags pick the builtins: builtin:<name> expands to the wrapper, and
-// `cw doctor -<name>` probes that vendor's CLI (step 6 runs the env form).
+// 4. The flags pick the builtins: builtin:<name> expands to the wrapper
+// (that -<name> pins it end to end: v2/conformance/cases/cli-vendor-flags).
 for (const vendor of VENDORS) {
   const cfg = resolveAgentConfig({ "agent-command": `builtin:${vendor.name}` }, {});
   assert.ok(cfg.command && cfg.command.includes(vendor.wrapper), `builtin:${vendor.name} expands to ${vendor.wrapper}`);
-  const probe = doctorProbe(vendor, [`-${vendor.name}`], {});
-  assert.equal(probe.detail, `${vendor.cli} --version → ${vendor.cli} 9.9.9-shim`, `-${vendor.name} picks builtin:${vendor.name}`);
 }
 console.log("flags: -copilot / -antigravity / -grok pick their builtins OK");
 
@@ -158,14 +142,6 @@ console.log("flags: -copilot / -antigravity / -grok pick their builtins OK");
   assert.equal(detected.command, undefined, "no command is picked from PATH");
   console.log("auto-detect: the beta vendors are not picked OK");
 }
-
-// 6. cw doctor probes `<cli> --version` for each.
-for (const vendor of VENDORS) {
-  const probe = doctorProbe(vendor, [], { CW_AGENT_COMMAND: `builtin:${vendor.name}` });
-  assert.equal(probe.status, "ok");
-  assert.equal(probe.detail, `${vendor.cli} --version → ${vendor.cli} 9.9.9-shim`, `doctor runs ${vendor.cli} --version`);
-}
-console.log("doctor: builtin:<name> probes <cli> --version OK");
 
 // 2b. A whole `cw -q` run on -grok completes with the shim's answer.
 {

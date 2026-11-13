@@ -60,15 +60,7 @@ reviewer, or by someone who only has the file.
 
 ## Try it in seconds
 
-**1 · See the checks work. No agent needed.**
-
-```bash
-cw demo tamper
-# → forges a signed record three ways, catches all three offline
-# → VERDICT: tamper-evidence holds ✓
-```
-
-**2 · Ask about your code.** In a git project:
+**Ask about your code.** In a git project:
 
 ```bash
 cw -q "How does auth work end-to-end here?"
@@ -112,14 +104,13 @@ offline, on any machine.
 🧪 beta: CW has a wrapper and an offline test for it, but no real login has
 been checked with it yet, and `cw` never picks it by itself: add its flag.
 Log in to your agent once on its own first. CW uses it as it is set up and
-never asks for your keys. `cw doctor` checks your setup; `cw fix` prints
-the commands that put it right.
+never asks for your keys.
 
 ## Can You Trust the Report?
 
 CW does not run the model — it keeps the books. Your agent signs its findings (**ed25519**), and `cw report verify-bundle` checks — offline, with only the public key — that every signed finding is in the report unaltered. CW holds no private key: the agent signs, CW only verifies. This proves the signed findings reached you unaltered — not that nothing else was added, and not that none were left out. See the **[Trust Model](plugins/cool-workflow/docs/reference.md#trust-model)**.
 
-**Small enough to read.** The CLI is about 5,750 lines of TypeScript with
+**Small enough to read.** The CLI is about 5,250 lines of TypeScript with
 zero runtime dependencies, so you can read all of what keeps your books. A
 CI gate holds it at 10,000 lines or fewer.
 
@@ -127,7 +118,7 @@ CI gate holds it at 10,000 lines or fewer.
 
 | Problem | Fix |
 |---|---|
-| No agent found, or `status: blocked` | `cw doctor` shows what is on your machine; pass `-claude` or set `CW_AGENT_COMMAND=builtin:claude` |
+| No agent found, or `status: blocked` | Pass `-claude` (or another agent flag), or set `CW_AGENT_COMMAND=builtin:claude` |
 | Where is my report? | `<repo>/.cw/runs/<id>/report.md`, or `cw report --open` |
 | Run stopped before the end | Fix the cause, then `cw --resume --run <id>` |
 | `... is not a git project` | Run it inside the project, or pass `--repo <path>` |

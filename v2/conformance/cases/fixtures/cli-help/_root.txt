@@ -2,8 +2,6 @@ Cool Workflow
 
   -q "question" [-<vendor>]                 Ask a question, get a report
   version                                   Show version
-  doctor                                    Check setup
-  fix                                       Show fix commands for setup issues
 
 Flags
   -q, --question TEXT    The task or question to answer
@@ -27,6 +25,6 @@ Agents
   -grok                  Use Grok agent
 
 More commands
-  report|check|demo
+  report|check
 
     Run  cw help <command>  for one command's subcommands and descriptions.

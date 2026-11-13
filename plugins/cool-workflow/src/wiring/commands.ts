@@ -9,15 +9,9 @@ import { optionalArg } from "../core/util/cli-args.js";
 
 const load = createRequire(import.meta.url);
 const pipeline = () => load("../shell/commands/pipeline-cli.js") as typeof import("../shell/commands/pipeline-cli.js");
-const doctor = () => load("../shell/doctor.js") as typeof import("../shell/doctor.js");
 const reportView = () => load("../shell/commands/report-view-cli.js") as typeof import("../shell/commands/report-view-cli.js");
 const reportCli = () => load("../shell/commands/report-cli.js") as typeof import("../shell/commands/report-cli.js");
 const check = () => load("../shell/commands/check-cli.js") as typeof import("../shell/commands/check-cli.js");
-const tamper = () => load("../shell/tamper-demo.js") as typeof import("../shell/tamper-demo.js");
-
-function runDoctor(options: Record<string, unknown>) {
-  return doctor().runDoctor(options, process.env, optionalArg(options.cwd) || process.cwd());
-}
 
 /** `cw -q "question"` and `cw --resume --run <id>`: no verb of its own. */
 export const ASK: CommandRow = {
@@ -38,29 +32,6 @@ export const COMMANDS: readonly CommandRow[] = [
     summary: "Show version",
     jsonMode: "default",
     handler: () => ({ text: `${CURRENT_COOL_WORKFLOW_VERSION}\n` }),
-  },
-  {
-    path: ["doctor"],
-    summary: "Check setup",
-    jsonMode: "flag",
-    flags: [
-      { name: "--fix", summary: "Print only the fix commands" },
-      { name: "--json", summary: "Print the report as JSON" },
-    ],
-    handler: ({ options }) => {
-      const report = runDoctor(options);
-      const text = options.fix ? `${doctor().formatDoctorFixes(report)}\n` : doctor().formatDoctorReport(report);
-      return { json: report, text, exitCode: report.ok ? undefined : 1 };
-    },
-  },
-  {
-    path: ["fix"],
-    summary: "Show fix commands for setup issues",
-    jsonMode: "human",
-    handler: ({ options }) => {
-      const report = runDoctor(options);
-      return { text: `${doctor().formatDoctorFixes(report)}\n`, exitCode: report.ok ? undefined : 1 };
-    },
   },
   {
     path: ["report"],
@@ -140,24 +111,6 @@ export const COMMANDS: readonly CommandRow[] = [
     jsonMode: "default",
     handler: ({ positionals, options }) => check().checkShowCli(positionals[0] || optionalArg(options.id), options),
     humanRender: (json) => check().formatCheckShow(json),
-  },
-  {
-    path: ["demo"],
-    hidden: true,
-    summary: "Demos",
-    jsonMode: "human",
-    handler: () => {
-      throw new Error("Usage: cw demo tamper [--json]");
-    },
-  },
-  {
-    path: ["demo", "tamper"],
-    summary: "Edit a sealed run and watch verify catch it",
-    jsonMode: "flag",
-    handler: () => {
-      const result = tamper().runTamperDemo();
-      return { json: result, text: tamper().formatTamperDemo(result), exitCode: result.proven ? undefined : 1 };
-    },
   },
 ];
 

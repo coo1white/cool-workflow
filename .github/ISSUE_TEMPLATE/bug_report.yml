@@ -39,7 +39,7 @@ body:
   - type: textarea
     id: doctor
     attributes:
-      label: Output of `cw version` and `cw doctor`
+      label: Output of `cw version` and `node -v`
       description: These two commands say what CW sees on your machine.
       render: shell
     validations:

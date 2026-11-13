@@ -11,8 +11,6 @@ of each release is in [release-history.md](release-history.md).
 The loop is: ask, read, check, verify, resume.
 
 ```bash
-cw doctor                                  # is the setup ready?
-cw demo tamper                             # watch the checks catch an edit (no agent)
 cw check -- npm test                       # keep a receipt that the tests passed
 cw -q "What are the risks here?" -claude   # ask; get a cited report
 cw report --show                           # read the newest report
@@ -30,13 +28,11 @@ Contents:
 5. [Check: `cw check`](#check-cw-check)
 6. [The gates](#the-gates)
 7. [Verify a bundle](#verify-a-bundle)
-8. [Demo: `cw demo tamper`](#demo-cw-demo-tamper)
-9. [Doctor and fix](#doctor-and-fix)
-10. [Trust model](#trust-model)
-11. [Output rules](#output-rules)
-12. [Agents and wrappers](#agents-and-wrappers)
-13. [Removed surfaces](#removed-surfaces)
-14. [Release (operator runbook)](#release-operator-runbook)
+8. [Trust model](#trust-model)
+9. [Output rules](#output-rules)
+10. [Agents and wrappers](#agents-and-wrappers)
+11. [Removed surfaces](#removed-surfaces)
+12. [Release (operator runbook)](#release-operator-runbook)
 
 ## Install
 
@@ -514,60 +510,6 @@ decides `ok`. `--strict-signatures` refuses that case.
 Read a green verdict as "the signed findings are present and unaltered",
 nothing more. See [Trust model](#trust-model).
 
-## Demo: `cw demo tamper`
-
-```text
-cw demo tamper [--json]
-```
-
-A proof of the trust checks in one command. It needs no agent and no
-network. It builds its own state in a temp folder and touches nothing
-else.
-
-1. It builds a signed telemetry ledger with three hops.
-2. It forges it three ways:
-   - **Hashes**: changes a record and works out its hash again. The next
-     record's `previousHash` no longer matches, so the chain breaks.
-   - **Signatures**: raises the token counts and keeps the old signature.
-     The signature no longer matches.
-   - **Findings**: edits a signed finding (severity HIGH to LOW) after it
-     was signed. The ed25519 check fails because the signed bytes changed.
-3. It checks each forged ledger with only the public key.
-
-Exit 0 when all three forgeries are caught. Exit 1 when one is not: that
-is a fault in CW. The code is `src/shell/tamper-demo.ts`.
-
-## Doctor and fix
-
-```text
-cw doctor [--json]
-cw doctor --fix
-cw fix
-```
-
-`cw doctor` checks your setup and names each problem with its fix. It only
-reads: it makes no file and changes nothing on disk. Each check is `ok`,
-`warn` or `fail`; one that is not `ok` has a `fix` line. It exits 1 when a
-check fails. A `warn` does not change the exit code. The human report ends
-with the three quick-start steps.
-
-| Check | What it looks at |
-|---|---|
-| `node` | Node 22.13 or newer. Detail: `Node <version> (>= 22.13).`, or `Node <version> is below the required v22.13.` |
-| `agent` | An agent: auto-detected (claude, codex, gemini, opencode, muse), or from `CW_AGENT_COMMAND` / `--agent-command`. None is a `warn`: `cw demo tamper` and `cw check` still work. The fix says to install an agent CLI and add `-claude` (or set `CW_AGENT_COMMAND=builtin:claude`). |
-| `agent-binary` | When the agent is a command name, whether it is on `PATH`. Missing is a `warn`. |
-| `agent-runs` | When an agent is set, doctor runs its vendor CLI once with `--version` (argv-style, 15 s limit, `CW_DOCTOR_AGENT_PROBE_TIMEOUT_MS`). Exit 0 is `ok`, with its first line. Anything else is `fail`, with up to 4 of its lines. A custom command is never run and adds no row. |
-| `git` | `git` is there. Missing is a `warn`; commits then record no git head. |
-| `repo-state` | `<cwd>/.cw` is writable. |
-| `run-state-integrity` | Every run under `<cwd>/.cw/runs` loads. A `warn` names each one that does not (bad JSON, or a run from before schema 2) and says to remove its folder. |
-
-`--json` prints the report as one stable object; its `checks` list holds
-every fix string. `cw doctor --fix` and `cw fix` print only the fix
-commands, one numbered step per problem, or `No fixes needed.`. `cw fix`
-takes no flags; a `--json` flag is ignored
-(`v2/conformance/cases/report-fix.case.mjs` pins this). Use
-`cw doctor --json` for data.
-
 ## Trust model
 
 Read this before you trust a CW record. It says what the checks prove,
@@ -614,8 +556,7 @@ network.
    short or had records taken out, as far as a chain the writer can work
    out again can show (see 3 below).
 3. **Anyone can check it.** `cw report verify-bundle` works on your own
-   machine, offline, with only the public key. `cw demo tamper` shows the
-   same checks catching forgeries.
+   machine, offline, with only the public key.
 4. **CW made nothing up.** CW holds no private key and calls no model. It
    cannot sign, and it cannot invent a usage number.
 
@@ -779,6 +720,9 @@ exit 1.
   `status`, `registry`, `queue`, `history`, `sandbox`, `backend`, `worker`,
   `feedback`, `audit`, `metrics`, `operator`, `telemetry`, `migration`,
   `state`, `contract`, `node`, `ledger`, `graph`, `man`, `completion`.
+- **Off the receipt path** (2026-11-13, the owner's choice): `doctor`,
+  `fix` and `demo tamper`. With no agent, `cw -q` stops `blocked` and its
+  hint names the fix.
 - **Earlier removals**: the multi-agent family (`multi-agent`,
   `topology`, `blackboard`, `coordinator`, `candidate`, `eval`, `summary`,
   `approve`, `reject`, `comment`, `handoff`, `review`), scheduling
@@ -792,11 +736,8 @@ exit 1.
   that stays); every workflow app but `architecture-review`.
 - **Old-state migration**: runs made before schema 2 are refused (see
   [Old runs are refused](#old-runs-are-refused)).
-- **Flags**: `cw -q --check`, `--fast`, `--concurrency`, `--incremental`;
-  `cw doctor --onramp`, `--changed-from` and `--conformance`.
-- **JSON fields**: `trustAuditVerified` in the bundle output; the
-  `sandbox-enforceability`, `home-registry`, `audit-integrity` and
-  `agent-sandbox` doctor checks.
+- **Flags**: `cw -q --check`, `--fast`, `--concurrency`, `--incremental`.
+- **JSON fields**: `trustAuditVerified` in the bundle output.
 - **The man pages**: the `docs/*.7.md` pages and `cw man` were merged into
   this one reference.
 
