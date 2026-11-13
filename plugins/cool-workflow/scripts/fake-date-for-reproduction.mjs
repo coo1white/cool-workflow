@@ -16,7 +16,27 @@
 // Intercepting the Date GLOBAL, before any application code runs, works
 // identically regardless of which script version executes — old or new.
 //
+// It also pins the path style on Windows. The releases this replays were cut
+// on POSIX machines (their committed index links use '/'), and an older bump
+// step (the legacy project-index step) wrote `path.relative(...)` results
+// into a committed file: on Windows the same code writes `apps\<id>\app.json`,
+// so the reproduced tree differs from the tagged one by those separators
+// alone (seen on the Windows CI leg: `M plugins/cool-workflow/docs/project-index.md`). On win32 this preload makes
+// `path.relative` return forward slashes, as the cut's own platform did.
+// Windows file APIs take '/' as a separator, so the bump still reads and
+// writes the same files. The tree comparison itself is unchanged and stays
+// byte-exact: this only replays the cut's environment, like the clock above.
+//
 // Usage: NODE_OPTIONS="--require /path/to/this/file.mjs" CW_FAKE_DATE=2026-07-05 <command>
+
+import path from "node:path";
+import { syncBuiltinESMExports } from "node:module";
+
+if (process.platform === "win32") {
+  const realRelative = path.relative;
+  path.relative = (from, to) => realRelative(from, to).split(path.sep).join("/");
+  syncBuiltinESMExports();
+}
 
 const pinned = process.env.CW_FAKE_DATE;
 if (pinned) {
