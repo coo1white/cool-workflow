@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// size-check — fail closed when src/**/*.ts grows past 10,000 physical lines.
+// size-check — fail closed when src/**/*.ts grows past 5,000 physical lines.
 //
 // Why: src/ grew to 31,802 lines around a core path (ask, report, check,
-// verify) that fits in a third of that; batch 5 cut it back. A ceiling keeps
-// the next feature from growing it back unseen. The count is the same as
+// verify) that fits in a third of that; batch 5 cut it back, and the
+// 2026-11-13 cut (doctor, fix, demo tamper, comments) took it under 5,000.
+// A ceiling keeps the next feature from growing it back unseen. The count is the same as
 // `find src -name '*.ts' | xargs cat | wc -l`: newline characters.
 //
 //   node scripts/size-check.mjs            # check plugins/cool-workflow/src
@@ -15,7 +16,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export const MAX_SRC_LINES = 10000;
+export const MAX_SRC_LINES = 5000;
 
 function tsFiles(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

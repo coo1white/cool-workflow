@@ -110,9 +110,9 @@ never asks for your keys.
 
 CW does not run the model — it keeps the books. Your agent signs its findings (**ed25519**), and `cw report verify-bundle` checks — offline, with only the public key — that every signed finding is in the report unaltered. CW holds no private key: the agent signs, CW only verifies. This proves the signed findings reached you unaltered — not that nothing else was added, and not that none were left out. See the **[Trust Model](plugins/cool-workflow/docs/reference.md#trust-model)**.
 
-**Small enough to read.** The CLI is about 5,250 lines of TypeScript with
+**Small enough to read.** The CLI is about 4,950 lines of TypeScript with
 zero runtime dependencies, so you can read all of what keeps your books. A
-CI gate holds it at 10,000 lines or fewer.
+CI gate holds it at 5,000 lines or fewer.
 
 ## When something goes wrong
 

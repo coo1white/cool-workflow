@@ -1,13 +1,6 @@
-// core/format/report-html.ts — pure markdown -> HTML for report.md.
-//
-// `cw report --open` and the quickstart auto-open (shell/report-view-
-// cli.ts, shell/commands/pipeline-cli.ts) turn report.md into one small HTML page,
-// readable in any browser with no path and no id typed. Pure, no disk,
-// no network, no dependency. Handles ONLY the forms report.ts's writer
-// emits — headings, bullet lists (with a two-space continuation line),
-// the one "## Phase Status" table shape — plus fenced code, links, and
-// bold, the two forms an embedded agent result file can add (report.ts's
-// renderResults drops that file in as is). Never ordered lists.
+// core/format/report-html.ts — report.md to one HTML page. Pure. Handles
+// only what report.ts writes (headings, bullets, the Phase Status table)
+// plus fenced code, links and bold from an agent's result file.
 
 import { REPORT_CSS } from "./report-css.js";
 
@@ -15,12 +8,9 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-/** A link target taken from run data (an agent's result file) is a link
- *  only when it is http, https, mailto, or has no scheme at all (a
- *  relative path or a #fragment). Anything else (javascript:, data:,
- *  vbscript:, file:, and so on) fails closed: the `[label](target)` text
- *  stays as plain, escaped text. A C0 control or a backslash anywhere
- *  also fails closed, since a browser may drop or fold them into a scheme. */
+/** A run's link target is a link only for http, https, mailto or no
+ *  scheme. Anything else, or a control char or backslash (a browser may
+ *  fold them into a scheme), stays escaped text. */
 function isSafeHref(href: string): boolean {
   if (/[\u0000-\u001f\u007f\\]/.test(href)) return false;
   const scheme = href.match(/^([^:/?#]*):/);
@@ -28,8 +18,7 @@ function isSafeHref(href: string): boolean {
   return /^(https?|mailto)$/i.test(scheme[1]);
 }
 
-/** Bold and links, over already-escaped text (escaping never touches
- *  `*`, `[`, `]`, `(`, `)`, so this is safe to run second). */
+/** Bold and links, over already-escaped text. */
 function inline(text: string): string {
   return escapeHtml(text)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
@@ -46,12 +35,10 @@ function renderTable(rows: string[]): string {
   return `<table><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>`;
 }
 
-/** Turn one report.md's text into a full HTML page. Text is always
- *  escaped — nothing from the run or an agent's result is ever raw HTML. */
+/** report.md to a full page. All text is escaped; nothing is raw HTML. */
 export function reportToHtml(markdown: string, title = "Report"): string {
   const lines = markdown.split("\n");
-  // The "- Verdict: WORD" line report.ts writes becomes the round stamp
-  // by the title, not a bullet. No line, no stamp (older reports).
+  // "- Verdict: WORD" becomes the stamp by the title, not a bullet.
   const verdict = (markdown.match(/^- Verdict: (\S+)$/m) || [])[1];
   const body: string[] = [];
   let inCode = false;
@@ -102,10 +89,8 @@ export function reportToHtml(markdown: string, title = "Report"): string {
     body.push(`<p>${inline(line)}</p>`);
   }
   closeLists();
-  // Every class here is a Tailwind class; REPORT_CSS is the sheet built
-  // from them (npm run build:css). Bare tags (h1, table, pre) are styled by
-  // the typography plugin's prose class on the wrapper, so the test's tag
-  // checks hold. The band is fixed brand text; no run text goes in it.
+  // Tailwind classes; REPORT_CSS is built from them (npm run build:css).
+  // No run text goes in the band.
   const tones = { pass: "border-accent text-accent", warn: "border-warning text-warning", bad: "border-error text-error" };
   const toneName = ({ PASS: "pass", BLOCKED: "warn", FAILED: "bad" } as Record<string, keyof typeof tones>)[verdict || ""];
   const stamp = verdict

@@ -36,8 +36,7 @@ function firstDefined(...values) {
             return value;
     return undefined;
 }
-/** Read the durable config FILE (if any). Never throws — a corrupt file is
- *  treated as absent (fail closed). */
+/** The config file, if any; a corrupt one reads as absent. Never throws. */
 function loadAgentConfigFile(env) {
     const file = agentConfigPath(env);
     if (!fs.existsSync(file))
@@ -82,8 +81,7 @@ function agentConfigFromArgs(args) {
         source: "flag",
     };
 }
-/** Detect which known agent CLIs are on PATH. Returns the first found, or
- *  undefined. Skipped when CW_NO_AUTO_AGENT=1. */
+/** The first known agent CLI on PATH; off with CW_NO_AUTO_AGENT=1. */
 function detectAgentFromPath(env = process.env) {
     if (env.CW_NO_AUTO_AGENT === "1")
         return undefined;
@@ -120,16 +118,12 @@ function expandBuiltinAgentCommand(command) {
     return template;
 }
 export const AGENT_FIX = 'Install an agent CLI such as Claude Code, then add -claude to your cw command, for one: cw -q "your question" -claude (or set CW_AGENT_COMMAND=builtin:claude). -codex, -gemini and -opencode work too.';
-/** Resolve the EFFECTIVE agent config: flags > env > file > auto-detect >
- *  none. The returned `source` names the layer the command/endpoint came
- *  from. */
+/** The effective config; `source` names the layer the command came from. */
 export function resolveAgentConfig(args = {}, env = process.env) {
     const flagCfg = agentConfigFromArgs(args);
     const envCfg = agentConfigFromEnv(env);
     const fileCfg = loadAgentConfigFile(env);
-    // Command and args are ONE unit: the layer that supplies the command
-    // supplies its args too. A lower layer's args are never attached to a
-    // higher layer's command (they were written for a different binary).
+    // Args come from the same layer as the command, never a lower one.
     const commandLayer = [flagCfg, envCfg, fileCfg].find((layer) => layer && layer.command !== undefined);
     const command = expandBuiltinAgentCommand(commandLayer?.command);
     const cfgArgs = commandLayer ? commandLayer.args : firstDefined(flagCfg.args, envCfg.args, fileCfg?.args);
@@ -142,9 +136,7 @@ export function resolveAgentConfig(args = {}, env = process.env) {
     const detected = detectAgentFromPath(env);
     if (!detected)
         return { ...base, args: cfgArgs, source: "none" };
-    // Auto-detect saw a binary on PATH, so it must use the wrapper that runs
-    // that binary: a found "gemini" maps to builtin:gemini-cli (builtin:gemini
-    // goes through opencode).
+    // A found "gemini" is builtin:gemini-cli (builtin:gemini is opencode's).
     const template = detected === "gemini" ? "gemini-cli" : detected;
     return { ...base, command: expandBuiltinAgentCommand(`builtin:${template}`), model: model || `builtin:${template}`, source: "auto" };
 }

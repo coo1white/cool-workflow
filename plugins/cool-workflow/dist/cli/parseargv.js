@@ -1,18 +1,10 @@
 // cli/parseargv.ts — parseArgv, KNOWN_COMMANDS, suggestCommand. Pure.
 //
-// Rules (do not "clean up" — every one of these is pinned by a conformance
-// case):
-//   - first token is the command, taken as-is;
-//   - "--" is the POSIX end-of-options mark: every later token is a
-//     positional, even one that starts with "-" or "--";
-//   - a token with no leading "-" is a positional;
-//   - a single-dash token maps through the short-alias table below; a name
-//     not in the table keeps its own name ("-dir" -> option "dir"); joined
-//     short flags like "-qr" are NOT split apart, the key stays "qr";
-//   - a flag's value is the NEXT token only when that token does not start
-//     with "-" (single or double dash); otherwise the value is `true`;
-//   - "--key=value" gives a value that may itself start with "-";
-//   - a repeated option becomes an array of values.
+// Each rule is pinned by a conformance case: the first token is the
+// command; after "--" every token is positional; "-x" maps through the
+// alias table, else keeps its name ("-qr" stays "qr", not split); a flag
+// takes the next token only if it does not start with "-"; "--k=v" may
+// start with "-"; a repeated option becomes an array.
 /** The single-dash short-flag table. */
 const SHORT_FLAG_TABLE = {
     q: "question",
@@ -25,8 +17,7 @@ const SHORT_FLAG_TABLE = {
 function looksLikeFlagValue(token) {
     return token !== undefined && !token.startsWith("-");
 }
-/** appendOption: a repeated key becomes an
- *  array; a third+ occurrence pushes onto that same array. */
+/** A repeated key becomes an array. */
 function appendOption(options, key, value) {
     if (Object.prototype.hasOwnProperty.call(options, key)) {
         const existing = options[key];
@@ -112,10 +103,8 @@ function levenshtein(a, b) {
     }
     return dp[n];
 }
-/** Nearest known command by edit distance.
- *  Gives `undefined` when the input is under 2 chars, or when the best
- *  distance is over 3 or over half the input length. Never gives back the
- *  input itself. */
+/** Nearest known command, or undefined when none is close (input under
+ *  2 chars, distance over 3 or over half the input). */
 export function suggestCommand(input) {
     if (!input || input.length < 2)
         return undefined;

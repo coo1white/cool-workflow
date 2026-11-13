@@ -1,16 +1,6 @@
-// shell/telemetry-ledger-io.ts — telemetry ledger disk IO: path
-// resolution, absent-vs-corrupt load, durable append. The pure verify
-// math lives in core/trust/telemetry-ledger.ts.
-//
-// CRITICAL invariant:
-// an ABSENT telemetry.json is an empty, clean-verifying chain
-// (`present:false`); a PRESENT but unparseable one is CORRUPT — reads
-// report `telemetry-ledger-corrupt`, and append THROWS
-// `TelemetryLedgerCorruptError`. It must never re-genesis over a
-// poisoned file.
-//
-// Evidence: SPEC/ledger-trust.md "Absent vs corrupt telemetry ledger",
-// invariant 3.
+// shell/telemetry-ledger-io.ts — telemetry ledger disk IO.
+// An ABSENT telemetry.json is an empty chain; a PRESENT unparseable one is
+// corrupt: reads report it and append throws, never re-starting the chain.
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { withFileLock, writeJson } from "./fs-atomic.js";
@@ -19,9 +9,7 @@ export { TelemetryLedgerCorruptError, TELEMETRY_LEDGER_SCHEMA_VERSION, computeRe
 export function telemetryLedgerPath(run) {
     return path.join(run.paths.runDir, "telemetry.json");
 }
-/** Read the ledger, DISTINGUISHING absent (never written -> empty chain,
- *  fine) from corrupt (exists but unparseable/wrong shape -> fail
- *  closed). */
+/** Read the ledger, telling absent from corrupt. */
 function readTelemetryLedgerState(run) {
     const file = telemetryLedgerPath(run);
     if (!fs.existsSync(file))
@@ -38,29 +26,17 @@ function readTelemetryLedgerState(run) {
     }
     return { status: "ok", ledger: { schemaVersion: 1, runId: run.id, records: parsed.records } };
 }
-/** Load the ledger for read/append. Absent -> empty chain. Corrupt ->
- *  THROWS, so an append can never silently re-genesis on a poisoned/
- *  edited file. */
+/** Load for append: absent gives an empty chain, corrupt throws. */
 export function loadTelemetryLedger(run) {
     const state = readTelemetryLedgerState(run);
     if (state.status === "corrupt")
         throw new TelemetryLedgerCorruptError(state.file);
     return state.ledger;
 }
-/** Append one attestation record DURABLY to the append-only chain,
- *  linking it to the prior record (or genesis). Returns the committed
- *  record. Throws `TelemetryLedgerCorruptError` if the file on disk is
- *  present but unparseable — never silently re-genesis.
- *
- *  The whole load->append->write is held under `withFileLock` (like every
- *  other read-modify-write in this codebase — see `recordTrustAuditEvent`).
- *  `writeJson` REPLACES the file, so without the lock two processes
- *  appending for the same run at once both read the same N-record ledger,
- *  both compute a record at chain position N+1, and the last atomic rename
- *  WINS — silently dropping the loser's record. The surviving chain still
- *  links correctly, so the loss is invisible to `verifyTelemetryLedger`.
- *  The `prevHash` and chain position MUST be read from the ledger loaded
- *  INSIDE the lock so the record links to the true current tail. */
+/** Append one record, linked to the tail. Throws on a corrupt ledger.
+ *  Load, append and write run under one file lock: without it two
+ *  appenders read the same tail and the last rename silently drops the
+ *  other's record, a loss the chain itself cannot show. */
 export function appendTelemetryAttestation(run, input) {
     return withFileLock(telemetryLedgerPath(run), () => {
         const ledger = loadTelemetryLedger(run);
@@ -88,10 +64,7 @@ export function appendTelemetryAttestation(run, input) {
         return record;
     });
 }
-/** Re-prove the whole telemetry chain for a run, reading from disk.
- *  Absent -> present:false/verified:true (nothing to prove). Corrupt ->
- *  present:true/verified:false with the `telemetry-ledger-corrupt`
- *  check, never thrown. */
+/** Re-prove a run's chain from disk; a corrupt file is reported, not thrown. */
 export function verifyTelemetryLedger(run) {
     const state = readTelemetryLedgerState(run);
     if (state.status === "corrupt")

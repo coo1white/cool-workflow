@@ -1090,7 +1090,7 @@ signing key and makes no tag, push or publish. It is not a required check.
 ### Before a cut, and while you change CW
 
 ```bash
-npm run check               # tsc and the src/ size limit (10,000 lines)
+npm run check               # tsc and the src/ size limit (5,000 lines)
 npm run build
 node test/<nearest>-smoke.mjs
 npm run test:unit

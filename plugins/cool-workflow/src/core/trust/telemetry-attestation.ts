@@ -1,17 +1,6 @@
 // core/trust/telemetry-attestation.ts — ed25519 usage/result attestation.
-//
-// The AGENT (executor) signs; CW only VERIFIES with an operator-given
-// PUBLIC key — CW holds no private key, ever. Uses node:crypto's built-in
-// ed25519 sign/verify (no npm dependency).
-//
-// `crypto.verify`/`crypto.createPublicKey` are allowed here by a lint
-// carve-out for this exact file — this remains
-// otherwise pure (no fs, no process.env, no clock; `resolveTrustPublicKey`'s
-// lazy `process.getBuiltinModule("node:fs")` is the one exception, so a bundle that never
-// resolves a key path pays no fs cost).
-//
-// Evidence: SPEC/ledger-trust.md "The signing model", "Attestation
-// verify", byte-compat items 2 and 11.
+// The agent signs; CW only verifies, with an operator-given PUBLIC key.
+// Pure but for crypto and resolveTrustPublicKey's lazy fs read.
 
 import * as crypto from "node:crypto";
 import { messageOf } from "../util/cli-args.js";
@@ -23,9 +12,7 @@ export interface TelemetryAttestationContext {
   taskId: string;
   /** sha256 of the worker prompt CW handed the agent. */
   promptDigest: string;
-  /** sha256 of the agent's result.md. Included in the canonical payload
-   *  ONLY when present, so a 4-field (pre-result-coverage) signer still
-   *  verifies. */
+  /** sha256 of the agent's result.md; in the payload only when present. */
   resultDigest?: string;
 }
 
@@ -33,21 +20,11 @@ export interface TelemetryVerification {
   status: TelemetryAttestationStatus;
   reason?: string;
   algorithm?: "ed25519";
-  /** True when the verified signature covered the result digest, not
-   *  just the usage — i.e. the result-bound (first) arm matched. */
+  /** The signature covered the result digest, not just the usage. */
   coversResult?: boolean;
 }
 
-/** `telemetry-attestation module`'s `stableStringify` — sorts keys
- *  recursively, AND maps a top-level `undefined` input to the literal
- *  string `"null"`. Divergent from `core/hash.ts`'s
- *  `ledgerStableStringify` exactly at the top-level-undefined edge.
- *  Re-exported under this file's own
- *  name (rather than importing `telemetryStableStringify` from
- *  core/hash.ts) because SPEC/ledger-trust.md's "Exported functions"
- *  list names `stableStringify` as a real export of THIS module — the
- *  two are byte-identical behavior, kept as separate named exports per
- *  their separate call sites. */
+/** core/hash.ts's telemetryStableStringify, under the name the spec gives. */
 export function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") return (JSON.stringify(value) as string | undefined) ?? "null";
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
@@ -67,19 +44,14 @@ export function canonicalTelemetryPayload(
     runId: ctx.runId,
     taskId: ctx.taskId,
     promptDigest: ctx.promptDigest,
-    // Present ONLY when the signer covered the result — omitting the key
-    // keeps the canonical bytes byte-identical to the original 4-field
-    // payload, so every pre-result-coverage signature still verifies.
+    // Omitted when absent, so 4-field signatures still verify.
     ...(ctx.resultDigest !== undefined ? { resultDigest: ctx.resultDigest } : {}),
   });
 }
 
-/** Verify the agent's signed usage against the operator-provisioned
- *  public key. Two-arm check: try the
- *  5-field payload (with resultDigest) first; on a miss, retry the
- *  4-field payload (old signers still verify). `coversResult` is set
- *  ONLY on a first-arm match — a 4-field fallback match never covers the
- *  result, even when a resultDigest sits on the record. Never throws. */
+/** Verify a signed usage record. Tries the 5-field payload (with
+ *  resultDigest), then the 4-field one; only a 5-field match sets
+ *  `coversResult`. Never throws. */
 export function verifyTelemetryAttestation(
   usage: Record<string, unknown> | undefined,
   signatureB64: string | undefined,
@@ -114,13 +86,9 @@ export function verifyTelemetryAttestation(
   let coversResult = false;
   try {
     ok = matches(ctx);
-    // A match on the first arm (which carries resultDigest when CW has
-    // one) means the signature covered the result, not just the usage.
+    // First arm: the signature covered the result.
     coversResult = ok && ctx.resultDigest !== undefined;
-    // Back-compat: a signer that predates result coverage signed only
-    // the 4-field payload, so on a miss retry WITHOUT resultDigest. A NEW
-    // signer who covered the result fails BOTH arms when the result is
-    // edited (its resultDigest no longer matches).
+    // Old signers signed 4 fields. An edited result fails both arms.
     if (!ok && ctx.resultDigest !== undefined) ok = matches({ ...ctx, resultDigest: undefined });
   } catch (error) {
     return { status: "unattested", reason: `verification error: ${messageOf(error)}` };
@@ -130,18 +98,14 @@ export function verifyTelemetryAttestation(
     : { status: "unattested", reason: "signature does not match reported usage (tampered, replayed, or wrong key)" };
 }
 
-/** Resolve a trust key from a config value that is EITHER an inline PEM
- *  or a path to a `.pem` file. Returns undefined when absent/unreadable
- *  (⇒ `unattested`, never a hard throw). CW only ever loads a PUBLIC key
- *  here. */
+/** A public key from an inline PEM or a `.pem` path; undefined when
+ *  absent or unreadable (the run reads `unattested`). */
 export function resolveTrustPublicKey(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const trimmed = value.trim();
   if (!trimmed) return undefined;
   if (trimmed.includes("BEGIN") && trimmed.includes("KEY")) return trimmed;
   try {
-    // Lazy load so a bundle that never resolves a key path pays no
-    // fs cost.
     const fs = process.getBuiltinModule("node:fs");
     if (fs.existsSync(trimmed)) return fs.readFileSync(trimmed, "utf8");
   } catch {
@@ -150,10 +114,7 @@ export function resolveTrustPublicKey(value: string | undefined): string | undef
   return undefined;
 }
 
-// ---------------------------------------------------------------------------
-// EXECUTOR-SIDE HELPER — the CW RUNTIME NEVER CALLS THIS. Provided for
-// signing wrappers and tests; touches a private key, never a model.
-// ---------------------------------------------------------------------------
+// Signer side, for wrappers and tests only: the CW runtime never calls this.
 export function signTelemetry(
   usage: Record<string, unknown> | undefined,
   privateKeyPem: string,
@@ -164,9 +125,7 @@ export function signTelemetry(
   return crypto.sign(null, payload, key).toString("base64");
 }
 
-// ---------------------------------------------------------------------------
-// INDEPENDENT SIGNATURE RE-VERIFICATION (operator-side, opt-in)
-// ---------------------------------------------------------------------------
+// Operator-side re-verification of every signature in a run.
 
 export interface TelemetrySignatureCheck {
   name: string;
@@ -179,10 +138,8 @@ export interface TelemetrySignatureVerification {
   checked: number;
   reverified: number;
   failed: number;
-  /** Records whose signature RE-VERIFIED and actually COVERED the result
-   *  digest. A usage-only (4-field) signature is excluded even if a
-   *  resultDigest is present on the record, so an injected digest cannot
-   *  be trusted. */
+  /** Records whose signature re-verified AND covered the result digest;
+   *  a usage-only signature never counts, whatever digest sits beside it. */
   resultBound: Array<{ taskId: string; resultDigest: string }>;
   checks: TelemetrySignatureCheck[];
 }

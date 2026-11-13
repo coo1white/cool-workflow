@@ -1,8 +1,4 @@
-// shell/term.ts — zero-dependency terminal styling.
-//
-// TTY-gated ANSI formatting, so a piped run (every conformance case pipes
-// with NO_COLOR=1) prints plain text; plus indent, sectionHeader,
-// phaseProgressLine, stripAnsi, visibleWidth, truncate.
+// shell/term.ts — terminal styling, TTY-gated so a piped run prints plain text.
 
 export type TermSeverity = "ok" | "warn" | "fail";
 
@@ -52,7 +48,7 @@ export function red(text: string, stream?: NodeJS.WriteStream): string {
   return style(ansi.red, text, stream);
 }
 
-/** Returns the styled glyph + label for a doctor check severity. */
+/** The styled ✓ / ! / ✗ for a check. */
 export function doctorGlyph(status: TermSeverity, stream?: NodeJS.WriteStream): string {
   const glyph: Record<TermSeverity, string> = { ok: "✓", warn: "!", fail: "✗" };
   const color: Record<TermSeverity, (t: string, s?: NodeJS.WriteStream) => string> = {
@@ -105,16 +101,12 @@ export function stripAnsi(text: string): string {
   return text.replace(ANSI_RE, "");
 }
 
-/** Visible width of a string, ignoring ANSI. Counts each code point as
- *  width 1 — a known minor caveat for wide (CJK/emoji) glyphs, acceptable
- *  for one-line status truncation. */
+/** Visible width, ignoring ANSI; one column per code point. */
 export function visibleWidth(text: string): number {
   return [...stripAnsi(text)].length;
 }
 
-/** Truncate a (possibly styled) string to `maxWidth` visible columns,
- *  appending `…` when cut. Operates on the PLAIN text (callers truncate
- *  before styling), so no ANSI is split. */
+/** Cut plain text to `maxWidth` columns, ending in `…`. Style after. */
 export function truncate(text: string, maxWidth: number): string {
   if (maxWidth <= 0) return "";
   const chars = [...stripAnsi(text)];
