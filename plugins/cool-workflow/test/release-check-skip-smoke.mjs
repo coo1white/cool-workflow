@@ -13,8 +13,7 @@ const bin = path.join(tmp, "bin");
 const log = path.join(tmp, "commands.log");
 fs.mkdirSync(bin);
 
-// A node stub for npm (the only program release-check starts), so it starts
-// on Windows too: there an sh script on PATH is not a program.
+// A node stub for npm (the only program release-check starts).
 writeProgram(bin, "npm", `const fs = require("node:fs");
 fs.appendFileSync(${JSON.stringify(log)}, "npm " + process.argv.slice(2).join(" ") + "\\n");
 `);

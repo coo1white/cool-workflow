@@ -126,8 +126,7 @@ question -> plan (the app's phases and tasks)
 - The report is written in every case, also when the run stops.
 - On a TTY, with no `--json`, CW opens `report.html` in your browser at the
   end. `CW_OPENER` names the program that opens it; by default `open` on
-  macOS, `xdg-open` on Linux, and `rundll32 url.dll,FileProtocolHandler`
-  on Windows.
+  macOS and `xdg-open` elsewhere.
 
 ### Exit codes
 
@@ -300,10 +299,6 @@ Piped, or with `--json`, it prints one JSON object: `schemaVersion`, `ok`,
 - A command that does not exit 0 makes `cw check` exit 1. The receipt of
   the failure is still kept.
 - A program that is not on `PATH` is an error and leaves no receipt.
-- On Windows the program is found with `PATHEXT`, as `cmd` would. Node
-  will not start a `.cmd` file with no shell, so for an npm-style shim
-  (`npm.cmd`, `claude.cmd`) CW runs the script the shim names with node.
-  The receipt keeps `argv` as you typed it.
 - `cw check list` and `cw check show` print JSON when piped. `show` exits
   1 when the receipt cannot be cited now.
 - `list` and `show` are words of `cw check`. To run a program named
@@ -327,7 +322,7 @@ and exit code, plus the receipt line.
   jest`, `pytest`, `go test`, `cargo test` or `make test`.
 - Not changed: anything with a pipe, `&`, `;`, a redirect, `(`, a
   backtick, `$` or a backslash; any other command; and when `cw` is not on
-  `PATH` (on Windows, `cw.cmd` or another `PATHEXT` name counts).
+  `PATH`.
 - The hook decides no permission. Claude Code checks its permission rules
   against the changed command, so a rule for `npm test` alone no longer
   covers it; allow `cw check --tee -- npm test` too to skip the prompt.
@@ -652,9 +647,8 @@ bundle is kept. CW cannot make that party itself.
 ### What an agent gets
 
 CW starts the agent argv-style (`shell: false`), in the repository folder,
-with stdin closed and a short, fixed env: `PATH`, `HOME`, `USER`
-(on Windows also the system folders a program needs: `SystemRoot`,
-`TEMP`, `USERPROFILE`, `APPDATA` and the like), provider-key names (`CW_`, `ANTHROPIC_`, `CLAUDE_`, `OPENAI_`, `GEMINI_`,
+with stdin closed and a short, fixed env: `PATH`, `HOME`, `USER`,
+provider-key names (`CW_`, `ANTHROPIC_`, `CLAUDE_`, `OPENAI_`, `GEMINI_`,
 ...) and the proxy and CA settings. These are never passed on, whatever
 their prefix (`CW_NEVER_FORWARD_ENV` in
 `src/shell/execution-backend/local.ts`):
@@ -816,8 +810,7 @@ Every `npm run` command here runs in `plugins/cool-workflow/`. There is no
 root `package.json`.
 
 The build and release scripts start `npm`, `gh` and `git` the way `cw
-check` does: with no shell, and on Windows through the `.cmd` shim's
-script (`scripts/spawn-argv.mjs`).
+check` does: with no shell. Native Windows is not supported; use WSL.
 
 ### Two ways out
 

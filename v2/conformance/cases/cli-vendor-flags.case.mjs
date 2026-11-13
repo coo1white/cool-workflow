@@ -14,21 +14,12 @@
 // A drive that cannot finish stops with exit 2 and a JSON report (batch 5,
 // 2026-11-12: `cw -q` is the one drive entry; the step verbs are gone).
 
-import fs from "node:fs";
-import path from "node:path";
 import { run, gitRepo, caseMain, assert } from "../lib.mjs";
 
 // PATH is deliberately narrow so no vendor CLI (claude/codex/opencode/...)
 // and not even `node` can be found on it — this can never reach a network.
-// cw still needs git to see the project. On Windows git is not in /usr/bin,
-// so the narrow PATH there is git's own folder alone.
-const NARROW_PATH = { PATH: process.platform === "win32" ? gitFolder() : "/usr/bin:/bin" };
-
-function gitFolder() {
-  const dir = (process.env.PATH || "").split(";").find((d) => d && fs.existsSync(path.join(d, "git.exe")));
-  if (!dir) throw new Error("cli-vendor-flags: git.exe is not on PATH");
-  return dir;
-}
+// cw still needs git to see the project.
+const NARROW_PATH = { PATH: "/usr/bin:/bin" };
 
 caseMain(() => {
   const repo = gitRepo({ "a.txt": "hello\n" });

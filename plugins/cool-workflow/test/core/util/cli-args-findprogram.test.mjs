@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 // cli-args-findprogram — findProgram is the one PATH lookup in src/. It took
 // the place of three copies (doctor's whichBinary, agent-config's
-// detectAgentFromPath, the execution-backend probes' hasExecutable), and the
-// probes copy did not try PATHEXT, so on Windows it never found node.exe.
-// This test drives the pure function with a fake file test for both
-// platforms, and holds the rule that no other src/ file walks PATH itself.
+// detectAgentFromPath, the execution-backend probes' hasExecutable). CW runs
+// on POSIX only (native Windows was cut: use WSL), so the lookup takes no
+// platform and tries no PATHEXT suffix. This test drives the pure function
+// with a fake file test, and holds the rule that no other src/ file walks
+// PATH itself.
 
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -13,22 +14,13 @@ import { findProgram } from "../../../dist/core/util/cli-args.js";
 
 const files = (list) => (file) => list.includes(file);
 
-// POSIX: no suffixes, ":" between dirs, the first dir wins.
+// ":" between dirs, empty entries skipped, the first dir wins, no suffixes.
 {
   const env = { PATH: "/a:/b::/c" };
-  assert.equal(findProgram("node", env, "linux", files(["/b/node", "/c/node"])), "/b/node");
-  assert.equal(findProgram("node", env, "darwin", files([])), undefined);
-  assert.equal(findProgram("node", {}, "linux", files(["/node"])), undefined, "no PATH, no match");
-  assert.equal(findProgram("node", env, "linux", files(["/a/node.EXE"])), undefined, "no PATHEXT off win32");
-}
-
-// win32: ";" between dirs, each PATHEXT suffix in order, "\" joins.
-{
-  const env = { PATH: "C:\\tools;C:\\nodejs", PATHEXT: ".COM;.EXE;.CMD" };
-  assert.equal(findProgram("node", env, "win32", files(["C:\\nodejs\\node.EXE"])), "C:\\nodejs\\node.EXE", "finds node.exe (the probes copy could not)");
-  assert.equal(findProgram("claude", env, "win32", files(["C:\\tools\\claude.CMD", "C:\\nodejs\\claude.EXE"])), "C:\\tools\\claude.CMD", "the first dir wins over a later suffix");
-  assert.equal(findProgram("node", env, "win32", files(["C:\\nodejs\\node"])), undefined, "a bare name is not tried on win32");
-  assert.equal(findProgram("git", { PATH: "C:\\g" }, "win32", files(["C:\\g\\git.BAT"])), "C:\\g\\git.BAT", "PATHEXT defaults to .EXE;.CMD;.BAT");
+  assert.equal(findProgram("node", env, files(["/b/node", "/c/node"])), "/b/node");
+  assert.equal(findProgram("node", env, files([])), undefined);
+  assert.equal(findProgram("node", {}, files(["/node"])), undefined, "no PATH, no match");
+  assert.equal(findProgram("node", { ...env, PATHEXT: ".EXE" }, files(["/a/node.EXE"])), undefined, "PATHEXT is never tried");
 }
 
 // One home: no other src/ file splits PATH into dirs.

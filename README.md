@@ -27,9 +27,9 @@ npm install -g cool-workflow
 ```
 
 Needs Node.js v22.13 or newer (`node -v`). `cw version` prints the version
-when the install worked. Runs on Linux, macOS, and Windows through
-[WSL](https://learn.microsoft.com/windows/wsl/install). Native Windows is
-not yet supported: CI runs it to measure what still fails. Install trouble?
+when the install worked. Runs on Linux and macOS. On Windows, install
+and run it inside [WSL](https://learn.microsoft.com/windows/wsl/install),
+with your agent in WSL too; native Windows is not supported. Install trouble?
 See [Install trouble](plugins/cool-workflow/docs/reference.md#install-trouble).
 
 <details>
@@ -53,7 +53,7 @@ reviewer, or by someone who only has the file.
 
 - **a model or a chat window.** CW does not run models and is not a chat
   UI. It drives the agent you already have.
-- **native Windows.** Use WSL for now.
+- **native Windows.** Use WSL.
 - **proof the agent was right.** A verified report shows the signed
   findings reached you unaltered. It does not prove they are true, or that
   none were left out. See [Can You Trust the Report?](#can-you-trust-the-report)

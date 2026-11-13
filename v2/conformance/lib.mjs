@@ -103,13 +103,6 @@ function stubAgentEnv(evidence) {
   return env;
 }
 
-// seg(taskId) — the file-name spelling of a task id in a run folder. Windows
-// refuses `:` in a file name, so there a worker folder for "map:x" is
-// worker-map_x-0001; everywhere else the id is kept as is.
-function seg(taskId) {
-  return process.platform === "win32" ? taskId.replace(/:/g, "_") : taskId;
-}
-
 // jsonLines(text) — parse stdout that is one JSON value per line.
 function jsonLines(text) {
   return text.split(/\r?\n/).filter((l) => l.trim()).map((l) => JSON.parse(l));
@@ -129,4 +122,4 @@ function caseMain(fn) {
     });
 }
 
-export { run, freshDir, gitRepo, readJson, jsonLines, caseMain, assert, stubAgentEnv, seg, WORK };
+export { run, freshDir, gitRepo, readJson, jsonLines, caseMain, assert, stubAgentEnv, WORK };

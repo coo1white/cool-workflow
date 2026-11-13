@@ -59,7 +59,7 @@ function run(bin, args, cwd, env) {
 // Absolute path to the real git binary, so the PATH shim below (a file named
 // `git`, first on PATH) can delegate to it without recursing into itself.
 function resolveRealGit() {
-  const w = spawnSync(process.platform === "win32" ? "where" : "which", ["git"], { encoding: "utf8" });
+  const w = spawnSync("which", ["git"], { encoding: "utf8" });
   const p = (w.stdout || "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean)[0];
   assert.ok(p, "must resolve the real git binary");
   return p;
@@ -79,7 +79,6 @@ function fixture() {
   fs.copyFileSync(REAL_PREFLIGHT, path.join(dir, "scripts", "release-preflight.mjs"));
   fs.copyFileSync(REAL_CI_CHECKS, path.join(dir, "scripts", "release-ci-checks.mjs"));
   fs.copyFileSync(REAL_NOTES, path.join(dir, "scripts", "release-notes.mjs"));
-  fs.copyFileSync(path.join(path.dirname(REAL_FLOW), "spawn-argv.mjs"), path.join(dir, "scripts", "spawn-argv.mjs"));
   fs.writeFileSync(path.join(dir, "README.md"), "x\n");
   run("git", ["add", "-A"], dir);
   run("git", ["commit", "-q", "-m", "init"], dir);

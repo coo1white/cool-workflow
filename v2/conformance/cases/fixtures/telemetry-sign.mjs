@@ -128,10 +128,8 @@ function replaceTelemetryRecord(bundle, taskId, mutate) {
   return original;
 }
 
-// A bundle made on Windows names the file results/map_server-api.md (no `:`
-// in a Windows file name); one made elsewhere keeps the id as is.
 function resultFileOf(bundle, taskId) {
-  return bundle.files.find((f) => f.relativePath === `results/${taskId}.md` || f.relativePath === `results/${taskId.replace(/:/g, "_")}.md`);
+  return bundle.files.find((f) => f.relativePath === `results/${taskId}.md`);
 }
 
 function resultFileContent(bundle, taskId) {

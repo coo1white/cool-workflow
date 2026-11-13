@@ -92,7 +92,7 @@ function detectAgentFromPath(env: NodeJS.ProcessEnv = process.env): string | und
   if (env.CW_NO_AUTO_AGENT === "1") return undefined;
   const known = ["claude", "codex", "gemini", "opencode", "muse"];
   const templates = builtinAgentTemplates();
-  return known.find((name) => templates[name] && findProgram(name, env, process.platform, (file) => { try { return fs.statSync(file).isFile(); } catch { return false; } }));
+  return known.find((name) => templates[name] && findProgram(name, env, (file) => { try { return fs.statSync(file).isFile(); } catch { return false; } }));
 }
 
 const AGENTS_DIR = path.join(import.meta.dirname, "..", "..", "scripts", "agents");
