@@ -53,9 +53,15 @@ try {
 }
 `;
 
+// A child's stderr is kept and named in the failure: a child that exits
+// non-zero (seen once on the Windows CI leg as a bare "child exited 1")
+// must say which error stopped it, or the fault cannot be traced.
 function spawnAllAndWait(procs) {
   return Promise.all(procs.map((p) => new Promise((res, rej) => {
-    p.on("exit", (code) => (code === 0 ? res() : rej(new Error(`child exited ${code}`))));
+    let stderr = "";
+    p.stderr.setEncoding("utf8");
+    p.stderr.on("data", (chunk) => { stderr += chunk; });
+    p.on("close", (code) => (code === 0 ? res() : rej(new Error(`child exited ${code}:\n${stderr.trim() || "(no stderr)"}`))));
     p.on("error", rej);
   })));
 }
@@ -80,7 +86,7 @@ async function trial() {
 
   const procs = Array.from({ length: N }, (_, i) => {
     const readyFile = path.join(base, `ready-${i}`);
-    return { readyFile, proc: spawn(node, [child, target, logFile, readyFile, goFile], { stdio: "ignore" }) };
+    return { readyFile, proc: spawn(node, [child, target, logFile, readyFile, goFile], { stdio: ["ignore", "ignore", "pipe"] }) };
   });
 
   const deadline = Date.now() + 15_000;
