@@ -18,6 +18,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { writeProgram } from "./helpers/program.mjs";
 
 const FLOW = path.resolve(import.meta.dirname, "..", "scripts", "release-flow.mjs");
 assert.ok(fs.existsSync(FLOW), "release-flow.mjs must exist");
@@ -105,7 +106,7 @@ function runFlow(dir, { agentCmd, fileCommand, extraEnv } = {}) {
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
     STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
     CW_NO_AUTO_AGENT: "1",
     CW_HOME: home,
@@ -189,7 +190,7 @@ process.exit(0);
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
     STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
     CW_NO_AUTO_AGENT: "1", CW_HOME: home, XDG_STATE_HOME: home,
     REVIEW_ENV_OUT: envOut,
@@ -488,8 +489,7 @@ process.exit(0);
 // argv, simulates "release view" via a sentinel, and captures the --notes-file
 // body. No real gh / network is ever touched.
 function writeGhStub(dir) {
-  const stub = path.join(dir, "gh-stub.js");
-  fs.writeFileSync(stub, `#!/usr/bin/env node
+  const stub = writeProgram(dir, "gh-stub", `#!/usr/bin/env node
 const fs = require("node:fs");
 const a = process.argv.slice(2);
 if (process.env.GH_STUB_REC) fs.appendFileSync(process.env.GH_STUB_REC, a.join(" ") + "\\n");
@@ -505,7 +505,6 @@ if (a[0] === "release" && a[1] === "create") {
 }
 process.exit(0);
 `);
-  fs.chmodSync(stub, 0o755);
   return stub;
 }
 
@@ -771,7 +770,7 @@ function releaseFixtureNonAncestorPrevTag() {
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
     CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // would fail if it ran
     // Cleared, not left to ...process.env: an operator shell may set either.
     CW_SKIP_VENDOR_PREFLIGHT: "",
@@ -794,7 +793,7 @@ function releaseFixtureNonAncestorPrevTag() {
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
     CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // stub: an opted-in vendor is not live
     CW_SKIP_VENDOR_PREFLIGHT: "",
     CW_PREFLIGHT_VENDORS: "codex,gemini",
@@ -816,7 +815,7 @@ function releaseFixtureNonAncestorPrevTag() {
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true",
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
     CW_RELEASE_FLOW_PREFLIGHT_CMD: "false", // would fail, but the skip wins
     CW_SKIP_VENDOR_PREFLIGHT: "1",
     STUB_SHA: run("git", ["rev-parse", "HEAD"], dir).out.trim(),
@@ -916,7 +915,7 @@ function releaseFixtureNonAncestorPrevTag() {
     const home = path.join(dir, ".cw-home");
     const env = {
       ...process.env,
-      CW_RELEASE_FLOW_GATE_CMD: "true",
+      CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
       // --cut runs the LIVE vendor preflight unless skipped; the other --cut
       // cases in this file all stub or skip it the same way.
       CW_SKIP_VENDOR_PREFLIGHT: "1",
@@ -1087,7 +1086,7 @@ function releaseFixtureNonAncestorPrevTag() {
     const sha = run("git", ["rev-parse", "HEAD"], dir).out.trim();
     const env = {
       ...process.env,
-      CW_RELEASE_FLOW_GATE_CMD: "true",
+      CW_RELEASE_FLOW_GATE_CMD: "node -e 0",
       CW_SKIP_VENDOR_PREFLIGHT: "1",
       STUB_SHA: sha,
       CW_NO_AUTO_AGENT: "1",

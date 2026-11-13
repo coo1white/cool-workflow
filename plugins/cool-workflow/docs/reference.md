@@ -813,6 +813,10 @@ them by hand if you want the space.
 Every `npm run` command here runs in `plugins/cool-workflow/`. There is no
 root `package.json`.
 
+The build and release scripts start `npm`, `gh` and `git` the way `cw
+check` does: with no shell, and on Windows through the `.cmd` shim's
+script (`scripts/spawn-argv.mjs`).
+
 ### Two ways out
 
 - A **patch** (`X.Y.Z`, `Z > 0`) ships by itself on green `main`. No one

@@ -81,6 +81,7 @@ function fixture({ pkgAtP = "1.2.2", subject = "fix(core): a shipped fix", file 
   // next to its own scripts/ folder, so the fixture carries its own copy.
   write(dir, "plugins/cool-workflow/scripts/release-auto-patch.mjs", fs.readFileSync(AUTO, "utf8"));
   write(dir, "plugins/cool-workflow/scripts/release-tags.mjs", fs.readFileSync(TAGS, "utf8"));
+  write(dir, "plugins/cool-workflow/scripts/spawn-argv.mjs", fs.readFileSync(path.join(path.dirname(AUTO), "spawn-argv.mjs"), "utf8"));
   const A = commit(dir, "feat: first");
   write(dir, "plugins/cool-workflow/.cw-release-note", "verdict stand-in\n");
   commit(dir, "chore(release): record the v1.2.2 verdict");

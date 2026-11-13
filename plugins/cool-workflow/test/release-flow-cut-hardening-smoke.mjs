@@ -30,6 +30,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { writeProgram } from "./helpers/program.mjs";
 
 const REAL_FLOW = path.resolve(import.meta.dirname, "..", "scripts", "release-flow.mjs");
 assert.ok(fs.existsSync(REAL_FLOW), "release-flow.mjs must exist");
@@ -78,6 +79,7 @@ function fixture() {
   fs.copyFileSync(REAL_PREFLIGHT, path.join(dir, "scripts", "release-preflight.mjs"));
   fs.copyFileSync(REAL_CI_CHECKS, path.join(dir, "scripts", "release-ci-checks.mjs"));
   fs.copyFileSync(REAL_NOTES, path.join(dir, "scripts", "release-notes.mjs"));
+  fs.copyFileSync(path.join(path.dirname(REAL_FLOW), "spawn-argv.mjs"), path.join(dir, "scripts", "spawn-argv.mjs"));
   fs.writeFileSync(path.join(dir, "README.md"), "x\n");
   run("git", ["add", "-A"], dir);
   run("git", ["commit", "-q", "-m", "init"], dir);
@@ -90,7 +92,7 @@ function baseEnv(dir, extra = {}) {
   const home = path.join(dir, ".cw-home");
   const env = {
     ...process.env,
-    CW_RELEASE_FLOW_GATE_CMD: "true", // stub the deterministic gate
+    CW_RELEASE_FLOW_GATE_CMD: "node -e 0", // stub the deterministic gate
     CW_NO_AUTO_AGENT: "1",
     CW_HOME: home,
     XDG_STATE_HOME: home
@@ -153,7 +155,7 @@ function baseEnv(dir, extra = {}) {
     "---\nname: release-reviewer\n---\n\nReview the release candidate with zero trust.\n");
   // No-op bump/sync so cut() reaches the git add calls without a real bump.
   fs.writeFileSync(path.join(dir, "package.json"),
-    JSON.stringify({ name: "fixture", version: "0.0.0", scripts: { "bump:version": "true" } }, null, 2) + "\n");
+    JSON.stringify({ name: "fixture", version: "0.0.0", scripts: { "bump:version": "node -e 0" } }, null, 2) + "\n");
   // A minimal dist agent-config so delegateReview resolves the stub agent.
   fs.mkdirSync(path.join(dir, "dist", "shell"), { recursive: true });
   fs.writeFileSync(path.join(dir, "dist", "shell", "agent-config.js"),
@@ -181,8 +183,7 @@ function baseEnv(dir, extra = {}) {
   const realGit = resolveRealGit();
   const shimDir = path.join(dir, "shim-bin");
   fs.mkdirSync(shimDir, { recursive: true });
-  const shim = path.join(shimDir, "git");
-  fs.writeFileSync(shim,
+  const shim = writeProgram(shimDir, "git",
     "#!/usr/bin/env node\n" +
     "\"use strict\";\n" +
     "const { spawnSync } = require(\"node:child_process\");\n" +
@@ -194,7 +195,6 @@ function baseEnv(dir, extra = {}) {
     "}\n" +
     "const r = spawnSync(process.env.CW_REAL_GIT, a, { stdio: \"inherit\" });\n" +
     "process.exit(r.status === null ? 1 : r.status);\n");
-  fs.chmodSync(shim, 0o755);
 
   const env = baseEnv(dir, {
     CW_SKIP_VENDOR_PREFLIGHT: "1", // --cut runs the live vendor preflight otherwise
@@ -223,7 +223,7 @@ function prepareCutFixture(dir, agentBody) {
   fs.writeFileSync(path.join(dir, "agents", "release-reviewer.md"),
     "---\nname: release-reviewer\n---\n\nReview the release candidate with zero trust.\n");
   fs.writeFileSync(path.join(dir, "package.json"),
-    JSON.stringify({ name: "fixture", version: "0.0.0", scripts: { "bump:version": "true" } }, null, 2) + "\n");
+    JSON.stringify({ name: "fixture", version: "0.0.0", scripts: { "bump:version": "node -e 0" } }, null, 2) + "\n");
   fs.mkdirSync(path.join(dir, "dist", "shell"), { recursive: true });
   fs.writeFileSync(path.join(dir, "dist", "shell", "agent-config.js"),
     "\"use strict\";\n" +

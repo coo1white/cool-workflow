@@ -37,7 +37,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawnSync } from "./spawn-argv.mjs";
 import { listReleaseTagsDesc, compareSemver, parseSemverTag } from "./release-tags.mjs";
 
 const pluginRoot = path.resolve(import.meta.dirname, "..");
