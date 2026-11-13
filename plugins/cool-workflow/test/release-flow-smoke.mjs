@@ -1148,7 +1148,8 @@ function releaseFixtureNonAncestorPrevTag() {
 }
 
 // A reviewer that hangs past the deadline is SIGKILLed and the vendor child
-// it recorded in CW_AGENT_VENDOR_PIDFILE is reaped (0.2.8: a muse orphan).
+// it recorded in CW_AGENT_VENDOR_PIDFILE does not run on (0.2.8: a muse
+// orphan).
 {
   const dir = fixture();
   const hang = path.join(dir, "hang-agent.js");
@@ -1164,7 +1165,12 @@ setInterval(() => {}, 1000);
   const r = runFlow(dir, { agentCmd: `node ${hang} ${pidNote}`, extraEnv: { CW_AGENT_TIMEOUT_MS: "3000" } });
   assert.equal(r.code, 1, "a hung reviewer fails closed");
   assert.match(r.err, /ETIMEDOUT/, "the deadline is named");
-  assert.match(r.err, /vendor process was reaped/, "the vendor child is reaped");
+  // Off Windows the vendor outlives its SIGKILLed wrapper, so release-flow
+  // must kill it. On Windows a child spawned without `detached` does not
+  // outlive its parent (Node docs, options.detached): the OS stops it with
+  // the wrapper, there is nothing left to reap, and only the end state below
+  // can be checked.
+  if (process.platform !== "win32") assert.match(r.err, /vendor process was reaped/, "the vendor child is reaped");
   const pid = Number(fs.readFileSync(pidNote, "utf8"));
   let alive = true;
   for (let i = 0; i < 30 && alive; i++) {
