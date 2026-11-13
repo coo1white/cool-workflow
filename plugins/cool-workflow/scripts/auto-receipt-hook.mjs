@@ -15,9 +15,9 @@
 //
 // Off: CW_AUTO_RECEIPT=off. Skipped when `cw` is not on PATH (the rewrite
 // names `cw`, the command the user and their permission rules know; a path
-// into the plugin's versioned cache would change on every update) and on
-// Windows (`cw check` runs a program with no shell, so `npm` there is
-// `npm.cmd` and would not start).
+// into the plugin's versioned cache would change on every update). On
+// Windows `cw` is found as cw.cmd (or another PATHEXT name), and `cw check`
+// starts npm.cmd and the like with no shell.
 //
 // The command string is reused only when it is ONE simple command: no
 // pipe, `&`, `;`, redirect, subshell, backtick, `$` or newline. Then the
@@ -27,6 +27,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 // The first words of a test command, then a space or the end.
 const TEST_RE = /^(?:(?:npm|pnpm|yarn|bun) (?:test|run test[\w:.-]*)|npx (?:vitest|jest)|pytest|go test|cargo test|make test)(?:\s|$)/;
@@ -35,14 +36,13 @@ const TEST_RE = /^(?:(?:npm|pnpm|yarn|bun) (?:test|run test[\w:.-]*)|npx (?:vite
 // the same way, but no test command needs one here.
 const COMPOUND_RE = /[|&;<>()`$\n\r\\]/;
 
-function rewrite(input, env = process.env, platform = process.platform) {
+export function rewrite(input, env = process.env, platform = process.platform) {
   if (/^(?:off|0|false|no)$/i.test(String(env.CW_AUTO_RECEIPT || ""))) return null;
-  if (platform === "win32") return null;
   const toolInput = input && input.tool_name === "Bash" && input.tool_input;
   if (!toolInput || typeof toolInput.command !== "string") return null;
   const command = toolInput.command.trim();
   if (!TEST_RE.test(command) || COMPOUND_RE.test(command)) return null;
-  if (!onPath("cw", env)) return null;
+  if (!onPath("cw", env, platform)) return null;
   return {
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
@@ -51,27 +51,43 @@ function rewrite(input, env = process.env, platform = process.platform) {
   };
 }
 
-function onPath(name, env) {
-  for (const dir of String(env.PATH || "").split(path.delimiter)) {
+// Windows finds a program by PATHEXT (cw.cmd from an npm install), and its
+// PATH is split on ";".
+function onPath(name, env, platform) {
+  const win = platform === "win32";
+  const exts = win ? String(env.PATHEXT || ".COM;.EXE;.BAT;.CMD").toLowerCase().split(";").filter(Boolean) : [""];
+  for (const dir of String(env.PATH || env.Path || "").split(win ? ";" : ":")) {
     if (!dir) continue;
-    try {
-      fs.accessSync(path.join(dir, name), fs.constants.X_OK);
-      return true;
-    } catch {}
+    for (const ext of exts) {
+      try {
+        fs.accessSync(path.join(dir, name + ext), win ? fs.constants.F_OK : fs.constants.X_OK);
+        return true;
+      } catch {}
+    }
   }
   return false;
 }
 
-// Fail open: a hook fault must never stop a Bash call; the command then runs
-// as it was, with no receipt.
-let stdin = "";
-process.stdin.on("data", (d) => {
-  stdin += d;
-});
-process.stdin.on("end", () => {
+function isMain() {
   try {
-    const out = rewrite(JSON.parse(stdin));
-    if (out) process.stdout.write(`${JSON.stringify(out)}\n`);
-  } catch {}
-  process.exit(0);
-});
+    return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+// Fail open: a hook fault must never stop a Bash call; the command then runs
+// as it was, with no receipt. (Imported by its smoke, it reads no stdin.)
+if (isMain()) {
+  let stdin = "";
+  process.stdin.on("data", (d) => {
+    stdin += d;
+  });
+  process.stdin.on("end", () => {
+    try {
+      const out = rewrite(JSON.parse(stdin));
+      if (out) process.stdout.write(`${JSON.stringify(out)}\n`);
+    } catch {}
+    process.exit(0);
+  });
+}
