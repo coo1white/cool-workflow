@@ -85,7 +85,7 @@ assert.notEqual(bad.status, 0, "a non-semver version must fail closed");
 
   // A patch needs no footer line of its own: its footer line is the
   // minor's X.Y.0 (patches ship automatically and add no --content lines,
-  // docs/reference.md, "Automatic patch releases"). Gate mode at 9.9.1
+  // docs/reference.md, "Automatic releases"). Gate mode at 9.9.1
   // passes on the 9.9.0 line just added, and appends nothing.
   pkg.version = "9.9.1";
   fs.writeFileSync(path.join(fixPlugin, "package.json"), `${JSON.stringify(pkg, null, 2)}\n`);

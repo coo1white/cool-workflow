@@ -775,11 +775,12 @@ check` does: with no shell. Native Windows is not supported; use WSL.
 
 ### Two ways out
 
-- A **patch** (`X.Y.Z`, `Z > 0`) ships by itself on green `main`. No one
-  runs a command. The operator only approves the `npm` environment run on
-  GitHub. See [Automatic patch releases](#automatic-patch-releases).
-- A **minor or major** (`X.Y.0`) is the operator's signed cut:
-  `npm run release -- X.Y.0`. See [The operator's cut](#the-operators-cut).
+- A **patch or a minor** ships by itself on green `main`, as agents
+  release in magpie (owner, 2026-11-13: "learn from magpie", "同意放宽").
+  No one runs a command. The operator only approves the `npm` environment
+  run on GitHub. See [Automatic releases](#automatic-releases).
+- A **major from 1.0** (`X.0.0`) is the operator's signed cut:
+  `npm run release -- X.0.0`. See [The operator's cut](#the-operators-cut).
 
 Publishing is tag-driven. `release.yml` and `npm-publish.yml` fire on a
 push of a `v*` tag; the auto-patch job dispatches `npm-publish.yml` on the
@@ -790,7 +791,7 @@ tag it makes. No tag, nothing new on npm. Release notes come from
 
 Do not work around them by hand.
 
-- A minor or major needs a SIGNED verdict. The ed25519 private key stays
+- A major needs a SIGNED verdict. The ed25519 private key stays
   with the operator (`CW_RELEASE_VERDICT_PRIVKEY`, normally
   `$HOME/.cw-keys/verdict-signing.key`). An agent never reads it, and it
   is never committed. The committed public key,
@@ -804,7 +805,7 @@ Do not work around them by hand.
   trusted (`CW_RELEASE_REVIEW=1` raises the wrapper's effort and lets it
   write to the workspace).
 
-### Automatic patch releases
+### Automatic releases
 
 The `auto-patch` job in `.github/workflows/release.yml`
 (`scripts/release-auto-patch.mjs`) starts on `workflow_run` of the `CI`
@@ -822,21 +823,24 @@ repository and succeeded. It works on that run's commit
    (`scripts/cw.js`, `scripts/agents/`, `scripts/children/`, ...),
    `package.json` and the vendor plugin manifests; test folders in them do
    not count. A change to tests, docs, CI or release tooling alone does
-   not release. It also skips when a commit since that tag needs more
-   than a patch. CW follows Semantic Versioning, and the commit messages
+   not release. It also skips when a commit since that tag needs a
+   major. CW follows Semantic Versioning, and the commit messages
    follow [Conventional Commits](https://www.conventionalcommits.org/)
    (a squash merge takes the PR title, so the PR title is the message):
 
    | Commit since the last tag | Level | Who releases |
    |---|---|---|
    | `fix:`, `perf:`, `docs:`, `chore:`, ... | patch | this job |
-   | `feat:` | minor | the operator: `npm run release -- X.Y+1.0` |
-   | `type!:` or a `BREAKING CHANGE:` footer | major (minor while on 0.x) | the operator |
+   | `feat:` | minor | this job |
+   | `type!:` or a `BREAKING CHANGE:` footer, on 0.x | minor | this job |
+   | `type!:` or a `BREAKING CHANGE:` footer, from 1.0 | major | the operator: `npm run release -- X+1.0.0` |
 
-   The skip line names the commit and the next cut. Patches start again
-   after the operator's release. The next version is the highest `vX.Y.Z`
-   tag plus one patch. The job FAILS when `package.json` on the commit is ahead of that:
-   an operator minor or major is pending; cut it first.
+   The skip line for a major names the commit and the next cut; automatic
+   releases start again after it. The next version is counted from the
+   highest `vX.Y.Z` tag: one patch, or the next minor. The job FAILS when
+   `package.json` on the commit is ahead of that: an operator major is
+   pending; cut it first. When `package.json` already holds the next
+   version (a prep PR raised it), the bump commit is empty.
 2. **Bump** (`release-auto-patch.mjs bump`): `npm run bump:version --
    X.Y.Z` on that commit, `git add -u`, one commit by
    `github-actions[bot]`, and an annotated tag `vX.Y.Z`. The commit is
@@ -853,12 +857,12 @@ repository and succeeded. It works on that run's commit
 The publish waits in the protected `npm` environment for the operator's
 approval, like every publish.
 
-What the verifier accepts with NO verdict (its "automatic patch rule").
+What the verifier accepts with NO verdict (its "automatic release rule").
 Anything else falls back to the signed-verdict check:
 
-- (a) the tag commit's `package.json` version is `X.Y.Z` with `Z > 0`, a
-  `vX.Y.Z` tag points at the commit, and the highest other tag below it is
-  `X.Y.(Z-1)`;
+- (a) the tag commit's `package.json` version is `X.Y.Z`, a `vX.Y.Z` tag
+  points at the commit, and it is the next patch (`X.Y.(Z-1)`) or the next
+  minor (`X.(Y-1).*`, with `Z` = 0) after the highest other tag below it;
 - (b) the tag commit has one parent, that parent is an ancestor of
   `origin/main`, and the previous tag's parent is an ancestor of it (older
   `main` code cannot ship under a new number);
@@ -869,8 +873,7 @@ Anything else falls back to the signed-verdict check:
   asked with `GITHUB_TOKEN` (`actions: read`). No token, an API error or
   an odd answer refuses.
 
-A minor or major never passes this rule: it always needs the signed
-verdict.
+A major never passes this rule: it always needs the signed verdict.
 
 To stop automatic releases, set the repository variable
 `CW_AUTO_RELEASE` to `off` (Settings, Secrets and variables, Actions,

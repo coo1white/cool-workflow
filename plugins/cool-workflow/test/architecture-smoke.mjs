@@ -73,7 +73,7 @@ const SECURITY_PATHS = [
   ["scripts/release-oneclick.mjs", "the operator's cut: tag push, publish wait", "release-oneclick.mjs"],
   ["scripts/release-preflight.mjs", "checks the signing key before a cut", "release-preflight.mjs"],
   ["scripts/release-ci-checks.mjs", "the required CI checks a cut trusts", "release-ci-checks.mjs"],
-  ["scripts/release-auto-patch.mjs", "tags and starts the publish of a patch with no human command", "release-auto-patch.mjs"],
+  ["scripts/release-auto-patch.mjs", "tags and starts the publish of a patch or minor with no human command", "release-auto-patch.mjs"],
   ["scripts/verify-release-verdict.mjs", "CI's verdict check on a tag", "verify-release-verdict.mjs"],
   ["scripts/verify-verdict-signature.mjs", "CI's ed25519 signature check", "verify-verdict-signature.mjs"],
   ["scripts/verdict-keygen.mjs", "makes the verdict key pair", "verdict-keygen.mjs"],

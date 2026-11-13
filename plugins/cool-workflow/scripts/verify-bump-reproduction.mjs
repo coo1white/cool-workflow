@@ -167,7 +167,9 @@ function main() {
   // wrong lock entry) already surface as a real "bun install" failure below.
   const bumpOk =
     runStep("bun install", "bun", ["install", "--frozen-lockfile"]) &&
-    runStep("bump:version", "npm", ["run", "bump:version", "--", VERSION]) &&
+    // --no-verdict reproduces release-auto-patch.mjs's bump, which passes
+    // --content: an automatic minor adds its own reference footer line.
+    runStep("bump:version", "npm", ["run", "bump:version", "--", VERSION, ...(NO_VERDICT ? ["--content"] : [])]) &&
     (!Object.hasOwn(parentScripts, LEGACY_INDEX_STEP) ||
       runStep(LEGACY_INDEX_STEP, "npm", ["run", LEGACY_INDEX_STEP, "--", "--repo-only"]));
   if (!bumpOk) {
