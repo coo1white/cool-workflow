@@ -18,13 +18,17 @@ import fs from "node:fs";
 import path from "node:path";
 import { CLI } from "./helpers/cw.mjs";
 import { tmpDir } from "./helpers/workspace.mjs";
+import { writeProgram } from "./helpers/program.mjs";
+import { rewrite } from "../scripts/auto-receipt-hook.mjs";
+import { spawnSync as startProgram } from "../scripts/spawn-argv.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "..");
 const HOOK = path.join(ROOT, "scripts", "auto-receipt-hook.mjs");
 
-// A `cw` on PATH that runs this checkout's CLI.
+// A `cw` on PATH that runs this checkout's CLI (and, on Windows, the cw.cmd
+// a PATH lookup finds).
 const bin = tmpDir("cw-auto-receipt-bin-");
-fs.writeFileSync(path.join(bin, "cw"), `#!/bin/sh\nexec "${process.execPath}" "${CLI}" "$@"\n`, { mode: 0o755 });
+writeProgram(bin, "cw", `const r = require("node:child_process").spawnSync(process.execPath, [${JSON.stringify(CLI)}, ...process.argv.slice(2)], { stdio: "inherit" });\nprocess.exit(r.status ?? 1);\n`);
 const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, NO_COLOR: "1" };
 delete env.CW_AUTO_RECEIPT;
 delete env.CW_CHECK_PRIVKEY;
@@ -61,6 +65,18 @@ assert.equal(hook("npm test", { PATH: path.dirname(process.execPath) }), null, "
 assert.equal(hook("npm test", {}, "Edit"), null, "only the Bash tool");
 assert.equal(hook("", {}, "Bash", "not json"), null, "bad input fails open");
 
+// Windows: cw is found by PATHEXT on a ";" PATH, and the rewrite is the same.
+{
+  const input = { tool_name: "Bash", tool_input: { command: "npm test" } };
+  const win = tmpDir("cw-auto-receipt-win-");
+  const winEnv = { PATH: `C:\\nowhere;${win}`, PATHEXT: ".COM;.EXE;.BAT;.CMD" };
+  fs.writeFileSync(path.join(win, "cw"), "");
+  assert.equal(rewrite(input, winEnv, "win32"), null, "Windows: a bare `cw` file is not a program");
+  fs.writeFileSync(path.join(win, "cw.cmd"), "");
+  assert.equal(rewrite(input, winEnv, "win32")?.hookSpecificOutput.updatedInput.command, "cw check --tee -- npm test", "Windows: cw.cmd on PATH");
+  assert.equal(rewrite(input, { ...winEnv, CW_AUTO_RECEIPT: "off" }, "win32"), null, "Windows: the opt-out holds");
+}
+
 // hooks.json runs it on Bash, and keeps the tag guard.
 const hooks = JSON.parse(fs.readFileSync(path.join(ROOT, "hooks", "hooks.json"), "utf8")).hooks.PreToolUse;
 const bash = hooks.filter((h) => h.matcher === "Bash").flatMap((h) => h.hooks.map((x) => x.command));
@@ -79,7 +95,14 @@ git("commit", "-qm", "init");
 
 function runRewritten(extraEnv = {}) {
   const command = hook("npm test").hookSpecificOutput.updatedInput.command;
-  return spawnSync("/bin/sh", ["-c", command], { cwd: repo, env: { ...env, ...extraEnv }, encoding: "utf8" });
+  const opts = { cwd: repo, env: { ...env, ...extraEnv }, encoding: "utf8" };
+  // Windows has no /bin/sh; the command is one simple command, so its words
+  // are its spaces, and cw is started as cw.cmd.
+  if (process.platform === "win32") {
+    const [program, ...args] = command.split(" ");
+    return startProgram(program, args, opts);
+  }
+  return spawnSync("/bin/sh", ["-c", command], opts);
 }
 const receipts = () => (fs.existsSync(path.join(repo, ".cw", "receipts")) ? fs.readdirSync(path.join(repo, ".cw", "receipts")) : []);
 

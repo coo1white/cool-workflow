@@ -326,8 +326,8 @@ and exit code, plus the receipt line.
   test…`, `pnpm`/`yarn`/`bun` `test` or `run test…`, `npx vitest`, `npx
   jest`, `pytest`, `go test`, `cargo test` or `make test`.
 - Not changed: anything with a pipe, `&`, `;`, a redirect, `(`, a
-  backtick, `$` or a backslash; any other command; Windows; and when `cw`
-  is not on `PATH`.
+  backtick, `$` or a backslash; any other command; and when `cw` is not on
+  `PATH` (on Windows, `cw.cmd` or another `PATHEXT` name counts).
 - The hook decides no permission. Claude Code checks its permission rules
   against the changed command, so a rule for `npm test` alone no longer
   covers it; allow `cw check --tee -- npm test` too to skip the prompt.
