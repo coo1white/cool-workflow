@@ -43,4 +43,30 @@ function resolvePrevReleaseTag(gitOut) {
   return found ? found.tag : "";
 }
 
-export { parseSemverTag, compareSemver, listReleaseTagsDesc, resolvePrevReleaseTag };
+// The release just below `tag` by version order ("" when none). The GitHub
+// Release notes start here (--notes-start-tag): with no start tag, GitHub
+// picks the last ANCESTOR tag, which is v0.2.2 for every release since.
+function releaseBefore(gitOut, tag) {
+  const own = parseSemverTag(tag);
+  if (!own) return null;
+  const found = listReleaseTagsDesc(gitOut).find((t) => compareSemver(t.semver, own) < 0);
+  return found ? found.tag : "";
+}
+
+export { parseSemverTag, compareSemver, listReleaseTagsDesc, resolvePrevReleaseTag, releaseBefore };
+
+// CLI: `node scripts/release-tags.mjs previous vX.Y.Z` prints the release
+// before it (empty when none), for .github/workflows/release.yml.
+if (import.meta.url === `file://${process.argv[1]}` && process.argv[2] === "previous") {
+  const { spawnSync } = await import("node:child_process");
+  const gitOut = (args) => {
+    const r = spawnSync("git", args, { encoding: "utf8" });
+    return r.status === 0 ? (r.stdout || "").trim() : "";
+  };
+  const prev = releaseBefore(gitOut, process.argv[3] || "");
+  if (prev === null) {
+    process.stderr.write("usage: release-tags.mjs previous vX.Y.Z\n");
+    process.exit(1);
+  }
+  process.stdout.write(prev ? `${prev}\n` : "");
+}
