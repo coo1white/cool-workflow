@@ -68,13 +68,13 @@ fs.writeFileSync(new URL("./VERSION", import.meta.url), \`\${v}\\n\`);
 /** main: A (1.2.2) -> P (a src change). v1.2.2 is a leaf tag on A (the
  *  shape of a real cut: a one-hop child of a main commit). origin/main = P.
  *  HEAD is left at P. Options move the pieces for the refusal cases. */
-function fixture({ pkgAtP = "1.2.2", subject = "fix(core): a shipped fix", file = "plugins/cool-workflow/src/x.ts" } = {}) {
+function fixture({ base = "1.2.2", pkgAtP = base, subject = "fix(core): a shipped fix", file = "plugins/cool-workflow/src/x.ts" } = {}) {
   const dir = tmpDir("cw-auto-patch-");
   git(dir, ["init", "-q", "-b", "main"]);
   for (const [k, v] of [["user.email", "t@t"], ["user.name", "t"], ["commit.gpgsign", "false"], ["tag.gpgSign", "false"]]) git(dir, ["config", k, v]);
-  const pkg = { name: "fixture", version: "1.2.2", private: true, scripts: { "bump:version": "node bump.mjs" } };
+  const pkg = { name: "fixture", version: base, private: true, scripts: { "bump:version": "node bump.mjs" } };
   write(dir, "plugins/cool-workflow/package.json", `${JSON.stringify(pkg, null, 2)}\n`);
-  write(dir, "plugins/cool-workflow/VERSION", "1.2.2\n");
+  write(dir, "plugins/cool-workflow/VERSION", `${base}\n`);
   write(dir, "plugins/cool-workflow/bump.mjs", BUMP_STUB);
   write(dir, "plugins/cool-workflow/src/x.ts", "export const x = 1;\n");
   // release-auto-patch.mjs runs `npm run bump:version` in the plugin folder
@@ -83,11 +83,11 @@ function fixture({ pkgAtP = "1.2.2", subject = "fix(core): a shipped fix", file 
   write(dir, "plugins/cool-workflow/scripts/release-tags.mjs", fs.readFileSync(TAGS, "utf8"));
   const A = commit(dir, "feat: first");
   write(dir, "plugins/cool-workflow/.cw-release-note", "verdict stand-in\n");
-  commit(dir, "chore(release): record the v1.2.2 verdict");
-  git(dir, ["tag", "-a", "v1.2.2", "-m", "v1.2.2"]);
+  commit(dir, `chore(release): record the v${base} verdict`);
+  git(dir, ["tag", "-a", `v${base}`, "-m", `v${base}`]);
   git(dir, ["reset", "-q", "--hard", A]);
   write(dir, file, "changed\n");
-  if (pkgAtP !== "1.2.2") write(dir, "plugins/cool-workflow/package.json", `${JSON.stringify({ ...pkg, version: pkgAtP }, null, 2)}\n`);
+  if (pkgAtP !== base) write(dir, "plugins/cool-workflow/package.json", `${JSON.stringify({ ...pkg, version: pkgAtP }, null, 2)}\n`);
   const P = commit(dir, subject);
   git(dir, ["update-ref", "refs/remotes/origin/main", P]);
   return { dir, A, P };
@@ -151,17 +151,30 @@ const check = (dir, ciCheck = GREEN) => checkAutoPatch({ repoRoot: dir, ciCheck 
   assert.equal(r.fields.release, "false", "release bookkeeping does not release");
   assert.match(r.text, /release bookkeeping/);
 }
-// Conventional Commits pick the level. A breaking change ("type!:" or a
-// "BREAKING CHANGE:" footer) or a "feat" anywhere since the last tag is not a
-// patch: the automatic patches stop until the operator cuts the next minor
-// (on 0.x and 1.x alike for a feat; here the fixture is 1.x, so a breaking
-// change names 2.0.0).
+// Conventional Commits pick the level. A "feat" anywhere since the last tag
+// is the next minor, and ships by itself (owner, 2026-11-13: "learn from
+// magpie"). A breaking change ("type!:" or a "BREAKING CHANGE:" footer) is a
+// minor on 0.x and ships the same way; from 1.0 it is a major, and the
+// automatic releases stop until the operator cuts it.
 {
   const { dir, P } = fixture({ subject: "feat(check): a new flag" });
   const r = plan(dir, P);
-  assert.equal(r.fields.release, "false", `a feat is a minor, not a patch:\n${r.text}`);
-  assert.match(r.text, /new feature/);
-  assert.match(r.text, /npm run release -- 1\.3\.0/);
+  assert.equal(r.code, 0, r.text);
+  assert.deepEqual(r.fields, { release: "true", version: "1.3.0", tag: "v1.3.0" }, `a feat ships the next minor:\n${r.text}`);
+  assert.match(r.text, /a minor: a new feature/);
+}
+{
+  // The 0.5.0 shape: on 0.x a breaking change is the next minor, and the
+  // version was already raised on main by a prep PR.
+  const { dir, P } = fixture({ base: "0.4.4", pkgAtP: "0.5.0", subject: "refactor!: drop native Windows" });
+  const r = plan(dir, P);
+  assert.equal(r.code, 0, r.text);
+  assert.deepEqual(r.fields, { release: "true", version: "0.5.0", tag: "v0.5.0" }, `a breaking change on 0.x ships the next minor:\n${r.text}`);
+  const T = bump(dir, "0.5.0");
+  assert.equal(git(dir, ["rev-parse", "HEAD~1"]), P, "the (empty) bump commit is a one-hop child of the released commit");
+  assert.equal(git(dir, ["rev-parse", "v0.5.0^{commit}"]), T);
+  const ok = await check(dir);
+  assert.equal(ok.ok, true, `the automatic 0.x minor must be accepted with no verdict: ${ok.reason}`);
 }
 for (const subject of ["feat(cli)!: drop the old verbs", "fix!: refuse old runs", "chore(cleanup): cut src\n\nBREAKING CHANGE: runs made by an older cw are refused"]) {
   const { dir, P } = fixture({ subject });
@@ -224,18 +237,24 @@ async function refused(dir, re, label, ciCheck) {
   assert.match(r.reason, re, `${label}: wrong reason: ${r.reason}`);
 }
 {
-  // A minor needs the signed verdict, even when it is otherwise the exact bump.
+  // A major needs the signed verdict, even when it is otherwise the exact bump.
   const { dir } = fixture();
-  const r = spawnSync("npm", ["run", "bump:version", "--", "1.3.0"], { cwd: path.join(dir, "plugins/cool-workflow"), encoding: "utf8" });
+  const r = spawnSync("npm", ["run", "bump:version", "--", "2.0.0"], { cwd: path.join(dir, "plugins/cool-workflow"), encoding: "utf8" });
   assert.equal(r.status, 0, r.stderr);
-  commit(dir, "chore(release): v1.3.0");
-  git(dir, ["tag", "-a", "v1.3.0", "-m", "v1.3.0"]);
-  await refused(dir, /minor or major release: it needs the signed verdict/, "a minor (Z == 0) with no verdict");
+  commit(dir, "chore(release): v2.0.0");
+  git(dir, ["tag", "-a", "v2.0.0", "-m", "v2.0.0"]);
+  await refused(dir, /major release: it needs the signed verdict/, "a major with no verdict");
+}
+{
+  // A minor that skips one (1.2.2 -> 1.4.0) is refused.
+  const { dir } = fixture();
+  bump(dir, "1.4.0");
+  await refused(dir, /not the next patch or minor after v1\.2\.2/, "a minor jump (1.2.2 -> 1.4.0)");
 }
 {
   const { dir } = fixture();
   bump(dir, "1.2.4");
-  await refused(dir, /not the next patch after v1\.2\.2/, "a version jump (1.2.2 -> 1.2.4)");
+  await refused(dir, /not the next patch or minor after v1\.2\.2/, "a version jump (1.2.2 -> 1.2.4)");
 }
 {
   const { dir } = fixture();
@@ -296,4 +315,4 @@ async function refused(dir, re, label, ciCheck) {
 }
 
 process.exitCode = 0;
-console.log("release-auto-patch-smoke: ok (plan: release/skip/refuse; bump accepted with no verdict; 8 refusals; CLI fails closed with no token)");
+console.log("release-auto-patch-smoke: ok (plan: patch/minor/skip/refuse; patch and 0.x minor accepted with no verdict; 9 refusals; CLI fails closed with no token)");

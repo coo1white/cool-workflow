@@ -1,8 +1,10 @@
 #!/usr/bin/env node
-// release-auto-patch.mjs — the automatic patch release (owner's decision
+// release-auto-patch.mjs — the automatic release (owner's decision
 // 2026-11-12: a merged fix ships as a patch on green main, with no human
-// command but the `npm` environment approval; minor and major releases keep
-// the operator's signed-verdict cut, release-oneclick.mjs).
+// command but the `npm` environment approval; 2026-11-13, "learn from
+// magpie": a minor ships the same way, as agents release in magpie). Only a
+// major from 1.0 (a breaking change on 1.x or later) keeps the operator's
+// signed-verdict cut, release-oneclick.mjs.
 //
 // Consumer: the `auto-patch` job in .github/workflows/release.yml, run on
 // `workflow_run` of the `CI` workflow (a push to main, concluded success).
@@ -15,7 +17,7 @@
 //     tags, a bad sha).
 //   node scripts/release-auto-patch.mjs bump --sha <sha> --version X.Y.Z
 //     Makes the bump commit the way release-flow.mjs's cut() makes its bump
-//     (`npm run bump:version -- X.Y.Z`, then `git add -u`, never -A) on top
+//     (`npm run bump:version -- X.Y.Z --content`, then `git add -u`, never -A) on top
 //     of <sha>, as github-actions[bot], detached (main is protected; the
 //     commit lives only on the tag), and an annotated tag vX.Y.Z on it. No
 //     verdict file: verify-release-verdict.mjs accepts this commit by its
@@ -25,15 +27,18 @@
 // Skips (exit 0): CW_AUTO_RELEASE=off (the repo variable, the kill switch);
 // the head commit's subject starts with "chore(release)"; <sha> is already
 // in the newest release tag's history; nothing shipped changed since that
-// tag's parent on main (SHIPPED below); a commit since then needs more than a
-// patch by Conventional Commits (a "feat", or a breaking change: "type!:" or
-// a "BREAKING CHANGE:" footer). That one names the operator's next cut.
-// Refuses (exit 1): package.json at <sha> is ahead of the next patch (an
-// operator minor or major is pending: cut it with `npm run release -- X.Y.0`).
+// tag's parent on main (SHIPPED below); a breaking change ("type!:" or a
+// "BREAKING CHANGE:" footer) on 1.x or later, which is a major: that one
+// names the operator's next cut.
+// Refuses (exit 1): package.json at <sha> is ahead of the next version (an
+// operator major is pending: cut it with `npm run release -- X.0.0`).
 //
-// The next version is the highest vX.Y.Z tag plus one patch, never main's
+// The level comes from Conventional Commits since the last tag: a "feat", or
+// a breaking change while on 0.x, is the next minor (X.Y+1.0); anything else
+// is the next patch. The next version is counted from the highest vX.Y.Z
+// tag, never main's
 // package.json: main lags behind the tags, since bump commits live only on
-// tags (docs/reference.md, "Automatic patch releases").
+// tags (docs/reference.md, "Automatic releases").
 
 import fs from "node:fs";
 import path from "node:path";
@@ -154,30 +159,30 @@ function plan() {
 
   // Conventional Commits decide the level (SemVer): a breaking change ("type!:"
   // or a "BREAKING CHANGE:" footer) is a major, or a minor while on 0.x; a
-  // "feat" is a minor; anything else is a patch. Only a patch ships here.
+  // "feat" is a minor; anything else is a patch. A patch and a minor ship
+  // here; only a major from 1.0 is the operator's cut.
+  const [M, m, z] = last.semver;
   const bumped = releaseLevel(base, sha);
-  if (bumped) {
-    const [M, m] = last.semver;
-    const nextCut = bumped.level === "major" && M > 0 ? `${M + 1}.0.0` : `${M}.${m + 1}.0`;
+  if (bumped && bumped.level === "major" && M > 0) {
     skip(
       `${bumped.why} since ${last.tag} (${bumped.sha.slice(0, 12)} "${bumped.subject}"): ` +
-        `not a patch. The operator cuts it with \`npm run release -- ${nextCut}\`; patches start again after it.`
+        `a major. The operator cuts it with \`npm run release -- ${M + 1}.0.0\`; automatic releases start again after it.`
     );
   }
-
-  const next = [last.semver[0], last.semver[1], last.semver[2] + 1];
+  const next = bumped ? [M, m + 1, 0] : [M, m, z + 1];
   const version = next.join(".");
   const pkgVersion = packageVersionAt(sha);
   const pkg = parseSemverTag(`v${pkgVersion}`);
   if (!pkg) refuse(`cannot read the package version at ${sha}`);
   if (compareSemver(pkg, next) > 0) {
     refuse(
-      `package.json at ${sha.slice(0, 12)} is ${pkgVersion}, ahead of the next patch ${version} after ${last.tag}: ` +
-        `an operator release is pending. Cut it with \`npm run release -- ${pkgVersion}\`; patches start again after it.`
+      `package.json at ${sha.slice(0, 12)} is ${pkgVersion}, ahead of the next version ${version} after ${last.tag}: ` +
+        `an operator release is pending. Cut it with \`npm run release -- ${pkgVersion}\`; automatic releases start again after it.`
     );
   }
   output({ release: "true", version, tag: `v${version}` });
-  say(`release-auto-patch: v${version} from ${sha.slice(0, 12)} (after ${last.tag}; ${shipped.length} shipped file(s) changed, first: ${shipped[0]})`);
+  const why = bumped ? `a minor: ${bumped.why}, ${bumped.sha.slice(0, 12)} "${bumped.subject}"` : "a patch";
+  say(`release-auto-patch: v${version} from ${sha.slice(0, 12)} (after ${last.tag}; ${why}; ${shipped.length} shipped file(s) changed, first: ${shipped[0]})`);
 }
 
 /** The first commit in base..sha that needs more than a patch, or null. */
@@ -198,8 +203,9 @@ function releaseLevel(base, sha) {
 function bump() {
   const sha = resolveSha();
   const version = arg("--version");
-  if (!version || !/^\d+\.\d+\.\d+$/.test(version) || Number(version.split(".")[2]) === 0) {
-    refuse("--version X.Y.Z with Z > 0 is required (a minor or major is the operator's cut)");
+  const parts = /^\d+\.\d+\.\d+$/.test(version || "") ? version.split(".").map(Number) : null;
+  if (!parts || (parts[0] > 0 && parts[1] === 0 && parts[2] === 0)) {
+    refuse("--version X.Y.Z, not a major X.0.0, is required (a major is the operator's cut)");
   }
   if (gitOut(["rev-parse", "HEAD"]) !== sha) refuse(`HEAD is not ${sha}; check out that commit first`);
   const dirty = git(["status", "--porcelain", "-uno"]);
@@ -213,16 +219,20 @@ function bump() {
   // version (docs/reference.md, "Version surfaces"). The reproduction always
   // builds in a fresh worktree, so build from a clean cache here too.
   fs.rmSync(path.join(pluginRoot, ".cache"), { recursive: true, force: true });
-  const b = spawnSync("npm", ["run", "bump:version", "--", version], { cwd: pluginRoot, stdio: "inherit" });
+  // --content: a minor's reference footer line (X.Y.0) is added here, not
+  // by a prep PR. verify-bump-reproduction.mjs --no-verdict does the same.
+  const b = spawnSync("npm", ["run", "bump:version", "--", version, "--content"], { cwd: pluginRoot, stdio: "inherit" });
   if (b.status !== 0) refuse("bump:version failed");
   const id = ["-c", `user.name=${BOT_NAME}`, "-c", `user.email=${BOT_EMAIL}`];
   const add = git(["add", "-u"]);
   if (add.code !== 0) refuse(`git add -u failed: ${add.err}`);
-  const commit = git([...id, "commit", "--no-verify", "-m", `chore(release): v${version} (automatic patch release of ${sha.slice(0, 12)})`]);
+  // --allow-empty: when the version was raised on main before the tag (a
+  // prep PR), the bump changes nothing, and the tag still needs its commit.
+  const commit = git([...id, "commit", "--no-verify", "--allow-empty", "-m", `chore(release): v${version} (automatic release of ${sha.slice(0, 12)})`]);
   if (commit.code !== 0) refuse(`the bump commit failed: ${commit.err || commit.out}`);
   const parents = gitOut(["rev-list", "--parents", "-n", "1", "HEAD"]).split(" ").slice(1);
   if (parents.length !== 1 || parents[0] !== sha) refuse("the bump commit is not a one-parent child of the released commit");
-  const tag = git([...id, "tag", "-a", `v${version}`, "-m", `v${version}: automatic patch release of ${sha}`]);
+  const tag = git([...id, "tag", "-a", `v${version}`, "-m", `v${version}: automatic release of ${sha}`]);
   if (tag.code !== 0) refuse(`git tag failed: ${tag.err}`);
   say(`release-auto-patch: tagged v${version} on ${gitOut(["rev-parse", "HEAD"])} (not pushed)`);
 }

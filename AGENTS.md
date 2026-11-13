@@ -45,16 +45,16 @@ receipt for agent work. Anything else is cut, not frozen.
    first.
 4. Versions follow SemVer; PR titles follow Conventional Commits (`fix:`,
    `feat:`, `type!:` for a breaking change), and the squash merge takes the
-   title. A merged fix ships as a patch release by itself: when CI is
+   title. Agents release, as in magpie (owner, 2026-11-13): when CI is
    green on `main`, the `auto-patch` job in `.github/workflows/release.yml`
-   tags the next patch and starts the npm publish; the operator only
-   approves the `npm` environment run. A `feat` or a breaking change since
-   the last tag stops the automatic patches (`scripts/release-auto-patch.mjs`):
-   a minor or major is the operator's signed cut, `npm run release -- X.Y.0`
-   (runbook: "Release (operator runbook)" in
+   tags the next version and starts the npm publish; the operator only
+   approves the `npm` environment run. A `fix` is a patch; a `feat`, or a
+   breaking change while on 0.x, is a minor (`scripts/release-auto-patch.mjs`).
+   Only a major from 1.0 is the operator's signed cut,
+   `npm run release -- X.0.0` (runbook: "Release (operator runbook)" in
    `plugins/cool-workflow/docs/reference.md`). Never `git tag` by hand; the
    signing key stays with the operator. `CW_AUTO_RELEASE=off` (a repo
-   variable) stops the automatic patches.
+   variable) stops the automatic releases.
 5. A big new capability gets a short plan in the PR text: what was
    measured, one other way turned down. No separate intent file.
 

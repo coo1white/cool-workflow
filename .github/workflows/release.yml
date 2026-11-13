@@ -9,13 +9,13 @@ name: release
 # npm-publish.yml runs on the same tag push beside this one and re-runs the
 # gate itself.
 #
-# The auto-patch job is the automatic patch release (docs/reference.md,
-# "Automatic patch releases"): after a push to main whose CI run concluded
-# success, it tags the next patch on a bump commit made on top of that run's
+# The auto-patch job is the automatic release (docs/reference.md,
+# "Automatic releases"): after a push to main whose CI run concluded
+# success, it tags the next patch or minor on a bump commit made on top of that run's
 # commit, pushes only the tag, starts npm-publish.yml on it and makes the
 # GitHub Release. A tag pushed with GITHUB_TOKEN starts no `push: tags` run,
 # so this job runs the gate itself before the push and dispatches the
-# publish. Minor and major releases stay the operator's signed cut.
+# publish. Only a major from 1.0 stays the operator's signed cut.
 on:
   push:
     tags:
@@ -184,10 +184,10 @@ jobs:
         with:
           bun-version: 1.4.1
 
-      - name: Plan the patch release
+      - name: Plan the release
         # Skips with one line (CW_AUTO_RELEASE=off, release bookkeeping,
-        # already released, nothing shipped changed); fails when an operator
-        # minor or major is pending. See scripts/release-auto-patch.mjs.
+        # already released, nothing shipped changed, a major); fails when an
+        # operator major is pending. See scripts/release-auto-patch.mjs.
         id: plan
         run: node plugins/cool-workflow/scripts/release-auto-patch.mjs plan --sha "$HEAD_SHA"
         env:
@@ -212,11 +212,11 @@ jobs:
         run: node plugins/cool-workflow/scripts/release-gate.mjs
 
       - name: Verify the tag as npm-publish.yml will
-        # The same verifier, the same automatic patch rule (bump
+        # The same verifier, the same automatic release rule (bump
         # reproduction, CI green on the parent): a tag it would refuse is
         # never pushed.
         if: steps.plan.outputs.release == 'true'
-        run: node plugins/cool-workflow/scripts/verify-release-verdict.mjs --context "The automatic patch release would not pass its own check."
+        run: node plugins/cool-workflow/scripts/verify-release-verdict.mjs --context "The automatic release would not pass its own check."
         env:
           GITHUB_TOKEN: ${{ github.token }}
 

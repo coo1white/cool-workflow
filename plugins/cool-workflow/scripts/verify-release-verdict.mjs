@@ -39,13 +39,15 @@
 // `git rev-parse --show-toplevel`, and the two helper scripts are loaded
 // from this script's own directory (never from the repo under test).
 //
-// AUTOMATIC PATCH RULE (owner's decision 2026-11-12: patches ship on green
-// main; the signing key is kept for minor and major releases). When no
+// AUTOMATIC RELEASE RULE (owner's decision 2026-11-12: patches ship on green
+// main; 2026-11-13, "learn from magpie" and "同意放宽": minors too; the
+// signing key is kept for a major from 1.0). When no
 // signed verdict is found, a tag is still accepted with NO verdict only if
 // every check in checkAutoPatch() below holds — it is the commit
 // release-auto-patch.mjs makes, and nothing else:
-//   (a) the version (HEAD's package.json) is X.Y.Z with Z > 0, a v<version>
-//       tag points at HEAD, and the highest OTHER tag below it is X.Y.(Z-1);
+//   (a) the version (HEAD's package.json) is X.Y.Z, a v<version> tag
+//       points at HEAD, and it is the next patch or the next minor after
+//       the highest OTHER tag below it (X.Y.(Z-1), or X.(Y-1).* with Z == 0);
 //   (b) HEAD has exactly one parent, that parent is an ancestor of
 //       origin/main, and the parent of that previous tag is an ancestor of
 //       it (no re-release of older main code under a new number);
@@ -54,8 +56,8 @@
 //   (d) the `CI` workflow (.github/workflows/ci.yml) concluded success on a
 //       push to main at that parent — asked of the GitHub API with
 //       GITHUB_TOKEN; any API error, or no token, refuses.
-// A minor or major (Z == 0) never takes this path: it always needs the
-// signed verdict above. The GitHub query is a parameter of checkAutoPatch(),
+// A major (X.0.0 from 1.0, or any jump in X) never takes this path: it
+// always needs the signed verdict above. The GitHub query is a parameter of checkAutoPatch(),
 // so release-auto-patch-smoke.mjs drives it with a stub; there is no env
 // switch that could swap it in CI.
 //
@@ -163,8 +165,8 @@ async function checkAutoPatch({ repoRoot, ciCheck, verifyBump = VERIFY_BUMP }) {
   }
   const v = parseVersion(version);
   if (!v) return refuse(`package version "${version}" is not X.Y.Z`);
-  // (a) a patch only; a minor or major always needs the signed verdict.
-  if (v[2] === 0) return refuse(`v${version} is a minor or major release: it needs the signed verdict`);
+  // (a) a patch or a minor; a major always needs the signed verdict.
+  if (v[0] > 0 && v[1] === 0 && v[2] === 0) return refuse(`v${version} is a major release: it needs the signed verdict`);
   const headTags = g(["tag", "--points-at", "HEAD"]).split("\n").filter(Boolean);
   if (!headTags.includes(`v${version}`)) return refuse(`no v${version} tag points at HEAD`);
   const lower = g(["tag", "-l", "v*"])
@@ -174,8 +176,10 @@ async function checkAutoPatch({ repoRoot, ciCheck, verifyBump = VERIFY_BUMP }) {
     .sort((a, b) => compareVersion(b.s, a.s));
   const prev = lower[0];
   if (!prev) return refuse(`no release tag below v${version}`);
-  if (prev.s[0] !== v[0] || prev.s[1] !== v[1] || prev.s[2] !== v[2] - 1) {
-    return refuse(`v${version} is not the next patch after ${prev.t}`);
+  const nextPatch = prev.s[0] === v[0] && prev.s[1] === v[1] && prev.s[2] === v[2] - 1;
+  const nextMinor = prev.s[0] === v[0] && prev.s[1] === v[1] - 1 && v[2] === 0;
+  if (!nextPatch && !nextMinor) {
+    return refuse(`v${version} is not the next patch or minor after ${prev.t}`);
   }
   // (b) one parent, on main, and newer than the previous release's parent.
   const parents = g(["rev-list", "--parents", "-n", "1", SHA]).split(" ").slice(1).filter(Boolean);
@@ -205,7 +209,7 @@ async function checkAutoPatch({ repoRoot, ciCheck, verifyBump = VERIFY_BUMP }) {
     ci = { ok: false, reason: `the CI check failed: ${e && e.message ? e.message : e}` };
   }
   if (!ci || ci.ok !== true) return refuse((ci && ci.reason) || "the CI check gave no answer");
-  return { ok: true, reason: `automatic patch v${version}: the bump of ${PARENT} (on main, after ${prev.t}); ${ci.reason}` };
+  return { ok: true, reason: `automatic release v${version}: the bump of ${PARENT} (on main, after ${prev.t}); ${ci.reason}` };
 }
 
 async function main() {
