@@ -133,7 +133,9 @@ function world() {
   fs.writeFileSync(path.join(pkgDir, "dist", "core", "util", "cli-args.js"),
     "\"use strict\";\n" +
     "function agentCommandArgv(command, args) { return { binary: command, args: args || [] }; }\n" +
-    "module.exports = { agentCommandArgv };\n");
+    // spawn-argv.mjs starts gh through the real spawnArgv on Windows (gh.cmd).
+    `const { spawnArgv } = require(${JSON.stringify(path.join(pluginRoot, "dist", "core", "util", "cli-args.js"))});\n` +
+    "module.exports = { agentCommandArgv, spawnArgv };\n");
   sh("git", ["add", "-A"], seed, gitEnv);
   sh("git", ["commit", "-q", "-m", "seed"], seed, gitEnv);
   sh("git", ["push", "-q", "origin", "main"], seed, gitEnv);
